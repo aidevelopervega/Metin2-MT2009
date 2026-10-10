@@ -6,10 +6,9 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 ## 1. GİT VE VERSİYON DURUMU
 
-* **Geçerli Dal (Branch):** `main`
-* **Temel Başlangıç Commit'i:** `afca1385948448d3172835460307092539883af0`
+* **Geçerli Dal (Branch):** `dev/windows-gcc-baseline`
 * **Uzak Depo (Remote):** `https://github.com/x64bit-source/Metin2-MT2009.git` (Private)
-* **Senkronizasyon:** Yerel `main` ile uzak `origin/main` eşleşmiş durumdadır.
+* **Senkronizasyon:** Git geçmişi ve commit doğrulamaları doğrudan `git` komutları üzerinden izlenmektedir.
 
 ---
 
@@ -25,11 +24,19 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 ## 3. DERLEME VE TEST DURUMU
 
-* **Mevcut Derleme Sistemi:**
-  * GNU Makefile sistemi yalnızca FreeBSD 32-bit (`clang++`, `-m32`) için yapılandırılmıştır.
-  * Windows tarafında yalnızca Visual Studio `.sln` ve `.vcxproj` dosyaları vardır; GCC/MinGW derleme sistemi henüz kurulmamıştır.
-* **Test Durumu:**
-  * Kaynak kodun orijinal hali dokunulmadan dondurulmuştur; henüz yeni bir derleme testi başlatılmamıştır.
+* **Windows Geliştirme Ortamı:**
+  * **Derleyici:** MinGW-w64 GCC 16.2.0 (`x86_64-w64-mingw32`, UCRT runtime, POSIX threads) — **KURULDU VE DOĞRULANDI**.
+  * **İnşa Araçları:** CMake 4.4.2 ve Ninja 1.13.2 — **KURULDU VE DOĞRULANDI**.
+  * **C++20 & 64-bit Doğrulaması:** C++20 `<concepts>`, `<ranges>` ve 64-bit işaretçi boyutu (8 bayt) test programıyla yerel olarak doğrulanmıştır.
+* **Modül Doğrulama Durumu (Windows GCC x64 Baseline):**
+  * **libpoly:**
+    * **Kaynak Dosyalar:** `Base.cc`, `Symbol.cc`, `SymTable.cc`, `Poly.cc` (ve test için `main.cc`).
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -O2 -pipe -fno-exceptions -fno-rtti`.
+    * **Sonuç:** 0 hata, 0 uyarı.
+    * **Statik Kütüphane:** `libpoly.a` (32.19 KB) başarıyla üretildi.
+    * **Çalışma Testi:** `poly_test.exe` formül değerlendirme (`b*2+k` -> 50) ve sözdizimi hata yakalama testleri başarıyla doğrulandı.
+* **Mevcut Makefile Durumu:**
+  * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
 ---
 
@@ -39,7 +46,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
    * `packet.h` ve `tables.h` içerisinde `long` kullanımı mevcuttur.
    * FreeBSD amd64 üzerinde `sizeof(long) = 8 bayt` olurken, Windows 32-bit istemcide 4 bayttır. Paket kaymasını önlemek için tüm `long` paket alanlarının `int32_t` ile sabitlenmesi gereklidir.
 2. **Harici Kütüphane Mimarisi:**
-   * `Server Source/Extern/lib` altındaki 5 adet kütüphane (`libmysqlclient.a`, `libcryptopp.a`, `libIL.a`, `libILU.a`, `libILUT.a`) FreeBSD 32-bit ELF'tir. 64-bit amd64 ve Windows GCC için uyumlu kütüphanelerin temin edilmesi gerekmektedir.
+   * `Server Source/Extern/lib` altındaki 5 adet kütüphane (`libmysqlclient.a`, `libcryptopp.a`, `libIL.a`, `libILU.a`, `libILUT.a`) FreeBSD 32-bit ELF'tir. Windows amd64 GCC için uyumlu kütüphanelerin temin edilmesi gerekmektedir.
 3. **Windows Sistem/Sinyal Farklılıkları:**
    * `signal.c` içerisinde Windows için sinyal işleme stub durumundadır; Windows'ta sunucu konsol/geliştirme modunda interaktif çalışmaktadır.
 
@@ -50,18 +57,20 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 * [x] **Aşama 1 (Analiz):** Kaynak kod, modül, mimari ve platform bağımlılıklarının salt okunur tam analizi.
 * [x] **Aşama 2 (Güvenlik & Sürüm Kontrolü):**
   * Özel `.gitignore` yapılandırması (100 MB üzeri dosyalar ve hassas veriler filtrelendi).
-  * İlk saf kaynak kod commit'inin oluşturulması (`afca1385`).
+  * İlk saf kaynak kod commit'inin oluşturulması.
   * Private GitHub deposuna ilk başarılı push işleminin yapılması.
-* [x] **Aşama 3 (Hafıza Sistemi):** `AGENTS.md` ve `PROJECT_STATE.md` yönetim belgelerinin oluşturulması.
+* [x] **Aşama 3 (Hafıza Sistemi):** `AGENTS.md` ve `PROJECT_STATE.md` yönetim belgelerinin oluşturulup depoya eklenmesi.
+* [x] **Aşama 4 (Windows GCC Ortamı):** MinGW-w64 UCRT64 GCC, CMake ve Ninja araç zincirinin kurulması ve C++20 64-bit derleme testinin başarıyla tamamlanması.
+* [x] **Aşama 5 (İlk Modül Doğrulaması - libpoly):** `libpoly` modülünün kaynak kodlara dokunulmadan Windows amd64 GCC 16.2.0 (C++20) ile derlenmesi, statik kütüphanesinin (`libpoly.a`) üretilmesi ve matematiksel formül çalışma testinin doğrulanması.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Proje hafıza belgelerinin (`AGENTS.md` ve `PROJECT_STATE.md`) Git'e eklenip GitHub Private deposuna gönderilmesi.
+* **Aktif Görev:** `libpoly` modülü sıfır hata ile doğrulanıp geçici dosyalar temizlendi. Sonuçlar raporlandı.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* Windows üzerinde MSVC olmadan geliştirme yapabilmek için hafif **MinGW-w64 GCC (UCRT64)** araç zincirinin kurulması ve her iki platformu yönetecek modern **CMake** altyapısının planlanması.
+* Sıradaki temel kütüphane modülü olan `libgame`'in Windows GCC 16.2.0 C++20 ile derleme gereksinimlerinin ve bağımlılıklarının incelenip izole ortamda test edilmesi.
