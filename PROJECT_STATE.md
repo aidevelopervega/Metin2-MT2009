@@ -35,6 +35,15 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Sonuç:** 0 hata, 0 uyarı.
     * **Statik Kütüphane:** `libpoly.a` (32.19 KB) başarıyla üretildi.
     * **Çalışma Testi:** `poly_test.exe` formül değerlendirme (`b*2+k` -> 50) ve sözdizimi hata yakalama testleri başarıyla doğrulandı.
+  * **libgame:**
+    * **Kaynak Dosyalar:** `src/grid.cc`, `src/attribute.cc`, `src/targa.cc` (Başlıklar: `grid.h`, `attribute.h`, `targa.h`).
+    * **Bağımlılıklar:** `libthecore/include/memcpy.h`, `libthecore/include/stdafx.h`, `common/stl.h`, Boost başlıkları.
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -O2 -pipe -fno-exceptions -fno-rtti -D_TIMEZONE_DEFINED`.
+    * **Bulgular & Uyarılar:**
+      * MinGW UCRT `<time.h>` başlığı `struct timezone` yapısını sağladığı için `libthecore/include/typedef.h` içerisindeki MSVC odaklı tanım `redefinition of 'struct timezone'` hatası üretmektedir. Geçici olarak `-D_TIMEZONE_DEFINED` bayrağıyla çözülmüştür; CMake modernizasyonunda `typedef.h` için `#ifndef _TIMEZONE_DEFINED` koruması gerekecektir.
+      * `stdafx.h` içerisindeki `S_ISDIR` ve `PATH_MAX` makroları MinGW sistem başlıkları ile yeniden tanımlandığı için 2 adet derleyici uyarısı üretmektedir.
+    * **Statik Kütüphane:** `libgame.a` (10.88 KB) başarıyla üretildi.
+    * **Çalışma Testi:** `test_game.exe` hiyerarşik doğrulama programı (`CGrid`, `CAttribute`, `CTargaImage`) bağlanmış ve tüm testler başarıyla geçmiştir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -62,15 +71,16 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 * [x] **Aşama 3 (Hafıza Sistemi):** `AGENTS.md` ve `PROJECT_STATE.md` yönetim belgelerinin oluşturulup depoya eklenmesi.
 * [x] **Aşama 4 (Windows GCC Ortamı):** MinGW-w64 UCRT64 GCC, CMake ve Ninja araç zincirinin kurulması ve C++20 64-bit derleme testinin başarıyla tamamlanması.
 * [x] **Aşama 5 (İlk Modül Doğrulaması - libpoly):** `libpoly` modülünün kaynak kodlara dokunulmadan Windows amd64 GCC 16.2.0 (C++20) ile derlenmesi, statik kütüphanesinin (`libpoly.a`) üretilmesi ve matematiksel formül çalışma testinin doğrulanması.
+* [x] **Aşama 6 (İkinci Modül Doğrulaması - libgame):** `libgame` modülünün kaynak kodlara dokunulmadan Windows amd64 GCC 16.2.0 (C++20) ile derlenmesi, `libgame.a` kütüphanesinin üretilmesi ve `CGrid`, `CAttribute`, `CTargaImage` fonksiyonel testlerinin doğrulanması.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** `libpoly` modülü sıfır hata ile doğrulanıp geçici dosyalar temizlendi. Sonuçlar raporlandı.
+* **Aktif Görev:** `libgame` modülü başarıyla doğrulandı, `dev/windows-gcc-baseline` dalı GitHub ile senkronize edildi, sonuçlar raporlandı.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* Sıradaki temel kütüphane modülü olan `libgame`'in Windows GCC 16.2.0 C++20 ile derleme gereksinimlerinin ve bağımlılıklarının incelenip izole ortamda test edilmesi.
+* Sıradaki temel kütüphane modülü olan `libsql` veya `libthecore`'un Windows GCC 16.2.0 C++20 ile derleme gereksinimlerinin ve bağımlılıklarının incelenmesi.
