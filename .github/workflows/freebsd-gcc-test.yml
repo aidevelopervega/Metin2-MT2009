@@ -1,0 +1,88 @@
+name: FreeBSD 15.1 amd64 GCC 14 Verification
+
+on:
+  push:
+    branches:
+      - dev/windows-gcc-baseline
+    paths:
+      - '.github/workflows/freebsd-gcc-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freebsd-gcc-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freebsd-gcc14-test:
+    name: FreeBSD 15.1 amd64 GCC 14 (52/52 Tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out isolated test sources only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            tests
+            mt2009 - FULL SOURCE/Server Source/Server/libpoly
+            mt2009 - FULL SOURCE/Server Source/Server/libgame
+            mt2009 - FULL SOURCE/Server Source/Server/libthecore/include
+            mt2009 - FULL SOURCE/Server Source/Server/common
+            mt2009 - FULL SOURCE/Server Source/Extern/include
+          sparse-checkout-cone-mode: false
+
+      - name: Run Metin2 Test Suite in FreeBSD 15.1 VM
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: "15.1"
+          copyback: false
+          disable-cache: true
+          token: ''
+          prepare: |
+            pkg install -y gcc14
+          run: |
+            # 1. İşletim Sistemi ve Mimari Doğrulaması
+            OS_NAME=$(uname -s)
+            ARCH_NAME=$(uname -m)
+            FB_VER=$(freebsd-version 2>/dev/null || uname -r)
+
+            echo "=== SISTEM VE MIMARI DOGRULAMASI ==="
+            echo "OS: $OS_NAME"
+            echo "Mimari: $ARCH_NAME"
+            echo "FreeBSD Sürümü: $FB_VER"
+
+            if [ "$OS_NAME" != "FreeBSD" ]; then
+              echo "HATA: Beklenen işletim sistemi FreeBSD, tespit edilen: $OS_NAME" >&2
+              exit 1
+            fi
+
+            if [ "$ARCH_NAME" != "amd64" ] && [ "$ARCH_NAME" != "x86_64" ]; then
+              echo "HATA: Beklenen mimari amd64 (x86_64), tespit edilen: $ARCH_NAME" >&2
+              exit 1
+            fi
+
+            # 2. GCC 14 Doğrulaması ve Clang Engelleme
+            if [ ! -x "/usr/local/bin/g++14" ]; then
+              echo "HATA: /usr/local/bin/g++14 bulunamadı!" >&2
+              exit 1
+            fi
+
+            export CXX=/usr/local/bin/g++14
+            export CC=/usr/local/bin/gcc14
+
+            if ! $CXX --version | grep -qi "Free Software Foundation"; then
+              echo "HATA: $CXX gerçek FSF GCC değil (Clang tespit edildi)!" >&2
+              exit 1
+            fi
+
+            echo "=== DERLEYICI DOGRULAMASI ==="
+            echo "C++ Derleyicisi: $CXX"
+            $CXX --version
+
+            # 3. Test Betiğinin Çalıştırılması
+            chmod +x ./tests/run_tests.sh
+            ./tests/run_tests.sh
