@@ -13,10 +13,12 @@
 *.res
 *.pch
 *.tlog
+*.exe
 OBJDIR/
 .obj/
 Debug/
 Release/
+tests/build/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü
 mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
