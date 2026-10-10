@@ -66,7 +66,9 @@
 #include "xdirent.h"
 #include "xgetopt.h"
 
+#ifndef S_ISDIR
 #define S_ISDIR(m)	(m & _S_IFDIR)
+#endif
 
 #ifndef WIN32
 struct timespec
@@ -79,7 +81,9 @@ struct timespec
 
 #define __USE_SELECT__
 
+#ifndef PATH_MAX
 #define PATH_MAX _MAX_PATH
+#endif
 
 // C runtime library adjustments
 #define strlcat(dst, src, size) strcat_s(dst, size, src)

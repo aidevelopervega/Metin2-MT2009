@@ -25,11 +25,14 @@ typedef int			socket_t;
 
 #else
 
+#ifndef _TIMEZONE_DEFINED
+#define _TIMEZONE_DEFINED
 struct timezone
 {
     int     tz_minuteswest; /* minutes west of Greenwich */
     int     tz_dsttime;     /* type of dst correction */
 };
+#endif
 
 typedef SOCKET			socket_t;
 
