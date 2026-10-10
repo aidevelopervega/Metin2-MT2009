@@ -50,8 +50,9 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Geçici Bayrak Kontrolü:** Derleme sürecinde `-D_TIMEZONE_DEFINED` geçici bayrağının bulunmadığı, düzeltmenin [typedef.h](file:///d:/mt22009/mt2009%20-%20FULL%20SOURCE/Server%20Source/Server/libthecore/include/typedef.h) ve [stdafx.h](file:///d:/mt22009/mt2009%20-%20FULL%20SOURCE/Server%20Source/Server/libthecore/include/stdafx.h) içinde kök nedenden sağlandığı doğrulanmıştır.
     * **Windows DLL / PATH Bağımlılığı:** `objdump` incelemesiyle `libstdc++-6.dll` ve `libgcc_s_seh-1.dll` bağımlılıkları doğrulanmış, test çalıştırıcısının MinGW `bin` yolunu `PATH`'e ekleyerek çalışma güvencesi sağladığı teyit edilmiştir.
   * **Platform Doğrulama Notu:**
-    * **Windows amd64:** GCC 16.2.0 ile fiziksel olarak derlendi, 52/52 fonksiyonel ve negatif testlerle tam doğrulandı.
-    * **FreeBSD amd64 (Açık Doğrulama Engeli):** Yapılan kod düzeltmeleri `#ifdef __WIN32__` bloklarıyla izole olduğundan kaynak düzeyinde denetlenmiştir; ancak henüz fiziksel FreeBSD test ortamı bulunmadığından **FreeBSD tarafında derleme doğrulaması henüz yapılmadı** olarak açık bir engel şeklinde kaydedilmiştir.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile fiziksel olarak derlendi, 52/52 fonksiyonel ve negatif testlerle 0 hata ve 0 uyarı ile tam doğrulandı.
+    * **FreeBSD amd64:** FreeBSD 15.1-RELEASE-p3 amd64 üzerinde GCC 14.2.0 (`g++14`) ile GitHub Actions CI ortamında (`vmactions/freebsd-vm`) fiziksel sanal makinede derlendi; `libpoly` (24/24) ve `libgame` (28/28) olmak üzere 52/52 regresyon testi 0 hata ve 0 uyarı ile tam başarıyla geçti (Run ID: 38096518176).
+    * **Doğrulama Durumu:** Çift platform (Windows amd64 & FreeBSD amd64) hedefi bu iki modül için eksiksiz ve kalıcı olarak sağlanmıştır. Hiçbir açık engel kalmamıştır.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -84,15 +85,20 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
   * `AGENTS.md` dosyasına katı "sorunlar çözülmeden sonraki modüle geçilmez" anayasa kuralı eklendi.
   * `struct timezone` ve `S_ISDIR` / `PATH_MAX` çakışmaları kök nedeninden düzeltildi, tüm geçici bayraklar kaldırıldı.
   * `tests/` altında `test_libpoly.cpp` ve `test_libgame.cpp` ile 52/52 başarılı otomatik test paketi ve `run_tests.ps1`/`run_tests.sh` çalıştırıcıları kuruldu.
+* [x] **Aşama 8 (FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması):**
+  * GitHub Actions ve `vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc` ile güvenli, izole FreeBSD 15.1-RELEASE amd64 ortamı hazırlandı.
+  * Derleyici `gcc14` (`/usr/local/bin/g++14`) olarak sabitlendi; Clang kullanımı engellendi.
+  * `tests/run_tests.sh` POSIX boşluk kaçışları ve `test_libgame.cpp` üzerindeki FreeBSD `thecore_memcpy` linker sembolü çözümlendi.
+  * `libpoly` (24/24) ve `libgame` (28/28) toplam 52/52 test FreeBSD 15.1 amd64 üzerinde 0 hata, 0 uyarı ile doğrulandı.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** `libpoly` ve `libgame` modüllerinin test altyapısı kontrollü negatif testlerle doğrulandı, temiz derleme ortamında 52/52 testin geçtiği teyit edildi. Fiziksel FreeBSD test ortamı eksikliği açık doğrulama engeli olarak belgelendi.
+* **Aktif Görev:** `libpoly` ve `libgame` modüllerinin çift platform (Windows amd64 GCC 16.2 + FreeBSD 15.1 amd64 GCC 14) derleme ve 52/52 regresyon test doğrulaması başarıyla tamamlandı. Modül aşaması eksiksiz kapatıldı.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* Mevcut aşamanın (libpoly ve libgame) tüm Windows hedefleri sıfır hata/uyarı ve tam güvenilirlikle tamamlandığından; fiziksel FreeBSD ortamı kurulana veya sıradaki modül olan `libthecore` için kullanıcı onayı verilene kadar mevcut durumda beklenmesi.
+* Kullanıcı talimatı ve onayı doğrultusunda, bir sonraki çekirdek modül olan `libthecore` için Windows amd64 ve FreeBSD amd64 derleme, başlık analizi ve test hazırlığına geçilmesi.
