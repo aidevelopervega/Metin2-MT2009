@@ -30,20 +30,24 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
   * **C++20 & 64-bit Doğrulaması:** C++20 `<concepts>`, `<ranges>` ve 64-bit işaretçi boyutu (8 bayt) test programıyla yerel olarak doğrulanmıştır.
 * **Modül Doğrulama Durumu (Windows GCC x64 Baseline):**
   * **libpoly:**
-    * **Kaynak Dosyalar:** `Base.cc`, `Symbol.cc`, `SymTable.cc`, `Poly.cc` (ve test için `main.cc`).
-    * **Derleme Bayrakları:** `-std=c++20 -Wall -O2 -pipe -fno-exceptions -fno-rtti`.
+    * **Kaynak Dosyalar:** `Base.cc`, `Symbol.cc`, `SymTable.cc`, `Poly.cc` (Başlık: `Poly.h`).
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti -I../../Extern/include`.
     * **Sonuç:** 0 hata, 0 uyarı.
-    * **Statik Kütüphane:** `libpoly.a` (32.19 KB) başarıyla üretildi.
-    * **Çalışma Testi:** `poly_test.exe` formül değerlendirme (`b*2+k` -> 50) ve sözdizimi hata yakalama testleri başarıyla doğrulandı.
+    * **Otomatik Regresyon Testi:** `tests/test_libpoly.cpp` -> **24/24 test başarılı**. (Dinamik değişken formülleri, min/max/sqrt fonksiyonları, 0 ile çarpım, negatif sayılar, sözdizimi hata yakalama ve bellek temizliği doğrulandı).
   * **libgame:**
     * **Kaynak Dosyalar:** `src/grid.cc`, `src/attribute.cc`, `src/targa.cc` (Başlıklar: `grid.h`, `attribute.h`, `targa.h`).
     * **Bağımlılıklar:** `libthecore/include/memcpy.h`, `libthecore/include/stdafx.h`, `common/stl.h`, Boost başlıkları.
-    * **Derleme Bayrakları:** `-std=c++20 -Wall -O2 -pipe -fno-exceptions -fno-rtti -D_TIMEZONE_DEFINED`.
-    * **Bulgular & Uyarılar:**
-      * MinGW UCRT `<time.h>` başlığı `struct timezone` yapısını sağladığı için `libthecore/include/typedef.h` içerisindeki MSVC odaklı tanım `redefinition of 'struct timezone'` hatası üretmektedir. Geçici olarak `-D_TIMEZONE_DEFINED` bayrağıyla çözülmüştür; CMake modernizasyonunda `typedef.h` için `#ifndef _TIMEZONE_DEFINED` koruması gerekecektir.
-      * `stdafx.h` içerisindeki `S_ISDIR` ve `PATH_MAX` makroları MinGW sistem başlıkları ile yeniden tanımlandığı için 2 adet derleyici uyarısı üretmektedir.
-    * **Statik Kütüphane:** `libgame.a` (10.88 KB) başarıyla üretildi.
-    * **Çalışma Testi:** `test_game.exe` hiyerarşik doğrulama programı (`CGrid`, `CAttribute`, `CTargaImage`) bağlanmış ve tüm testler başarıyla geçmiştir.
+    * **Kök Neden Düzeltmeleri:**
+      * `libthecore/include/typedef.h` dosyasında `struct timezone` yapısı `#ifndef _TIMEZONE_DEFINED` ile sarılarak MinGW CRT `<time.h>` çakışması kod seviyesinde kalıcı olarak çözüldü. Geçici `-D_TIMEZONE_DEFINED` bayrağı tamamen kaldırıldı.
+      * `libthecore/include/stdafx.h` dosyasında `S_ISDIR` ve `PATH_MAX` makroları `#ifndef` ile sarılarak derleyici yeniden tanımlama uyarıları tamamen sıfırlandı.
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti` (Hiçbir geçici bayrak veya uyarı bastırma kullanılmamıştır).
+    * **Sonuç:** 0 hata, 0 uyarı.
+    * **Otomatik Regresyon Testi:** `tests/test_libgame.cpp` -> **28/28 test başarılı**. (`CGrid` hücre yerleşimi, taşma sınırları, negatif indeksler, temizleme; `CAttribute` bitmask atama/kaldırma, sınır ötesi koordinat güvenliği, CopyRow; `CTargaImage` satır işaretçileri ve başlık doğrulaması).
+  * **Otomatik Test Altyapısı:**
+    * `tests/run_tests.ps1` (Windows UCRT64 GCC) ve `tests/run_tests.sh` (FreeBSD/POSIX) betikleri Git deposuna entegre edildi. Tek komutla her iki modülün tüm nesne ve kütüphaneleri sıfırdan derlenip 52 test maddesi otomatik çalıştırılmaktadır.
+  * **Platform Doğrulama Notu:**
+    * **Windows amd64:** Fiziksel olarak derlendi, 52/52 fonksiyonel testle tam doğrulandı.
+    * **FreeBSD amd64:** Yapılan kod düzeltmeleri `#ifdef __WIN32__` bloklarıyla izole olduğundan kaynak düzeyinde denetlenmiştir; ancak henüz fiziksel FreeBSD test ortamı çalıştırılmadığından **FreeBSD tarafında derleme doğrulaması henüz yapılmadı** olarak kaydedilmiştir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -72,15 +76,19 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 * [x] **Aşama 4 (Windows GCC Ortamı):** MinGW-w64 UCRT64 GCC, CMake ve Ninja araç zincirinin kurulması ve C++20 64-bit derleme testinin başarıyla tamamlanması.
 * [x] **Aşama 5 (İlk Modül Doğrulaması - libpoly):** `libpoly` modülünün kaynak kodlara dokunulmadan Windows amd64 GCC 16.2.0 (C++20) ile derlenmesi, statik kütüphanesinin (`libpoly.a`) üretilmesi ve matematiksel formül çalışma testinin doğrulanması.
 * [x] **Aşama 6 (İkinci Modül Doğrulaması - libgame):** `libgame` modülünün kaynak kodlara dokunulmadan Windows amd64 GCC 16.2.0 (C++20) ile derlenmesi, `libgame.a` kütüphanesinin üretilmesi ve `CGrid`, `CAttribute`, `CTargaImage` fonksiyonel testlerinin doğrulanması.
+* [x] **Aşama 7 (Kalıcı Düzeltmeler ve Regresyon Test Paketi):**
+  * `AGENTS.md` dosyasına katı "sorunlar çözülmeden sonraki modüle geçilmez" anayasa kuralı eklendi.
+  * `struct timezone` ve `S_ISDIR` / `PATH_MAX` çakışmaları kök nedeninden düzeltildi, tüm geçici bayraklar kaldırıldı.
+  * `tests/` altında `test_libpoly.cpp` ve `test_libgame.cpp` ile 52/52 başarılı otomatik test paketi ve `run_tests.ps1`/`run_tests.sh` çalıştırıcıları kuruldu.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** `libgame` modülü başarıyla doğrulandı, `dev/windows-gcc-baseline` dalı GitHub ile senkronize edildi, sonuçlar raporlandı.
+* **Aktif Görev:** `libpoly` ve `libgame` modüllerindeki tüm derleme hataları, uyarıları ve test eksikleri kalıcı olarak çözüldü (0 hata, 0 uyarı, 52/52 test başarılı). Sonuçlar GitHub Private deposuna senkronize edildi.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* Sıradaki temel kütüphane modülü olan `libsql` veya `libthecore`'un Windows GCC 16.2.0 C++20 ile derleme gereksinimlerinin ve bağımlılıklarının incelenmesi.
+* Mevcut aşamadaki tüm sorunlar eksiksiz tamamlandığından, sıradaki bağımsız çekirdek kütüphane olan `libthecore` veya veritabanı kütüphanesi `libsql` modülünün derleme gereksinimleri ve bağımlılıklarının incelenmesi.
