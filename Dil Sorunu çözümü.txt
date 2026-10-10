@@ -1,0 +1,14 @@
+Merhaba arkadaşlar, dün bir arkadaşın başlıktaki filesin türkçe karakter sorunu olduğunu görmüştüm. Files Polski dil kullanıyor. 
+Haliyle oyun içinde "ş,ı,ğ,ü,ö,ç" gibi karakterler garip garip türlerde görünüyor. 
+
+Files yapımcıları, locale.cfg'yi kaldırmışlar. 
+
+şağıda verdiğim yöntem ile türkçe desteğine geri çevirebilirsiniz. Teşekkürler.
+
+Client_Source / UserInterface / Locale.cpp | Aratalım;
+Kod:Panoya kopyala
+    MULTI_LOCALE_CODE = 1250;
+
+Şu şekilde değiştirelim;
+Kod:Panoya kopyala
+    MULTI_LOCALE_CODE = 1254;

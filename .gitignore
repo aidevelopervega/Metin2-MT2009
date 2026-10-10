@@ -1,0 +1,83 @@
+# ==========================================
+# Metin2 MT2009 - Git Ignore Yapılandırması
+# ==========================================
+
+# --- Geçici Derleme Çıktıları (Build Artifacts) ---
+*.obj
+*.o
+*.d
+*.pdb
+*.idb
+*.ilk
+*.exp
+*.res
+*.pch
+*.tlog
+OBJDIR/
+.obj/
+Debug/
+Release/
+
+# libthecore içindeki gereksiz FreeBSD derleme dökümü
+mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
+
+# --- Visual Studio & IDE Önbellek Dosyaları ---
+.vs/
+*.ipch
+*.db
+*.opendb
+*.sdf
+*.opensdf
+*.suo
+*.user
+*.ncb
+
+# --- Büyük Hazır İstemci (Binary Client) ---
+mt2009 - FULL SOURCE/Klient/
+Klient/
+
+# --- Büyük Arşiv Dosyaları ---
+*.tar.gz
+*.rar
+*.zip
+*.7z
+mt2009 - FULL SOURCE/new_ftp.tar.gz
+
+# --- İşletim Sistemi Geçici Dosyaları ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# ==========================================
+# İSTİSNALAR (Asla Hariç Tutulmayacaklar)
+# ==========================================
+!*.cpp
+!*.c
+!*.cc
+!*.cxx
+!*.h
+!*.hpp
+!*.hxx
+!*.inl
+!*.sln
+!*.vcxproj
+!*.vcxproj.filters
+!*.sql
+!Makefile
+!*.lua
+!mt2009 - FULL SOURCE/Server Source/Extern/lib/*.a
+!mt2009 - FULL SOURCE/Source/Extern/lib/*.lib
+
+# ==========================================
+# KESİN HARİÇ TUTULACAKLAR (İstisnaları Ezer)
+# ==========================================
+# GitHub 100 MB sınırını aşan dosya:
+mt2009 - FULL SOURCE/Source/Extern/lib/cryptlib-Debug.lib
+
+# Hassas Bilgi ve Parola İçeren Dosyalar (Yerel diskte korunur):
+kurulum.py
+Packleri*
+packleri*
+push_to_github.bat

@@ -1,0 +1,23 @@
+enum
+{
+	TEXT_TAG_PLAIN,
+	TEXT_TAG_TAG, // ||
+	TEXT_TAG_COLOR, // |cffffffff
+	TEXT_TAG_HYPERLINK_START, // |H
+	TEXT_TAG_HYPERLINK_END, // |h ex) |Hitem:1234:1:1:1|h
+	TEXT_TAG_RESTORE_COLOR,
+#ifdef ENABLE_EMOJI_SYSTEM
+	TEXT_TAG_EMOJI_START, // |E
+	TEXT_TAG_EMOJI_END, // |e ex) |Epath/filename|h
+#endif
+};
+
+extern int GetTextTag(const wchar_t * src, int maxLen, int & tagLen, std::wstring & extraInfo);
+extern std::wstring GetTextTagOutputString(const wchar_t * src, int src_len);
+extern int GetTextTagOutputLen(const wchar_t * src, int len);
+extern int FindColorTagEndPosition(const wchar_t * src, int src_len);
+extern int FindColorTagStartPosition(const wchar_t * src, int src_len);
+extern int GetTextTagInternalPosFromRenderPos(const wchar_t * src, int src_len, int offset);
+//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
+
+// Files shared by GameCore.top
