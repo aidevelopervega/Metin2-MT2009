@@ -41,3 +41,24 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Şifreler, veritabanı bağlantı parolaları, tokenlar ve özel anahtarlar kesinlikle Git takibine alınamaz ve GitHub'a yüklenemez.
 7. **Kullanıcı Odaklı İletişim:**
    * Proje sahibi kodlama bilmemektedir. Tüm açıklamalar, raporlar ve bilgilendirmeler açık, sade ve Türkçe olacaktır.
+
+---
+
+## 3. KESİN MODÜL TAMAMLAMA VE KALICI DÜZELTME POLİTİKASI
+
+1. **Aşama ve Modül Geçiş Yasağı:**
+   * Mevcut modüldeki/aşamada tespit edilmiş tüm derleme hataları, derleyici uyarıları, platform uyumsuzlukları ve test eksikleri tamamen çözülmeden kesinlikle bir sonraki modüle geçilemez.
+2. **Kök Neden Çözümü (Geçici Bayrak ve Bastırma Yasağı):**
+   * Hatalar ve uyarılar geçici derleme bayraklarıyla (`-D...` geçici yamalarıyla) veya uyarıları görmezden gelerek/bastırarak çözülemez.
+   * Her sorunun kök nedeni tespit edilecek; kod seviyesinde doğru, kalıcı ve standartlara uygun çözümler uygulanacaktır.
+3. **Çift Platform Bütünlüğü (Windows & FreeBSD):**
+   * Windows amd64 için yapılan düzeltmeler FreeBSD amd64 kodunu asla bozmayacaktır (`#ifdef __WIN32__` blokları izole tutulacaktır).
+   * Test ortamı bulunmayan platformlar (ör. şu an aktif olmayan FreeBSD ortamı) raporda ve `PROJECT_STATE.md` içinde açıkça "test edilmedi/doğrulanmadı" olarak belirtilecek; denenmemiş platformlar asla başarılı ilan edilmeyecektir.
+4. **Tekrar Çalıştırılabilir ve Kalıcı Testler:**
+   * Testler tek kullanımlık (geçici) olmayacaktır. Modüllere ait küçük, hızlı ve otomatik çalıştırılabilir test kaynakları ve betikleri Git deposunda saklanacaktır.
+   * Her düzeltmeden sonra modül temiz ortamda yeniden derlenecek; hem yeni işlevler hem de önceki sistemler regresyon testleriyle doğrulanacaktır.
+5. **Dürüst Doğrulama ve Belge Disiplini:**
+   * Hiçbir sorun gerçekte test edilmeden "çözüldü" olarak işaretlenemez.
+   * Bir aşamada çözülemeyen bir engel varsa sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kullanıcıya raporlanacaktır.
+   * `AGENTS.md` ve `PROJECT_STATE.md` dışında hiçbir yeni Markdown belgesi oluşturulmayacaktır.
+
