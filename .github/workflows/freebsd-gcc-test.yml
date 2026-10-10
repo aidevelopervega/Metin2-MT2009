@@ -1,4 +1,4 @@
-# Rev 2: Quoted include paths and FreeBSD GCC 14 rpath
+# Rev 3: Added POSIX thecore_memcpy symbol in test_libgame
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

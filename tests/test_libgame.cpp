@@ -5,6 +5,10 @@
 #include "attribute.h"
 #include "targa.h"
 
+#ifndef __WIN32__
+void *(*thecore_memcpy) (void * to, const void * from, size_t len) = memcpy;
+#endif
+
 static int g_passCount = 0;
 static int g_testCount = 0;
 
