@@ -1,4 +1,4 @@
-# Rev 15: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 16: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -70,7 +70,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 mariadb-connector-c || pkg install -y gcc14
+            pkg install -y gcc14
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -158,15 +158,19 @@ jobs:
             openssl req -newkey rsa:2048 -nodes -keyout "$SSL_DIR/server-key.pem" -out "$SSL_DIR/server-req.pem" -subj "/CN=127.0.0.1"
             openssl x509 -req -in "$SSL_DIR/server-req.pem" -CA "$SSL_DIR/ca-cert.pem" -CAkey "$SSL_DIR/ca-key.pem" -CAcreateserial -out "$SSL_DIR/server-cert.pem" -days 365
             openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/invalid-ca-key.pem" -out "$SSL_DIR/invalid-ca-cert.pem" -days 365 -subj "/CN=Untrusted Fake CA"
-            chmod 600 "$SSL_DIR"/*-key.pem
+            # FreeBSD üzerinde veritabanı servisleri 'mysql' kullanıcısı ile çalışır
+            chown -R mysql:mysql "$DATA_DIR" "$SSL_DIR"
+            chmod 750 "$DATA_DIR" "$SSL_DIR"
+            chmod 644 "$SSL_DIR"/*-cert.pem "$SSL_DIR"/*-req.pem
+            chmod 640 "$SSL_DIR"/*-key.pem
 
             # Motor Sürecini Başlatma
             SOCKET_PATH="/tmp/${ENGINE_ID}.sock"
             if [ "$ENGINE_ID" = "mariadb114" ] || [ "$ENGINE_ID" = "mariadb123" ]; then
-              mariadb-install-db --user=root --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/dev/null 2>&1 || true
+              mariadb-install-db --user=mysql --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/tmp/install_${ENGINE_ID}.log 2>&1 || true
               MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
               echo "MariaDB Daemon: $MARIADBD"
-              "$MARIADBD" --user=root --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 \
+              "$MARIADBD" --user=mysql --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 \
                   --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
               SERVER_PID=$!
 
@@ -180,7 +184,8 @@ jobs:
               done
 
               if ! mariadb-admin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
-                echo "HATA: MariaDB başlatılamadı! Sunucu log çıktısı:"
+                echo "HATA: MariaDB başlatılamadı! Kurulum ve sunucu log çıktısı:"
+                cat /tmp/install_${ENGINE_ID}.log || true
                 cat /tmp/server_${ENGINE_ID}.log || true
                 exit 1
               fi
@@ -196,8 +201,8 @@ jobs:
             elif [ "$ENGINE_ID" = "mysql84" ]; then
               MYSQLD=$(which mysqld 2>/dev/null || ls /usr/local/libexec/mysqld 2>/dev/null || ls /usr/local/sbin/mysqld 2>/dev/null)
               echo "MySQL Daemon: $MYSQLD"
-              "$MYSQLD" --user=root --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/dev/null 2>&1 || true
-              "$MYSQLD" --user=root --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 --mysqlx=OFF \
+              "$MYSQLD" --user=mysql --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/tmp/install_${ENGINE_ID}.log 2>&1 || true
+              "$MYSQLD" --user=mysql --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 --mysqlx=OFF \
                   --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
               SERVER_PID=$!
 
@@ -211,7 +216,8 @@ jobs:
               done
 
               if ! mysqladmin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
-                echo "HATA: MySQL 8.4 başlatılamadı! Sunucu log çıktısı:"
+                echo "HATA: MySQL 8.4 başlatılamadı! Kurulum ve sunucu log çıktısı:"
+                cat /tmp/install_${ENGINE_ID}.log || true
                 cat /tmp/server_${ENGINE_ID}.log || true
                 exit 1
               fi

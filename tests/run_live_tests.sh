@@ -44,23 +44,36 @@ EXTERN_DIR="$SERVER_DIR/Extern"
 
 # Bağlayıcı Başlık ve Kütüphane Tespiti
 INC_EXTRA=""
-LIB_EXTRA=""
-
 if [ -f "/usr/local/include/mysql/mysql.h" ]; then
-    INC_EXTRA="-I/usr/local/include/mysql"
+    INC_EXTRA="-I/usr/local/include -I/usr/local/include/mysql"
 elif [ -f "/usr/local/include/mariadb/mysql.h" ]; then
-    INC_EXTRA="-I/usr/local/include/mariadb"
+    INC_EXTRA="-I/usr/local/include/mariadb -I/usr/local/include"
+else
+    INC_EXTRA="-I/usr/local/include"
 fi
 
-if [ -f "/usr/local/lib/libmariadb.so" ] || [ -f "/usr/local/lib/mysql/libmariadb.so" ]; then
-    LIB_EXTRA="-L/usr/local/lib/mysql -L/usr/local/lib -lmariadb"
-elif [ -f "/usr/local/lib/libmysqlclient.so" ] || [ -f "/usr/local/lib/mysql/libmysqlclient.so" ]; then
-    LIB_EXTRA="-L/usr/local/lib/mysql -L/usr/local/lib -lmysqlclient"
+LIB_EXTRA=""
+if echo "$ENGINE" | grep -qi "mysql"; then
+    if [ -f "/usr/local/lib/mysql/libmysqlclient.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib/mysql -lmysqlclient"
+    elif [ -f "/usr/local/lib/libmysqlclient.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib -lmysqlclient"
+    fi
+else
+    if [ -f "/usr/local/lib/mysql/libmariadb.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib/mysql -lmariadb"
+    elif [ -f "/usr/local/lib/libmariadb.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib -lmariadb"
+    elif [ -f "/usr/local/lib/mysql/libmysqlclient.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib/mysql -lmysqlclient"
+    elif [ -f "/usr/local/lib/libmysqlclient.so" ]; then
+        LIB_EXTRA="-L/usr/local/lib -lmysqlclient"
+    fi
 fi
 
 if [ -z "$LIB_EXTRA" ]; then
     echo "HATA: FreeBSD üzerinde geçerli 64-bit MariaDB veya MySQL istemci kütüphanesi bulunamadı!" >&2
-    echo "Lütfen pkg install -y mariadb-connector-c veya mysql84-client çalıştırın." >&2
+    echo "Lütfen pkg install -y mariadb114-server (veya mariadb123-server veya mysql84-server) çalıştırın." >&2
     exit 1
 fi
 
@@ -70,7 +83,6 @@ $CXX $FLAGS $RPATH \
     -I"$SQL_DIR" \
     -I"$CORE_DIR/include" \
     -I"$COMMON_DIR" \
-    -I"$EXTERN_DIR/include" \
     "$SQL_DIR/AsyncSQL.cpp" \
     "$SQL_DIR/Semaphore.cpp" \
     "$ROOT_DIR/tests/test_live_db.cpp" \
