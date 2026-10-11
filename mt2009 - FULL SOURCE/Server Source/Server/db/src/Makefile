@@ -61,7 +61,7 @@ INCDIR += -I/usr/local/include
 INCDIR += -I../../../Extern/include
 LIBDIR += -L../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL
