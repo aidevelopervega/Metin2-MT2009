@@ -99,7 +99,34 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 ---
 
-## 5. TAMAMLANAN GELİŞTİRME AŞAMALARI
+## 5. GELECEK AŞAMA KABUL KRİTERLERİ: KALICI MYSQL VE MARIADB ÇİFT MOTOR UYUMLULUĞU
+
+Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme yapılacağı zaman karşılanması **zorunlu başarı ve kabul şartlarını** belirler:
+
+1. **Çift Motor Zorunluluğu:**
+   * Proje, mevcut en güncel kararlı **MySQL** ve **MariaDB** sürümlerinin **HER İKİSİNİ DE** gerçek anlamda ve eksiksiz desteklemelidir. Yalnızca birini desteklemek yeterli değildir.
+2. **Kapsam:**
+   * `libsql` bağlantı katmanı ve tüm ilgili istemci kütüphaneleri.
+   * `db` sunucusundaki veritabanı işlemleri ve sorgular.
+   * `game` sunucusundaki veritabanı kullanan bütün sistemler.
+   * Mevcut tüm SQL dosyaları, tablo şemaları, indeksler ve başlangıç verileri.
+   * Gerekli diğer sunucu kaynak kodları, yapılandırmalar ve veri dönüşüm mekanizmaları.
+3. **Kesin Kabul Kriterleri ve Kurallar:**
+   * **SQL Mode Dokunulmazlığı:** SQL mode (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`, `ONLY_FULL_GROUP_BY` vb.) devre dışı bırakılamaz veya uyumluluk sağlamak için gevşetilemez.
+   * **Hata Gizleme Yasağı:** `INSERT IGNORE`, `UPDATE IGNORE` ve benzeri hatayı gizleyen yaklaşımlar çözüm kabul edilmez. SQL hataları sessizce yok sayılamaz.
+   * **Kök Neden Çözümü:** Uyumsuzlukların kök nedenleri kalıcı şekilde düzeltilmelidir. Uyarı veya hataları gizlemek için geçici hileler uygulanmamalıdır.
+   * **Açık Uyumluluk Katmanı:** MySQL ve MariaDB arasındaki gerçek sözdizimi veya davranış farkları gerektiğinde açık ve test edilebilir uyumluluk katmanlarıyla çözülmelidir.
+   * **Veri Tipi ve Şema Standartları:** Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`, `DEFAULT`, tarih/saat alanları, karakter setleri (`utf8mb4`), collation ve transaction davranışları titizlikle incelenmeli ve tam uyumlu hale getirilmelidir.
+   * **Veri Güvenliği ve Geri Dönüş Planı:** Mevcut tablolar ve kullanıcı verileri korunmalıdır. Veri kaybı doğurabilecek dönüşümler öncesinde doğrulanmış yedek ve geri dönüş planı olmalıdır.
+   * **Çift Senaryo Doğrulaması:** Hem sıfırdan kurulum hem de mevcut veritabanını yükseltme (migration) test edilmelidir.
+   * **Bütünsel Değerlendirme:** SQL dosyaları ile `libsql`, `db` ve `game` kaynak kodları birlikte değerlendirilmelidir.
+   * **Platform Uyumluluğu:** Windows amd64 ve FreeBSD amd64 GCC uyumluluğu korunmalıdır.
+   * **Gerçek Test Doğrulaması:** İki veritabanında da (güncel MySQL ve güncel MariaDB) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
+   * **Resmî Hedef Sürümler:** Güncel MySQL ve MariaDB hedef sürümleri, ilgili geliştirme aşamasına gelindiğinde resmî kaynaklardan belirlenmelidir.
+
+---
+
+## 6. TAMAMLANAN GELİŞTİRME AŞAMALARI
 
 * [x] **Aşama 1 (Analiz):** Kaynak kod, modül, mimari ve platform bağımlılıklarının salt okunur tam analizi.
 * [x] **Aşama 2 (Güvenlik & Sürüm Kontrolü):**
@@ -129,12 +156,12 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 ---
 
-## 6. TEK AKTİF GÖREV
+## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 9 (`libthecore`) Windows amd64 ve FreeBSD 15.1 amd64 platformlarında 149/149 test ve 0 hata / 0 uyarı ile başarıyla tamamlandı. Sonraki modüle (`libsql` veya `liblua`) geçiş için kullanıcı onayının ve direktifinin alınması.
+* **Aktif Görev:** Aşama 9 (`libthecore`) Windows amd64 ve FreeBSD 15.1 amd64 platformlarında 149/149 test ve 0 hata / 0 uyarı ile başarıyla tamamlandı. Kalıcı MySQL ve MariaDB çift motor uyumluluk hedefleri `AGENTS.md` ve `PROJECT_STATE.md` içine işlendi. Sonraki modüle (`libsql` veya `liblua`) geçiş için kullanıcı onayının ve direktifinin alınması.
 
 ---
 
-## 7. SONRAKİ GÜVENLİ ADIM
+## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayıyla birlikte bir sonraki çekirdek kütüphanenin (`libsql` veya `liblua`) incelenmesi, bağımlılıklarının tespiti ve testlerinin hazırlanması. Hiçbir modüle kullanıcı onayı olmadan ve önceki modül eksiksiz doğrulanmadan geçilmemesi.
+* Kullanıcı onayıyla birlikte bir sonraki çekirdek kütüphanenin (`libsql` veya `liblua`) incelenmesi, bağımlılıklarının tespiti ve testlerinin hazırlanması. `libsql` aşamasına geçilirse Bölüm 5'teki kalıcı MySQL ve MariaDB çift motor kriterleri doğrultusunda hareket edilmesi. Hiçbir modüle kullanıcı onayı olmadan ve önceki modül eksiksiz doğrulanmadan geçilmemesi.

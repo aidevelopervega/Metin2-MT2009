@@ -62,3 +62,42 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Bir aşamada çözülemeyen bir engel varsa sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kullanıcıya raporlanacaktır.
    * `AGENTS.md` ve `PROJECT_STATE.md` dışında hiçbir yeni Markdown belgesi oluşturulmayacaktır.
 
+---
+
+## 4. KALICI VERİTABANI VE MYSQL / MARIADB UYUMLULUK ANAYASASI
+
+Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve `game` sunucuları ile SQL şemaları için **kesin ve değişmez standartları** belirler.
+
+1. **Çift Motor Zorunluluğu (MySQL & MariaDB):**
+   * Proje, mevcut en güncel kararlı **MySQL** ve **MariaDB** sürümlerinin **HER İKİSİNİ DE** gerçek anlamda ve eksiksiz destekleyecektir. Yalnızca birini desteklemek kesinlikle yeterli kabul edilmez.
+2. **Kapsam:**
+   * `libsql` bağlantı/soyutlama katmanı ve tüm ilgili istemci kütüphaneleri.
+   * `db` sunucusundaki veritabanı işlemleri, sorgular ve önbellek mekanizmaları.
+   * `game` sunucusundaki veritabanı kullanan bütün sistemler (karakter, envanter, lonca, pazar, log vb.).
+   * Mevcut tüm SQL dosyaları, tablo şemaları (`sql/*.sql`), indeksler ve başlangıç verileri.
+   * Gerekli tüm sunucu kaynak kodları, yapılandırma dosyaları ve veri dönüşüm (migration) mekanizmaları.
+3. **SQL Mode Dokunulmazlığı:**
+   * SQL mode (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`, `ONLY_FULL_GROUP_BY` vb.) devre dışı bırakılamaz veya uyumluluk sağlamak adına gevşetilemez/kapatılamaz.
+4. **Hata Gizleme ve Kolaycı Yaklaşım Yasağı:**
+   * `INSERT IGNORE`, `UPDATE IGNORE` ve benzeri hataları/uyarıları maskeleyen yaklaşımlar çözüm kabul edilemez.
+   * SQL ve istemci kütüphanesi hataları sessizce yok sayılamaz (`catch-all` ile yutulamaz).
+   * Uyumsuzlukların kök nedenleri kod ve şema seviyesinde kalıcı olarak çözülecektir; geçici hileler ve yamalar yasaktır.
+5. **Şeffaf Uyumluluk Katmanı:**
+   * MySQL ve MariaDB arasındaki gerçek sözdizimi, protokol veya davranış farkları gerektiğinde açık, temiz, belgelenmiş ve test edilebilir uyumluluk katmanlarıyla çözülecektir.
+6. **Veri Tipleri ve Bütünlük Standartları:**
+   * Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`/`NOT NULL` kuralları, `DEFAULT` değerleri, tarih/saat alanları (`DATETIME`, `TIMESTAMP`), karakter setleri (`utf8mb4`), collation ve transaction (ACID) davranışları titizlikle incelenecek ve standartlaştırılacaktır.
+7. **Veri Güvenliği ve Geri Dönüş Güvencesi:**
+   * Mevcut tablolar ve kullanıcı verileri korunacaktır.
+   * Veri kaybı doğurabilecek yapısal dönüşümler öncesinde doğrulanmış yedek ve geri dönüş (rollback) planı bulunmak zorundadır.
+8. **Çift Senaryo Doğrulaması:**
+   * Hem sıfırdan temiz kurulum (yeni veritabanı oluşturma) hem de mevcut MT2009 veritabanını yükseltme (migration) senaryoları test edilecektir.
+9. **Bütünsel Mimari:**
+   * SQL şema dosyaları ile `libsql`, `db` ve `game` C++ kaynak kodları birbirinden kopuk değil, birlikte ve tutarlı olarak geliştirilip değerlendirilecektir.
+10. **Çift Platform ve Çift Motor Test Zorunluluğu:**
+    * Windows amd64 ve FreeBSD amd64 GCC derleme ve çalışma uyumluluğu korunacaktır.
+    * Her iki veritabanı motorunda da (en güncel kararlı MySQL ve en güncel kararlı MariaDB) gerçek fonksiyonel testler (%100 başarı) geçmeden ilgili aşama asla tamamlanmış sayılamaz.
+    * Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve kasıtlı hatalı sorgular, bağlantı kopması/yeniden bağlanma (reconnect) ve transaction izolasyon sorunları somut olarak doğrulanacaktır.
+11. **Resmî Hedef Sürümler:**
+    * Güncel MySQL ve MariaDB hedef sürümleri, ilgili geliştirme aşamasına gelindiğinde resmî kaynaklardan (Oracle MySQL ve MariaDB Foundation) tespit edilerek `PROJECT_STATE.md` içine işlenecektir.
+
+
