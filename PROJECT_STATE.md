@@ -304,20 +304,24 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `Server/db/src/IkarusShopCache.cpp:1102` satırında `item.price.yang` (`long long`), FreeBSD amd64 LP64 mimarisinde `int64_t` (`long`) ile `int` overload'ları arasında belirsizlik oluşturan `jsonHelper::insertValue` çağrısı, açık `static_cast<int64_t>` dönüşümü ile 64-bit hassasiyet korunarak kalıcı olarak çözüldü.
     * Windows üzerinde 30/30 kaynak dosya derlemesi, 64-bit `db.exe` üretimi ve 410/410 modül regresyon testi (%100 PASS) doğrulandı.
     * `AGENTS.md` belgesine Bölüm 6 olarak "Kalıcı Git, GitHub ve CI Çalışma Standardı" (görev başlangıcı, geliştirme/test disiplini, Git/GitHub senkronizasyonu, GitHub Actions/FreeBSD CI yönetimi, proje hafızası ve son rapor standartları) eklendi.
+    * **FreeBSD 15.1 amd64 GCC 14 Nihai CI Doğrulaması (Rev 18, Run ID: 38159965663, Commit: `2be185b9`):**
+      * **MySQL 8.4 LTS (Job ID: 114530620857):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
+      * **MariaDB 12.3 LTS (Job ID: 114530620965):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
+      * **MariaDB 11.4 LTS (Job ID: 114530621091):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
+      * **Genel Durum:** 3/3 matris işi SUCCESS. Windows (PE32+) ve FreeBSD (ELF64) üzerinde `db` sunucusu ve oyuncu veri güvenliği mimarisi %100 doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği — Rev 18 FreeBSD CI Koşusunun (Run ID: 38159965663, Commit: 2be185b9) İzlenmesi ve Doğrulanması.
+* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği (Aşama 11.4 & Rev 18) — Windows amd64 GCC 16.2 ve FreeBSD 15.1 amd64 GCC 14 üzerinde gerçek 64-bit binary üretimi, Senaryo A-H gecikmeli tahliye mimarisi, 410/410 modül testi ve 219/219 canlı DB testiyle **%100 BAŞARIYLA TAMAMLANDI**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayı ve CI koşu sonuçları doğrultusunda:
-  1. Rev 18 CI koşusunun (`38159965663`) tamamlanmasının ardından MySQL 8.4, MariaDB 12.3 ve MariaDB 11.4 işlerinde gerçek 64-bit `db` ELF64 binary derleme, link ve test sonuçlarının doğrulanması.
-  2. **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC uyumluluğu hazırlığı.
+* Kullanıcı onayı doğrultusunda:
+  * **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC (Windows UCRT64 & FreeBSD amd64) mimarisine modernizasyonu ve derleme hazırlığı.
 
 
 
