@@ -96,7 +96,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Toplam:** **216/216 test başarılı (%100)**.
   * **Platform Doğrulama Notu:**
     * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 216/216 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 8) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında test edilecektir.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 8: Run 38129099307) ile FreeBSD 15.1-RELEASE-p3 amd64 + GCC 14.2.0 ortamında 216/216 test 0 derleme hatası ve 0 derleyici uyarısı ile eksiksiz doğrulandı.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -195,7 +195,9 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * `m_hDB.host` ve `m_hDB.reconnect` doğrudan `MYSQL` struct dahili alan erişimleri kaldırıldı; temiz `Reconnect()` ve yaşam döngüsü kontrolü sağlandı.
   * `SQLResult` yapısına 64-bit sayaçlar (`ullNumRows`, `ullAffectedRows`, `ullInsertID`) eklendi; eski 32-bit alanlar ve `(uint32_t)-1` hata kontrolleri `db`/`game` uyumluluğu için korunarak çift katmanlı hale getirildi.
   * Otomatik reconnect sonrasında düşen sorgunun kontrolsüz tekrar çalıştırılması (`ResendQuery`) engellendi; veri bütünlüğü ve non-idempotent güvenlik sağlandı.
+  * `Tellwait.h`/`Tellwait.cpp` ve `libthecore/include/signal.h` kök neden düzeltmeleriyle header shadowing giderildi.
   * `tests/test_libsql.cpp` (67 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 67/67 (toplamda 216/216) test 0 hata ve 0 uyarı ile doğrulandı.
+  * FreeBSD 15.1 amd64 GCC 14.2.0 üzerinde CI iş akışı (Rev 8: Run 38129099307) ile 216/216 test 0 derleme hatası ve 0 derleyici uyarısı ile tam doğrulandı.
 * [ ] **Aşama 11.2 (libsql Canlı DB Entegrasyonu ve Connector/C Kütüphaneleri):**
   * Windows amd64 ve FreeBSD amd64 için Oracle MySQL 8.4 ve MariaDB 12.3/11.4 canlı bağlantı ve transaction doğrulama testlerinin icra edilmesi.
 
@@ -203,10 +205,10 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.1 (`libsql` Kontrollü Modernizasyon) Windows amd64 GCC 16.2.0 üzerinde 216/216 testle (%100 başarı) tamamlandı. Değişikliklerin `dev/windows-gcc-baseline` dalına commit edilmesi, GitHub Actions CI Rev 6 tetiklenerek FreeBSD 15.1 amd64 GCC 14.2.0 üzerinde doğrulanması.
+* **Aktif Görev:** Aşama 11.1 (`libsql` Kontrollü Modernizasyon) hem Windows amd64 GCC 16.2.0 hem de FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında 216/216 test (%100 başarı, 0 hata, 0 uyarı) ile eksiksiz tamamlandı. Kullanıcıya ayrıntılı teknik raporun sunulması ve Aşama 11.2 (Canlı DB Entegrasyonu) veya sıradaki modül (`liblua` / `db`) için onayının alınması.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* FreeBSD 15.1 amd64 CI doğrulamasının ardından kullanıcıya tam teknik rapor sunulması; bir sonraki alt aşama (Aşama 11.2 Canlı DB Entegrasyonu veya sonraki modül) öncesinde kullanıcı onayının alınması.
+* Kullanıcı onayı doğrultusunda, bir sonraki aşamaya (Canlı MySQL/MariaDB konnektör entegrasyonu veya `liblua` / `db` modülü) geçilmesi.
