@@ -123,9 +123,21 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
    * **Bütünsel Değerlendirme:** SQL dosyaları ile `libsql`, `db` ve `game` kaynak kodları birlikte değerlendirilmelidir.
    * **Platform Uyumluluğu:** Windows amd64 ve FreeBSD amd64 GCC uyumluluğu korunmalıdır.
    * **Gerçek Test Doğrulaması:** İki veritabanında da (güncel MySQL ve güncel MariaDB) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
-   * **Resmî Hedef Sürümler:**
-     * **Oracle MySQL:** Resmî uzun vadeli destek (LTS) sürümü **MySQL 8.4 LTS** (Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032) ve **MySQL 9.x Innovation**. (Not: Eski MySQL 8.0 desteği Nisan 2026'da sona ermektedir).
-     * **MariaDB Foundation:** Resmî uzun vadeli kararlı sürüm **MariaDB 11.4 LTS** (Destek: Mayıs 2029) ve geriye dönük **MariaDB 10.11 LTS** (Destek: Şubat 2028).
+   * **Resmî Hedef Sürümler (2026 Doğrulaması):**
+     * **Oracle MySQL:**
+       * **MySQL 8.4 LTS:** Nisan 2024 GA (Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032).
+       * **MySQL 9.7 LTS:** Nisan 2026 GA (2026 yılı güncel LTS sürümü).
+       * **MySQL 26.7 Innovation:** Temmuz 2026 GA (CalVer YY.M takvimli güncel kararlı üretim sürümü).
+       * (Not: Eski MySQL 8.0 desteği Nisan 2026'da sona ermiştir).
+     * **MariaDB Foundation:**
+       * **MariaDB 11.4 LTS:** Mayıs 2024 GA (Destek: Mayıs 2029).
+       * **MariaDB 12.3 LTS:** Mayıs 2026 GA (Destek: Haziran 2029, güncel LTS kararlı sürüm 12.3.3).
+       * **MariaDB 13.0 Stable:** Eylül 2026 GA (Rolling kararlı sürüm 13.0.2).
+       * **MariaDB 10.11 LTS:** Geriye dönük desteklenen LTS sürümü (Destek: Şubat 2028).
+   * **Körlemesine Dönüşüm Yasağı ve Veri Koruma Standartları:**
+     * **Karakter Seti (Charset/Collation):** Tablolar körlemesine `utf8mb4`'e çevrilemez. Metin2 32-bit Windows istemcisi sabit uzunluklu ANSI codepage (`char name[24]` vb.) gönderdiğinden, sunucu `CONFIG` locale (`g_stLocale`: `latin1`, `cp1250`) yapısı korunmalıdır.
+     * **Sıfır Tarihler (Zero-Date):** `account.shop_expire`, `player.change_empire.last_time`, `log.log_commands.date` ve `BanManager.cpp:34` sıfır tarihleri körlemesine `NULL` yapılmaz; `UNIX_TIMESTAMP`, `str_to_number` ve tablo kullanım anlamları korunarak katı moda (`NO_ZERO_DATE`) uyumlu hale getirilir.
+     * **Depolama Motoru (Storage Engine):** `log.sql` içindeki MyISAM tabloları mevcut verilerde zorla dönüştürülmez; yeni kurulumlar ve mevcut veriler için veri kaybı üretmeyen, geri alınabilir (rollback destekli) migration stratejisi uygulanır.
 
 ---
 
@@ -158,24 +170,25 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * `libsql` kaynak dosyaları (`AsyncSQL.cpp/h`, `Semaphore.cpp/h`, `Statement.cpp/h`, `Tellwait.cpp/h`, `libsql.h`, `stdafx.h`, `Makefile`) eksiksiz incelendi.
   * `Extern/lib/libmysqlclient.a` dosyasının FreeBSD 32-bit `elf32-i386` olduğu tespit edildi; 64-bit Windows ve 64-bit FreeBSD ortamında doğrudan kullanılamaz.
   * `Extern/include/mysql` başlıklarının FreeBSD 32-bit i386 kökenli MariaDB Connector/C 3.3.5 olduğu belirlendi.
-  * MySQL 8.4 LTS ve MariaDB 11.4 LTS resmî sürümleri ve C API farkları (`m_hDB.reconnect` doğrudan erişimi, `mariadb_reconnect`, `mysql_options`, `m_hDB.host` doğrudan struct manipülasyonu riski) analiz edildi.
-  * `sql/` dizinindeki 5 şema dosyası (`account.sql`, `common.sql`, `log.sql`, `player.sql`, `world.sql`) incelendi:
-    * `log.sql` içinde 10 adet MyISAM tablosu tespit edildi; InnoDB geçiş ihtiyacı belirlendi.
-    * 3 tabloda (`account.shop_expire`, `log_commands.date`, `player.change_empire.last_time`) ve `BanManager.cpp:34` sorgusunda katı SQL modunu (`NO_ZERO_DATE`) ihlal eden `'0000-00-00 00:00:00'` varsayılanı tespit edildi.
-    * Karakter seti uyumsuzlukları (`latin1`, `cp1250`, `big5`, `utf8mb3`) incelendi; `utf8mb4` ve `utf8mb4_unicode_ci` ortak standart hedefi belirlendi.
+  * MySQL (8.4 LTS, 9.7 LTS, 26.7 Innovation) ve MariaDB (11.4 LTS, 12.3 LTS, 13.0 Stable) resmî sürümleri, C API ve kimlik doğrulama farkları (`m_hDB.reconnect`, `mariadb_reconnect`, `caching_sha2_password`, `m_hDB.host` struct manipülasyonu riski) analiz edildi.
+  * `SQLResult` içindeki `uiInsertID`, `uiNumRows`, `uiAffectedRows` alanlarının C API'de 64-bit (`my_ulonglong`) olmasına rağmen 32-bit (`uint32_t`) tutulduğu ve taşma riski taşıdığı tespit edildi.
+  * `sql/` dizinindeki 5 şema dosyası (`account.sql`, `common.sql`, `log.sql`, `player.sql`, `world.sql`) ve `db`/`game` kaynak kodları incelendi:
+    * `log.sql` içindeki 10 MyISAM tablosunun log I/O ve transaction-free doğası analiz edildi; mevcut verilerde zorla dönüşüm yapılmayıp isteğe bağlı/güvenli göç stratejisi benimsendi.
+    * 3 tabloda (`account.shop_expire`, `log_commands.date`, `player.change_empire.last_time`) ve `BanManager.cpp:34` sorgusundaki sıfır tarihlerin (`0000-00-00 00:00:00`) kod içi anlamları araştırıldı (`UNIX_TIMESTAMP`, `str_to_number`). Körlemesine NULL yapılmayıp şema ve kod semantiğine uygun katı mod (`NO_ZERO_DATE`) düzeltme stratejisi belirlendi.
+    * Karakter setlerinin (`g_stLocale`: `latin1`, `cp1250`) Metin2 32-bit Windows ANSI istemcisi (`char name[24]`) ile doğrudan bağlantılı olduğu kanıtlandı; körlemesine `utf8mb4` dönüşümü engellendi.
 * [ ] **Aşama 11 (libsql 64-bit Çift Motor Kütüphane Kurulumu, Derleme ve Testleri):**
   * Windows amd64 (MinGW UCRT64 GCC) ve FreeBSD 15.1 amd64 için 64-bit modern MariaDB ve MySQL C konnektörlerinin entegre edilmesi.
   * `libsql` derleyicisinin C++20 standardında ve 64-bit native olarak derlenmesi.
-  * SQL mock/izole birim testlerinin ve canlı çift motor entegrasyon testlerinin hazırlanması.
+  * Mevcut kullanıcı verilerini koruyan çift motorlu test ve migration planının uygulanması.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 10 (`libsql` Teknik Envanter ve Çift Motor Analizi) kod değiştirilmeden salt okunur analizle başarıyla tamamlandı. Detaylı teknik envanter raporunun kullanıcıya sunulması ve Aşama 11 için kullanıcı onayının ve yol haritası tercihinin beklenmesi.
+* **Aktif Görev:** Aşama 10 (`libsql` Teknik Envanter ve Çift Motor Hazırlık Düzeltmesi) kod değiştirilmeden salt okunur derinlemesine analizle tamamlandı. Kullanıcıya güncellenmiş ve derinleştirilmiş teknik raporun sunulması; Aşama 11 için kullanıcı onayının beklenmesi.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayının ardından Aşama 11'e geçilerek, Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında hem Oracle MySQL hem MariaDB ile bağlanabilecek 64-bit C istemci kütüphanesi altyapısının kurulması, derleme uyarılarının giderilmesi ve testlerin yazılması.
+* Kullanıcı onayının ardından Aşama 11'e geçilerek, Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında hem Oracle MySQL hem MariaDB ile bağlanabilecek 64-bit C istemci kütüphanesi altyapısının kurulması, C API struct erişimlerinin ve 64-bit sayaçların düzeltilmesi, izole testlerin yazılması.
