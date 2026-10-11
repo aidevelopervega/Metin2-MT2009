@@ -2017,10 +2017,20 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 {
 	// escaping who
 	static char escapeWho[500];
-	CDBManager::instance().EscapeString(escapeWho, who.c_str(), who.size());
+	unsigned long lenWho = CDBManager::instance().EscapeString(escapeWho, who.c_str(), who.size());
+	if (who.size() > 0 && lenWho == 0)
+	{
+		sys_err("AppendIkarusShopNotification: EscapeString failed for who [DB disconnected]");
+		return;
+	}
 	// escaping format
 	static char escapeFormat[500];
-	CDBManager::instance().EscapeString(escapeFormat, format.c_str(), format.size());
+	unsigned long lenFormat = CDBManager::instance().EscapeString(escapeFormat, format.c_str(), format.size());
+	if (format.size() > 0 && lenFormat == 0)
+	{
+		sys_err("AppendIkarusShopNotification: EscapeString failed for format [DB disconnected]");
+		return;
+	}
 	// making query
 	auto query = fmt::format("INSERT INTO `ikashop_notification` (`owner`, `type`, `who`, `what`, `format`, `seen`) VALUES({}, {}, '{}', {}, '{}', {})",
 								owner, (int)type, escapeWho, what, escapeFormat, 0);

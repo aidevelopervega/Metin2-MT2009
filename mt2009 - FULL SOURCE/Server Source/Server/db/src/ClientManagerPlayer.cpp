@@ -173,10 +173,24 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 
 	static char text[8192 + 1];
 
-	CDBManager::instance().EscapeString(text, pkTab->skills, sizeof(pkTab->skills));
+	unsigned long lenSkills = CDBManager::instance().EscapeString(text, pkTab->skills, sizeof(pkTab->skills));
+	if (sizeof(pkTab->skills) > 0 && lenSkills == 0)
+	{
+		sys_err("CreatePlayerSaveQuery: EscapeString failed for player skills (id %u, DB disconnected)", pkTab->id);
+		if (pszQuery && querySize > 0)
+			pszQuery[0] = '\0';
+		return 0;
+	}
 	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, "skill_level = '%s', ", text);
 
-	CDBManager::instance().EscapeString(text, pkTab->quickslot, sizeof(pkTab->quickslot));
+	unsigned long lenQuickslot = CDBManager::instance().EscapeString(text, pkTab->quickslot, sizeof(pkTab->quickslot));
+	if (sizeof(pkTab->quickslot) > 0 && lenQuickslot == 0)
+	{
+		sys_err("CreatePlayerSaveQuery: EscapeString failed for player quickslot (id %u, DB disconnected)", pkTab->id);
+		if (pszQuery && querySize > 0)
+			pszQuery[0] = '\0';
+		return 0;
+	}
 	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, "quickslot = '%s' ", text);
 
 	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, " WHERE id=%d", pkTab->id);
@@ -1002,12 +1016,24 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 
 	static char text[4096 + 1];
 
-	CDBManager::instance().EscapeString(text, packet->player_table.skills, sizeof(packet->player_table.skills));
+	unsigned long lenSkills = CDBManager::instance().EscapeString(text, packet->player_table.skills, sizeof(packet->player_table.skills));
+	if (sizeof(packet->player_table.skills) > 0 && lenSkills == 0)
+	{
+		sys_err("Create_Player: EscapeString failed for skills (DB disconnected)");
+		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
+		return;
+	}
 	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - queryLen, "'%s', ", text);
 	if (g_test_server)
 		sys_log(0, "Create_Player queryLen[%d] TEXT[%s]", queryLen, text);
 
-	CDBManager::instance().EscapeString(text, packet->player_table.quickslot, sizeof(packet->player_table.quickslot));
+	unsigned long lenQuickslot = CDBManager::instance().EscapeString(text, packet->player_table.quickslot, sizeof(packet->player_table.quickslot));
+	if (sizeof(packet->player_table.quickslot) > 0 && lenQuickslot == 0)
+	{
+		sys_err("Create_Player: EscapeString failed for quickslot (DB disconnected)");
+		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
+		return;
+	}
 	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - queryLen, "'%s')", text);
 
 	auto pMsg2(CDBManager::instance().DirectQuery(queryStr));

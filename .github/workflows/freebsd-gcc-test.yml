@@ -1,4 +1,4 @@
-# Rev 20: Safe IkarusShopCache Safebox Loading, Robust Multibyte DBManager SQL Escaping, and Fail-Closed Quoting in FreeBSD CI
+# Rev 21: Real mysql_real_escape_string Delegation, Subscript Quote Counterexample Hardening, Fail-Closed DBManager, and Live Multibyte SQL Suite
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

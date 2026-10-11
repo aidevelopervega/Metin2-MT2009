@@ -580,9 +580,160 @@ int main(int argc, char* argv[])
 	}
 
 	// --------------------------------------------------------------------------
-	// 12. CLEANUP OF TEST SCHEMA
+	// 12. REAL MULTIBYTE SQL ESCAPING & CHARSET SAFETY (LIVE DB)
 	// --------------------------------------------------------------------------
-	std::cout << "\n[12/12] Clean Teardown of Test Schema..." << std::endl;
+	std::cout << "\n[12/13] Real Multibyte SQL Escaping & Charset Safety (Live DB)..." << std::endl;
+	{
+		CAsyncSQL sql;
+		bool bConn = sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port);
+		LIVE_ASSERT(bConn == true, "Connected to DB with utf8mb4 charset for live escaping tests");
+
+		// Create dedicated table for escaping tests
+		auto dropTbl = sql.DirectQuery("DROP TABLE IF EXISTS test_escape_live;");
+		LIVE_ASSERT(dropTbl != nullptr && !dropTbl->IsError(), "Drop previous test_escape_live table");
+
+		auto createTbl = sql.DirectQuery(
+			"CREATE TABLE test_escape_live ("
+			"  id INT PRIMARY KEY,"
+			"  raw_blob BLOB,"
+			"  raw_text VARCHAR(255) CHARACTER SET utf8mb4"
+			") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+		);
+		LIVE_ASSERT(createTbl != nullptr && !createTbl->IsError(), "Created test_escape_live table with utf8mb4 support");
+
+		// 12.1: The Critical Counterexample \xE2\x82\x81' (E2 82 81 27)
+		// Naive multibyte loops consume E2 82, then see 81 27, consuming 27 (') without escaping!
+		// Real mysql_real_escape_string with utf8mb4 MUST escape the single quote properly!
+		{
+			const char counterexample[4] = { '\xE2', '\x82', '\x81', '\'' };
+			char escBuf[64] = {0};
+			size_t escLen = sql.EscapeString(escBuf, sizeof(escBuf), counterexample, sizeof(counterexample));
+
+			LIVE_ASSERT(escLen >= 5, "Counterexample escaped length is at least 5 bytes");
+			LIVE_ASSERT(std::strstr(escBuf, "\\'") != nullptr, "Counterexample correctly escapes trailing single quote with backslash");
+
+			// Insert into DB using the escaped string
+			char insertQuery[256];
+			std::snprintf(insertQuery, sizeof(insertQuery),
+				"INSERT INTO test_escape_live (id, raw_blob, raw_text) VALUES (1, '%s', '%s');",
+				escBuf, escBuf);
+
+			auto insRes = sql.DirectQuery(insertQuery);
+			LIVE_ASSERT(insRes != nullptr && !insRes->IsError(), "INSERT with escaped counterexample succeeds on live DB");
+
+			// Query back and verify HEX representation matches original exact 4 bytes: E2828127
+			auto selRes = sql.DirectQuery("SELECT HEX(raw_blob), HEX(raw_text) FROM test_escape_live WHERE id = 1;");
+			LIVE_ASSERT(selRes != nullptr && selRes->Get() && selRes->Get()->ullNumRows == 1, "SELECT returned inserted counterexample row");
+			MYSQL_ROW row = mysql_fetch_row(selRes->Get()->pSQLResult);
+			LIVE_ASSERT(row != nullptr && row[0] != nullptr && row[1] != nullptr, "Row contains valid HEX data");
+			LIVE_ASSERT(std::string(row[0]) == "E2828127", "Counterexample BLOB roundtrip matches exact original bytes E2828127");
+			LIVE_ASSERT(std::string(row[1]) == "E2828127", "Counterexample VARCHAR roundtrip matches exact original bytes E2828127");
+			std::cout << "    -> Counterexample E2828127 escaped and retrieved cleanly without quote injection!" << std::endl;
+		}
+
+		// 12.2: UTF-8 1, 2, 3, and 4-Byte Multibyte Sequences with Quotes & Metachars
+		{
+			struct TestVector {
+				int id;
+				const char* desc;
+				std::string input;
+			};
+
+			std::vector<TestVector> vectors = {
+				{ 10, "1-byte ASCII with quotes/slashes", "Admin' OR '1'='1 -- \"Quote\" \\ Backslash" },
+				{ 20, "2-byte UTF-8 with quote (Greek/Latin-ext)", "éèçà'--\xC3\xA9\xC3\xA8'" },
+				{ 30, "3-byte UTF-8 with quote (CJK/Euro)", "Metin2' Euro€ '\xE4\xB8\xAD\xE6\x96\x87' CJK" },
+				{ 40, "4-byte UTF-8 with quote (Emoji 🔥🗡️)", "Sword🗡️ '\xF0\x9F\x94\xA5' Fire'!" }
+			};
+
+			for (const auto& tv : vectors) {
+				char escBuf[512] = {0};
+				size_t escLen = sql.EscapeString(escBuf, sizeof(escBuf), tv.input.data(), tv.input.size());
+				LIVE_ASSERT(escLen >= tv.input.size(), "Escaped length >= raw length");
+
+				std::string q = "INSERT INTO test_escape_live (id, raw_blob, raw_text) VALUES (" +
+					std::to_string(tv.id) + ", '" + escBuf + "', '" + escBuf + "');";
+				auto r = sql.DirectQuery(q.c_str());
+				LIVE_ASSERT(r != nullptr && !r->IsError(), (std::string("INSERT succeeds for ") + tv.desc).c_str());
+
+				std::string selQ = "SELECT raw_text FROM test_escape_live WHERE id = " + std::to_string(tv.id) + ";";
+				auto sel = sql.DirectQuery(selQ.c_str());
+				LIVE_ASSERT(sel != nullptr && sel->Get() && sel->Get()->ullNumRows == 1, "SELECT retrieved row");
+				MYSQL_ROW rrow = mysql_fetch_row(sel->Get()->pSQLResult);
+				LIVE_ASSERT(rrow && rrow[0], "Row content valid");
+				LIVE_ASSERT(std::string(rrow[0]) == tv.input, (std::string("Exact text roundtrip preserved for ") + tv.desc).c_str());
+			}
+		}
+
+		// 12.3: Binary Data with Embedded NUL Bytes (\0)
+		{
+			const char binData[] = "HEADER\0\x01\x02\xFF'TAIL";
+			size_t binLen = sizeof(binData) - 1; // 15 bytes including embedded NUL
+
+			char escBuf[64] = {0};
+			size_t escLen = sql.EscapeString(escBuf, sizeof(escBuf), binData, binLen);
+			LIVE_ASSERT(escLen > binLen, "Binary data with embedded NUL escaped successfully");
+
+			char insBin[256];
+			std::snprintf(insBin, sizeof(insBin), "INSERT INTO test_escape_live (id, raw_blob, raw_text) VALUES (50, '", "");
+			size_t prefixLen = std::strlen(insBin);
+			std::memcpy(insBin + prefixLen, escBuf, escLen);
+			std::strcpy(insBin + prefixLen + escLen, "', NULL);");
+
+			auto r = sql.DirectQuery(insBin);
+			LIVE_ASSERT(r != nullptr && !r->IsError(), "INSERT binary data with embedded NUL succeeded");
+
+			auto sel = sql.DirectQuery("SELECT HEX(raw_blob) FROM test_escape_live WHERE id = 50;");
+			LIVE_ASSERT(sel != nullptr && sel->Get() && sel->Get()->ullNumRows == 1, "SELECT binary row succeeded");
+			MYSQL_ROW row = mysql_fetch_row(sel->Get()->pSQLResult);
+			LIVE_ASSERT(row && row[0], "Retrieved binary HEX");
+			LIVE_ASSERT(std::string(row[0]) == "484541444552000102FF275441494C",
+				"Binary data with embedded NUL matches exact byte stream 484541444552000102FF275441494C");
+		}
+
+		// 12.4: NO_BACKSLASH_ESCAPES SQL Mode Support
+		// When NO_BACKSLASH_ESCAPES is active, mysql_real_escape_string escapes single quotes as '' instead of \'
+		{
+			// Save previous SQL mode
+			auto getModeRes = sql.DirectQuery("SELECT @@sql_mode;");
+			LIVE_ASSERT(getModeRes != nullptr && getModeRes->Get(), "Retrieved current sql_mode");
+			MYSQL_ROW modeRow = mysql_fetch_row(getModeRes->Get()->pSQLResult);
+			std::string origMode = modeRow && modeRow[0] ? modeRow[0] : "";
+
+			// Enable NO_BACKSLASH_ESCAPES
+			auto setModeRes = sql.DirectQuery("SET sql_mode = CONCAT(@@sql_mode, ',NO_BACKSLASH_ESCAPES');");
+			LIVE_ASSERT(setModeRes != nullptr && !setModeRes->IsError(), "Enabled NO_BACKSLASH_ESCAPES mode");
+
+			const char testInput[] = "Safe'Quote";
+			char escBuf[64] = {0};
+			size_t escLen = sql.EscapeString(escBuf, sizeof(escBuf), testInput, std::strlen(testInput));
+			LIVE_ASSERT(escLen == std::strlen(testInput) + 1, "Escaped length added 1 character");
+			LIVE_ASSERT(std::strstr(escBuf, "Safe''Quote") != nullptr,
+				"Under NO_BACKSLASH_ESCAPES, single quote is escaped as '' (not \\')");
+
+			// Insert with NO_BACKSLASH_ESCAPES
+			char insMode[128];
+			std::snprintf(insMode, sizeof(insMode),
+				"INSERT INTO test_escape_live (id, raw_blob, raw_text) VALUES (60, '%s', '%s');",
+				escBuf, escBuf);
+			auto insModeRes = sql.DirectQuery(insMode);
+			LIVE_ASSERT(insModeRes != nullptr && !insModeRes->IsError(),
+				"INSERT succeeds under NO_BACKSLASH_ESCAPES with '' quotes");
+
+			// Restore original SQL mode
+			std::string restoreModeQuery = "SET sql_mode = '" + origMode + "';";
+			sql.DirectQuery(restoreModeQuery.c_str());
+		}
+
+		// Cleanup escape test table
+		sql.DirectQuery("DROP TABLE IF EXISTS test_escape_live;");
+		sql.Quit();
+	}
+
+	// --------------------------------------------------------------------------
+	// 13. CLEANUP OF TEST SCHEMA
+	// --------------------------------------------------------------------------
+	std::cout << "\n[13/13] Clean Teardown of Test Schema..." << std::endl;
 	{
 		CAsyncSQL sql;
 		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);

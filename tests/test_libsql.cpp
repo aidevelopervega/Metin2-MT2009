@@ -342,21 +342,24 @@ int main()
 		CAsyncSQL sql;
 		char dst[256];
 
-		// Zero length inputs
+		// Zero length inputs and null pointers
 		TEST_ASSERT(sql.EscapeString(dst, sizeof(dst), "test", 0) == 0, "Zero srcSize returns 0");
 		TEST_ASSERT(sql.EscapeString(dst, 0, "test", 4) == 0, "Zero dstSize returns 0");
-
-		// Valid escape
-		const char * dangerous = "admin' OR '1'='1";
-		size_t esc_len = sql.EscapeString(dst, sizeof(dst), dangerous, std::strlen(dangerous));
-		TEST_ASSERT(esc_len > std::strlen(dangerous), "Escaped length greater than raw length");
-		TEST_ASSERT(std::strstr(dst, "\\'") != nullptr, "Single quotes properly escaped with backslash");
+		TEST_ASSERT(sql.EscapeString(nullptr, sizeof(dst), "test", 4) == 0, "Null dst returns 0");
+		TEST_ASSERT(sql.EscapeString(dst, sizeof(dst), nullptr, 4) == 0, "Null src returns 0");
 
 		// Buffer too small boundary protection
 		char tiny_dst[10];
 		size_t trimmed_len = sql.EscapeString(tiny_dst, sizeof(tiny_dst), "VeryLongStringThatCannotFitInsideTinyBuffer", 43);
 		TEST_ASSERT(trimmed_len == 0, "Insufficient buffer safely rejected with 0 return");
 		TEST_ASSERT(tiny_dst[0] == '\0', "Destination safely null-terminated");
+
+		// Disconnected state fail-closed protection (cannot escape without active connection/charset)
+		const char * dangerous = "admin' OR '1'='1";
+		dst[0] = 'X';
+		size_t esc_len = sql.EscapeString(dst, sizeof(dst), dangerous, std::strlen(dangerous));
+		TEST_ASSERT(esc_len == 0, "Disconnected EscapeString returns 0 (Fail-closed)");
+		TEST_ASSERT(dst[0] == '\0', "Disconnected EscapeString clears destination buffer");
 	}
 
 	// --------------------------------------------------------------------------

@@ -209,7 +209,7 @@ class CAsyncSQL
 		int			CountQueryFinished();
 		void		ResetQueryFinished();
 
-		size_t		EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
+		virtual size_t	EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
 
 	protected:
 

@@ -1119,7 +1119,9 @@ namespace ikashop
 		value.Accept(StringWriter);
 		// escaping json string
 		static char escape[1024];
-		CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		if (buffer.GetSize() > 0 && len == 0)
+			return "";
 		// making query
 		return fmt::format("UPDATE `item` SET `ikashop_data`='{}' WHERE `id`={}", escape, item.id);
 	}
@@ -1188,7 +1190,9 @@ namespace ikashop
 		
 		// escaping json string
 		static char escape[1024];
-		CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		if (buffer.GetSize() > 0 && len == 0)
+			return "";
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '{}' WHERE `id` = {}", escape, item.id);
 	}
 
@@ -1231,7 +1235,10 @@ namespace ikashop
 	{
 		//ikashop-updated 03/08/19
 		static char szEscapeString[CHARACTER_NAME_MAX_LEN + 32];
-		CDBManager::instance().EscapeString(szEscapeString, rOffer.buyername, strnlen(rOffer.buyername, sizeof(rOffer.buyername)));
+		size_t nameLen = strnlen(rOffer.buyername, sizeof(rOffer.buyername));
+		unsigned long len = CDBManager::instance().EscapeString(szEscapeString, rOffer.buyername, nameLen);
+		if (nameLen > 0 && len == 0)
+			return "";
 		// offer_id,owner_id,offerer_id,price_yang,price_cheque,is_notified,is_accept
 
 		return fmt::format(
@@ -1284,7 +1291,9 @@ namespace ikashop
 
 		// escaping json string
 		static char escape[500];
-		CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		if (buffer.GetSize() > 0 && len == 0)
+			return "";
 
 		// making query
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '{}' WHERE `id` = {}", escape, auction.id);
@@ -1293,7 +1302,10 @@ namespace ikashop
 	std::string CreateAuctionCacheAddOfferQuery(const TAuctionOfferInfo& auctionOffer)
 	{
 		static char szEscapeName[CHARACTER_NAME_MAX_LEN+32];
-		CDBManager::instance().EscapeString(szEscapeName, auctionOffer.buyername, strnlen(auctionOffer.buyername , sizeof(auctionOffer.buyername)));
+		size_t nameLen = strnlen(auctionOffer.buyername, sizeof(auctionOffer.buyername));
+		unsigned long len = CDBManager::instance().EscapeString(szEscapeName, auctionOffer.buyername, nameLen);
+		if (nameLen > 0 && len == 0)
+			return "";
 		return fmt::format("INSERT INTO `ikashop_auction_offer` (`seller`, `buyer`, `buyer_name` , `price`, `seen`) "
 			"VALUES( {}, {}, '{}', {}, 0 );",
 			auctionOffer.ownerid, auctionOffer.buyerid, szEscapeName, auctionOffer.price.yang);

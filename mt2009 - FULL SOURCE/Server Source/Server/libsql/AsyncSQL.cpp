@@ -1014,14 +1014,14 @@ MYSQL * CAsyncSQL::GetSQLHandle()
 
 size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize)
 {
-	if (0 == srcSize)
+	if (!dst || 0 == dstSize)
+		return 0;
+
+	if (0 == srcSize || !src)
 	{
-		memset(dst, 0, dstSize);
+		dst[0] = '\0';
 		return 0;
 	}
-
-	if (0 == dstSize)
-		return 0;
 
 	if (dstSize < srcSize * 2 + 1)
 	{
@@ -1032,6 +1032,12 @@ size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_
 		sys_err("FATAL ERROR!! not enough buffer size (dstSize %u srcSize %u src%s: %s)",
 				dstSize, srcSize, tmpLen != srcSize ? "(trimmed to 255 characters)" : "", tmp);
 
+		dst[0] = '\0';
+		return 0;
+	}
+
+	if (!IsConnected() || !GetSQLHandle())
+	{
 		dst[0] = '\0';
 		return 0;
 	}

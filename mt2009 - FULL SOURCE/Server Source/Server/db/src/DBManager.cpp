@@ -189,7 +189,7 @@ int CDBManager::Connect(int iSlot, const char * db_address, const int db_port, c
 
 std::unique_ptr<SQLMsg> CDBManager::DirectQuery(const char * c_pszQuery, int iSlot)
 {
-	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_directSQL[iSlot])
+	if (!c_pszQuery || !*c_pszQuery || iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_directSQL[iSlot])
 	{
 		auto p = std::make_unique<SQLMsg>();
 		p->uiSQLErrno = CR_SERVER_GONE_ERROR;
@@ -204,7 +204,7 @@ extern int g_query_count[2];
 void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, IDENT dwIdent, void * udata, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
-	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_mainSQL[iSlot])
+	if (!c_pszQuery || !*c_pszQuery || iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_mainSQL[iSlot])
 		return;
 	//sys_log(0, "ReturnQuery %s", c_pszQuery);
 	CQueryInfo * p = new CQueryInfo;
@@ -222,90 +222,10 @@ void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, IDENT dwIdent, 
 void CDBManager::AsyncQuery(const char * c_pszQuery, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
-	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_asyncSQL[iSlot])
+	if (!c_pszQuery || !*c_pszQuery || iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_asyncSQL[iSlot])
 		return;
 	m_asyncSQL[iSlot]->AsyncQuery(c_pszQuery);
 	++g_query_count[1];
-}
-
-static unsigned long LocalEscapeString(char *to, const char *from, unsigned long length, bool bNoBackslashEscapes = false)
-{
-	if (!to || !from || length == 0)
-	{
-		if (to)
-			*to = '\0';
-		return 0;
-	}
-
-	const char *end = from + length;
-	char *to_start = to;
-	while (from < end)
-	{
-		unsigned char uc = (unsigned char)*from++;
-
-		// Cok baytli karakterlerin (GBK, Big5, SJIS, CP949, UTF-8) oncu bayt tespiti:
-		// Oncu bayt ve ardindan gelen izleyen bayt (trail byte) bolunmeden dogrudan kopyalanir.
-		// Bu sayede GBK/Big5/SJIS icinde ikinci bayti 0x5C olan karakterlerin yanlislikla kacirilip
-		// bozulmasi (multibyte SQL injection acigi) kesin olarak onlenir.
-		if (uc >= 0x81 && uc <= 0xFE && from < end)
-		{
-			*to++ = (char)uc;
-			*to++ = *from++;
-			continue;
-		}
-
-		if (bNoBackslashEscapes)
-		{
-			if (uc == '\'')
-			{
-				*to++ = '\'';
-				*to++ = '\'';
-			}
-			else
-			{
-				*to++ = (char)uc;
-			}
-		}
-		else
-		{
-			switch (uc)
-			{
-				case 0:
-					*to++ = '\\';
-					*to++ = '0';
-					break;
-				case '\n':
-					*to++ = '\\';
-					*to++ = 'n';
-					break;
-				case '\r':
-					*to++ = '\\';
-					*to++ = 'r';
-					break;
-				case '\\':
-					*to++ = '\\';
-					*to++ = '\\';
-					break;
-				case '\'':
-					*to++ = '\\';
-					*to++ = '\'';
-					break;
-				case '"':
-					*to++ = '\\';
-					*to++ = '"';
-					break;
-				case '\032':
-					*to++ = '\\';
-					*to++ = 'Z';
-					break;
-				default:
-					*to++ = (char)uc;
-					break;
-			}
-		}
-	}
-	*to = '\0';
-	return (unsigned long)(to - to_start);
 }
 
 unsigned long CDBManager::EscapeString(void *to, const void *from, unsigned long length, int iSlot)
@@ -317,12 +237,14 @@ unsigned long CDBManager::EscapeString(void *to, const void *from, unsigned long
 		return 0;
 	}
 
-	// 1. Canli dogrudan baglanti varsa, aktif surucunun karakter seti ve SQL moduna tam duyarli gercek API kullanilir.
-	if (m_directSQL[iSlot] && m_directSQL[iSlot]->IsConnected())
-		return mysql_real_escape_string(m_directSQL[iSlot]->GetSQLHandle(), (char *) to, (const char *) from, length);
+	if (m_directSQL[iSlot])
+	{
+		return (unsigned long)m_directSQL[iSlot]->EscapeString((char*)to, length * 2 + 1, (const char*)from, length);
+	}
 
-	// 2. Fallback: Baglanti yoksa ag I/O bloklamasi yapmadan guvenli, cok baytli (multibyte GBK/Big5/SJIS/UTF-8) karakterlere duyarli yerel kacis.
-	return LocalEscapeString((char *) to, (const char *) from, length);
+	sys_err("CDBManager::EscapeString: Cannot escape string without active database slot (slot %d, len %lu)", iSlot, length);
+	*((char *)to) = '\0';
+	return 0;
 }
 
 void CDBManager::SetLocale(const char * szLocale)

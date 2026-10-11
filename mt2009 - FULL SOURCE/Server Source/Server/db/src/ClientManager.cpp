@@ -1199,7 +1199,15 @@ void CClientManager::RESULT_SAFEBOX_CHANGE_PASSWORD(CPeer * pkPeer, SQLMsg * msg
 		{
 			char szQuery[QUERY_MAX_LEN];
 			char escape_pwd[64];
-			CDBManager::instance().EscapeString(escape_pwd, p->safebox_password, strlen(p->safebox_password));
+			unsigned long lenPwd = CDBManager::instance().EscapeString(escape_pwd, p->safebox_password, strlen(p->safebox_password));
+			if (strlen(p->safebox_password) > 0 && lenPwd == 0)
+			{
+				sys_err("QUERY_SAFEBOX_CHANGE_PASSWORD: EscapeString failed (DB disconnected)");
+				delete p;
+				pkPeer->EncodeHeader(HEADER_DG_SAFEBOX_CHANGE_PASSWORD_ANSWER, dwHandle, sizeof(BYTE));
+				pkPeer->EncodeBYTE(0);
+				return;
+			}
 
 			snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET password='%s' WHERE account_id=%u", GetTablePostfix(), escape_pwd, p->account_id);
 

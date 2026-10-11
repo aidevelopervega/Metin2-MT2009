@@ -38,27 +38,55 @@ if [ -f "/usr/local/lib/mysql/libmysqlclient.so" ] || [ -f "/usr/local/lib/libmy
     DB_CLIENT_LIB="-lmysqlclient"
 fi
 
-# Negatif Kontrol 1: DB nesne dizini ve nesne dosyaları denetimi
+# Negatif Kontrol 1: Temiz derleme ortamı hazırlığı (eski kalıntıları temizle)
+rm -f "$BUILD_DIR/libdb_objs.a"
+rm -f "$BUILD_DIR/test_db_cache_integration"
+
+# Negatif Kontrol 2: DB nesne dizini denetimi
 echo "Derlenmiş DB nesne dosyaları taranıyor..."
 if [ ! -d "$DB_OBJ_DIR" ]; then
     echo "HATA: DB nesne dizini ($DB_OBJ_DIR) bulunamadı! Önce db derlenmelidir." >&2
     exit 1
 fi
 
-OBJ_COUNT=$(ls -1 "$DB_OBJ_DIR"/*.o 2>/dev/null | wc -l)
-if [ "$OBJ_COUNT" -lt 10 ]; then
-    echo "HATA: Yetersiz DB nesne dosyası ($OBJ_COUNT adet bulundu)! Önce db tam derlenmelidir." >&2
+# Negatif Kontrol 3: Zorunlu DB nesne dosyaları manifestosu
+# Sadece sayı kontrolü yapılmaz; her zorunlu nesnenin varlığı tek tek doğrulanır.
+REQUIRED_DB_OBJS="Cache.o ClientManager.o ClientManagerBoot.o ClientManagerGuild.o ClientManagerIkarusShop.o ClientManagerItem.o ClientManagerLogin.o ClientManagerParty.o ClientManagerPlayer.o Config.o DBManager.o IkarusShopCache.o ItemIDRangeManager.o Peer.o"
+for obj in $REQUIRED_DB_OBJS; do
+    if [ ! -f "$DB_OBJ_DIR/$obj" ]; then
+        echo "HATA: Zorunlu DB nesne dosyası eksik: $DB_OBJ_DIR/$obj! db tam derlenmemiş." >&2
+        exit 1
+    fi
+done
+
+# Negatif Kontrol 4: Nesne dosyalarının mimari denetimi (64-Bit ELF / amd64)
+SAMPLE_OBJ="$DB_OBJ_DIR/DBManager.o"
+OBJ_ARCH=$(file "$SAMPLE_OBJ" 2>/dev/null || echo "unknown")
+case "$OBJ_ARCH" in
+    *64-bit*|*x86-64*|*amd64*)
+        echo "--> DB nesne mimarisi doğrulandı ($SAMPLE_OBJ: 64-bit)."
+        ;;
+    *)
+        echo "HATA: DB nesne dosyası 64-bit mimaride değil ($OBJ_ARCH)!" >&2
+        exit 1
+        ;;
+esac
+
+# Negatif Kontrol 5: Temiz arşiv oluşturma ve Main.o çakışmasını engelleme
+# Arşiv sıfırdan oluşturulur ('ar cr'), eski üyeler barındırmaz.
+ar cr "$BUILD_DIR/libdb_objs.a" "$DB_OBJ_DIR"/*.o
+# Main.o sembol çakışmasını önlemek için kesinlikle arşivden çıkarılır:
+ar d "$BUILD_DIR/libdb_objs.a" Main.o 2>/dev/null || true
+
+# Main.o'nun arşivden tamamen çıkarıldığını doğrula:
+if ar t "$BUILD_DIR/libdb_objs.a" | grep -q '^Main\.o$'; then
+    echo "HATA: Main.o nesnesi libdb_objs.a arşivinden çıkarılamadı!" >&2
     exit 1
 fi
 
-# Boşluklu ve tireli yollarda kabuk parçalanmasını engellemek için nesne dosyalarını
-# tek bir arşiv kütüphanesinde (libdb_objs.a) toplayıp Main.o sembolünü çıkarıyoruz.
-rm -f "$BUILD_DIR/libdb_objs.a"
-ar cru "$BUILD_DIR/libdb_objs.a" "$DB_OBJ_DIR"/*.o
-ar d "$BUILD_DIR/libdb_objs.a" Main.o 2>/dev/null || true
 ranlib "$BUILD_DIR/libdb_objs.a"
 
-# Negatif Kontrol 2: Bağımlılık kütüphanelerinin varlık denetimi
+# Negatif Kontrol 6: Bağımlılık kütüphanelerinin varlık denetimi
 for lib in "$BUILD_DIR/libthecore.a" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libpoly.a" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libdb_objs.a"; do
     if [ ! -f "$lib" ]; then
         echo "HATA: Zorunlu kütüphane eksik: $lib" >&2

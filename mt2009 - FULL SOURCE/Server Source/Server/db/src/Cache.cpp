@@ -111,7 +111,15 @@ void CPlayerTableCache::OnFlush()
 		sys_log(0, "PlayerTableCache::Flush : %s", m_data.name);
 
 	char szQuery[QUERY_MAX_LEN];
-	CreatePlayerSaveQuery(szQuery, sizeof(szQuery), &m_data);
+	size_t queryLen = CreatePlayerSaveQuery(szQuery, sizeof(szQuery), &m_data);
+	if (queryLen == 0)
+	{
+		sys_err("PlayerTableCache::OnFlush: cannot create save query for %s (id %u) - DB disconnected or escape failed. Keeping dirty in RAM.", m_data.name, m_data.id);
+		m_bNeedQuery = true;
+		m_bSavePending = false;
+		return;
+	}
+
 	CDBManager::instance().ReturnQuery(szQuery, QID_PLAYER_SAVE, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 }
 

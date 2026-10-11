@@ -66,6 +66,14 @@ class CIntegrationAsyncSQL : public CAsyncSQL2
 {
 public:
     std::function<std::unique_ptr<SQLMsg>(const char*)> m_directQueryHandler;
+    std::function<size_t(char*, size_t, const char*, size_t)> m_escapeHandler;
+
+    size_t EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize) override
+    {
+        if (m_escapeHandler)
+            return m_escapeHandler(dst, dstSize, src, srcSize);
+        return CAsyncSQL2::EscapeString(dst, dstSize, src, srcSize);
+    }
 
     std::unique_ptr<SQLMsg> DirectQuery(const char * c_pszQuery) override
     {
@@ -106,6 +114,12 @@ int main()
 
     auto testDirectSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
     CIntegrationAsyncSQL* testDirectSql = testDirectSqlPtr.get();
+    testDirectSql->m_escapeHandler = [](char* dst, size_t dstSize, const char* src, size_t srcSize) -> size_t {
+        if (!dst || dstSize < srcSize * 2 + 1) return 0;
+        memcpy(dst, src, srcSize);
+        dst[srcSize] = '\0';
+        return srcSize;
+    };
     dbManager.SetDirectSQL(SQL_PLAYER, std::unique_ptr<CAsyncSQL2>(testDirectSqlPtr.release()));
 
     // =========================================================================
@@ -668,10 +682,13 @@ int main()
     }
 
     // =========================================================================
-    // SENARYO 9: DBManager SQL Escape Guvenligi ve Cok Baytli Karakter Butunlugu
+    // SENARYO 9: DBManager SQL Escape Guvenligi ve Baglanti Yoklugunda Fail-Closed
     // =========================================================================
     {
-        std::cout << "[RUN] Senaryo 9: DBManager SQL escape guvenligi ve cok baytli karakter butunlugu..." << std::endl;
+        std::cout << "[RUN] Senaryo 9: DBManager fail-closed guvenligi ve baglanti yoklugunda veri korumasi..." << std::endl;
+
+        // DB baglantisiz durumunu simule et
+        testDirectSql->m_escapeHandler = nullptr;
 
         char buf[1024];
 
@@ -682,50 +699,59 @@ int main()
         TEST_ASSERT(dbManager.EscapeString(buf, "test", 4, -1) == 0, "Senaryo 9A: negative slot returns 0");
         TEST_ASSERT(dbManager.EscapeString(buf, "test", 4, SQL_MAX_NUM) == 0, "Senaryo 9A: out-of-range slot returns 0");
 
-        // 9B: Standart ASCII, Tek/Cift Tirnak, Ters Bolu, NUL ve Ozel Karakterler
-        const char testAscii[] = "Warrior's \\ \"Sword\" \n \r \032";
-        unsigned long len9B = dbManager.EscapeString(buf, testAscii, strlen(testAscii));
-        TEST_ASSERT(len9B > 0, "Senaryo 9B: Standard escape produces output");
-        TEST_ASSERT(strstr(buf, "\\'") != nullptr, "Senaryo 9B: Single quote escaped with \\'");
-        TEST_ASSERT(strstr(buf, "\\\\") != nullptr, "Senaryo 9B: Backslash escaped with \\\\");
-        TEST_ASSERT(strstr(buf, "\\\"") != nullptr, "Senaryo 9B: Double quote escaped with \\\"");
-        TEST_ASSERT(strstr(buf, "\\n") != nullptr, "Senaryo 9B: Newline escaped with \\n");
-        TEST_ASSERT(strstr(buf, "\\r") != nullptr, "Senaryo 9B: Carriage return escaped with \\r");
-        TEST_ASSERT(strstr(buf, "\\Z") != nullptr, "Senaryo 9B: Ctrl+Z escaped with \\Z");
+        // 9B: Baglanti Yoklugunda Fail-Closed Guvenlik Sozlesmesi
+        // Veritabani baglantisi ve aktif karakter seti olmadan metin kacirma ASLA yapilmaz
+        // (multibyte SQL injection ve NO_BACKSLASH_ESCAPES ihlali kesin olarak engellenir).
+        buf[0] = 'X';
+        unsigned long len9B = dbManager.EscapeString(buf, "Warrior's Sword", 15);
+        TEST_ASSERT(len9B == 0, "Senaryo 9B: Disconnected EscapeString returns 0 (fails closed)");
+        TEST_ASSERT(buf[0] == '\0', "Senaryo 9B: Disconnected EscapeString clears destination buffer");
+        TEST_ASSERT(dbManager.EscapeString(buf, "SimpleASCII", 11) == 0, "Senaryo 9B: Even simple ASCII fails closed when offline");
 
-        // 9C: Cok Baytli Karakter Seti (Multibyte GBK/Big5/SJIS) Guvenligi
-        // GBK kodlamasinda karakter 0xBF 0x5C baytlarindan olusur (ikinci bayt 0x5C = backslash).
-        // Naive bir kacis fonksiyonu 0x5C'yi gorup onune '\' atarak karakteri bozar (multibyte SQL injection).
-        const char gbkInput[] = { (char)0xBF, (char)0x5C, 0 };
-        unsigned long len9C = dbManager.EscapeString(buf, gbkInput, 2);
-        TEST_ASSERT(len9C == 2, "Senaryo 9C: Multibyte character preserved without extra escaping");
-        TEST_ASSERT((unsigned char)buf[0] == 0xBF && (unsigned char)buf[1] == 0x5C, "Senaryo 9C: Trail byte 0x5C was not mutilated");
-        TEST_ASSERT(buf[2] == '\0', "Senaryo 9C: Properly NUL terminated");
+        // 9C: Kritik UTF-8 Karsi Ornegi Baglanti Yoklugunda Guvenle Reddedilir
+        // E2 82 81 27 ('₁\'') dizgisi baglantisiz ortamda guvensiz kacirilamaz
+        const char badInput[] = "\xE2\x82\x81'";
+        unsigned long len9C = dbManager.EscapeString(buf, badInput, 4);
+        TEST_ASSERT(len9C == 0, "Senaryo 9C: Subscript one quote counterexample safely rejected when offline");
+        TEST_ASSERT(buf[0] == '\0', "Senaryo 9C: Destination buffer cleared to prevent unescaped SQL use");
 
-        // 9D: Turkce UTF-8 Dizgisi ve Tirnak Kacisi
-        const char trInput[] = "Ahmet'in k\xC4\xB1" "l\xC4\xB1" "c\xC4\xB1";
-        unsigned long len9D = dbManager.EscapeString(buf, trInput, strlen(trInput));
-        TEST_ASSERT(len9D == strlen(trInput) + 1, "Senaryo 9D: Exactly one escape backslash added for single quote");
-        TEST_ASSERT(strstr(buf, "Ahmet\\'in") != nullptr, "Senaryo 9D: Single quote properly escaped");
-        TEST_ASSERT(strstr(buf, "k\xC4\xB1" "l\xC4\xB1" "c\xC4\xB1") != nullptr, "Senaryo 9D: UTF-8 Turkish multibyte bytes preserved verbatim");
-
-        // 9E: Ikili Yapi (Binary Struct) ve Gomulu NUL Baytlari (skills / quickslot)
-        const char binInput[] = { 'S', 'K', '\0', 'I', 'L', 'L', '\\', '\'', '\0' };
-        unsigned long len9E = dbManager.EscapeString(buf, binInput, sizeof(binInput));
-        TEST_ASSERT(len9E > sizeof(binInput), "Senaryo 9E: Binary data with NUL bytes escaped properly");
-        TEST_ASSERT(strstr(buf, "SK\\0ILL") != nullptr, "Senaryo 9E: Embedded NUL escaped as \\0");
-
-        // 9F: Baglanti Yoklugunda Kirli Onbellegin Korunmasi (Fail-Fast Guvencesi)
-        DWORD testPid = 8801;
+        // 9D: Baglanti Yoklugunda CreatePlayerSaveQuery Guvenle Basarisiz Olur
+        // Guvensiz veya bos skill/quickslot ile bozuk SQL sorgusu uretilmesi ENGELLENIR!
         TPlayerTable ptOffline{};
-        ptOffline.id = testPid;
+        ptOffline.id = 8801;
         strlcpy(ptOffline.name, "OfflineSaveHero", sizeof(ptOffline.name));
+        ptOffline.skills[0].bMasterType = 1;
+        ptOffline.skills[0].bLevel = 20;
+        char saveQuery[QUERY_MAX_LEN] = {0};
+        size_t queryLen = CreatePlayerSaveQuery(saveQuery, sizeof(saveQuery), &ptOffline);
+        TEST_ASSERT(queryLen == 0, "Senaryo 9D: CreatePlayerSaveQuery returns 0 when DB is disconnected");
+        TEST_ASSERT(saveQuery[0] == '\0', "Senaryo 9D: No corrupted SQL query generated");
+        TEST_ASSERT(strlen(saveQuery) == 0, "Senaryo 9D: Save query buffer remains clean");
+
+        // 9E: Baglanti Yoklugunda Flush Sirasinda Kirli Verinin ve Durum Gecislerinin Korunmasi
+        // DB baglantisi yokken Flush() cagirildiginda veri ASLA sessizce silinmez veya kaybedilmez!
         clientManager.PutPlayerCache(&ptOffline);
-        CPlayerTableCache* pkCache = clientManager.GetPlayerCache(testPid);
-        TEST_ASSERT(pkCache != nullptr, "Senaryo 9F: Cache created");
-        TEST_ASSERT(pkCache->IsNeedQuery() == true, "Senaryo 9F: Cache is dirty");
+        CPlayerTableCache* pkCache = clientManager.GetPlayerCache(ptOffline.id);
+        TEST_ASSERT(pkCache != nullptr, "Senaryo 9E: Cache created");
+        TEST_ASSERT(pkCache->IsNeedQuery() == true, "Senaryo 9E: Cache is initially dirty");
         pkCache->MarkPendingEviction();
-        TEST_ASSERT(pkCache->CanEvict() == false, "Senaryo 9F: Dirty cache with pending eviction CANNOT be evicted while unsaved");
+
+        // Flush yapilmaya calisiliyor ama DB baglantisi yok
+        pkCache->Flush();
+
+        // OnFlush escaping basarisizligini tespit edip m_bNeedQuery'yi true, m_bSavePending'i false yapmali
+        TEST_ASSERT(pkCache->IsNeedQuery() == true, "Senaryo 9E: Cache REMAINS dirty after failed offline flush");
+        TEST_ASSERT(pkCache->IsSavePending() == false, "Senaryo 9E: SavePending cleared so future flush can retry");
+        TEST_ASSERT(pkCache->CanEvict() == false, "Senaryo 9E: Dirty cache CANNOT be evicted while unsaved (Data Loss Prevented)");
+
+        // 9F: Arabellek Boyutu ve Guvenli Sinir Kontrolleri
+        // EscapeString hedef arabellek icin en az 2 * length + 1 boyut kuralini destekler
+        char smallBuf[64] = {0};
+        TEST_ASSERT(dbManager.EscapeString(smallBuf, "test", 4) == 0, "Senaryo 9F: Offline escape consistently returns 0");
+        TEST_ASSERT(smallBuf[0] == '\0', "Senaryo 9F: Buffer is properly NUL-terminated");
+        TEST_ASSERT(dbManager.DirectQuery("", SQL_PLAYER)->IsError() == true, "Senaryo 9F: Empty query rejected by DirectQuery");
+        TEST_ASSERT(dbManager.DirectQuery(nullptr, SQL_PLAYER)->IsError() == true, "Senaryo 9F: Null query rejected by DirectQuery");
+        TEST_ASSERT(pkCache->GetVersion() == 1, "Senaryo 9F: Cache version remains intact without corruption");
     }
 
     std::cout << "\n==================================================" << std::endl;
