@@ -347,20 +347,17 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Rev 21 Git Senkronizasyonu ve FreeBSD CI Doğrulaması — Rev 21 SQL güvenlik ve canlı kaçış düzeltmelerinin Git'e commit edilip `origin dev/windows-gcc-baseline` dalına push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) doğrulanması.
-* **Mevcut Durum:** **TESTED LOCALLY (412 Unit + 116 Component = 528 Tests PASS, 64-bit db.exe LINKED) — CI VERIFICATION IN PROGRESS**.
+* **Aktif Görev:** Rev 21 CI Doğrulaması (Run ID: `38181369275`) — Rev 21 manifesto düzeltmesi (`8446fe46`) sonrası GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) tamamlanmasının izlenmesi.
+* **Mevcut Durum:** **CI RUNNING (Run ID: 38181369275, Commit: `8446fe46`)**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Rev 21 commit ve push işlemi:
-  1. `git add` ile yalnızca ilgili dosyaların eklenmesi (`AsyncSQL.h`, `AsyncSQL.cpp`, `DBManager.cpp`, `ClientManagerPlayer.cpp`, `ClientManager.cpp`, `ClientManagerIkarusShop.cpp`, `Cache.cpp`, `IkarusShopCache.cpp`, `test_libsql.cpp`, `test_live_db.cpp`, `test_db_cache_integration.cpp`, `run_db_integration_tests.sh`, `.github/workflows/freebsd-gcc-test.yml`, `PROJECT_STATE.md`).
-  2. `git commit -m "fix(db): harden SQL escaping against counterexamples, delegate to mysql_real_escape_string, and add live charset suite (Rev 21)"`.
-  3. `git push origin dev/windows-gcc-baseline`.
-  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
-  5. `gh run list` ve `gh run view` ile tetiklenen FreeBSD CI koşusunun tek seferlik incelenmesi.
-  6. Üç FreeBSD işi tamamlandığında 528 test, 64-bit ELF `db_r1` derlemesi ve canlı DB testlerinin doğrulanması.
+* Rev 21 CI doğrulaması ve Dizin Göçü başlangıcı:
+  1. `gh run view 38181369275 --repo x64bit-source/Metin2-MT2009 --json status,conclusion,jobs` ile sonucun kontrol edilmesi.
+  2. Üç FreeBSD işi tamamlandığında 528 test, 64-bit ELF `db_r1` derlemesi, 116 component testi ve canlı DB testlerinin (Bölüm 1-13) doğrulanması.
+  3. `docs/migration/06_path_migration_map.csv` haritasına dayalı olarak ilk güvenli ve küçük modülün (`libpoly` veya `libgame`) yeni dizin yapısına (`server/src/`) taşınması.
 
 
 
