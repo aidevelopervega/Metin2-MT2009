@@ -100,7 +100,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Toplam:** **260/260 test başarılı (%100)** (+ 1 [SKIP] Canlı DB testi).
   * **Platform Doğrulama Notu:**
     * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 260/260 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 10: Run 38131369772 / Commit 5880fbed) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 242/242 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı; yeni Rev 11 ile 260/260 test otomatik olarak icra edilecektir.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 11: Run 38132231435 / Commit 7f3633bd) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 260/260 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -207,7 +207,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * Otomatik reconnect sonrasında düşen sorgunun kontrolsüz tekrar çalıştırılması (`ResendQuery`) engellendi; veri bütünlüğü ve non-idempotent güvenlik sağlandı.
   * `Tellwait.h`/`Tellwait.cpp` ve `libthecore/include/signal.h` kök neden düzeltmeleriyle header shadowing giderildi.
   * `tests/test_libsql.cpp` (111 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 111/111 (toplamda 260/260) test 0 hata ve 0 uyarı ile doğrulandı (+ 1 [SKIP] canlı DB testi).
-  * GitHub Actions CI iş akışı (Rev 10: Run 38131369772 / Commit 5880fbed) ile FreeBSD 15.1 amd64 GCC 14 ortamında 242/242 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı; yeni Rev 11 ile 260/260 test otomatik olarak tetiklenmektedir.
+  * GitHub Actions CI iş akışı (Rev 11: Run 38132231435 / Commit 7f3633bd) ile FreeBSD 15.1 amd64 GCC 14 ortamında 260/260 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı.
 * [ ] **Aşama 11.2 (libsql Canlı DB Entegrasyonu ve Connector/C Kütüphaneleri):**
   * Windows amd64 ve FreeBSD amd64 için Oracle MySQL 8.4 ve MariaDB 12.3/11.4 canlı bağlantı ve transaction doğrulama testlerinin icra edilmesi.
 
@@ -215,7 +215,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.1 Açık Hataları Giderme ve Uçtan Uca SQL Veri Güvenliği Doğrulaması tamamlandı. Windows amd64 GCC 16.2.0 üzerinde 260/260 test (%100 başarı, 0 hata, 0 uyarı, 1 SKIP) doğrulandı. FreeBSD 15.1 amd64 CI koşusu (Rev 10: Run 38131369772) başarıyla onaylandı; Rev 11 CI tetiklendi. Kullanıcıya ayrıntılı veri güvenliği, SQL log temizliği ve çağrı noktası denetim raporunun sunulması.
+* **Aktif Görev:** Aşama 11.1 Açık Hataları Giderme ve Uçtan Uca SQL Veri Güvenliği Doğrulaması tamamlandı. Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 (Run 38132231435 / Commit 7f3633bd) üzerinde 260/260 test (%100 başarı, 0 hata, 0 uyarı, 1 SKIP) doğrulandı. Kullanıcıya ayrıntılı veri güvenliği, SQL log temizliği ve çağrı noktası denetim raporunun sunulması.
 
 ---
 
