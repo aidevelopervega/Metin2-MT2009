@@ -45,7 +45,7 @@ void CItemCache::OnFlush()
 	{
 		char szQuery[QUERY_MAX_LEN];
 		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), m_data.id);
-		CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_DESTROY, m_data.id, NULL);
+		CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_DESTROY, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 
 		if (g_test_server)
 			sys_log(0, "ItemCache::Flush : DELETE %u %s", m_data.id, szQuery);
@@ -85,7 +85,7 @@ void CItemCache::OnFlush()
 		if (g_test_server)
 			sys_log(0, "ItemCache::Flush :REPLACE  (%s)", itemQuery.c_str());
 
-		CDBManager::instance().ReturnQuery(itemQuery.c_str(), QID_ITEM_SAVE, m_data.id, NULL);
+		CDBManager::instance().ReturnQuery(itemQuery.c_str(), QID_ITEM_SAVE, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 
 		++g_item_count;
 	}
@@ -112,7 +112,7 @@ void CPlayerTableCache::OnFlush()
 
 	char szQuery[QUERY_MAX_LEN];
 	CreatePlayerSaveQuery(szQuery, sizeof(szQuery), &m_data);
-	CDBManager::instance().ReturnQuery(szQuery, QID_PLAYER_SAVE, m_data.id, NULL);
+	CDBManager::instance().ReturnQuery(szQuery, QID_PLAYER_SAVE, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 }
 
 // MYSHOP_PRICE_LIST

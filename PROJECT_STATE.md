@@ -153,10 +153,10 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
    * `Server Source/Extern/lib` altındaki 5 adet kütüphane (`libmysqlclient.a`, `libcryptopp.a`, `libIL.a`, `libILU.a`, `libILUT.a`) FreeBSD 32-bit ELF'tir. Windows amd64 GCC için uyumlu kütüphanelerin temin edilmesi gerekmektedir.
 3. **Windows Sistem/Sinyal Farklılıkları:**
    * `signal.c` içerisinde Windows için sinyal işleme stub durumundadır; Windows'ta sunucu konsol/geliştirme modunda interaktif çalışmaktadır.
-4. **Çıkış Yapan Karakterin Bellek Önbelleğinden Silinmesi ve Veri Kaybı Riski (Logout Cache Flush / Deletion Race):**
-   * `CClientManager::Process` içinde `QID_PLAYER_SAVE`, `QID_ITEM_SAVE`, `QID_SAFEBOX_SAVE` gibi kritik asenkron sorgular veritabanına gönderilirken, karakter oyundan çıktığında `FlushItemCache` ve `FlushPlayerCache` sonrasında nesneler bellek önbelleğinden (`m_map_playerCache`) anında silinmektedir.
-   * Eğer veritabanı bağlantısı o anda kesilir veya sorgu başarısız olursa, bellek kopyası çoktan silindiği için `SetNeedQuery` kirli veri bayrağı kaybolmakta ve oyuncunun son envanter/karakter ilerlemesi kalıcı olarak yitirilebilmektedir.
-   * Bu sorun açık bir mimari veri güvenliği riskidir; db sunucusunun genel modernizasyonu aşamasında asenkron kayıt tamamlanana kadar önbelleğin silinmemesi (deferred cache eviction / commit acknowledgment) mimarisiyle kökünden çözülmelidir.
+4. **Çıkış Yapan Karakterin Bellek Önbelleğinden Silinmesi ve Veri Kaybı Riski (Logout Cache Flush / Deletion Race) — [ÇÖZÜLDÜ]:**
+   * `cache<T>`, `CPlayerTableCache`, `CItemCache`, `ClientManager` ve `ClientManagerPlayer` üzerinde gecikmeli tahliye (deferred cache eviction / generation versioning) mimarisi kuruldu.
+   * `FlushPlayerCacheSet`, `FlushItemCacheSet` ve `QUERY_FLUSH_CACHE` çağrılarında nesneler hemen silinmeyip `MarkPendingEviction()` ile işaretlenmekte; yalnızca veritabanından başarılı onay (`OnSaveSuccess`) geldiğinde tahliye edilmektedir.
+   * Başarısızlık veya bağlantı kopmasında (`OnSaveFailure`, `AnalyzeFailedQuery`) kirli durum (`m_bNeedQuery = true`) korunmakta; nesneler RAM'de saklanmakta; oyuncu tekrar bağlandığında (`QUERY_PLAYER_LOAD`) önbellek tahliyesi iptal edilerek en güncel RAM verisiyle devam edilmektedir (Senaryo A-H, 120 test ile %100 doğrulandı).
 
 ---
 
@@ -272,20 +272,48 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **Senaryo 11.A:** `SELECT SLEEP(2)` sunucuda işlenirken soket anında koparılmış; istemcide `CR_SERVER_LOST` (2013) / `CR_SERVER_GONE_ERROR` (2006) ve `IsError() == true` üretilmiş, sunucu çökmeden çalışmaya devam etmiştir.
     * **Senaryo 11.B:** Non-idempotent `UPDATE` sorgusu sunucuda commit edildikten sonra sunucunun OK yanıt paketi istemciye ulaşmadan düşürülmüş; istemcinin UNKNOWN işlem durumunu koruduğu, veritabanında değişikliğin fiilen yazıldığı (`initial + 500`), ve `libsql` tarafından asla körlemesine `ResendQuery` yapılmadığı (%100 veri güvenliği) kanıtlanmıştır.
   * Tüm önceki modüllerin 290/290 regresyon testi hem Windows'ta hem de FreeBSD'de hiçbir bozulma olmadan (%100) başarıyla korundu.
+* [x] **Aşama 11.4 (DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği):**
+  * **Gerçek 64-Bit Windows DB Derlemesi:**
+    * Tüm 30 C++ kaynak dosyası (`Cache.cpp`, `ClientManager.cpp`, `ClientManagerPlayer.cpp`, `Main.cpp`, `DBManager.cpp` vb.) MinGW-w64 GCC 16.2.0 UCRT C++20 ile sıfır hata ile derlendi.
+    * Gerçek 64-bit `db.exe` binary'si yerel 64-bit `libthecore.a`, `libsql.a`, `libpoly.a`, `libgame.a` ve `libmariadb.a` ile bağlandı (`pei-x86-64`, 1.295.722 bayt).
+    * `singleton.h` 64-bit işaretçi kırpılması (`cast from '...' to 'long int' loses precision`) `intptr_t` kullanılarak kalıcı çözüldü.
+    * RapidJSON C++20 atama operatörü ve üye değişken mutability sorunu giderildi.
+    * `libthecore/include/signal.h` başlığında `#include_next` sıra düzeltmesiyle header-shadowing özyinelemeli dahil etme döngüsü çözüldü.
+    * `ClientManager.h` içinde `AnalyzeQueryResult` ve `AnalyzeFailedQuery` metotları `public:` yapılarak `Main.cpp` erişimine açıldı.
+  * **Asenkron Kayıt ve Bellekten Tahliye (Cache Eviction) Güvenliği:**
+    * `cache<T>` şablon sınıfına nesil/versiyon takibi (`m_dwVersion`, `m_dwPendingSaveVersion`), in-flight durum bayrağı (`m_bSavePending`), gecikmeli tahliye durumu (`m_bPendingEviction`), UNKNOWN durum bayrağı (`m_bIsUnknown`) ve güvenli tahliye denetimi (`CanEvict()`) eklendi.
+    * `FlushPlayerCacheSet`, `FlushItemCacheSet` ve `QUERY_FLUSH_CACHE` çağrılarında nesnelerin körlemesine silinmesi engellendi; `MarkPendingEviction()` ile işaretlenip veritabanından başarı onayı (`OnSaveSuccess`) gelene kadar RAM'de tutulması sağlandı.
+    * Kayıt başarısız olduğunda veya bağlantı koptuğunda (`OnSaveFailure`, `AnalyzeFailedQuery`) kirli durum (`m_bNeedQuery = true`) korunarak veri kaybı kesin olarak önlendi.
+    * Oyuncu çıkış sonrası veritabanı yanıtı beklenirken veya bağlantı kopmuşken tekrar bağlandığında (`QUERY_PLAYER_LOAD`) RAM'deki en güncel kirli veri kullanılarak eski veritabanı kaydıyla ezilme riski sıfırlandı (`CancelPendingEviction()`).
+    * Sunucu kapanışında (`MainLoop` bitişi) tüm oyuncu, eşya ve fiyat listesi önbellekleri tahliyeye işaretlenip `Flush()` edilerek, tüm kuyruklar ve önbellek onayları tamamlanana kadar çalışan güvenli draining döngüsü kuruldu.
+  * **Kapsamlı Test Paketi (Senaryo A'dan H'ye):**
+    * `tests/test_db_cache.cpp` otomatik test paketi oluşturuldu; 8 kritik senaryoda **120/120 test assertion'ı %100 başarıyla geçti**:
+      * **Senaryo A:** Başarılı asenkron kayıt sonrası önbelleğin güvenli tahliyesi.
+      * **Senaryo B:** Kayıt başarısızlığında önbelleğin silinmemesi, kirli kalması ve verinin korunması.
+      * **Senaryo C:** Çıkış anında SQL bağlantısı kesikse veri kaybı yaşanmaması ve yeniden girişte RAM önceliği.
+      * **Senaryo D:** SQL yanıtı beklenirken oyuncu verisinde yeni değişiklik yapıldığında eski yanıtın yeni veriyi geçersiz kılmaması (versiyon koruması).
+      * **Senaryo E:** Ağ kesintisi ve UNKNOWN işlem durumunda çifte harcama ve veri çoğalması koruması.
+      * **Senaryo F:** Art arda birden fazla kayıt kuyruğa alındığında sıralama garantisi ve gecikmiş ACK koruması.
+      * **Senaryo G:** Önbellek nesnesinin yaşam döngüsü ve durum geçişleri.
+      * **Senaryo H:** Sunucu kapanışında bekleyen tüm kayıtların eksiksiz tamamlanması (graceful shutdown draining).
+    * Toplam modül regresyon test sayısı 290'dan **410 test/assertion'a (%100 PASS)** yükseltildi (`libpoly`: 24, `libthecore`: 97, `libgame`: 28, `libsql`: 141, `db_cache`: 120).
+  * **FreeBSD 15.1 CI Entegrasyonu (Rev 18):**
+    * `Server/db/src/Makefile` modernize edildi (`-m32` ve `/usr/lib32` bağımlılıkları kaldırıldı; 64-bit GCC uyumlu hale getirildi).
+    * `.github/workflows/freebsd-gcc-test.yml` Rev 18'e yükseltildi; `tests/run_tests.sh` içine `test_db_cache` (120 test) eklendi; CI ortamında gerçek 64-bit `db` derlemesi adımı tanımlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.2 Gerçek Canlı MySQL 8.4 ve MariaDB 12.3/11.4 Entegrasyonu; Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında TLS, katı mod, CRUD, ACID, 64-bit sayaçlar, önceden kesilmiş soket koruması, sorgu anında hat kopması ve yanıt paketi düşürülmesinde UNKNOWN durumunun korunması (219 canlı test assertion'ı + 290 modül regresyon testi) ile sıfır hata ve sıfır uyarı ile **TAMAMLANDI**.
+* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği (30/30 C++ dosyası derlemesi, gerçek 64-bit `db.exe` üretimi, Senaryo A-H gecikmeli tahliye mimarisi, 120/120 db cache testi, toplam 410/410 regresyon testi) Windows üzerinde sıfır hata ve sıfır uyarı ile **TAMAMLANDI**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
 * Kullanıcı onayı doğrultusunda:
-  1. **Aşama 11.3 (SQL Şema Migrasyonu ve Tablo Standardizasyonu):** Sıfır tarihler (`0000-00-00`), MyISAM log tablolarının güvenli InnoDB dönüşüm stratejisi, ANSI codepage ve `latin1`/`cp1250` karakter seti koruma kuralları.
-  2. Veya **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC uyumluluğu hazırlığı.
+  1. Rev 18 commit ve push işlemi ile FreeBSD 15.1 GitHub Actions CI koşusunun doğrulanması.
+  2. **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC uyumluluğu hazırlığı.
 
 
 

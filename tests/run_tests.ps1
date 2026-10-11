@@ -213,6 +213,25 @@ try {
     & "$SqlTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libsql testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
+    # ------------------------------------------------------------------------------
+    # 5. DB CACHE VE VERİ GÜVENLİĞİ TESTİ (Senaryo A - H)
+    # ------------------------------------------------------------------------------
+    Write-Host "`n[5/5] db cache ve veri güvenliği testleri derleniyor ve test ediliyor..." -ForegroundColor Yellow
+    $DbCacheIncludes = @(
+        "-I$CoreDir\include",
+        "-I$CommonDir",
+        "-I$SqlDir",
+        "-I$ExternDir\include"
+    )
+
+    $DbCacheTestExe = "$BuildDir\test_db_cache.exe"
+    & $Gxx @CommonFlags @DbCacheIncludes "$RootDir\tests\test_db_cache.cpp" "$CoreLib" -lws2_32 -o "$DbCacheTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_db_cache bağlama hatası" }
+
+    Write-Host "--> test_db_cache.exe çalıştırılıyor..." -ForegroundColor Green
+    & "$DbCacheTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_db_cache testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
     Write-Host "`n==================================================" -ForegroundColor Cyan
     Write-Host " [BAŞARILI] TÜM MODÜL VE REGRESYON TESTLERİ GEÇTİ!" -ForegroundColor Green
     Write-Host "==================================================" -ForegroundColor Cyan

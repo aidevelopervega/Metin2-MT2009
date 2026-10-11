@@ -1,7 +1,7 @@
-CC = clang
-CXX = clang++
+CC ?= gcc
+CXX ?= g++
 
-DB_VERSION = $(shell cat ../../__REVISION__)
+DB_VERSION = $(shell cat ../../__REVISION__ 2>/dev/null || echo "1")
 LBITS := $(shell getconf LONG_BIT)
 
 INCDIR =
@@ -21,33 +21,21 @@ DEPFILE = Depend
 endif
 
 # Project Flags
-CFLAGS  = -m32 -g -Wall -O2 -pipe -fno-rtti -fno-exceptions -Wno-long-long -pthread -D_THREAD_SAFE
-CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-deprecated-declarations -Wno-array-bounds -Wno-address
-CFLAGS += -Wno-int-in-bool-context -Wno-format-truncation -Wno-deprecated-enum-enum-conversion
+CFLAGS  = -g -Wall -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE
+CFLAGS += -Wno-deprecated-declarations -Wno-array-bounds -Wno-address
+CFLAGS += -Wno-format-truncation -Wno-deprecated-enum-enum-conversion
 CFLAGS += -w
 CXXFLAGS = -std=c++20
 
-# for clang
-ifneq '' '$(findstring clang++,$(CXX))'
-CFLAGS += -Wno-invalid-source-encoding -Wno-deprecated-anon-enum-enum-conversion -Wno-unknown-warning-option
-# for gcc
-else ifneq '' '$(findstring g++,$(CXX))'
-# for 32bit on 64bit
-ifeq ($(LBITS),64)
-CFLAGS += -L/usr/local/lib32/gcc12
-CFLAGS += -Wl,-rpath=/usr/local/lib32/gcc12
+# Database client libraries
+INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include
+LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb -L/usr/local/lib
+ifneq ($(wildcard /usr/local/lib/libmariadb.so /usr/local/lib/libmariadb.a),)
+LIBS += -lmariadb -lz
+else ifneq ($(wildcard /usr/local/lib/mysql/libmysqlclient.so /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.so /usr/local/lib/libmysqlclient.a),)
+LIBS += -lmysqlclient -lz
 else
-# for 32bit on 32bit
-CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc12
-endif
-endif
-
-# MySQL
-INCDIR += -I/usr/local/include/mysql
-ifeq ($(LBITS),64)
-LIBS += ../../../Extern/lib/libmysqlclient.a -lz
-else
-LIBS += /usr/local/lib/mysql/libmysqlclient.a /usr/lib/libz.a
+LIBS += -lmariadb -lz
 endif
 
 ifeq ($(ENABLE_STATIC), 1)
@@ -65,15 +53,11 @@ INCDIR += -I/usr/local/include
 INCDIR += -I../../../Extern/include
 LIBDIR += -I../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib
+LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL
-ifeq ($(LBITS),64)
-LIBS += /usr/lib32/libcrypto.a /usr/lib32/libssl.a
-else
 LIBS += -lssl -lcrypto
-endif
 
 # AUTO_DETECT_SOURCE_FILES BEGIN
 # Automatyczne wykrycie wszystkich plików .cpp w bieżącym folderze

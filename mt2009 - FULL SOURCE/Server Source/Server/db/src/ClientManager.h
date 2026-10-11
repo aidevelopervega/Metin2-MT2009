@@ -177,6 +177,10 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	char*			GetCommand(char* str, char* command);
 	void			ItemAward(CPeer * peer, char* login);
 
+	int			AnalyzeQueryResult(SQLMsg * msg);
+	void			AnalyzeFailedQuery(SQLMsg * msg);
+	int			AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
+
     protected:
 	void	Destroy();
 
@@ -209,10 +213,6 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void		AddPeer(socket_t fd);
 	void		RemovePeer(CPeer * pPeer);
 	CPeer *		GetPeer(IDENT ident);
-
-	int		AnalyzeQueryResult(SQLMsg * msg);
-	void		AnalyzeFailedQuery(SQLMsg * msg);
-	int		AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
 
 	int		Process();
 

@@ -86,5 +86,11 @@ $RANLIB "$BUILD_DIR/libsql.a"
 $CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
 "$BUILD_DIR/test_libsql"
 
+# 5. db cache
+echo "[5/5] db cache ve veri guvenligi testleri derleniyor ve test ediliyor..."
+$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
+"$BUILD_DIR/test_db_cache"
+
 echo "=== [BASARILI] TUM MODUL VE REGRESYON TESTLERI GECTI! ==="
+
 

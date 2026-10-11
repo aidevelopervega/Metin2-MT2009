@@ -1,4 +1,4 @@
-# Rev 17: Mid-Query Severance & Post-Commit Dropped Response TCP Fault Injection Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 18: 64-Bit DB Module Modernization & Player Cache Eviction Data Safety Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -13,6 +13,7 @@ on:
       - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libsql/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/common/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/db/**'
   workflow_dispatch:
 
 permissions:
@@ -59,6 +60,7 @@ jobs:
             mt2009 - FULL SOURCE/Server Source/Server/libthecore
             mt2009 - FULL SOURCE/Server Source/Server/libsql
             mt2009 - FULL SOURCE/Server Source/Server/common
+            mt2009 - FULL SOURCE/Server Source/Server/db
             mt2009 - FULL SOURCE/Server Source/Extern/include
           sparse-checkout-cone-mode: false
 
@@ -70,7 +72,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14
+            pkg install -y gcc14 gmake
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -147,6 +149,12 @@ jobs:
 
             echo "--> $SERVER_PKG paketi başarıyla kuruldu!"
             pkg info | grep -E 'gcc14|mariadb|mysql' || true
+
+            # 5. FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
+            echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
+            gmake -C "mt2009 - FULL SOURCE/Server Source/Server/db/src" CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            ls -lh "mt2009 - FULL SOURCE/Server Source/Server/db"
+            file "mt2009 - FULL SOURCE/Server Source/Server/db"/db_r* || true
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"

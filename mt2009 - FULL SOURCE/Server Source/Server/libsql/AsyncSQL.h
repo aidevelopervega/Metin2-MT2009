@@ -198,6 +198,7 @@ class CAsyncSQL
 
 		bool		HasFailedQueryOverflow() const { return m_bFailedQueueOverflow; }
 		void		ResetFailedQueueOverflow() { m_bFailedQueueOverflow = false; }
+		void		ResetFailedQueryOverflow() { m_bFailedQueueOverflow = false; }
 		size_t		GetFailedQueueBytes() const { return m_failedQueueBytes; }
 		size_t		GetQueryQueueBytes() const { return m_queryQueueBytes; }
 

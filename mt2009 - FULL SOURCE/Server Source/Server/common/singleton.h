@@ -2,6 +2,7 @@
 #define __INC_SINGLETON_H__
 
 #include <assert.h>
+#include <cstdint>
 
 template <typename T> class singleton
 {
@@ -11,8 +12,8 @@ template <typename T> class singleton
 		singleton()
 		{
 			assert(!ms_singleton);
-			long offset = (long) (T*) 1 - (long) (singleton <T>*) (T*) 1;
-			ms_singleton = (T*) ((long) this + offset);
+			intptr_t offset = (intptr_t) (T*) 1 - (intptr_t) (singleton <T>*) (T*) 1;
+			ms_singleton = (T*) ((intptr_t) this + offset);
 		}
 
 		virtual ~singleton()

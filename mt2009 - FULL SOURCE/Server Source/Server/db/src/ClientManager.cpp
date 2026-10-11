@@ -345,37 +345,101 @@ void CClientManager::MainLoop()
 
 	signal_timer_disable();
 
-	itertype(m_map_playerCache) it = m_map_playerCache.begin();
-
-	while (it != m_map_playerCache.end())
+	// Graceful shutdown draining: mark all caches for eviction and flush
+	for (auto& pair : m_map_playerCache)
 	{
-		CPlayerTableCache * c = (it++)->second;
-
-		c->Flush();
-		delete c;
+		CPlayerTableCache * c = pair.second;
+		if (c)
+		{
+			c->MarkPendingEviction();
+			c->Flush();
+		}
 	}
+
+	for (auto& pair : m_map_itemCache)
+	{
+		CItemCache * c = pair.second;
+		if (c)
+		{
+			c->MarkPendingEviction();
+			c->Flush();
+		}
+	}
+
+	for (auto& pair : m_mapItemPriceListCache)
+	{
+		CItemPriceListTableCache* pCache = pair.second;
+		if (pCache)
+		{
+			pCache->MarkPendingEviction();
+			pCache->Flush();
+		}
+	}
+
+	// Drain all query queues, failed queries and responses to guarantee persistence before shutdown
+	int iShutdownWaitCycles = 0;
+	while (1)
+	{
+		SQLMsg * tmp;
+		while ((tmp = CDBManager::instance().PopResult()))
+		{
+			AnalyzeQueryResult(tmp);
+			delete tmp;
+		}
+
+		while ((tmp = CDBManager::instance().PopFailedQuery()))
+		{
+			AnalyzeFailedQuery(tmp);
+			delete tmp;
+		}
+
+		int iRemainingQueries = 0;
+		for (int s = 0; s < SQL_MAX_NUM; ++s)
+		{
+			iRemainingQueries += CDBManager::instance().CountReturnQuery(s);
+			iRemainingQueries += CDBManager::instance().CountAsyncQuery(s);
+		}
+
+		int iPendingCaches = 0;
+		for (auto& pair : m_map_playerCache)
+		{
+			if (pair.second && (pair.second->IsSavePending() || pair.second->IsNeedQuery()))
+				++iPendingCaches;
+		}
+		for (auto& pair : m_map_itemCache)
+		{
+			if (pair.second && (pair.second->IsSavePending() || pair.second->IsNeedQuery()))
+				++iPendingCaches;
+		}
+
+		if (iRemainingQueries == 0 && iPendingCaches == 0)
+			break;
+
+		usleep(10000);
+		if (++iShutdownWaitCycles % 100 == 0)
+			sys_log(0, "SHUTDOWN_WAITING: queries %d, pending caches %d", iRemainingQueries, iPendingCaches);
+
+		if (iShutdownWaitCycles > 3000) // 30 seconds max wait
+		{
+			sys_err("CRITICAL SHUTDOWN TIMEOUT: Force closing with %d queries, %d pending caches remaining!", iRemainingQueries, iPendingCaches);
+			break;
+		}
+	}
+
+	for (auto& pair : m_map_playerCache)
+		delete pair.second;
 	m_map_playerCache.clear();
 
-	itertype(m_map_itemCache) it2 = m_map_itemCache.begin();
-
-	while (it2 != m_map_itemCache.end())
-	{
-		CItemCache * c = (it2++)->second;
-
-		c->Flush();
-		delete c;
-	}
+	for (auto& pair : m_map_itemCache)
+		delete pair.second;
 	m_map_itemCache.clear();
 
-	// MYSHOP_PRICE_LIST
+	for (auto& pair : m_map_pkItemCacheSetPtr)
+		delete pair.second;
+	m_map_pkItemCacheSetPtr.clear();
 
-	for (itertype(m_mapItemPriceListCache) itPriceList = m_mapItemPriceListCache.begin(); itPriceList != m_mapItemPriceListCache.end(); ++itPriceList)
-	{
-		CItemPriceListTableCache* pCache = itPriceList->second;
-		pCache->Flush();
-		delete pCache;
-	}
-
+	for (auto& pair : m_mapItemPriceListCache)
+		delete pair.second;
 	m_mapItemPriceListCache.clear();
 	// END_OF_MYSHOP_PRICE_LIST
 }
@@ -1641,20 +1705,32 @@ void CClientManager::FlushItemCacheSet(DWORD pid)
 
 	while (it_set != pSet->end())
 	{
-		CItemCache * c = *it_set++;
-		c->Flush();
+		CItemCache * c = *it_set;
+		c->MarkPendingEviction();
 
-		m_map_itemCache.erase(c->Get()->id);
-		delete c;
+		if (c->IsNeedQuery())
+			c->Flush();
+
+		if (c->CanEvict())
+		{
+			m_map_itemCache.erase(c->Get()->id);
+			it_set = pSet->erase(it_set);
+			delete c;
+		}
+		else
+		{
+			++it_set;
+		}
 	}
 
-	pSet->clear();
-	delete pSet;
+	if (pSet->empty())
+	{
+		delete pSet;
+		m_map_pkItemCacheSetPtr.erase(it);
 
-	m_map_pkItemCacheSetPtr.erase(it);
-
-	if (g_log)
-		sys_log(0, "FLUSH_ITEMCACHESET : Deleted pid(%d)", pid);
+		if (g_log)
+			sys_log(0, "FLUSH_ITEMCACHESET : Deleted pid(%d)", pid);
+	}
 }
 
 CItemCache * CClientManager::GetItemCache(DWORD id)
@@ -1853,20 +1929,13 @@ void CClientManager::QUERY_ITEM_DESTROY(CPeer * pkPeer, const char * c_pData)
 
 void CClientManager::QUERY_FLUSH_CACHE(CPeer * pkPeer, const char * c_pData)
 {
+	(void)pkPeer;
 	DWORD dwPID = *(DWORD *) c_pData;
-
-	CPlayerTableCache * pkCache = GetPlayerCache(dwPID);
-
-	if (!pkCache)
-		return;
 
 	sys_log(0, "FLUSH_CACHE: %u", dwPID);
 
-	pkCache->Flush();
+	FlushPlayerCacheSet(dwPID);
 	FlushItemCacheSet(dwPID);
-
-	m_map_playerCache.erase(dwPID);
-	delete pkCache;
 }
 
 void CClientManager::QUERY_RELOAD_PROTO()
@@ -2904,12 +2973,13 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 							qi->iType, qi->dwIdent, msg->uiSQLErrno);
 				}
 
+				DWORD dwFailedVer = (DWORD)(uintptr_t)qi->pvData;
 				if (qi->iType == QID_PLAYER_SAVE && qi->dwIdent != 0)
 				{
 					CPlayerTableCache * pkPlayerCache = GetPlayerCache(qi->dwIdent);
 					if (pkPlayerCache)
 					{
-						pkPlayerCache->SetNeedQuery(true);
+						pkPlayerCache->OnSaveFailure(dwFailedVer, bUnknown);
 						sys_err("PlayerTableCache: player id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
 					}
 					else
@@ -2922,12 +2992,85 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
 					if (pkItemCache)
 					{
-						pkItemCache->SetNeedQuery(true);
+						pkItemCache->OnSaveFailure(dwFailedVer, bUnknown);
 						sys_err("ItemCache: item id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
 					}
 					else
 					{
 						sys_err("ItemCache: item id %u save failed, but cache object already freed (logout race/flush)!", qi->dwIdent);
+					}
+				}
+				else if (qi->iType == QID_ITEM_DESTROY && qi->dwIdent != 0)
+				{
+					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+					if (pkItemCache)
+					{
+						pkItemCache->OnSaveFailure(dwFailedVer, bUnknown);
+						sys_err("ItemCache: item id %u destroy failed, kept dirty in cache for future retry.", qi->dwIdent);
+					}
+				}
+			}
+			else
+			{
+				DWORD dwSavedVer = (DWORD)(uintptr_t)qi->pvData;
+				if (qi->iType == QID_PLAYER_SAVE && qi->dwIdent != 0)
+				{
+					CPlayerTableCache * pkPlayerCache = GetPlayerCache(qi->dwIdent);
+					if (pkPlayerCache)
+					{
+						pkPlayerCache->OnSaveSuccess(dwSavedVer);
+						if (pkPlayerCache->CanEvict())
+						{
+							m_map_playerCache.erase(qi->dwIdent);
+							delete pkPlayerCache;
+							sys_log(0, "PlayerTableCache: player id %u save acknowledged and safely evicted from memory.", qi->dwIdent);
+						}
+					}
+				}
+				else if (qi->iType == QID_ITEM_SAVE && qi->dwIdent != 0)
+				{
+					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+					if (pkItemCache)
+					{
+						pkItemCache->OnSaveSuccess(dwSavedVer);
+						if (pkItemCache->CanEvict())
+						{
+							DWORD dwOwner = pkItemCache->Get()->owner;
+							m_map_itemCache.erase(qi->dwIdent);
+							TItemCacheSet * pSet = GetItemCacheSet(dwOwner);
+							if (pSet)
+							{
+								pSet->erase(pkItemCache);
+								if (pSet->empty())
+								{
+									m_map_pkItemCacheSetPtr.erase(dwOwner);
+									delete pSet;
+								}
+							}
+							delete pkItemCache;
+							sys_log(0, "ItemCache: item id %u save acknowledged and safely evicted from memory.", qi->dwIdent);
+						}
+					}
+				}
+				else if (qi->iType == QID_ITEM_DESTROY && qi->dwIdent != 0)
+				{
+					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+					if (pkItemCache)
+					{
+						DWORD dwOwner = pkItemCache->Get()->owner;
+						m_map_itemCache.erase(qi->dwIdent);
+						TItemCacheSet * pSet = GetItemCacheSet(dwOwner);
+						if (pSet)
+						{
+							pSet->erase(pkItemCache);
+							if (pSet->empty())
+							{
+								m_map_pkItemCacheSetPtr.erase(dwOwner);
+								delete pSet;
+							}
+						}
+						delete pkItemCache;
+						sys_log(0, "ItemCache: item id %u destroy acknowledged and safely deleted.", qi->dwIdent);
 					}
 				}
 			}
@@ -4579,5 +4722,40 @@ void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
 	{
 		sys_err("AnalyzeFailedQuery: Async query failed: errno %u, query: %s",
 				msg->uiSQLErrno, CAsyncSQL::SanitizeQueryForLog(msg->stQuery).c_str());
+	}
+
+	CQueryInfo * qi = (CQueryInfo *) msg->pvUserData;
+	if (qi)
+	{
+		DWORD failedVersion = (DWORD)(uintptr_t)qi->pvData;
+		if (qi->iType == QID_PLAYER_SAVE && qi->dwIdent != 0)
+		{
+			CPlayerTableCache * pkPlayerCache = GetPlayerCache(qi->dwIdent);
+			if (pkPlayerCache)
+			{
+				pkPlayerCache->OnSaveFailure(failedVersion, bUnknown);
+				sys_err("AnalyzeFailedQuery: PlayerTableCache: player id %u kept dirty in cache.", qi->dwIdent);
+			}
+		}
+		else if (qi->iType == QID_ITEM_SAVE && qi->dwIdent != 0)
+		{
+			CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+			if (pkItemCache)
+			{
+				pkItemCache->OnSaveFailure(failedVersion, bUnknown);
+				sys_err("AnalyzeFailedQuery: ItemCache: item id %u kept dirty in cache.", qi->dwIdent);
+			}
+		}
+		else if (qi->iType == QID_ITEM_DESTROY && qi->dwIdent != 0)
+		{
+			CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+			if (pkItemCache)
+			{
+				pkItemCache->OnSaveFailure(failedVersion, bUnknown);
+				sys_err("AnalyzeFailedQuery: ItemCache: item id %u destroy kept dirty in cache.", qi->dwIdent);
+			}
+		}
+		delete qi;
+		msg->pvUserData = NULL;
 	}
 }

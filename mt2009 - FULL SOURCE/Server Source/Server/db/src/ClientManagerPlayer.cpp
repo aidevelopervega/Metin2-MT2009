@@ -239,6 +239,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 	//----------------------------------
 	if ((c = GetPlayerCache(packet->player_id)))
 	{
+		c->CancelPendingEviction();
 		CLoginData * pkLD = GetLoginDataByAID(packet->account_id);
 
 		if (!pkLD || pkLD->IsPlay())
@@ -1394,10 +1395,14 @@ void CClientManager::FlushPlayerCacheSet(DWORD pid)
 	if (it != m_map_playerCache.end())
 	{
 		CPlayerTableCache * c = it->second;
-		m_map_playerCache.erase(it);
+		c->MarkPendingEviction();
 
 		c->Flush();
-		delete c;
+		if (c->CanEvict())
+		{
+			m_map_playerCache.erase(it);
+			delete c;
+		}
 	}
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
