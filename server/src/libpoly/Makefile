@@ -4,7 +4,7 @@ BIN = ./libpoly.a
 GCC_VERSION = $(shell $(CC) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut -d'.' -f1)
 
 INCLUDE =
-INCLUDE += -I../../Extern/include
+INCLUDE += -I"../../../mt2009 - FULL SOURCE/Server Source/Extern/include" -I../../../extern/common/include -I../../../extern/server/include -I../../Extern/include
 LIBS =
 
 CFLAGS  = -m32 -Wall -O2 -pipe -fno-exceptions -fno-rtti $(INCLUDE)

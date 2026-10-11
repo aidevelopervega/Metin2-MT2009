@@ -124,6 +124,7 @@ $CXX $FLAGS \
     -I"$SERVER_DIR/Server/libthecore/include" \
     -I"$SERVER_DIR/Server/libsql" \
     -I"$SERVER_DIR/Server/libgame/include" \
+    -I"$ROOT_DIR/server/src/libpoly" \
     -I"$SERVER_DIR/Server/libpoly" \
     -I"$SERVER_DIR/Server/common" \
     -I"$SERVER_DIR/Extern/include" \

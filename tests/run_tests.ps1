@@ -59,7 +59,7 @@ try {
     # 1. LIBPOLY DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[1/2] libpoly derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $PolyDir = "$ServerDir\Server\libpoly"
+    $PolyDir = if (Test-Path "$RootDir\server\src\libpoly") { "$RootDir\server\src\libpoly" } else { "$ServerDir\Server\libpoly" }
     $ExternDir = "$ServerDir\Extern"
 
     $PolyIncludes = @(

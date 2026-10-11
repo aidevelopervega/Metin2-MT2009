@@ -6,7 +6,15 @@
 #include <queue>
 #include <utility>
 #include "../../libsql/libsql.h"
+#if __has_include(<Poly.h>)
+#include <Poly.h>
+#elif __has_include("../../../../server/src/libpoly/Poly.h")
+#include "../../../../server/src/libpoly/Poly.h"
+#elif __has_include("../../libpoly/Poly.h")
 #include "../../libpoly/Poly.h"
+#else
+#include "Poly.h"
+#endif
 
 enum
 {

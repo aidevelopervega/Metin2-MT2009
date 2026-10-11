@@ -16,7 +16,7 @@ quick: .
 	$(MAKE) -C liblua/5.0
 	$(MAKE) -C libsql
 	$(MAKE) -C libgame/src
-	$(MAKE) -C libpoly
+	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly; fi
 	$(MAKE) -C libthecore/src
 	touch game/src/main.cpp
 	$(MAKE) -C game/src
@@ -42,10 +42,8 @@ libgame: .
 	$(MAKE) -C $@/src
 
 libpoly: .
-	@touch $@/Depend
-	$(MAKE) -C $@ dep
-	$(MAKE) -C $@ clean
-	$(MAKE) -C $@
+	@if [ -d "$@" ]; then touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@; \
+	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/Depend && $(MAKE) -C ../../../server/src/$@ dep && $(MAKE) -C ../../../server/src/$@ clean && $(MAKE) -C ../../../server/src/$@; fi
 
 libthecore: .
 	@touch $@/src/Depend
@@ -87,7 +85,7 @@ clean:
 	$(MAKE) -C liblua/5.0 clean
 	$(MAKE) -C libsql clean
 	$(MAKE) -C libgame/src clean
-	$(MAKE) -C libpoly clean
+	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly clean; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly clean; fi
 	$(MAKE) -C libthecore/src clean
 	$(MAKE) -C game/src clean
 	$(MAKE) -C db/src clean
@@ -120,10 +118,8 @@ all:
 	$(MAKE) -C libgame/src clean
 	$(MAKE) -C libgame/src
 
-	@touch libpoly/Depend
-	$(MAKE) -C libpoly dep
-	$(MAKE) -C libpoly clean
-	$(MAKE) -C libpoly
+	@if [ -d "libpoly" ]; then touch libpoly/Depend && $(MAKE) -C libpoly dep && $(MAKE) -C libpoly clean && $(MAKE) -C libpoly; \
+	elif [ -d "../../../server/src/libpoly" ]; then touch ../../../server/src/libpoly/Depend && $(MAKE) -C ../../../server/src/libpoly dep && $(MAKE) -C ../../../server/src/libpoly clean && $(MAKE) -C ../../../server/src/libpoly; fi
 
 	@touch libthecore/src/Depend
 	$(MAKE) -C libthecore/src dep

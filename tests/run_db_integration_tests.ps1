@@ -41,6 +41,7 @@ try {
         "-I$DbSrcDir",
         "-I$ServerDir\Server\libthecore\include",
         "-I$ServerDir\Server\libsql",
+        "-I$RootDir\server\src\libpoly",
         "-I$ServerDir\Server\libpoly",
         "-I$ServerDir\Server\libgame\include",
         "-I$ServerDir\Server\libgame\src",

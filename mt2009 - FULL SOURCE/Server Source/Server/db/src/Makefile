@@ -59,9 +59,10 @@ CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PW
 # Project Libraries
 INCDIR += -I/usr/local/include
 INCDIR += -I../../../Extern/include
+INCDIR += -I../../../../server/src/libpoly -I../../libpoly
 LIBDIR += -L../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../../../tests/build -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../../../server/src/libpoly -L../../libgame/lib -L../../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL

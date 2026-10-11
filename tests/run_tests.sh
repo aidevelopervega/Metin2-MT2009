@@ -29,7 +29,11 @@ fi
 
 # 1. libpoly
 echo "[1/2] libpoly derleniyor ve test ediliyor..."
-POLY_DIR="$SERVER_DIR/Server/libpoly"
+if [ -d "$ROOT_DIR/server/src/libpoly" ]; then
+    POLY_DIR="$ROOT_DIR/server/src/libpoly"
+else
+    POLY_DIR="$SERVER_DIR/Server/libpoly"
+fi
 EXTERN_DIR="$SERVER_DIR/Extern"
 
 $CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_DIR/include" -c "$POLY_DIR/Base.cc" -o "$BUILD_DIR/Base.o"
