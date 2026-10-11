@@ -1,0 +1,40 @@
+#!/bin/sh
+# ==============================================================================
+# Metin2 MT2009 - Yerel Git Koruması: pre-push hook
+# Amacı: Hangi remote kullanılırsa kullanılsın 'main' dalına doğrudan push,
+# force-push veya dal silme işlemini engellemek.
+# ==============================================================================
+
+remote="$1"
+url="$2"
+
+z40="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+    # 1. Hedef dal refs/heads/main veya main ise (push, force-push veya silme) engelle
+    if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "main" ]; then
+        echo "================================================================" >&2
+        echo "[HATA] Hedef '$remote_ref' ('main') dalına push işlemi ENGELLENDİ!" >&2
+        echo "Uzak Depo: $remote ($url)" >&2
+        echo "Yerel Ref: $local_ref ($local_oid)" >&2
+        echo "Hedef Ref: $remote_ref ($remote_oid)" >&2
+        echo "Kural: 'main' dalına doğrudan push, force-push veya dal silme YASAKTIR." >&2
+        echo "Geliştirmeler yalnızca 'dev/windows-gcc-baseline' veya özellik dallarında yürütülmelidir." >&2
+        echo "================================================================" >&2
+        exit 1
+    fi
+
+    # 2. Kaynak dal refs/heads/main veya main ise engelle
+    if [ "$local_ref" = "refs/heads/main" ] || [ "$local_ref" = "main" ]; then
+        echo "================================================================" >&2
+        echo "[HATA] 'main' dalından herhangi bir hedefe push işlemi ENGELLENDİ!" >&2
+        echo "Uzak Depo: $remote ($url)" >&2
+        echo "Yerel Ref: $local_ref ($local_oid)" >&2
+        echo "Hedef Ref: $remote_ref ($remote_oid)" >&2
+        echo "Kural: Doğrudan main dalı üzerinden push yapılamaz." >&2
+        echo "================================================================" >&2
+        exit 1
+    fi
+done
+
+exit 0

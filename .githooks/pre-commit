@@ -1,0 +1,19 @@
+#!/bin/sh
+# ==============================================================================
+# Metin2 MT2009 - Yerel Git Koruması: pre-commit hook
+# Amacı: 'main' dalında doğrudan commit oluşturulmasını engellemek.
+# ==============================================================================
+
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "refs/heads/main" ]; then
+    echo "================================================================" >&2
+    echo "[HATA] 'main' dalına doğrudan commit oluşturulması YASAKTIR!" >&2
+    echo "Proje kuralı: Doğrudan main dalında kod değiştirilemez ve commit atılamaz." >&2
+    echo "Mevcut dal: $current_branch" >&2
+    echo "Lütfen geliştirme dalına geçin (ör. 'dev/windows-gcc-baseline')." >&2
+    echo "================================================================" >&2
+    exit 1
+fi
+
+exit 0

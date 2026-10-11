@@ -9,6 +9,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 * **Geçerli Dal (Branch):** `dev/windows-gcc-baseline`
 * **Uzak Depo (Remote):** `https://github.com/x64bit-source/Metin2-MT2009.git` (Private)
 * **Senkronizasyon:** Git geçmişi ve commit doğrulamaları doğrudan `git` komutları üzerinden izlenmektedir.
+* **Yerel Dal Koruması:** `.githooks/` (`pre-commit`, `pre-push`) yapılandırması `core.hooksPath = .githooks` ile aktif. `main` dalına doğrudan commit atılması ve `main` hedefine push/force-push/delete yapılması yerel olarak engellidir.
 
 ---
 

@@ -32,8 +32,9 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Derlenip yerel olarak test edilmemiş hiçbir işlem "tamamlandı" kabul edilemez.
 3. **Görev Öncesi Doğrulama:**
    * Yeni bir göreve başlamadan önce `git status` ve `PROJECT_STATE.md` dosyasının içeriği mutlaka kontrol edilmelidir.
-4. **Dal (Branch) Yönetimi:**
-   * `main` dalı doğrudan değiştirilmeyecektir. Yeni geliştirmeler, modernizasyonlar ve CMake geçişi ayrı özellik dallarında (`feature/...`) yürütülecektir.
+4. **Dal (Branch) Yönetimi ve Yerel Güvenlik Koruması:**
+   * `main` dalı doğrudan değiştirilmeyecektir. Yeni geliştirmeler, modernizasyonlar ve CMake geçişi ayrı özellik dallarında (`feature/...` veya `dev/...`) yürütülecektir.
+   * Depo genelinde `.githooks/` (`pre-commit`, `pre-push`) yapılandırması (`core.hooksPath = .githooks`) aktiftir. Yerel ortamda `main` dalına doğrudan commit atılması veya `main` dalına doğrudan/force push yapılması engellenmiştir.
 5. **Belge Kirliliğini Önleme:**
    * Projede yönetim ve hafıza amacıyla yalnızca `AGENTS.md` ve `PROJECT_STATE.md` kullanılacaktır.
    * Yeni MD, TXT, günlük (log), rapor veya tarihçe dosyaları oluşturulması yasaktır.
