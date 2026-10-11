@@ -48,11 +48,22 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Kontrollü Negatif Testler:** Test altyapısının sahte başarı üretmediğini kanıtlamak için kasıtlı test hatası ve sözdizimi derleme hatası enjekte edilerek test edilmiş; betiğin süreci anında durdurup çıkış kodu 1 (`exit 1`) döndürdüğü doğrulanmıştır.
     * **Temiz Ortam Doğrulaması:** Temiz derleme ortamında (`tests/build/` silinerek) baştan derlenen regresyon testleri 0 hata, 0 uyarı ile 52/52 başarılı sonuçlanmıştır.
     * **Geçici Bayrak Kontrolü:** Derleme sürecinde `-D_TIMEZONE_DEFINED` geçici bayrağının bulunmadığı, düzeltmenin [typedef.h](file:///d:/mt22009/mt2009%20-%20FULL%20SOURCE/Server%20Source/Server/libthecore/include/typedef.h) ve [stdafx.h](file:///d:/mt22009/mt2009%20-%20FULL%20SOURCE/Server%20Source/Server/libthecore/include/stdafx.h) içinde kök nedenden sağlandığı doğrulanmıştır.
-    * **Windows DLL / PATH Bağımlılığı:** `objdump` incelemesiyle `libstdc++-6.dll` ve `libgcc_s_seh-1.dll` bağımlılıkları doğrulanmış, test çalıştırıcısının MinGW `bin` yolunu `PATH`'e ekleyerek çalışma güvencesi sağladığı teyit edilmiştir.
+    * **thecore_memcpy Analizi ve Gerçek Bağlantı Durumu:**
+      * `Server Source/Server/libgame` altındaki hiçbir üretim kodu (`grid.cc`, `attribute.cc`, `targa.cc` vb.) değiştirilmemiştir; orijinal kod tabanı korunmaktadır.
+      * Windows tarafında `memcpy.h` başlığı `#define thecore_memcpy memcpy` makrosunu kullandığı için MinGW CRT fonksiyonuna bağlanmaktadır.
+      * FreeBSD tarafında `memcpy.h` başlığı `extern void *(*thecore_memcpy)(...)` sembolünü bildirmekte; gerçek gövde `libthecore/src/memcpy.c` içerisinde yer almaktadır.
+      * [tests/test_libgame.cpp](file:///d:/mt22009/tests/test_libgame.cpp) içerisindeki `thecore_memcpy = memcpy;` tanımı **yalnızca izole birim testinin** henüz derlenmemiş `libthecore.a` bağımlılığı olmadan FreeBSD üzerinde bağlanabilmesi (link) için eklenmiş bir test yönlendiricisidir (mock/stub). Üretim kodunda kesinlikle yer almamaktadır.
+      * **Doğrulama Notu:** Gerçek `thecore_memcpy` implementasyonunun `libthecore.a` üzerinden fiziksel bağlanması henüz test edilmemiştir ve bu entegrasyon bir sonraki **`libthecore`** aşamasında doğrulanacaktır.
+  * **GitHub Actions CI ve Tetikleme Mimarisi:**
+    * `.github/workflows/freebsd-gcc-test.yml` iş akışında `paths` filtresi yalnızca `'.github/workflows/freebsd-gcc-test.yml'` dosyasına sınırlandırılmıştır.
+    * Bu sayede depoya yapılan normal commit ve push işlemleri GitHub Actions'ı tetiklemez, gereksiz sanal makine başlatmaz ve kota/süre tüketimini engeller.
+    * **Gelecekteki Kontrollü Test Koşu Yöntemi:**
+      1. **Windows Testleri:** Geliştirme sırasında yerel olarak `powershell -ExecutionPolicy Bypass -File tests/run_tests.ps1` ile anında ve sınırsız çalıştırılır.
+      2. **FreeBSD CI Testleri:** Önemli kaynak kod değişiklikleri tamamlanıp Windows'ta doğrulandıktan sonra, ilgili commit ile birlikte `.github/workflows/freebsd-gcc-test.yml` dosyasındaki revizyon başlığı (`# Rev X`) güncellenerek bilinçli ve kontrollü olarak tetiklenir.
   * **Platform Doğrulama Notu:**
     * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile fiziksel olarak derlendi, 52/52 fonksiyonel ve negatif testlerle 0 hata ve 0 uyarı ile tam doğrulandı.
     * **FreeBSD amd64:** FreeBSD 15.1-RELEASE-p3 amd64 üzerinde GCC 14.2.0 (`g++14`) ile GitHub Actions CI ortamında (`vmactions/freebsd-vm`) fiziksel sanal makinede derlendi; `libpoly` (24/24) ve `libgame` (28/28) olmak üzere 52/52 regresyon testi 0 hata ve 0 uyarı ile tam başarıyla geçti (Run ID: 38096518176).
-    * **Doğrulama Durumu:** Çift platform (Windows amd64 & FreeBSD amd64) hedefi bu iki modül için eksiksiz ve kalıcı olarak sağlanmıştır. Hiçbir açık engel kalmamıştır.
+    * **Doğrulama Durumu:** Çift platform (Windows amd64 & FreeBSD amd64) hedefi bu iki modül için eksiksiz ve kalıcı olarak sağlanmıştır. `libpoly` ve `libgame` aşamasının kapatılması önünde hiçbir engel bulunmamaktadır.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
