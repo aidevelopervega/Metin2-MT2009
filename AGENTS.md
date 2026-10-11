@@ -101,4 +101,29 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
 11. **Resmî Hedef Sürümler:**
     * Güncel MySQL ve MariaDB hedef sürümleri, ilgili geliştirme aşamasına gelindiğinde resmî kaynaklardan (Oracle MySQL ve MariaDB Foundation) tespit edilerek `PROJECT_STATE.md` içine işlenecektir.
 
+---
 
+## 5. KALICI GITHUB ACTIONS VE CI ERİŞİM STANDARDI
+
+GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güvenli oturum açılmıştır. Önceki CI erişim sorunlarının tekrarlanmaması ve sonuçların güvenilir doğrulanması için aşağıdaki kurallar değişmez standart olarak uygulanacaktır:
+
+1. **Varsayılan ve Tek Otomatik Yöntem:**
+   * GitHub Actions sonuçlarını okumak için varsayılan ve tek otomatik yöntem, mevcut oturumla `gh run list` ve `gh run view` komutlarıdır.
+2. **Kimlik Bilgisi ve Token Toplama Yasağı:**
+   * `git credential fill`, `gh auth token`, PowerShell veya Python üzerinden token çıkarma ve token kullanarak manuel Authorization başlığı oluşturma kesinlikle yasaktır. Alternatif kimlik bilgisi toplama yöntemleri denenemez.
+3. **CLI Erişim Denetimi ve Hata Bildirimi:**
+   * GitHub CLI erişilemezse önce `gh --version` ve `gh auth status --hostname github.com` kontrol edilecektir. Başarısızsa tek seferde sorun kullanıcıya bildirilecek ve durulacaktır.
+4. **Tam SHA Karşılaştırması:**
+   * Özel depoda CI sorgularken `--commit` ile kısaltılmış SHA sorgusuna güvenilmeyecektir. Geliştirme dalındaki koşular listelenecek ve dönen tam `headSha` ile ilgili kaynak commit'i karşılaştırılacaktır.
+5. **Somut Doğrulama ve Detaylı Denetim:**
+   * Her doğrulamada Run ID, commit SHA, üç matris işinin gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
+6. **Tahmin Yasağı ve UNKNOWN Durumu:**
+   * GitHub API/CLI sonucu alınamadığında CI durumu asla tahmin edilemez; açıkça UNKNOWN olarak bildirilecektir.
+7. **Polling ve Döngü Yasağı:**
+   * Sürekli polling, bekleme döngüleri ve tekrarlanan background task oluşturulması yasaktır. Bir kez sorgulanacak, mevcut sonuç bildirilecek ve durulacaktır.
+8. **Erişim Hatası ile CI Başarısızlığı Ayrımı:**
+   * Git push ile GitHub Actions CI'nin çalışması ve yerel CLI ile sonuçların okunması farklı işlemlerdir. Yerel `gh` erişim hatası, FreeBSD CI'nin başarısız olduğu anlamına gelmez.
+9. **Yeniden Çalıştırma Yasağı:**
+   * Önceden başarıyla doğrulanan CI testleri, yalnızca sonuç sorgulama problemi nedeniyle asla yeniden çalıştırılamaz.
+10. **Kod ve Dal Dokunulmazlığı:**
+    * Mevcut başarılı MT2009 kodları, `AGENTS.md` dışındaki dosyalar ve `main` dalı bu süreçte kesinlikle değiştirilemez.
