@@ -192,14 +192,18 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `log.sql` içindeki 10 MyISAM tablosunun log I/O ve transaction-free doğası analiz edildi; mevcut verilerde zorla dönüşüm yapılmayıp isteğe bağlı/güvenli göç stratejisi benimsendi.
     * 3 tabloda (`account.shop_expire`, `log_commands.date`, `player.change_empire.last_time`) ve `BanManager.cpp:34` sorgusundaki sıfır tarihlerin (`0000-00-00 00:00:00`) kod içi anlamları araştırıldı (`UNIX_TIMESTAMP`, `str_to_number`). Körlemesine NULL yapılmayıp şema ve kod semantiğine uygun katı mod (`NO_ZERO_DATE`) düzeltme stratejisi belirlendi.
     * Karakter setlerinin (`g_stLocale`: `latin1`, `cp1250`) Metin2 32-bit Windows ANSI istemcisi (`char name[24]`) ile doğrudan bağlantılı olduğu kanıtlandı; körlemesine `utf8mb4` dönüşümü engellendi.
-* [x] **Aşama 11.1 (libsql Kontrollü Modernizasyon ve 64-Bit Uyumluluğu):**
+* [x] **Aşama 11.1 (libsql Kontrollü Modernizasyon ve Açık Hataların Giderilmesi):**
   * `libsql` C++20 standardında ve 64-bit native MinGW-w64 GCC 16.2.0 ile derlendi.
   * `m_hDB.host` ve `m_hDB.reconnect` doğrudan `MYSQL` struct dahili alan erişimleri kaldırıldı; temiz `Reconnect()` ve yaşam döngüsü kontrolü sağlandı.
   * `SQLResult` yapısına 64-bit sayaçlar (`ullNumRows`, `ullAffectedRows`, `ullInsertID`) eklendi; eski 32-bit alanlar ve `(uint32_t)-1` hata kontrolleri `db`/`game` uyumluluğu için korunarak çift katmanlı hale getirildi.
+  * `ullAffectedRows >= UINT32_MAX` durumunda `uiAffectedRows` değeri `UINT32_MAX - 1` ile satüre edilerek `(uint32_t)-1` hata belirteci ile çakışması kesin olarak engellendi.
+  * Windows `CAsyncSQL::Quit()` içinde `::CloseHandle(m_hThread)` eklenerek thread handle sızıntısı giderildi; `Quit()` ve `Destroy()` çoklu çağrılarında tam idempotent ve çökmesiz yaşam döngüsü sağlandı.
+  * `AsyncSQLThread` içinde ilk bağlantı başarısız olduğunda thread'in sessizce sonlanarak sorguları RAM'de biriktirmesi engellendi; 100ms kontrollü yeniden deneme ve `Quit()` ile güvenli sonlanma sağlandı.
+  * `AsyncQuery` fire-and-forget sorgularında bağlantı koptuğunda sorguların sessizce silinmesi (`delete p;`) önlendi; `m_queue_failed`, `PushFailedQuery`, `PopFailedQuery` API'si ile başarısız sorguların saklanması sağlandı.
   * Otomatik reconnect sonrasında düşen sorgunun kontrolsüz tekrar çalıştırılması (`ResendQuery`) engellendi; veri bütünlüğü ve non-idempotent güvenlik sağlandı.
   * `Tellwait.h`/`Tellwait.cpp` ve `libthecore/include/signal.h` kök neden düzeltmeleriyle header shadowing giderildi.
-  * `tests/test_libsql.cpp` (67 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 67/67 (toplamda 216/216) test 0 hata ve 0 uyarı ile doğrulandı.
-  * FreeBSD 15.1 amd64 GCC 14.2.0 üzerinde CI iş akışı (Rev 8: Run 38129099307) ile 216/216 test 0 derleme hatası ve 0 derleyici uyarısı ile tam doğrulandı.
+  * `tests/test_libsql.cpp` (86 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 86/86 (toplamda 235/235) test 0 hata ve 0 uyarı ile doğrulandı.
+  * GitHub Actions CI iş akışı (Rev 9) `.github/workflows/freebsd-gcc-test.yml` üzerinde C++ kaynakları, başlıkları ve testleri için otomatik tetikleyici yapılandırıldı; FreeBSD 15.1 amd64 GCC 14 ortamında 235/235 test icra edilmektedir.
 * [ ] **Aşama 11.2 (libsql Canlı DB Entegrasyonu ve Connector/C Kütüphaneleri):**
   * Windows amd64 ve FreeBSD amd64 için Oracle MySQL 8.4 ve MariaDB 12.3/11.4 canlı bağlantı ve transaction doğrulama testlerinin icra edilmesi.
 
@@ -207,10 +211,11 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.1 (`libsql` Kontrollü Modernizasyon) hem Windows amd64 GCC 16.2.0 hem de FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında 216/216 test (%100 başarı, 0 hata, 0 uyarı) ile eksiksiz tamamlandı. Kullanıcıya ayrıntılı teknik raporun sunulması ve Aşama 11.2 (Canlı DB Entegrasyonu) veya sıradaki modül (`liblua` / `db`) için onayının alınması.
+* **Aktif Görev:** Aşama 11.1 Açık Hataları Giderme görevi tamamlandı. Windows amd64 GCC 16.2.0 üzerinde 235/235 test (%100 başarı, 0 hata, 0 uyarı) doğrulandı ve `dev/windows-gcc-baseline` dalına gönderildi. Kullanıcıya ayrıntılı kapanış raporunun sunulması ve Aşama 11.2 için kullanıcı onayının alınması.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayı doğrultusunda, bir sonraki aşamaya (Canlı MySQL/MariaDB konnektör entegrasyonu veya `liblua` / `db` modülü) geçilmesi.
+* Kullanıcı onayı doğrultusunda, Aşama 11.2 (Canlı MySQL 8.4 / MariaDB 12.3-11.4 test ortamı ve Connector/C 64-bit bağımlılıkları) veya sıradaki modüle geçilmesi.
+
