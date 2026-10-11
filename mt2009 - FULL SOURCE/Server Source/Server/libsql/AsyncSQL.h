@@ -69,13 +69,26 @@ typedef struct _SQLMsg
 			pRes->pSQLResult = mysql_store_result(m_pkSQL);
 			pRes->ullInsertID = mysql_insert_id(m_pkSQL);
 			pRes->ullAffectedRows = mysql_affected_rows(m_pkSQL);
-			pRes->uiInsertID = static_cast<uint32_t>(pRes->ullInsertID);
-			pRes->uiAffectedRows = (pRes->ullAffectedRows == static_cast<my_ulonglong>(-1)) ? static_cast<uint32_t>(-1) : static_cast<uint32_t>(pRes->ullAffectedRows);
+
+			if (pRes->ullInsertID > UINT32_MAX)
+				pRes->uiInsertID = UINT32_MAX;
+			else
+				pRes->uiInsertID = static_cast<uint32_t>(pRes->ullInsertID);
+
+			if (pRes->ullAffectedRows == static_cast<my_ulonglong>(-1))
+				pRes->uiAffectedRows = static_cast<uint32_t>(-1);
+			else if (pRes->ullAffectedRows >= static_cast<uint64_t>(UINT32_MAX))
+				pRes->uiAffectedRows = UINT32_MAX - 1;
+			else
+				pRes->uiAffectedRows = static_cast<uint32_t>(pRes->ullAffectedRows);
 
 			if (pRes->pSQLResult)
 			{
 				pRes->ullNumRows = mysql_num_rows(pRes->pSQLResult);
-				pRes->uiNumRows = static_cast<uint32_t>(pRes->ullNumRows);
+				if (pRes->ullNumRows > UINT32_MAX)
+					pRes->uiNumRows = UINT32_MAX;
+				else
+					pRes->uiNumRows = static_cast<uint32_t>(pRes->ullNumRows);
 			}
 			else
 			{
@@ -124,6 +137,7 @@ class CAsyncSQL
 		virtual ~CAsyncSQL();
 
 		void		Quit();
+		void		Destroy();
 
 		bool   		Setup(const char * c_pszHost, const char * c_pszUser, const char * c_pszPassword, const char * c_pszDB, const char * c_pszLocale,
 			bool bNoThread = false, int iPort = 0);
@@ -132,6 +146,7 @@ class CAsyncSQL
 		bool		Connect();
 		bool		Reconnect();
 		bool		IsConnected() const { return m_bConnected; }
+		bool		IsEnd() const { return m_bEnd; }
 		bool		QueryLocaleSet();
 
 		void		AsyncQuery(const char * c_pszQuery);
@@ -144,6 +159,10 @@ class CAsyncSQL
 		void		PushResult(SQLMsg * p);
 		bool		PopResult(SQLMsg ** pp);
 
+		void		PushFailedQuery(SQLMsg * p);
+		bool		PopFailedQuery(SQLMsg ** pp);
+		DWORD		CountFailedQuery();
+
 		void		ChildLoop();
 
 		MYSQL *		GetSQLHandle();
@@ -154,7 +173,6 @@ class CAsyncSQL
 		size_t		EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
 
 	protected:
-		void		Destroy();
 
 		void		PushQuery(SQLMsg * p);
 
@@ -191,6 +209,7 @@ class CAsyncSQL
 		//std::map<int, SQLMsg *>	m_map_kSQLMsgUnfinished;
 
 		std::queue<SQLMsg *> m_queue_result;
+		std::queue<SQLMsg *> m_queue_failed;
 
 		volatile bool m_bEnd;
 

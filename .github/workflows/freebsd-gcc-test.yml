@@ -1,4 +1,4 @@
-# Rev 8: Add include_next for signal.h and Tellwait libc POSIX fix (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
+# Rev 9: Automatic trigger on C++ sources, headers and tests (FreeBSD 15.1 amd64 GCC 14)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -7,6 +7,12 @@ on:
       - dev/windows-gcc-baseline
     paths:
       - '.github/workflows/freebsd-gcc-test.yml'
+      - 'tests/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/libsql/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/common/**'
   workflow_dispatch:
 
 permissions:
@@ -18,7 +24,7 @@ concurrency:
 
 jobs:
   freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (216/216 Tests)
+    name: FreeBSD 15.1 amd64 GCC 14 (235/235 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

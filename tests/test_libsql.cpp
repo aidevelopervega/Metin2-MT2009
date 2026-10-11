@@ -20,6 +20,7 @@ static int s_mock_force_errno = 0;
 static uint64_t s_mock_insert_id = 0;
 static uint64_t s_mock_affected_rows = 0;
 static uint64_t s_mock_num_rows = 0;
+static bool s_mock_force_connect_fail = false;
 
 extern "C" {
 MYSQL * STDCALL mysql_init(MYSQL * mysql)
@@ -58,6 +59,8 @@ int STDCALL mysql_set_character_set(MYSQL *, const char *)
 
 MYSQL * STDCALL mysql_real_connect(MYSQL * mysql, const char *, const char *, const char *, const char *, unsigned int, const char *, unsigned long)
 {
+	if (s_mock_force_connect_fail)
+		return nullptr;
 	s_mock_connected = true;
 	return mysql;
 }
@@ -484,6 +487,122 @@ int main()
 		TEST_ASSERT(sql.Reconnect() == true, "Explicit Reconnect() successfully re-establishes session");
 		TEST_ASSERT(sql.IsConnected() == true, "Connection active post explicit Reconnect");
 		sql.Quit();
+	}
+
+	std::cout << "[RUN] Testing CAsyncSQL::Quit() / Destroy() idempotency and handle safety..." << std::endl;
+	{
+		CAsyncSQL sql;
+		sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		sql.Connect();
+		TEST_ASSERT(sql.IsConnected() == true, "Connection established before teardown test");
+
+		// Test double Quit and double Destroy idempotency
+		sql.Quit();
+		sql.Quit();
+		sql.Destroy();
+		sql.Destroy();
+		TEST_ASSERT(sql.IsConnected() == false, "Connection cleanly closed without double-free crashes");
+	}
+
+	std::cout << "[RUN] Testing initial connection retry and controlled Quit() termination..." << std::endl;
+	{
+		// Simulate database startup failure
+		s_mock_force_connect_fail = true;
+
+		CAsyncSQL sql;
+		bool bSetup = sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", false, 3306);
+		TEST_ASSERT(bSetup == true, "Setup in threaded mode succeeded");
+
+		// Queue a query while disconnected
+		sql.AsyncQuery("DELETE FROM quest WHERE dwPID=999;");
+		TEST_ASSERT(sql.CountQuery() == 1, "Query queued while connection is offline");
+
+		// Controlled shutdown: Quit() must wake up and terminate thread without hanging
+		sql.Quit();
+		TEST_ASSERT(sql.IsConnected() == false, "Instance shutdown cleanly without thread hang or handle leak");
+
+		// Verify query was flushed and preserved in failed queue (not silently deleted!)
+		TEST_ASSERT(sql.CountFailedQuery() == 1, "Failed query captured in error queue instead of silent deletion");
+
+		SQLMsg * pFailed = nullptr;
+		TEST_ASSERT(sql.PopFailedQuery(&pFailed) == true, "Failed query popped successfully");
+		TEST_ASSERT(pFailed != nullptr, "Failed query object is valid");
+		TEST_ASSERT(pFailed->uiSQLErrno == CR_CONNECTION_ERROR, "CR_CONNECTION_ERROR recorded on offline query");
+		delete pFailed;
+
+		s_mock_force_connect_fail = false; // Reset mock
+	}
+
+	std::cout << "[RUN] Testing SQLResult saturation boundary and UINT32_MAX error collision prevention..." << std::endl;
+	{
+		// 1. Error state: mysql_affected_rows returns (my_ulonglong)-1
+		s_mock_affected_rows = static_cast<my_ulonglong>(-1);
+		s_mock_insert_id = 0;
+		s_mock_num_rows = 0;
+
+		SQLMsg msgErr;
+		msgErr.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgErr.Store();
+		TEST_ASSERT(msgErr.Get()->ullAffectedRows == static_cast<uint64_t>(-1), "ullAffectedRows preserves exact 64-bit error value");
+		TEST_ASSERT(msgErr.Get()->uiAffectedRows == static_cast<uint32_t>(-1), "uiAffectedRows correctly maps error to (uint32_t)-1");
+
+		// 2. Large valid affected rows: 4,294,967,296 (0x100000000ULL, > UINT32_MAX)
+		s_mock_affected_rows = 0x100000000ULL;
+		SQLMsg msgLarge;
+		msgLarge.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgLarge.Store();
+		TEST_ASSERT(msgLarge.Get()->ullAffectedRows == 0x100000000ULL, "ullAffectedRows preserves 4B+ affected rows count");
+		TEST_ASSERT(msgLarge.Get()->uiAffectedRows == UINT32_MAX - 1, "uiAffectedRows saturated to UINT32_MAX - 1 to avoid error sentinel collision");
+		TEST_ASSERT(msgLarge.Get()->uiAffectedRows != static_cast<uint32_t>(-1), "Valid large affected rows NEVER collides with error sentinel");
+
+		// 3. Large insert ID: 5,000,000,000 (> UINT32_MAX)
+		s_mock_insert_id = 5000000000ULL;
+		SQLMsg msgInsert;
+		msgInsert.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgInsert.Store();
+		TEST_ASSERT(msgInsert.Get()->ullInsertID == 5000000000ULL, "ullInsertID preserves full 64-bit insert ID");
+		TEST_ASSERT(msgInsert.Get()->uiInsertID == UINT32_MAX, "uiInsertID saturated at UINT32_MAX without modulo rollover to zero");
+
+		// Reset mocks
+		s_mock_affected_rows = 0;
+		s_mock_insert_id = 0;
+	}
+
+	std::cout << "[RUN] Testing multi-instance thread isolation contract (m_mainSQL, m_directSQL, m_asyncSQL)..." << std::endl;
+	{
+		// Demonstrates that DBManager's architecture using 3 separate instances avoids socket race conditions
+		CAsyncSQL mainSQL, directSQL, asyncSQL;
+		mainSQL.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		directSQL.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		asyncSQL.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+
+		mainSQL.Connect();
+		directSQL.Connect();
+		asyncSQL.Connect();
+
+		// Run concurrent operations on separate instances
+		std::thread t1([&]() {
+			auto m = mainSQL.DirectQuery("SELECT 1;");
+			TEST_ASSERT(m != nullptr, "mainSQL thread completed query");
+		});
+
+		std::thread t2([&]() {
+			auto m = directSQL.DirectQuery("SELECT 2;");
+			TEST_ASSERT(m != nullptr, "directSQL thread completed query");
+		});
+
+		std::thread t3([&]() {
+			asyncSQL.AsyncQuery("INSERT INTO log VALUES(1);");
+			TEST_ASSERT(asyncSQL.CountQuery() == 1, "asyncSQL query queued independently");
+		});
+
+		t1.join();
+		t2.join();
+		t3.join();
+
+		mainSQL.Quit();
+		directSQL.Quit();
+		asyncSQL.Quit();
 	}
 
 	// --------------------------------------------------------------------------

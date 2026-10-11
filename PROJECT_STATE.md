@@ -80,23 +80,25 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Kök Neden Düzeltmeleri:**
       * `AsyncSQL.h`: `SQLResult` yapısına yerel 64-bit alanlar eklendi (`ullNumRows`, `ullAffectedRows`, `ullInsertID`). Mevcut 32-bit alanlar (`uiNumRows`, `uiAffectedRows`, `uiInsertID`) geriye uyumluluk ve `db`/`game` içerisindeki `(uint32_t)-1` hata kontrollerini (`ClientManagerPlayer.cpp:1191` vb.) bozmamak adına korundu ve tam hizalandı. `bool Reconnect()` eklendi, `IsConnected() const` yapıldı.
       * `AsyncSQL.cpp`: Yapıcıda (`CAsyncSQL`) `m_mtxQuery` ve `m_mtxResult` kritik kesit nesneleri `std::make_unique` ile baştan tahsis edildi; böylece `bNoThread=true` veya `Setup` çağrılmadan önce kuyruk işlemlerinde oluşan `CRITICAL_SECTION NULL` çökmesi giderildi. `Destroy()` içinde bellek sızıntısı üreten `.release()` çağrıları `.reset()` ile değiştirildi.
-      * `AsyncSQL.cpp`: Dahili `MYSQL` struct alanlarına doğrudan erişimler (`m_hDB.host = NULL`, `m_hDB.reconnect = 1`) kaldırıldı; bağlantı yaşam döngüsü `m_bConnected` ve `Reconnect()` API'si üzerinden güvenli hale getirildi.
-      * `AsyncSQL.cpp`: Windows `AsyncSQLThread` dönüş değeri `NULL` yerine `0` (`DWORD WINAPI`) yapılarak `-Wconversion-null` uyarısı giderildi. `PopQuery` içindeki `(void)iID;` ile `-Wunused-parameter` sıfırlandı.
-      * `AsyncSQL.cpp`: `ChildLoop` hata işleme döngüsünde `CR_SERVER_LOST` ve `CR_SERVER_GONE_ERROR` durumlarında `Reconnect()` çağrılarak sonraki kuyruk sorguları için oturum yeniden kurulurken; düşen sorgunun hata kodu korunarak sahte/kontrolsüz tekrar çalıştırılması engellendi (çift eşya/para üretim açığı önlendi). `ER_INVALID_USE_OF_NULL` sonsuz döngü düşüşü kaldırıldı.
+      * `AsyncSQL.cpp`: Windows `Quit()` içinde `::CloseHandle(m_hThread)` eklenerek thread kernel nesnesi sızıntısı kalıcı olarak giderildi. `INVALID_HANDLE_VALUE` ve null kontrolleri ile ardışık `Quit()` ve `Destroy()` çağrılarının tam idempotent olması sağlandı.
+      * `AsyncSQL.cpp`: `AsyncSQLThread` içinde ilk veritabanı bağlantısı (`Connect()`) başarısız olduğunda thread'in sessizce sonlanarak sorguları RAM'de sonsuza dek terk etmesi engellendi; `IsEnd()` bayrağını dinleyen 100ms aralıklı kontrollü yeniden deneme döngüsü kuruldu.
+      * `AsyncSQL.h` / `AsyncSQL.cpp`: `AsyncQuery` fire-and-forget sorgularında bağlantı kopması durumunda düşen sorguların sessizce silinmesi (`delete p;`) önlendi; `m_queue_failed` kuyruğu, `PushFailedQuery`, `PopFailedQuery` ve `CountFailedQuery` API'si eklenerek başarısız sorguların uygulama katmanı için saklanması sağlandı.
+      * `AsyncSQL.h`: `SQLResult` içinde `ullAffectedRows >= UINT32_MAX` durumunda `uiAffectedRows` değeri `UINT32_MAX - 1` ile satüre edilerek geçerli büyük sonuçların `(uint32_t)-1` hata belirteci ile çakışması kesin olarak engellendi. `ullInsertID` ve `ullNumRows` 64-bit değerleri tam korundu.
+      * `AsyncSQL.cpp`: Tüm kuyruk ve sayaç fonksiyonlarına (`PushResult`, `PopResult`, `PushFailedQuery`, `PopFailedQuery`, `CountFailedQuery`, `PushQuery`, `PeekQuery`, `PopQuery`, `CountQuery`, `CountResult`) mutex null kontrolleri ve thread-safe senkronizasyon eklendi; `Destroy()` sonrasında oluşabilecek `0xC0000005` (Access Violation) çökmesi tamamen ortadan kaldırıldı.
       * `Tellwait.h` / `Tellwait.cpp` & `libthecore/include/signal.h`: `libthecore/include/signal.h` başlığına `#include_next <signal.h>` eklenerek yerel başlığın sistem `<signal.h>` başlığını gölgelemesi (shadowing) kök nedeninden çözüldü. `Tellwait.cpp` dosyasına `<sys/types.h>`, `<unistd.h>`, `<signal.h>` eklenerek FreeBSD 15.1 POSIX sinyal fonksiyonları (`sigemptyset`, `sigaddset`, `sigprocmask`, `sigsuspend`, `kill`) ve `-Wunused-parameter` uyarısı tam olarak giderildi.
     * **Makefile:** `clang++` ve `-m32` yerine `CXX ?= g++`, `-std=c++20` ve standart nesne kuralı (`%.o: %.cpp`) tanımlandı.
     * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
     * **Sonuç:** 0 hata, 0 uyarı.
-    * **Otomatik Regresyon Testi:** `tests/test_libsql.cpp` -> **67/67 test başarılı**. (`CSemaphore` temel işlemler/iş parçacıkları arası devir/çoklu sayaç/yeniden ilklendirme; `CAsyncSQL` kuyruk işlemleri FIFO/sonuç kuyruğu/sayaçlar; `EscapeString` sınır ve taşma güvenliği; `SQLResult` 64-bit ID/satır ve 32-bit `(uint32_t)-1` hata eşleşmesi; `SQLMsg` çoklu sonuç gezimi; `CAsyncSQL` bağlantı yaşam döngüsü; `CR_SERVER_LOST` hata saklama ve non-idempotent işlem güvenliği; MariaDB 12.3 snapshot isolation sözleşmesi; MySQL 8.4 açık reconnect sözleşmesi; Canlı veritabanı entegrasyonu dürüstçe `[SKIP]` olarak raporlanmaktadır).
+    * **Otomatik Regresyon Testi:** `tests/test_libsql.cpp` -> **86/86 test başarılı**. (`CSemaphore` temel işlemler/iş parçacıkları arası devir/çoklu sayaç/yeniden ilklendirme; `CAsyncSQL` kuyruk işlemleri FIFO/sonuç kuyruğu/sayaçlar; `EscapeString` sınır ve taşma güvenliği; `SQLResult` 64-bit ID/satır, satürasyon ve `(uint32_t)-1` hata eşleşmesi; `SQLMsg` çoklu sonuç gezimi; `CAsyncSQL` bağlantı yaşam döngüsü, yeniden bağlanma, `Quit`/`Destroy` handle güvenliği; bağlantı yeniden denemesi ve kontrollü durdurma; başarısız fire-and-forget sorgularının saklanması; çoklu nesne iş parçacığı izolasyonu; MariaDB 12.3 snapshot isolation sözleşmesi; MySQL 8.4 açık reconnect sözleşmesi; Canlı veritabanı entegrasyonu dürüstçe `[SKIP]` olarak raporlanmaktadır).
   * **Toplu Regresyon Testi:**
     * `libpoly`: **24/24 test başarılı**
     * `libthecore`: **97/97 test başarılı**
     * `libgame`: **28/28 test başarılı** (Gerçek `libthecore.a` ile bağlı)
-    * `libsql`: **67/67 test başarılı**
-    * **Toplam:** **216/216 test başarılı (%100)**.
+    * `libsql`: **86/86 test başarılı**
+    * **Toplam:** **235/235 test başarılı (%100)**.
   * **Platform Doğrulama Notu:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 216/216 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 8: Run 38129099307) ile FreeBSD 15.1-RELEASE-p3 amd64 + GCC 14.2.0 ortamında 216/216 test 0 derleme hatası ve 0 derleyici uyarısı ile eksiksiz doğrulandı.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 235/235 test 0 hata, 0 uyarı ile tam doğrulandı.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 9) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında otomatik olarak test edilecektir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 

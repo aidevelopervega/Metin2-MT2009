@@ -61,6 +61,64 @@ void CAsyncSQL::Destroy()
 		memset(&m_hDB, 0, sizeof(m_hDB));
 	}
 
+	if (m_mtxResult)
+	{
+		MUTEX_LOCK(m_mtxResult.get());
+		while (!m_queue_failed.empty())
+		{
+			delete m_queue_failed.front();
+			m_queue_failed.pop();
+		}
+		while (!m_queue_result.empty())
+		{
+			delete m_queue_result.front();
+			m_queue_result.pop();
+		}
+		MUTEX_UNLOCK(m_mtxResult.get());
+	}
+	else
+	{
+		while (!m_queue_failed.empty())
+		{
+			delete m_queue_failed.front();
+			m_queue_failed.pop();
+		}
+		while (!m_queue_result.empty())
+		{
+			delete m_queue_result.front();
+			m_queue_result.pop();
+		}
+	}
+
+	if (m_mtxQuery)
+	{
+		MUTEX_LOCK(m_mtxQuery.get());
+		while (!m_queue_query.empty())
+		{
+			delete m_queue_query.front();
+			m_queue_query.pop();
+		}
+		while (!m_queue_query_copy.empty())
+		{
+			delete m_queue_query_copy.front();
+			m_queue_query_copy.pop();
+		}
+		MUTEX_UNLOCK(m_mtxQuery.get());
+	}
+	else
+	{
+		while (!m_queue_query.empty())
+		{
+			delete m_queue_query.front();
+			m_queue_query.pop();
+		}
+		while (!m_queue_query_copy.empty())
+		{
+			delete m_queue_query_copy.front();
+			m_queue_query_copy.pop();
+		}
+	}
+
 	if (m_mtxQuery)
 	{
 #ifndef __WIN32__
@@ -90,12 +148,21 @@ unsigned int __stdcall AsyncSQLThread(void* arg)
 {
 	CAsyncSQL * pSQL = ((CAsyncSQL *) arg);
 
-	if (!pSQL->Connect())
+	while (!pSQL->IsEnd())
+	{
+		if (pSQL->Connect())
+			break;
+
+		sys_err("AsyncSQL: initial connection failed, retrying in 1 second...");
+		for (int i = 0; i < 10 && !pSQL->IsEnd(); ++i)
+		{
 #ifndef __WIN32__
-		return NULL;
+			usleep(100000);
 #else
-		return 0;
+			::Sleep(100);
 #endif
+		}
+	}
 
 	pSQL->ChildLoop();
 
@@ -227,13 +294,20 @@ bool CAsyncSQL::Setup(const char * c_pszHost, const char * c_pszUser, const char
 	if (!bNoThread)
 	{
 #ifndef __WIN32__
-		pthread_create(&m_hThread, NULL, AsyncSQLThread, this);
-#else
-		m_hThread = (HANDLE)::_beginthreadex(NULL, 0, AsyncSQLThread, this, 0, NULL);
-		if (m_hThread == INVALID_HANDLE_VALUE) {
+		if (pthread_create(&m_hThread, NULL, AsyncSQLThread, this) != 0)
+		{
+			m_hThread = 0;
 			perror("CAsyncSQL::Setup");
 			return false;
 		}
+#else
+		uintptr_t th = ::_beginthreadex(NULL, 0, AsyncSQLThread, this, 0, NULL);
+		if (th == 0 || th == (uintptr_t)-1) {
+			m_hThread = INVALID_HANDLE_VALUE;
+			perror("CAsyncSQL::Setup");
+			return false;
+		}
+		m_hThread = (HANDLE)th;
 #endif
 		return true;
 	}
@@ -250,11 +324,12 @@ void CAsyncSQL::Quit()
 	if (m_hThread)
 	{
 		pthread_join(m_hThread, NULL);
-		m_hThread = NULL;
+		m_hThread = 0;
 	}
 #else
-	if (m_hThread != INVALID_HANDLE_VALUE) {
+	if (m_hThread != INVALID_HANDLE_VALUE && m_hThread != NULL) {
 		::WaitForSingleObject(m_hThread, INFINITE);
+		::CloseHandle(m_hThread);
 		m_hThread = INVALID_HANDLE_VALUE;
 	}
 #endif
@@ -317,15 +392,22 @@ void CAsyncSQL::ReturnQuery(const char * c_pszQuery, void * pvUserData)
 
 void CAsyncSQL::PushResult(SQLMsg * p)
 {
+	if (!m_mtxResult)
+	{
+		delete p;
+		return;
+	}
+
 	MUTEX_LOCK(m_mtxResult.get());
-
 	m_queue_result.push(p);
-
 	MUTEX_UNLOCK(m_mtxResult.get());
 }
 
 bool CAsyncSQL::PopResult(SQLMsg ** pp)
 {
+	if (!m_mtxResult)
+		return false;
+
 	MUTEX_LOCK(m_mtxResult.get());
 
 	if (m_queue_result.empty())
@@ -340,20 +422,68 @@ bool CAsyncSQL::PopResult(SQLMsg ** pp)
 	return true;
 }
 
+void CAsyncSQL::PushFailedQuery(SQLMsg * p)
+{
+	if (!m_mtxResult)
+	{
+		delete p;
+		return;
+	}
+
+	MUTEX_LOCK(m_mtxResult.get());
+	m_queue_failed.push(p);
+	MUTEX_UNLOCK(m_mtxResult.get());
+}
+
+bool CAsyncSQL::PopFailedQuery(SQLMsg ** pp)
+{
+	if (!m_mtxResult)
+		return false;
+
+	MUTEX_LOCK(m_mtxResult.get());
+
+	if (m_queue_failed.empty())
+	{
+		MUTEX_UNLOCK(m_mtxResult.get());
+		return false;
+	}
+
+	*pp = m_queue_failed.front();
+	m_queue_failed.pop();
+	MUTEX_UNLOCK(m_mtxResult.get());
+	return true;
+}
+
+DWORD CAsyncSQL::CountFailedQuery()
+{
+	if (!m_mtxResult)
+		return 0;
+
+	MUTEX_LOCK(m_mtxResult.get());
+	DWORD count = static_cast<DWORD>(m_queue_failed.size());
+	MUTEX_UNLOCK(m_mtxResult.get());
+	return count;
+}
+
 void CAsyncSQL::PushQuery(SQLMsg * p)
 {
+	if (!m_mtxQuery)
+	{
+		delete p;
+		return;
+	}
+
 	MUTEX_LOCK(m_mtxQuery.get());
-
 	m_queue_query.push(p);
-	//m_map_kSQLMsgUnfinished.insert(std::make_pair(p->iID, p));
-
 	m_sem.Release();
-
 	MUTEX_UNLOCK(m_mtxQuery.get());
 }
 
 bool CAsyncSQL::PeekQuery(SQLMsg ** pp)
 {
+	if (!m_mtxQuery)
+		return false;
+
 	MUTEX_LOCK(m_mtxQuery.get());
 
 	if (m_queue_query.empty())
@@ -370,6 +500,9 @@ bool CAsyncSQL::PeekQuery(SQLMsg ** pp)
 bool CAsyncSQL::PopQuery(int iID)
 {
 	(void)iID;
+	if (!m_mtxQuery)
+		return false;
+
 	MUTEX_LOCK(m_mtxQuery.get());
 
 	if (m_queue_query.empty())
@@ -379,8 +512,6 @@ bool CAsyncSQL::PopQuery(int iID)
 	}
 
 	m_queue_query.pop();
-	//m_map_kSQLMsgUnfinished.erase(iID);
-
 	MUTEX_UNLOCK(m_mtxQuery.get());
 	return true;
 }
@@ -396,6 +527,9 @@ bool CAsyncSQL::PeekQueryFromCopyQueue(SQLMsg ** pp)
 
 int CAsyncSQL::CopyQuery()
 {
+	if (!m_mtxQuery)
+		return -1;
+
 	MUTEX_LOCK(m_mtxQuery.get());
 
 	if (m_queue_query.empty())
@@ -411,8 +545,6 @@ int CAsyncSQL::CopyQuery()
 		m_queue_query.pop();
 	}
 
-	//m_map_kSQLMsgUnfinished.erase(iID);
-
 	int count = m_queue_query_copy.size();
 
 	MUTEX_UNLOCK(m_mtxQuery.get());
@@ -427,8 +559,6 @@ bool CAsyncSQL::PopQueryFromCopyQueue()
 	}
 
 	m_queue_query_copy.pop();
-	//m_map_kSQLMsgUnfinished.erase(iID);
-
 	return true;
 }
 int		CAsyncSQL::GetCopiedQueryCount()
@@ -447,12 +577,24 @@ void	CAsyncSQL::AddCopiedQueryCount(int iCopiedQuery)
 
 DWORD CAsyncSQL::CountQuery()
 {
-	return m_queue_query.size();
+	if (!m_mtxQuery)
+		return 0;
+
+	MUTEX_LOCK(m_mtxQuery.get());
+	DWORD count = static_cast<DWORD>(m_queue_query.size());
+	MUTEX_UNLOCK(m_mtxQuery.get());
+	return count;
 }
 
 DWORD CAsyncSQL::CountResult()
 {
-	return m_queue_result.size();
+	if (!m_mtxResult)
+		return 0;
+
+	MUTEX_LOCK(m_mtxResult.get());
+	DWORD count = static_cast<DWORD>(m_queue_result.size());
+	MUTEX_UNLOCK(m_mtxResult.get());
+	return count;
 }
 
 void __timediff(struct timeval *a, struct timeval *b, struct timeval *rslt)
@@ -564,6 +706,23 @@ void CAsyncSQL::ChildLoop()
 			if (!PeekQueryFromCopyQueue(&p))
 				continue;
 
+			if (!m_bConnected)
+			{
+				p->uiSQLErrno = CR_CONNECTION_ERROR;
+				PopQueryFromCopyQueue();
+				if (p->bReturn)
+				{
+					p->Store();
+					PushResult(p);
+				}
+				else
+				{
+					PushFailedQuery(p);
+				}
+				++m_iQueryFinished;
+				continue;
+			}
+
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
 			{
 				sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
@@ -607,7 +766,12 @@ void CAsyncSQL::ChildLoop()
 				PushResult(p);
 			}
 			else
-				delete p;
+			{
+				if (p->uiSQLErrno != 0)
+					PushFailedQuery(p);
+				else
+					delete p;
+			}
 
 			++m_iQueryFinished;
 		}
@@ -617,6 +781,24 @@ void CAsyncSQL::ChildLoop()
 
 	while (PeekQuery(&p))
 	{
+		if (!m_bConnected)
+		{
+			p->uiSQLErrno = CR_CONNECTION_ERROR;
+			sys_err("QUERY_FLUSH: connection offline, query marked failed: %s", p->stQuery.c_str());
+			PopQuery(p->iID);
+			if (p->bReturn)
+			{
+				p->Store();
+				PushResult(p);
+			}
+			else
+			{
+				PushFailedQuery(p);
+			}
+			++m_iQueryFinished;
+			continue;
+		}
+
 		if (m_ulThreadID != mysql_thread_id(&m_hDB))
 		{
 			sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
@@ -633,25 +815,15 @@ void CAsyncSQL::ChildLoop()
 
 			switch (p->uiSQLErrno)
 			{
-				case CR_SERVER_LOST: // @fixme329 (errno: 2013)
-					if (ResendQuery(p))
-						break;
-				case CR_SOCKET_CREATE_ERROR:
-				case CR_CONNECTION_ERROR:
-				case CR_IPSOCK_ERROR:
-				case CR_UNKNOWN_HOST:
+				case CR_SERVER_LOST:
 				case CR_SERVER_GONE_ERROR:
-				case CR_CONN_HOST_ERROR:
-				case ER_NOT_KEYFILE:
-				case ER_CRASHED_ON_USAGE:
-				case ER_CANT_OPEN_FILE:
-				case ER_HOST_NOT_PRIVILEGED:
-				case ER_HOST_IS_BLOCKED:
-				case ER_PASSWORD_NOT_ALLOWED:
-				case ER_PASSWORD_NO_MATCH:
-				case ER_CANT_CREATE_THREAD:
-				case ER_INVALID_USE_OF_NULL:
-					continue;
+					if (Reconnect())
+					{
+						sys_err("AsyncSQL: connection restored during flush. In-flight query preserved as failed.");
+					}
+					break;
+				default:
+					break;
 			}
 		}
 
@@ -665,7 +837,12 @@ void CAsyncSQL::ChildLoop()
 			PushResult(p);
 		}
 		else
-			delete p;
+		{
+			if (p->uiSQLErrno != 0)
+				PushFailedQuery(p);
+			else
+				delete p;
+		}
 
 		++m_iQueryFinished;
 	}
