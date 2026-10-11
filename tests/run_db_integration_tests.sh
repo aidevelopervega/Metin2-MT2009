@@ -49,28 +49,51 @@ if [ ! -d "$DB_OBJ_DIR" ]; then
     exit 1
 fi
 
-# Negatif Kontrol 3: Zorunlu DB nesne dosyaları manifestosu
-# Sadece sayı kontrolü yapılmaz; her zorunlu nesnenin varlığı tek tek doğrulanır.
-REQUIRED_DB_OBJS="Cache.o ClientManager.o ClientManagerBoot.o ClientManagerGuild.o ClientManagerIkarusShop.o ClientManagerLogin.o ClientManagerParty.o ClientManagerPlayer.o Config.o DBManager.o IkarusShopCache.o ItemIDRangeManager.o Peer.o"
-for obj in $REQUIRED_DB_OBJS; do
-    if [ ! -f "$DB_OBJ_DIR/$obj" ]; then
-        echo "HATA: Zorunlu DB nesne dosyası eksik: $DB_OBJ_DIR/$obj! db tam derlenmemiş." >&2
+# Negatif Kontrol 3: Deterministik DB kaynak-nesne birebir eşleşme ve güncellik denetimi
+# Makefile'ın 'CPPFILE = $(wildcard *.cpp)' kuralına tam uyumlu olarak, db/src altındaki
+# tüm gerçek .cpp kaynakları (Main.cpp hariç) taranır; her birinin karşılık gelen .o dosyasının
+# varlığı ve kaynak dosyaya göre güncelliği (stale/eski olmaması) otomatik olarak doğrulanır.
+TOTAL_CPP=0
+MATCHED_OBJS=0
+
+for src in "$DB_SRC_DIR"/*.cpp; do
+    base=$(basename "$src" .cpp)
+    if [ "$base" = "Main" ]; then
+        continue
+    fi
+    TOTAL_CPP=$((TOTAL_CPP + 1))
+    obj="$DB_OBJ_DIR/${base}.o"
+    if [ ! -f "$obj" ]; then
+        echo "HATA: Zorunlu DB nesne dosyası eksik: $obj ($src derlenmemiş)!" >&2
         exit 1
     fi
+    if [ "$src" -nt "$obj" ]; then
+        echo "HATA: DB kaynak dosyası ($src) nesne dosyasından ($obj) daha yeni (stale object)! db yeniden derlenmelidir." >&2
+        exit 1
+    fi
+    MATCHED_OBJS=$((MATCHED_OBJS + 1))
 done
 
+if [ "$TOTAL_CPP" -eq 0 ] || [ "$TOTAL_CPP" -ne "$MATCHED_OBJS" ]; then
+    echo "HATA: DB kaynak ($TOTAL_CPP) ve nesne ($MATCHED_OBJS) dosyaları birebir eşleşmedi!" >&2
+    exit 1
+fi
+echo "--> Deterministik manifesto doğrulandı: Tüm $TOTAL_CPP DB kaynak dosyası güncel nesne dosyalarıyla birebir eşleşiyor."
+
 # Negatif Kontrol 4: Nesne dosyalarının mimari denetimi (64-Bit ELF / amd64)
-SAMPLE_OBJ="$DB_OBJ_DIR/DBManager.o"
-OBJ_ARCH=$(file "$SAMPLE_OBJ" 2>/dev/null || echo "unknown")
-case "$OBJ_ARCH" in
-    *64-bit*|*x86-64*|*amd64*)
-        echo "--> DB nesne mimarisi doğrulandı ($SAMPLE_OBJ: 64-bit)."
-        ;;
-    *)
-        echo "HATA: DB nesne dosyası 64-bit mimaride değil ($OBJ_ARCH)!" >&2
-        exit 1
-        ;;
-esac
+# Tek bir örnek değil, derlenen tüm nesne dosyalarının 64-bit mimarisi tek tek denetlenir:
+for obj in "$DB_OBJ_DIR"/*.o; do
+    OBJ_ARCH=$(file "$obj" 2>/dev/null || echo "unknown")
+    case "$OBJ_ARCH" in
+        *64-bit*|*x86-64*|*amd64*)
+            ;;
+        *)
+            echo "HATA: DB nesne dosyası ($obj) 64-bit mimaride değil ($OBJ_ARCH)!" >&2
+            exit 1
+            ;;
+    esac
+done
+echo "--> Tüm DB nesne dosyalarının 64-bit mimarisi doğrulandı."
 
 # Negatif Kontrol 5: Temiz arşiv oluşturma ve Main.o çakışmasını engelleme
 # Arşiv sıfırdan oluşturulur ('ar cr'), eski üyeler barındırmaz.

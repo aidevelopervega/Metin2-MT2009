@@ -345,19 +345,33 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ---
 
+  * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Rev 21 - Run ID: 38181369275, Commit: `8446fe46`):**
+    * **MariaDB 11.4 LTS (Job ID: 114594447121):** SUCCESS — Gerçek ELF64 `db_r1` derlendi ve bağlandı, 116/116 gerçek DB cache entegrasyon testi PASS, canlı veritabanı testleri PASS.
+    * **MariaDB 12.3 LTS (Job ID: 114594447154):** SUCCESS — Gerçek ELF64 `db_r1` derlendi ve bağlandı, 116/116 gerçek DB cache entegrasyon testi PASS, canlı veritabanı testleri PASS.
+    * **MySQL 8.4 LTS (Job ID: 114594446989):** FAILURE — Gerçek ELF64 `db_r1` derlendi ve bağlandı, 116/116 gerçek DB cache entegrasyon testi PASS; Canlı DB testinde Bölüm 12.4 (`NO_BACKSLASH_ESCAPES`) aşamasında Oracle MySQL C API'sinin `mysql_real_escape_string` yerine `mysql_real_escape_string_quote` gerektirmesi nedeniyle başarısız oldu.
+  * **Rev 21.1: Hedefli Çözüm ve Deterministik Manifesto:**
+    * `AsyncSQL.cpp`: Oracle MySQL 5.7.6+ / 8.4 için `mysql_real_escape_string_quote(GetSQLHandle(), dst, src, srcSize, '\'')` desteği eklendi; `(unsigned long)-1` hata durumunda fail-closed tampon sıfırlama sağlandı.
+    * `run_db_integration_tests.sh`: Statik dosya listesi yerine `db/src/*.cpp` kaynaklarıyla `.obj/*.o` nesnelerinin birebir (1:1) eşleştiğini ve nesnelerin güncel olduğunu doğrulayan deterministik denetim kuruldu. Derlenen tüm nesne dosyalarının 64-bit mimarisi tek tek doğrulandı.
+    * `test_live_db.cpp`: Bölüm 12.4 `NO_BACKSLASH_ESCAPES` kontrolü her iki veritabanı motoru için tam uyumlu hale getirildi.
+
+---
+
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Rev 21 CI Doğrulaması (Run ID: `38181369275`) — Rev 21 manifesto düzeltmesi (`8446fe46`) sonrası GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) tamamlanmasının izlenmesi.
-* **Mevcut Durum:** **CI RUNNING (Run ID: 38181369275, Commit: `8446fe46`)**.
+* **Aktif Görev:** Rev 21.1 Git Senkronizasyonu ve FreeBSD CI Doğrulaması — Hedefli düzeltmelerin (`AsyncSQL.cpp`, `run_db_integration_tests.sh`, `test_live_db.cpp`, `PROJECT_STATE.md`) Git'e commit edilip `origin dev/windows-gcc-baseline` dalına push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) izlenmesi.
+* **Mevcut Durum:** **TESTED LOCALLY (528/528 PASS) — PUSH & CI VERIFICATION IN PROGRESS**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Rev 21 CI doğrulaması ve Dizin Göçü başlangıcı:
-  1. `gh run view 38181369275 --repo x64bit-source/Metin2-MT2009 --json status,conclusion,jobs` ile sonucun kontrol edilmesi.
-  2. Üç FreeBSD işi tamamlandığında 528 test, 64-bit ELF `db_r1` derlemesi, 116 component testi ve canlı DB testlerinin (Bölüm 1-13) doğrulanması.
-  3. `docs/migration/06_path_migration_map.csv` haritasına dayalı olarak ilk güvenli ve küçük modülün (`libpoly` veya `libgame`) yeni dizin yapısına (`server/src/`) taşınması.
+* Rev 21.1 commit ve push işlemi:
+  1. `git add` ile ilgili dosyaların eklenmesi (`AsyncSQL.cpp`, `run_db_integration_tests.sh`, `test_live_db.cpp`, `PROJECT_STATE.md`).
+  2. `git commit -m "fix(db): support mysql_real_escape_string_quote and deterministic object manifesto (Rev 21.1)"`.
+  3. `git push origin dev/windows-gcc-baseline`.
+  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
+  5. `gh run list` ve `gh run view` ile tetiklenen CI koşusunun tek seferlik incelenmesi.
+  6. Üç FreeBSD işi tamamlandığında dizin göçünün ilk güvenli adımının başlatılması.
 
 
 

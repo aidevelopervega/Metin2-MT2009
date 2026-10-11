@@ -1042,7 +1042,22 @@ size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_
 		return 0;
 	}
 
-	return mysql_real_escape_string(GetSQLHandle(), dst, src, srcSize);
+	unsigned long res = 0;
+#if !defined(MARIADB_BASE_VERSION) && defined(LIBMYSQL_VERSION_ID) && LIBMYSQL_VERSION_ID >= 50706
+	res = mysql_real_escape_string_quote(GetSQLHandle(), dst, src, srcSize, '\'');
+#else
+	res = mysql_real_escape_string(GetSQLHandle(), dst, src, srcSize);
+#endif
+
+	if (res == static_cast<unsigned long>(-1))
+	{
+		sys_err("AsyncSQL::EscapeString: MySQL escape function returned error (%s)",
+				mysql_error(GetSQLHandle()));
+		dst[0] = '\0';
+		return 0;
+	}
+
+	return static_cast<size_t>(res);
 }
 
 void CAsyncSQL2::SetLocale(const std::string & stLocale)
