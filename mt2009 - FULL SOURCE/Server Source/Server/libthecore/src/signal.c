@@ -10,6 +10,7 @@ void signal_timer_enable(int timeout_seconds) { (void)timeout_seconds; }
 
 RETSIGTYPE reap(int sig)
 {
+    (void)sig;
     while (waitpid(-1, NULL, WNOHANG) > 0);
     signal(SIGCHLD, reap);
 }
@@ -17,6 +18,7 @@ RETSIGTYPE reap(int sig)
 
 RETSIGTYPE checkpointing(int sig)
 {
+    (void)sig;
     if (!tics)
     {
         sys_err("CHECKPOINT shutdown: tics did not updated.");
@@ -30,12 +32,14 @@ RETSIGTYPE checkpointing(int sig)
 
 RETSIGTYPE hupsig(int sig)
 {
+    (void)sig;
     shutdowned = TRUE;
     sys_log(0, "SIGHUP, SIGINT, SIGTERM signal has been received. shutting down."); // @warme012
 }
 
 RETSIGTYPE usrsig(int sig)
 {
+    (void)sig;
     core_dump();
 }
 

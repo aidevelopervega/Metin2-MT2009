@@ -1,4 +1,4 @@
-# Rev 4: Added libthecore compilation and test suite (149 tests across 3 modules)
+# Rev 5: Fix FreeBSD signal.c unused parameter warnings (0 errors, 0 warnings)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
