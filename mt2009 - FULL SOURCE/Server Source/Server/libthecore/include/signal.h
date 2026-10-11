@@ -1,6 +1,10 @@
 #ifndef __INC_LIBTHECORE_SIGNAL_H__
 #define __INC_LIBTHECORE_SIGNAL_H__
 
+#if defined(__GNUC__) || defined(__clang__)
+#include_next <signal.h>
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {

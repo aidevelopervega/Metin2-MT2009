@@ -83,7 +83,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
       * `AsyncSQL.cpp`: Dahili `MYSQL` struct alanlarına doğrudan erişimler (`m_hDB.host = NULL`, `m_hDB.reconnect = 1`) kaldırıldı; bağlantı yaşam döngüsü `m_bConnected` ve `Reconnect()` API'si üzerinden güvenli hale getirildi.
       * `AsyncSQL.cpp`: Windows `AsyncSQLThread` dönüş değeri `NULL` yerine `0` (`DWORD WINAPI`) yapılarak `-Wconversion-null` uyarısı giderildi. `PopQuery` içindeki `(void)iID;` ile `-Wunused-parameter` sıfırlandı.
       * `AsyncSQL.cpp`: `ChildLoop` hata işleme döngüsünde `CR_SERVER_LOST` ve `CR_SERVER_GONE_ERROR` durumlarında `Reconnect()` çağrılarak sonraki kuyruk sorguları için oturum yeniden kurulurken; düşen sorgunun hata kodu korunarak sahte/kontrolsüz tekrar çalıştırılması engellendi (çift eşya/para üretim açığı önlendi). `ER_INVALID_USE_OF_NULL` sonsuz döngü düşüşü kaldırıldı.
-      * `Tellwait.h` / `Tellwait.cpp`: POSIX sinyal ve proses başlıkları (`<sys/types.h>`, `<sys/signal.h>`, `<unistd.h>`) eklendi; `libthecore/include/signal.h` gölgelemesi (header shadowing) aşılarak FreeBSD 15.1 amd64 derleme hatası ve `-Wunused-parameter` uyarısı kök nedeninden giderildi.
+      * `Tellwait.h` / `Tellwait.cpp` & `libthecore/include/signal.h`: `libthecore/include/signal.h` başlığına `#include_next <signal.h>` eklenerek yerel başlığın sistem `<signal.h>` başlığını gölgelemesi (shadowing) kök nedeninden çözüldü. `Tellwait.cpp` dosyasına `<sys/types.h>`, `<unistd.h>`, `<signal.h>` eklenerek FreeBSD 15.1 POSIX sinyal fonksiyonları (`sigemptyset`, `sigaddset`, `sigprocmask`, `sigsuspend`, `kill`) ve `-Wunused-parameter` uyarısı tam olarak giderildi.
     * **Makefile:** `clang++` ve `-m32` yerine `CXX ?= g++`, `-std=c++20` ve standart nesne kuralı (`%.o: %.cpp`) tanımlandı.
     * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
     * **Sonuç:** 0 hata, 0 uyarı.
@@ -96,7 +96,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Toplam:** **216/216 test başarılı (%100)**.
   * **Platform Doğrulama Notu:**
     * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 216/216 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 7) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında test edilecektir.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 8) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında test edilecektir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 

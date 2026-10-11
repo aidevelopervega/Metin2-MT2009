@@ -1,4 +1,4 @@
-# Rev 7: Add Tellwait POSIX fix and libsql module (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
+# Rev 8: Add include_next for signal.h and Tellwait libc POSIX fix (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
