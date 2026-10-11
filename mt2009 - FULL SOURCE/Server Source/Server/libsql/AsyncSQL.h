@@ -37,6 +37,7 @@ typedef struct _SQLResult
 	bool		HasValidInsertID() const { return ullInsertID != 0 && ullInsertID <= UINT32_MAX; }
 	bool		HasValidAffectedRows() const { return ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows <= UINT32_MAX; }
 	bool		HasValidNumRows() const { return ullNumRows <= UINT32_MAX; }
+	bool		IsOverflow() const { return ullNumRows > UINT32_MAX || (ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows > UINT32_MAX) || ullInsertID > UINT32_MAX; }
 
 	MYSQL_RES *	pSQLResult;
 	uint32_t		uiNumRows;
@@ -52,6 +53,9 @@ typedef struct _SQLMsg
 	_SQLMsg() : m_pkSQL(NULL), iID(0), uiResultPos(0), pvUserData(NULL), bReturn(false), uiSQLErrno(0)
 	{
 	}
+
+	bool		IsError() const { return uiSQLErrno != 0; }
+	bool		IsEmpty() const { return uiSQLErrno == 0 && (vec_pkResult.empty() || (vec_pkResult[0] && vec_pkResult[0]->ullNumRows == 0)); }
 
 	~_SQLMsg()
 	{
@@ -187,6 +191,16 @@ class CAsyncSQL
 		bool		PopFailedQuery(SQLMsg ** pp);
 		DWORD		CountFailedQuery();
 
+		typedef void (*TFailedQueryCallback)(SQLMsg * pMsg);
+		void		SetFailedQueryCallback(TFailedQueryCallback pfn) { m_pfnFailedQueryCallback = pfn; }
+
+		static std::string SanitizeQueryForLog(const std::string & query);
+
+		bool		HasFailedQueryOverflow() const { return m_bFailedQueueOverflow; }
+		void		ResetFailedQueueOverflow() { m_bFailedQueueOverflow = false; }
+		size_t		GetFailedQueueBytes() const { return m_failedQueueBytes; }
+		size_t		GetQueryQueueBytes() const { return m_queryQueueBytes; }
+
 		void		ChildLoop();
 
 		MYSQL *		GetSQLHandle();
@@ -234,6 +248,11 @@ class CAsyncSQL
 
 		std::queue<SQLMsg *> m_queue_result;
 		std::queue<SQLMsg *> m_queue_failed;
+
+		TFailedQueryCallback m_pfnFailedQueryCallback{nullptr};
+		size_t m_failedQueueBytes{0};
+		size_t m_queryQueueBytes{0};
+		bool m_bFailedQueueOverflow{false};
 
 		volatile bool m_bEnd;
 

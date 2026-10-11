@@ -618,6 +618,92 @@ int main()
 		asyncSQL.Quit();
 	}
 
+	std::cout << "[RUN] Testing sensitive SQL log sanitization (passwords, tokens, secrets)..." << std::endl;
+	{
+		std::string q1 = "SELECT * FROM account WHERE login='admin' AND password=PASSWORD('mySuperSecretPassword123')";
+		std::string s1 = CAsyncSQL::SanitizeQueryForLog(q1);
+		TEST_ASSERT(s1.find("mySuperSecretPassword123") == std::string::npos, "Password literal masked from query log");
+		TEST_ASSERT(s1.find("PASSWORD('***')") != std::string::npos, "PASSWORD() masked with *** sentinel");
+
+		std::string q2 = "UPDATE account SET password='plainTextPassword456' WHERE id=10";
+		std::string s2 = CAsyncSQL::SanitizeQueryForLog(q2);
+		TEST_ASSERT(s2.find("plainTextPassword456") == std::string::npos, "Plain text password masked from query log");
+		TEST_ASSERT(s2.find("password='***'") != std::string::npos, "password='***' sentinel present");
+
+		std::string q3 = "SELECT * FROM oauth WHERE token = 'my_api_token_xyz'";
+		std::string s3 = CAsyncSQL::SanitizeQueryForLog(q3);
+		TEST_ASSERT(s3.find("my_api_token_xyz") == std::string::npos, "Token masked from query log");
+
+		std::string qNormal = "SELECT id, name FROM player WHERE level > 50";
+		std::string sNormal = CAsyncSQL::SanitizeQueryForLog(qNormal);
+		TEST_ASSERT(sNormal == qNormal, "Normal query preserved without modification");
+	}
+
+	std::cout << "[RUN] Testing reactive failed query callback contract..." << std::endl;
+	{
+		static bool s_callback_invoked = false;
+		static unsigned int s_callback_errno = 0;
+
+		CAsyncSQL callbackSQL;
+		callbackSQL.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		callbackSQL.SetFailedQueryCallback([](SQLMsg * pMsg) {
+			s_callback_invoked = true;
+			s_callback_errno = pMsg->uiSQLErrno;
+			delete pMsg;
+		});
+
+		SQLMsg * failMsg = new SQLMsg;
+		failMsg->stQuery = "DELETE FROM affect WHERE dwPID=999";
+		failMsg->uiSQLErrno = CR_CONNECTION_ERROR;
+		callbackSQL.PushFailedQuery(failMsg);
+
+		TEST_ASSERT(s_callback_invoked == true, "Failed query callback invoked immediately for reactive delivery");
+		TEST_ASSERT(s_callback_errno == CR_CONNECTION_ERROR, "Callback received correct connection error code");
+		TEST_ASSERT(callbackSQL.CountFailedQuery() == 0, "No queries left uncollected in queue when callback is active");
+	}
+
+	std::cout << "[RUN] Testing SQLMsg error vs empty result disambiguation..." << std::endl;
+	{
+		// 1. Genuine empty query: 0 rows returned, errno 0
+		s_mock_num_rows = 0;
+		SQLMsg msgEmpty;
+		msgEmpty.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgEmpty.Store();
+		TEST_ASSERT(msgEmpty.IsError() == false, "Empty query is NOT an error");
+		TEST_ASSERT(msgEmpty.IsEmpty() == true, "Empty query correctly recognized as empty");
+
+		// 2. Overflow error query: 5 billion rows (> UINT32_MAX)
+		s_mock_num_rows = 5000000000ULL;
+		SQLMsg msgOverflow;
+		msgOverflow.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgOverflow.Store();
+		TEST_ASSERT(msgOverflow.IsError() == true, "Overflowed query is recognized as ERROR");
+		TEST_ASSERT(msgOverflow.IsEmpty() == false, "Overflowed query NEVER mistaken for empty result");
+		TEST_ASSERT(msgOverflow.Get()->IsOverflow() == true, "IsOverflow helper correctly detects overflow");
+
+		// Reset mocks
+		s_mock_num_rows = 0;
+	}
+
+	std::cout << "[RUN] Testing queue memory tracking and backpressure bounds..." << std::endl;
+	{
+		CAsyncSQL memSQL;
+		memSQL.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+
+		SQLMsg * p = new SQLMsg;
+		p->stQuery = "INSERT INTO player (name) VALUES ('TestPlayer');";
+		memSQL.PushFailedQuery(p);
+
+		TEST_ASSERT(memSQL.GetFailedQueueBytes() > 0, "Failed queue tracks byte consumption");
+		TEST_ASSERT(memSQL.HasFailedQueryOverflow() == false, "Queue under limit has no overflow flag");
+
+		SQLMsg * popped = nullptr;
+		memSQL.PopFailedQuery(&popped);
+		TEST_ASSERT(popped != nullptr, "Query popped cleanly");
+		delete popped;
+		TEST_ASSERT(memSQL.GetFailedQueueBytes() == 0, "Memory counter decrements on pop");
+	}
+
 	// --------------------------------------------------------------------------
 	// 7. LIVE DATABASE INTEGRATION SUITE (CONDITIONAL / HONEST)
 	// --------------------------------------------------------------------------

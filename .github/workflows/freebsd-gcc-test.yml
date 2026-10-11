@@ -1,4 +1,4 @@
-# Rev 10: 242/242 Tests with strict 64-bit ID errors, queue bounds, and reconnect backoff (FreeBSD 15.1 amd64 GCC 14)
+# Rev 11: 260/260 Tests with sanitization, reactive callbacks, error disambiguation and memory bounds (FreeBSD 15.1 amd64 GCC 14)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (242/242 Tests)
+    name: FreeBSD 15.1 amd64 GCC 14 (260/260 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

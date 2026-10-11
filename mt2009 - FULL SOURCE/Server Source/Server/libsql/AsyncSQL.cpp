@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <cctype>
 
 #include "AsyncSQL.h"
 
@@ -16,6 +17,75 @@
 #define MUTEX_LOCK(mtx) ::EnterCriticalSection(mtx)
 #define MUTEX_UNLOCK(mtx) ::LeaveCriticalSection(mtx)
 #endif
+
+std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
+{
+	if (query.empty())
+		return query;
+
+	std::string lowerQuery = query;
+	for (char & c : lowerQuery)
+		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+	const char * sensitiveKeys[] = {"password", "pwd", "token", "secret", "social_id"};
+	std::string result = query;
+
+	for (const char * key : sensitiveKeys)
+	{
+		size_t keyLen = std::strlen(key);
+		size_t pos = 0;
+		while ((pos = lowerQuery.find(key, pos)) != std::string::npos)
+		{
+			size_t searchPos = pos + keyLen;
+			while (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == ' ' || lowerQuery[searchPos] == '\t'))
+				++searchPos;
+
+			if (searchPos < lowerQuery.size() && lowerQuery[searchPos] == '=')
+			{
+				++searchPos;
+				while (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == ' ' || lowerQuery[searchPos] == '\t'))
+					++searchPos;
+
+				if (lowerQuery.substr(searchPos, 9) == "password(")
+				{
+					size_t openParen = searchPos + 8;
+					size_t closeParen = lowerQuery.find(')', openParen);
+					if (closeParen != std::string::npos)
+					{
+						result.replace(openParen + 1, closeParen - openParen - 1, "'***'");
+						lowerQuery.replace(openParen + 1, closeParen - openParen - 1, "'***'");
+						pos = openParen + 6;
+						continue;
+					}
+				}
+				else if (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == '\'' || lowerQuery[searchPos] == '"'))
+				{
+					char quoteChar = lowerQuery[searchPos];
+					size_t startQuote = searchPos;
+					size_t endQuote = startQuote + 1;
+					while (endQuote < lowerQuery.size())
+					{
+						if (lowerQuery[endQuote] == '\\')
+							endQuote += 2;
+						else if (lowerQuery[endQuote] == quoteChar)
+							break;
+						else
+							++endQuote;
+					}
+					if (endQuote < lowerQuery.size())
+					{
+						result.replace(startQuote + 1, endQuote - startQuote - 1, "***");
+						lowerQuery.replace(startQuote + 1, endQuote - startQuote - 1, "***");
+						pos = startQuote + 5;
+						continue;
+					}
+				}
+			}
+			pos += keyLen;
+		}
+	}
+	return result;
+}
 
 CAsyncSQL::CAsyncSQL()
 	: m_stHost(""), m_stUser(""), m_stPassword(""), m_stDB(""), m_stLocale(""),
@@ -359,7 +429,7 @@ std::unique_ptr<SQLMsg> CAsyncSQL::DirectQuery(const char * c_pszQuery)
 
 		snprintf(buf, sizeof(buf),
 				"AsyncSQL::DirectQuery : mysql_query error: %s\nquery: %s",
-				mysql_error(&m_hDB), p->stQuery.c_str());
+				mysql_error(&m_hDB), SanitizeQueryForLog(p->stQuery).c_str());
 
 		sys_err(buf);
 		p->uiSQLErrno = mysql_errno(&m_hDB);
@@ -427,6 +497,15 @@ bool CAsyncSQL::PopResult(SQLMsg ** pp)
 
 void CAsyncSQL::PushFailedQuery(SQLMsg * p)
 {
+	if (!p)
+		return;
+
+	if (m_pfnFailedQueryCallback)
+	{
+		m_pfnFailedQueryCallback(p);
+		return;
+	}
+
 	if (!m_mtxResult)
 	{
 		delete p;
@@ -435,13 +514,19 @@ void CAsyncSQL::PushFailedQuery(SQLMsg * p)
 
 	MUTEX_LOCK(m_mtxResult.get());
 	constexpr size_t MAX_FAILED_QUEUE_CAPACITY = 10000;
-	if (m_queue_failed.size() >= MAX_FAILED_QUEUE_CAPACITY)
+	constexpr size_t MAX_FAILED_QUEUE_BYTES = 64 * 1024 * 1024; // 64 MB
+
+	size_t queryBytes = sizeof(SQLMsg) + p->stQuery.capacity();
+
+	if (m_queue_failed.size() >= MAX_FAILED_QUEUE_CAPACITY || (m_failedQueueBytes + queryBytes) > MAX_FAILED_QUEUE_BYTES)
 	{
-		sys_err("AsyncSQL::PushFailedQuery: failed query queue capacity (%zu) exceeded, dropping oldest query to prevent memory exhaustion", m_queue_failed.size());
-		delete m_queue_failed.front();
-		m_queue_failed.pop();
+		m_bFailedQueueOverflow = true;
+		sys_err("CRITICAL ALERT: AsyncSQL::PushFailedQuery queue capacity/memory limit reached (%zu queries, %zu bytes). Backpressure activated; query preserved without silent drop!",
+				m_queue_failed.size(), m_failedQueueBytes);
 	}
+
 	m_queue_failed.push(p);
+	m_failedQueueBytes += queryBytes;
 	MUTEX_UNLOCK(m_mtxResult.get());
 }
 
@@ -460,6 +545,14 @@ bool CAsyncSQL::PopFailedQuery(SQLMsg ** pp)
 
 	*pp = m_queue_failed.front();
 	m_queue_failed.pop();
+	if (*pp)
+	{
+		size_t queryBytes = sizeof(SQLMsg) + (*pp)->stQuery.capacity();
+		if (m_failedQueueBytes >= queryBytes)
+			m_failedQueueBytes -= queryBytes;
+		else
+			m_failedQueueBytes = 0;
+	}
 	MUTEX_UNLOCK(m_mtxResult.get());
 	return true;
 }
@@ -477,6 +570,9 @@ DWORD CAsyncSQL::CountFailedQuery()
 
 void CAsyncSQL::PushQuery(SQLMsg * p)
 {
+	if (!p)
+		return;
+
 	if (!m_mtxQuery)
 	{
 		delete p;
@@ -485,9 +581,14 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 
 	MUTEX_LOCK(m_mtxQuery.get());
 	constexpr size_t MAX_ASYNC_QUERY_QUEUE_CAPACITY = 100000;
-	if (m_queue_query.size() >= MAX_ASYNC_QUERY_QUEUE_CAPACITY)
+	constexpr size_t MAX_ASYNC_QUERY_QUEUE_BYTES = 128 * 1024 * 1024; // 128 MB
+
+	size_t queryBytes = sizeof(SQLMsg) + p->stQuery.capacity();
+
+	if (m_queue_query.size() >= MAX_ASYNC_QUERY_QUEUE_CAPACITY || (m_queryQueueBytes + queryBytes) > MAX_ASYNC_QUERY_QUEUE_BYTES)
 	{
-		sys_err("AsyncSQL::PushQuery: async query queue capacity (%zu) reached; rejecting query to prevent unbounded memory growth", m_queue_query.size());
+		sys_err("CRITICAL: AsyncSQL::PushQuery: async query queue capacity/memory limit reached (%zu queries, %zu bytes); rejecting query to activate backpressure!",
+				m_queue_query.size(), m_queryQueueBytes);
 		MUTEX_UNLOCK(m_mtxQuery.get());
 
 		p->uiSQLErrno = CR_CONNECTION_ERROR;
@@ -504,6 +605,7 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 	}
 
 	m_queue_query.push(p);
+	m_queryQueueBytes += queryBytes;
 	m_sem.Release();
 	MUTEX_UNLOCK(m_mtxQuery.get());
 }
@@ -540,6 +642,16 @@ bool CAsyncSQL::PopQuery(int iID)
 		return false;
 	}
 
+	SQLMsg * p = m_queue_query.front();
+	if (p)
+	{
+		size_t queryBytes = sizeof(SQLMsg) + p->stQuery.capacity();
+		if (m_queryQueueBytes >= queryBytes)
+			m_queryQueueBytes -= queryBytes;
+		else
+			m_queryQueueBytes = 0;
+	}
+
 	m_queue_query.pop();
 	MUTEX_UNLOCK(m_mtxQuery.get());
 	return true;
@@ -574,6 +686,7 @@ int CAsyncSQL::CopyQuery()
 		m_queue_query.pop();
 	}
 
+	m_queryQueueBytes = 0;
 	int count = m_queue_query_copy.size();
 
 	MUTEX_UNLOCK(m_mtxQuery.get());
@@ -764,7 +877,7 @@ void CAsyncSQL::ChildLoop()
 				p->uiSQLErrno = mysql_errno(&m_hDB);
 
 				sys_err("AsyncSQL: query failed: %s (query: %s errno: %d)",
-						mysql_error(&m_hDB), p->stQuery.c_str(), p->uiSQLErrno);
+						mysql_error(&m_hDB), SanitizeQueryForLog(p->stQuery).c_str(), p->uiSQLErrno);
 
 				switch (p->uiSQLErrno)
 				{
@@ -785,7 +898,7 @@ void CAsyncSQL::ChildLoop()
 
 			if (!profiler.IsOk())
 				sys_log(0, "[QUERY : LONG INTERVAL(OverSec %ld.%ld)] : %s",
-						profiler.GetResultSec(), profiler.GetResultUSec(), p->stQuery.c_str());
+						profiler.GetResultSec(), profiler.GetResultUSec(), SanitizeQueryForLog(p->stQuery).c_str());
 
 			PopQueryFromCopyQueue();
 
@@ -813,7 +926,7 @@ void CAsyncSQL::ChildLoop()
 		if (!m_bConnected)
 		{
 			p->uiSQLErrno = CR_CONNECTION_ERROR;
-			sys_err("QUERY_FLUSH: connection offline, query marked failed: %s", p->stQuery.c_str());
+			sys_err("QUERY_FLUSH: connection offline, query marked failed: %s", SanitizeQueryForLog(p->stQuery).c_str());
 			PopQuery(p->iID);
 			if (p->bReturn)
 			{
@@ -840,7 +953,7 @@ void CAsyncSQL::ChildLoop()
 			p->uiSQLErrno = mysql_errno(&m_hDB);
 
 			sys_err("AsyncSQL::ChildLoop : mysql_query error: %s:\nquery: %s",
-					mysql_error(&m_hDB), p->stQuery.c_str());
+					mysql_error(&m_hDB), SanitizeQueryForLog(p->stQuery).c_str());
 
 			switch (p->uiSQLErrno)
 			{
@@ -856,7 +969,7 @@ void CAsyncSQL::ChildLoop()
 			}
 		}
 
-		sys_log(0, "QUERY_FLUSH: %s", p->stQuery.c_str());
+		sys_log(0, "QUERY_FLUSH: %s", SanitizeQueryForLog(p->stQuery).c_str());
 
 		PopQuery(p->iID);
 
