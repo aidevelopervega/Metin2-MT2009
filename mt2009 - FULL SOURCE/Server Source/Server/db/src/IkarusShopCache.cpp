@@ -1099,7 +1099,7 @@ namespace ikashop
 		value.SetObject();
 		// inserting values
 		auto& allocator = value.GetAllocator();
-		jsonHelper::insertValue(value, "yang", item.price.yang, allocator);
+		jsonHelper::insertValue(value, "yang", static_cast<int64_t>(item.price.yang), allocator);
 #ifdef ENABLE_CHEQUE_SYSTEM
 		jsonHelper::insertValue(value, "cheque", item.price.cheque, allocator);
 #endif
