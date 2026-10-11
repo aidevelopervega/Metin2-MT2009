@@ -292,6 +292,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 			while (it != pSet->end())
 			{
 				CItemCache * c = *it++;
+				c->CancelPendingEviction();
 				TPlayerItem * p = c->Get();
 
 				if (p->vnum)

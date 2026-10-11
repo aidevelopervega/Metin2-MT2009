@@ -232,6 +232,13 @@ try {
     & "$DbCacheTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
+    # ------------------------------------------------------------------------------
+    # 6. DB CACHE / ACK GERÇEK ENTEGRASYON TESTİ (Senaryo 1 - 7)
+    # ------------------------------------------------------------------------------
+    Write-Host "`n[6/6] DB cache / ACK gerçek entegrasyon testleri çalıştırılıyor..." -ForegroundColor Yellow
+    & "$RootDir\tests\run_db_integration_tests.ps1"
+    if ($LASTEXITCODE -ne 0) { throw "run_db_integration_tests testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
     Write-Host "`n==================================================" -ForegroundColor Cyan
     Write-Host " [BAŞARILI] TÜM MODÜL VE REGRESYON TESTLERİ GEÇTİ!" -ForegroundColor Green
     Write-Host "==================================================" -ForegroundColor Cyan

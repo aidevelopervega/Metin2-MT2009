@@ -189,6 +189,12 @@ int CDBManager::Connect(int iSlot, const char * db_address, const int db_port, c
 
 std::unique_ptr<SQLMsg> CDBManager::DirectQuery(const char * c_pszQuery, int iSlot)
 {
+	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_directSQL[iSlot])
+	{
+		auto p = std::make_unique<SQLMsg>();
+		p->uiSQLErrno = CR_SERVER_GONE_ERROR;
+		return p;
+	}
 	return m_directSQL[iSlot]->DirectQuery(c_pszQuery);
 }
 
@@ -198,6 +204,8 @@ extern int g_query_count[2];
 void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, IDENT dwIdent, void * udata, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
+	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_mainSQL[iSlot])
+		return;
 	//sys_log(0, "ReturnQuery %s", c_pszQuery);
 	CQueryInfo * p = new CQueryInfo;
 
@@ -214,13 +222,64 @@ void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, IDENT dwIdent, 
 void CDBManager::AsyncQuery(const char * c_pszQuery, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
+	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_asyncSQL[iSlot])
+		return;
 	m_asyncSQL[iSlot]->AsyncQuery(c_pszQuery);
 	++g_query_count[1];
+}
+
+static unsigned long LocalEscapeString(char *to, const char *from, unsigned long length)
+{
+	const char *end = from + length;
+	char *to_start = to;
+	while (from < end)
+	{
+		char c = *from++;
+		switch (c)
+		{
+			case 0:
+				*to++ = '\\';
+				*to++ = '0';
+				break;
+			case '\n':
+				*to++ = '\\';
+				*to++ = 'n';
+				break;
+			case '\r':
+				*to++ = '\\';
+				*to++ = 'r';
+				break;
+			case '\\':
+				*to++ = '\\';
+				*to++ = '\\';
+				break;
+			case '\'':
+				*to++ = '\\';
+				*to++ = '\'';
+				break;
+			case '"':
+				*to++ = '\\';
+				*to++ = '"';
+				break;
+			case '\032':
+				*to++ = '\\';
+				*to++ = 'Z';
+				break;
+			default:
+				*to++ = c;
+				break;
+		}
+	}
+	*to = '\0';
+	return (unsigned long)(to - to_start);
 }
 
 unsigned long CDBManager::EscapeString(void *to, const void *from, unsigned long length, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
+	if (!m_directSQL[iSlot] || !m_directSQL[iSlot]->IsConnected())
+		return LocalEscapeString((char *) to, (const char *) from, length);
+
 	return mysql_real_escape_string(m_directSQL[iSlot]->GetSQLHandle(), (char *) to, (const char *) from, length);
 }
 

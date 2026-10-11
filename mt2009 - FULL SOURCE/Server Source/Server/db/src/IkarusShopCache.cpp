@@ -691,11 +691,11 @@ namespace ikashop
 		auto msg = CDBManager::instance().DirectQuery(query.c_str());
 
 		// checking for errors
-		if(msg->uiSQLErrno != 0)
+		if(!msg || msg->uiSQLErrno != 0 || !msg->Get())
 			return nullptr;
 
 		// no row so creating it from 0
-		if (msg->Get()->uiAffectedRows == 0)
+		if (msg->Get()->uiAffectedRows == 0 || !msg->Get()->pSQLResult)
 			return CreateSafebox(dwPID);
 
 		// inserting new empty cache
@@ -703,11 +703,14 @@ namespace ikashop
 
 		// extracting data
 		auto row = mysql_fetch_row(msg->Get()->pSQLResult);
-		str_to_number(safebox->valutes.yang, row[0]);
+		if (row && row[0])
+			str_to_number(safebox->valutes.yang, row[0]);
 
 		// making query selecting items
 		const auto itemquery = CreateSafeboxCacheLoadItemsQuery(dwPID);
 		msg = CDBManager::instance().DirectQuery(itemquery.c_str());
+		if (!msg || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
+			return safebox;
 
 		// extracting items
 		auto& itemsmap = safebox->itemsmap;

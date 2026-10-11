@@ -180,6 +180,10 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	int			AnalyzeQueryResult(SQLMsg * msg);
 	void			AnalyzeFailedQuery(SQLMsg * msg);
 	int			AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
+	void		FlushPlayerCacheSet(DWORD pid);
+	void		QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoadPacket * packet);
+	void		InsertLoginData(CLoginData * pkLD);
+	CLoginData *	GetLoginDataByAID(DWORD dwAID);
 
     protected:
 	void	Destroy();
@@ -220,9 +224,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
 	CLoginData *	GetLoginData(DWORD dwKey);
 	CLoginData *	GetLoginDataByLogin(const char * c_pszLogin);
-	CLoginData *	GetLoginDataByAID(DWORD dwAID);
 
-	void		InsertLoginData(CLoginData * pkLD);
 	void		DeleteLoginData(CLoginData * pkLD);
 
 	bool		InsertLogonAccount(const char * c_pszLogin, DWORD dwHandle, const char * c_pszIP);
@@ -256,7 +258,6 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
 	void		RESULT_LOGIN(CPeer * peer, SQLMsg *msg);
 
-	void		QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoadPacket*);
 	void		RESULT_COMPOSITE_PLAYER(CPeer * peer, SQLMsg * pMsg, DWORD dwQID);
 	void		RESULT_PLAYER_LOAD(CPeer * peer, MYSQL_RES * pRes, ClientHandleInfo * pkInfo);
 	void		RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwPID);
@@ -633,7 +634,6 @@ private:
 	void UpdateLogoutPlayer();
 	void UpdateItemCacheSet(DWORD pid);
 
-	void FlushPlayerCacheSet(DWORD pid);
 
 	//MONARCH
 	void Election(CPeer * peer, DWORD dwHandle, const char * p);

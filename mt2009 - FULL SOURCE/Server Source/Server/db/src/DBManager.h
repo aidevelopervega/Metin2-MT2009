@@ -89,6 +89,34 @@ class CDBManager : public singleton<CDBManager>
 		}
 	}
 
+	void			SetMainSQL(int iSlot, std::unique_ptr<CAsyncSQL2> sql)
+	{
+		if (iSlot >= 0 && iSlot < SQL_MAX_NUM)
+			m_mainSQL[iSlot] = std::move(sql);
+	}
+	CAsyncSQL2 *		GetMainSQL(int iSlot)
+	{
+		return (iSlot >= 0 && iSlot < SQL_MAX_NUM) ? m_mainSQL[iSlot].get() : nullptr;
+	}
+	void			SetAsyncSQL(int iSlot, std::unique_ptr<CAsyncSQL2> sql)
+	{
+		if (iSlot >= 0 && iSlot < SQL_MAX_NUM)
+			m_asyncSQL[iSlot] = std::move(sql);
+	}
+	CAsyncSQL2 *		GetAsyncSQL(int iSlot)
+	{
+		return (iSlot >= 0 && iSlot < SQL_MAX_NUM) ? m_asyncSQL[iSlot].get() : nullptr;
+	}
+	void			SetDirectSQL(int iSlot, std::unique_ptr<CAsyncSQL2> sql)
+	{
+		if (iSlot >= 0 && iSlot < SQL_MAX_NUM)
+			m_directSQL[iSlot] = std::move(sql);
+	}
+	CAsyncSQL2 *		GetDirectSQL(int iSlot)
+	{
+		return (iSlot >= 0 && iSlot < SQL_MAX_NUM) ? m_directSQL[iSlot].get() : nullptr;
+	}
+
     private:
 	std::unique_ptr<CAsyncSQL2>		m_mainSQL[SQL_MAX_NUM];
 	std::unique_ptr<CAsyncSQL2>	 	m_directSQL[SQL_MAX_NUM];
