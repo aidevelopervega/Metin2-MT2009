@@ -410,18 +410,25 @@ void CAsyncSQL::Quit()
 
 std::unique_ptr<SQLMsg> CAsyncSQL::DirectQuery(const char * c_pszQuery)
 {
+	auto p = std::make_unique<SQLMsg>();
+
+	p->m_pkSQL = &m_hDB;
+	p->iID = ++m_iMsgCount;
+	p->stQuery = c_pszQuery ? c_pszQuery : "";
+
+	if (!m_bConnected)
+	{
+		p->uiSQLErrno = CR_SERVER_GONE_ERROR;
+		p->Store();
+		return p;
+	}
+
 	if (m_ulThreadID != mysql_thread_id(&m_hDB))
 	{
 		sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
 		while (!QueryLocaleSet());
 		m_ulThreadID = mysql_thread_id(&m_hDB);
 	}
-
-	auto p = std::make_unique<SQLMsg>();
-
-	p->m_pkSQL = &m_hDB;
-	p->iID = ++m_iMsgCount;
-	p->stQuery = c_pszQuery;
 
 	if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
 	{

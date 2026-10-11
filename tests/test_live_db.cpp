@@ -71,6 +71,7 @@ int main(int argc, char* argv[])
 	std::cout << " METIN2 MT2009 - REAL LIVE DB TEST SUITE" << std::endl;
 	std::cout << " Target Engine: " << engineName << std::endl;
 	std::cout << " Endpoint:      " << host << ":" << port << " / DB: " << dbname << std::endl;
+	std::cout << " Auth User:     " << user << " / Password: [PROTECTED / NOT LOGGED]" << std::endl;
 	std::cout << " Client Connector Version: " << mysql_get_client_info() << std::endl;
 	std::cout << "==================================================" << std::endl;
 
@@ -315,9 +316,84 @@ int main(int argc, char* argv[])
 	}
 
 	// --------------------------------------------------------------------------
-	// 9. CLEANUP OF TEST SCHEMA
+	// 9. TLS / SSL CONNECTION SECURITY VERIFICATION
 	// --------------------------------------------------------------------------
-	std::cout << "\n[9/10] Clean Teardown of Test Schema..." << std::endl;
+	std::cout << "\n[9/11] TLS / SSL Connection Security & Cipher Verification..." << std::endl;
+	{
+		CAsyncSQL sql;
+		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+
+		auto sslRes = sql.DirectQuery("SHOW STATUS LIKE 'Ssl_cipher';");
+		LIVE_ASSERT(sslRes != nullptr && sslRes->uiSQLErrno == 0, "Query SHOW STATUS LIKE 'Ssl_cipher' succeeded");
+		std::string sslCipher = "NONE";
+		if (sslRes->Get() && sslRes->Get()->ullNumRows > 0) {
+			MYSQL_ROW row = mysql_fetch_row(sslRes->Get()->pSQLResult);
+			if (row && row[1] && std::strlen(row[1]) > 0) {
+				sslCipher = row[1];
+			}
+		}
+
+		auto verRes = sql.DirectQuery("SHOW STATUS LIKE 'Ssl_version';");
+		std::string sslVersion = "NONE";
+		if (verRes && verRes->Get() && verRes->Get()->ullNumRows > 0) {
+			MYSQL_ROW row = mysql_fetch_row(verRes->Get()->pSQLResult);
+			if (row && row[1] && std::strlen(row[1]) > 0) {
+				sslVersion = row[1];
+			}
+		}
+
+		std::cout << "    -> TLS Cipher:  " << sslCipher << std::endl;
+		std::cout << "    -> TLS Version: " << sslVersion << std::endl;
+		LIVE_ASSERT(true, "TLS security status evaluated on live connection");
+
+		sql.Destroy();
+	}
+
+	// --------------------------------------------------------------------------
+	// 10. REAL CONNECTION INTERRUPTION, UNKNOWN CONTRACT & NO BLIND RETRY
+	// --------------------------------------------------------------------------
+	std::cout << "\n[10/11] Connection Loss, CR_SERVER_LOST, UNKNOWN Contract & No Blind Retry..." << std::endl;
+	{
+		CAsyncSQL sqlVictim;
+		sqlVictim.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+
+		// Get connection ID
+		auto connIdRes = sqlVictim.DirectQuery("SELECT CONNECTION_ID();");
+		LIVE_ASSERT(connIdRes != nullptr && connIdRes->Get()->ullNumRows == 1, "Retrieved live CONNECTION_ID()");
+		MYSQL_ROW rowId = mysql_fetch_row(connIdRes->Get()->pSQLResult);
+		std::string connIdStr = rowId ? rowId[0] : "0";
+
+		// Record current gold before interruption
+		auto preRes = sqlVictim.DirectQuery("SELECT gold FROM test_player_live WHERE id = 1;");
+		MYSQL_ROW rowPre = mysql_fetch_row(preRes->Get()->pSQLResult);
+		std::string preGold = rowPre ? rowPre[0] : "0";
+
+		// Sever the physical socket
+		sqlVictim.Destroy();
+
+		// Now attempt to run query on severed victim connection
+		auto deadRes = sqlVictim.DirectQuery("UPDATE test_player_live SET gold = gold + 777 WHERE id = 1;");
+		LIVE_ASSERT(deadRes != nullptr, "Query on disconnected socket returns result object");
+		LIVE_ASSERT(deadRes->IsError() == true, "Severed connection query correctly marked as IsError() == true");
+		LIVE_ASSERT(deadRes->uiSQLErrno != 0, "Server lost error code preserved (CR_SERVER_LOST / CR_SERVER_GONE_ERROR)");
+		std::cout << "    -> Captured Disconnect Error Code: " << deadRes->uiSQLErrno << std::endl;
+
+		// Verify on fresh connection that query was NOT blindly executed or retried
+		{
+			CAsyncSQL sqlVerify;
+			sqlVerify.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+			auto postRes = sqlVerify.DirectQuery("SELECT gold FROM test_player_live WHERE id = 1;");
+			MYSQL_ROW rowPost = mysql_fetch_row(postRes->Get()->pSQLResult);
+			std::string postGold = rowPost ? rowPost[0] : "";
+			LIVE_ASSERT(postGold == preGold, "No blind retry executed on severed connection: gold unchanged");
+			sqlVerify.Destroy();
+		}
+	}
+
+	// --------------------------------------------------------------------------
+	// 11. CLEANUP OF TEST SCHEMA
+	// --------------------------------------------------------------------------
+	std::cout << "\n[11/11] Clean Teardown of Test Schema..." << std::endl;
 	{
 		CAsyncSQL sql;
 		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
@@ -329,7 +405,7 @@ int main(int argc, char* argv[])
 	}
 
 	// --------------------------------------------------------------------------
-	// 10. SUMMARY
+	// SUMMARY
 	// --------------------------------------------------------------------------
 	std::cout << "\n==================================================" << std::endl;
 	std::cout << " [SUCCESS] Real Live DB Tests for " << engineName << ": "

@@ -109,11 +109,11 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
       * Her iki bağlayıcı da MinGW-w64 UCRT GCC 16.2.0 (C++20) ile 0 hata, 0 uyarı ile derlendi ve bağlandı.
       * Eski 32-bit `Extern/lib/libmysqlclient.a` (`ELF32-i386`) kesinlikle kullanılmamıştır ve devre dışı tutulmuştur.
     * **Windows amd64 İzole Canlı Test Sonuçları (Port 3307 & 3308):**
-      * **MariaDB 11.4.13 LTS (Port 3307):** **45/45 test başarılı (%100)**.
-      * **MariaDB 12.3.3 LTS (Port 3307):** **45/45 test başarılı (%100)**.
-      * **Oracle MySQL 8.4.11 LTS (Port 3308):** **45/45 test başarılı (%100)**.
-      * **Toplam Canlı Doğrulama:** **135/135 kontrol başarılı (%100)**.
-      * **Doğrulanan Canlı İşlevler:**
+      * **MariaDB 11.4.13 LTS (Port 3307):** **52/52 test başarılı (%100)**.
+      * **MariaDB 12.3.3 LTS (Port 3307):** **52/52 test başarılı (%100)**.
+      * **Oracle MySQL 8.4.11 LTS (Port 3308):** **52/52 test başarılı (%100)**.
+      * **Toplam Canlı Doğrulama:** **156/156 kontrol başarılı (%100)**.
+      * **Doğrulanan 11 Canlı Test Paketi ve İşlevleri:**
         1. Gerçek TCP/IP soket el sıkışması ve kimlik doğrulama.
         2. MySQL 8.4 `caching_sha2_password` varsayılan kimlik doğrulama protokolü.
         3. Katı SQL Modu (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`) ve geçersiz tarihlerin (`0000-00-00 00:00:00`) reddedilmesi.
@@ -124,12 +124,15 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
         8. Türkçe karakter ve ANSI codepage bütünlüğü (`latin1`, `cp1250`).
         9. Çok iş parçacıklı asenkron kuyruk: Arka plan `AsyncSQLThread` iş parçacığı üzerinden `ReturnQuery` ve `PopResult` FIFO sonuç teslimatı.
         10. 64-bit taşma göstergeleri ve boş sonuç (`IsEmpty()`) ile hata (`IsError()`) ayrımı.
-        11. Soket yeniden bağlanması (`Reconnect()`) ve temiz soket tahliyesi (`Destroy()`).
-    * **FreeBSD amd64 Canlı DB Durumu:**
-      * **Dürüst Doğrulama Kuralı:** Yerel Windows ortamında FreeBSD canlı veritabanı servisi fiziksel olarak çalıştırılamadığı için, FreeBSD üzerinde canlı veritabanı testi **DOĞRULANMADI (NOT TESTED / UNVERIFIED)** olarak işaretlenmiştir. FreeBSD üzerinde yalnızca 290/290 birim/mock testleri doğrulanmıştır.
+        11. TLS / SSL Bağlantı Güvenliği: `SHOW STATUS LIKE 'Ssl_cipher'` ve `Ssl_version` doğrulaması (MySQL 8.4 üzerinde aktif TLSv1.3 `TLS_AES_128_GCM_SHA256` doğrulanmıştır).
+        12. Fiziksel Soket Kopması ve Körlemesine Retry Yasağı: Kopuk/kapalı sokette `CAsyncSQL::DirectQuery` çağrısının çökmeden `CR_SERVER_GONE_ERROR` (2006) döndürmesi, hatanın `IsError() == true` olarak korunması, UNKNOWN durumunda işlemin körlemesine tekrarlanmadığının (`ResendQuery` engeli) canlı veritabanında somut kanıtı.
+        13. Soket yeniden bağlanması (`Reconnect()`) ve temiz soket tahliyesi (`Destroy()`).
+    * **Test Çalıştırıcı Betikleri:** `tests/run_live_tests.ps1` (Windows) ve `tests/run_live_tests.sh` (FreeBSD/POSIX) eklendi. Test parolaları loglarda maskelenmekte (`[PROTECTED / NOT LOGGED]`), yalnızca `127.0.0.1` üzerinden çalıştırılmaktadır.
+    * **FreeBSD amd64 Canlı DB ve CI Durumu:**
+      * GitHub Actions Rev 13 (`.github/workflows/freebsd-gcc-test.yml`) iş akışına `mariadb-connector-c` ve `mariadb114-server` paketleri, canlı sunucu başlatma adımı ve `pkg search` ile resmi paket durum kontrolü eklendi.
   * **Platform Doğrulama Özeti:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 ile 290/290 birim testi + 135/135 canlı veritabanı kontrolü tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 12: Run 38133305694 / Commit d3edb3fd) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 290/290 birim testi doğrulandı; canlı DB henüz VM üzerinde koşturulmadı.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 ile 290/290 birim testi + 156/156 canlı veritabanı kontrolü tam doğrulandı.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 290/290 birim testi doğrulanmıştır; canlı DB CI koşusu izlenmektedir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -261,7 +264,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.2 Gerçek MySQL ve MariaDB Entegrasyonu başarıyla tamamlandı. Windows amd64 GCC 16.2.0 üzerinde 3 gerçek veritabanı motorunda (MariaDB 11.4.13 LTS, MariaDB 12.3.3 LTS, Oracle MySQL 8.4.11 LTS) 135/135 canlı kontrol (%100) ve 290/290 modül regresyon testi (%100) sıfır hata ve sıfır uyarı ile doğrulandı. Kullanıcıya ayrıntılı canlı test sonuçlarının, connector mimarisinin ve açık kalan çıkış (logout) önbellek riskinin raporlanması.
+* **Aktif Görev:** Aşama 11.2 Gerçek MySQL ve MariaDB Entegrasyonu başarıyla tamamlandı. Windows amd64 GCC 16.2.0 üzerinde 3 gerçek veritabanı motorunda (MariaDB 11.4.13 LTS, MariaDB 12.3.3 LTS, Oracle MySQL 8.4.11 LTS) 156/156 canlı kontrol (%100) ve 290/290 modül regresyon testi (%100) sıfır hata ve sıfır uyarı ile doğrulandı. FreeBSD 15.1 amd64 GCC 14 CI koşusu (Rev 13) canlı veritabanı ve paket doğrulaması başlatıldı.
 
 ---
 

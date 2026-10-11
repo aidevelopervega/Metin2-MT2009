@@ -1,4 +1,4 @@
-# Rev 12: 290/290 Tests with DB SQL data safety, cache contracts and multi-slot draining (FreeBSD 15.1 amd64 GCC 14)
+# Rev 13: 290/290 Tests + Live DB Integration Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (290/290 Tests)
+    name: FreeBSD 15.1 amd64 GCC 14 (290 Tests + Live DB)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -51,7 +51,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14
+            pkg install -y gcc14 mariadb-connector-c mariadb114-server || pkg install -y gcc14 mariadb-connector-c || pkg install -y gcc14
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -91,6 +91,48 @@ jobs:
             echo "C++ Derleyicisi: $CXX"
             $CXX --version
 
-            # 3. Test Betiğinin Çalıştırılması
+            # 3. Test Betiğinin Çalıştırılması (290 Modül Testi)
             chmod +x ./tests/run_tests.sh
             ./tests/run_tests.sh
+
+            # 4. Gerçek 64-bit Connector/C ve Canlı Veritabanı Doğrulaması
+            echo "=== CANLI VERITABANI VE BAGLAYICI DOGRULAMASI ==="
+            pkg info | grep -E 'gcc14|mariadb|mysql' || true
+
+            chmod +x ./tests/run_live_tests.sh
+
+            # MariaDB 11.4 LTS Canlı Sunucu Başlatma ve Test
+            if which mariadbd >/dev/null 2>&1 || [ -x "/usr/local/libexec/mariadbd" ]; then
+              echo "--> FreeBSD MariaDB 11.4 LTS Sunucusu Başlatılıyor..."
+              mkdir -p /tmp/data_mariadb114
+              mariadb-install-db --datadir=/tmp/data_mariadb114 --auth-root-authentication-method=normal >/dev/null 2>&1 || true
+              mariadbd --datadir=/tmp/data_mariadb114 --port=3307 --bind-address=127.0.0.1 &
+              MARIADB_PID=$!
+              sleep 4
+
+              # Test Kullanıcısı ve DB oluştur
+              mariadb -u root --port=3307 -e "CREATE DATABASE IF NOT EXISTS mt2_testdb; CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass'; CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass'; GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1'; GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost'; FLUSH PRIVILEGES;" || true
+
+              # Test çalıştır
+              export MT2_TEST_HOST=127.0.0.1
+              export MT2_TEST_PORT=3307
+              export MT2_TEST_USER=mt2test
+              export MT2_TEST_PASSWORD=mt2pass
+              export MT2_TEST_DB=mt2_testdb
+              export MT2_TEST_ENGINE="FreeBSD MariaDB 11.4 LTS"
+              ./tests/run_live_tests.sh
+
+              # Sunucuyu kapat
+              kill $MARIADB_PID || true
+              wait $MARIADB_PID 2>/dev/null || true
+              echo "--> FreeBSD MariaDB 11.4 LTS Sunucusu Kapatıldı."
+            else
+              echo "[SKIP / NOT INSTALLED] mariadb114-server paketi FreeBSD üzerinde bulunamadı."
+            fi
+
+            # MariaDB 12.3 ve MySQL 8.4 Paket Durumu Kontrolü
+            echo "=== DIGER MOTORLARIN RESMI FREEBSD PAKET DURUMU ==="
+            echo "MariaDB 12.3 Arama:"
+            pkg search -x '^mariadb123' || echo "  -> MariaDB 12.3 LTS FreeBSD 15.1 resmi pkg deposunda MEVCUT DEGIL (BLOCKED / NOT TESTED)"
+            echo "MySQL 8.4 Arama:"
+            pkg search -x '^mysql84' || echo "  -> MySQL 8.4 LTS FreeBSD 15.1 resmi pkg deposunda MEVCUT DEGIL (BLOCKED / NOT TESTED)"
