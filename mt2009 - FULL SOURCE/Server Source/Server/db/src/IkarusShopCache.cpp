@@ -695,14 +695,14 @@ namespace ikashop
 			return nullptr;
 
 		// no row so creating it from 0
-		if (msg->Get()->uiAffectedRows == 0 || !msg->Get()->pSQLResult)
+		if (msg->Get()->uiAffectedRows == 0)
 			return CreateSafebox(dwPID);
 
-		// inserting new empty cache
-		auto& safebox = m_safeboxMap[dwPID] = std::make_shared<TSafeboxCacheInfo>();
+		// creating temporary uncommitted safebox
+		auto safebox = std::make_shared<TSafeboxCacheInfo>();
 
 		// extracting data
-		auto row = mysql_fetch_row(msg->Get()->pSQLResult);
+		auto row = msg->Get()->pSQLResult ? mysql_fetch_row(msg->Get()->pSQLResult) : nullptr;
 		if (row && row[0])
 			str_to_number(safebox->valutes.yang, row[0]);
 
@@ -710,7 +710,10 @@ namespace ikashop
 		const auto itemquery = CreateSafeboxCacheLoadItemsQuery(dwPID);
 		msg = CDBManager::instance().DirectQuery(itemquery.c_str());
 		if (!msg || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
-			return safebox;
+		{
+			sys_err("CANNOT LOAD SHOP SAFEBOX ITEMS : pid(%u) errno(%u)", dwPID, msg ? msg->uiSQLErrno : 0);
+			return nullptr;
+		}
 
 		// extracting items
 		auto& itemsmap = safebox->itemsmap;
@@ -751,6 +754,8 @@ namespace ikashop
 			itemsmap[item.id] = item;
 		}
 
+		// Only insert into cache after full successful load and validation
+		m_safeboxMap[dwPID] = safebox;
 		return safebox;
 	}
 

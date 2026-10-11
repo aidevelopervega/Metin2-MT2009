@@ -6,6 +6,8 @@
 #include "Peer.h"
 #include "tables.h"
 #include "ItemIDRangeManager.h"
+#include "IkarusShopCache.h"
+#include <functional>
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -63,6 +65,15 @@ const char * GetPlayerDBName() { return g_stPlayerDBName.c_str(); }
 class CIntegrationAsyncSQL : public CAsyncSQL2
 {
 public:
+    std::function<std::unique_ptr<SQLMsg>(const char*)> m_directQueryHandler;
+
+    std::unique_ptr<SQLMsg> DirectQuery(const char * c_pszQuery) override
+    {
+        if (m_directQueryHandler)
+            return m_directQueryHandler(c_pszQuery);
+        return CAsyncSQL2::DirectQuery(c_pszQuery);
+    }
+
     bool PopQueuedQuery(SQLMsg ** pp)
     {
         if (PeekQuery(pp))
@@ -94,6 +105,7 @@ int main()
     dbManager.SetAsyncSQL(SQL_PLAYER, std::unique_ptr<CAsyncSQL2>(testAsyncSqlPtr.release()));
 
     auto testDirectSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
+    CIntegrationAsyncSQL* testDirectSql = testDirectSqlPtr.get();
     dbManager.SetDirectSQL(SQL_PLAYER, std::unique_ptr<CAsyncSQL2>(testDirectSqlPtr.release()));
 
     // =========================================================================
@@ -559,6 +571,161 @@ int main()
         msg->uiSQLErrno = 0;
         clientManager.AnalyzeQueryResult(msg);
         delete msg;
+    }
+
+    // =========================================================================
+    // SENARYO 8: IkarusShop Safebox Kismi Yukleme ve Kalici Veri Kaybi Korumasi
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo 8: IkarusShop Safebox kismi yukleme ve kalici veri kaybi korumasi..." << std::endl;
+
+        ikashop::CSafeboxCache safeboxCache;
+        DWORD dwPID = 7701;
+
+        // 8A. Ilk SQL sorgusu basarisiz oldugunda:
+        testDirectSql->m_directQueryHandler = [](const char* q) -> std::unique_ptr<SQLMsg> {
+            auto msg = std::make_unique<SQLMsg>();
+            msg->uiSQLErrno = CR_SERVER_GONE_ERROR;
+            return msg;
+        };
+
+        auto res8A = safeboxCache.LoadSafebox(dwPID);
+        TEST_ASSERT(res8A == nullptr, "Senaryo 8A: LoadSafebox returns nullptr on Query 1 failure");
+        TEST_ASSERT(safeboxCache.Get(dwPID) == nullptr, "Senaryo 8A: m_safeboxMap does not retain failed safebox");
+
+        // 8B. Ilk SQL basarili (valutes var) ancak ikinci SQL (itemquery) basarisiz oldugunda:
+        // (KRITIK TEST: Daha once burada bos safebox nesnesi onbellege alinip return ediliyordu!)
+        testDirectSql->m_directQueryHandler = [](const char* q) -> std::unique_ptr<SQLMsg> {
+            std::string s(q);
+            if (s.find("ikashop_safebox") != std::string::npos)
+            {
+                auto msg = std::make_unique<SQLMsg>();
+                msg->uiSQLErrno = 0;
+                auto pRes = new SQLResult();
+                pRes->uiAffectedRows = 1;
+                msg->vec_pkResult.push_back(pRes);
+                return msg;
+            }
+            if (s.find("FROM `item`") != std::string::npos)
+            {
+                // Ikinci sorgu ag kopmasi veya deadlock ile coktu
+                auto msg = std::make_unique<SQLMsg>();
+                msg->uiSQLErrno = 1213; // ER_LOCK_DEADLOCK
+                return msg;
+            }
+            return nullptr;
+        };
+
+        auto res8B = safeboxCache.LoadSafebox(dwPID);
+        TEST_ASSERT(res8B == nullptr, "Senaryo 8B: LoadSafebox MUST return nullptr when itemquery fails");
+        TEST_ASSERT(safeboxCache.Get(dwPID) == nullptr, "Senaryo 8B: m_safeboxMap MUST NOT contain corrupted empty safebox");
+        TEST_ASSERT(safeboxCache.GetItemCount() == 0, "Senaryo 8B: Safebox item count remains 0 in RAM");
+
+        // 8C. Ikinci SQL sorgusu NULL sonuc dondurdugunde:
+        testDirectSql->m_directQueryHandler = [](const char* q) -> std::unique_ptr<SQLMsg> {
+            std::string s(q);
+            if (s.find("ikashop_safebox") != std::string::npos)
+            {
+                auto msg = std::make_unique<SQLMsg>();
+                msg->uiSQLErrno = 0;
+                auto pRes = new SQLResult();
+                pRes->uiAffectedRows = 1;
+                msg->vec_pkResult.push_back(pRes);
+                return msg;
+            }
+            return nullptr; // NULL SQLMsg
+        };
+
+        auto res8C = safeboxCache.LoadSafebox(dwPID);
+        TEST_ASSERT(res8C == nullptr, "Senaryo 8C: LoadSafebox returns nullptr on NULL SQLMsg");
+        TEST_ASSERT(safeboxCache.Get(dwPID) == nullptr, "Senaryo 8C: Cache remains clean");
+
+        // 8D. Gercekten bos safebox durumu (CreateSafebox):
+        testDirectSql->m_directQueryHandler = [](const char* q) -> std::unique_ptr<SQLMsg> {
+            std::string s(q);
+            if (s.find("ikashop_safebox") != std::string::npos)
+            {
+                auto msg = std::make_unique<SQLMsg>();
+                msg->uiSQLErrno = 0;
+                auto pRes = new SQLResult();
+                pRes->uiAffectedRows = 0; // 0 rows -> new player without safebox
+                msg->vec_pkResult.push_back(pRes);
+                return msg;
+            }
+            return nullptr;
+        };
+
+        auto res8D = safeboxCache.LoadSafebox(dwPID);
+        TEST_ASSERT(res8D != nullptr, "Senaryo 8D: CreateSafebox returns valid empty safebox for new player");
+        TEST_ASSERT(safeboxCache.Get(dwPID) != nullptr, "Senaryo 8D: Empty safebox registered in map");
+        TEST_ASSERT(safeboxCache.Get(dwPID)->itemsmap.empty() == true, "Senaryo 8D: Items map is empty");
+
+        // 8E. Basarisiz safebox yuklemesinde kalici veri kaybi engelleme garantisi:
+        DWORD existingPid = 7702;
+        TEST_ASSERT(safeboxCache.Get(existingPid) == nullptr, "Senaryo 8E: Unloaded safebox not present in cache");
+
+        testDirectSql->m_directQueryHandler = nullptr; // Reset handler
+    }
+
+    // =========================================================================
+    // SENARYO 9: DBManager SQL Escape Guvenligi ve Cok Baytli Karakter Butunlugu
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo 9: DBManager SQL escape guvenligi ve cok baytli karakter butunlugu..." << std::endl;
+
+        char buf[1024];
+
+        // 9A: Sinir ve Null Parametre Kontrolleri
+        TEST_ASSERT(dbManager.EscapeString(nullptr, "test", 4) == 0, "Senaryo 9A: null 'to' buffer returns 0");
+        TEST_ASSERT(dbManager.EscapeString(buf, nullptr, 4) == 0 && buf[0] == '\0', "Senaryo 9A: null 'from' buffer returns 0 and sets NUL");
+        TEST_ASSERT(dbManager.EscapeString(buf, "test", 0) == 0 && buf[0] == '\0', "Senaryo 9A: length 0 returns 0 and sets NUL");
+        TEST_ASSERT(dbManager.EscapeString(buf, "test", 4, -1) == 0, "Senaryo 9A: negative slot returns 0");
+        TEST_ASSERT(dbManager.EscapeString(buf, "test", 4, SQL_MAX_NUM) == 0, "Senaryo 9A: out-of-range slot returns 0");
+
+        // 9B: Standart ASCII, Tek/Cift Tirnak, Ters Bolu, NUL ve Ozel Karakterler
+        const char testAscii[] = "Warrior's \\ \"Sword\" \n \r \032";
+        unsigned long len9B = dbManager.EscapeString(buf, testAscii, strlen(testAscii));
+        TEST_ASSERT(len9B > 0, "Senaryo 9B: Standard escape produces output");
+        TEST_ASSERT(strstr(buf, "\\'") != nullptr, "Senaryo 9B: Single quote escaped with \\'");
+        TEST_ASSERT(strstr(buf, "\\\\") != nullptr, "Senaryo 9B: Backslash escaped with \\\\");
+        TEST_ASSERT(strstr(buf, "\\\"") != nullptr, "Senaryo 9B: Double quote escaped with \\\"");
+        TEST_ASSERT(strstr(buf, "\\n") != nullptr, "Senaryo 9B: Newline escaped with \\n");
+        TEST_ASSERT(strstr(buf, "\\r") != nullptr, "Senaryo 9B: Carriage return escaped with \\r");
+        TEST_ASSERT(strstr(buf, "\\Z") != nullptr, "Senaryo 9B: Ctrl+Z escaped with \\Z");
+
+        // 9C: Cok Baytli Karakter Seti (Multibyte GBK/Big5/SJIS) Guvenligi
+        // GBK kodlamasinda karakter 0xBF 0x5C baytlarindan olusur (ikinci bayt 0x5C = backslash).
+        // Naive bir kacis fonksiyonu 0x5C'yi gorup onune '\' atarak karakteri bozar (multibyte SQL injection).
+        const char gbkInput[] = { (char)0xBF, (char)0x5C, 0 };
+        unsigned long len9C = dbManager.EscapeString(buf, gbkInput, 2);
+        TEST_ASSERT(len9C == 2, "Senaryo 9C: Multibyte character preserved without extra escaping");
+        TEST_ASSERT((unsigned char)buf[0] == 0xBF && (unsigned char)buf[1] == 0x5C, "Senaryo 9C: Trail byte 0x5C was not mutilated");
+        TEST_ASSERT(buf[2] == '\0', "Senaryo 9C: Properly NUL terminated");
+
+        // 9D: Turkce UTF-8 Dizgisi ve Tirnak Kacisi
+        const char trInput[] = "Ahmet'in k\xC4\xB1" "l\xC4\xB1" "c\xC4\xB1";
+        unsigned long len9D = dbManager.EscapeString(buf, trInput, strlen(trInput));
+        TEST_ASSERT(len9D == strlen(trInput) + 1, "Senaryo 9D: Exactly one escape backslash added for single quote");
+        TEST_ASSERT(strstr(buf, "Ahmet\\'in") != nullptr, "Senaryo 9D: Single quote properly escaped");
+        TEST_ASSERT(strstr(buf, "k\xC4\xB1" "l\xC4\xB1" "c\xC4\xB1") != nullptr, "Senaryo 9D: UTF-8 Turkish multibyte bytes preserved verbatim");
+
+        // 9E: Ikili Yapi (Binary Struct) ve Gomulu NUL Baytlari (skills / quickslot)
+        const char binInput[] = { 'S', 'K', '\0', 'I', 'L', 'L', '\\', '\'', '\0' };
+        unsigned long len9E = dbManager.EscapeString(buf, binInput, sizeof(binInput));
+        TEST_ASSERT(len9E > sizeof(binInput), "Senaryo 9E: Binary data with NUL bytes escaped properly");
+        TEST_ASSERT(strstr(buf, "SK\\0ILL") != nullptr, "Senaryo 9E: Embedded NUL escaped as \\0");
+
+        // 9F: Baglanti Yoklugunda Kirli Onbellegin Korunmasi (Fail-Fast Guvencesi)
+        DWORD testPid = 8801;
+        TPlayerTable ptOffline{};
+        ptOffline.id = testPid;
+        strlcpy(ptOffline.name, "OfflineSaveHero", sizeof(ptOffline.name));
+        clientManager.PutPlayerCache(&ptOffline);
+        CPlayerTableCache* pkCache = clientManager.GetPlayerCache(testPid);
+        TEST_ASSERT(pkCache != nullptr, "Senaryo 9F: Cache created");
+        TEST_ASSERT(pkCache->IsNeedQuery() == true, "Senaryo 9F: Cache is dirty");
+        pkCache->MarkPendingEviction();
+        TEST_ASSERT(pkCache->CanEvict() == false, "Senaryo 9F: Dirty cache with pending eviction CANNOT be evicted while unsaved");
     }
 
     std::cout << "\n==================================================" << std::endl;

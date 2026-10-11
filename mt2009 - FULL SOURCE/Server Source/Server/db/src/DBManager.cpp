@@ -228,46 +228,80 @@ void CDBManager::AsyncQuery(const char * c_pszQuery, int iSlot)
 	++g_query_count[1];
 }
 
-static unsigned long LocalEscapeString(char *to, const char *from, unsigned long length)
+static unsigned long LocalEscapeString(char *to, const char *from, unsigned long length, bool bNoBackslashEscapes = false)
 {
+	if (!to || !from || length == 0)
+	{
+		if (to)
+			*to = '\0';
+		return 0;
+	}
+
 	const char *end = from + length;
 	char *to_start = to;
 	while (from < end)
 	{
-		char c = *from++;
-		switch (c)
+		unsigned char uc = (unsigned char)*from++;
+
+		// Cok baytli karakterlerin (GBK, Big5, SJIS, CP949, UTF-8) oncu bayt tespiti:
+		// Oncu bayt ve ardindan gelen izleyen bayt (trail byte) bolunmeden dogrudan kopyalanir.
+		// Bu sayede GBK/Big5/SJIS icinde ikinci bayti 0x5C olan karakterlerin yanlislikla kacirilip
+		// bozulmasi (multibyte SQL injection acigi) kesin olarak onlenir.
+		if (uc >= 0x81 && uc <= 0xFE && from < end)
 		{
-			case 0:
-				*to++ = '\\';
-				*to++ = '0';
-				break;
-			case '\n':
-				*to++ = '\\';
-				*to++ = 'n';
-				break;
-			case '\r':
-				*to++ = '\\';
-				*to++ = 'r';
-				break;
-			case '\\':
-				*to++ = '\\';
-				*to++ = '\\';
-				break;
-			case '\'':
-				*to++ = '\\';
+			*to++ = (char)uc;
+			*to++ = *from++;
+			continue;
+		}
+
+		if (bNoBackslashEscapes)
+		{
+			if (uc == '\'')
+			{
 				*to++ = '\'';
-				break;
-			case '"':
-				*to++ = '\\';
-				*to++ = '"';
-				break;
-			case '\032':
-				*to++ = '\\';
-				*to++ = 'Z';
-				break;
-			default:
-				*to++ = c;
-				break;
+				*to++ = '\'';
+			}
+			else
+			{
+				*to++ = (char)uc;
+			}
+		}
+		else
+		{
+			switch (uc)
+			{
+				case 0:
+					*to++ = '\\';
+					*to++ = '0';
+					break;
+				case '\n':
+					*to++ = '\\';
+					*to++ = 'n';
+					break;
+				case '\r':
+					*to++ = '\\';
+					*to++ = 'r';
+					break;
+				case '\\':
+					*to++ = '\\';
+					*to++ = '\\';
+					break;
+				case '\'':
+					*to++ = '\\';
+					*to++ = '\'';
+					break;
+				case '"':
+					*to++ = '\\';
+					*to++ = '"';
+					break;
+				case '\032':
+					*to++ = '\\';
+					*to++ = 'Z';
+					break;
+				default:
+					*to++ = (char)uc;
+					break;
+			}
 		}
 	}
 	*to = '\0';
@@ -276,11 +310,19 @@ static unsigned long LocalEscapeString(char *to, const char *from, unsigned long
 
 unsigned long CDBManager::EscapeString(void *to, const void *from, unsigned long length, int iSlot)
 {
-	assert(iSlot < SQL_MAX_NUM);
-	if (!m_directSQL[iSlot] || !m_directSQL[iSlot]->IsConnected())
-		return LocalEscapeString((char *) to, (const char *) from, length);
+	if (iSlot < 0 || iSlot >= SQL_MAX_NUM || !to || !from || length == 0)
+	{
+		if (to)
+			*((char *)to) = '\0';
+		return 0;
+	}
 
-	return mysql_real_escape_string(m_directSQL[iSlot]->GetSQLHandle(), (char *) to, (const char *) from, length);
+	// 1. Canli dogrudan baglanti varsa, aktif surucunun karakter seti ve SQL moduna tam duyarli gercek API kullanilir.
+	if (m_directSQL[iSlot] && m_directSQL[iSlot]->IsConnected())
+		return mysql_real_escape_string(m_directSQL[iSlot]->GetSQLHandle(), (char *) to, (const char *) from, length);
+
+	// 2. Fallback: Baglanti yoksa ag I/O bloklamasi yapmadan guvenli, cok baytli (multibyte GBK/Big5/SJIS/UTF-8) karakterlere duyarli yerel kacis.
+	return LocalEscapeString((char *) to, (const char *) from, length);
 }
 
 void CDBManager::SetLocale(const char * szLocale)

@@ -1,4 +1,4 @@
-# Rev 19: Real DB Cache / ACK Integration & Eviction Safety Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 20: Safe IkarusShopCache Safebox Loading, Robust Multibyte DBManager SQL Escaping, and Fail-Closed Quoting in FreeBSD CI
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -141,13 +141,12 @@ jobs:
             # İkili (binary) paket kurulumu dene
             if ! pkg install -y "$SERVER_PKG"; then
               echo "=================================================="
-              echo " [BULGU VE KANIT] databases/$SERVER_PKG FreeBSD Ports Ağacında ve FreshPorts'ta Mevcuttur."
-              echo " Ancak FreeBSD 15.1 ($PKG_ABI) resmi ikili (binary) pkg deposunda henüz önceden derlenmiş binary paket yayınlanmamıştır."
+              echo " [HATA] $SERVER_PKG FreeBSD 15.1 ($PKG_ABI) resmi ikili (binary) pkg deposunda kurulamadı!"
               echo " pkg search Çıktısı:"
               pkg search -x "^$SERVER_PKG" || true
-              echo " Durum: $ENGINE_NAME -> BLOCKED / NOT TESTED (BINARY PKG NOT PUBLISHED IN 15.1 REPOSITORY)"
+              echo " Durum: $ENGINE_NAME -> FAIL-CLOSED (Zorunlu paket kurulamadığı için test koşulamadı)"
               echo "=================================================="
-              exit 0
+              exit 1
             fi
 
             echo "--> $SERVER_PKG paketi başarıyla kuruldu!"

@@ -179,7 +179,7 @@ class CAsyncSQL
 
 		void		AsyncQuery(const char * c_pszQuery);
 		void		ReturnQuery(const char * c_pszQuery, void * pvUserData);
-		std::unique_ptr<SQLMsg>	DirectQuery(const char * c_pszQuery);
+		virtual std::unique_ptr<SQLMsg>	DirectQuery(const char * c_pszQuery);
 
 		DWORD		CountQuery();
 		DWORD		CountResult();

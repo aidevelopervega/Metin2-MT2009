@@ -309,41 +309,51 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 12.3 LTS (Job ID: 114530620965):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
       * **MariaDB 11.4 LTS (Job ID: 114530621091):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
       * **Genel Durum:** 3/3 matris işi SUCCESS. Windows (PE32+) ve FreeBSD (ELF64) üzerinde `db` sunucusu ve oyuncu veri güvenliği mimarisi %100 doğrulandı.
-  * **Gerçek DB Cache / ACK Entegrasyon Test Kabulü (Rev 19 — Uçtan Uca 7 Senaryo):**
-    * Simülasyon seviyesinde bırakılan durumlar için doğrudan üretim kodunu (`CClientManager`, `CPlayerTableCache`, `CItemCache`, `CDBManager`, `CAsyncSQL`, `AnalyzeQueryResult`, `AnalyzeFailedQuery`) çalıştıran `tests/test_db_cache_integration.cpp` test paketi geliştirildi.
-    * Windows amd64 MinGW GCC ortamında **82/82 assertion %100 başarıyla geçti** (Toplam 492 test PASS).
-    * **FreeBSD 15.1 amd64 CI Sonucu (Rev 19 — Run ID: 38167256710, Commit: `d96b3437`):**
-      * **MySQL 8.4 LTS (Job ID: 114552279062):** FAILURE (Step 5.1).
-      * **MariaDB 12.3 LTS (Job ID: 114552279226):** FAILURE (Step 5.1).
-      * **MariaDB 11.4 LTS (Job ID: 114552279257):** FAILURE (Step 5.1).
-      * **Kök Neden:** 410 unit test PASS olmuş, 64-bit `db_r1` ELF binary derlenip bağlanmış; ancak `tests/run_db_integration_tests.sh:67` içerisindeki `eval` komutunun `mt2009 - FULL SOURCE` yolundaki boşluk ve tireleri parçalaması nedeniyle GCC `g++14: error: -E or -x required when input is from standard input` hatası vermiş ve **82 entegrasyon assertion'ı FreeBSD üzerinde HİÇ ÇALIŞTIRILAMAMIŞTIR**.
-      * **Nihai Rev 19 FreeBSD Durumu:** **FAIL**.
-    * **Rev 19 Üretim Kodunda Keşfedilen Kritik Güvenlik Açıkları:**
-      1. `IkarusShopCache.cpp:712-714` (`LoadSafebox`): İkinci sorgu (`CreateSafeboxCacheLoadItemsQuery`) hata verdiğinde, boş eşya listesi içeren `safebox` nesnesi önbelleğe kaydedilip `return safebox;` yapılmaktadır. Bu durum önbellek tahliyesinde veya kaydında oyuncunun pazar deposundaki **tüm eşyaların kalıcı olarak silinmesine (Permanent Item Loss)** yol açar!
-      2. `DBManager.cpp:231-284` (`LocalEscapeString`): Veritabanı bağlantısı yokken tek baytlık ASCII kaçış fonksiyonu devreye girmekte; Big5/GBK/SJIS gibi çok baytlı karakterlerde `0x5C` (`\`) baytı içeren karakterleri bozarak multibyte SQL injection riski doğurmakta, ayrıca `SQL_MODE=NO_BACKSLASH_ESCAPES` kurallarını ihlal etmektedir.
-    * **Test Seviyelerinin Dürüst Sınıflandırması:**
-      * **Birim / Simülasyon Testleri:** `tests/test_db_cache.cpp` (120 test/assertion) — `cache<T>` şablonunun mock yapılarla durum geçişlerinin birim testi.
-      * **Bileşen Entegrasyon Testleri:** `tests/test_db_cache_integration.cpp` (82 test/assertion) — Gerçek üretim sınıfları ve SQL kuyrukları üzerinde sentetik callback / hata enjeksiyonu ile çalışan bileşen entegrasyon testi. (Canlı ağ E2E testi değildir).
-      * **Canlı E2E Ağ ve DB Testleri:** `tests/test_live_db.cpp` (219 test/assertion) — Gerçek çalışan MySQL 8.4, MariaDB 12.3 ve MariaDB 11.4 sunucularına canlı bağlanan E2E testi.
-    * **Göç Öncesi Kabul Durumu:** `IkarusShopCache.cpp`, `DBManager.cpp` ve `run_db_integration_tests.sh` düzeltilip FreeBSD üzerinde 492/492 test doğrulanmadan göç başlatılamaz.
+  * **Gerçek DB Cache / ACK Entegrasyon Test Kabulü ve Rev 20 Güvenlik Düzeltmeleri:**
+    * **1. IkarusShop Safebox Veri Kaybı Açığının Kalıcı Giderilmesi:**
+      * `IkarusShopCache.cpp:LoadSafebox` fonksiyonunda önbelleğe erken ve kontrolsüz ekleme (`m_safeboxMap[dwPID] = ...`) kaldırıldı.
+      * Yükleme işlemi geçici bir nesne (`std::make_shared<TSafeboxCacheInfo>()`) üzerinde yürütülmekte; ikinci sorgu (`CreateSafeboxCacheLoadItemsQuery`) başarısız olduğunda, boş veya bozuk bir safebox belleğe kaydedilmemekte, hata günlüğe yazılıp anında `nullptr` döndürülmektedir.
+      * Gerçek safebox yalnızca her iki sorgu ve tüm eşyalar eksiksiz yüklendikten sonra `m_safeboxMap[dwPID]` içine yazılmaktadır (`Commit-on-Success`).
+    * **2. DBManager SQL Kaçış Güvenliği ve Çok Baytlı Karakter Bütünlüğü:**
+      * `DBManager.cpp` içerisindeki `LocalEscapeString` fonksiyonu çok baytlı (multibyte GBK, Big5, SJIS, UTF-8) kodlamalara tam duyarlı hale getirildi. `0x81`-`0xFE` öncül baytlarını izleyen `0x5C` (`\`) baytlarının ters eğik çizgi olarak algılanıp kaçırılması (trail-byte mutilation / multibyte SQL injection) önlendi.
+      * Standart ASCII özel karakterleri (`'`, `\`, `"`, `\0`, `\n`, `\r`, `\032`) eksiksiz kaçırılmakta; `bNoBackslashEscapes` (`SQL_MODE=NO_BACKSLASH_ESCAPES`) desteği (`'` -> `''`) sağlanmıştır.
+      * `EscapeString` içerisindeki bloklayıcı senkron ağ çağrısı (`Reconnect()`) kaldırılarak bellek içi metin formatlama fonksiyonlarının ağ I/O ile kilitlenmesi engellenmiş, fail-fast yerel kaçışa düşmesi sağlanmıştır.
+    * **3. FreeBSD Entegrasyon Test Betiği (run_db_integration_tests.sh) ve CI İyileştirmesi:**
+      * Betikteki tehlikeli `eval` kabuk yorumlaması tamamen kaldırıldı; boşluk ve tire içeren yollar (`mt2009 - FULL SOURCE`) tek tek çift tırnakla izole edildi.
+      * DB nesne dosyaları (`.obj/*.o`) `ar cru` ile `libdb_objs.a` statik arşivine paketlenip `Main.o` sembolü temizlendi ve `ranlib` ile indekslendi.
+      * Betiğe 4 seviyeli negatif kontrol (nesne sayısı >= 10, bağımlılık kütüphanelerinin varlığı, çalıştırılabilir ikili kontrolü, 64-bit mimari doğrulaması) eklendi.
+      * `.github/workflows/freebsd-gcc-test.yml` satır 150'deki `exit 0` davranışı `exit 1` fail-closed güvenlik standardına geçirildi.
+    * **4. Test Kapsamı ve Yerel Doğrulama:**
+      * `tests/test_db_cache_integration.cpp` test paketine **Senaryo 8** (Safebox kısmi yükleme ve kalıcı veri kaybı koruması - 11 assertion) ve **Senaryo 9** (DBManager SQL escape güvenliği ve çok baytlı karakter bütünlüğü - 23 assertion) eklendi.
+      * Entegrasyon test assertion sayısı 82'den **116'ya yükseltildi (%100 PASS)**.
+      * Windows amd64 MinGW GCC 16.2.0 UCRT ortamında tüm modül ve regresyon testleri çalıştırıldı:
+        * `libpoly`: 24/24 PASS
+        * `libthecore`: 97/97 PASS
+        * `libgame`: 28/28 PASS
+        * `libsql`: 141/141 PASS
+        * `test_db_cache`: 120/120 PASS
+        * `test_db_cache_integration`: 116/116 PASS
+        * **Toplam:** **526/526 assertion %100 BAŞARIYLA GEÇTİ**.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** DB Modülü ve Rev 19 FreeBSD Entegrasyonunun Tamamlanması — `IkarusShopCache.cpp` veri kaybı açığının giderilmesi, `DBManager.cpp` yerel kaçış açığının kapatılması, `run_db_integration_tests.sh` kabuk tırnaklama hatasının düzeltilmesi ve FreeBSD CI üzerinde 3 motor için 492/492 testin (%100 PASS) doğrulanması.
-* **Mevcut Durum:** **FAIL / BLOCKED (Düzeltme ve FreeBSD CI doğrulaması bekliyor)**.
+* **Aktif Görev:** Rev 20 Git Senkronizasyonu ve FreeBSD CI Doğrulaması — Rev 20 düzeltmelerinin Git'e commit edilip `origin dev/windows-gcc-baseline` dalına push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) doğrulanması.
+* **Mevcut Durum:** **TESTED LOCALLY (526/526 PASS) — CI VERIFICATION IN PROGRESS**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayı doğrultusunda:
-  1. `IkarusShopCache.cpp:712-714` veri kaybı hatasının kök nedeninden düzeltilmesi (`m_safeboxMap.erase(dwPID)` ve `return nullptr;`).
-  2. `DBManager.cpp:231-284` yerel kaçış fonksiyonunun güvenli hale getirilmesi.
-  3. `tests/run_db_integration_tests.sh` betiğindeki `eval` boşluk parçalanmasının giderilmesi.
-  4. FreeBSD CI üzerinde 3 motor için de Step 5.1'in ve tüm 492 assertion'ın çalıştığının kanıtlanması.
-  5. Tüm güvenlik engelleri aşıldıktan sonra boşluksuz dizin göçüne (`git mv`) geçilmesi.
+* Rev 20 commit ve push işlemi:
+  1. `git add` ile yalnızca ilgili dosyaların eklenmesi (`IkarusShopCache.cpp`, `DBManager.cpp`, `AsyncSQL.h`, `test_db_cache_integration.cpp`, `run_db_integration_tests.sh`, `.github/workflows/freebsd-gcc-test.yml`, `PROJECT_STATE.md`).
+  2. `git commit -m "fix(db): resolve safebox data loss, secure SQL escaping, and fix FreeBSD CI test runner (Rev 20)"`.
+  3. `git push origin dev/windows-gcc-baseline`.
+  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
+  5. `gh run list` ve `gh run view` ile tetiklenen FreeBSD CI koşusunun tek seferlik incelenmesi.
+  6. Üç FreeBSD işi tamamlandığında 526/526 test ve 73/73 canlı DB testlerinin doğrulanması.
+
 
 
 
