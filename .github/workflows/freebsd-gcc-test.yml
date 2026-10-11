@@ -14,6 +14,8 @@ on:
       - 'mt2009 - FULL SOURCE/Server Source/Server/libsql/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/common/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/db/**'
+      - 'mt2009 - FULL SOURCE/Server Source/Server/game/src/locale.hpp'
+      - 'mt2009 - FULL SOURCE/Server Source/Extern/**'
   workflow_dispatch:
 
 permissions:
@@ -61,6 +63,7 @@ jobs:
             mt2009 - FULL SOURCE/Server Source/Server/libsql
             mt2009 - FULL SOURCE/Server Source/Server/common
             mt2009 - FULL SOURCE/Server Source/Server/db
+            mt2009 - FULL SOURCE/Server Source/Server/game/src/locale.hpp
             mt2009 - FULL SOURCE/Server Source/Extern/include
           sparse-checkout-cone-mode: false
 
@@ -72,7 +75,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 gmake
+            pkg install -y gcc14 gmake boost-libs
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)

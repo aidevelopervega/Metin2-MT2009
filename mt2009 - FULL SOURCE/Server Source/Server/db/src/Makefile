@@ -30,12 +30,23 @@ CXXFLAGS = -std=c++20
 # Database client libraries
 INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include
 LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb -L/usr/local/lib
-ifneq ($(wildcard /usr/local/lib/libmariadb.so /usr/local/lib/libmariadb.a),)
+ifneq ($(wildcard /usr/local/lib/mariadb/libmariadb.so /usr/local/lib/libmariadb.so /usr/local/lib/mariadb/libmariadb.a /usr/local/lib/libmariadb.a),)
 LIBS += -lmariadb -lz
 else ifneq ($(wildcard /usr/local/lib/mysql/libmysqlclient.so /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.so /usr/local/lib/libmysqlclient.a),)
 LIBS += -lmysqlclient -lz
 else
 LIBS += -lmariadb -lz
+endif
+
+# Runtime library search paths (rpath)
+ifneq ($(wildcard /usr/local/lib/gcc14),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/gcc14
+endif
+ifneq ($(wildcard /usr/local/lib/mysql),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/mysql
+endif
+ifneq ($(wildcard /usr/local/lib/mariadb),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/mariadb
 endif
 
 ifeq ($(ENABLE_STATIC), 1)
@@ -45,13 +56,10 @@ endif
 # Version defines
 CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PWD)\" -D__DB_VERSION__=\"$(DB_VERSION)\"
 
-# Boost
-INCDIR += -I../../../Extern/include/boost
-
 # Project Libraries
 INCDIR += -I/usr/local/include
 INCDIR += -I../../../Extern/include
-LIBDIR += -I../../../Extern/lib
+LIBDIR += -L../../../Extern/lib
 
 LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm

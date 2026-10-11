@@ -18,6 +18,7 @@ OBJDIR/
 .obj/
 Debug/
 Release/
+!mt2009 - FULL SOURCE/Server Source/Extern/**
 tests/build/
 scratch/
 

@@ -297,23 +297,25 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **Senaryo G:** Önbellek nesnesinin yaşam döngüsü ve durum geçişleri.
       * **Senaryo H:** Sunucu kapanışında bekleyen tüm kayıtların eksiksiz tamamlanması (graceful shutdown draining).
     * Toplam modül regresyon test sayısı 290'dan **410 test/assertion'a (%100 PASS)** yükseltildi (`libpoly`: 24, `libthecore`: 97, `libgame`: 28, `libsql`: 141, `db_cache`: 120).
-  * **FreeBSD 15.1 CI Entegrasyonu (Rev 18):**
-    * `Server/db/src/Makefile` modernize edildi (`-m32` ve `/usr/lib32` bağımlılıkları kaldırıldı; 64-bit GCC uyumlu hale getirildi).
-    * `.github/workflows/freebsd-gcc-test.yml` Rev 18'e yükseltildi; `tests/run_tests.sh` içine `test_db_cache` (120 test) eklendi; CI ortamında gerçek 64-bit `db` derlemesi adımı tanımlandı.
+  * **FreeBSD 15.1 CI Entegrasyonu ve Hedefli Rev 18 Düzeltmeleri:**
+    * `GuildManager.cpp:7` dosyasının ihtiyaç duyduğu gerçek [locale.hpp](file:///d:/mt22009/mt2009%20-%20FULL%20SOURCE/Server%20Source/Server/game/src/locale.hpp) başlığı CI sparse-checkout kapsamına ve workflow push triggers listesine eklendi.
+    * Boost için `.gitignore` içerisinde `Debug/` kuralının `Extern/include/boost` altındaki hata yakalama başlıklarını (`boost/preprocessor/debug/error.hpp` vb.) engellemesi kaldırıldı; resmi FreeBSD `boost-libs` (1.92.0) paketi tüm matris işleri için açık CI bağımlılığı (`prepare: pkg install -y gcc14 gmake boost-libs`) yapıldı.
+    * `Server/db/src/Makefile` içerisinden çakışma riski taşıyan `-I../../../Extern/include/boost` kaldırıldı; `-L../../../Extern/lib` düzeltildi; FreeBSD GCC 14 ve MariaDB/MySQL kütüphaneleri için `Wl,-rpath` yönergeleri eklendi.
+    * Windows üzerinde 30/30 kaynak dosya derlemesi, 64-bit `db.exe` üretimi ve 410/410 modül regresyon testi (%100 PASS) doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği (30/30 C++ dosyası derlemesi, gerçek 64-bit `db.exe` üretimi, Senaryo A-H gecikmeli tahliye mimarisi, 120/120 db cache testi, toplam 410/410 regresyon testi) Windows üzerinde sıfır hata ve sıfır uyarı ile **TAMAMLANDI**.
+* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Oyuncu Veri Güvenliği — Rev 18 FreeBSD CI Derleme Engellerinin Hedefli Çözümü (locale.hpp sparse-checkout, Boost başlık ve paket entegrasyonu, Makefile rpath ve temiz include yapılandırması).
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayı doğrultusunda:
-  1. Rev 18 commit ve push işlemi ile FreeBSD 15.1 GitHub Actions CI koşusunun doğrulanması.
-  2. **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC uyumluluğu hazırlığı.
+* Kullanıcı onayı ve CI koşu sonuçları doğrultusunda:
+  1. Rev 18 hedefli düzeltme commit'inin (`dev/windows-gcc-baseline`) GitHub'a gönderilmesi.
+  2. GitHub Actions üzerinde MariaDB 11.4, MariaDB 12.3 ve MySQL 8.4 işlerinin gerçek 64-bit `db` derlemesi, linkleme ve test çıktılarının doğrulanması.
 
 
 
