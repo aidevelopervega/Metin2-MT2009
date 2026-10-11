@@ -41,19 +41,34 @@ $RANLIB "$BUILD_DIR/libpoly.a"
 $CXX $FLAGS $RPATH -I"$POLY_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libpoly.cpp" "$BUILD_DIR/libpoly.a" -o "$BUILD_DIR/test_libpoly"
 "$BUILD_DIR/test_libpoly"
 
-# 2. libgame
-echo "[2/2] libgame derleniyor ve test ediliyor..."
-GAME_DIR="$SERVER_DIR/Server/libgame"
+# 2. libthecore
+echo "[2/3] libthecore derleniyor ve test ediliyor..."
 CORE_DIR="$SERVER_DIR/Server/libthecore"
 COMMON_DIR="$SERVER_DIR/Server/common"
-EXTERN_DIR="$SERVER_DIR/Extern"
+
+CORE_INCLUDES="-I\"$CORE_DIR/include\" -I\"$COMMON_DIR\" -I\"$EXTERN_DIR/include\""
+
+for src in DES_table.c buffer.c des.c fdwatch.c gost.c hangul.c heart.c kstbl.c log.c main.c memcpy.c signal.c socket.c tea.c utils.c; do
+    obj_name=$(basename "$src" .c)
+    $CXX $FLAGS -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$CORE_DIR/src/$src" -o "$BUILD_DIR/core_${obj_name}.o"
+done
+
+$AR cru "$BUILD_DIR/libthecore.a" "$BUILD_DIR"/core_*.o
+$RANLIB "$BUILD_DIR/libthecore.a"
+
+$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libthecore.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libthecore"
+"$BUILD_DIR/test_libthecore"
+
+# 3. libgame (Gercek libthecore.a ile bagli)
+echo "[3/3] libgame derleniyor ve test ediliyor..."
+GAME_DIR="$SERVER_DIR/Server/libgame"
 
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$GAME_DIR/src/targa.cc" -o "$BUILD_DIR/game_targa.o"
 $AR cru "$BUILD_DIR/libgame.a" "$BUILD_DIR/game_grid.o" "$BUILD_DIR/game_attribute.o" "$BUILD_DIR/game_targa.o"
 $RANLIB "$BUILD_DIR/libgame.a"
-$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" -o "$BUILD_DIR/test_libgame"
+$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
 "$BUILD_DIR/test_libgame"
 
 echo "=== [BASARILI] TUM MODUL VE REGRESYON TESTLERI GECTI! ==="

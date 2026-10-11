@@ -90,12 +90,64 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "test_libpoly testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
     # ------------------------------------------------------------------------------
-    # 2. LIBGAME DERLEME VE TESTİ
+    # 2. LIBTHECORE DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
-    Write-Host "`n[2/2] libgame derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $GameDir = "$ServerDir\Server\libgame"
+    Write-Host "`n[2/3] libthecore derleniyor ve test ediliyor..." -ForegroundColor Yellow
     $CoreDir = "$ServerDir\Server\libthecore"
     $CommonDir = "$ServerDir\Server\common"
+
+    $CoreIncludes = @(
+        "-I$CoreDir\include",
+        "-I$CommonDir",
+        "-I$ExternDir\include"
+    )
+
+    $CoreSources = @(
+        "DES_table.c",
+        "buffer.c",
+        "des.c",
+        "fdwatch.c",
+        "gost.c",
+        "hangul.c",
+        "heart.c",
+        "kstbl.c",
+        "log.c",
+        "main.c",
+        "memcpy.c",
+        "signal.c",
+        "socket.c",
+        "tea.c",
+        "utils.c",
+        "xdirent.c",
+        "xgetopt.c",
+        "xmd5.c"
+    )
+
+    $CoreObjects = @()
+    foreach ($src in $CoreSources) {
+        $obj = "$BuildDir\core_$([System.IO.Path]::GetFileNameWithoutExtension($src)).o"
+        $CoreObjects += $obj
+        & $Gxx @CommonFlags @CoreIncludes -c "$CoreDir\src\$src" -o "$obj"
+        if ($LASTEXITCODE -ne 0) { throw "libthecore derleme hatası: $src" }
+    }
+
+    $CoreLib = "$BuildDir\libthecore.a"
+    & $Ar cru "$CoreLib" $CoreObjects
+    & $Ranlib "$CoreLib"
+
+    $CoreTestExe = "$BuildDir\test_libthecore.exe"
+    & $Gxx @CommonFlags @CoreIncludes "$RootDir\tests\test_libthecore.cpp" "$CoreLib" -lws2_32 -o "$CoreTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_libthecore bağlama hatası" }
+
+    Write-Host "--> test_libthecore.exe çalıştırılıyor..." -ForegroundColor Green
+    & "$CoreTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_libthecore testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
+    # ------------------------------------------------------------------------------
+    # 3. LIBGAME DERLEME VE TESTİ (Gerçek libthecore.a ile bağlı)
+    # ------------------------------------------------------------------------------
+    Write-Host "`n[3/3] libgame derleniyor ve test ediliyor..." -ForegroundColor Yellow
+    $GameDir = "$ServerDir\Server\libgame"
 
     $GameIncludes = @(
         "-I$GameDir\include",
@@ -119,7 +171,7 @@ try {
     & $Ranlib "$GameLib"
 
     $GameTestExe = "$BuildDir\test_libgame.exe"
-    & $Gxx @CommonFlags @GameIncludes "$RootDir\tests\test_libgame.cpp" "$GameLib" -o "$GameTestExe"
+    & $Gxx @CommonFlags @GameIncludes "$RootDir\tests\test_libgame.cpp" "$GameLib" "$CoreLib" -lws2_32 -o "$GameTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libgame bağlama hatası" }
 
     Write-Host "--> test_libgame.exe çalıştırılıyor..." -ForegroundColor Green

@@ -1,4 +1,4 @@
-# Rev 3: Added POSIX thecore_memcpy symbol in test_libgame
+# Rev 4: Added libthecore compilation and test suite (149 tests across 3 modules)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (52/52 Tests)
+    name: FreeBSD 15.1 amd64 GCC 14 (149/149 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,7 +31,7 @@ jobs:
             tests
             mt2009 - FULL SOURCE/Server Source/Server/libpoly
             mt2009 - FULL SOURCE/Server Source/Server/libgame
-            mt2009 - FULL SOURCE/Server Source/Server/libthecore/include
+            mt2009 - FULL SOURCE/Server Source/Server/libthecore
             mt2009 - FULL SOURCE/Server Source/Server/common
             mt2009 - FULL SOURCE/Server Source/Extern/include
           sparse-checkout-cone-mode: false

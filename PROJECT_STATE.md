@@ -60,10 +60,28 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Gelecekteki Kontrollü Test Koşu Yöntemi:**
       1. **Windows Testleri:** Geliştirme sırasında yerel olarak `powershell -ExecutionPolicy Bypass -File tests/run_tests.ps1` ile anında ve sınırsız çalıştırılır.
       2. **FreeBSD CI Testleri:** Önemli kaynak kod değişiklikleri tamamlanıp Windows'ta doğrulandıktan sonra, ilgili commit ile birlikte `.github/workflows/freebsd-gcc-test.yml` dosyasındaki revizyon başlığı (`# Rev X`) güncellenerek bilinçli ve kontrollü olarak tetiklenir.
+  * **libthecore:**
+    * **Kaynak Dosyalar:** `DES_table.c`, `buffer.c`, `des.c`, `fdwatch.c`, `gost.c`, `hangul.c`, `heart.c`, `kstbl.c`, `log.c`, `main.c`, `memcpy.c`, `signal.c`, `socket.c`, `tea.c`, `utils.c`, `xdirent.c`, `xgetopt.c`, `xmd5.c`.
+    * **Kök Neden Düzeltmeleri:**
+      * `log.h`: `sys_err(fmt, ...)` makrosu `##__VA_ARGS__` ile güncellenerek argümansız çağrılardaki sözdizimi hatası (`_sys_err(..., )`) kalıcı olarak giderildi.
+      * `socket.h` / `socket.c`: `socket_tcp_bind`, `socket_udp_bind`, `socket_bind` fonksiyonları 64-bit güvenli `socket_t` türüne geçirildi. Hata kontrolleri `INVALID_SOCKET` ile eşitlendi; 64-bit Windows işaretsiz soket karşılaştırmalarındaki `-Wtype-limits` ve `-Wsign-compare` uyarıları giderildi. Bind aşamasında IP parametresi boşsa `INADDR_ANY` yedeklemesi sağlanarak `-Wunused-parameter` sıfırlandı.
+      * `utils.h` / `utils.c`: `thecore_msleep(DWORD)` fonksiyon bildirimi `utils.h` içerisine eklendi. `(void)dummy`, `(void)who`, `(void)line` ile kullanılmayan parametre uyarıları giderildi.
+      * `signal.c`: `signal_timer_enable` için `(void)timeout_seconds` eklendi.
+      * `log.c`: `_sys_err` içinde `(void)line` eklendi.
+      * `fdwatch.c`: `(void)oneshot`, `(void)fdw`, `(void)fd` eklendi.
+      * `memcpy.c`: `thecore_memcpy` fonksiyon işaretçisi `#ifdef thecore_memcpy #undef thecore_memcpy #endif` korumasıyla tüm platformlarda statik kütüphaneden (`libthecore.a`) dışa aktarılacak şekilde yapılandırıldı.
+      * `test_libgame.cpp`: `thecore_memcpy` geçici test yönlendiricisi kaldırıldı; `test_libgame` doğrudan gerçek `libthecore.a` kütüphanesine bağlandı.
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
+    * **Sonuç:** 0 hata, 0 uyarı.
+    * **Otomatik Regresyon Testi:** `tests/test_libthecore.cpp` -> **97/97 test başarılı**. (`thecore_memcpy` bellek bütünlüğü/sıfır bayt/işaretçi dönüşü; `buffer` dinamik büyüme/peek/read/reset/delete; TEA, DES, GOST simetrik şifreleme ve çözme; `number`/`fnumber` sınır ve rastgele aralıkları; `timediff`/`timeadd`/`get_dword_time`/`get_float_time` zamanlayıcı ilerlemesi; `strlcpy`/`strlcat`/`trim_and_lower`/`lower_string` metin işleme; `fdwatch` soket kaydı/seçimi/temizliği; `socket_tcp_bind` yerel soket bağlama; `heart` nabız zamanlayıcısı).
+  * **Toplu Regresyon Testi (Windows amd64 GCC 16.2.0):**
+    * `libpoly`: **24/24 test başarılı**
+    * `libthecore`: **97/97 test başarılı**
+    * `libgame`: **28/28 test başarılı** (Gerçek `libthecore.a` ile bağlı)
+    * **Toplam:** **149/149 test başarılı (%100)**. 0 derleme hatası, 0 derleyici uyarısı.
   * **Platform Doğrulama Notu:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile fiziksel olarak derlendi, 52/52 fonksiyonel ve negatif testlerle 0 hata ve 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** FreeBSD 15.1-RELEASE-p3 amd64 üzerinde GCC 14.2.0 (`g++14`) ile GitHub Actions CI ortamında (`vmactions/freebsd-vm`) fiziksel sanal makinede derlendi; `libpoly` (24/24) ve `libgame` (28/28) olmak üzere 52/52 regresyon testi 0 hata ve 0 uyarı ile tam başarıyla geçti (Run ID: 38096518176).
-    * **Doğrulama Durumu:** Çift platform (Windows amd64 & FreeBSD amd64) hedefi bu iki modül için eksiksiz ve kalıcı olarak sağlanmıştır. `libpoly` ve `libgame` aşamasının kapatılması önünde hiçbir engel bulunmamaktadır.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 149/149 test 0 hata, 0 uyarı ile tam doğrulandı.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 4) FreeBSD 15.1 amd64 + GCC 14 ortamında 149/149 test için tetiklenmektedir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -101,15 +119,20 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
   * Derleyici `gcc14` (`/usr/local/bin/g++14`) olarak sabitlendi; Clang kullanımı engellendi.
   * `tests/run_tests.sh` POSIX boşluk kaçışları ve `test_libgame.cpp` üzerindeki FreeBSD `thecore_memcpy` linker sembolü çözümlendi.
   * `libpoly` (24/24) ve `libgame` (28/28) toplam 52/52 test FreeBSD 15.1 amd64 üzerinde 0 hata, 0 uyarı ile doğrulandı.
+* [ ] **Aşama 9 (libthecore Modülü ve Entegrasyon):**
+  * `libthecore` 18 kaynak dosyası incelendi; `log.h`, `socket.h`, `socket.c`, `utils.h`, `utils.c`, `signal.c`, `log.c`, `fdwatch.c`, `memcpy.c` kök neden düzeltmeleri tamamlandı.
+  * `test_libthecore.cpp` (97 test) oluşturuldu; Windows amd64 GCC 16.2.0 üzerinde `libpoly` (24) + `libthecore` (97) + `libgame` (28) toplam 149/149 test 0 hata ve 0 uyarı ile doğrulandı.
+  * `test_libgame` içerisindeki geçici `thecore_memcpy` yönlendiricisi kaldırıldı; gerçek `libthecore.a` bağlantısı doğrulandı.
+  * FreeBSD 15.1 amd64 CI testi hazırlanarak çalıştırıldı.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** `libpoly` ve `libgame` modüllerinin çift platform (Windows amd64 GCC 16.2 + FreeBSD 15.1 amd64 GCC 14) derleme ve 52/52 regresyon test doğrulaması başarıyla tamamlandı. Modül aşaması eksiksiz kapatıldı.
+* **Aktif Görev:** `libthecore` modülü Windows amd64 GCC 16.2.0 üzerinde 97 test ile doğrulandı, gerçek `libthecore.a` kütüphanesi `libgame` ile başarıyla bağlandı (toplam 149 test). FreeBSD 15.1 amd64 GCC 14 CI testinin GitHub Actions üzerinde çalıştırılması ve doğrulanması.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı talimatı ve onayı doğrultusunda, bir sonraki çekirdek modül olan `libthecore` için Windows amd64 ve FreeBSD amd64 derleme, başlık analizi ve test hazırlığına geçilmesi.
+* GitHub Actions koşusunun (Rev 4) FreeBSD 15.1 amd64 sanal makinesinde 149/149 test ile tamamlanmasının doğrulanması. Çift platform onayı tamamlanana kadar başka modüle (`libsql` vb.) kesinlikle geçilmemesi.
