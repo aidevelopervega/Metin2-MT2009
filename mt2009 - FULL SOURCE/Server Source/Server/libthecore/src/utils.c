@@ -412,6 +412,7 @@ void thecore_msleep(DWORD dwMillisecond)
 
 void gettimeofday(struct timeval* t, struct timezone* dummy)
 {
+    (void) dummy;
     DWORD millisec = GetTickCount();
 
     t->tv_sec = (millisec / 1000);
@@ -420,6 +421,8 @@ void gettimeofday(struct timeval* t, struct timezone* dummy)
 
 void core_dump_unix(const char *who, WORD line)
 {
+    (void) who;
+    (void) line;
 }
 
 #endif

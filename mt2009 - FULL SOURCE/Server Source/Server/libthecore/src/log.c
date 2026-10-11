@@ -107,6 +107,7 @@ void log_rotate(void)
 #ifndef __WIN32__
 void _sys_err(const char *func, int line, const char *format, ...)
 {
+	(void)line;
 	va_list args;
 	time_t ct = time(0);
 	char *time_s = asctime(localtime(&ct));
@@ -139,6 +140,7 @@ void _sys_err(const char *func, int line, const char *format, ...)
 #else
 void _sys_err(const char *func, int line, const char *format, ...)
 {
+	(void)line;
 	va_list args;
 	time_t ct = time(0);
 	char *time_s = asctime(localtime(&ct));

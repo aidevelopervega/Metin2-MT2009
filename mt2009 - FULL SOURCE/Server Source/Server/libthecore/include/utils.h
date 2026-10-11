@@ -44,6 +44,7 @@
 	float	fnumber(float from, float to);
 
     extern void		thecore_sleep(struct timeval * timeout);
+    extern void		thecore_msleep(DWORD dwMillisecond);
     extern DWORD	thecore_random();
 
     extern float	get_float_time();

@@ -27,7 +27,7 @@ extern "C"
 #ifndef __WIN32__
 #define sys_err(fmt, args...) _sys_err(__FUNCTION__, __LINE__, fmt, ##args)
 #else
-#define sys_err(fmt, ...) _sys_err(__FUNCTION__, __LINE__, fmt, __VA_ARGS__)
+#define sys_err(fmt, ...) _sys_err(__FUNCTION__, __LINE__, fmt, ##__VA_ARGS__)
 #endif	// __WIN32__
 
 #ifdef __cplusplus

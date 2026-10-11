@@ -313,6 +313,7 @@ static int fdwatch_get_fdidx(LPFDWATCH fdw, socket_t fd) {
 
 void fdwatch_add_fd(LPFDWATCH fdw, socket_t fd, void* client_data, int rw, int oneshot)
 {
+	(void)oneshot;
 	int idx = fdwatch_get_fdidx(fdw, fd);
 	if (idx < 0) {
 		if (fdw->nselect_fds >= fdw->nfiles) {
@@ -456,6 +457,8 @@ int fdwatch_check_event(LPFDWATCH fdw, socket_t fd, unsigned int event_idx)
 
 int fdwatch_get_buffer_size(LPFDWATCH fdw, socket_t fd)
 {
+    (void) fdw;
+    (void) fd;
     return INT_MAX; // XXX TODO
 }
 

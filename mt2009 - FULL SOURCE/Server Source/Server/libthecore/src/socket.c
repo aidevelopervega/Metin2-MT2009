@@ -134,19 +134,19 @@ int socket_write(socket_t desc, const char *data, size_t length)
     return 0;
 }
 
-int socket_bind(const char * ip, int port, int protocol)
+socket_t socket_bind(const char * ip, int port, int protocol)
 {
-    int                 s;
-#ifdef __WIN32
+    socket_t            s;
+#ifdef __WIN32__
     SOCKADDR_IN			sa;
 #else
     struct sockaddr_in  sa;
 #endif
 
-    if ((s = socket(AF_INET, protocol, 0)) < 0)
+    if ((s = socket(AF_INET, protocol, 0)) == INVALID_SOCKET)
     {
 	sys_err("socket: %s", strerror(errno));
-	return -1;
+	return INVALID_SOCKET;
     }
 
     socket_reuse(s);
@@ -162,17 +162,14 @@ int socket_bind(const char * ip, int port, int protocol)
 
     memset(&sa, 0, sizeof(sa));
     sa.sin_family	= AF_INET;
-#ifndef __WIN32__
-    sa.sin_addr.s_addr	= inet_addr(ip);
-#else
-	sa.sin_addr.s_addr	= INADDR_ANY;
-#endif
+    sa.sin_addr.s_addr	= (!ip || !*ip) ? INADDR_ANY : inet_addr(ip);
     sa.sin_port		= htons((unsigned short) port);
 
     if (bind(s, (struct sockaddr *) &sa, sizeof(sa)) < 0)
     {
 	sys_err("bind: %s", strerror(errno));
-	return -1;
+	socket_close(s);
+	return INVALID_SOCKET;
     }
 
     socket_nonblock(s);
@@ -188,12 +185,12 @@ int socket_bind(const char * ip, int port, int protocol)
     return s;
 }
 
-int socket_tcp_bind(const char * ip, int port)
+socket_t socket_tcp_bind(const char * ip, int port)
 {
     return socket_bind(ip, port, SOCK_STREAM);
 }
 
-int socket_udp_bind(const char * ip, int port)
+socket_t socket_udp_bind(const char * ip, int port)
 {
     return socket_bind(ip, port, SOCK_DGRAM);
 }
@@ -214,17 +211,17 @@ socket_t socket_accept(socket_t s, struct sockaddr_in *peer)
 
     i = sizeof(*peer);
 
-    if ((desc = accept(s, (struct sockaddr *) peer, &i)) == -1)
+    if ((desc = accept(s, (struct sockaddr *) peer, &i)) == INVALID_SOCKET)
     {
 	sys_err("accept: %s (fd %d)", strerror(errno), s);
-	return -1;
+	return INVALID_SOCKET;
     }
 
     if (desc >= 65500)
     {
 	sys_err("SOCKET FD 65500 LIMIT! %d", desc);
-	socket_close(s);
-	return -1;
+	socket_close(desc);
+	return INVALID_SOCKET;
     }
 
     socket_nonblock(desc);
@@ -234,7 +231,7 @@ socket_t socket_accept(socket_t s, struct sockaddr_in *peer)
 
 socket_t socket_connect(const char* host, WORD port)
 {
-    socket_t            s = 0;
+    socket_t            s = INVALID_SOCKET;
     struct sockaddr_in  server_addr;
     int                 rslt;
 
@@ -250,7 +247,7 @@ socket_t socket_connect(const char* host, WORD port)
 	if ((hp = gethostbyname(host)) == NULL)
 	{
 	    sys_err("socket_connect(): can not connect to %s:%d", host, port);
-	    return -1;
+	    return INVALID_SOCKET;
 	}
 
 	thecore_memcpy((char* ) &server_addr.sin_addr, hp->h_addr, sizeof(server_addr.sin_addr));
@@ -259,10 +256,10 @@ socket_t socket_connect(const char* host, WORD port)
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
 
-    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
     {
 	perror("socket");
-	return -1;
+	return INVALID_SOCKET;
     }
 
     socket_keepalive(s);
@@ -310,7 +307,7 @@ socket_t socket_connect(const char* host, WORD port)
 	    }
 
 	perror("connect");
-	return (-1);
+	return INVALID_SOCKET;
     }
 
     return (s);

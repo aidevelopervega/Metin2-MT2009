@@ -4,7 +4,7 @@
 #ifdef __WIN32__
 void signal_setup() {}
 void signal_timer_disable() {}
-void signal_timer_enable(int timeout_seconds) {}
+void signal_timer_enable(int timeout_seconds) { (void)timeout_seconds; }
 #elif __FreeBSD__
 #define RETSIGTYPE void
 
