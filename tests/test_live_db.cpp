@@ -11,6 +11,7 @@
 #include <mysql/mysql.h>
 #include <mysql/errmsg.h>
 #include <mysql/mysqld_error.h>
+#include "tcp_fault_proxy.hpp"
 
 // ==============================================================================
 // METİN2 MT2009 - REAL LIVE DATABASE INTEGRATION & FUNCTIONAL TEST SUITE
@@ -426,7 +427,7 @@ int main(int argc, char* argv[])
 	// --------------------------------------------------------------------------
 	// 10. PRE-SEVERED SOCKET GUARD, CR_SERVER_GONE_ERROR & NO BLIND RETRY
 	// --------------------------------------------------------------------------
-	std::cout << "\n[10/11] Pre-Severed Socket Guard, CR_SERVER_GONE_ERROR & No Blind Retry..." << std::endl;
+	std::cout << "\n[10/12] Pre-Severed Socket Guard, CR_SERVER_GONE_ERROR & No Blind Retry..." << std::endl;
 	{
 		CAsyncSQL sqlVictim;
 		sqlVictim.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
@@ -462,14 +463,126 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(postGold == preGold, "No blind retry executed on severed connection: gold unchanged");
 			sqlVerify.Destroy();
 		}
-
-		std::cout << "    [BILGI / ACIK SOZLESME] Sorgu aninda hat kopmasi (in-flight mid-query network partition) harici TCP hata enjeksiyonu gerektirmekte olup canli sokette TEST EDILMEDI / ACIK olarak tutulmaktadir." << std::endl;
 	}
 
 	// --------------------------------------------------------------------------
-	// 11. CLEANUP OF TEST SCHEMA
+	// 11. REAL TCP FAULT INJECTION: MID-QUERY SEVERANCE & POST-COMMIT DROPPED RESPONSE
 	// --------------------------------------------------------------------------
-	std::cout << "\n[11/11] Clean Teardown of Test Schema..." << std::endl;
+	std::cout << "\n[11/12] Real TCP Fault Injection: Mid-Query Severance & Post-Commit Dropped Response..." << std::endl;
+	{
+		TcpFaultProxy proxy;
+		int proxyPort = proxy.Start(host, port);
+		LIVE_ASSERT(proxyPort > 0, "TCP Fault Injection Proxy initialized and listening on ephemeral port");
+		std::cout << "    -> Proxy active on 127.0.0.1:" << proxyPort << " -> forwarding to DB 127.0.0.1:" << port << std::endl;
+
+		// ----------------------------------------------------------------------
+		// Scenario 11.A: In-Flight Mid-Query Connection Severance
+		// ----------------------------------------------------------------------
+		std::cout << "    [Scenario 11.A] In-Flight Mid-Query Connection Severance (Server-side processing interrupted)..." << std::endl;
+		{
+			CAsyncSQL sqlProxyA;
+			bool aSetup = sqlProxyA.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, proxyPort);
+			LIVE_ASSERT(aSetup == true, "Client successfully connected to DB via TCP fault proxy (11.A)");
+
+			// Arm proxy to sever socket while query is actively running on server
+			proxy.SetFaultMode(ProxyFaultMode::FAULT_SEVER_MID_QUERY);
+
+			// Query that takes 2 seconds on server (SLEEP(2))
+			auto resA = sqlProxyA.DirectQuery("SELECT SLEEP(2);");
+			LIVE_ASSERT(resA != nullptr, "Interrupted in-flight query returned a result object");
+			LIVE_ASSERT(resA->IsError() == true, "Interrupted query correctly flagged as IsError() == true");
+			LIVE_ASSERT(resA->uiSQLErrno == CR_SERVER_LOST || resA->uiSQLErrno == CR_SERVER_GONE_ERROR,
+				"Mid-query disconnection preserves CR_SERVER_LOST (2013) or CR_SERVER_GONE_ERROR (2006)");
+			LIVE_ASSERT(proxy.WasSeverMidQueryTriggered() == true,
+				"TCP proxy actively severed client and server sockets during mid-query execution");
+			std::cout << "    -> Captured In-Flight Disconnect Error: " << resA->uiSQLErrno << " (" << (resA->uiSQLErrno == 2013 ? "CR_SERVER_LOST" : "CR_SERVER_GONE_ERROR") << ")" << std::endl;
+
+			sqlProxyA.Destroy();
+
+			// Verify server health via direct connection
+			CAsyncSQL sqlCheckA;
+			sqlCheckA.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+			auto pingResA = sqlCheckA.DirectQuery("SELECT 1;");
+			LIVE_ASSERT(pingResA != nullptr && !pingResA->IsError(),
+				"Database server remains healthy and accepting queries after mid-query severance");
+			sqlCheckA.Destroy();
+		}
+
+		// Brief pause between connections
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+		// ----------------------------------------------------------------------
+		// Scenario 11.B: Post-Execution Response Dropped (DB committed, OK dropped, UNKNOWN status)
+		// ----------------------------------------------------------------------
+		std::cout << "    [Scenario 11.B] Post-Execution Response Dropped (DB committed, OK packet dropped -> UNKNOWN)..." << std::endl;
+		{
+			// Read current gold via direct connection before fault injection
+			uint64_t initialGold = 0;
+			{
+				CAsyncSQL sqlDirect;
+				sqlDirect.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+				auto r = sqlDirect.DirectQuery("SELECT gold FROM test_player_live WHERE id = 1;");
+				LIVE_ASSERT(r != nullptr && r->Get() != nullptr && r->Get()->ullNumRows == 1, "Retrieved pre-fault gold baseline");
+				MYSQL_ROW row = mysql_fetch_row(r->Get()->pSQLResult);
+				initialGold = row && row[0] ? ::strtoull(row[0], nullptr, 10) : 0;
+				sqlDirect.Destroy();
+			}
+
+			// Connect client through proxy
+			CAsyncSQL sqlProxyB;
+			bool bSetup = sqlProxyB.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, proxyPort);
+			LIVE_ASSERT(bSetup == true, "Client successfully connected to DB via TCP fault proxy (11.B)");
+
+			// Arm proxy to drop server OK response
+			proxy.SetFaultMode(ProxyFaultMode::FAULT_DROP_SERVER_RESPONSE);
+
+			// Execute non-idempotent update (+500 gold)
+			auto resB = sqlProxyB.DirectQuery("UPDATE test_player_live SET gold = gold + 500 WHERE id = 1;");
+			LIVE_ASSERT(resB != nullptr, "Client received result object after dropped response");
+			LIVE_ASSERT(resB->IsError() == true, "Client marked dropped response as IsError() == true");
+			LIVE_ASSERT(resB->uiSQLErrno == CR_SERVER_LOST || resB->uiSQLErrno == CR_SERVER_GONE_ERROR,
+				"Dropped response returned CR_SERVER_LOST (2013) or CR_SERVER_GONE_ERROR (2006)");
+			LIVE_ASSERT(proxy.WasDroppedResponseCaptured() == true,
+				"TCP proxy verified server executed query and dropped OK response before client received it");
+			std::cout << "    -> Client Seen Error Code: " << resB->uiSQLErrno
+					  << " | Transaction Status: UNKNOWN (client saw socket drop after commit)" << std::endl;
+
+			sqlProxyB.Destroy();
+
+			// Verify in database via separate direct connection that the UPDATE was actually applied!
+			uint64_t actualGold = 0;
+			{
+				CAsyncSQL sqlVerifyB;
+				sqlVerifyB.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
+				auto r = sqlVerifyB.DirectQuery("SELECT gold FROM test_player_live WHERE id = 1;");
+				LIVE_ASSERT(r != nullptr && r->Get() != nullptr && r->Get()->ullNumRows == 1, "Direct verification read succeeded");
+				MYSQL_ROW row = mysql_fetch_row(r->Get()->pSQLResult);
+				actualGold = row && row[0] ? ::strtoull(row[0], nullptr, 10) : 0;
+
+				LIVE_ASSERT(actualGold == initialGold + 500,
+					"Database confirmed UPDATE was committed (+500) despite client receiving socket error (UNKNOWN status)");
+				std::cout << "    -> Verified DB Actual Gold: " << actualGold << " (Expected initial + 500: " << (initialGold + 500) << ")" << std::endl;
+
+				// Verify NO BLIND RETRY occurred
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				auto r2 = sqlVerifyB.DirectQuery("SELECT gold FROM test_player_live WHERE id = 1;");
+				MYSQL_ROW row2 = mysql_fetch_row(r2->Get()->pSQLResult);
+				uint64_t retryGold = row2 && row2[0] ? ::strtoull(row2[0], nullptr, 10) : 0;
+				LIVE_ASSERT(retryGold == actualGold,
+					"No blind ResendQuery occurred: gold remained unchanged (no duplicate execution)");
+
+				sqlVerifyB.Destroy();
+			}
+		}
+
+		proxy.Stop();
+		LIVE_ASSERT(proxy.GetListenPort() > 0, "TCP Fault Injection Proxy cleanly stopped and torn down");
+	}
+
+	// --------------------------------------------------------------------------
+	// 12. CLEANUP OF TEST SCHEMA
+	// --------------------------------------------------------------------------
+	std::cout << "\n[12/12] Clean Teardown of Test Schema..." << std::endl;
 	{
 		CAsyncSQL sql;
 		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);

@@ -80,6 +80,7 @@ fi
 echo "Derleniyor: $BUILD_DIR/test_live_db..."
 $CXX $FLAGS $RPATH \
     $INC_EXTRA \
+    -I"$ROOT_DIR/tests" \
     -I"$SQL_DIR" \
     -I"$CORE_DIR/include" \
     -I"$COMMON_DIR" \

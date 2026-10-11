@@ -1,4 +1,4 @@
-# Rev 16: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 17: Mid-Query Severance & Post-Commit Dropped Response TCP Fault Injection Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
