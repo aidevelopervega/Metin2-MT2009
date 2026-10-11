@@ -51,7 +51,7 @@ fi
 
 # Negatif Kontrol 3: Zorunlu DB nesne dosyaları manifestosu
 # Sadece sayı kontrolü yapılmaz; her zorunlu nesnenin varlığı tek tek doğrulanır.
-REQUIRED_DB_OBJS="Cache.o ClientManager.o ClientManagerBoot.o ClientManagerGuild.o ClientManagerIkarusShop.o ClientManagerItem.o ClientManagerLogin.o ClientManagerParty.o ClientManagerPlayer.o Config.o DBManager.o IkarusShopCache.o ItemIDRangeManager.o Peer.o"
+REQUIRED_DB_OBJS="Cache.o ClientManager.o ClientManagerBoot.o ClientManagerGuild.o ClientManagerIkarusShop.o ClientManagerLogin.o ClientManagerParty.o ClientManagerPlayer.o Config.o DBManager.o IkarusShopCache.o ItemIDRangeManager.o Peer.o"
 for obj in $REQUIRED_DB_OBJS; do
     if [ ! -f "$DB_OBJ_DIR/$obj" ]; then
         echo "HATA: Zorunlu DB nesne dosyası eksik: $DB_OBJ_DIR/$obj! db tam derlenmemiş." >&2

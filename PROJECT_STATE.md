@@ -333,7 +333,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `ClientManager.cpp`, `ClientManagerPlayer.cpp`, `ClientManagerIkarusShop.cpp`, `IkarusShopCache.cpp`: Bağlantı yokluğunda güvenle hata döndürme sağlandı.
     * **3. Entegrasyon Test Betiği (run_db_integration_tests.sh) Sıkılaştırması:**
       * Temiz derleme ortamı hazırlığı (`rm -f libdb_objs.a test_db_cache_integration`).
-      * 14 zorunlu nesne dosyası içeren açık manifesto denetimi (`REQUIRED_DB_OBJS`).
+      * 13 zorunlu nesne dosyası içeren açık manifesto denetimi (`REQUIRED_DB_OBJS`).
       * Nesne dosyalarının 64-bit mimari (`x86-64 / amd64`) doğrulaması.
       * Temiz arşiv oluşturma (`ar cr`) ve `Main.o` nesnesinin arşivden kesin olarak çıkarıldığının kontrolü (`ar t ... | grep -q '^Main\.o$'`).
     * **4. Dürüst Test Seviyesi Sınıflandırması:**
