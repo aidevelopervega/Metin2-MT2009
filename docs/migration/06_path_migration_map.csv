@@ -1,0 +1,53 @@
+Old_Path,New_Path,Component,Windows_Case_Safe,Space_Free,Action,Notes
+mt2009 - FULL SOURCE/Server Source/Server/common,server/src/common,Server Source,YES,YES,git mv,Common network protocol headers
+mt2009 - FULL SOURCE/Server Source/Server/libthecore,server/src/libthecore,Server Source,YES,YES,git mv,Core C library
+mt2009 - FULL SOURCE/Server Source/Server/libsql,server/src/libsql,Server Source,YES,YES,git mv,SQL async library
+mt2009 - FULL SOURCE/Server Source/Server/libgame,server/src/libgame,Server Source,YES,YES,git mv,Grid and attribute library
+mt2009 - FULL SOURCE/Server Source/Server/libpoly,server/src/libpoly,Server Source,YES,YES,git mv,Formula parser library
+mt2009 - FULL SOURCE/Server Source/Server/liblua,server/src/liblua,Server Source,YES,YES,git mv,Lua 5.0 library
+mt2009 - FULL SOURCE/Server Source/Server/db,server/src/db,Server Source,YES,YES,git mv,Database cache server
+mt2009 - FULL SOURCE/Server Source/Server/game,server/src/game,Server Source,YES,YES,git mv,Game server
+mt2009 - FULL SOURCE/new_ftp.tar.gz (usr/home/mt2),server/files,Server Runtime,YES,YES,Extract & Sanitize,Must sanitize passwords in CONFIG before git tracking
+mt2009 - FULL SOURCE/Source/Source Client/UserInterface,client/src/UserInterface,Client Source,YES,YES,git mv,Client main executable (Win32 x86)
+mt2009 - FULL SOURCE/Source/Source Client/EterLib,client/src/EterLib,Client Source,YES,YES,git mv,Client rendering library
+mt2009 - FULL SOURCE/Source/Source Client/GameLib,client/src/GameLib,Client Source,YES,YES,git mv,Client game actors library
+mt2009 - FULL SOURCE/Source/Source Client/EterBase,client/src/EterBase,Client Source,YES,YES,git mv,Client base library
+mt2009 - FULL SOURCE/Source/Source Client/EffectLib,client/src/EffectLib,Client Source,YES,YES,git mv,Client particle effect library
+mt2009 - FULL SOURCE/Source/Source Client/EterGrnLib,client/src/EterGrnLib,Client Source,YES,YES,git mv,Client Granny model library
+mt2009 - FULL SOURCE/Source/Source Client/MilesLib,client/src/MilesLib,Client Source,YES,YES,git mv,Client Miles sound library
+mt2009 - FULL SOURCE/Source/Source Client/SpeedTreeLib,client/src/SpeedTreeLib,Client Source,YES,YES,git mv,Client SpeedTree library
+mt2009 - FULL SOURCE/Source/Source Client/EterPythonLib,client/src/EterPythonLib,Client Source,YES,YES,git mv,Client Python UI library
+mt2009 - FULL SOURCE/Source/Source Client/EterPack,client/src/EterPack,Client Source,YES,YES,git mv,Client archive unpacker library
+mt2009 - FULL SOURCE/Source/Source Client/ScriptLib,client/src/ScriptLib,Client Source,YES,YES,git mv,Client script library
+mt2009 - FULL SOURCE/Source/Source Client/EterLocale,client/src/EterLocale,Client Source,YES,YES,git mv,Client string conversion library
+mt2009 - FULL SOURCE/Source/Source Client/SphereLib,client/src/SphereLib,Client Source,YES,YES,git mv,Client sphere collision library
+mt2009 - FULL SOURCE/Source/Source Client/EterImageLib,client/src/EterImageLib,Client Source,YES,YES,git mv,Client image library
+mt2009 - FULL SOURCE/Source/Source Client/PRTerrainLib,client/src/PRTerrainLib,Client Source,YES,YES,git mv,Client terrain library
+mt2009 - FULL SOURCE/Source/Source Client/CWebBrowser,client/src/CWebBrowser,Client Source,YES,YES,git mv,Client ActiveX browser library
+mt2009 - FULL SOURCE/Source/Source Client/Metin2Client.sln,client/src/Metin2Client.sln,Client Source,YES,YES,git mv,Visual Studio 2022 Solution
+mt2009 - FULL SOURCE/Klient,client/files,Client Runtime,YES,YES,git mv / retain,Ready 32-bit client runtime package
+mt2009 - FULL SOURCE/Server Source/Extern/include/boost,extern/common/include/boost,Extern Common,YES,YES,git mv,Boost 1.83.0 header-only
+mt2009 - FULL SOURCE/Server Source/Extern/include/rapidjson,extern/common/include/rapidjson,Extern Common,YES,YES,git mv,RapidJSON C++20 patched
+mt2009 - FULL SOURCE/Server Source/Extern/include/fmt,extern/common/include/fmt,Extern Common,YES,YES,git mv,fmt header-only
+mt2009 - FULL SOURCE/Server Source/Extern/include/msl,extern/common/include/msl,Extern Common,YES,YES,git mv,MSL header-only
+mt2009 - FULL SOURCE/Server Source/Extern/include/OptionParser,extern/common/include/OptionParser,Extern Common,YES,YES,git mv,OptionParser header-only
+mt2009 - FULL SOURCE/Server Source/Extern/include/opencv2,extern/common/include/opencv2,Extern Common,YES,YES,git mv,OpenCV 4.10 headers
+mt2009 - FULL SOURCE/Server Source/Extern/include/mysql,extern/server/include/mysql,Extern Server,YES,YES,git mv,Server MariaDB C/C headers
+mt2009 - FULL SOURCE/Server Source/Extern/include/cryptopp,extern/server/include/cryptopp,Extern Server,YES,YES,git mv,Server Crypto++ headers
+mt2009 - FULL SOURCE/Server Source/Extern/include/IL,extern/server/include/IL,Extern Server,YES,YES,git mv,Server DevIL headers
+mt2009 - FULL SOURCE/Source/Extern/include/Python27,extern/client/include/Python27,Extern Client,YES,YES,git mv,Client Python 2.7 headers
+mt2009 - FULL SOURCE/Source/Extern/include/granny*.h,extern/client/include/granny,Extern Client,YES,YES,git mv,Client Granny 3D headers
+mt2009 - FULL SOURCE/Source/Extern/include/SpeedTreeRT.h,extern/client/include/SpeedTreeRT.h,Extern Client,YES,YES,git mv,Client SpeedTree header
+mt2009 - FULL SOURCE/Source/Extern/include/MSS.H,extern/client/include/MSS.H,Extern Client,YES,YES,git mv,Client Miles Sound header
+mt2009 - FULL SOURCE/Source/Extern/include/d3d9*.h,extern/client/include/directx,Extern Client,YES,YES,git mv,Client DirectX 9 headers
+mt2009 - FULL SOURCE/Source/Extern/include/lzo,extern/client/include/lzo,Extern Client,YES,YES,git mv,Client LZO headers
+mt2009 - FULL SOURCE/Source/Extern/include/lz4,extern/client/include/lz4,Extern Client,YES,YES,git mv,Client LZ4 headers
+mt2009 - FULL SOURCE/Source/Extern/include/snappy,extern/client/include/snappy,Extern Client,YES,YES,git mv,Client Snappy headers
+mt2009 - FULL SOURCE/Source/Extern/include/minIni,extern/client/include/minIni,Extern Client,YES,YES,git mv,Client minIni headers
+mt2009 - FULL SOURCE/Source/Extern/include/ThemidaSDK.h,extern/client/include/ThemidaSDK.h,Extern Client,YES,YES,git mv,Client Themida SDK header
+mt2009 - FULL SOURCE/Source/Extern/lib,extern/client/lib,Extern Client,YES,YES,git mv,Client 32-bit Win32 static libraries
+mt2009 - FULL SOURCE/Source/Extern/dll,extern/client/dll,Extern Client,YES,YES,git mv,Client 32-bit dynamic libraries
+tests/build/libmariadb.a,extern/platform/windows-x64/lib/libmariadb.a,Platform Win x64,YES,YES,Copy,MinGW 64-bit MariaDB import library
+tests/build/libmysql.a,extern/platform/windows-x64/lib/libmysql.a,Platform Win x64,YES,YES,Copy,MinGW 64-bit MySQL import library
+mt2009 - FULL SOURCE/sql,sql,SQL Schema,YES,YES,git mv,Database schemas (account, common, log, player, world)
+tests,tests,Test Suite,YES,YES,Keep in place,Regression, unit, live, and integration test suites

@@ -310,45 +310,40 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 114530621091):** 410/410 modül regresyon testi PASS, gerçek 64-bit `db_r1` (ELF 64-bit LSB executable, x86-64) derlendi ve bağlandı, 73/73 canlı veritabanı testi PASS (%100 Başarı).
       * **Genel Durum:** 3/3 matris işi SUCCESS. Windows (PE32+) ve FreeBSD (ELF64) üzerinde `db` sunucusu ve oyuncu veri güvenliği mimarisi %100 doğrulandı.
   * **Gerçek DB Cache / ACK Entegrasyon Test Kabulü (Rev 19 — Uçtan Uca 7 Senaryo):**
-    * Simülasyon seviyesinde bırakılan durumlar için doğrudan üretim kodunu (`CClientManager`, `CPlayerTableCache`, `CItemCache`, `CDBManager`, `CAsyncSQL`, `AnalyzeQueryResult`, `AnalyzeFailedQuery`) çalıştıran `tests/test_db_cache_integration.cpp` test paketi geliştirildi ve **82/82 assertion %100 başarıyla geçti**.
-    * **Doğrulanan 7 Kritik Senaryo:**
-      1. **Oyuncu Çıkışında Güvenli Tahliye:** Çıkışta SQL kaydı in-flight iken oyuncu ve tüm eşyaları RAM'de korunur; ancak veritabanından başarılı ACK (`OnSaveSuccess`) alındıktan sonra güvenle tahliye edilir.
-      2. **In-Flight SQL İşlemi Sırasında Silinmeme:** SQL işlemi devam ederken (`m_bSavePending == true`) `CanEvict()` kesinlikle false döner; önbellek işaretçisi geçerli kalır ve veriye %100 erişilebilir.
-      3. **SQL Hatası ve Bağlantı Kaybında Veri Korunması:** Deadlock (1213) hatasında oyuncu kaydı kirli tutulur (`m_bNeedQuery = true`); ağ kopmasında (`CR_SERVER_LOST`, 2013) eşya önbelleği silinmez, kirli kalır ve `UNKNOWN` durumuna geçirilir. Yeniden deneme flush'ı ve başarılı ACK ile temizlenir.
-      4. **Bekleyen Kayıt Sırasında Yeniden Giriş (Kritik Bug Fix):** Çıkış kaydı veritabanında beklerken oyuncu tekrar bağlandığında `CancelPendingEviction()` ile tahliye iptal edilir; gecikmiş eski çıkış ACK'si aktif oturumdaki taze veriyi ve oyuncunun eşyalarını RAM'den silemez.
-      5. **Gecikmiş / Ters Sırada Gelen Callback (Monotonic Version Ordering):** v1 in-flight iken veri güncellenip v2 flush edildiğinde, eski v1 ACK'si (1 < 2) yeni veriyi temizleyemez; yalnızca en güncel v2 ACK'si ile işlem onaylanır.
-      6. **Kapanışta Kuyruk Tahliyesi ve Kilitlenmeme:** Sağlıklı veritabanında tüm kuyruk ve önbellekler boşaltılır (5/5 drained); veritabanı çöktüğünde ve yanıt dönmediğinde `iShutdownWaitCycles > 3000` zaman aşımı devreye girerek sunucunun sonsuza dek kilitlenmesi engellenir.
-      7. **UNKNOWN İşlem Durumunda Non-Idempotent Koruma:** Pazardan eşya alımı gibi bakiye düşüşlerinde ağ koparsa körlemesine otomatik retry engellenir; RAM'deki bakiye tek doğruluk kaynağı olarak korunarak çifte harcama/çoğalma önlenir.
-    * **Üretim Kodunda Tespit Edilen Açıklar ve Kök Neden Düzeltmeleri:**
-      1. `ClientManagerPlayer.cpp:295`: `QUERY_PLAYER_LOAD` içerisinde `pSet` döngüsünde eşyalar için eksik olan `c->CancelPendingEviction()` çağrısı eklendi. Önceden yalnızca oyuncu önbelleğinde tahliye iptal ediliyor, eşyalar unutuluyordu. Eski çıkış ACK'si geldiğinde aktif oyuncunun eşyalarının bellekten silinme riski kalıcı olarak çözüldü.
-      2. `DBManager.cpp:EscapeString`: MariaDB Connector/C 3.4.10 kütüphanesinin bağlantı kopukken `mysql_real_escape_string` çağrısında `0xC0000005` Access Violation üretmesi, `LocalEscapeString` güvenli fallback ile çözüldü.
-      3. `DBManager.cpp:DirectQuery`, `ReturnQuery`, `AsyncQuery`: Boş veya yapılandırılmamış slot (`nullptr`) erişimlerinde doğrudan çökme riski ortadan kaldırıldı; güvenli hata döndürme eklendi.
-      4. `IkarusShopCache.cpp:682` (`LoadSafebox`): `DirectQuery` sonrası `msg`, `msg->Get()` ve `pSQLResult` null kontrolleri eklenerek veritabanı çevrimdışı olduğunda oluşan segfault kalıcı olarak giderildi.
+    * Simülasyon seviyesinde bırakılan durumlar için doğrudan üretim kodunu (`CClientManager`, `CPlayerTableCache`, `CItemCache`, `CDBManager`, `CAsyncSQL`, `AnalyzeQueryResult`, `AnalyzeFailedQuery`) çalıştıran `tests/test_db_cache_integration.cpp` test paketi geliştirildi.
+    * Windows amd64 MinGW GCC ortamında **82/82 assertion %100 başarıyla geçti** (Toplam 492 test PASS).
+    * **FreeBSD 15.1 amd64 CI Sonucu (Rev 19 — Run ID: 38167256710, Commit: `d96b3437`):**
+      * **MySQL 8.4 LTS (Job ID: 114552279062):** FAILURE (Step 5.1).
+      * **MariaDB 12.3 LTS (Job ID: 114552279226):** FAILURE (Step 5.1).
+      * **MariaDB 11.4 LTS (Job ID: 114552279257):** FAILURE (Step 5.1).
+      * **Kök Neden:** 410 unit test PASS olmuş, 64-bit `db_r1` ELF binary derlenip bağlanmış; ancak `tests/run_db_integration_tests.sh:67` içerisindeki `eval` komutunun `mt2009 - FULL SOURCE` yolundaki boşluk ve tireleri parçalaması nedeniyle GCC `g++14: error: -E or -x required when input is from standard input` hatası vermiş ve **82 entegrasyon assertion'ı FreeBSD üzerinde HİÇ ÇALIŞTIRILAMAMIŞTIR**.
+      * **Nihai Rev 19 FreeBSD Durumu:** **FAIL**.
+    * **Rev 19 Üretim Kodunda Keşfedilen Kritik Güvenlik Açıkları:**
+      1. `IkarusShopCache.cpp:712-714` (`LoadSafebox`): İkinci sorgu (`CreateSafeboxCacheLoadItemsQuery`) hata verdiğinde, boş eşya listesi içeren `safebox` nesnesi önbelleğe kaydedilip `return safebox;` yapılmaktadır. Bu durum önbellek tahliyesinde veya kaydında oyuncunun pazar deposundaki **tüm eşyaların kalıcı olarak silinmesine (Permanent Item Loss)** yol açar!
+      2. `DBManager.cpp:231-284` (`LocalEscapeString`): Veritabanı bağlantısı yokken tek baytlık ASCII kaçış fonksiyonu devreye girmekte; Big5/GBK/SJIS gibi çok baytlı karakterlerde `0x5C` (`\`) baytı içeren karakterleri bozarak multibyte SQL injection riski doğurmakta, ayrıca `SQL_MODE=NO_BACKSLASH_ESCAPES` kurallarını ihlal etmektedir.
     * **Test Seviyelerinin Dürüst Sınıflandırması:**
       * **Birim / Simülasyon Testleri:** `tests/test_db_cache.cpp` (120 test/assertion) — `cache<T>` şablonunun mock yapılarla durum geçişlerinin birim testi.
-      * **Entegrasyon Testleri:** `tests/test_db_cache_integration.cpp` (82 test/assertion) — Gerçek `CClientManager`, `CPlayerTableCache`, `CItemCache`, `CDBManager`, `CAsyncSQL`, `AnalyzeQueryResult`, `AnalyzeFailedQuery` üretim sınıfları ve üretim SQL kuyrukları üzerinde çalışan entegrasyon testi.
-      * **E2E (Uçtan Uca) Testleri:** `tests/test_live_db.cpp` (219 test/assertion) — Gerçek çalışan MySQL 8.4, MariaDB 12.3 ve MariaDB 11.4 sunucularına bağlanan canlı ağ ve veritabanı testi.
-    * **Salt RAM Önbellek Mimarisinin Doğal Sınırı (Dürüst Belgelendirme):**
-      * Salt RAM önbellek mimarisinin doğası gereği, process'in ansızın `SIGKILL` (`kill -9`), işletim sistemi çekirdek çökmesi veya ani fiziksel elektrik kesintisi ile sonlanması durumunda bellekteki henüz MySQL/MariaDB InnoDB redo log'a ulaşmamış kirli veriler donanımsal olarak kurtarılamaz.
-      * Geliştirilen bu mimari; planlı kapanışta (`graceful shutdown draining`), normal çıkışta (`logout flush`), ağ ve veritabanı kopmasında (`dirty retention`) ve işlem çakışmalarında veri güvenliğini %100 sağlar; ancak işletim sistemi ve donanım seviyesindeki ani süreç sonlanmalarında fiziksel RAM içeriğinin silinmesini önleyemez.
-    * **Otomasyon ve Çalıştırıcılar:**
-      * `tests/run_db_integration_tests.ps1`: Windows UCRT64 GCC entegrasyon test çalıştırıcısı.
-      * `tests/run_db_integration_tests.sh`: FreeBSD POSIX GCC entegrasyon test çalıştırıcısı.
-      * `tests/run_tests.ps1`: 6 aşamalı tam regresyon çalıştırıcısı (410 birim + 82 entegrasyon = **492 test PASS, %100**).
-      * `.github/workflows/freebsd-gcc-test.yml`: Step 5.1 olarak FreeBSD derlemesi sonrası entegre edildi.
+      * **Bileşen Entegrasyon Testleri:** `tests/test_db_cache_integration.cpp` (82 test/assertion) — Gerçek üretim sınıfları ve SQL kuyrukları üzerinde sentetik callback / hata enjeksiyonu ile çalışan bileşen entegrasyon testi. (Canlı ağ E2E testi değildir).
+      * **Canlı E2E Ağ ve DB Testleri:** `tests/test_live_db.cpp` (219 test/assertion) — Gerçek çalışan MySQL 8.4, MariaDB 12.3 ve MariaDB 11.4 sunucularına canlı bağlanan E2E testi.
+    * **Göç Öncesi Kabul Durumu:** `IkarusShopCache.cpp`, `DBManager.cpp` ve `run_db_integration_tests.sh` düzeltilip FreeBSD üzerinde 492/492 test doğrulanmadan göç başlatılamaz.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** DB Modülü 64-Bit Modernizasyonu ve Gerçek DB Cache/ACK Veri Güvenliği Kabulü (Aşama 11.4 & Rev 19) — Gerçek üretim sınıflarıyla 7 kritik senaryonun entegrasyon doğrulaması (82/82 assertion), 4 kök neden açığının kalıcı düzeltilmesi, 492/492 test başarısı ve 64-bit `db.exe` üretimiyle **%100 BAŞARIYLA TAMAMLANDI**.
+* **Aktif Görev:** DB Modülü ve Rev 19 FreeBSD Entegrasyonunun Tamamlanması — `IkarusShopCache.cpp` veri kaybı açığının giderilmesi, `DBManager.cpp` yerel kaçış açığının kapatılması, `run_db_integration_tests.sh` kabuk tırnaklama hatasının düzeltilmesi ve FreeBSD CI üzerinde 3 motor için 492/492 testin (%100 PASS) doğrulanması.
+* **Mevcut Durum:** **FAIL / BLOCKED (Düzeltme ve FreeBSD CI doğrulaması bekliyor)**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
 * Kullanıcı onayı doğrultusunda:
-  * **Aşama 12 (`liblua` Modernizasyonu):** Lua 5.0 kütüphanesinin C++20 ve 64-bit GCC (Windows UCRT64 & FreeBSD amd64) mimarisine modernizasyonu ve derleme hazırlığı.
+  1. `IkarusShopCache.cpp:712-714` veri kaybı hatasının kök nedeninden düzeltilmesi (`m_safeboxMap.erase(dwPID)` ve `return nullptr;`).
+  2. `DBManager.cpp:231-284` yerel kaçış fonksiyonunun güvenli hale getirilmesi.
+  3. `tests/run_db_integration_tests.sh` betiğindeki `eval` boşluk parçalanmasının giderilmesi.
+  4. FreeBSD CI üzerinde 3 motor için de Step 5.1'in ve tüm 492 assertion'ın çalıştığının kanıtlanması.
+  5. Tüm güvenlik engelleri aşıldıktan sonra boşluksuz dizin göçüne (`git mv`) geçilmesi.
 
 
 
