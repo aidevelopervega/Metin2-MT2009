@@ -53,6 +53,12 @@ class CDBManager : public singleton<CDBManager>
 	SQLMsg *		PopResult();
 	SQLMsg * 		PopResult(eSQL_SLOT slot );
 
+	SQLMsg *		PopFailedQuery();
+	SQLMsg *		PopFailedQuery(eSQL_SLOT slot);
+	bool			HasFailedQueryOverflow() const;
+	void			ResetFailedQueryOverflow();
+	DWORD			CountFailedQuery() const;
+
 	unsigned long		EscapeString(void * to, const void * from, unsigned long length, int iSlot = SQL_PLAYER);
 
 	DWORD			CountReturnQuery(int i) { return m_mainSQL[i] ? m_mainSQL[i]->CountQuery() : 0; }

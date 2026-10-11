@@ -91,16 +91,16 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Makefile:** `clang++` ve `-m32` yerine `CXX ?= g++`, `-std=c++20` ve standart nesne kuralı (`%.o: %.cpp`) tanımlandı.
     * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
     * **Sonuç:** 0 hata, 0 uyarı.
-    * **Otomatik Regresyon Testi:** `tests/test_libsql.cpp` -> **111/111 test başarılı**. (`CSemaphore` temel işlemler/iş parçacıkları arası devir/çoklu sayaç/yeniden ilklendirme; `CAsyncSQL` kuyruk işlemleri FIFO/sonuç kuyruğu/sayaçlar; `EscapeString` sınır ve taşma güvenliği; `SQLResult` 64-bit ID/satır, satürasyon ve `(uint32_t)-1` hata eşleşmesi; `SQLMsg` çoklu sonuç gezimi; `CAsyncSQL` bağlantı yaşam döngüsü, yeniden bağlanma, `Quit`/`Destroy` handle güvenliği; bağlantı yeniden denemesi, kademeli backoff ve kontrollü durdurma; başarısız fire-and-forget sorgularının saklanması, bellek sınırı ve reaktif callback teslimatı; SQL log parola/token temizliği; 64-bit hata vs boş sonuç ayrımı; çoklu nesne iş parçacığı izolasyonu; MariaDB 12.3 snapshot isolation sözleşmesi; MySQL 8.4 açık reconnect sözleşmesi; Canlı veritabanı entegrasyonu dürüstçe `[SKIP]` olarak raporlanmaktadır).
+    * **Otomatik Regresyon Testi:** `tests/test_libsql.cpp` -> **141/141 test başarılı**. (`CSemaphore` temel işlemler/iş parçacıkları arası devir/çoklu sayaç/yeniden ilklendirme; `CAsyncSQL` kuyruk işlemleri FIFO/sonuç kuyruğu/sayaçlar; `EscapeString` sınır ve taşma güvenliği; `SQLResult` 64-bit ID/satır, satürasyon ve `(uint32_t)-1` hata eşleşmesi; `SQLMsg` çoklu sonuç gezimi; `CAsyncSQL` bağlantı yaşam döngüsü, yeniden bağlanma, `Quit`/`Destroy` handle güvenliği; bağlantı yeniden denemesi, kademeli backoff ve kontrollü durdurma; başarısız fire-and-forget sorgularının saklanması, bellek sınırı ve reaktif callback teslimatı; SQL log parola/token temizliği; 64-bit hata vs boş sonuç ayrımı; çoklu nesne iş parçacığı izolasyonu; MariaDB 12.3 snapshot isolation sözleşmesi; MySQL 8.4 açık reconnect sözleşmesi; DB tarafı `cache<T>` hata anında kirli veri koruması (`SetNeedQuery`); çoklu SQL slotu `PopFailedQuery` kuyruk tahliyesi; bağlantı kopmasında UNKNOWN işlem durumu koruması; sunucu kapanışında bekleyen sorguların tam tahliyesi; Canlı veritabanı entegrasyonu dürüstçe `[SKIP]` olarak raporlanmaktadır).
   * **Toplu Regresyon Testi:**
     * `libpoly`: **24/24 test başarılı**
     * `libthecore`: **97/97 test başarılı**
     * `libgame`: **28/28 test başarılı** (Gerçek `libthecore.a` ile bağlı)
-    * `libsql`: **111/111 test başarılı**
-    * **Toplam:** **260/260 test başarılı (%100)** (+ 1 [SKIP] Canlı DB testi).
+    * `libsql`: **141/141 test başarılı**
+    * **Toplam:** **290/290 test başarılı (%100)** (+ 1 [SKIP] Canlı DB testi).
   * **Platform Doğrulama Notu:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 260/260 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 11: Run 38132231435 / Commit 7f3633bd) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 260/260 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 290/290 test 0 hata, 0 uyarı ile tam doğrulandı.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 12 ile 290/290 test otomatik olarak icra edilecektir; önceki Rev 11 / Run 38132231435 ile 260/260 test tam başarıyla doğrulanmıştır).
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -206,8 +206,9 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * `m_queue_query` kuyruğuna 100.000 eleman ve 128 MB bellek tavan sınır eklenerek kesinti anında sorguların kontrollü reddi sağlandı.
   * Otomatik reconnect sonrasında düşen sorgunun kontrolsüz tekrar çalıştırılması (`ResendQuery`) engellendi; veri bütünlüğü ve non-idempotent güvenlik sağlandı.
   * `Tellwait.h`/`Tellwait.cpp` ve `libthecore/include/signal.h` kök neden düzeltmeleriyle header shadowing giderildi.
-  * `tests/test_libsql.cpp` (111 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 111/111 (toplamda 260/260) test 0 hata ve 0 uyarı ile doğrulandı (+ 1 [SKIP] canlı DB testi).
-  * GitHub Actions CI iş akışı (Rev 11: Run 38132231435 / Commit 7f3633bd) ile FreeBSD 15.1 amd64 GCC 14 ortamında 260/260 test 0 derleme hatası ve 0 derleyici uyarısı ile tam başarıyla (%100) doğrulandı.
+  * `tests/test_libsql.cpp` (141 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 141/141 (toplamda 290/290) test 0 hata ve 0 uyarı ile doğrulandı (+ 1 [SKIP] canlı DB testi).
+  * `db` sunucusu SQL veri güvenliği entegrasyonu tamamlandı: `PopFailedQuery` çoklu slot tahliyesi, `HasFailedQueryOverflow` geri basınç tespiti, `CClientManager::AnalyzeQueryResult` ve `AnalyzeFailedQuery` hata denetimi, bağlantı kopmasında UNKNOWN işlem durumu koruması, `cache<T>::SetNeedQuery` ile periyodik kaydetme hatalarında kirli veri korunması, sunucu kapanışında bekleyen sorguların tam tahliyesi sağlandı.
+  * GitHub Actions CI iş akışı (Rev 12 ile 290/290 test tetiklenecektir; önceki Rev 11: Run 38132231435 ile 260/260 test tam başarıyla %100 doğrulanmıştır).
 * [ ] **Aşama 11.2 (libsql Canlı DB Entegrasyonu ve Connector/C Kütüphaneleri):**
   * Windows amd64 ve FreeBSD amd64 için Oracle MySQL 8.4 ve MariaDB 12.3/11.4 canlı bağlantı ve transaction doğrulama testlerinin icra edilmesi.
 
@@ -215,7 +216,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.1 Açık Hataları Giderme ve Uçtan Uca SQL Veri Güvenliği Doğrulaması tamamlandı. Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 (Run 38132231435 / Commit 7f3633bd) üzerinde 260/260 test (%100 başarı, 0 hata, 0 uyarı, 1 SKIP) doğrulandı. Kullanıcıya ayrıntılı veri güvenliği, SQL log temizliği ve çağrı noktası denetim raporunun sunulması.
+* **Aktif Görev:** Aşama 11.1 DB Tarafında SQL Veri Güvenliği Entegrasyonu tamamlandı. Windows amd64 GCC 16.2.0 üzerinde 290/290 test (%100 başarı, 0 hata, 0 uyarı, 1 SKIP) doğrulandı. FreeBSD 15.1 amd64 CI koşusu (Rev 12) için commit/push icra edilerek GitHub Actions doğrulaması bekleniyor. Kullanıcıya ayrıntılı DB hata tüketicileri, UNKNOWN durumu, cache yaşam döngüsü riskleri ve mimari logout yarış senaryosu raporunun sunulması.
 
 ---
 

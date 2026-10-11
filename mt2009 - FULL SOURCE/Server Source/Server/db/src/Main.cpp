@@ -90,6 +90,19 @@ int main()
 
 	while (1)
 	{
+		SQLMsg * tmp;
+		while ((tmp = CDBManager::instance().PopResult()))
+		{
+			CClientManager::instance().AnalyzeQueryResult(tmp);
+			delete tmp;
+		}
+
+		while ((tmp = CDBManager::instance().PopFailedQuery()))
+		{
+			CClientManager::instance().AnalyzeFailedQuery(tmp);
+			delete tmp;
+		}
+
 		iCount = 0;
 
 		iCount += CDBManager::instance().CountReturnQuery(SQL_PLAYER);
@@ -100,6 +113,21 @@ int main()
 
 		usleep(1000);
 		sys_log(0, "WAITING_QUERY_COUNT %d", iCount);
+	}
+
+	{
+		SQLMsg * tmp;
+		while ((tmp = CDBManager::instance().PopResult()))
+		{
+			CClientManager::instance().AnalyzeQueryResult(tmp);
+			delete tmp;
+		}
+
+		while ((tmp = CDBManager::instance().PopFailedQuery()))
+		{
+			CClientManager::instance().AnalyzeFailedQuery(tmp);
+			delete tmp;
+		}
 	}
 
 	return 1;

@@ -18,9 +18,9 @@ void CDBManager::Initialize()
 {
 	for (int i = 0; i < SQL_MAX_NUM; ++i)
 	{
-		m_mainSQL[i].release();
-		m_directSQL[i].release();
-		m_asyncSQL[i].release();
+		m_mainSQL[i].reset();
+		m_directSQL[i].reset();
+		m_asyncSQL[i].reset();
 	}
 }
 
@@ -33,9 +33,9 @@ void CDBManager::Clear()
 {
 	for (int i = 0; i < SQL_MAX_NUM; ++i)
 	{
-		m_mainSQL[i].release();
-		m_directSQL[i].release();
-		m_asyncSQL[i].release();
+		m_mainSQL[i].reset();
+		m_directSQL[i].reset();
+		m_asyncSQL[i].reset();
 	}
 
 	Initialize();
@@ -75,6 +75,82 @@ SQLMsg * CDBManager::PopResult(eSQL_SLOT slot)
 			return p;
 
 	return NULL;
+}
+
+SQLMsg * CDBManager::PopFailedQuery()
+{
+	SQLMsg * p;
+
+	for (int i = 0; i < SQL_MAX_NUM; ++i)
+	{
+		if (m_asyncSQL[i] && m_asyncSQL[i]->PopFailedQuery(&p))
+			return p;
+		if (m_mainSQL[i] && m_mainSQL[i]->PopFailedQuery(&p))
+			return p;
+		if (m_directSQL[i] && m_directSQL[i]->PopFailedQuery(&p))
+			return p;
+	}
+
+	return NULL;
+}
+
+SQLMsg * CDBManager::PopFailedQuery(eSQL_SLOT slot)
+{
+	SQLMsg * p;
+
+	if (slot >= 0 && slot < SQL_MAX_NUM)
+	{
+		if (m_asyncSQL[slot] && m_asyncSQL[slot]->PopFailedQuery(&p))
+			return p;
+		if (m_mainSQL[slot] && m_mainSQL[slot]->PopFailedQuery(&p))
+			return p;
+		if (m_directSQL[slot] && m_directSQL[slot]->PopFailedQuery(&p))
+			return p;
+	}
+
+	return NULL;
+}
+
+bool CDBManager::HasFailedQueryOverflow() const
+{
+	for (int i = 0; i < SQL_MAX_NUM; ++i)
+	{
+		if (m_asyncSQL[i] && m_asyncSQL[i]->HasFailedQueryOverflow())
+			return true;
+		if (m_mainSQL[i] && m_mainSQL[i]->HasFailedQueryOverflow())
+			return true;
+		if (m_directSQL[i] && m_directSQL[i]->HasFailedQueryOverflow())
+			return true;
+	}
+	return false;
+}
+
+void CDBManager::ResetFailedQueryOverflow()
+{
+	for (int i = 0; i < SQL_MAX_NUM; ++i)
+	{
+		if (m_asyncSQL[i])
+			m_asyncSQL[i]->ResetFailedQueryOverflow();
+		if (m_mainSQL[i])
+			m_mainSQL[i]->ResetFailedQueryOverflow();
+		if (m_directSQL[i])
+			m_directSQL[i]->ResetFailedQueryOverflow();
+	}
+}
+
+DWORD CDBManager::CountFailedQuery() const
+{
+	DWORD dwCount = 0;
+	for (int i = 0; i < SQL_MAX_NUM; ++i)
+	{
+		if (m_asyncSQL[i])
+			dwCount += m_asyncSQL[i]->CountFailedQuery();
+		if (m_mainSQL[i])
+			dwCount += m_mainSQL[i]->CountFailedQuery();
+		if (m_directSQL[i])
+			dwCount += m_directSQL[i]->CountFailedQuery();
+	}
+	return dwCount;
 }
 int CDBManager::Connect(int iSlot, const char * db_address, const int db_port, const char * db_name, const char * user, const char * pwd)
 {

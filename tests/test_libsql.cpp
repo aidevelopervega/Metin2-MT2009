@@ -9,6 +9,7 @@
 #include "AsyncSQL.h"
 #include "Semaphore.h"
 #include "Statement.h"
+#include "cache.h"
 
 // ==============================================================================
 // Mock C API for Unit Testing (Hermetic & Platform-Independent)
@@ -702,6 +703,166 @@ int main()
 		TEST_ASSERT(popped != nullptr, "Query popped cleanly");
 		delete popped;
 		TEST_ASSERT(memSQL.GetFailedQueueBytes() == 0, "Memory counter decrements on pop");
+	}
+
+	// --------------------------------------------------------------------------
+	// 6.5. METIN2 DB LEVEL SQL DATA SAFETY & CACHE CONTRACTS
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing Cache dirty flag persistence contract (SetNeedQuery)..." << std::endl;
+	{
+		struct TTestPlayer {
+			uint32_t id;
+			char name[24];
+			int64_t gold;
+		};
+
+		class CTestPlayerCache : public cache<TTestPlayer> {
+		public:
+			bool m_bFlushTriggered = false;
+			void OnFlush() override {
+				m_bFlushTriggered = true;
+			}
+		};
+
+		CTestPlayerCache playerCache;
+		TEST_ASSERT(playerCache.IsNeedQuery() == false, "New cache entry starts clean (m_bNeedQuery=false)");
+
+		TTestPlayer pData{ 101, "Warrior01", 500000 };
+		playerCache.Put(&pData);
+		TEST_ASSERT(playerCache.IsNeedQuery() == true, "Put marks cache dirty (m_bNeedQuery=true)");
+
+		playerCache.Flush();
+		TEST_ASSERT(playerCache.m_bFlushTriggered == true, "Flush triggers OnFlush handler");
+		TEST_ASSERT(playerCache.IsNeedQuery() == false, "Flush resets dirty flag to clean");
+
+		// Simulate asynchronous SQL error occurring after Flush()
+		// When error is received by AnalyzeQueryResult, cache must be restored to dirty!
+		playerCache.SetNeedQuery(true);
+		TEST_ASSERT(playerCache.IsNeedQuery() == true, "SetNeedQuery(true) successfully restores dirty flag on save error");
+
+		playerCache.m_bFlushTriggered = false;
+		playerCache.Flush();
+		TEST_ASSERT(playerCache.m_bFlushTriggered == true, "Subsequent flush successfully retries unsaved player data");
+		TEST_ASSERT(playerCache.IsNeedQuery() == false, "Retry flush resets dirty flag once executed");
+	}
+
+	std::cout << "[RUN] Testing Multi-slot failed query popping contract (PopFailedQuery)..." << std::endl;
+	{
+		CAsyncSQL sqlPlayer;
+		CAsyncSQL sqlAccount;
+		CAsyncSQL sqlCommon;
+
+		sqlPlayer.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		sqlAccount.Setup("127.0.0.1", "mt2", "secret", "account", "latin1", true, 3306);
+		sqlCommon.Setup("127.0.0.1", "mt2", "secret", "common", "latin1", true, 3306);
+
+		SQLMsg * msgP = new SQLMsg;
+		msgP->stQuery = "UPDATE player SET gold=1000 WHERE id=101;";
+		msgP->uiSQLErrno = CR_CONNECTION_ERROR;
+		sqlPlayer.PushFailedQuery(msgP);
+
+		SQLMsg * msgA = new SQLMsg;
+		msgA->stQuery = "UPDATE account SET status='OK' WHERE id=500;";
+		msgA->uiSQLErrno = CR_SERVER_LOST;
+		sqlAccount.PushFailedQuery(msgA);
+
+		TEST_ASSERT(sqlPlayer.CountFailedQuery() == 1, "Player slot records 1 failed query");
+		TEST_ASSERT(sqlAccount.CountFailedQuery() == 1, "Account slot records 1 failed query");
+		TEST_ASSERT(sqlCommon.CountFailedQuery() == 0, "Common slot has 0 failed queries");
+
+		// Simulate CDBManager::PopFailedQuery multi-slot draining loop
+		std::vector<SQLMsg*> drained;
+		CAsyncSQL* slots[3] = { &sqlPlayer, &sqlAccount, &sqlCommon };
+		for (int i = 0; i < 3; ++i) {
+			SQLMsg * popped = nullptr;
+			while (slots[i]->PopFailedQuery(&popped)) {
+				drained.push_back(popped);
+			}
+		}
+
+		TEST_ASSERT(drained.size() == 2, "Draining pops all failed queries across all slots");
+		TEST_ASSERT(drained[0]->uiSQLErrno == CR_CONNECTION_ERROR, "Slot 0 popped with exact error code");
+		TEST_ASSERT(drained[1]->uiSQLErrno == CR_SERVER_LOST, "Slot 1 popped with exact error code");
+
+		for (auto * d : drained) {
+			delete d;
+		}
+
+		TEST_ASSERT(sqlPlayer.CountFailedQuery() == 0, "Player slot emptied after drain");
+		TEST_ASSERT(sqlAccount.CountFailedQuery() == 0, "Account slot emptied after drain");
+	}
+
+	std::cout << "[RUN] Testing UNKNOWN state retention on connection loss..." << std::endl;
+	{
+		SQLMsg msgLost;
+		msgLost.stQuery = "UPDATE player SET level=99 WHERE id=101;";
+		msgLost.uiSQLErrno = CR_SERVER_LOST;
+
+		bool bIsUnknownLost = (msgLost.uiSQLErrno == CR_SERVER_LOST ||
+							  msgLost.uiSQLErrno == CR_SERVER_GONE_ERROR ||
+							  msgLost.uiSQLErrno == CR_CONNECTION_ERROR);
+		TEST_ASSERT(bIsUnknownLost == true, "CR_SERVER_LOST classified as UNKNOWN transaction status");
+
+		SQLMsg msgGone;
+		msgGone.stQuery = "INSERT INTO item (id, owner_id) VALUES (2001, 101);";
+		msgGone.uiSQLErrno = CR_SERVER_GONE_ERROR;
+
+		bool bIsUnknownGone = (msgGone.uiSQLErrno == CR_SERVER_LOST ||
+							  msgGone.uiSQLErrno == CR_SERVER_GONE_ERROR ||
+							  msgGone.uiSQLErrno == CR_CONNECTION_ERROR);
+		TEST_ASSERT(bIsUnknownGone == true, "CR_SERVER_GONE_ERROR classified as UNKNOWN transaction status");
+
+		SQLMsg msgSyntax;
+		msgSyntax.stQuery = "INVALID SQL SYNTAX;";
+		msgSyntax.uiSQLErrno = 1064; // ER_PARSE_ERROR
+
+		bool bIsUnknownSyntax = (msgSyntax.uiSQLErrno == CR_SERVER_LOST ||
+								msgSyntax.uiSQLErrno == CR_SERVER_GONE_ERROR ||
+								msgSyntax.uiSQLErrno == CR_CONNECTION_ERROR);
+		TEST_ASSERT(bIsUnknownSyntax == false, "Regular syntax/duplicate SQL errors NOT classified as UNKNOWN");
+	}
+
+	std::cout << "[RUN] Testing Shutdown draining contract and lifecycle safety..." << std::endl;
+	{
+		CAsyncSQL sqlShutdown;
+		sqlShutdown.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+
+		for (int i = 0; i < 5; ++i) {
+			SQLMsg * p = new SQLMsg;
+			p->bReturn = true;
+			p->stQuery = "UPDATE player SET playtime=playtime+60 WHERE id=10" + std::to_string(i) + ";";
+			sqlShutdown.PushResult(p);
+		}
+
+		for (int i = 0; i < 3; ++i) {
+			SQLMsg * p = new SQLMsg;
+			p->bReturn = false;
+			p->stQuery = "DELETE FROM item WHERE id=900" + std::to_string(i) + ";";
+			p->uiSQLErrno = CR_CONNECTION_ERROR;
+			sqlShutdown.PushFailedQuery(p);
+		}
+
+		// Simulate Main.cpp shutdown draining
+		int drainedResults = 0;
+		SQLMsg * res = nullptr;
+		while (sqlShutdown.PopResult(&res)) {
+			TEST_ASSERT(res != nullptr, "Shutdown result popped cleanly");
+			delete res;
+			++drainedResults;
+		}
+
+		int drainedFailed = 0;
+		SQLMsg * fail = nullptr;
+		while (sqlShutdown.PopFailedQuery(&fail)) {
+			TEST_ASSERT(fail != nullptr, "Shutdown failed query popped cleanly");
+			delete fail;
+			++drainedFailed;
+		}
+
+		TEST_ASSERT(drainedResults == 5, "All 5 shutdown return results drained without loss");
+		TEST_ASSERT(drainedFailed == 3, "All 3 shutdown failed queries drained without loss");
+		TEST_ASSERT(sqlShutdown.CountResult() == 0, "Result queue completely drained after shutdown");
+		TEST_ASSERT(sqlShutdown.CountFailedQuery() == 0, "Failed queue completely drained after shutdown");
 	}
 
 	// --------------------------------------------------------------------------

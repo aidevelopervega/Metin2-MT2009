@@ -55,6 +55,9 @@ template <typename T> class cache
 			m_lastFlushTime = time(0);
 		}
 
+		bool IsNeedQuery() const { return m_bNeedQuery; }
+		void SetNeedQuery(bool bNeed = true) { m_bNeedQuery = bNeed; }
+
 		virtual void OnFlush() = 0;
 
 	protected:

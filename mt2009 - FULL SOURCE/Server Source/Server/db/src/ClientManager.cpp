@@ -323,6 +323,18 @@ void CClientManager::MainLoop()
 			delete tmp;
 		}
 
+		while ((tmp = CDBManager::instance().PopFailedQuery()))
+		{
+			AnalyzeFailedQuery(tmp);
+			delete tmp;
+		}
+
+		if (CDBManager::instance().HasFailedQueryOverflow())
+		{
+			sys_err("CRITICAL DB ALERT: SQL failed query queue overflow detected! System is under backpressure.");
+			CDBManager::instance().ResetFailedQueryOverflow();
+		}
+
 		if (!Process())
 			break;
 
@@ -2861,6 +2873,66 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 			RESULT_PRICELIST_LOAD_FOR_UPDATE(msg);
 			break;
 			// END_OF_MYSHOP_PRICE_LIST
+
+		case QID_SAFEBOX_SAVE:
+		case QID_ITEM_SAVE:
+		case QID_ITEM_DESTROY:
+		case QID_QUEST_SAVE:
+		case QID_SPECIAL_FLAG_SAVE:
+		case QID_PLAYER_SAVE:
+		case QID_ITEM_AWARD_TAKEN:
+			if (msg->IsError())
+			{
+				bool bUnknown = (msg->uiSQLErrno == CR_SERVER_LOST ||
+								 msg->uiSQLErrno == CR_SERVER_GONE_ERROR ||
+								 msg->uiSQLErrno == CR_CONNECTION_ERROR);
+				bool bOverflow = (msg->Get() && msg->Get()->IsOverflow());
+
+				if (bUnknown)
+				{
+					sys_err("CRITICAL DB SAVE UNKNOWN (Connection Lost): type %d, ident %u, errno %u; transaction status UNKNOWN - blind retry prohibited!",
+							qi->iType, qi->dwIdent, msg->uiSQLErrno);
+				}
+				else if (bOverflow)
+				{
+					sys_err("CRITICAL DB SAVE ERROR (64-bit Overflow): type %d, ident %u; out-of-range value rejected!",
+							qi->iType, qi->dwIdent);
+				}
+				else
+				{
+					sys_err("CRITICAL DB SAVE ERROR (SQL Failure): type %d, ident %u, errno %u",
+							qi->iType, qi->dwIdent, msg->uiSQLErrno);
+				}
+
+				if (qi->iType == QID_PLAYER_SAVE && qi->dwIdent != 0)
+				{
+					CPlayerTableCache * pkPlayerCache = GetPlayerCache(qi->dwIdent);
+					if (pkPlayerCache)
+					{
+						pkPlayerCache->SetNeedQuery(true);
+						sys_err("PlayerTableCache: player id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
+					}
+					else
+					{
+						sys_err("PlayerTableCache: player id %u save failed, but cache object already freed (logout race/flush)!", qi->dwIdent);
+					}
+				}
+				else if (qi->iType == QID_ITEM_SAVE && qi->dwIdent != 0)
+				{
+					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
+					if (pkItemCache)
+					{
+						pkItemCache->SetNeedQuery(true);
+						sys_err("ItemCache: item id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
+					}
+					else
+					{
+						sys_err("ItemCache: item id %u save failed, but cache object already freed (logout race/flush)!", qi->dwIdent);
+					}
+				}
+			}
+			delete qi;
+			return true;
 	}
 
 	if (!peer)
@@ -2937,14 +3009,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 			RESULT_SAFEBOX_CHANGE_PASSWORD_SECOND(peer, msg);
 			break;
 
-		case QID_SAFEBOX_SAVE:
-		case QID_ITEM_SAVE:
-		case QID_ITEM_DESTROY:
-		case QID_QUEST_SAVE:
-		case QID_SPECIAL_FLAG_SAVE:
-		case QID_PLAYER_SAVE:
-		case QID_ITEM_AWARD_TAKEN:
-			break;
+
 
 			// PLAYER_INDEX_CREATE_BUG_FIX
 		case QID_PLAYER_INDEX_CREATE:
@@ -4495,3 +4560,24 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top
+
+void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
+{
+	if (!msg)
+		return;
+
+	bool bUnknown = (msg->uiSQLErrno == CR_SERVER_LOST ||
+					 msg->uiSQLErrno == CR_SERVER_GONE_ERROR ||
+					 msg->uiSQLErrno == CR_CONNECTION_ERROR);
+
+	if (bUnknown)
+	{
+		sys_err("AnalyzeFailedQuery: UNKNOWN status (Connection Lost) for async query: errno %u, query: %s",
+				msg->uiSQLErrno, CAsyncSQL::SanitizeQueryForLog(msg->stQuery).c_str());
+	}
+	else
+	{
+		sys_err("AnalyzeFailedQuery: Async query failed: errno %u, query: %s",
+				msg->uiSQLErrno, CAsyncSQL::SanitizeQueryForLog(msg->stQuery).c_str());
+	}
+}

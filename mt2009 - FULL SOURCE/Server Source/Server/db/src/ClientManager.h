@@ -211,6 +211,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	CPeer *		GetPeer(IDENT ident);
 
 	int		AnalyzeQueryResult(SQLMsg * msg);
+	void		AnalyzeFailedQuery(SQLMsg * msg);
 	int		AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
 
 	int		Process();
