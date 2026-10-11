@@ -2,7 +2,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <sys/types.h>
+#include <sys/signal.h>
+#include <unistd.h>
+#include "Tellwait.h"
 
 static volatile sig_atomic_t    sigflag;
 
@@ -11,6 +14,7 @@ static sigset_t                 newmask, oldmask, zeromask;
 
 static void sig_usr(int signo)  /* one signal handler for SIGUSR1 and SIGUSR2 */
 {
+	(void)signo;
 	sigflag = 1;
 	return;
 }

@@ -2,6 +2,7 @@
 #define __INC_METIN_II_TELLWAIT_H__
 
 #ifndef __WIN32__
+#include <sys/types.h>
 
 extern void TELL_WAIT();
 

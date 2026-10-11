@@ -1,4 +1,4 @@
-# Rev 6: Add libsql module (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
+# Rev 7: Add Tellwait POSIX fix and libsql module (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
