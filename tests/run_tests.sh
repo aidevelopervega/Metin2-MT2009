@@ -71,4 +71,20 @@ $RANLIB "$BUILD_DIR/libgame.a"
 $CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
 "$BUILD_DIR/test_libgame"
 
+# 4. libsql
+echo "[4/4] libsql derleniyor ve test ediliyor..."
+SQL_DIR="$SERVER_DIR/Server/libsql"
+
+for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
+    obj_name=$(basename "$src" .cpp)
+    $CXX $FLAGS -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$SQL_DIR/$src" -o "$BUILD_DIR/sql_${obj_name}.o"
+done
+
+$AR cru "$BUILD_DIR/libsql.a" "$BUILD_DIR"/sql_*.o
+$RANLIB "$BUILD_DIR/libsql.a"
+
+$CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
+"$BUILD_DIR/test_libsql"
+
 echo "=== [BASARILI] TUM MODUL VE REGRESYON TESTLERI GECTI! ==="
+

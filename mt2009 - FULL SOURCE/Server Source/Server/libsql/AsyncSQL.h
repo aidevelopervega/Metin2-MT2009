@@ -20,7 +20,8 @@
 typedef struct _SQLResult
 {
 	_SQLResult()
-	   	: pSQLResult(NULL), uiNumRows(0), uiAffectedRows(0), uiInsertID(0)
+	   	: pSQLResult(NULL), uiNumRows(0), uiAffectedRows(0), uiInsertID(0),
+	   	  ullNumRows(0), ullAffectedRows(0), ullInsertID(0)
 	{
 	}
 
@@ -37,6 +38,9 @@ typedef struct _SQLResult
 	uint32_t		uiNumRows;
 	uint32_t		uiAffectedRows;
 	uint32_t		uiInsertID;
+	uint64_t		ullNumRows;
+	uint64_t		ullAffectedRows;
+	uint64_t		ullInsertID;
 } SQLResult;
 
 typedef struct _SQLMsg
@@ -63,15 +67,19 @@ typedef struct _SQLMsg
 			SQLResult * pRes = new SQLResult;
 
 			pRes->pSQLResult = mysql_store_result(m_pkSQL);
-			pRes->uiInsertID = mysql_insert_id(m_pkSQL);
-			pRes->uiAffectedRows = mysql_affected_rows(m_pkSQL);
+			pRes->ullInsertID = mysql_insert_id(m_pkSQL);
+			pRes->ullAffectedRows = mysql_affected_rows(m_pkSQL);
+			pRes->uiInsertID = static_cast<uint32_t>(pRes->ullInsertID);
+			pRes->uiAffectedRows = (pRes->ullAffectedRows == static_cast<my_ulonglong>(-1)) ? static_cast<uint32_t>(-1) : static_cast<uint32_t>(pRes->ullAffectedRows);
 
 			if (pRes->pSQLResult)
 			{
-				pRes->uiNumRows = mysql_num_rows(pRes->pSQLResult);
+				pRes->ullNumRows = mysql_num_rows(pRes->pSQLResult);
+				pRes->uiNumRows = static_cast<uint32_t>(pRes->ullNumRows);
 			}
 			else
 			{
+				pRes->ullNumRows = 0;
 				pRes->uiNumRows = 0;
 			}
 
@@ -122,7 +130,8 @@ class CAsyncSQL
 		bool		Setup(CAsyncSQL * sql, bool bNoThread = false);
 
 		bool		Connect();
-		bool		IsConnected() { return m_bConnected; }
+		bool		Reconnect();
+		bool		IsConnected() const { return m_bConnected; }
 		bool		QueryLocaleSet();
 
 		void		AsyncQuery(const char * c_pszQuery);

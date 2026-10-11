@@ -1,16 +1,9 @@
-CXX = clang++
-
-PLATFORM = $(shell file /bin/ls | cut -d' ' -f3 | cut -d'-' -f1)
-
-GCC_VERSION = $(shell $(CC) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut -d'.' -f1)
-BSD_VERSION = $(shell uname -v 2>&1 | cut -d' ' -f2 | cut -d'.' -f1)
-SVN_VERSION = $(shell svnversion -n -c . | cut -d':' -f2)
+CXX ?= g++
 
 BIN     = ./libsql.a
 
-IFLAGS = -I/usr/local/include/
-CFLAGS  = $(IFLAGS) -m32 -Wall -O2 -pipe -D_THREAD_SAFE -fno-exceptions
-CFLAGS += -std=c++20
+INCDIR  = -I../../Extern/include -I../libthecore/include -I/usr/local/include/mysql -I/usr/local/include
+CFLAGS  = $(INCDIR) -Wall -Wextra -O2 -pipe -D_THREAD_SAFE -fno-exceptions -fno-rtti -std=c++20
 
 LIBS =
 
@@ -32,7 +25,8 @@ dep:
 	touch Depend
 	$(CXX) $(CFLAGS) -MM *.cpp > Depend
 
-$(OBJFILES):
-	$(CXX) $(CFLAGS) -c $<
+%.o: %.cpp
+	$(CXX) $(CFLAGS) -c $< -o $@
 
 sinclude Depend
+

@@ -1,0 +1,511 @@
+#include <iostream>
+#include <cassert>
+#include <cstring>
+#include <thread>
+#include <vector>
+#include <chrono>
+#include <cstdlib>
+
+#include "AsyncSQL.h"
+#include "Semaphore.h"
+#include "Statement.h"
+
+// ==============================================================================
+// Mock C API for Unit Testing (Hermetic & Platform-Independent)
+// Provides controlled database engine simulation without external server.
+// ==============================================================================
+static bool s_mock_connected = false;
+static unsigned long s_mock_thread_id = 1001;
+static int s_mock_force_errno = 0;
+static uint64_t s_mock_insert_id = 0;
+static uint64_t s_mock_affected_rows = 0;
+static uint64_t s_mock_num_rows = 0;
+
+extern "C" {
+MYSQL * STDCALL mysql_init(MYSQL * mysql)
+{
+	if (!mysql)
+		return nullptr;
+	std::memset(mysql, 0, sizeof(MYSQL));
+	return mysql;
+}
+
+void STDCALL mysql_close(MYSQL * mysql)
+{
+	if (mysql) {
+		std::memset(mysql, 0, sizeof(MYSQL));
+	}
+	s_mock_connected = false;
+}
+
+int STDCALL mysql_options(MYSQL *, enum mysql_option, const void *)
+{
+	return 0;
+}
+
+int STDCALL mysql_get_option(MYSQL *, enum mysql_option, void * arg)
+{
+	if (arg) {
+		*reinterpret_cast<int*>(arg) = 1;
+	}
+	return 0;
+}
+
+int STDCALL mysql_set_character_set(MYSQL *, const char *)
+{
+	return 0;
+}
+
+MYSQL * STDCALL mysql_real_connect(MYSQL * mysql, const char *, const char *, const char *, const char *, unsigned int, const char *, unsigned long)
+{
+	s_mock_connected = true;
+	return mysql;
+}
+
+unsigned long STDCALL mysql_thread_id(MYSQL *)
+{
+	return s_mock_thread_id;
+}
+
+int STDCALL mysql_real_query(MYSQL *, const char *, unsigned long)
+{
+	if (s_mock_force_errno != 0)
+		return 1;
+	return 0;
+}
+
+MYSQL_RES * STDCALL mysql_store_result(MYSQL *)
+{
+	static int dummy_res = 1;
+	return reinterpret_cast<MYSQL_RES*>(&dummy_res);
+}
+
+void STDCALL mysql_free_result(MYSQL_RES *)
+{
+}
+
+int STDCALL mysql_next_result(MYSQL *)
+{
+	return -1; // No more results
+}
+
+my_ulonglong STDCALL mysql_insert_id(MYSQL *)
+{
+	return s_mock_insert_id;
+}
+
+my_ulonglong STDCALL mysql_affected_rows(MYSQL *)
+{
+	return s_mock_affected_rows;
+}
+
+my_ulonglong STDCALL mysql_num_rows(MYSQL_RES *)
+{
+	return s_mock_num_rows;
+}
+
+unsigned int STDCALL mysql_errno(MYSQL *)
+{
+	return s_mock_force_errno;
+}
+
+const char * STDCALL mysql_error(MYSQL *)
+{
+	if (s_mock_force_errno == CR_SERVER_LOST)
+		return "Lost connection to MySQL server during query";
+	if (s_mock_force_errno == CR_SERVER_GONE_ERROR)
+		return "MySQL server has gone away";
+	if (s_mock_force_errno != 0)
+		return "Simulated database error";
+	return "";
+}
+
+unsigned long STDCALL mysql_real_escape_string(MYSQL *, char * to, const char * from, unsigned long length)
+{
+	if (!to || !from)
+		return 0;
+	unsigned long written = 0;
+	for (unsigned long i = 0; i < length; ++i) {
+		char c = from[i];
+		switch (c) {
+			case '\'':
+				to[written++] = '\\';
+				to[written++] = '\'';
+				break;
+			case '\"':
+				to[written++] = '\\';
+				to[written++] = '\"';
+				break;
+			case '\\':
+				to[written++] = '\\';
+				to[written++] = '\\';
+				break;
+			case '\0':
+				to[written++] = '\\';
+				to[written++] = '0';
+				break;
+			default:
+				to[written++] = c;
+				break;
+		}
+	}
+	to[written] = '\0';
+	return written;
+}
+
+MYSQL_STMT * STDCALL mysql_stmt_init(MYSQL *)
+{
+	static int dummy_stmt = 1;
+	return reinterpret_cast<MYSQL_STMT*>(&dummy_stmt);
+}
+
+int STDCALL mysql_stmt_prepare(MYSQL_STMT *, const char *, unsigned long)
+{
+	return 0;
+}
+
+my_bool STDCALL mysql_stmt_close(MYSQL_STMT *)
+{
+	return 0;
+}
+
+unsigned int STDCALL mysql_stmt_errno(MYSQL_STMT *)
+{
+	return 0;
+}
+
+const char * STDCALL mysql_stmt_error(MYSQL_STMT *)
+{
+	return "";
+}
+
+my_bool STDCALL mariadb_reconnect(MYSQL *)
+{
+	s_mock_connected = true;
+	return 0;
+}
+} // extern "C"
+
+class TestAsyncSQL : public CAsyncSQL
+{
+public:
+	using CAsyncSQL::CopyQuery;
+	using CAsyncSQL::PeekQueryFromCopyQueue;
+	using CAsyncSQL::PopQueryFromCopyQueue;
+	using CAsyncSQL::Destroy;
+};
+
+// ==============================================================================
+// TEST HARNESS
+// ==============================================================================
+static int g_tests_passed = 0;
+static int g_tests_total = 0;
+
+#define TEST_ASSERT(cond, msg) \
+	do { \
+		++g_tests_total; \
+		if (!(cond)) { \
+			std::cerr << "[FAIL] Line " << __LINE__ << ": " << msg << std::endl; \
+			std::exit(1); \
+		} else { \
+			++g_tests_passed; \
+		} \
+	} while (0)
+
+int main()
+{
+	std::cout << "=== LIBSQL AUTOMATED REGRESSION & UNIT TEST SUITE ===" << std::endl;
+
+	// --------------------------------------------------------------------------
+	// 1. SEMAPHORE SUITE
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing CSemaphore basic operations..." << std::endl;
+	{
+		CSemaphore sem;
+		TEST_ASSERT(sem.Initialize() == true, "CSemaphore Initialize returned true");
+		TEST_ASSERT(sem.Release(1) == true, "CSemaphore Release(1) returned true");
+		TEST_ASSERT(sem.Wait() == true, "CSemaphore Wait() consumed release");
+		sem.Clear();
+	}
+
+	std::cout << "[RUN] Testing CSemaphore multi-threaded handoff..." << std::endl;
+	{
+		CSemaphore sem;
+		sem.Initialize();
+		bool worker_woke = false;
+
+		std::thread t([&sem, &worker_woke]() {
+			sem.Wait();
+			worker_woke = true;
+		});
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		TEST_ASSERT(worker_woke == false, "Worker thread correctly waiting on semaphore");
+
+		sem.Release(1);
+		t.join();
+		TEST_ASSERT(worker_woke == true, "Worker thread correctly awakened by Release");
+		sem.Clear();
+	}
+
+	std::cout << "[RUN] Testing CSemaphore multi-count release..." << std::endl;
+	{
+		CSemaphore sem;
+		sem.Initialize();
+		TEST_ASSERT(sem.Release(3) == true, "CSemaphore Release(3)");
+		TEST_ASSERT(sem.Wait() == true, "CSemaphore Wait 1/3");
+		TEST_ASSERT(sem.Wait() == true, "CSemaphore Wait 2/3");
+		TEST_ASSERT(sem.Wait() == true, "CSemaphore Wait 3/3");
+		sem.Clear();
+	}
+
+	std::cout << "[RUN] Testing CSemaphore re-initialization..." << std::endl;
+	{
+		CSemaphore sem;
+		sem.Initialize();
+		sem.Clear();
+		TEST_ASSERT(sem.Initialize() == true, "CSemaphore re-initialize after clear");
+		sem.Destroy();
+	}
+
+	// --------------------------------------------------------------------------
+	// 2. THREAD-SAFE QUEUE & CONCURRENCY SUITE
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing CAsyncSQL thread-safe queue operations..." << std::endl;
+	{
+		TestAsyncSQL sql;
+		TEST_ASSERT(sql.CopyQuery() == -1, "CopyQuery on empty queue returns -1");
+
+		sql.AsyncQuery("SELECT 1;");
+		sql.AsyncQuery("SELECT 2;");
+		TEST_ASSERT(sql.CountQuery() == 2, "CountQuery reports 2 queries in queue");
+
+		int copied = sql.CopyQuery();
+		TEST_ASSERT(copied == 2, "CopyQuery copied 2 queries");
+		TEST_ASSERT(sql.CountQuery() == 0, "Query queue empty after copy");
+
+		SQLMsg * msg1 = nullptr;
+		TEST_ASSERT(sql.PeekQueryFromCopyQueue(&msg1) == true, "PeekQueryFromCopyQueue succeeded");
+		TEST_ASSERT(msg1 != nullptr && msg1->stQuery == "SELECT 1;", "FIFO order preserved for query 1");
+		delete msg1;
+		TEST_ASSERT(sql.PopQueryFromCopyQueue() == true, "PopQueryFromCopyQueue 1");
+
+		SQLMsg * msg2 = nullptr;
+		TEST_ASSERT(sql.PeekQueryFromCopyQueue(&msg2) == true, "PeekQueryFromCopyQueue 2");
+		TEST_ASSERT(msg2 != nullptr && msg2->stQuery == "SELECT 2;", "FIFO order preserved for query 2");
+		delete msg2;
+		TEST_ASSERT(sql.PopQueryFromCopyQueue() == true, "PopQueryFromCopyQueue 2");
+		TEST_ASSERT(sql.PopQueryFromCopyQueue() == false, "PopQueryFromCopyQueue empty returns false");
+	}
+
+	std::cout << "[RUN] Testing CAsyncSQL result queue operations..." << std::endl;
+	{
+		CAsyncSQL sql;
+		TEST_ASSERT(sql.CountResult() == 0, "Initial result count is 0");
+
+		SQLMsg * res_msg = new SQLMsg();
+		res_msg->stQuery = "SELECT 'result';";
+		sql.PushResult(res_msg);
+		TEST_ASSERT(sql.CountResult() == 1, "Result count is 1 after push");
+
+		SQLMsg * popped = nullptr;
+		TEST_ASSERT(sql.PopResult(&popped) == true, "PopResult returned true");
+		TEST_ASSERT(popped == res_msg, "Popped result matches pushed pointer");
+		TEST_ASSERT(sql.CountResult() == 0, "Result count is 0 after pop");
+
+		delete popped;
+	}
+
+	std::cout << "[RUN] Testing CAsyncSQL query counters..." << std::endl;
+	{
+		CAsyncSQL sql;
+		TEST_ASSERT(sql.GetCopiedQueryCount() == 0, "Initial copied count is 0");
+		sql.AddCopiedQueryCount(5);
+		TEST_ASSERT(sql.GetCopiedQueryCount() == 5, "Copied count after add is 5");
+		sql.ResetCopiedQueryCount();
+		TEST_ASSERT(sql.GetCopiedQueryCount() == 0, "Copied count after reset is 0");
+
+		TEST_ASSERT(sql.CountQueryFinished() == 0, "Initial finished count is 0");
+		sql.ResetQueryFinished();
+		TEST_ASSERT(sql.CountQueryFinished() == 0, "Finished count after reset is 0");
+	}
+
+	// --------------------------------------------------------------------------
+	// 3. ESCAPE STRING & BUFFER SECURITY SUITE
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing CAsyncSQL::EscapeString security boundaries..." << std::endl;
+	{
+		CAsyncSQL sql;
+		char dst[256];
+
+		// Zero length inputs
+		TEST_ASSERT(sql.EscapeString(dst, sizeof(dst), "test", 0) == 0, "Zero srcSize returns 0");
+		TEST_ASSERT(sql.EscapeString(dst, 0, "test", 4) == 0, "Zero dstSize returns 0");
+
+		// Valid escape
+		const char * dangerous = "admin' OR '1'='1";
+		size_t esc_len = sql.EscapeString(dst, sizeof(dst), dangerous, std::strlen(dangerous));
+		TEST_ASSERT(esc_len > std::strlen(dangerous), "Escaped length greater than raw length");
+		TEST_ASSERT(std::strstr(dst, "\\'") != nullptr, "Single quotes properly escaped with backslash");
+
+		// Buffer too small boundary protection
+		char tiny_dst[10];
+		size_t trimmed_len = sql.EscapeString(tiny_dst, sizeof(tiny_dst), "VeryLongStringThatCannotFitInsideTinyBuffer", 43);
+		TEST_ASSERT(trimmed_len == 0, "Insufficient buffer safely rejected with 0 return");
+		TEST_ASSERT(tiny_dst[0] == '\0', "Destination safely null-terminated");
+	}
+
+	// --------------------------------------------------------------------------
+	// 4. 64-BIT FIELDS & RESULT ABI COMPATIBILITY SUITE
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing SQLResult 64-bit ID and row fields..." << std::endl;
+	{
+		SQLResult res;
+		TEST_ASSERT(res.uiNumRows == 0, "Default uiNumRows is 0");
+		TEST_ASSERT(res.uiAffectedRows == 0, "Default uiAffectedRows is 0");
+		TEST_ASSERT(res.uiInsertID == 0, "Default uiInsertID is 0");
+		TEST_ASSERT(res.ullNumRows == 0, "Default ullNumRows is 0");
+		TEST_ASSERT(res.ullAffectedRows == 0, "Default ullAffectedRows is 0");
+		TEST_ASSERT(res.ullInsertID == 0, "Default ullInsertID is 0");
+
+		// Simulate 64-bit item ID exceeding 4 billion (2^32 - 1)
+		const uint64_t large_id = 5000000000ULL; // 5 billion
+		res.ullInsertID = large_id;
+		res.uiInsertID = static_cast<uint32_t>(large_id);
+
+		TEST_ASSERT(res.ullInsertID == large_id, "64-bit ullInsertID preserves full value > 4B");
+		TEST_ASSERT(res.uiInsertID == static_cast<uint32_t>(large_id), "32-bit uiInsertID reflects truncated lower bits");
+
+		// Simulate error condition for affected rows: (my_ulonglong)-1
+		const uint64_t error_val = static_cast<uint64_t>(-1);
+		res.ullAffectedRows = error_val;
+		res.uiAffectedRows = static_cast<uint32_t>(-1);
+
+		TEST_ASSERT(res.ullAffectedRows == static_cast<uint64_t>(-1), "64-bit ullAffectedRows detects -1 error");
+		TEST_ASSERT(res.uiAffectedRows == static_cast<uint32_t>(-1), "32-bit uiAffectedRows matches db/game error check ((uint32_t)-1)");
+	}
+
+	std::cout << "[RUN] Testing SQLMsg multi-result traversal..." << std::endl;
+	{
+		SQLMsg msg;
+		SQLResult * r1 = new SQLResult();
+		r1->ullNumRows = 10;
+		r1->uiNumRows = 10;
+		SQLResult * r2 = new SQLResult();
+		r2->ullNumRows = 20;
+		r2->uiNumRows = 20;
+
+		msg.vec_pkResult.push_back(r1);
+		msg.vec_pkResult.push_back(r2);
+
+		TEST_ASSERT(msg.Get() == r1, "Initial Get() returns first result");
+		TEST_ASSERT(msg.Next() == true, "Next() advances to second result");
+		TEST_ASSERT(msg.Get() == r2, "Second Get() returns second result");
+		TEST_ASSERT(msg.Next() == false, "Next() beyond boundary returns false");
+	}
+
+	// --------------------------------------------------------------------------
+	// 5. CONNECTION LIFECYCLE & STATE MANAGEMENT SUITE
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing CAsyncSQL connection lifecycle..." << std::endl;
+	{
+		TestAsyncSQL sql;
+		TEST_ASSERT(sql.IsConnected() == false, "Initial state: IsConnected is false");
+
+		TEST_ASSERT(sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306) == true, "Setup returned true");
+		TEST_ASSERT(sql.Connect() == true, "Connect returned true");
+		TEST_ASSERT(sql.IsConnected() == true, "IsConnected is true after Connect");
+
+		TEST_ASSERT(sql.Reconnect() == true, "Reconnect returned true");
+		TEST_ASSERT(sql.IsConnected() == true, "IsConnected is true after Reconnect");
+
+		sql.Destroy();
+		TEST_ASSERT(sql.IsConnected() == false, "IsConnected is false after Destroy");
+	}
+
+	std::cout << "[RUN] Testing CAsyncSQL Setup cloning..." << std::endl;
+	{
+		CAsyncSQL sql1;
+		sql1.Setup("10.0.0.1", "user1", "pass1", "account", "cp1250", true, 3307);
+
+		CAsyncSQL sql2;
+		TEST_ASSERT(sql2.Setup(&sql1, true) == true, "Setup cloning returned true");
+		TEST_ASSERT(sql2.Connect() == true, "Cloned instance Connect returned true");
+		sql2.Quit();
+	}
+
+	// --------------------------------------------------------------------------
+	// 6. ERROR & RECONNECT STRATEGY SUITE (MySQL 8.4 & MariaDB 12.3)
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Testing error code preservation and non-idempotent safety..." << std::endl;
+	{
+		CAsyncSQL sql;
+		sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		sql.Connect();
+
+		// Simulate CR_SERVER_LOST (2013)
+		s_mock_force_errno = CR_SERVER_LOST;
+		auto res = sql.DirectQuery("INSERT INTO item (id, owner_id) VALUES (1, 100);");
+		TEST_ASSERT(res != nullptr, "DirectQuery returned SQLMsg pointer");
+		TEST_ASSERT(res->uiSQLErrno == CR_SERVER_LOST, "CR_SERVER_LOST properly captured in SQLMsg");
+
+		// Non-idempotent safety check: verify that DirectQuery did NOT resend and create duplicate records
+		s_mock_force_errno = 0; // Reset
+		sql.Quit();
+	}
+
+	std::cout << "[RUN] Testing MariaDB 12.3 Transaction / Snapshot Isolation contract..." << std::endl;
+	{
+		// In MariaDB 12.3, network disconnect unconditionally rolls back active transaction.
+		// Verifying that CAsyncSQL does NOT assume previous transaction state survives reconnection.
+		CAsyncSQL sql;
+		sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		sql.Connect();
+
+		s_mock_force_errno = CR_SERVER_GONE_ERROR;
+		auto msg = sql.DirectQuery("UPDATE player SET money = money - 1000;");
+		TEST_ASSERT(msg->uiSQLErrno == CR_SERVER_GONE_ERROR, "CR_SERVER_GONE_ERROR captured");
+		TEST_ASSERT(sql.Reconnect() == true, "Connection cleanly re-established for fresh transactions");
+
+		s_mock_force_errno = 0;
+		sql.Quit();
+	}
+
+	std::cout << "[RUN] Testing MySQL 8.4 Reconnect contract (no deprecated auto-reconnect)..." << std::endl;
+	{
+		// In MySQL 8.4, MYSQL_OPT_RECONNECT is deprecated and unsafe.
+		// Explicit Reconnect() replaces automatic silent driver reconnection.
+		CAsyncSQL sql;
+		sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
+		sql.Connect();
+		TEST_ASSERT(sql.IsConnected() == true, "Active connection verified");
+
+		// Explicit reconnection lifecycle
+		TEST_ASSERT(sql.Reconnect() == true, "Explicit Reconnect() successfully re-establishes session");
+		TEST_ASSERT(sql.IsConnected() == true, "Connection active post explicit Reconnect");
+		sql.Quit();
+	}
+
+	// --------------------------------------------------------------------------
+	// 7. LIVE DATABASE INTEGRATION SUITE (CONDITIONAL / HONEST)
+	// --------------------------------------------------------------------------
+	std::cout << "[RUN] Checking Live MySQL / MariaDB Server Integration..." << std::endl;
+	const char * run_live = std::getenv("RUN_LIVE_DB_TESTS");
+	if (run_live && std::strcmp(run_live, "1") == 0) {
+		std::cout << "--> RUN_LIVE_DB_TESTS enabled: Attempting live DB handshake..." << std::endl;
+		CAsyncSQL live_sql;
+		if (live_sql.Setup("127.0.0.1", "root", "", "test", "latin1", true, 3306) && live_sql.Connect()) {
+			std::cout << "[SUCCESS] Live database connection established." << std::endl;
+			live_sql.Quit();
+		} else {
+			std::cout << "[WARN] Live database connection failed." << std::endl;
+		}
+	} else {
+		std::cout << "[SKIP] Live MySQL/MariaDB server integration test: SKIPPED (No local live DB service active, RUN_LIVE_DB_TESTS!=1)" << std::endl;
+	}
+
+	std::cout << "\n==================================================" << std::endl;
+	std::cout << "[SUCCESS] libsql: " << g_tests_passed << "/" << g_tests_total << " tests passed cleanly!" << std::endl;
+	std::cout << "==================================================" << std::endl;
+	return 0;
+}

@@ -75,14 +75,27 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
     * **Sonuç:** 0 hata, 0 uyarı.
     * **Otomatik Regresyon Testi:** `tests/test_libthecore.cpp` -> **97/97 test başarılı**. (`thecore_memcpy` bellek bütünlüğü/sıfır bayt/işaretçi dönüşü; `buffer` dinamik büyüme/peek/read/reset/delete; TEA, DES, GOST simetrik şifreleme ve çözme; `number`/`fnumber` sınır ve rastgele aralıkları; `timediff`/`timeadd`/`get_dword_time`/`get_float_time` zamanlayıcı ilerlemesi; `strlcpy`/`strlcat`/`trim_and_lower`/`lower_string` metin işleme; `fdwatch` soket kaydı/seçimi/temizliği; `socket_tcp_bind` yerel soket bağlama; `heart` nabız zamanlayıcısı).
+  * **libsql:**
+    * **Kaynak Dosyalar:** `AsyncSQL.cpp`, `Semaphore.cpp`, `Statement.cpp`, `Tellwait.cpp` (Başlıklar: `AsyncSQL.h`, `Semaphore.h`, `Statement.h`, `Tellwait.h`, `libsql.h`).
+    * **Kök Neden Düzeltmeleri:**
+      * `AsyncSQL.h`: `SQLResult` yapısına yerel 64-bit alanlar eklendi (`ullNumRows`, `ullAffectedRows`, `ullInsertID`). Mevcut 32-bit alanlar (`uiNumRows`, `uiAffectedRows`, `uiInsertID`) geriye uyumluluk ve `db`/`game` içerisindeki `(uint32_t)-1` hata kontrollerini (`ClientManagerPlayer.cpp:1191` vb.) bozmamak adına korundu ve tam hizalandı. `bool Reconnect()` eklendi, `IsConnected() const` yapıldı.
+      * `AsyncSQL.cpp`: Yapıcıda (`CAsyncSQL`) `m_mtxQuery` ve `m_mtxResult` kritik kesit nesneleri `std::make_unique` ile baştan tahsis edildi; böylece `bNoThread=true` veya `Setup` çağrılmadan önce kuyruk işlemlerinde oluşan `CRITICAL_SECTION NULL` çökmesi giderildi. `Destroy()` içinde bellek sızıntısı üreten `.release()` çağrıları `.reset()` ile değiştirildi.
+      * `AsyncSQL.cpp`: Dahili `MYSQL` struct alanlarına doğrudan erişimler (`m_hDB.host = NULL`, `m_hDB.reconnect = 1`) kaldırıldı; bağlantı yaşam döngüsü `m_bConnected` ve `Reconnect()` API'si üzerinden güvenli hale getirildi.
+      * `AsyncSQL.cpp`: Windows `AsyncSQLThread` dönüş değeri `NULL` yerine `0` (`DWORD WINAPI`) yapılarak `-Wconversion-null` uyarısı giderildi. `PopQuery` içindeki `(void)iID;` ile `-Wunused-parameter` sıfırlandı.
+      * `AsyncSQL.cpp`: `ChildLoop` hata işleme döngüsünde `CR_SERVER_LOST` ve `CR_SERVER_GONE_ERROR` durumlarında `Reconnect()` çağrılarak sonraki kuyruk sorguları için oturum yeniden kurulurken; düşen sorgunun hata kodu korunarak sahte/kontrolsüz tekrar çalıştırılması engellendi (çift eşya/para üretim açığı önlendi). `ER_INVALID_USE_OF_NULL` sonsuz döngü düşüşü kaldırıldı.
+    * **Makefile:** `clang++` ve `-m32` yerine `CXX ?= g++`, `-std=c++20` ve standart nesne kuralı (`%.o: %.cpp`) tanımlandı.
+    * **Derleme Bayrakları:** `-std=c++20 -Wall -Wextra -O2 -pipe -fno-exceptions -fno-rtti`.
+    * **Sonuç:** 0 hata, 0 uyarı.
+    * **Otomatik Regresyon Testi:** `tests/test_libsql.cpp` -> **67/67 test başarılı**. (`CSemaphore` temel işlemler/iş parçacıkları arası devir/çoklu sayaç/yeniden ilklendirme; `CAsyncSQL` kuyruk işlemleri FIFO/sonuç kuyruğu/sayaçlar; `EscapeString` sınır ve taşma güvenliği; `SQLResult` 64-bit ID/satır ve 32-bit `(uint32_t)-1` hata eşleşmesi; `SQLMsg` çoklu sonuç gezimi; `CAsyncSQL` bağlantı yaşam döngüsü; `CR_SERVER_LOST` hata saklama ve non-idempotent işlem güvenliği; MariaDB 12.3 snapshot isolation sözleşmesi; MySQL 8.4 açık reconnect sözleşmesi; Canlı veritabanı entegrasyonu dürüstçe `[SKIP]` olarak raporlanmaktadır).
   * **Toplu Regresyon Testi:**
     * `libpoly`: **24/24 test başarılı**
     * `libthecore`: **97/97 test başarılı**
     * `libgame`: **28/28 test başarılı** (Gerçek `libthecore.a` ile bağlı)
-    * **Toplam:** **149/149 test başarılı (%100)**.
+    * `libsql`: **67/67 test başarılı**
+    * **Toplam:** **216/216 test başarılı (%100)**.
   * **Platform Doğrulama Notu:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 149/149 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 5: Run 38099052441) ile FreeBSD 15.1-RELEASE-p3 amd64 + GCC 14.2.0 ortamında 149/149 test 0 derleme hatası ve 0 derleyici uyarısı ile eksiksiz doğrulandı.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 216/216 test 0 hata, 0 uyarı ile tam doğrulandı.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 6) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında test edilecektir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -176,19 +189,23 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `log.sql` içindeki 10 MyISAM tablosunun log I/O ve transaction-free doğası analiz edildi; mevcut verilerde zorla dönüşüm yapılmayıp isteğe bağlı/güvenli göç stratejisi benimsendi.
     * 3 tabloda (`account.shop_expire`, `log_commands.date`, `player.change_empire.last_time`) ve `BanManager.cpp:34` sorgusundaki sıfır tarihlerin (`0000-00-00 00:00:00`) kod içi anlamları araştırıldı (`UNIX_TIMESTAMP`, `str_to_number`). Körlemesine NULL yapılmayıp şema ve kod semantiğine uygun katı mod (`NO_ZERO_DATE`) düzeltme stratejisi belirlendi.
     * Karakter setlerinin (`g_stLocale`: `latin1`, `cp1250`) Metin2 32-bit Windows ANSI istemcisi (`char name[24]`) ile doğrudan bağlantılı olduğu kanıtlandı; körlemesine `utf8mb4` dönüşümü engellendi.
-* [ ] **Aşama 11 (libsql 64-bit Çift Motor Kütüphane Kurulumu, Derleme ve Testleri):**
-  * Windows amd64 (MinGW UCRT64 GCC) ve FreeBSD 15.1 amd64 için 64-bit modern MariaDB ve MySQL C konnektörlerinin entegre edilmesi.
-  * `libsql` derleyicisinin C++20 standardında ve 64-bit native olarak derlenmesi.
-  * Mevcut kullanıcı verilerini koruyan çift motorlu test ve migration planının uygulanması.
+* [x] **Aşama 11.1 (libsql Kontrollü Modernizasyon ve 64-Bit Uyumluluğu):**
+  * `libsql` C++20 standardında ve 64-bit native MinGW-w64 GCC 16.2.0 ile derlendi.
+  * `m_hDB.host` ve `m_hDB.reconnect` doğrudan `MYSQL` struct dahili alan erişimleri kaldırıldı; temiz `Reconnect()` ve yaşam döngüsü kontrolü sağlandı.
+  * `SQLResult` yapısına 64-bit sayaçlar (`ullNumRows`, `ullAffectedRows`, `ullInsertID`) eklendi; eski 32-bit alanlar ve `(uint32_t)-1` hata kontrolleri `db`/`game` uyumluluğu için korunarak çift katmanlı hale getirildi.
+  * Otomatik reconnect sonrasında düşen sorgunun kontrolsüz tekrar çalıştırılması (`ResendQuery`) engellendi; veri bütünlüğü ve non-idempotent güvenlik sağlandı.
+  * `tests/test_libsql.cpp` (67 test) ve `run_tests.ps1`/`run_tests.sh` entegrasyonu tamamlandı; Windows amd64 üzerinde 67/67 (toplamda 216/216) test 0 hata ve 0 uyarı ile doğrulandı.
+* [ ] **Aşama 11.2 (libsql Canlı DB Entegrasyonu ve Connector/C Kütüphaneleri):**
+  * Windows amd64 ve FreeBSD amd64 için Oracle MySQL 8.4 ve MariaDB 12.3/11.4 canlı bağlantı ve transaction doğrulama testlerinin icra edilmesi.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 10 (`libsql` Teknik Envanter ve Çift Motor Hazırlık Düzeltmesi) kod değiştirilmeden salt okunur derinlemesine analizle tamamlandı. Kullanıcıya güncellenmiş ve derinleştirilmiş teknik raporun sunulması; Aşama 11 için kullanıcı onayının beklenmesi.
+* **Aktif Görev:** Aşama 11.1 (`libsql` Kontrollü Modernizasyon) Windows amd64 GCC 16.2.0 üzerinde 216/216 testle (%100 başarı) tamamlandı. Değişikliklerin `dev/windows-gcc-baseline` dalına commit edilmesi, GitHub Actions CI Rev 6 tetiklenerek FreeBSD 15.1 amd64 GCC 14.2.0 üzerinde doğrulanması.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayının ardından Aşama 11'e geçilerek, Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında hem Oracle MySQL hem MariaDB ile bağlanabilecek 64-bit C istemci kütüphanesi altyapısının kurulması, C API struct erişimlerinin ve 64-bit sayaçların düzeltilmesi, izole testlerin yazılması.
+* FreeBSD 15.1 amd64 CI doğrulamasının ardından kullanıcıya tam teknik rapor sunulması; bir sonraki alt aşama (Aşama 11.2 Canlı DB Entegrasyonu veya sonraki modül) öncesinde kullanıcı onayının alınması.

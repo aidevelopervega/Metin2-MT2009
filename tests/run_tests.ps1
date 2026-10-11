@@ -178,6 +178,41 @@ try {
     & "$GameTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libgame testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
+    # ------------------------------------------------------------------------------
+    # 4. LIBSQL DERLEME VE TESTİ
+    # ------------------------------------------------------------------------------
+    Write-Host "`n[4/4] libsql derleniyor ve test ediliyor..." -ForegroundColor Yellow
+    $SqlDir = "$ServerDir\Server\libsql"
+
+    $SqlIncludes = @(
+        "-I$SqlDir",
+        "-I$CoreDir\include",
+        "-I$CommonDir",
+        "-I$ExternDir\include"
+    )
+
+    $SqlSources = @("AsyncSQL.cpp", "Semaphore.cpp", "Statement.cpp", "Tellwait.cpp")
+    $SqlObjects = @()
+
+    foreach ($src in $SqlSources) {
+        $obj = "$BuildDir\sql_$([System.IO.Path]::GetFileNameWithoutExtension($src)).o"
+        $SqlObjects += $obj
+        & $Gxx @CommonFlags @SqlIncludes -c "$SqlDir\$src" -o "$obj"
+        if ($LASTEXITCODE -ne 0) { throw "libsql derleme hatası: $src" }
+    }
+
+    $SqlLib = "$BuildDir\libsql.a"
+    & $Ar cru "$SqlLib" $SqlObjects
+    & $Ranlib "$SqlLib"
+
+    $SqlTestExe = "$BuildDir\test_libsql.exe"
+    & $Gxx @CommonFlags @SqlIncludes "$RootDir\tests\test_libsql.cpp" "$SqlLib" "$CoreLib" -lws2_32 -o "$SqlTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_libsql bağlama hatası" }
+
+    Write-Host "--> test_libsql.exe çalıştırılıyor..." -ForegroundColor Green
+    & "$SqlTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_libsql testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
     Write-Host "`n==================================================" -ForegroundColor Cyan
     Write-Host " [BAŞARILI] TÜM MODÜL VE REGRESYON TESTLERİ GEÇTİ!" -ForegroundColor Green
     Write-Host "==================================================" -ForegroundColor Cyan

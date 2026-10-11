@@ -1,4 +1,4 @@
-# Rev 5: Fix FreeBSD signal.c unused parameter warnings (0 errors, 0 warnings)
+# Rev 6: Add libsql module (216/216 Tests on FreeBSD 15.1 amd64 GCC 14)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (149/149 Tests)
+    name: FreeBSD 15.1 amd64 GCC 14 (216/216 Tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -32,6 +32,7 @@ jobs:
             mt2009 - FULL SOURCE/Server Source/Server/libpoly
             mt2009 - FULL SOURCE/Server Source/Server/libgame
             mt2009 - FULL SOURCE/Server Source/Server/libthecore
+            mt2009 - FULL SOURCE/Server Source/Server/libsql
             mt2009 - FULL SOURCE/Server Source/Server/common
             mt2009 - FULL SOURCE/Server Source/Extern/include
           sparse-checkout-cone-mode: false

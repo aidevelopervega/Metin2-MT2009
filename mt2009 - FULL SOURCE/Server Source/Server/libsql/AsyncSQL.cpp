@@ -31,6 +31,18 @@ CAsyncSQL::CAsyncSQL()
 
 	m_aiPipe[0] = 0;
 	m_aiPipe[1] = 0;
+
+#ifndef __WIN32__
+	m_mtxQuery = std::make_unique<pthread_mutex_t>();
+	m_mtxResult = std::make_unique<pthread_mutex_t>();
+	pthread_mutex_init(m_mtxQuery.get(), NULL);
+	pthread_mutex_init(m_mtxResult.get(), NULL);
+#else
+	m_mtxQuery = std::make_unique<CRITICAL_SECTION>();
+	m_mtxResult = std::make_unique<CRITICAL_SECTION>();
+	::InitializeCriticalSection(m_mtxQuery.get());
+	::InitializeCriticalSection(m_mtxResult.get());
+#endif
 }
 
 CAsyncSQL::~CAsyncSQL()
@@ -41,11 +53,12 @@ CAsyncSQL::~CAsyncSQL()
 
 void CAsyncSQL::Destroy()
 {
-	if (m_hDB.host)
+	if (m_bConnected)
 	{
 		sys_log(0, "AsyncSQL: closing mysql connection.");
 		mysql_close(&m_hDB);
-		m_hDB.host = NULL;
+		m_bConnected = false;
+		memset(&m_hDB, 0, sizeof(m_hDB));
 	}
 
 	if (m_mtxQuery)
@@ -55,7 +68,7 @@ void CAsyncSQL::Destroy()
 #else
 		::DeleteCriticalSection(m_mtxQuery.get());
 #endif
-		m_mtxQuery.release();
+		m_mtxQuery.reset();
 	}
 
 	if (m_mtxResult)
@@ -65,7 +78,7 @@ void CAsyncSQL::Destroy()
 #else
 		::DeleteCriticalSection(m_mtxResult.get());
 #endif
-		m_mtxResult.release();
+		m_mtxResult.reset();
 	}
 }
 
@@ -78,10 +91,19 @@ unsigned int __stdcall AsyncSQLThread(void* arg)
 	CAsyncSQL * pSQL = ((CAsyncSQL *) arg);
 
 	if (!pSQL->Connect())
+#ifndef __WIN32__
 		return NULL;
+#else
+		return 0;
+#endif
 
 	pSQL->ChildLoop();
+
+#ifndef __WIN32__
 	return NULL;
+#else
+	return 0;
+#endif
 }
 
 bool CAsyncSQL::QueryLocaleSet()
@@ -120,8 +142,10 @@ bool CAsyncSQL::Connect()
 	if (!m_stLocale.empty())
 		mysql_options(&m_hDB, MYSQL_SET_CHARSET_NAME, m_stLocale.c_str());
 
+#ifdef MARIADB_BASE_VERSION
 	constexpr bool reconnect = true;
-	mysql_options(&m_hDB, MYSQL_OPT_RECONNECT, &reconnect); // @fixme329 must be added before mysql_real_connect
+	mysql_options(&m_hDB, MYSQL_OPT_RECONNECT, &reconnect);
+#endif
 
 	if (!mysql_real_connect(&m_hDB, m_stHost.c_str(), m_stUser.c_str(), m_stPassword.c_str(), m_stDB.c_str(), m_iPort, NULL, CLIENT_MULTI_STATEMENTS))
 	{
@@ -129,17 +153,28 @@ bool CAsyncSQL::Connect()
 		return false;
 	}
 
-	#ifdef MARIADB_BASE_VERSION
+#ifdef MARIADB_BASE_VERSION
 	int actual_reconnect_val{};
 	mysql_get_option(&m_hDB, MYSQL_OPT_RECONNECT, &actual_reconnect_val);
 	fprintf(stdout, "AsyncSQL: connected to %s (reconnect %d) [MARIADB]\n", m_stHost.c_str(), actual_reconnect_val);
-	#else
-	fprintf(stdout, "AsyncSQL: connected to %s (reconnect %d) [MYSQL]\n", m_stHost.c_str(), m_hDB.reconnect);
-	#endif
+#else
+	fprintf(stdout, "AsyncSQL: connected to %s [MYSQL]\n", m_stHost.c_str());
+#endif
 
 	m_ulThreadID = mysql_thread_id(&m_hDB);
 	m_bConnected = true;
 	return true;
+}
+
+bool CAsyncSQL::Reconnect()
+{
+	if (m_bConnected)
+	{
+		mysql_close(&m_hDB);
+		m_bConnected = false;
+		memset(&m_hDB, 0, sizeof(m_hDB));
+	}
+	return Connect();
 }
 
 bool CAsyncSQL::Setup(CAsyncSQL * sql, bool bNoThread)
@@ -167,39 +202,39 @@ bool CAsyncSQL::Setup(const char * c_pszHost, const char * c_pszUser, const char
 		sys_log(0, "AsyncSQL: locale %s", m_stLocale.c_str());
 	}
 
-	if (!bNoThread)
+	if (!m_mtxQuery)
 	{
 #ifndef __WIN32__
 		m_mtxQuery = std::make_unique<pthread_mutex_t>();
-		m_mtxResult = std::make_unique<pthread_mutex_t>();
-
-		if (0 != pthread_mutex_init(m_mtxQuery.get(), NULL))
-		{
-			perror("pthread_mutex_init");
-			exit(0);
-		}
-
-		if (0 != pthread_mutex_init(m_mtxResult.get(), NULL))
-		{
-			perror("pthread_mutex_init");
-			exit(0);
-		}
-
-		pthread_create(&m_hThread, NULL, AsyncSQLThread, this);
+		pthread_mutex_init(m_mtxQuery.get(), NULL);
 #else
 		m_mtxQuery = std::make_unique<CRITICAL_SECTION>();
-		m_mtxResult = std::make_unique<CRITICAL_SECTION>();
-
 		::InitializeCriticalSection(m_mtxQuery.get());
-		::InitializeCriticalSection(m_mtxResult.get());
+#endif
+	}
 
+	if (!m_mtxResult)
+	{
+#ifndef __WIN32__
+		m_mtxResult = std::make_unique<pthread_mutex_t>();
+		pthread_mutex_init(m_mtxResult.get(), NULL);
+#else
+		m_mtxResult = std::make_unique<CRITICAL_SECTION>();
+		::InitializeCriticalSection(m_mtxResult.get());
+#endif
+	}
+
+	if (!bNoThread)
+	{
+#ifndef __WIN32__
+		pthread_create(&m_hThread, NULL, AsyncSQLThread, this);
+#else
 		m_hThread = (HANDLE)::_beginthreadex(NULL, 0, AsyncSQLThread, this, 0, NULL);
 		if (m_hThread == INVALID_HANDLE_VALUE) {
 			perror("CAsyncSQL::Setup");
 			return false;
 		}
 #endif
-
 		return true;
 	}
 	else
@@ -334,6 +369,7 @@ bool CAsyncSQL::PeekQuery(SQLMsg ** pp)
 
 bool CAsyncSQL::PopQuery(int iID)
 {
+	(void)iID;
 	MUTEX_LOCK(m_mtxQuery.get());
 
 	if (m_queue_query.empty())
@@ -544,27 +580,16 @@ void CAsyncSQL::ChildLoop()
 
 				switch (p->uiSQLErrno)
 				{
-					case CR_SERVER_LOST: // @fixme329 (errno: 2013)
-						if (ResendQuery(p))
-							break;
-					case CR_SOCKET_CREATE_ERROR:
-					case CR_CONNECTION_ERROR:
-					case CR_IPSOCK_ERROR:
-					case CR_UNKNOWN_HOST:
-					case CR_SERVER_GONE_ERROR:
-					case CR_CONN_HOST_ERROR:
-					case ER_NOT_KEYFILE:
-					case ER_CRASHED_ON_USAGE:
-					case ER_CANT_OPEN_FILE:
-					case ER_HOST_NOT_PRIVILEGED:
-					case ER_HOST_IS_BLOCKED:
-					case ER_PASSWORD_NOT_ALLOWED:
-					case ER_PASSWORD_NO_MATCH:
-					case ER_CANT_CREATE_THREAD:
-					case ER_INVALID_USE_OF_NULL:
-						m_sem.Release();
-						sys_err("AsyncSQL: retrying");
-						continue;
+					case CR_SERVER_LOST: // (errno: 2013)
+					case CR_SERVER_GONE_ERROR: // (errno: 2006)
+						if (Reconnect())
+						{
+							sys_err("AsyncSQL: connection restored after failure. In-flight query marked as failed to prevent non-idempotent duplicate transaction.");
+						}
+						break;
+
+					default:
+						break;
 				}
 			}
 
@@ -696,40 +721,19 @@ void CAsyncSQL2::SetLocale(const std::string & stLocale)
 
 bool CAsyncSQL::ResendQuery(SQLMsg * p)
 {
-#ifdef MARIADB_BASE_VERSION
-	if (mariadb_reconnect(&m_hDB) != 0)
+	if (!Reconnect())
 	{
-		sys_err("MariaDB reconnection failed: %s", mysql_error(&m_hDB));
+		sys_err("AsyncSQL: reconnection failed: %s", mysql_error(&m_hDB));
 		return false;
 	}
-	else
-		sys_err("MariaDB reconnection successful.");
-#else
-	#ifndef CR_ALREADY_CONNECTED
-	#define CR_ALREADY_CONNECTED 2058
-	#endif
-	if (!mysql_real_connect(&m_hDB, m_stHost.c_str(), m_stUser.c_str(), m_stPassword.c_str(), m_stDB.c_str(), m_iPort, nullptr, CLIENT_MULTI_STATEMENTS))
-	{
-		if (p->uiSQLErrno != CR_ALREADY_CONNECTED)
-		{
-			sys_err("MySQL reconnection failed: %s", mysql_error(&m_hDB));
-			return false;
-		}
-		else
-			sys_err("MySQL already reconnected successful.");
-	}
-	else
-		sys_err("MySQL reconnection successful.");
-#endif
-	// reset locale set for integrity
+
 	if (m_ulThreadID != mysql_thread_id(&m_hDB))
 	{
-		sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
+		sys_log(0, "MySQL connection was reconnected. querying locale set");
 		while (!QueryLocaleSet());
 		m_ulThreadID = mysql_thread_id(&m_hDB);
 	}
 
-	// resend the query after reconnecting
 	return mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()) == 0;
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
