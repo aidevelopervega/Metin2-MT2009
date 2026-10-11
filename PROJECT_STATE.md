@@ -123,7 +123,9 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
    * **Bütünsel Değerlendirme:** SQL dosyaları ile `libsql`, `db` ve `game` kaynak kodları birlikte değerlendirilmelidir.
    * **Platform Uyumluluğu:** Windows amd64 ve FreeBSD amd64 GCC uyumluluğu korunmalıdır.
    * **Gerçek Test Doğrulaması:** İki veritabanında da (güncel MySQL ve güncel MariaDB) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
-   * **Resmî Hedef Sürümler:** Güncel MySQL ve MariaDB hedef sürümleri, ilgili geliştirme aşamasına gelindiğinde resmî kaynaklardan belirlenmelidir.
+   * **Resmî Hedef Sürümler:**
+     * **Oracle MySQL:** Resmî uzun vadeli destek (LTS) sürümü **MySQL 8.4 LTS** (Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032) ve **MySQL 9.x Innovation**. (Not: Eski MySQL 8.0 desteği Nisan 2026'da sona ermektedir).
+     * **MariaDB Foundation:** Resmî uzun vadeli kararlı sürüm **MariaDB 11.4 LTS** (Destek: Mayıs 2029) ve geriye dönük **MariaDB 10.11 LTS** (Destek: Şubat 2028).
 
 ---
 
@@ -152,17 +154,28 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * `test_libthecore.cpp` (97 test) oluşturuldu; Windows amd64 GCC 16.2.0 üzerinde `libpoly` (24) + `libthecore` (97) + `libgame` (28) toplam 149/149 test 0 hata ve 0 uyarı ile doğrulandı.
   * `test_libgame` içerisindeki geçici `thecore_memcpy` yönlendiricisi kaldırıldı; gerçek `libthecore.a` bağlantısı doğrulandı.
   * FreeBSD 15.1 amd64 GCC 14 ortamında CI koşusu (Run 38099052441) ile 149/149 test, 0 derleme hatası ve 0 derleyici uyarısı ile tam doğrulandı.
-* [ ] **Aşama 10 (Sıradaki Kütüphane Doğrulaması: libsql veya liblua):**
-  * Sonraki aşama kullanıcı yönlendirmesine göre başlatılacaktır.
+* [x] **Aşama 10 (libsql Modülü Teknik Envanter ve Çift Motor Analizi):**
+  * `libsql` kaynak dosyaları (`AsyncSQL.cpp/h`, `Semaphore.cpp/h`, `Statement.cpp/h`, `Tellwait.cpp/h`, `libsql.h`, `stdafx.h`, `Makefile`) eksiksiz incelendi.
+  * `Extern/lib/libmysqlclient.a` dosyasının FreeBSD 32-bit `elf32-i386` olduğu tespit edildi; 64-bit Windows ve 64-bit FreeBSD ortamında doğrudan kullanılamaz.
+  * `Extern/include/mysql` başlıklarının FreeBSD 32-bit i386 kökenli MariaDB Connector/C 3.3.5 olduğu belirlendi.
+  * MySQL 8.4 LTS ve MariaDB 11.4 LTS resmî sürümleri ve C API farkları (`m_hDB.reconnect` doğrudan erişimi, `mariadb_reconnect`, `mysql_options`, `m_hDB.host` doğrudan struct manipülasyonu riski) analiz edildi.
+  * `sql/` dizinindeki 5 şema dosyası (`account.sql`, `common.sql`, `log.sql`, `player.sql`, `world.sql`) incelendi:
+    * `log.sql` içinde 10 adet MyISAM tablosu tespit edildi; InnoDB geçiş ihtiyacı belirlendi.
+    * 3 tabloda (`account.shop_expire`, `log_commands.date`, `player.change_empire.last_time`) ve `BanManager.cpp:34` sorgusunda katı SQL modunu (`NO_ZERO_DATE`) ihlal eden `'0000-00-00 00:00:00'` varsayılanı tespit edildi.
+    * Karakter seti uyumsuzlukları (`latin1`, `cp1250`, `big5`, `utf8mb3`) incelendi; `utf8mb4` ve `utf8mb4_unicode_ci` ortak standart hedefi belirlendi.
+* [ ] **Aşama 11 (libsql 64-bit Çift Motor Kütüphane Kurulumu, Derleme ve Testleri):**
+  * Windows amd64 (MinGW UCRT64 GCC) ve FreeBSD 15.1 amd64 için 64-bit modern MariaDB ve MySQL C konnektörlerinin entegre edilmesi.
+  * `libsql` derleyicisinin C++20 standardında ve 64-bit native olarak derlenmesi.
+  * SQL mock/izole birim testlerinin ve canlı çift motor entegrasyon testlerinin hazırlanması.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 9 (`libthecore`) Windows amd64 ve FreeBSD 15.1 amd64 platformlarında 149/149 test ve 0 hata / 0 uyarı ile başarıyla tamamlandı. Kalıcı MySQL ve MariaDB çift motor uyumluluk hedefleri `AGENTS.md` ve `PROJECT_STATE.md` içine işlendi. Sonraki modüle (`libsql` veya `liblua`) geçiş için kullanıcı onayının ve direktifinin alınması.
+* **Aktif Görev:** Aşama 10 (`libsql` Teknik Envanter ve Çift Motor Analizi) kod değiştirilmeden salt okunur analizle başarıyla tamamlandı. Detaylı teknik envanter raporunun kullanıcıya sunulması ve Aşama 11 için kullanıcı onayının ve yol haritası tercihinin beklenmesi.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Kullanıcı onayıyla birlikte bir sonraki çekirdek kütüphanenin (`libsql` veya `liblua`) incelenmesi, bağımlılıklarının tespiti ve testlerinin hazırlanması. `libsql` aşamasına geçilirse Bölüm 5'teki kalıcı MySQL ve MariaDB çift motor kriterleri doğrultusunda hareket edilmesi. Hiçbir modüle kullanıcı onayı olmadan ve önceki modül eksiksiz doğrulanmadan geçilmemesi.
+* Kullanıcı onayının ardından Aşama 11'e geçilerek, Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında hem Oracle MySQL hem MariaDB ile bağlanabilecek 64-bit C istemci kütüphanesi altyapısının kurulması, derleme uyarılarının giderilmesi ve testlerin yazılması.
