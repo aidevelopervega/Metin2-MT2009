@@ -9,7 +9,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 * **Geçerli Dal (Branch):** `dev/windows-gcc-baseline`
 * **Uzak Depo (Remote):** `https://github.com/x64bit-source/Metin2-MT2009.git` (Private)
 * **Senkronizasyon:** Git geçmişi ve commit doğrulamaları doğrudan `git` komutları üzerinden izlenmektedir.
-* **Yerel Dal Koruması:** `.githooks/` (`pre-commit`, `pre-push`) yapılandırması `core.hooksPath = .githooks` ile aktif. `main` dalına doğrudan commit atılması ve `main` hedefine push/force-push/delete yapılması yerel olarak engellidir.
+* **Yerel Dal Koruması:** `.githooks/` kaynak kancaları dallardan bağımsız kalıcı `.git/hooks` dizinine kurulmuş olup, `core.hooksPath = D:/mt22009/.git/hooks` mutlak yoluyla yapılandırılmıştır. `main` dalına geçilse dahi `pre-commit` ve `pre-push` koruması kesintisiz aktiftir. Kancalar `.githooks/install.ps1` ve `.githooks/install.sh` betikleriyle otomatik dağıtılabilir durumdadır.
 
 ---
 
