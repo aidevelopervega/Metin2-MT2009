@@ -1,4 +1,4 @@
-# Rev 14: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 15: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -161,24 +161,31 @@ jobs:
             chmod 600 "$SSL_DIR"/*-key.pem
 
             # Motor Sürecini Başlatma
+            SOCKET_PATH="/tmp/${ENGINE_ID}.sock"
             if [ "$ENGINE_ID" = "mariadb114" ] || [ "$ENGINE_ID" = "mariadb123" ]; then
-              mariadb-install-db --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/dev/null 2>&1 || true
+              mariadb-install-db --user=root --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/dev/null 2>&1 || true
               MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
               echo "MariaDB Daemon: $MARIADBD"
-              "$MARIADBD" --datadir="$DATA_DIR" --port=$PORT_NUM --bind-address=127.0.0.1 \
-                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" &
+              "$MARIADBD" --user=root --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 \
+                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
               SERVER_PID=$!
 
               echo "MariaDB sunucusunun hazır olması bekleniyor (Port $PORT_NUM)..."
               for i in $(seq 1 30); do
-                if mariadb-admin ping -h 127.0.0.1 -P $PORT_NUM --silent 2>/dev/null; then
+                if mariadb-admin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
                   echo "Sunucu $i saniyede hazır oldu."
                   break
                 fi
                 sleep 1
               done
 
-              mariadb -h 127.0.0.1 -P $PORT_NUM -u root -e "
+              if ! mariadb-admin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
+                echo "HATA: MariaDB başlatılamadı! Sunucu log çıktısı:"
+                cat /tmp/server_${ENGINE_ID}.log || true
+                exit 1
+              fi
+
+              mariadb --socket="$SOCKET_PATH" -u root -e "
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
                 CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
                 CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
@@ -189,21 +196,27 @@ jobs:
             elif [ "$ENGINE_ID" = "mysql84" ]; then
               MYSQLD=$(which mysqld 2>/dev/null || ls /usr/local/libexec/mysqld 2>/dev/null || ls /usr/local/sbin/mysqld 2>/dev/null)
               echo "MySQL Daemon: $MYSQLD"
-              "$MYSQLD" --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/dev/null 2>&1 || true
-              "$MYSQLD" --datadir="$DATA_DIR" --port=$PORT_NUM --bind-address=127.0.0.1 \
-                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" &
+              "$MYSQLD" --user=root --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/dev/null 2>&1 || true
+              "$MYSQLD" --user=root --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 --mysqlx=OFF \
+                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
               SERVER_PID=$!
 
               echo "MySQL 8.4 sunucusunun hazır olması bekleniyor (Port $PORT_NUM)..."
               for i in $(seq 1 30); do
-                if mysqladmin ping -h 127.0.0.1 -P $PORT_NUM --silent 2>/dev/null; then
+                if mysqladmin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
                   echo "Sunucu $i saniyede hazır oldu."
                   break
                 fi
                 sleep 1
               done
 
-              mysql -h 127.0.0.1 -P $PORT_NUM -u root -e "
+              if ! mysqladmin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
+                echo "HATA: MySQL 8.4 başlatılamadı! Sunucu log çıktısı:"
+                cat /tmp/server_${ENGINE_ID}.log || true
+                exit 1
+              fi
+
+              mysql --socket="$SOCKET_PATH" -u root -e "
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
                 CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
                 CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
