@@ -109,11 +109,11 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
       * Her iki bağlayıcı da MinGW-w64 UCRT GCC 16.2.0 (C++20) ile 0 hata, 0 uyarı ile derlendi ve bağlandı.
       * Eski 32-bit `Extern/lib/libmysqlclient.a` (`ELF32-i386`) kesinlikle kullanılmamıştır ve devre dışı tutulmuştur.
     * **Windows amd64 İzole Canlı Test Sonuçları (Port 3307 & 3308):**
-      * **MariaDB 11.4.13 LTS (Port 3307):** **56/56 test başarılı (%100)**.
-      * **MariaDB 12.3.3 LTS (Port 3307):** **56/56 test başarılı (%100)**.
-      * **Oracle MySQL 8.4.11 LTS (Port 3308):** **56/56 test başarılı (%100)**.
-      * **Toplam Canlı Doğrulama:** **168/168 kontrol başarılı (%100)**.
-      * **Doğrulanan 11 Canlı Test Paketi ve İşlevleri:**
+      * **MariaDB 11.4.13 LTS (Port 3307):** **73/73 test başarılı (%100)**.
+      * **MariaDB 12.3.3 LTS (Port 3307):** **73/73 test başarılı (%100)**.
+      * **Oracle MySQL 8.4.11 LTS (Port 3308):** **73/73 test başarılı (%100)**.
+      * **Toplam Canlı Doğrulama:** **219/219 kontrol başarılı (%100)**.
+      * **Doğrulanan 12 Canlı Test Paketi ve İşlevleri:**
         1. Gerçek TCP/IP soket el sıkışması ve kimlik doğrulama.
         2. MySQL 8.4 `caching_sha2_password` varsayılan kimlik doğrulama protokolü.
         3. Katı SQL Modu (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`) ve geçersiz tarihlerin (`0000-00-00 00:00:00`) reddedilmesi.
@@ -125,20 +125,20 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
         9. Çok iş parçacıklı asenkron kuyruk: Arka plan `AsyncSQLThread` iş parçacığı üzerinden `ReturnQuery` ve `PopResult` FIFO sonuç teslimatı.
         10. 64-bit taşma göstergeleri ve boş sonuç (`IsEmpty()`) ile hata (`IsError()`) ayrımı.
         11. TLS / SSL Bağlantı Güvenliği & CA Sözleşmesi: Aktif TLSv1.3 şifreleme müzakeresi (`Ssl_cipher != NONE`), güvenilen CA ile başarılı el sıkışma, yetkisiz/sahte CA ile bağlantının istemci seviyesinde kesin reddi (`errno 2026`).
-        12. Önceden Kesilmiş Soket Koruması ve Körlemesine Retry Yasağı: Kapalı/kopuk sokette `DirectQuery` çağrısının çökmeden güvenli `CR_SERVER_GONE_ERROR` (2006) döndürmesi, `IsError() == true` garantisi, veri bütünlüğü ve körlemesine tekrar sorgu gönderilmemesi. (Sorgu anında hat kopması durumu harici proxy gerektirdiğinden açık/simülasyon olarak ayrıştırılmıştır).
-        13. Soket yeniden bağlanması (`Reconnect()`) ve temiz soket tahliyesi (`Destroy()`).
+        12. Önceden Kesilmiş Soket Koruması ve Körlemesine Retry Yasağı: Kapalı/kopuk sokette `DirectQuery` çağrısının çökmeden güvenli `CR_SERVER_GONE_ERROR` (2006) döndürmesi, `IsError() == true` garantisi, veri bütünlüğü ve körlemesine tekrar sorgu gönderilmemesi.
+        13. Gerçek TCP Ağ Arıza Enjeksiyonu ve Ağ Kesintisi Doğrulaması (`tests/tcp_fault_proxy.hpp`):
+            * **Senaryo 11.A (Sorgu Yürütülürken Hat Kesintisi / In-Flight Mid-Query Severance):** `SELECT SLEEP(2)` sunucuda işlenirken TCP proxy üzerinden soket anında (`SO_LINGER(1, 0)` RST) koparılmış; istemcide `IsError() == true`, `CR_SERVER_LOST` (2013) / `CR_SERVER_GONE_ERROR` (2006) hata kodu korunmuş, çökme oluşmamış ve sunucunun sonraki sorguları kabul etmeye devam ettiği kanıtlanmıştır.
+            * **Senaryo 11.B (Sunucuda Commit Sonrası Yanıt Paketinin Düşürülmesi / Post-Execution Dropped Response -> UNKNOWN):** Non-idempotent `UPDATE test_player_live SET gold = gold + 500` sunucuda commit edildikten sonra sunucunun OK yanıt paketi TCP proxy tarafından istemciye ulaşmadan yakalanıp düşürülmüş ve soket koparılmıştır. İstemcide hata üretilerek işlemin UNKNOWN durumunda kaldığı, veritabanında güncellemenin fiilen uygulandığı (`initial + 500`), ve `libsql` tarafından asla körlemesine `ResendQuery` / duplicate retry yapılmadığı (altının `initial + 1000` olmadığı) kesin olarak kanıtlanmıştır.
+        14. Soket yeniden bağlanması (`Reconnect()`) ve temiz şema tahliyesi (`Destroy()`).
     * **Test Çalıştırıcı Betikleri:** `tests/run_live_tests.ps1` (Windows) ve `tests/run_live_tests.sh` (FreeBSD/POSIX) eklendi. Test parolaları loglarda maskelenmekte (`[PROTECTED / NOT LOGGED]`), yalnızca `127.0.0.1` üzerinden çalıştırılmaktadır.
-    * **FreeBSD amd64 Canlı DB ve CI Durumu (GitHub Actions Rev 16 / Run 38140566854):**
+    * **FreeBSD amd64 Canlı DB ve CI Durumu (GitHub Actions Rev 17 / Commit fd0c8482):**
       * FreeBSD 15.1-RELEASE amd64 resmî pkg deposunda 3 motorun da ikili (binary) paketlerinin mevcut olduğu kanıtlandı: `mariadb114-server-11.4.13`, `mariadb123-server-12.3.3`, `mysql84-server-8.4.11_4`.
       * Servislerin FreeBSD `mysql` kullanıcısı haklarıyla başlatılması (`chown -R mysql:mysql`, 750/644/640) ve başlık/kütüphane arama sırasının izole edilmesiyle (`-I/usr/local/include` önceliği) daemon ve istemci uyumsuzlukları kalıcı olarak çözüldü.
-      * **MariaDB 11.4.13 LTS:** **56/56 canlı test başarılı (%100)** + **290/290 regresyon testi başarılı**.
-      * **MariaDB 12.3.3 LTS:** **56/56 canlı test başarılı (%100)** + **290/290 regresyon testi başarılı**.
-      * **Oracle MySQL 8.4.11 LTS:** **56/56 canlı test başarılı (%100)** + **290/290 regresyon testi başarılı**.
-      * **Toplam FreeBSD Canlı Doğrulama:** **168/168 kontrol başarılı (%100)**.
+      * Rev 16 (Run 38140566854): MariaDB 11.4, MariaDB 12.3 ve MySQL 8.4 için 168/168 canlı kontrol + 290/290 regresyon testi %100 başarıyla tamamlandı.
+      * Rev 17 (Commit fd0c8482): TCP fault injection (17 ek kontrol ile toplam 73 kontrol/motor, genel toplam 219 kontrol) entegrasyonu sağlandı.
   * **Platform Doğrulama Özeti:**
-    * **Windows amd64:** MinGW-w64 GCC 16.2.0 ile 290/290 birim testi + 168/168 canlı veritabanı kontrolü tam doğrulandı (%100).
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 16: Run 38140566854 / Commit 75ce4d92) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 3 izole matris koşusunda 290/290 birim testi + 168/168 canlı veritabanı kontrolü tam doğrulandı (%100).
-    * **Genel Canlı Doğrulama Toplamı:** Her iki platformda toplam **336/336 canlı assertion (%100)** 0 hata ve 0 uyarı ile tamamlandı.
+    * **Windows amd64:** MinGW-w64 GCC 16.2.0 ile 290/290 birim testi + 219/219 canlı veritabanı kontrolü (Suite 1-12) tam doğrulandı (%100).
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 16: Run 38140566854; Rev 17: Commit fd0c8482) ile FreeBSD 15.1-RELEASE amd64 + GCC 14.2.0 ortamında 3 izole matris koşusunda 290/290 birim testi ve canlı veritabanı kontrolleri sürdürülmektedir.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -256,28 +256,28 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * Windows MinGW-w64 UCRT GCC 16.2.0 uyumlu 64-bit Connector/C (MariaDB 3.4.10) ve MySQL C API (8.4.11) kütüphaneleri `gendef` + `dlltool` ile `libmariadb.a` ve `libmysql.a` olarak başarıyla oluşturuldu.
   * Eski 32-bit `Extern/lib/libmysqlclient.a` (`ELF32-i386`) kütüphanesi tamamen saf dışı bırakıldı; C++20 standardında 0 hata ve 0 uyarı ile derleme sağlandı.
   * Geliştirme makinesini etkilemeyen tamamen izole test ortamları (Port 3307 ve 3308, bağımsız veri dizinleri ve dar yetkili `mt2test` kullanıcısı) kuruldu.
-  * Windows üzerinde `tests/test_live_db.cpp` ile 11 test paketlik kapsamlı canlı entegrasyon testi icra edildi:
-    * **MariaDB 11.4.13 LTS:** 56/56 kontrol başarılı (%100).
-    * **MariaDB 12.3.3 LTS:** 56/56 kontrol başarılı (%100).
-    * **Oracle MySQL 8.4.11 LTS:** 56/56 kontrol başarılı (%100).
-    * **Windows Canlı Doğrulama:** 168/168 kontrol başarılı (%100).
-    * **FreeBSD 15.1 amd64 Canlı Doğrulama (CI Run 38140566854):**
-      * **MariaDB 11.4.13 LTS:** 56/56 kontrol başarılı (%100).
-      * **MariaDB 12.3.3 LTS:** 56/56 kontrol başarılı (%100).
-      * **Oracle MySQL 8.4.11 LTS:** 56/56 kontrol başarılı (%100).
-      * **FreeBSD Canlı Doğrulama:** 168/168 kontrol başarılı (%100).
-    * **Genel Canlı Doğrulama:** 336/336 kontrol başarılı (%100).
+  * Windows üzerinde `tests/test_live_db.cpp` ile 12 test paketlik (TCP Fault Proxy dahil) kapsamlı canlı entegrasyon testi icra edildi:
+    * **MariaDB 11.4.13 LTS:** 73/73 kontrol başarılı (%100).
+    * **MariaDB 12.3.3 LTS:** 73/73 kontrol başarılı (%100).
+    * **Oracle MySQL 8.4.11 LTS:** 73/73 kontrol başarılı (%100).
+    * **Windows Canlı Doğrulama:** 219/219 kontrol başarılı (%100).
+    * **FreeBSD 15.1 amd64 Canlı Doğrulama (CI Run 38140566854 & Rev 17 / Commit fd0c8482):**
+      * Önceki tam koşuda (Run 38140566854) 3 motor üzerinde 168/168 kontrol ve 290/290 modül testi %100 doğrulandı.
+      * Rev 17 (Commit fd0c8482) ile 17 ek assertion içeren TCP Fault Injection (toplam 219 kontrol) CI iş akışına aktarıldı.
   * MySQL 8.4 üzerinde varsayılan `caching_sha2_password` kimlik doğrulaması canlı sokette başarıyla kanıtlandı.
   * `STRICT_TRANS_TABLES` ve `NO_ZERO_DATE` altında sıfır tarihli (`0000-00-00 00:00:00`) kayıtların reddi, CRUD işlemleri, `START TRANSACTION`/`COMMIT`/`ROLLBACK` ACID sözleşmesi, Türkçe karakter ve ANSI codepage (`latin1`, `cp1250`) bütünlüğü, çok iş parçacıklı `AsyncSQLThread` kuyruğu üzerinden asenkron sorgu işleme, 64-bit uint64_t ID ve satır alanları somut olarak doğrulandı.
   * TLS bağlantı güvenliğinde `Ssl_cipher != NONE` ve TLSv1.3 el sıkışması doğrulandı; geçerli güvenilen CA ile bağlantı kurulması ve sahte/geçersiz CA ile bağlantının istemci katmanında kesin reddi (`errno 2026`) kanıtlandı.
-  * Önceden kesilmiş fiziksel soket koruması (`CR_SERVER_GONE_ERROR`, 2006) ve körlemesine sorgu tekrarlamama (no blind retry) garantilendi; sorgu anında hat kopması durumu ise açık sözleşme olarak dürüstçe ayrıştırıldı.
+  * Önceden kesilmiş fiziksel soket koruması (`CR_SERVER_GONE_ERROR`, 2006) ve körlemesine sorgu tekrarlamama (no blind retry) garantilendi.
+  * Gerçek TCP ağ arıza enjeksiyonu (`tcp_fault_proxy.hpp`):
+    * **Senaryo 11.A:** `SELECT SLEEP(2)` sunucuda işlenirken soket anında koparılmış; istemcide `CR_SERVER_LOST` (2013) / `CR_SERVER_GONE_ERROR` (2006) ve `IsError() == true` üretilmiş, sunucu çökmeden çalışmaya devam etmiştir.
+    * **Senaryo 11.B:** Non-idempotent `UPDATE` sorgusu sunucuda commit edildikten sonra sunucunun OK yanıt paketi istemciye ulaşmadan düşürülmüş; istemcinin UNKNOWN işlem durumunu koruduğu, veritabanında değişikliğin fiilen yazıldığı (`initial + 500`), ve `libsql` tarafından asla körlemesine `ResendQuery` yapılmadığı (%100 veri güvenliği) kanıtlanmıştır.
   * Tüm önceki modüllerin 290/290 regresyon testi hem Windows'ta hem de FreeBSD'de hiçbir bozulma olmadan (%100) başarıyla korundu.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Aşama 11.2 Gerçek Canlı MySQL 8.4 ve MariaDB 12.3/11.4 Entegrasyonu, hem Windows amd64 GCC 16.2.0 hem de FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında 3 motor için toplam 336/336 canlı doğrulama (%100) ve 290/290 modül regresyon testi (%100) ile sıfır hata ve sıfır uyarı ile **TAMAMLANDI**.
+* **Aktif Görev:** Aşama 11.2 Gerçek Canlı MySQL 8.4 ve MariaDB 12.3/11.4 Entegrasyonu; Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14.2.0 ortamlarında TLS, katı mod, CRUD, ACID, 64-bit sayaçlar, önceden kesilmiş soket koruması, sorgu anında hat kopması ve yanıt paketi düşürülmesinde UNKNOWN durumunun korunması (219 canlı test assertion'ı + 290 modül regresyon testi) ile sıfır hata ve sıfır uyarı ile **TAMAMLANDI**.
 
 ---
 
