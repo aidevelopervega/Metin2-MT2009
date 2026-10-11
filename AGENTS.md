@@ -127,3 +127,69 @@ GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güv
    * Önceden başarıyla doğrulanan CI testleri, yalnızca sonuç sorgulama problemi nedeniyle asla yeniden çalıştırılamaz.
 10. **Kod ve Dal Dokunulmazlığı:**
     * Mevcut başarılı MT2009 kodları, `AGENTS.md` dışındaki dosyalar ve `main` dalı bu süreçte kesinlikle değiştirilemez.
+
+---
+
+## 6. KALICI GİT, GİTHUB VE CI ÇALIŞMA STANDARDI
+
+**Proje:** `D:\mt22009` | **Geliştirme Dalı:** `dev/windows-gcc-baseline` | **Uzak Depo:** `x64bit-source/Metin2-MT2009`
+
+Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının tek merkezden, güvenilir ve kanıta dayalı olarak yürütülmesini belirler. Antigravity, tüm işlemleri kendi terminalinden yürütecek; kullanıcıdan normal geliştirme sürecinde manuel PowerShell veya Git yönlendirmesi talep edilmeyecektir.
+
+1. **Görev Başlangıcı:**
+   * Mevcut çalışma klasörünün `D:\mt22009` olduğu doğrulanacaktır.
+   * Geçerli Git dalı (`git branch --show-current`) ve çalışma ağacı durumu (`git status`) kontrol edilecektir.
+   * `AGENTS.md` ve `PROJECT_STATE.md` dosyaları okunarak önceki teknik durum ve açık hedefler doğrulanacaktır.
+   * Gerekirse GitHub'daki güncel geliştirme dalıyla senkronizasyon kontrol edilecektir.
+   * `main` dalına kesinlikle dokunulmayacak, doğrudan commit veya push yapılmayacaktır.
+   * GitHub Desktop için ikinci bir klon veya ayrı çalışma deposu oluşturulmayacaktır.
+
+2. **Geliştirme ve Test Disiplini:**
+   * Yalnızca görevin gerektirdiği kaynak dosyaları değiştirilecektir; alakasız dosyalara dokunulmayacaktır.
+   * Önceden doğrulanmış test sonuçları gereksiz yere baştan çalıştırılmayacak veya tekrar üretilmeyecektir.
+   * Kod değişikliğine uygun hedefli regresyon ve derleme kontrolleri gerçekleştirilecektir.
+   * Gerçek binary derlemesi yalnızca nesne dosyalarının (`.o`) oluşmasıyla değil, tam bağlama (link) ile çalıştırılabilir dosyanın üretilmesi ve mimarisinin (PE/ELF64) doğrulanmasıyla geçerli sayılacaktır.
+   * Test edilmemiş aşamalar asla başarılı veya tamamlanmış gösterilmeyecektir.
+   * Gereksiz tam derleme, tekrarlanan denemeler ve ajan kredisi tüketiminden kaçınılacaktır.
+
+3. **Git ve GitHub Senkronizasyonu:**
+   * Anlamlı ve doğrulanmış geliştirme aşaması tamamlandığında:
+     1. Gerekli proje belgeleri (`PROJECT_STATE.md`, gerekiyorsa `AGENTS.md`) güncellenecektir.
+     2. Değişiklikler `dev/windows-gcc-baseline` dalında commit edilecektir.
+     3. Doğrudan `origin dev/windows-gcc-baseline` dalına push yapılacaktır.
+     4. Yerel HEAD ile GitHub'daki uzak dalın commit SHA değerlerinin eşleştiği (`git rev-parse HEAD` vs uzak) doğrulanacaktır.
+     5. Commit SHA bilgisi sonuç raporunda açıkça bildirilecektir.
+   * Tamamlanan işler yalnızca yerel bilgisayarda bırakılmayacaktır.
+   * Normal koşullarda kullanıcıdan manuel Git veya PowerShell işlemleri talep edilmeyecektir.
+
+4. **GitHub Actions ve FreeBSD CI Yönetimi:**
+   * GitHub CLI (`gh`) işlemleri Antigravity tarafından kendi terminali üzerinden yürütülecektir.
+   * Mevcut yetkilendirilmiş `gh` oturumu kullanılacaktır.
+   * Yeni push ile ilişkili CI Run ID değeri tam SHA üzerinden tespit edilecektir.
+   * CI tamamlanmışsa üç FreeBSD işinin (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) gerçek durumu ayrı ayrı kontrol edilecektir.
+   * Başarısız işlerde gerçek derleme, link veya test hataları iş günlüklerinden detaylı incelenecek; genel `ssh exited with code 2` mesajı tek başına kök neden olarak sunulmayacaktır.
+   * CI henüz çalışıyorsa durum `RUNNING` olarak bildirilecek ve durulacaktır.
+   * Sürekli polling, sonsuz bekleme döngüsü veya otomatik tekrar çalıştırma kesinlikle yapılmayacaktır.
+   * Sonraki görevde ilgili Run ID üzerinden kontrole devam edilebilecek bilgiler `PROJECT_STATE.md` içinde ve raporda korunacaktır.
+   * Antigravity görevi sona erdikten sonra CI'yi kendiliğinden takip edebildiği varsayılmayacaktır.
+   * GitHub erişimi engellenirse token çıkarma, kimlik doğrulama güvenliğini aşma veya sonsuz deneme yapılmayacak; gerçek engel kullanıcıya tek seferde raporlanacaktır.
+
+5. **Proje Hafızası ve Belge Disiplini:**
+   * `AGENTS.md` kalıcı çalışma kurallarını, `PROJECT_STATE.md` ise doğrulanmış teknik ilerlemeyi içerecektir.
+   * `PROJECT_STATE.md` içinde özellikle şunlar eksiksiz korunacaktır:
+     * Son doğrulanmış commit SHA
+     * Son CI Run ID ve doğrulanmış durumu
+     * Başarılı ve başarısız test aşamaları
+     * Açık teknik sorunlar
+     * Sonraki geliştirme adımı
+   * Belge güncellemeleri mümkün olduğunca ilgili geliştirme commit'ine dahil edilecektir. Sırf belge güncellemek için gereksiz CI döngüleri oluşturulmayacaktır.
+
+6. **Son Rapor Standardı:**
+   * Her tamamlanan geliştirme görevinde kısa ve kanıta dayalı rapor sunulacaktır:
+     * Yapılan değişiklik
+     * Çalıştırılan testler ve gerçek sonuçları
+     * Commit ve push durumu
+     * Yerel ve uzak SHA eşleşmesi
+     * CI Run ID ve üç FreeBSD işinin gerçek durumu
+     * Devam eden veya çözülemeyen sorunlar
+   * Başarı kanıtı bulunmayan hiçbir aşama tamamlandı ilan edilmeyecektir.
