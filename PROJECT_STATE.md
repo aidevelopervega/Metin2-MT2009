@@ -81,7 +81,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * **Toplam:** **149/149 test başarılı (%100)**.
   * **Platform Doğrulama Notu:**
     * **Windows amd64:** MinGW-w64 GCC 16.2.0 (UCRT64) ile 149/149 test 0 hata, 0 uyarı ile tam doğrulandı.
-    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 4: Run 38098552269) ile FreeBSD 15.1-RELEASE-p3 amd64 + GCC 14.2.0 ortamında 149/149 test başarıyla tamamlandı. Tespit edilen 4 adet `signal.c` uyarısı kök nedeninden çözüldü ve Rev 5 iş akışı ile 0 hata, 0 uyarı doğrulamasına sunuldu.
+    * **FreeBSD amd64:** GitHub Actions CI iş akışı (Rev 5: Run 38099052441) ile FreeBSD 15.1-RELEASE-p3 amd64 + GCC 14.2.0 ortamında 149/149 test 0 derleme hatası ve 0 derleyici uyarısı ile eksiksiz doğrulandı.
 * **Mevcut Makefile Durumu:**
   * Mevcut Makefile dosyaları FreeBSD 32-bit (`clang++`, `-m32`) yapılandırmasındadır; CMake dönüşümü henüz başlatılmamıştır.
 
@@ -119,20 +119,22 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
   * Derleyici `gcc14` (`/usr/local/bin/g++14`) olarak sabitlendi; Clang kullanımı engellendi.
   * `tests/run_tests.sh` POSIX boşluk kaçışları ve `test_libgame.cpp` üzerindeki FreeBSD `thecore_memcpy` linker sembolü çözümlendi.
   * `libpoly` (24/24) ve `libgame` (28/28) toplam 52/52 test FreeBSD 15.1 amd64 üzerinde 0 hata, 0 uyarı ile doğrulandı.
-* [ ] **Aşama 9 (libthecore Modülü ve Entegrasyon):**
+* [x] **Aşama 9 (libthecore Modülü ve Entegrasyon):**
   * `libthecore` 18 kaynak dosyası incelendi; `log.h`, `socket.h`, `socket.c`, `utils.h`, `utils.c`, `signal.c`, `log.c`, `fdwatch.c`, `memcpy.c` kök neden düzeltmeleri tamamlandı.
   * `test_libthecore.cpp` (97 test) oluşturuldu; Windows amd64 GCC 16.2.0 üzerinde `libpoly` (24) + `libthecore` (97) + `libgame` (28) toplam 149/149 test 0 hata ve 0 uyarı ile doğrulandı.
   * `test_libgame` içerisindeki geçici `thecore_memcpy` yönlendiricisi kaldırıldı; gerçek `libthecore.a` bağlantısı doğrulandı.
-  * FreeBSD 15.1 amd64 CI ortamında 149/149 test başarıyla çalıştı; `signal.c` uyarıları kök nedeninden temizlenerek Rev 5 CI ile 0 hata 0 uyarı hedeflendi.
+  * FreeBSD 15.1 amd64 GCC 14 ortamında CI koşusu (Run 38099052441) ile 149/149 test, 0 derleme hatası ve 0 derleyici uyarısı ile tam doğrulandı.
+* [ ] **Aşama 10 (Sıradaki Kütüphane Doğrulaması: libsql veya liblua):**
+  * Sonraki aşama kullanıcı yönlendirmesine göre başlatılacaktır.
 
 ---
 
 ## 6. TEK AKTİF GÖREV
 
-* **Aktif Görev:** `libthecore` modülü Windows amd64 GCC 16.2.0 ve FreeBSD 15.1 amd64 GCC 14 üzerinde 149/149 test ile doğrulandı. `signal.c` uyarısı giderilerek Rev 5 CI koşusunun tamamlanmasının doğrulanması.
+* **Aktif Görev:** Aşama 9 (`libthecore`) Windows amd64 ve FreeBSD 15.1 amd64 platformlarında 149/149 test ve 0 hata / 0 uyarı ile başarıyla tamamlandı. Sonraki modüle (`libsql` veya `liblua`) geçiş için kullanıcı onayının ve direktifinin alınması.
 
 ---
 
 ## 7. SONRAKİ GÜVENLİ ADIM
 
-* GitHub Actions Rev 5 koşusunun (FreeBSD 15.1 amd64 GCC 14) 0 hata ve 0 uyarı ile tamamlandığının doğrulanması ve Aşama 9'un kesin olarak kapatılması. Ardından kullanıcı onayına göre sonraki modülün (`libsql` veya `liblua`) planlanması.
+* Kullanıcı onayıyla birlikte bir sonraki çekirdek kütüphanenin (`libsql` veya `liblua`) incelenmesi, bağımlılıklarının tespiti ve testlerinin hazırlanması. Hiçbir modüle kullanıcı onayı olmadan ve önceki modül eksiksiz doğrulanmadan geçilmemesi.
