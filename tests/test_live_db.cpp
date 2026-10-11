@@ -325,34 +325,108 @@ int main(int argc, char* argv[])
 
 		auto sslRes = sql.DirectQuery("SHOW STATUS LIKE 'Ssl_cipher';");
 		LIVE_ASSERT(sslRes != nullptr && sslRes->uiSQLErrno == 0, "Query SHOW STATUS LIKE 'Ssl_cipher' succeeded");
-		std::string sslCipher = "NONE";
+		std::string defCipher = "NONE";
 		if (sslRes->Get() && sslRes->Get()->ullNumRows > 0) {
 			MYSQL_ROW row = mysql_fetch_row(sslRes->Get()->pSQLResult);
 			if (row && row[1] && std::strlen(row[1]) > 0) {
-				sslCipher = row[1];
+				defCipher = row[1];
 			}
 		}
 
 		auto verRes = sql.DirectQuery("SHOW STATUS LIKE 'Ssl_version';");
-		std::string sslVersion = "NONE";
+		std::string defVersion = "NONE";
 		if (verRes && verRes->Get() && verRes->Get()->ullNumRows > 0) {
 			MYSQL_ROW row = mysql_fetch_row(verRes->Get()->pSQLResult);
 			if (row && row[1] && std::strlen(row[1]) > 0) {
-				sslVersion = row[1];
+				defVersion = row[1];
 			}
 		}
 
-		std::cout << "    -> TLS Cipher:  " << sslCipher << std::endl;
-		std::cout << "    -> TLS Version: " << sslVersion << std::endl;
-		LIVE_ASSERT(true, "TLS security status evaluated on live connection");
-
+		std::cout << "    -> Default Connection Cipher:  " << defCipher << std::endl;
+		std::cout << "    -> Default Connection Version: " << defVersion << std::endl;
 		sql.Destroy();
+
+		const char* caPath = std::getenv("MT2_TEST_SSL_CA");
+		const char* invalidCaPath = std::getenv("MT2_TEST_INVALID_SSL_CA");
+		if (caPath && std::strlen(caPath) > 0 && invalidCaPath && std::strlen(invalidCaPath) > 0)
+		{
+			std::cout << "    -> Testing TLS Client CA Verification & Rejection Contract..." << std::endl;
+			// 1. Valid CA connection test & TLS Cipher Verification
+			{
+				MYSQL mysqlValid;
+				mysql_init(&mysqlValid);
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
+				my_bool verify = 1;
+				mysql_options(&mysqlValid, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify);
+				my_bool enforce = 1;
+				mysql_options(&mysqlValid, MYSQL_OPT_SSL_ENFORCE, &enforce);
+#else
+				unsigned int sslMode = 4; // SSL_MODE_VERIFY_CA
+				mysql_options(&mysqlValid, MYSQL_OPT_SSL_MODE, &sslMode);
+#endif
+				mysql_ssl_set(&mysqlValid, nullptr, nullptr, caPath, nullptr, nullptr);
+				MYSQL* res = mysql_real_connect(&mysqlValid, host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), port, nullptr, 0);
+				LIVE_ASSERT(res != nullptr, "TLS connection with valid trusted CA succeeded");
+				if (res) {
+					std::string sslCipher = "NONE";
+					std::string sslVersion = "NONE";
+					if (mysql_query(&mysqlValid, "SHOW STATUS LIKE 'Ssl_cipher';") == 0) {
+						MYSQL_RES* r = mysql_store_result(&mysqlValid);
+						if (r) {
+							MYSQL_ROW row = mysql_fetch_row(r);
+							if (row && row[1]) sslCipher = row[1];
+							mysql_free_result(r);
+						}
+					}
+					if (mysql_query(&mysqlValid, "SHOW STATUS LIKE 'Ssl_version';") == 0) {
+						MYSQL_RES* r = mysql_store_result(&mysqlValid);
+						if (r) {
+							MYSQL_ROW row = mysql_fetch_row(r);
+							if (row && row[1]) sslVersion = row[1];
+							mysql_free_result(r);
+						}
+					}
+					std::cout << "    -> Negotiated TLS Cipher:  " << sslCipher << std::endl;
+					std::cout << "    -> Negotiated TLS Version: " << sslVersion << std::endl;
+					LIVE_ASSERT(sslCipher != "NONE" && !sslCipher.empty(), "TLS encryption actively negotiated on TLS connection (Ssl_cipher != NONE)");
+					LIVE_ASSERT(sslVersion != "NONE" && !sslVersion.empty(), "TLS protocol version actively negotiated on TLS connection (Ssl_version != NONE)");
+					mysql_close(&mysqlValid);
+				}
+			}
+
+			// 2. Untrusted / Invalid CA connection test (MUST be strictly rejected)
+			{
+				MYSQL mysqlInvalid;
+				mysql_init(&mysqlInvalid);
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
+				my_bool verify = 1;
+				mysql_options(&mysqlInvalid, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify);
+				my_bool enforce = 1;
+				mysql_options(&mysqlInvalid, MYSQL_OPT_SSL_ENFORCE, &enforce);
+#else
+				unsigned int sslMode = 4; // SSL_MODE_VERIFY_CA
+				mysql_options(&mysqlInvalid, MYSQL_OPT_SSL_MODE, &sslMode);
+#endif
+				mysql_ssl_set(&mysqlInvalid, nullptr, nullptr, invalidCaPath, nullptr, nullptr);
+				MYSQL* resBad = mysql_real_connect(&mysqlInvalid, host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), port, nullptr, 0);
+				LIVE_ASSERT(resBad == nullptr, "TLS connection with untrusted/invalid CA was strictly REJECTED");
+				LIVE_ASSERT(mysql_errno(&mysqlInvalid) != 0, "Untrusted CA connection failure returned non-zero error code");
+				std::cout << "    -> Untrusted CA Rejection Error Code: " << mysql_errno(&mysqlInvalid) << " (" << mysql_error(&mysqlInvalid) << ")" << std::endl;
+				if (resBad) {
+					mysql_close(&mysqlInvalid);
+				}
+			}
+		}
+		else
+		{
+			LIVE_ASSERT(defCipher != "NONE" && !defCipher.empty(), "Default connection has active TLS encryption (Ssl_cipher != NONE)");
+		}
 	}
 
 	// --------------------------------------------------------------------------
-	// 10. REAL CONNECTION INTERRUPTION, UNKNOWN CONTRACT & NO BLIND RETRY
+	// 10. PRE-SEVERED SOCKET GUARD, CR_SERVER_GONE_ERROR & NO BLIND RETRY
 	// --------------------------------------------------------------------------
-	std::cout << "\n[10/11] Connection Loss, CR_SERVER_LOST, UNKNOWN Contract & No Blind Retry..." << std::endl;
+	std::cout << "\n[10/11] Pre-Severed Socket Guard, CR_SERVER_GONE_ERROR & No Blind Retry..." << std::endl;
 	{
 		CAsyncSQL sqlVictim;
 		sqlVictim.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
@@ -371,7 +445,7 @@ int main(int argc, char* argv[])
 		// Sever the physical socket
 		sqlVictim.Destroy();
 
-		// Now attempt to run query on severed victim connection
+		// Now attempt to run query on pre-severed victim connection
 		auto deadRes = sqlVictim.DirectQuery("UPDATE test_player_live SET gold = gold + 777 WHERE id = 1;");
 		LIVE_ASSERT(deadRes != nullptr, "Query on disconnected socket returns result object");
 		LIVE_ASSERT(deadRes->IsError() == true, "Severed connection query correctly marked as IsError() == true");
@@ -388,6 +462,8 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(postGold == preGold, "No blind retry executed on severed connection: gold unchanged");
 			sqlVerify.Destroy();
 		}
+
+		std::cout << "    [BILGI / ACIK SOZLESME] Sorgu aninda hat kopmasi (in-flight mid-query network partition) harici TCP hata enjeksiyonu gerektirmekte olup canli sokette TEST EDILMEDI / ACIK olarak tutulmaktadir." << std::endl;
 	}
 
 	// --------------------------------------------------------------------------

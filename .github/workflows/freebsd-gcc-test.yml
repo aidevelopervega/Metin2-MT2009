@@ -1,4 +1,4 @@
-# Rev 13: 290/290 Tests + Live DB Integration Verification on FreeBSD 15.1 amd64 GCC 14
+# Rev 14: Isolated 3-Engine Matrix Live DB & TLS Verification on FreeBSD 15.1 amd64 GCC 14
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -23,10 +23,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  freebsd-gcc14-test:
-    name: FreeBSD 15.1 amd64 GCC 14 (290 Tests + Live DB)
+  freebsd-gcc14-matrix:
+    name: FreeBSD 15.1 - ${{ matrix.engine_name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine_id: "mariadb114"
+            engine_name: "MariaDB 11.4 LTS"
+            server_pkg: "mariadb114-server"
+            port_name: "databases/mariadb114-server"
+            port: 3307
+          - engine_id: "mariadb123"
+            engine_name: "MariaDB 12.3 LTS"
+            server_pkg: "mariadb123-server"
+            port_name: "databases/mariadb123-server"
+            port: 3307
+          - engine_id: "mysql84"
+            engine_name: "MySQL 8.4 LTS"
+            server_pkg: "mysql84-server"
+            port_name: "databases/mysql84-server"
+            port: 3308
 
     steps:
       - name: Check out isolated test sources only
@@ -51,7 +70,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 mariadb-connector-c mariadb114-server || pkg install -y gcc14 mariadb-connector-c || pkg install -y gcc14
+            pkg install -y gcc14 mariadb-connector-c || pkg install -y gcc14
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -95,44 +114,118 @@ jobs:
             chmod +x ./tests/run_tests.sh
             ./tests/run_tests.sh
 
-            # 4. Gerçek 64-bit Connector/C ve Canlı Veritabanı Doğrulaması
-            echo "=== CANLI VERITABANI VE BAGLAYICI DOGRULAMASI ==="
-            pkg info | grep -E 'gcc14|mariadb|mysql' || true
+            # 4. FreeBSD 15.1 PKG Deposu, ABI ve Ports Durumu İncelemesi
+            echo "=== FREEBSD 15.1 PKG VE REPOSITORY DENETIMI ==="
+            pkg -vv || true
+            PKG_ABI=$(pkg config ABI 2>/dev/null || uname -m)
+            echo "PKG ABI: $PKG_ABI"
 
+            export PATH="/usr/local/bin:/usr/local/sbin:/usr/local/libexec:$PATH"
             chmod +x ./tests/run_live_tests.sh
 
-            # MariaDB 11.4 LTS Canlı Sunucu Başlatma ve Test
-            if which mariadbd >/dev/null 2>&1 || [ -x "/usr/local/libexec/mariadbd" ]; then
-              echo "--> FreeBSD MariaDB 11.4 LTS Sunucusu Başlatılıyor..."
-              mkdir -p /tmp/data_mariadb114
-              mariadb-install-db --datadir=/tmp/data_mariadb114 --auth-root-authentication-method=normal >/dev/null 2>&1 || true
-              mariadbd --datadir=/tmp/data_mariadb114 --port=3307 --bind-address=127.0.0.1 &
-              MARIADB_PID=$!
-              sleep 4
+            ENGINE_ID="${{ matrix.engine_id }}"
+            SERVER_PKG="${{ matrix.server_pkg }}"
+            PORT_NAME="${{ matrix.port_name }}"
+            ENGINE_NAME="${{ matrix.engine_name }}"
+            PORT_NUM="${{ matrix.port }}"
 
-              # Test Kullanıcısı ve DB oluştur
-              mariadb -u root --port=3307 -e "CREATE DATABASE IF NOT EXISTS mt2_testdb; CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass'; CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass'; GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1'; GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost'; FLUSH PRIVILEGES;" || true
+            echo "=== HEDEF MOTOR: $ENGINE_NAME ==="
+            echo "Port Yolu: $PORT_NAME"
+            echo "Paket Adı: $SERVER_PKG"
 
-              # Test çalıştır
-              export MT2_TEST_HOST=127.0.0.1
-              export MT2_TEST_PORT=3307
-              export MT2_TEST_USER=mt2test
-              export MT2_TEST_PASSWORD=mt2pass
-              export MT2_TEST_DB=mt2_testdb
-              export MT2_TEST_ENGINE="FreeBSD MariaDB 11.4 LTS"
-              ./tests/run_live_tests.sh
-
-              # Sunucuyu kapat
-              kill $MARIADB_PID || true
-              wait $MARIADB_PID 2>/dev/null || true
-              echo "--> FreeBSD MariaDB 11.4 LTS Sunucusu Kapatıldı."
-            else
-              echo "[SKIP / NOT INSTALLED] mariadb114-server paketi FreeBSD üzerinde bulunamadı."
+            # İkili (binary) paket kurulumu dene
+            if ! pkg install -y "$SERVER_PKG"; then
+              echo "=================================================="
+              echo " [BULGU VE KANIT] databases/$SERVER_PKG FreeBSD Ports Ağacında ve FreshPorts'ta Mevcuttur."
+              echo " Ancak FreeBSD 15.1 ($PKG_ABI) resmi ikili (binary) pkg deposunda henüz önceden derlenmiş binary paket yayınlanmamıştır."
+              echo " pkg search Çıktısı:"
+              pkg search -x "^$SERVER_PKG" || true
+              echo " Durum: $ENGINE_NAME -> BLOCKED / NOT TESTED (BINARY PKG NOT PUBLISHED IN 15.1 REPOSITORY)"
+              echo "=================================================="
+              exit 0
             fi
 
-            # MariaDB 12.3 ve MySQL 8.4 Paket Durumu Kontrolü
-            echo "=== DIGER MOTORLARIN RESMI FREEBSD PAKET DURUMU ==="
-            echo "MariaDB 12.3 Arama:"
-            pkg search -x '^mariadb123' || echo "  -> MariaDB 12.3 LTS FreeBSD 15.1 resmi pkg deposunda MEVCUT DEGIL (BLOCKED / NOT TESTED)"
-            echo "MySQL 8.4 Arama:"
-            pkg search -x '^mysql84' || echo "  -> MySQL 8.4 LTS FreeBSD 15.1 resmi pkg deposunda MEVCUT DEGIL (BLOCKED / NOT TESTED)"
+            echo "--> $SERVER_PKG paketi başarıyla kuruldu!"
+            pkg info | grep -E 'gcc14|mariadb|mysql' || true
+
+            DATA_DIR="/tmp/data_${ENGINE_ID}"
+            SSL_DIR="/tmp/ssl_${ENGINE_ID}"
+            mkdir -p "$DATA_DIR" "$SSL_DIR"
+
+            # Test CA ve Sunucu Sertifikaları Oluşturma
+            echo "--> Test TLS CA ve Sunucu Sertifikaları Üretiliyor..."
+            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/ca-key.pem" -out "$SSL_DIR/ca-cert.pem" -days 365 -subj "/CN=Metin2 Test CA"
+            openssl req -newkey rsa:2048 -nodes -keyout "$SSL_DIR/server-key.pem" -out "$SSL_DIR/server-req.pem" -subj "/CN=127.0.0.1"
+            openssl x509 -req -in "$SSL_DIR/server-req.pem" -CA "$SSL_DIR/ca-cert.pem" -CAkey "$SSL_DIR/ca-key.pem" -CAcreateserial -out "$SSL_DIR/server-cert.pem" -days 365
+            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/invalid-ca-key.pem" -out "$SSL_DIR/invalid-ca-cert.pem" -days 365 -subj "/CN=Untrusted Fake CA"
+            chmod 600 "$SSL_DIR"/*-key.pem
+
+            # Motor Sürecini Başlatma
+            if [ "$ENGINE_ID" = "mariadb114" ] || [ "$ENGINE_ID" = "mariadb123" ]; then
+              mariadb-install-db --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/dev/null 2>&1 || true
+              MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
+              echo "MariaDB Daemon: $MARIADBD"
+              "$MARIADBD" --datadir="$DATA_DIR" --port=$PORT_NUM --bind-address=127.0.0.1 \
+                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" &
+              SERVER_PID=$!
+
+              echo "MariaDB sunucusunun hazır olması bekleniyor (Port $PORT_NUM)..."
+              for i in $(seq 1 30); do
+                if mariadb-admin ping -h 127.0.0.1 -P $PORT_NUM --silent 2>/dev/null; then
+                  echo "Sunucu $i saniyede hazır oldu."
+                  break
+                fi
+                sleep 1
+              done
+
+              mariadb -h 127.0.0.1 -P $PORT_NUM -u root -e "
+                CREATE DATABASE IF NOT EXISTS mt2_testdb;
+                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
+                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
+                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
+                FLUSH PRIVILEGES;
+              "
+            elif [ "$ENGINE_ID" = "mysql84" ]; then
+              MYSQLD=$(which mysqld 2>/dev/null || ls /usr/local/libexec/mysqld 2>/dev/null || ls /usr/local/sbin/mysqld 2>/dev/null)
+              echo "MySQL Daemon: $MYSQLD"
+              "$MYSQLD" --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/dev/null 2>&1 || true
+              "$MYSQLD" --datadir="$DATA_DIR" --port=$PORT_NUM --bind-address=127.0.0.1 \
+                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" &
+              SERVER_PID=$!
+
+              echo "MySQL 8.4 sunucusunun hazır olması bekleniyor (Port $PORT_NUM)..."
+              for i in $(seq 1 30); do
+                if mysqladmin ping -h 127.0.0.1 -P $PORT_NUM --silent 2>/dev/null; then
+                  echo "Sunucu $i saniyede hazır oldu."
+                  break
+                fi
+                sleep 1
+              done
+
+              mysql -h 127.0.0.1 -P $PORT_NUM -u root -e "
+                CREATE DATABASE IF NOT EXISTS mt2_testdb;
+                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
+                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
+                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
+                FLUSH PRIVILEGES;
+              "
+            fi
+
+            # Canlı Testi Çalıştırma
+            export MT2_TEST_HOST=127.0.0.1
+            export MT2_TEST_PORT=$PORT_NUM
+            export MT2_TEST_USER=mt2test
+            export MT2_TEST_PASSWORD=mt2pass
+            export MT2_TEST_DB=mt2_testdb
+            export MT2_TEST_ENGINE="FreeBSD $ENGINE_NAME"
+            export MT2_TEST_SSL_CA="$SSL_DIR/ca-cert.pem"
+            export MT2_TEST_INVALID_SSL_CA="$SSL_DIR/invalid-ca-cert.pem"
+
+            ./tests/run_live_tests.sh
+
+            # Sunucuyu Temiz Kapatma
+            kill $SERVER_PID || true
+            wait $SERVER_PID 2>/dev/null || true
+            echo "--> $ENGINE_NAME sunucusu temiz şekilde kapatıldı."

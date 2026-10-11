@@ -76,10 +76,11 @@ if ($ConnectorType -eq "mysql") {
 }
 
 Write-Host "Derleniyor: $ExeName..." -ForegroundColor Yellow
-& $Gxx @CommonFlags @CommonIncludes @IncArgs "$SqlDir\AsyncSQL.cpp" "$SqlDir\Semaphore.cpp" "$RootDir\tests\test_live_db.cpp" "$BuildDir\libthecore.a" @LibArgs -lws2_32 -lsecur32 -lcrypt32 -lshlwapi -o "$ExeName"
+& $Gxx @CommonFlags @IncArgs @CommonIncludes "$SqlDir\AsyncSQL.cpp" "$SqlDir\Semaphore.cpp" "$RootDir\tests\test_live_db.cpp" "$BuildDir\libthecore.a" @LibArgs -lws2_32 -lsecur32 -lcrypt32 -lshlwapi -o "$ExeName"
 if ($LASTEXITCODE -ne 0) { throw "test_live_db derleme/bağlama hatası!" }
 
 Write-Host "Çalıştırılıyor: $ExeName..." -ForegroundColor Green
+$env:Path = "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib;$RootDir\scratch\isolated_db\mysql-8.4.11-winx64\lib;$RootDir\scratch\isolated_db\mysql-8.4.11-winx64\bin;$env:Path"
 $env:MT2_TEST_HOST = $HostName
 $env:MT2_TEST_PORT = "$Port"
 $env:MT2_TEST_USER = $User
@@ -87,6 +88,14 @@ $env:MT2_TEST_PASSWORD = $Password
 $env:MT2_TEST_DB = $Database
 $env:MT2_TEST_ENGINE = $Engine
 $env:RUN_LIVE_DB_TESTS = "1"
+
+if ($ConnectorType -eq "mysql") {
+    $env:MT2_TEST_SSL_CA = "$RootDir\scratch\isolated_db\data_mysql84\ca.pem"
+    $env:MT2_TEST_INVALID_SSL_CA = "$RootDir\scratch\test_ssl\invalid-ca-cert.pem"
+} else {
+    $env:MT2_TEST_SSL_CA = "$RootDir\scratch\test_ssl\ca-cert.pem"
+    $env:MT2_TEST_INVALID_SSL_CA = "$RootDir\scratch\test_ssl\invalid-ca-cert.pem"
+}
 
 & "$ExeName"
 $res = $LASTEXITCODE

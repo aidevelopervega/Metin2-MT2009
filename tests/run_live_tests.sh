@@ -66,11 +66,11 @@ fi
 
 echo "Derleniyor: $BUILD_DIR/test_live_db..."
 $CXX $FLAGS $RPATH \
+    $INC_EXTRA \
     -I"$SQL_DIR" \
     -I"$CORE_DIR/include" \
     -I"$COMMON_DIR" \
     -I"$EXTERN_DIR/include" \
-    $INC_EXTRA \
     "$SQL_DIR/AsyncSQL.cpp" \
     "$SQL_DIR/Semaphore.cpp" \
     "$ROOT_DIR/tests/test_live_db.cpp" \
