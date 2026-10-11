@@ -533,7 +533,7 @@ int main()
 		s_mock_force_connect_fail = false; // Reset mock
 	}
 
-	std::cout << "[RUN] Testing SQLResult saturation boundary and UINT32_MAX error collision prevention..." << std::endl;
+	std::cout << "[RUN] Testing SQLResult saturation boundary and strict error contract (no silent saturation)..." << std::endl;
 	{
 		// 1. Error state: mysql_affected_rows returns (my_ulonglong)-1
 		s_mock_affected_rows = static_cast<my_ulonglong>(-1);
@@ -545,6 +545,7 @@ int main()
 		msgErr.Store();
 		TEST_ASSERT(msgErr.Get()->ullAffectedRows == static_cast<uint64_t>(-1), "ullAffectedRows preserves exact 64-bit error value");
 		TEST_ASSERT(msgErr.Get()->uiAffectedRows == static_cast<uint32_t>(-1), "uiAffectedRows correctly maps error to (uint32_t)-1");
+		TEST_ASSERT(msgErr.Get()->HasValidAffectedRows() == false, "HasValidAffectedRows correctly flags error state");
 
 		// 2. Large valid affected rows: 4,294,967,296 (0x100000000ULL, > UINT32_MAX)
 		s_mock_affected_rows = 0x100000000ULL;
@@ -552,8 +553,9 @@ int main()
 		msgLarge.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
 		msgLarge.Store();
 		TEST_ASSERT(msgLarge.Get()->ullAffectedRows == 0x100000000ULL, "ullAffectedRows preserves 4B+ affected rows count");
-		TEST_ASSERT(msgLarge.Get()->uiAffectedRows == UINT32_MAX - 1, "uiAffectedRows saturated to UINT32_MAX - 1 to avoid error sentinel collision");
-		TEST_ASSERT(msgLarge.Get()->uiAffectedRows != static_cast<uint32_t>(-1), "Valid large affected rows NEVER collides with error sentinel");
+		TEST_ASSERT(msgLarge.Get()->uiAffectedRows == static_cast<uint32_t>(-1), "uiAffectedRows marked as error (-1) on 32-bit overflow instead of silent false count");
+		TEST_ASSERT(msgLarge.uiSQLErrno == 1264, "uiSQLErrno marked with ER_WARN_DATA_OUT_OF_RANGE (1264) on 32-bit overflow");
+		TEST_ASSERT(msgLarge.Get()->HasValidAffectedRows() == false, "HasValidAffectedRows returns false for overflowed affected rows");
 
 		// 3. Large insert ID: 5,000,000,000 (> UINT32_MAX)
 		s_mock_insert_id = 5000000000ULL;
@@ -561,7 +563,18 @@ int main()
 		msgInsert.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
 		msgInsert.Store();
 		TEST_ASSERT(msgInsert.Get()->ullInsertID == 5000000000ULL, "ullInsertID preserves full 64-bit insert ID");
-		TEST_ASSERT(msgInsert.Get()->uiInsertID == UINT32_MAX, "uiInsertID saturated at UINT32_MAX without modulo rollover to zero");
+		TEST_ASSERT(msgInsert.Get()->uiInsertID == 0, "uiInsertID sets 0 (error) on >32-bit to prevent silent ID corruption/collision in callers");
+		TEST_ASSERT(msgInsert.uiSQLErrno == 1264, "uiSQLErrno flagged with ER_WARN_DATA_OUT_OF_RANGE for unrepresentable ID");
+		TEST_ASSERT(msgInsert.Get()->HasValidInsertID() == false, "HasValidInsertID returns false for overflowed ID");
+
+		// 4. Valid normal insert ID (within 32-bit)
+		s_mock_insert_id = 12345ULL;
+		SQLMsg msgNormal;
+		msgNormal.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
+		msgNormal.Store();
+		TEST_ASSERT(msgNormal.Get()->ullInsertID == 12345ULL, "ullInsertID matches valid insert ID");
+		TEST_ASSERT(msgNormal.Get()->uiInsertID == 12345, "uiInsertID matches valid insert ID");
+		TEST_ASSERT(msgNormal.Get()->HasValidInsertID() == true, "HasValidInsertID returns true for valid 32-bit ID");
 
 		// Reset mocks
 		s_mock_affected_rows = 0;

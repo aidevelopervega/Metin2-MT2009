@@ -148,13 +148,14 @@ unsigned int __stdcall AsyncSQLThread(void* arg)
 {
 	CAsyncSQL * pSQL = ((CAsyncSQL *) arg);
 
+	int backoff_ms = 1000;
 	while (!pSQL->IsEnd())
 	{
 		if (pSQL->Connect())
 			break;
 
-		sys_err("AsyncSQL: initial connection failed, retrying in 1 second...");
-		for (int i = 0; i < 10 && !pSQL->IsEnd(); ++i)
+		sys_err("AsyncSQL: initial connection failed, retrying in %d ms...", backoff_ms);
+		for (int i = 0; i < (backoff_ms / 100) && !pSQL->IsEnd(); ++i)
 		{
 #ifndef __WIN32__
 			usleep(100000);
@@ -162,6 +163,8 @@ unsigned int __stdcall AsyncSQLThread(void* arg)
 			::Sleep(100);
 #endif
 		}
+		if (backoff_ms < 5000)
+			backoff_ms += 1000;
 	}
 
 	pSQL->ChildLoop();
@@ -431,6 +434,13 @@ void CAsyncSQL::PushFailedQuery(SQLMsg * p)
 	}
 
 	MUTEX_LOCK(m_mtxResult.get());
+	constexpr size_t MAX_FAILED_QUEUE_CAPACITY = 10000;
+	if (m_queue_failed.size() >= MAX_FAILED_QUEUE_CAPACITY)
+	{
+		sys_err("AsyncSQL::PushFailedQuery: failed query queue capacity (%zu) exceeded, dropping oldest query to prevent memory exhaustion", m_queue_failed.size());
+		delete m_queue_failed.front();
+		m_queue_failed.pop();
+	}
 	m_queue_failed.push(p);
 	MUTEX_UNLOCK(m_mtxResult.get());
 }
@@ -474,6 +484,25 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 	}
 
 	MUTEX_LOCK(m_mtxQuery.get());
+	constexpr size_t MAX_ASYNC_QUERY_QUEUE_CAPACITY = 100000;
+	if (m_queue_query.size() >= MAX_ASYNC_QUERY_QUEUE_CAPACITY)
+	{
+		sys_err("AsyncSQL::PushQuery: async query queue capacity (%zu) reached; rejecting query to prevent unbounded memory growth", m_queue_query.size());
+		MUTEX_UNLOCK(m_mtxQuery.get());
+
+		p->uiSQLErrno = CR_CONNECTION_ERROR;
+		if (p->bReturn)
+		{
+			p->Store();
+			PushResult(p);
+		}
+		else
+		{
+			PushFailedQuery(p);
+		}
+		return;
+	}
+
 	m_queue_query.push(p);
 	m_sem.Release();
 	MUTEX_UNLOCK(m_mtxQuery.get());

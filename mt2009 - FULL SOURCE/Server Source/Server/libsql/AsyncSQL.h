@@ -34,6 +34,10 @@ typedef struct _SQLResult
 		}
 	}
 
+	bool		HasValidInsertID() const { return ullInsertID != 0 && ullInsertID <= UINT32_MAX; }
+	bool		HasValidAffectedRows() const { return ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows <= UINT32_MAX; }
+	bool		HasValidNumRows() const { return ullNumRows <= UINT32_MAX; }
+
 	MYSQL_RES *	pSQLResult;
 	uint32_t		uiNumRows;
 	uint32_t		uiAffectedRows;
@@ -71,24 +75,44 @@ typedef struct _SQLMsg
 			pRes->ullAffectedRows = mysql_affected_rows(m_pkSQL);
 
 			if (pRes->ullInsertID > UINT32_MAX)
-				pRes->uiInsertID = UINT32_MAX;
+			{
+				pRes->uiInsertID = 0;
+				if (uiSQLErrno == 0)
+					uiSQLErrno = 1264;
+			}
 			else
+			{
 				pRes->uiInsertID = static_cast<uint32_t>(pRes->ullInsertID);
+			}
 
 			if (pRes->ullAffectedRows == static_cast<my_ulonglong>(-1))
+			{
 				pRes->uiAffectedRows = static_cast<uint32_t>(-1);
-			else if (pRes->ullAffectedRows >= static_cast<uint64_t>(UINT32_MAX))
-				pRes->uiAffectedRows = UINT32_MAX - 1;
+			}
+			else if (pRes->ullAffectedRows > static_cast<uint64_t>(UINT32_MAX))
+			{
+				pRes->uiAffectedRows = static_cast<uint32_t>(-1);
+				if (uiSQLErrno == 0)
+					uiSQLErrno = 1264;
+			}
 			else
+			{
 				pRes->uiAffectedRows = static_cast<uint32_t>(pRes->ullAffectedRows);
+			}
 
 			if (pRes->pSQLResult)
 			{
 				pRes->ullNumRows = mysql_num_rows(pRes->pSQLResult);
 				if (pRes->ullNumRows > UINT32_MAX)
-					pRes->uiNumRows = UINT32_MAX;
+				{
+					pRes->uiNumRows = 0;
+					if (uiSQLErrno == 0)
+						uiSQLErrno = 1264;
+				}
 				else
+				{
 					pRes->uiNumRows = static_cast<uint32_t>(pRes->ullNumRows);
+				}
 			}
 			else
 			{
