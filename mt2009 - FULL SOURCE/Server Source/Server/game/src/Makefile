@@ -112,15 +112,17 @@ endif
 # Project Libraries
 INCDIR += -I../../../Extern/include
 INCDIR += -I/usr/local/include
-INCDIR += -I../../../../server/src/libpoly -I../../libpoly
-INCDIR += -I../../../../server/src/libgame/include -I../../libgame/include
-INCDIR += -I../../../../server/src/libthecore/include -I../../libthecore/include
-INCDIR += -I../../../../server/src/libsql -I../../libsql
-INCDIR += -I../../../../server/src/common -I../../common
+INCDIR += -I../../../../../server/src/libpoly -I../../../../server/src/libpoly -I../../libpoly
+INCDIR += -I../../../../../server/src/libgame/include -I../../../../server/src/libgame/include -I../../libgame/include
+INCDIR += -I../../../../../server/src/libthecore/include -I../../../../server/src/libthecore/include -I../../libthecore/include
+INCDIR += -I../../../../../server/src/libthecore/src
+INCDIR += -I../../../../../server/src/libsql -I../../../../server/src/libsql -I../../libsql
+INCDIR += -I../../../../../server/src/common -I../../../../server/src/common -I../../common
+INCDIR += -I../../../../../server/src
 INCDIR += -I../../../../server/src/game/src
 LIBDIR += -L/usr/local/lib
 
-LIBDIR += -L../../../../server/src/libthecore/lib -L../../libthecore/lib -L../../libpoly -L../../../../server/src/libpoly -L../../../../server/src/libsql -L../../libsql -L../../libgame/lib -L../../../../server/src/libgame/lib
+LIBDIR += -L../../libthecore/lib -L../../../../../server/src/libthecore/lib -L../../../../server/src/libthecore/lib -L../../libpoly -L../../../../../server/src/libpoly -L../../../../server/src/libpoly -L../../../../../server/src/libsql -L../../../../server/src/libsql -L../../libsql -L../../../../../server/src/libgame/lib -L../../../../server/src/libgame/lib -L../../libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame
 
 # AUTO_DETECT_SOURCE_FILES BEGIN

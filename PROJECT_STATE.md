@@ -418,18 +418,19 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `mt2009 - FULL SOURCE/Server Source/Server/common` dizini altındaki 17 başlık dosyasının tamamı (`CommonDefines.h`, `PulseManager.h`, `VnumHelper.h`, `building.h`, `cache.h`, `d3dtype.h`, `item_length.h`, `json_helper.h`, `length.h`, `noncopyable.h`, `pool.h`, `service.h`, `singleton.h`, `skill_length.h`, `stl.h`, `tables.h`, `utils.h`) `git mv` ile `server/src/common` konumuna taşındı.
     * **Git Bütünlük Denetimi:** 17/17 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve bayt uzunlukları birebir aynı, sıfır değişiklik).
     * Kademeli ve geriye uyumlu include ve arama yolları kuruldu:
-      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/Makefile`: `INCDIR` yollarına `server/src/common` ve `server/src/db/src` eklendi.
-      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/Makefile`: `INCDIR` yollarına `server/src/common` ve `server/src/game/src` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına 5-seviyeli mutlak kök yolları (`../../../../../server/src/...`), `server/src/common` ve `server/src/libthecore/src` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına 5-seviyeli mutlak kök yolları (`../../../../../server/src/...`), `server/src/common` ve `server/src/libthecore/src` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/stdafx.h`, `DBManager.h`, `GuildManager.h`, `Monarch.h`, `ClientManager.cpp`: Taşınabilir `#if __has_include` ile 5-seviyeli kök include direktifleri eklendi.
       * `tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`, `tests/run_live_tests.ps1`, `tests/run_live_tests.sh`: `server/src/common` desteği eklendi.
       * `.github/workflows/freebsd-gcc-test.yml`: `server/src/common/**` tetikleyici yollara eklendi.
-    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **Yerel Windows Doğrulaması:** 30/30 DB C++ kaynak dosyasının tamamı GCC C++20 sözdizim denetiminden başarıyla geçti (0 hata). 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 5 (`common` -> `server/src/common`) tamamlandı — Tek commit halinde push yapılması ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek kabul edilmesi.
-* **Mevcut Durum:** **STEP 5 LOCAL VERIFIED (528/528 PASS), PUSH & CI VERIFICATION IN PROGRESS**.
+* **Aktif Görev:** Dizin Göçü Adım 5 (`common` -> `server/src/common` ve Makefile/include düzeltmeleri) — Tek commit halinde push yapılması ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek kabul edilmesi.
+* **Mevcut Durum:** **STEP 5 LOCAL VERIFIED (528/528 PASS + 30/30 DB CPP OK), PUSH & CI VERIFICATION IN PROGRESS**.
 
 ---
 

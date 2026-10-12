@@ -5,6 +5,8 @@
 #include "../../common/VnumHelper.h"
 #if __has_include(<grid.h>)
 #include <grid.h>
+#elif __has_include("../../../../../server/src/libgame/include/grid.h")
+#include "../../../../../server/src/libgame/include/grid.h"
 #elif __has_include("../../../../server/src/libgame/include/grid.h")
 #include "../../../../server/src/libgame/include/grid.h"
 #elif __has_include("../../libgame/include/grid.h")

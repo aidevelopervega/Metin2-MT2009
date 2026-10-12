@@ -59,15 +59,17 @@ CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PW
 # Project Libraries
 INCDIR += -I/usr/local/include
 INCDIR += -I../../../Extern/include
-INCDIR += -I../../../../server/src/libpoly -I../../libpoly
-INCDIR += -I../../../../server/src/libgame/include -I../../libgame/include
-INCDIR += -I../../../../server/src/libthecore/include -I../../libthecore/include
-INCDIR += -I../../../../server/src/libsql -I../../libsql
-INCDIR += -I../../../../server/src/common -I../../common
+INCDIR += -I../../../../../server/src/libpoly -I../../../../server/src/libpoly -I../../libpoly
+INCDIR += -I../../../../../server/src/libgame/include -I../../../../server/src/libgame/include -I../../libgame/include
+INCDIR += -I../../../../../server/src/libthecore/include -I../../../../server/src/libthecore/include -I../../libthecore/include
+INCDIR += -I../../../../../server/src/libthecore/src
+INCDIR += -I../../../../../server/src/libsql -I../../../../server/src/libsql -I../../libsql
+INCDIR += -I../../../../../server/src/common -I../../../../server/src/common -I../../common
+INCDIR += -I../../../../../server/src
 INCDIR += -I../../../../server/src/db/src
 LIBDIR += -L../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../../../server/src/libthecore/lib -L../../../../server/src/libsql -L../../libsql -L../../libpoly -L../../../../server/src/libpoly -L../../libgame/lib -L../../../../server/src/libgame/lib -L../../../../../tests/build -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../../../../server/src/libthecore/lib -L../../../../server/src/libthecore/lib -L../../../../../server/src/libsql -L../../../../server/src/libsql -L../../libsql -L../../libpoly -L../../../../../server/src/libpoly -L../../../../server/src/libpoly -L../../libgame/lib -L../../../../../server/src/libgame/lib -L../../../../server/src/libgame/lib -L../../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL
