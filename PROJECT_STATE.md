@@ -543,13 +543,18 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `mt2009 - FULL SOURCE/Klient` (731.5 MB 32-bit hazır istemci çalışma paketi) disk üzerinde `client/files/` konumuna taşındı; `.gitignore` kuralı ile büyük ikili paketinin Git'i şişirmesi engellendi.
     * `mt2009 - FULL SOURCE/new_ftp.tar.gz` (48.2 MB sunucu runtime arşivi) hassas parola ve bağlantı bilgileri içerdiği için AGENTS.md kural 6 uyarınca kontrolsüz açılmayıp güvenli şekilde muhafaza edildi.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 12 Göçü - Run ID: 38324020775, Commit: `d4d56454`):**
+      * **MySQL 8.4 LTS (Job ID: 115058430803):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115058430914):** SUCCESS (4m 25s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115058430987):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** Adım 12 ve %100 kayıpsızlık üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 12 Tamamlandı — Kayıpsızlık %100 doğrulandı (16.785 blob), İstemci .vcxproj'ler güncellendi, Kalan Server Source dosyaları `server/src`'ye taşındı, `client/files` hazırlandı.
-* **Mevcut Durum:** **STEP 11 LOSSLESS AUDIT COMPLETE (16,785/16,785 BLOBS %100 PASS). STEP 12 MIGRATION STAGED. LOCAL TESTS: 528/528 PASS.**
+* **Aktif Görev:** Dizin Göçü Adım 12 Kabul Edildi (Kayıpsızlık %100 Blob Bütünlüğü — 3/3 SUCCESS, 1.923 assertion, 0 kayıp).
+* **Mevcut Durum:** **STEP 11 LOSSLESS AUDIT & STEP 12 MIGRATION FULLY ACCEPTED (CI Run: 38324020775, Commit: d4d56454). Ready for next phase.**
 
 ---
 
