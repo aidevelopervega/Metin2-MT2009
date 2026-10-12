@@ -25,7 +25,15 @@
 #include "ikarus_shop_manager.h"
 
 #include <boost/algorithm/string.hpp>
+#if __has_include(<grid.h>)
+#include <grid.h>
+#elif __has_include("../../../../server/src/libgame/include/grid.h")
+#include "../../../../server/src/libgame/include/grid.h"
+#elif __has_include("../../libgame/include/grid.h")
 #include "../../libgame/include/grid.h"
+#else
+#include "grid.h"
+#endif
 
 std::pair<int, int> GetSlotXY(int slotIndex) {
 	if (slotIndex < 0 || slotIndex >= SHOP_PLAYER_WIDTH * SHOP_PLAYER_HEIGHT) {

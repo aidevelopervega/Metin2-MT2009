@@ -43,6 +43,8 @@ try {
         "-I$ServerDir\Server\libsql",
         "-I$RootDir\server\src\libpoly",
         "-I$ServerDir\Server\libpoly",
+        "-I$RootDir\server\src\libgame\include",
+        "-I$RootDir\server\src\libgame\src",
         "-I$ServerDir\Server\libgame\include",
         "-I$ServerDir\Server\libgame\src",
         "-I$ServerDir\Server\common",

@@ -9,6 +9,7 @@ on:
       - '.github/workflows/freebsd-gcc-test.yml'
       - 'tests/**'
       - 'server/src/libpoly/**'
+      - 'server/src/libgame/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'
@@ -59,6 +60,7 @@ jobs:
           sparse-checkout: |
             tests
             server/src/libpoly
+            server/src/libgame
             mt2009 - FULL SOURCE/Server Source/Server/libpoly
             mt2009 - FULL SOURCE/Server Source/Server/libgame
             mt2009 - FULL SOURCE/Server Source/Server/libthecore

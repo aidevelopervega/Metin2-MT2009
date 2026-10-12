@@ -1,5 +1,13 @@
 #include "stdafx.h"
+#if __has_include(<attribute.h>)
+#include <attribute.h>
+#elif __has_include("../../../../server/src/libgame/include/attribute.h")
+#include "../../../../server/src/libgame/include/attribute.h"
+#elif __has_include("../../libgame/include/attribute.h")
 #include "../../libgame/include/attribute.h"
+#else
+#include "attribute.h"
+#endif
 #include "sectree_manager.h"
 #include "char.h"
 #include "char_manager.h"

@@ -1,8 +1,25 @@
 #include <string.h>
 #include <stdio.h>
 #include <algorithm>
+#if __has_include(<memcpy.h>)
+#include <memcpy.h>
+#elif __has_include("../../../../mt2009 - FULL SOURCE/Server Source/Server/libthecore/include/memcpy.h")
+#include "../../../../mt2009 - FULL SOURCE/Server Source/Server/libthecore/include/memcpy.h"
+#elif __has_include("../../libthecore/include/memcpy.h")
 #include "../../libthecore/include/memcpy.h"
+#else
+#include "memcpy.h"
+#endif
+
+#if __has_include(<stl.h>)
+#include <stl.h>
+#elif __has_include("../../../../mt2009 - FULL SOURCE/Server Source/Server/common/stl.h")
+#include "../../../../mt2009 - FULL SOURCE/Server Source/Server/common/stl.h"
+#elif __has_include("../../common/stl.h")
 #include "../../common/stl.h"
+#else
+#include "stl.h"
+#endif
 #include "grid.h"
 
 CGrid::CGrid(int w, int h) : m_iWidth(w), m_iHeight(h)

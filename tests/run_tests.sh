@@ -65,7 +65,11 @@ $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include"
 
 # 3. libgame (Gercek libthecore.a ile bagli)
 echo "[3/3] libgame derleniyor ve test ediliyor..."
-GAME_DIR="$SERVER_DIR/Server/libgame"
+if [ -d "$ROOT_DIR/server/src/libgame" ]; then
+    GAME_DIR="$ROOT_DIR/server/src/libgame"
+else
+    GAME_DIR="$SERVER_DIR/Server/libgame"
+fi
 
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_DIR/include" -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"

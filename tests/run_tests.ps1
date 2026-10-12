@@ -147,7 +147,7 @@ try {
     # 3. LIBGAME DERLEME VE TESTİ (Gerçek libthecore.a ile bağlı)
     # ------------------------------------------------------------------------------
     Write-Host "`n[3/3] libgame derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $GameDir = "$ServerDir\Server\libgame"
+    $GameDir = if (Test-Path "$RootDir\server\src\libgame") { "$RootDir\server\src\libgame" } else { "$ServerDir\Server\libgame" }
 
     $GameIncludes = @(
         "-I$GameDir\include",

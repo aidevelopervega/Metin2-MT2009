@@ -1,8 +1,24 @@
 #include "stdafx.h"
 #include <sstream>
 #include <unordered_set>
+#if __has_include(<targa.h>)
+#include <targa.h>
+#elif __has_include("../../../../server/src/libgame/include/targa.h")
+#include "../../../../server/src/libgame/include/targa.h"
+#elif __has_include("../../libgame/include/targa.h")
 #include "../../libgame/include/targa.h"
+#else
+#include "targa.h"
+#endif
+#if __has_include(<attribute.h>)
+#include <attribute.h>
+#elif __has_include("../../../../server/src/libgame/include/attribute.h")
+#include "../../../../server/src/libgame/include/attribute.h"
+#elif __has_include("../../libgame/include/attribute.h")
 #include "../../libgame/include/attribute.h"
+#else
+#include "attribute.h"
+#endif
 #include "config.h"
 #include "utils.h"
 #include "sectree_manager.h"

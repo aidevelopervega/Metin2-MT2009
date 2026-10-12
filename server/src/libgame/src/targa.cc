@@ -1,4 +1,12 @@
+#if __has_include(<stdafx.h>)
+#include <stdafx.h>
+#elif __has_include("../../../../mt2009 - FULL SOURCE/Server Source/Server/libthecore/include/stdafx.h")
+#include "../../../../mt2009 - FULL SOURCE/Server Source/Server/libthecore/include/stdafx.h"
+#elif __has_include("../../libthecore/include/stdafx.h")
 #include "../../libthecore/include/stdafx.h"
+#else
+#include "stdafx.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #include "targa.h"
