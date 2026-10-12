@@ -519,13 +519,18 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * Makefile'lar (`server/src/db/src/Makefile`, `server/src/game/src/Makefile`, `server/src/lib*/Makefile`), test betikleri (`tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`) ve `.github/workflows/freebsd-gcc-test.yml` (`extern/**` tetikleyicisi) yeni yollara uyarlandı; geriye dönük fallback yolları korundu.
       * Eski `mt2009 - FULL SOURCE/Server Source/Extern` ve `mt2009 - FULL SOURCE/Source/Extern` dizinleri diskten ve Git takibinden sıfır kayıpla tamamen kaldırıldı.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 11 `extern/` Göçü - Run ID: 38321904900, Commit: `cd9d2937`):**
+      * **MySQL 8.4 LTS (Job ID: 115051692502):** SUCCESS (4m 28s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115051692792):** SUCCESS (4m 26s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115051692849):** SUCCESS (4m 17s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** `extern/` merkezî göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 11 Tamamlandı — Commit ve push yapılarak FreeBSD 15.1 amd64 GCC 14 CI (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) koşusunun doğrulanması.
-* **Mevcut Durum:** **Step 11 local migration complete. Windows tests: 528/528 PASS. Ready for commit & CI verification.**
+* **Aktif Görev:** Dizin Göçü Adım 11 Kabul Edildi (İki Extern Ağacının Kayıpsız Merkezî Göçü — 3/3 SUCCESS, 1.923 assertion).
+* **Mevcut Durum:** **STEP 11 FULLY ACCEPTED (CI Run: 38321904900, Commit: cd9d2937). All 3 FreeBSD jobs PASS. Ready for Step 12.**
 
 ---
 
