@@ -385,24 +385,29 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `.github/workflows/freebsd-gcc-test.yml`: Kullanıcı direktifine uygun olarak `sparse-checkout` sınırlaması tamamen kaldırıldı; FreeBSD CI ortamında tek kaynak mimarisine uygun eksiksiz Git ağacı (Windows, FreeBSD ve Extern) sağlandı. `server/src/libthecore/**` tetikleyici yollara eklendi.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
+  * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 3 `libthecore` Göçü - Run ID: 38309868821, Commit: `6fa29338`):**
+    * **MariaDB 11.4 LTS (Job ID: 115012683427):** SUCCESS (4m 3s) — Tam Git ağacı (34.994 dosya sparse-checkout olmadan) çekildi, `server/src/libthecore` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **MariaDB 12.3 LTS (Job ID: 115012683094):** SUCCESS (4m 40s) — Tam Git ağacı (34.994 dosya) çekildi, `server/src/libthecore` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **MySQL 8.4 LTS (Job ID: 115012683264):** SUCCESS (4m 32s) — Tam Git ağacı (34.994 dosya) çekildi, `server/src/libthecore` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **Sonuç:** `libthecore` göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. `sparse-checkout` sınırlaması güvenle kaldırılmış ve tüm repoyu barındıran CI iş akışı %100 başarıyla doğrulanmıştır.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 3 (`libthecore` -> `server/src/libthecore`) Git Senkronizasyonu ve FreeBSD CI İzleme — Değişikliklerin `origin dev/windows-gcc-baseline` dalına commit/push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının tamamlanana kadar izlenmesi.
-* **Mevcut Durum:** **TESTED LOCALLY (528/528 PASS) — PUSH & CI WATCH IN PROGRESS**.
+* **Aktif Görev:** Dizin Göçü Adım 3 Tamamlandı ve Kabul Edildi — Bir sonraki modül olan `libsql` taşıması (Adım 4) için kaynak bağımlılıklarının ve include yollarının hazırlanması.
+* **Mevcut Durum:** **STEP 3 VERIFIED & ACCEPTED (Local: 528/528 PASS, FreeBSD CI: 1,923/1,923 PASS across 3 engines)**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 3 commit ve push işlemi:
-  1. `git add -A` ile ilgili tüm değişikliklerin sahnelenmesi.
-  2. `git commit -m "refactor(build): migrate libthecore to server/src/libthecore (Step 3 of directory migration)"`.
-  3. `git push origin dev/windows-gcc-baseline`.
-  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
-  5. `gh run watch` ile yeni CI koşusunun tamamlanmasının izlenmesi.
-  6. CI tamamlandığında Adım 4 (`libsql` göçü) adımına geçilmesi.
+* Dizin Göçü Adım 4 (`libsql` -> `server/src/libsql`):
+  1. `mt2009 - FULL SOURCE/Server Source/Server/libsql` altındaki dosyaların `git mv` ile `server/src/libsql` dizinine taşınması.
+  2. Git bütünlük denetiminin gerçekleştirilmesi (blob hash karşılaştırması).
+  3. Kademeli ve geriye uyumlu include ve Makefile yollarının güncellenmesi (`db/src`, `Server/Makefile`, test betikleri, workflow).
+  4. Yerel Windows GCC regresyon testlerinin (528/528) çalıştırılması.
+  5. Değişikliklerin commit/push edilmesi ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek doğrulanması.
 
 
 
