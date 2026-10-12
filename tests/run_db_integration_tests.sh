@@ -137,7 +137,6 @@ $CXX $FLAGS \
     -I"$SERVER_DIR/Server/common" \
     -I"$ROOT_DIR/extern/common/include" \
     -I"$ROOT_DIR/extern/server/include" \
-    -I"$SERVER_DIR/Extern/include" \
     -I/usr/local/include/mysql \
     -I/usr/local/include/mariadb \
     -I/usr/local/include \

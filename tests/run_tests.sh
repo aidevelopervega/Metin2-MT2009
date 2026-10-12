@@ -34,15 +34,16 @@ if [ -d "$ROOT_DIR/server/src/libpoly" ]; then
 else
     POLY_DIR="$SERVER_DIR/Server/libpoly"
 fi
-EXTERN_INCLUDES="-I\"$ROOT_DIR/extern/common/include\" -I\"$ROOT_DIR/extern/server/include\" -I\"$SERVER_DIR/Extern/include\""
+EXTERN_COMMON_INC="$ROOT_DIR/extern/common/include"
+EXTERN_SERVER_INC="$ROOT_DIR/extern/server/include"
 
-$CXX $FLAGS -I"$POLY_DIR" $EXTERN_INCLUDES -c "$POLY_DIR/Base.cc" -o "$BUILD_DIR/Base.o"
-$CXX $FLAGS -I"$POLY_DIR" $EXTERN_INCLUDES -c "$POLY_DIR/Symbol.cc" -o "$BUILD_DIR/Symbol.o"
-$CXX $FLAGS -I"$POLY_DIR" $EXTERN_INCLUDES -c "$POLY_DIR/SymTable.cc" -o "$BUILD_DIR/SymTable.o"
-$CXX $FLAGS -I"$POLY_DIR" $EXTERN_INCLUDES -c "$POLY_DIR/Poly.cc" -o "$BUILD_DIR/Poly.o"
+$CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Base.cc" -o "$BUILD_DIR/Base.o"
+$CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Symbol.cc" -o "$BUILD_DIR/Symbol.o"
+$CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/SymTable.cc" -o "$BUILD_DIR/SymTable.o"
+$CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Poly.cc" -o "$BUILD_DIR/Poly.o"
 $AR cru "$BUILD_DIR/libpoly.a" "$BUILD_DIR/Base.o" "$BUILD_DIR/Symbol.o" "$BUILD_DIR/SymTable.o" "$BUILD_DIR/Poly.o"
 $RANLIB "$BUILD_DIR/libpoly.a"
-$CXX $FLAGS $RPATH -I"$POLY_DIR" $EXTERN_INCLUDES "$ROOT_DIR/tests/test_libpoly.cpp" "$BUILD_DIR/libpoly.a" -o "$BUILD_DIR/test_libpoly"
+$CXX $FLAGS $RPATH -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libpoly.cpp" "$BUILD_DIR/libpoly.a" -o "$BUILD_DIR/test_libpoly"
 "$BUILD_DIR/test_libpoly"
 
 # 2. libthecore
@@ -58,17 +59,15 @@ else
     COMMON_DIR="$SERVER_DIR/Server/common"
 fi
 
-CORE_INCLUDES="-I\"$CORE_DIR/include\" -I\"$COMMON_DIR\" $EXTERN_INCLUDES"
-
 for src in DES_table.c buffer.c des.c fdwatch.c gost.c hangul.c heart.c kstbl.c log.c main.c memcpy.c signal.c socket.c tea.c utils.c; do
     obj_name=$(basename "$src" .c)
-    $CXX $FLAGS -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES -c "$CORE_DIR/src/$src" -o "$BUILD_DIR/core_${obj_name}.o"
+    $CXX $FLAGS -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$CORE_DIR/src/$src" -o "$BUILD_DIR/core_${obj_name}.o"
 done
 
 $AR cru "$BUILD_DIR/libthecore.a" "$BUILD_DIR"/core_*.o
 $RANLIB "$BUILD_DIR/libthecore.a"
 
-$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES "$ROOT_DIR/tests/test_libthecore.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libthecore"
+$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libthecore.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libthecore"
 "$BUILD_DIR/test_libthecore"
 
 # 3. libgame (Gercek libthecore.a ile bagli)
@@ -79,12 +78,12 @@ else
     GAME_DIR="$SERVER_DIR/Server/libgame"
 fi
 
-$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
-$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"
-$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES -c "$GAME_DIR/src/targa.cc" -o "$BUILD_DIR/game_targa.o"
+$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
+$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"
+$CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/targa.cc" -o "$BUILD_DIR/game_targa.o"
 $AR cru "$BUILD_DIR/libgame.a" "$BUILD_DIR/game_grid.o" "$BUILD_DIR/game_attribute.o" "$BUILD_DIR/game_targa.o"
 $RANLIB "$BUILD_DIR/libgame.a"
-$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
+$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
 "$BUILD_DIR/test_libgame"
 
 # 4. libsql
@@ -97,18 +96,18 @@ fi
 
 for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
     obj_name=$(basename "$src" .cpp)
-    $CXX $FLAGS -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES -c "$SQL_DIR/$src" -o "$BUILD_DIR/sql_${obj_name}.o"
+    $CXX $FLAGS -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -c "$SQL_DIR/$src" -o "$BUILD_DIR/sql_${obj_name}.o"
 done
 
 $AR cru "$BUILD_DIR/libsql.a" "$BUILD_DIR"/sql_*.o
 $RANLIB "$BUILD_DIR/libsql.a"
 
-$CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" $EXTERN_INCLUDES "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
+$CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
 "$BUILD_DIR/test_libsql"
 
 # 5. db cache
 echo "[5/5] db cache ve veri guvenligi testleri derleniyor ve test ediliyor..."
-$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" $EXTERN_INCLUDES "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
+$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
 "$BUILD_DIR/test_db_cache"
 
 echo "=== [BASARILI] TUM MODUL VE REGRESYON TESTLERI GECTI! ==="
