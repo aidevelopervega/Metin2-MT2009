@@ -393,21 +393,39 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ---
 
+  * **Dizin Göçü Adım 4: `libsql` -> `server/src/libsql` (Kayıpsız ve Korumalı Taşıma):**
+    * `mt2009 - FULL SOURCE/Server Source/Server/libsql` dizini altındaki 14 dosyanın tamamı (`AsyncSQL.cpp`, `AsyncSQL.h`, `Depend`, `Makefile`, `Semaphore.cpp`, `Semaphore.h`, `Statement.cpp`, `Statement.h`, `Tellwait.cpp`, `Tellwait.h`, `libsql.h`, `libsql.vcxproj`, `libsql.vcxproj.filters`, `stdafx.h`) `git mv` ile `server/src/libsql` konumuna taşındı.
+    * **Git Bütünlük Denetimi:** 13 dosya %100 saf yeniden adlandırma (pure rename, SHA değişmedi); yalnızca 1 dosya (`server/src/libsql/Makefile`) yeni göç konumundan `Extern/include` ve MySQL/MariaDB yollarını destekleyecek şekilde güncellendi.
+    * **SQL Güvenliği ve Protokol Korunumu:** `AsyncSQL.cpp` ve `AsyncSQL.h` içerisindeki SQL kaçış güvenliği, `mysql_real_escape_string_quote`, `NO_BACKSLASH_ESCAPES` ve fail-closed davranışları aynen korundu, hiçbir işlevsel değişiklik yapılmadı.
+    * Kademeli ve geriye uyumlu include ve arama yolları kuruldu:
+      * `server/src/libsql/Makefile`: `INCDIR` yolları `../libthecore/include`, `Extern/include`, MySQL/MariaDB başlıkları ile güncellendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/Makefile`: `quick`, `libsql`, `clean`, `all` hedefleri her iki konumu da destekleyecek şekilde güncellendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/libsql` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/DBManager.h` ve `GuildManager.h`: Taşınabilir `#if __has_include` ile `AsyncSQL.h` ve `libsql.h` başlıkları korundu.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/libsql` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/db.h` ve `log.h`: Taşınabilir `#if __has_include` ile `AsyncSQL.h` başlığı korundu.
+      * `tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`, `tests/run_live_tests.ps1`, `tests/run_live_tests.sh`: `server/src/libsql` desteği eklendi.
+      * `.github/workflows/freebsd-gcc-test.yml`: `server/src/libsql/**` tetikleyici yollara eklendi.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı. `game/src` sözdizimi denetimi (`-fsyntax-only`) 0 hata ile doğrulandı.
+
+---
+
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 3 Tamamlandı ve Kabul Edildi — Bir sonraki modül olan `libsql` taşıması (Adım 4) için kaynak bağımlılıklarının ve include yollarının hazırlanması.
-* **Mevcut Durum:** **STEP 3 VERIFIED & ACCEPTED (Local: 528/528 PASS, FreeBSD CI: 1,923/1,923 PASS across 3 engines)**.
+* **Aktif Görev:** Dizin Göçü Adım 4 (`libsql` -> `server/src/libsql`) Git Senkronizasyonu ve FreeBSD CI İzleme — Değişikliklerin `origin dev/windows-gcc-baseline` dalına tek commit halinde push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının tamamlanana kadar izlenmesi.
+* **Mevcut Durum:** **TESTED LOCALLY (528/528 PASS) — PUSH & CI WATCH IN PROGRESS**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 4 (`libsql` -> `server/src/libsql`):
-  1. `mt2009 - FULL SOURCE/Server Source/Server/libsql` altındaki dosyaların `git mv` ile `server/src/libsql` dizinine taşınması.
-  2. Git bütünlük denetiminin gerçekleştirilmesi (blob hash karşılaştırması).
-  3. Kademeli ve geriye uyumlu include ve Makefile yollarının güncellenmesi (`db/src`, `Server/Makefile`, test betikleri, workflow).
-  4. Yerel Windows GCC regresyon testlerinin (528/528) çalıştırılması.
-  5. Değişikliklerin commit/push edilmesi ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek doğrulanması.
+* Dizin Göçü Adım 4 commit ve push işlemi:
+  1. `git add -A` ile tüm değişikliklerin sahnelenmesi.
+  2. `git commit -m "refactor(build): migrate libsql to server/src/libsql (Step 4 of directory migration)"`.
+  3. `git push origin dev/windows-gcc-baseline`.
+  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
+  5. `gh run watch` ile yeni CI koşusunun tamamlanmasının izlenmesi.
+  6. CI tamamlandığında Adım 5 (`common` veya `db` göçü) adımına geçilmesi.
 
 
 

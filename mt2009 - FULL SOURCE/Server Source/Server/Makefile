@@ -14,7 +14,7 @@ default: liblua libsql libgame libpoly libthecore game db
 
 quick: .
 	$(MAKE) -C liblua/5.0
-	$(MAKE) -C libsql
+	@if [ -d "libsql" ]; then $(MAKE) -C libsql; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql; fi
 	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src; fi
 	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly; fi
 	@if [ -d "libthecore" ]; then $(MAKE) -C libthecore/src; elif [ -d "../../../server/src/libthecore" ]; then $(MAKE) -C ../../../server/src/libthecore/src; fi
@@ -30,10 +30,8 @@ liblua: .
 	$(MAKE) -C $@/5.0
 
 libsql: .
-	@touch $@/Depend
-	$(MAKE) -C $@ dep
-	$(MAKE) -C $@ clean
-	$(MAKE) -C $@
+	@if [ -d "$@" ]; then touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@; \
+	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/Depend && $(MAKE) -C ../../../server/src/$@ dep && $(MAKE) -C ../../../server/src/$@ clean && $(MAKE) -C ../../../server/src/$@; fi
 
 libgame: .
 	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src; \
@@ -79,7 +77,7 @@ strip:
 
 clean:
 	$(MAKE) -C liblua/5.0 clean
-	$(MAKE) -C libsql clean
+	@if [ -d "libsql" ]; then $(MAKE) -C libsql clean; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql clean; fi
 	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src clean; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src clean; fi
 	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly clean; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly clean; fi
 	@if [ -d "libthecore" ]; then $(MAKE) -C libthecore/src clean; elif [ -d "../../../server/src/libthecore" ]; then $(MAKE) -C ../../../server/src/libthecore/src clean; fi
@@ -104,10 +102,8 @@ all:
 	# $(MAKE) -C liblua/5.2 freebsd
 	# $(MAKE) -C liblua/5.2 local
 
-	@touch libsql/Depend
-	$(MAKE) -C libsql dep
-	$(MAKE) -C libsql clean
-	$(MAKE) -C libsql
+	@if [ -d "libsql" ]; then touch libsql/Depend && $(MAKE) -C libsql dep && $(MAKE) -C libsql clean && $(MAKE) -C libsql; \
+	elif [ -d "../../../server/src/libsql" ]; then touch ../../../server/src/libsql/Depend && $(MAKE) -C ../../../server/src/libsql dep && $(MAKE) -C ../../../server/src/libsql clean && $(MAKE) -C ../../../server/src/libsql; fi
 
 	@if [ -d "libgame" ]; then touch libgame/src/Depend && $(MAKE) -C libgame/src dep && $(MAKE) -C libgame/src clean && $(MAKE) -C libgame/src; \
 	elif [ -d "../../../server/src/libgame" ]; then touch ../../../server/src/libgame/src/Depend && $(MAKE) -C ../../../server/src/libgame/src dep && $(MAKE) -C ../../../server/src/libgame/src clean && $(MAKE) -C ../../../server/src/libgame/src; fi

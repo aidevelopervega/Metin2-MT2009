@@ -37,7 +37,11 @@ if [ -d "/usr/local/lib/gcc14" ]; then
     RPATH="-Wl,-rpath=/usr/local/lib/gcc14"
 fi
 
-SQL_DIR="$SERVER_DIR/Server/libsql"
+if [ -d "$ROOT_DIR/server/src/libsql" ]; then
+    SQL_DIR="$ROOT_DIR/server/src/libsql"
+else
+    SQL_DIR="$SERVER_DIR/Server/libsql"
+fi
 if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
     CORE_DIR="$ROOT_DIR/server/src/libthecore"
 else

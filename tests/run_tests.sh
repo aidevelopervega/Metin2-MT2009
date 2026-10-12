@@ -85,7 +85,11 @@ $CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -
 
 # 4. libsql
 echo "[4/4] libsql derleniyor ve test ediliyor..."
-SQL_DIR="$SERVER_DIR/Server/libsql"
+if [ -d "$ROOT_DIR/server/src/libsql" ]; then
+    SQL_DIR="$ROOT_DIR/server/src/libsql"
+else
+    SQL_DIR="$SERVER_DIR/Server/libsql"
+fi
 
 for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
     obj_name=$(basename "$src" .cpp)

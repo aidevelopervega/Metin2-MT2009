@@ -62,9 +62,10 @@ INCDIR += -I../../../Extern/include
 INCDIR += -I../../../../server/src/libpoly -I../../libpoly
 INCDIR += -I../../../../server/src/libgame/include -I../../libgame/include
 INCDIR += -I../../../../server/src/libthecore/include -I../../libthecore/include
+INCDIR += -I../../../../server/src/libsql -I../../libsql
 LIBDIR += -L../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../../../server/src/libthecore/lib -L../../libsql -L../../libpoly -L../../../../server/src/libpoly -L../../libgame/lib -L../../../../server/src/libgame/lib -L../../../../../tests/build -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../../../server/src/libthecore/lib -L../../../../server/src/libsql -L../../libsql -L../../libpoly -L../../../../server/src/libpoly -L../../libgame/lib -L../../../../server/src/libgame/lib -L../../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL

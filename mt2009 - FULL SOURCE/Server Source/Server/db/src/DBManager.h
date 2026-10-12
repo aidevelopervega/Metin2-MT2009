@@ -4,7 +4,13 @@
 
 #include <mysql/mysql.h>
 
+#if __has_include("../../../../server/src/libsql/AsyncSQL.h")
+#include "../../../../server/src/libsql/AsyncSQL.h"
+#elif __has_include("../../libsql/AsyncSQL.h")
 #include "../../libsql/AsyncSQL.h"
+#else
+#include <AsyncSQL.h>
+#endif
 #include <memory>
 
 #define SQL_SAFE_LENGTH(size)	(size * 2 + 1)

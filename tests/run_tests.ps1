@@ -182,7 +182,7 @@ try {
     # 4. LIBSQL DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[4/4] libsql derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $SqlDir = "$ServerDir\Server\libsql"
+    $SqlDir = if (Test-Path "$RootDir\server\src\libsql") { "$RootDir\server\src\libsql" } else { "$ServerDir\Server\libsql" }
 
     $SqlIncludes = @(
         "-I$SqlDir",

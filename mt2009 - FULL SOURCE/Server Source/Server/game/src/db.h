@@ -1,7 +1,13 @@
 #ifndef __INC_METIN_II_DB_MANAGER_H__
 #define __INC_METIN_II_DB_MANAGER_H__
 
+#if __has_include("../../../../server/src/libsql/AsyncSQL.h")
+#include "../../../../server/src/libsql/AsyncSQL.h"
+#elif __has_include("../../libsql/AsyncSQL.h")
 #include "../../libsql/AsyncSQL.h"
+#else
+#include <AsyncSQL.h>
+#endif
 #include "any_function.h"
 #include <memory>
 

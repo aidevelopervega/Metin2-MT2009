@@ -5,7 +5,13 @@
 #include "Peer.h"
 #include <queue>
 #include <utility>
+#if __has_include("../../../../server/src/libsql/libsql.h")
+#include "../../../../server/src/libsql/libsql.h"
+#elif __has_include("../../libsql/libsql.h")
 #include "../../libsql/libsql.h"
+#else
+#include <libsql.h>
+#endif
 #if __has_include(<Poly.h>)
 #include <Poly.h>
 #elif __has_include("../../../../server/src/libpoly/Poly.h")

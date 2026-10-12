@@ -123,6 +123,7 @@ $CXX $FLAGS \
     -I"$DB_SRC_DIR" \
     -I"$ROOT_DIR/server/src/libthecore/include" \
     -I"$SERVER_DIR/Server/libthecore/include" \
+    -I"$ROOT_DIR/server/src/libsql" \
     -I"$SERVER_DIR/Server/libsql" \
     -I"$ROOT_DIR/server/src/libgame/include" \
     -I"$SERVER_DIR/Server/libgame/include" \
