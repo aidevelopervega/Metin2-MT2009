@@ -1,6 +1,12 @@
 #include "stdafx.h"
 #include "FileMonitor_FreeBSD.h"
+#if __has_include("../../../../server/src/libthecore/include/log.h")
+#include "../../../../server/src/libthecore/include/log.h"
+#elif __has_include("../../libthecore/include/log.h")
 #include "../../libthecore/include/log.h"
+#else
+#include <log.h>
+#endif
 
 #define INVALID_KERNEL_EVENT	-1
 

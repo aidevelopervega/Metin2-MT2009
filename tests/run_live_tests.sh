@@ -38,7 +38,11 @@ if [ -d "/usr/local/lib/gcc14" ]; then
 fi
 
 SQL_DIR="$SERVER_DIR/Server/libsql"
-CORE_DIR="$SERVER_DIR/Server/libthecore"
+if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
+    CORE_DIR="$ROOT_DIR/server/src/libthecore"
+else
+    CORE_DIR="$SERVER_DIR/Server/libthecore"
+fi
 COMMON_DIR="$SERVER_DIR/Server/common"
 EXTERN_DIR="$SERVER_DIR/Extern"
 

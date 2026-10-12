@@ -3,7 +3,13 @@
 #include "../../common/stl.h"
 
 #ifndef __FreeBSD__
+#if __has_include("../../../../server/src/libthecore/include/xdirent.h")
+#include "../../../../server/src/libthecore/include/xdirent.h"
+#elif __has_include("../../libthecore/include/xdirent.h")
 #include "../../libthecore/include/xdirent.h"
+#else
+#include <xdirent.h>
+#endif
 #endif
 
 CClientPackageCryptInfo::CClientPackageCryptInfo() : m_nCryptKeyPackageCnt(0), m_pSerializedCryptKeyStream(NULL)

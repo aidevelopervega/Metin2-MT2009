@@ -93,7 +93,7 @@ try {
     # 2. LIBTHECORE DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[2/3] libthecore derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $CoreDir = "$ServerDir\Server\libthecore"
+    $CoreDir = if (Test-Path "$RootDir\server\src\libthecore") { "$RootDir\server\src\libthecore" } else { "$ServerDir\Server\libthecore" }
     $CommonDir = "$ServerDir\Server\common"
 
     $CoreIncludes = @(

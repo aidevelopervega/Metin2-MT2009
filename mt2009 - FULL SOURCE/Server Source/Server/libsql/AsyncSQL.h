@@ -1,8 +1,21 @@
 #ifndef __INC_METIN_II_ASYNCSQL_H__
 #define __INC_METIN_II_ASYNCSQL_H__
 
+#if __has_include("../../../../server/src/libthecore/include/stdafx.h")
+#include "../../../../server/src/libthecore/include/stdafx.h"
+#elif __has_include("../libthecore/include/stdafx.h")
 #include "../libthecore/include/stdafx.h"
+#else
+#include <stdafx.h>
+#endif
+
+#if __has_include("../../../../server/src/libthecore/include/log.h")
+#include "../../../../server/src/libthecore/include/log.h"
+#elif __has_include("../libthecore/include/log.h")
 #include "../libthecore/include/log.h"
+#else
+#include <log.h>
+#endif
 
 #include <string>
 #include <queue>

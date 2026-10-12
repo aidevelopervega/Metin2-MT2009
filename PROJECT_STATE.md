@@ -361,38 +361,48 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **MySQL 8.4 LTS (Job ID: 114599103427):** SUCCESS — `server/src/libpoly` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS).
     * **Sonuç:** `libpoly` göçü üç motorda 1.923 assertion ile resmen kabul edildi.
 
-  * **Dizin Göçü Adım 2: `libgame` -> `server/src/libgame` (Kayıpsız ve Korumalı Taşıma):**
-    * `mt2009 - FULL SOURCE/Server Source/Server/libgame` dizini altındaki 10 dosyanın tamamı (`attribute.h`, `grid.h`, `targa.h`, `libgame.vcxproj`, `libgame.vcxproj.filters`, `src/Depend`, `src/Makefile`, `src/attribute.cc`, `src/grid.cc`, `src/targa.cc`) `git mv` ile `server/src/libgame` konumuna taşındı.
-    * Taşıma öncesi ve sonrası Git blob nesne SHA'ları 10 dosyanın tamamında %100 birebir doğrulandı.
+  * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 2 `libgame` Göçü - Run ID: 38307182004, Commit: `569d64f8`):**
+    * **MariaDB 11.4 LTS (Job ID: 114881023259):** SUCCESS (3m 42s) — `server/src/libgame` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS).
+    * **MariaDB 12.3 LTS (Job ID: 114881023276):** SUCCESS (4m 21s) — `server/src/libgame` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS).
+    * **MySQL 8.4 LTS (Job ID: 114881023169):** SUCCESS (4m 23s) — `server/src/libgame` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS).
+    * **Sonuç:** `libgame` göçü üç motorda 1.923 assertion ile resmen kabul edildi.
+    * **game/src Derleme Durumu (Şeffaf Değerlendirme):**
+      * Adım 2 sırasında `include` başlıkları güncellenen 10 `game/src` dosyası (`char.cpp`, `char_shop.cpp`, `exchange.cpp`, `safebox.cpp`, `sectree.cpp`, `sectree_manager.cpp`, `shop.cpp`, `shopEx.cpp`, `shop_manager.cpp`, `shutdown_manager.cpp`) ile Adım 3 dosyaları (`ClientPackageCryptInfo.cpp`, `cmd_general.cpp`) GCC `-fsyntax-only` sözdizimi denetiminden başarıyla geçmiştir (%100 OK).
+      * Ancak tam `game` sunucu ikilisinin derlenmesi ve bağlanması (linking) **NOT_VERIFIED** olarak kaydedilmiştir; zira Aşama 8 (`game` modernizasyonu ve tam build) henüz aktif değildir ve `game` ikilisi `liblua.a`, `libthecore.a`, `libcryptopp` ve `libIL` kütüphanelerinin modern derlemesini gerektirmektedir. DB testleri tam game derlemesi yerine konulamaz.
+
+  * **Dizin Göçü Adım 3: `libthecore` -> `server/src/libthecore` (Kayıpsız ve Korumalı Taşıma):**
+    * `mt2009 - FULL SOURCE/Server Source/Server/libthecore` dizini altındaki 39 dosyanın tamamı `git mv` ile `server/src/libthecore` konumuna taşındı.
+    * **Git Bütünlük Denetimi:** 38 dosya %100 saf yeniden adlandırma (pure rename, SHA değişmedi); yalnızca 1 dosya (`src/Makefile`) kök Extern include yollarını destekleyecek şekilde güncellendi.
     * Kademeli ve geriye uyumlu include ve arama yolları kuruldu:
-      * `server/src/libgame/src/attribute.cc`, `grid.cc`, `targa.cc`: `stdafx.h`, `memcpy.h` ve `stl.h` için taşınabilir include yapısı tanımlandı.
-      * `server/src/libgame/src/Makefile`: `thecore`, `common` ve `Extern` include yolları eklendi.
-      * `tests/run_tests.ps1` ve `tests/run_tests.sh`: `server/src/libgame` önceliği ve eski yol geri dönüşü eklendi.
-      * `tests/run_db_integration_tests.ps1` ve `tests/run_db_integration_tests.sh`: Include bayraklarına `server/src/libgame/include` eklendi.
-      * `db/src/Makefile` ve `game/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/libgame` eklendi.
-      * `ClientManager.cpp`, `char.cpp`, `char_shop.cpp`, `exchange.cpp`, `safebox.cpp`, `sectree.cpp`, `sectree_manager.cpp`, `shop.cpp`, `shopEx.cpp`, `shop_manager.cpp`, `shutdown_manager.cpp`: `grid.h`, `attribute.h`, `targa.h` başlıkları için `#if __has_include` ile kademeli arama kuruldu.
-      * `Server/Makefile`: `quick`, `libgame`, `clean` ve `all` hedefleri her iki konumu da destekleyecek şekilde güncellendi.
-      * `.github/workflows/freebsd-gcc-test.yml`: `paths` ve `sparse-checkout` bloklarına `server/src/libgame/**` eklendi.
+      * `server/src/libthecore/src/Makefile`: `Extern/include` yolları eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/Makefile`: `quick`, `libthecore`, `clean`, `all` hedefleri güncellendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/libthecore` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/db/src/stdafx.h` ve `Monarch.h`: Taşınabilir `#if __has_include` ile `libthecore` başlıkları korundu.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/libthecore` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/stdafx.h`, `ClientPackageCryptInfo.cpp`, `cmd_general.cpp`, `FileMonitor_FreeBSD.cpp`: Taşınabilir include yapısı kuruldu.
+      * `mt2009 - FULL SOURCE/Server Source/Server/libsql/Makefile`, `stdafx.h`, `AsyncSQL.h`: `server/src/libthecore` başlıkları tam entegre edildi.
+      * `tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`, `tests/run_live_tests.ps1`, `tests/run_live_tests.sh`: `server/src/libthecore` desteği eklendi.
+      * `.github/workflows/freebsd-gcc-test.yml`: Kullanıcı direktifine uygun olarak `sparse-checkout` sınırlaması tamamen kaldırıldı; FreeBSD CI ortamında tek kaynak mimarisine uygun eksiksiz Git ağacı (Windows, FreeBSD ve Extern) sağlandı. `server/src/libthecore/**` tetikleyici yollara eklendi.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 2 (`libgame` -> `server/src/libgame`) Git Senkronizasyonu ve FreeBSD CI İzleme — Taşıma ve yapılandırma değişikliklerinin `origin dev/windows-gcc-baseline` dalına commit/push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının tamamlanana kadar izlenmesi.
+* **Aktif Görev:** Dizin Göçü Adım 3 (`libthecore` -> `server/src/libthecore`) Git Senkronizasyonu ve FreeBSD CI İzleme — Değişikliklerin `origin dev/windows-gcc-baseline` dalına commit/push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının tamamlanana kadar izlenmesi.
 * **Mevcut Durum:** **TESTED LOCALLY (528/528 PASS) — PUSH & CI WATCH IN PROGRESS**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 2 commit ve push işlemi:
-  1. `git add` ile ilgili dosyaların eklenmesi (`server/src/libgame`, test betikleri, Makefile'lar, başlıklar, workflow, `PROJECT_STATE.md`).
-  2. `git commit -m "refactor(build): migrate libgame to server/src/libgame (Step 2 of directory migration)"`.
+* Dizin Göçü Adım 3 commit ve push işlemi:
+  1. `git add -A` ile ilgili tüm değişikliklerin sahnelenmesi.
+  2. `git commit -m "refactor(build): migrate libthecore to server/src/libthecore (Step 3 of directory migration)"`.
   3. `git push origin dev/windows-gcc-baseline`.
   4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
-  5. `gh run watch` veya periyodik durum incelemesi ile CI koşusunun tamamlanmasının izlenmesi.
-  6. CI tamamlandığında Adım 3 (`libthecore` veya `libsql` göçü) adımına geçilmesi.
+  5. `gh run watch` ile yeni CI koşusunun tamamlanmasının izlenmesi.
+  6. CI tamamlandığında Adım 4 (`libsql` göçü) adımına geçilmesi.
 
 
 

@@ -2,7 +2,13 @@
 #ifdef __FreeBSD__
 #include <md5.h>
 #else
+#if __has_include("../../../../server/src/libthecore/include/xmd5.h")
+#include "../../../../server/src/libthecore/include/xmd5.h"
+#elif __has_include("../../libthecore/include/xmd5.h")
 #include "../../libthecore/include/xmd5.h"
+#else
+#include <xmd5.h>
+#endif
 #endif
 
 #include "utils.h"

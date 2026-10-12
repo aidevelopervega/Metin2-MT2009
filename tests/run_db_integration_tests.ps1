@@ -39,6 +39,7 @@ try {
 
     $IncDirs = @(
         "-I$DbSrcDir",
+        "-I$RootDir\server\src\libthecore\include",
         "-I$ServerDir\Server\libthecore\include",
         "-I$ServerDir\Server\libsql",
         "-I$RootDir\server\src\libpoly",

@@ -18,7 +18,7 @@ $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
 $BuildDir = "$RootDir\tests\build"
 $ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
 $SqlDir = "$ServerDir\Server\libsql"
-$CoreDir = "$ServerDir\Server\libthecore"
+$CoreDir = if (Test-Path "$RootDir\server\src\libthecore") { "$RootDir\server\src\libthecore" } else { "$ServerDir\Server\libthecore" }
 $CommonDir = "$ServerDir\Server\common"
 $ExternDir = "$ServerDir\Extern"
 

@@ -23,6 +23,7 @@ tests/build/
 scratch/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü
+server/src/libthecore/src/tea.s
 mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
 
 # --- Visual Studio & IDE Önbellek Dosyaları ---

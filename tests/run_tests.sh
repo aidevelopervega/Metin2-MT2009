@@ -47,7 +47,11 @@ $CXX $FLAGS $RPATH -I"$POLY_DIR" -I"$EXTERN_DIR/include" "$ROOT_DIR/tests/test_l
 
 # 2. libthecore
 echo "[2/3] libthecore derleniyor ve test ediliyor..."
-CORE_DIR="$SERVER_DIR/Server/libthecore"
+if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
+    CORE_DIR="$ROOT_DIR/server/src/libthecore"
+else
+    CORE_DIR="$SERVER_DIR/Server/libthecore"
+fi
 COMMON_DIR="$SERVER_DIR/Server/common"
 
 CORE_INCLUDES="-I\"$CORE_DIR/include\" -I\"$COMMON_DIR\" -I\"$EXTERN_DIR/include\""

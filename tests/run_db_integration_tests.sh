@@ -121,6 +121,7 @@ echo "test_db_cache_integration derleniyor ve bağlanıyor..."
 # eval KULLANILMAZ: Her yol doğrudan çift tırnakla korunur
 $CXX $FLAGS \
     -I"$DB_SRC_DIR" \
+    -I"$ROOT_DIR/server/src/libthecore/include" \
     -I"$SERVER_DIR/Server/libthecore/include" \
     -I"$SERVER_DIR/Server/libsql" \
     -I"$ROOT_DIR/server/src/libgame/include" \

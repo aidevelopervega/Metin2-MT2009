@@ -114,9 +114,10 @@ INCDIR += -I../../../Extern/include
 INCDIR += -I/usr/local/include
 INCDIR += -I../../../../server/src/libpoly -I../../libpoly
 INCDIR += -I../../../../server/src/libgame/include -I../../libgame/include
+INCDIR += -I../../../../server/src/libthecore/include -I../../libthecore/include
 LIBDIR += -L/usr/local/lib
 
-LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../../../server/src/libpoly -L../../libsql -L../../libgame/lib -L../../../../server/src/libgame/lib
+LIBDIR += -L../../../../server/src/libthecore/lib -L../../libthecore/lib -L../../libpoly -L../../../../server/src/libpoly -L../../libsql -L../../libgame/lib -L../../../../server/src/libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame
 
 # AUTO_DETECT_SOURCE_FILES BEGIN

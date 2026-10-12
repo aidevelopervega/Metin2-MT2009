@@ -2,7 +2,7 @@ CXX ?= g++
 
 BIN     = ./libsql.a
 
-INCDIR  = -I../../Extern/include -I../libthecore/include -I/usr/local/include/mysql -I/usr/local/include
+INCDIR  = -I../../Extern/include -I../../../server/src/libthecore/include -I../libthecore/include -I/usr/local/include/mysql -I/usr/local/include
 CFLAGS  = $(INCDIR) -Wall -Wextra -O2 -pipe -D_THREAD_SAFE -fno-exceptions -fno-rtti -std=c++20
 
 LIBS =
