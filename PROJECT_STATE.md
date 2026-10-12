@@ -490,22 +490,30 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `mt2009 - FULL SOURCE/Source/Source Client` dizini altındaki 692 dosyanın tamamı (`UserInterface/`, `EterLib/`, `GameLib/`, `EterBase/`, `EffectLib/`, `EterGrnLib/`, `MilesLib/`, `SpeedTreeLib/`, `EterPythonLib/`, `EterPack/`, `ScriptLib/`, `EterLocale/`, `SphereLib/`, `EterImageLib/`, `PRTerrainLib/`, `CWebBrowser/`, `Metin2Client.sln`) `git mv` ile depo kök dizinindeki `client/src/` konumuna taşındı.
     * **Git Bütünlük Denetimi:** 692/692 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve dosya boyutları birebir aynı, sıfır veri kaybı).
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 10 `client/src` Göçü - Run ID: 38318301570, Commit: `de79dc20`):**
+      * **MySQL 8.4 LTS (Job ID: 115040114228):** SUCCESS (4m 16s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115040114459):** SUCCESS (4m 40s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115040114544):** SUCCESS (3m 47s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** `client/src` istemci kaynak kodları göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB cache testleri tam başarıyla doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 10 (`Source Client` -> `client/src`) yerel olarak doğrulandı. Commit ve push yapılarak GitHub Actions FreeBSD CI doğrulaması izlenecek.
-* **Mevcut Durum:** **STEP 10 LOCAL VERIFIED (Local: 528/528 PASS) — PENDING CI VERIFICATION**.
+* **Aktif Görev:** Dizin Göçü Adım 1–10 Tamamlandı ve Kabul Edildi — Sıradaki aşama olan `Extern` kütüphanelerinin modern `extern/` dizin hiyerarşisine taşınması (Step 11).
+* **Mevcut Durum:** **STEPS 1-10 FULLY VERIFIED & ACCEPTED (FreeBSD CI: 1,923/1,923 PASS across 3 engines, Local: 528/528 PASS)**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 10 CI Doğrulaması ve Adım 11 (Extern kütüphanelerinin `extern/` altına yapılandırılması):
-  1. Adım 10 değişikliklerinin commit ve push edilmesi.
-  2. GitHub Actions FreeBSD 15.1 CI iş akışının (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) izlenmesi ve kabul edilmesi.
-  3. CI kabulünün ardından `docs/migration/06_path_migration_map.csv` doğrultusunda sıradaki bileşenlerin taşınması.
+* Dizin Göçü Adım 11 (`Extern` dizinlerinin `extern/` yapısına taşınması):
+  1. `docs/migration/06_path_migration_map.csv` uyarınca `mt2009 - FULL SOURCE/Server Source/Extern` ve `mt2009 - FULL SOURCE/Source/Extern` modüllerinin incelenmesi.
+  2. Ortak başlıkların (`boost`, `rapidjson`, `fmt`, `msl` vb.) `extern/common` konumuna taşınması.
+  3. Sunucuya özel harici bağımlılıkların (`cryptopp`, `IL`, `mysql`) `extern/server` konumuna taşınması.
+  4. İstemciye özel harici bağımlılıkların (`directx`, `granny`, `Miles`, `SpeedTree` vb.) `extern/client` konumuna taşınması.
+  5. Include ve Makefile yollarının güncellenerek yerel ve CI ortamlarında doğrulanması.
+
 
 
 
