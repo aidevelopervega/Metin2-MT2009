@@ -480,20 +480,30 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * `mt2009 - FULL SOURCE/sql` dizini altındaki 6 dosyanın tamamı (`account.sql`, `common.sql`, `log.sql`, `player.sql`, `world.sql`, `GameCoreTop.txt`) `git mv` ile depo kök dizinindeki `sql/` konumuna taşındı.
     * **Git Bütünlük Denetimi:** 6/6 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve dosya boyutları birebir aynı, sıfır veri kaybı).
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 9 `sql/` Göçü - Run ID: 38317589781, Commit: `8771a166`):**
+      * **MariaDB 11.4 LTS (Job ID: 115037811138):** SUCCESS (4m 22s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MySQL 8.4 LTS (Job ID: 115037811308):** SUCCESS (4m 40s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115037811331):** SUCCESS (4m 9s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** `sql/` şema göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB cache testleri tam başarıyla doğrulandı.
+
+  * **Dizin Göçü Adım 10: `Source Client` -> `client/src` (İstemci Kaynak Kodları Taşıma):**
+    * `mt2009 - FULL SOURCE/Source/Source Client` dizini altındaki 692 dosyanın tamamı (`UserInterface/`, `EterLib/`, `GameLib/`, `EterBase/`, `EffectLib/`, `EterGrnLib/`, `MilesLib/`, `SpeedTreeLib/`, `EterPythonLib/`, `EterPack/`, `ScriptLib/`, `EterLocale/`, `SphereLib/`, `EterImageLib/`, `PRTerrainLib/`, `CWebBrowser/`, `Metin2Client.sln`) `git mv` ile depo kök dizinindeki `client/src/` konumuna taşındı.
+    * **Git Bütünlük Denetimi:** 692/692 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve dosya boyutları birebir aynı, sıfır veri kaybı).
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 9 (`sql` -> `sql`) yerel olarak doğrulandı. Commit ve push yapılarak GitHub Actions FreeBSD CI doğrulaması izlenecek.
-* **Mevcut Durum:** **STEP 9 LOCAL VERIFIED (Local: 528/528 PASS) — PENDING CI VERIFICATION**.
+* **Aktif Görev:** Dizin Göçü Adım 10 (`Source Client` -> `client/src`) yerel olarak doğrulandı. Commit ve push yapılarak GitHub Actions FreeBSD CI doğrulaması izlenecek.
+* **Mevcut Durum:** **STEP 10 LOCAL VERIFIED (Local: 528/528 PASS) — PENDING CI VERIFICATION**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 9 CI Doğrulaması ve Adım 10 (Client Source veya Server Runtime kaynaklarının göçü):
-  1. Adım 9 değişikliklerinin commit ve push edilmesi.
+* Dizin Göçü Adım 10 CI Doğrulaması ve Adım 11 (Extern kütüphanelerinin `extern/` altına yapılandırılması):
+  1. Adım 10 değişikliklerinin commit ve push edilmesi.
   2. GitHub Actions FreeBSD 15.1 CI iş akışının (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) izlenmesi ve kabul edilmesi.
   3. CI kabulünün ardından `docs/migration/06_path_migration_map.csv` doğrultusunda sıradaki bileşenlerin taşınması.
 
