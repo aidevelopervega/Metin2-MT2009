@@ -21,9 +21,7 @@ quick: .
 	touch game/src/main.cpp
 	$(MAKE) -C game/src
 	$(MAKE) -C game/src symlink
-	touch db/src/Main.cpp
-	$(MAKE) -C db/src
-	$(MAKE) -C db/src symlink
+	@if [ -d "db" ]; then touch db/src/Main.cpp && $(MAKE) -C db/src && $(MAKE) -C db/src symlink; elif [ -d "../../../server/src/db" ]; then touch ../../../server/src/db/src/Main.cpp && $(MAKE) -C ../../../server/src/db/src && $(MAKE) -C ../../../server/src/db/src symlink; fi
 
 liblua: .
 	@if [ -d "$@" ]; then $(MAKE) -C $@/5.0 clean && $(MAKE) -C $@/5.0; \
@@ -54,10 +52,8 @@ game: .
 	$(MAKE) -C $@/src symlink
 
 db: .
-	@touch $@/src/Depend
-	$(MAKE) -C $@/src dep
-	$(MAKE) -C $@/src clean
-	$(MAKE) -C $@/src
+	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src && $(MAKE) -C $@/src symlink; \
+	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/src/Depend && $(MAKE) -C ../../../server/src/$@/src dep && $(MAKE) -C ../../../server/src/$@/src clean && $(MAKE) -C ../../../server/src/$@/src && $(MAKE) -C ../../../server/src/$@/src symlink; fi
 	$(MAKE) -C $@/src symlink
 
 ver:
@@ -69,11 +65,11 @@ ver2:
 
 symlink:
 	$(MAKE) -C game/src symlink
-	$(MAKE) -C db/src symlink
+	@if [ -d "db" ]; then $(MAKE) -C db/src symlink; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src symlink; fi
 
 strip:
 	$(MAKE) -C game/src strip
-	$(MAKE) -C db/src strip
+	@if [ -d "db" ]; then $(MAKE) -C db/src strip; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src strip; fi
 
 clean:
 	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0 clean; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0 clean; fi
@@ -82,7 +78,7 @@ clean:
 	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly clean; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly clean; fi
 	@if [ -d "libthecore" ]; then $(MAKE) -C libthecore/src clean; elif [ -d "../../../server/src/libthecore" ]; then $(MAKE) -C ../../../server/src/libthecore/src clean; fi
 	$(MAKE) -C game/src clean
-	$(MAKE) -C db/src clean
+	@if [ -d "db" ]; then $(MAKE) -C db/src clean; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src clean; fi
 
 all:
 	@echo "--------------------------------------"

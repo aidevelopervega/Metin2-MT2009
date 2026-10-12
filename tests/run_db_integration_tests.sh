@@ -9,7 +9,11 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 BUILD_DIR="$ROOT_DIR/tests/build"
 SERVER_DIR="$ROOT_DIR/mt2009 - FULL SOURCE/Server Source"
-DB_SRC_DIR="$SERVER_DIR/Server/db/src"
+if [ -d "$ROOT_DIR/server/src/db/src" ]; then
+    DB_SRC_DIR="$ROOT_DIR/server/src/db/src"
+else
+    DB_SRC_DIR="$SERVER_DIR/Server/db/src"
+fi
 DB_OBJ_DIR="$DB_SRC_DIR/.obj"
 
 CXX=${CXX:-g++}

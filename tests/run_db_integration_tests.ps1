@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 try {
     $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
     $ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
-    $DbSrcDir = "$ServerDir\Server\db\src"
+    $DbSrcDir = if (Test-Path "$RootDir\server\src\db\src") { "$RootDir\server\src\db\src" } else { "$ServerDir\Server\db\src" }
     $BuildDir = "$RootDir\tests\build"
     $DbWinDir = "$BuildDir\db_win"
 

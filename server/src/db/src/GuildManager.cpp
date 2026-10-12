@@ -4,7 +4,13 @@
 #include "ClientManager.h"
 #include "QID.h"
 #include "Config.h"
+#if __has_include("../../game/src/locale.hpp")
 #include "../../game/src/locale.hpp"
+#elif __has_include("../../../../mt2009 - FULL SOURCE/Server Source/Server/game/src/locale.hpp")
+#include "../../../../mt2009 - FULL SOURCE/Server Source/Server/game/src/locale.hpp"
+#else
+#include <game/src/locale.hpp>
+#endif
 #include <math.h>
 
 extern std::string g_stLocale;

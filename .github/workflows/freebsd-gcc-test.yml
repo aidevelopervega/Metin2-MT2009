@@ -14,6 +14,7 @@ on:
       - 'server/src/libsql/**'
       - 'server/src/common/**'
       - 'server/src/liblua/**'
+      - 'server/src/db/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'
@@ -149,9 +150,14 @@ jobs:
 
             # 5. FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
-            gmake -C "mt2009 - FULL SOURCE/Server Source/Server/db/src" CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            ls -lh "mt2009 - FULL SOURCE/Server Source/Server/db"
-            file "mt2009 - FULL SOURCE/Server Source/Server/db"/db_r* || true
+            if [ -d "server/src/db/src" ]; then
+              DB_DIR="server/src/db"
+            else
+              DB_DIR="mt2009 - FULL SOURCE/Server Source/Server/db"
+            fi
+            gmake -C "$DB_DIR/src" CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            ls -lh "$DB_DIR"
+            file "$DB_DIR"/db_r* || true
 
             # 5.1 FreeBSD DB Cache ve ACK Entegrasyon Testi (Gerçek ClientManager ve DB nesneleri)
             echo "=== FREEBSD DB CACHE / ACK ENTEGRASYON TESTI ==="
