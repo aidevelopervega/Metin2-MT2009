@@ -13,6 +13,7 @@ on:
       - 'server/src/libthecore/**'
       - 'server/src/libsql/**'
       - 'server/src/common/**'
+      - 'server/src/liblua/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'

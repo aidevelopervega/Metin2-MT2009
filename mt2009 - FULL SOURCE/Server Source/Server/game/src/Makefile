@@ -100,12 +100,12 @@ endif
 # Lua
 CFLAGS += -DENABLE_LUA_5_VERSION=ENABLE_LUA_5_VERSION
 ifeq ($(ENABLE_LUA_5_VERSION), 2)
-INCDIR += -I../../liblua/5.2/install/include
-LIBDIR += -L../../liblua/5.2/install/lib
+INCDIR += -I../../../../../server/src/liblua/5.2/install/include -I../../../../server/src/liblua/5.2/install/include -I../../liblua/5.2/install/include
+LIBDIR += -L../../../../../server/src/liblua/5.2/install/lib -L../../../../server/src/liblua/5.2/install/lib -L../../liblua/5.2/install/lib
 LIBS += ../../liblua/5.2/install/lib/liblua.a
 else
-INCDIR += -I../../liblua/5.0/include
-LIBDIR += -L../../liblua/5.0/lib
+INCDIR += -I../../../../../server/src/liblua/5.0/include -I../../../../server/src/liblua/5.0/include -I../../liblua/5.0/include
+LIBDIR += -L../../../../../server/src/liblua/5.0/lib -L../../../../server/src/liblua/5.0/lib -L../../liblua/5.0/lib
 LIBS += ../../liblua/5.0/lib/liblua.a ../../liblua/5.0/lib/liblualib.a
 endif
 

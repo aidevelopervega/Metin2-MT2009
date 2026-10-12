@@ -13,7 +13,7 @@ default: liblua libsql libgame libpoly libthecore game db
 	@echo "--------------------------------------"
 
 quick: .
-	$(MAKE) -C liblua/5.0
+	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0; fi
 	@if [ -d "libsql" ]; then $(MAKE) -C libsql; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql; fi
 	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src; fi
 	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly; fi
@@ -26,8 +26,8 @@ quick: .
 	$(MAKE) -C db/src symlink
 
 liblua: .
-	$(MAKE) -C $@/5.0 clean
-	$(MAKE) -C $@/5.0
+	@if [ -d "$@" ]; then $(MAKE) -C $@/5.0 clean && $(MAKE) -C $@/5.0; \
+	elif [ -d "../../../server/src/$@" ]; then $(MAKE) -C ../../../server/src/$@/5.0 clean && $(MAKE) -C ../../../server/src/$@/5.0; fi
 
 libsql: .
 	@if [ -d "$@" ]; then touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@; \
@@ -76,7 +76,7 @@ strip:
 	$(MAKE) -C db/src strip
 
 clean:
-	$(MAKE) -C liblua/5.0 clean
+	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0 clean; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0 clean; fi
 	@if [ -d "libsql" ]; then $(MAKE) -C libsql clean; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql clean; fi
 	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src clean; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src clean; fi
 	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly clean; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly clean; fi
@@ -95,8 +95,7 @@ all:
 	@echo "Full Build Start"
 	@echo "--------------------------------------"
 
-	$(MAKE) -C liblua/5.0 clean
-	$(MAKE) -C liblua/5.0
+	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0 clean && $(MAKE) -C liblua/5.0; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0 clean && $(MAKE) -C ../../../server/src/liblua/5.0; fi
 
 	# $(MAKE) -C liblua/5.2 clean
 	# $(MAKE) -C liblua/5.2 freebsd

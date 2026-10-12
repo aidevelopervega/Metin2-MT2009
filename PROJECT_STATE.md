@@ -423,24 +423,38 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `mt2009 - FULL SOURCE/Server Source/Server/db/src/stdafx.h`, `DBManager.h`, `GuildManager.h`, `Monarch.h`, `ClientManager.cpp`: Taşınabilir `#if __has_include` ile 5-seviyeli kök include direktifleri eklendi.
       * `tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`, `tests/run_live_tests.ps1`, `tests/run_live_tests.sh`: `server/src/common` desteği eklendi.
       * `.github/workflows/freebsd-gcc-test.yml`: `server/src/common/**` tetikleyici yollara eklendi.
-    * **Yerel Windows Doğrulaması:** 30/30 DB C++ kaynak dosyasının tamamı GCC C++20 sözdizim denetiminden başarıyla geçti (0 hata). 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 5 `common` Göçü - Run ID: 38313793099, Commit: `88b6aa08`):**
+      * **MariaDB 12.3 LTS (Job ID: 115025498061):** SUCCESS (4m 10s) — `server/src/common` üzerinden derlendi, gerçek ELF64 `db_r41023` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MySQL 8.4 LTS (Job ID: 115025498212):** SUCCESS (4m 34s) — `server/src/common` üzerinden derlendi, gerçek ELF64 `db_r41023` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115025498337):** SUCCESS (4m 25s) — `server/src/common` üzerinden derlendi, gerçek ELF64 `db_r41023` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** `common` göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r41023` ikilisi ve tüm DB cache testleri tam başarıyla doğrulandı.
+
+  * **Dizin Göçü Adım 6: `liblua` -> `server/src/liblua` (Kayıpsız ve Korumalı Taşıma):**
+    * `mt2009 - FULL SOURCE/Server Source/Server/liblua` dizini altındaki 121 dosyanın tamamı (`5.0/`, `5.2/`, `.gitignore`) `git mv` ile `server/src/liblua` konumuna taşındı.
+    * **Git Bütünlük Denetimi:** 121/121 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve dosya boyutları birebir aynı, sıfır kod değişikliği).
+    * Kademeli ve geriye uyumlu Makefile ve include yolları kuruldu:
+      * `mt2009 - FULL SOURCE/Server Source/Server/Makefile`: `quick`, `liblua`, `clean`, `all` hedeflerinde `liblua` dizin kontrolü ve `server/src/liblua` desteği eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/Makefile`: `INCDIR` ve `LIBDIR` yollarına `server/src/liblua/5.0` ve `5.2` eklendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/game/src/quest/Makefile`: `INCLUDEDIR` yollarına `server/src/liblua` eklendi.
+      * `.github/workflows/freebsd-gcc-test.yml`: `server/src/liblua/**` tetikleyici yollara eklendi.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 5 (`common` -> `server/src/common` ve Makefile/include düzeltmeleri) — Tek commit halinde push yapılması ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek kabul edilmesi.
-* **Mevcut Durum:** **STEP 5 LOCAL VERIFIED (528/528 PASS + 30/30 DB CPP OK), PUSH & CI VERIFICATION IN PROGRESS**.
+* **Aktif Görev:** Dizin Göçü Adım 6 (`liblua` -> `server/src/liblua`) tamamlandı — Tek commit halinde push yapılması ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek kabul edilmesi.
+* **Mevcut Durum:** **STEP 6 LOCAL VERIFIED (528/528 PASS), PUSH & CI VERIFICATION IN PROGRESS**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 6:
-  1. `docs/migration/06_path_migration_map.csv` doğrultusunda sıradaki modülün (`liblua` veya `db`) bağımlılık ve include yapısının incelenmesi.
+* Dizin Göçü Adım 7:
+  1. `docs/migration/06_path_migration_map.csv` doğrultusunda sıradaki modül olan `db` (`mt2009 - FULL SOURCE/Server Source/Server/db` -> `server/src/db`) bağımlılık ve include yapısının incelenmesi.
   2. `git mv` ile kaynak dosyaların taşınması.
   3. Git bütünlük denetiminin gerçekleştirilmesi.
-  4. Include ve Makefile yollarının güncellenmesi.
+  4. Include, Makefile ve test betiklerinin güncellenmesi.
   5. Yerel Windows GCC regresyon testlerinin (528/528) çalıştırılması.
   6. Değişikliklerin commit/push edilmesi ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek doğrulanması.
 
