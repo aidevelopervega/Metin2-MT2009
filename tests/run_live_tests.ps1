@@ -19,7 +19,7 @@ $BuildDir = "$RootDir\tests\build"
 $ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
 $SqlDir = if (Test-Path "$RootDir\server\src\libsql") { "$RootDir\server\src\libsql" } else { "$ServerDir\Server\libsql" }
 $CoreDir = if (Test-Path "$RootDir\server\src\libthecore") { "$RootDir\server\src\libthecore" } else { "$ServerDir\Server\libthecore" }
-$CommonDir = "$ServerDir\Server\common"
+$CommonDir = if (Test-Path "$RootDir\server\src\common") { "$RootDir\server\src\common" } else { "$ServerDir\Server\common" }
 $ExternDir = "$ServerDir\Extern"
 
 # GCC Araçlarını Tespit Et

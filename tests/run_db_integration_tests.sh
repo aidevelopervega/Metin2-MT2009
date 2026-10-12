@@ -129,6 +129,7 @@ $CXX $FLAGS \
     -I"$SERVER_DIR/Server/libgame/include" \
     -I"$ROOT_DIR/server/src/libpoly" \
     -I"$SERVER_DIR/Server/libpoly" \
+    -I"$ROOT_DIR/server/src/common" \
     -I"$SERVER_DIR/Server/common" \
     -I"$SERVER_DIR/Extern/include" \
     -I/usr/local/include/mysql \

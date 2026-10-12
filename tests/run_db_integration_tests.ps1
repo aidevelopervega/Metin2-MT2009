@@ -49,6 +49,7 @@ try {
         "-I$RootDir\server\src\libgame\src",
         "-I$ServerDir\Server\libgame\include",
         "-I$ServerDir\Server\libgame\src",
+        "-I$RootDir\server\src\common",
         "-I$ServerDir\Server\common",
         "-I$ServerDir\Extern\include",
         "-I$ServerDir\Extern\include\boost",

@@ -47,7 +47,11 @@ if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
 else
     CORE_DIR="$SERVER_DIR/Server/libthecore"
 fi
-COMMON_DIR="$SERVER_DIR/Server/common"
+if [ -d "$ROOT_DIR/server/src/common" ]; then
+    COMMON_DIR="$ROOT_DIR/server/src/common"
+else
+    COMMON_DIR="$SERVER_DIR/Server/common"
+fi
 EXTERN_DIR="$SERVER_DIR/Extern"
 
 # Bağlayıcı Başlık ve Kütüphane Tespiti

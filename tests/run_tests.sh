@@ -52,7 +52,11 @@ if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
 else
     CORE_DIR="$SERVER_DIR/Server/libthecore"
 fi
-COMMON_DIR="$SERVER_DIR/Server/common"
+if [ -d "$ROOT_DIR/server/src/common" ]; then
+    COMMON_DIR="$ROOT_DIR/server/src/common"
+else
+    COMMON_DIR="$SERVER_DIR/Server/common"
+fi
 
 CORE_INCLUDES="-I\"$CORE_DIR/include\" -I\"$COMMON_DIR\" -I\"$EXTERN_DIR/include\""
 
