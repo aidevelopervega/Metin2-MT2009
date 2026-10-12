@@ -525,18 +525,37 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 115051692849):** SUCCESS (4m 17s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **Sonuç:** `extern/` merkezî göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
+    * **Adım 11 Kayıpsızlık Denetimi ve %100 Blob Bütünlüğü Doğrulaması:**
+      * Commit `f7a957b9` ile güncel durumdaki iki eski Extern ağacı (`Server Source/Extern` 16.354 dosya, `Source/Extern` 16.280 dosya) Git blob SHA1 ve dosya bazında tam karşılaştırıldı.
+      * Sunucu tarafındaki 16.098 özgün blob'un tamamının (%100) yeni `extern/` ağacında korunduğu doğrulandı (0 kayıp).
+      * İstemci tarafında yalnızca istemcide bulunan 3 başlık (`fmt/posix.h`, `fmt/time.h`, `msl/check_assert.h`) `extern/common/include/` altına, 3 istemci-özel varyant (`boost/.../network_v4.ipp`, `boost/.../network_v6.ipp`, `rapidjson/document.h`) `extern/client/include/` altına eklenerek 16.487 istemci blob'unun tamamı (%100) kayıpsız korundu (0 kayıp).
+      * Toplam 16.785 özgün blob'un tamamı (%100) yeni `extern/` ağacında doğrulanmıştır.
+      * `cryptlib-Debug.lib` (105.7 MB - 110.819.592 bayt) fiziksel olarak `extern/client/lib/` altında mevcuttur; önceki commit'lerde de GitHub 100 MB sınırı nedeniyle Git takibinde bulunmadığı, `.gitignore` ile korunduğu doğrulanmıştır.
+      * İstemci projesindeki 16 adet `.vcxproj` dosyasının tamamı (`UserInterface`, `EterLib`, `GameLib` vb.) yeni `../../extern/client/include`, `../../extern/common/include` ve `../../extern/client/lib` yollarına güncellendi.
+
+  * **Dizin Göçü Adım 12: Kalan Server Source Kök Dosyaları ve `client/files` Göçü:**
+    * `mt2009 - FULL SOURCE/Server Source/Server` altındaki kök yapılandırma dosyaları `git mv` ile `server/src/` konumuna taşındı:
+      * `Makefile` -> `server/src/Makefile` (Tüm alt modülleri `liblua`, `libsql`, `libgame`, `libpoly`, `libthecore`, `game`, `db` doğrudan çalıştırır)
+      * `m2server.sln` -> `server/src/m2server.sln` (8 sunucu projesinin göreli yolları `server/src/` ile birebir eşleşir)
+      * `__REVISION__` -> `server/src/__REVISION__` (41023 revizyon numarası)
+    * `mt2009 - FULL SOURCE/Source/GameCoreTop.txt` -> `server/GameCoreTop.txt` ve `mt2009 - FULL SOURCE/Server Source/GameCoreTop.txt` -> `client/GameCoreTop.txt` olarak taşındı.
+    * Boşalan eski `Server Source` ve `Source` dizin kabukları diskten temizlendi.
+    * `mt2009 - FULL SOURCE/Klient` (731.5 MB 32-bit hazır istemci çalışma paketi) disk üzerinde `client/files/` konumuna taşındı; `.gitignore` kuralı ile büyük ikili paketinin Git'i şişirmesi engellendi.
+    * `mt2009 - FULL SOURCE/new_ftp.tar.gz` (48.2 MB sunucu runtime arşivi) hassas parola ve bağlantı bilgileri içerdiği için AGENTS.md kural 6 uyarınca kontrolsüz açılmayıp güvenli şekilde muhafaza edildi.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 11 Kabul Edildi (İki Extern Ağacının Kayıpsız Merkezî Göçü — 3/3 SUCCESS, 1.923 assertion).
-* **Mevcut Durum:** **STEP 11 FULLY ACCEPTED (CI Run: 38321904900, Commit: cd9d2937). All 3 FreeBSD jobs PASS. Ready for Step 12.**
+* **Aktif Görev:** Dizin Göçü Adım 12 Tamamlandı — Kayıpsızlık %100 doğrulandı (16.785 blob), İstemci .vcxproj'ler güncellendi, Kalan Server Source dosyaları `server/src`'ye taşındı, `client/files` hazırlandı.
+* **Mevcut Durum:** **STEP 11 LOSSLESS AUDIT COMPLETE (16,785/16,785 BLOBS %100 PASS). STEP 12 MIGRATION STAGED. LOCAL TESTS: 528/528 PASS.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 12 (Kalan Server Source / common / liblua dosyalarının temizliği ve depo kökünün nihai modern yapıya kavuşturulması).
+* Sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
 
 
 

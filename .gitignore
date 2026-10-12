@@ -40,6 +40,8 @@ mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
 # --- Büyük Hazır İstemci (Binary Client) ---
 mt2009 - FULL SOURCE/Klient/
 Klient/
+client/files/
+server/files/
 
 # --- Büyük Arşiv Dosyaları ---
 *.tar.gz
