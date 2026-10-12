@@ -15,6 +15,7 @@ on:
       - 'server/src/common/**'
       - 'server/src/liblua/**'
       - 'server/src/db/**'
+      - 'server/src/game/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
       - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'

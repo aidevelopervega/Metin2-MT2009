@@ -456,22 +456,36 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `tests/run_db_integration_tests.ps1` ve `tests/run_db_integration_tests.sh`: `server/src/db/src` dizinini otomatik tespit edecek şekilde güncellendi.
       * `.github/workflows/freebsd-gcc-test.yml`: `server/src/db/**` tetikleyici yollara eklendi ve gerçek FreeBSD DB derleme adımı dinamik `DB_DIR` ile yapılandırıldı.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 7 `db` Göçü - Run ID: 38315824092, Commit: `21dcacd3`):**
+      * **MariaDB 11.4 LTS (Job ID: 115032079358):** SUCCESS (4m 8s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MySQL 8.4 LTS (Job ID: 115032079497):** SUCCESS (4m 39s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115032079599):** SUCCESS (4m 23s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** `db` göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB cache testleri tam başarıyla doğrulandı.
+
+  * **Dizin Göçü Adım 8: `game` -> `server/src/game` (Kayıpsız ve Korumalı Taşıma):**
+    * `mt2009 - FULL SOURCE/Server Source/Server/game` dizini altındaki 353 dosyanın tamamı (`src/` C++ kaynakları, başlıkları, Makefile, quest/ vb.) `git mv` ile `server/src/game` konumuna taşındı.
+    * **Git Bütünlük Denetimi:** 353/353 dosya %100 saf yeniden adlandırma (pure rename, SHA hash'leri ve dosya boyutları birebir aynı, sıfır kod kaybı).
+    * Temiz ve taşınabilir Makefile ve include yolları kuruldu:
+      * `server/src/game/src/Makefile`: `INCDIR` ve `LIBDIR` yolları `server/src` kardeş dizinleri (`../../libpoly`, `../../libgame/include`, `../../libthecore/include`, `../../libthecore/src`, `../../libsql`, `../../common`, `../../liblua/5.0/include`), ve Extern dizinleri ile güncellendi.
+      * `mt2009 - FULL SOURCE/Server Source/Server/Makefile`: `quick`, `game`, `ver2`, `symlink`, `strip`, `clean`, `all` hedefleri her iki konumu da destekleyecek şekilde güncellendi.
+      * `.github/workflows/freebsd-gcc-test.yml`: `server/src/game/**` tetikleyici yollara eklendi.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 7 (`db` -> `server/src/db`) yerel olarak doğrulandı. Commit ve push yapılarak GitHub Actions FreeBSD CI doğrulaması izlenecek.
-* **Mevcut Durum:** **STEP 7 LOCAL VERIFIED (Local: 528/528 PASS) — PENDING CI VERIFICATION**.
+* **Aktif Görev:** Dizin Göçü Adım 8 (`game` -> `server/src/game`) yerel olarak doğrulandı. Commit ve push yapılarak GitHub Actions FreeBSD CI doğrulaması izlenecek.
+* **Mevcut Durum:** **STEP 8 LOCAL VERIFIED (Local: 528/528 PASS) — PENDING CI VERIFICATION**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 7 CI Doğrulaması ve Adım 8 (`game` -> `server/src/game`):
-  1. Adım 7 değişikliklerinin commit ve push edilmesi.
+* Dizin Göçü Adım 8 CI Doğrulaması ve Adım 9 (Kalan Server/Extern kaynaklarının göçü):
+  1. Adım 8 değişikliklerinin commit ve push edilmesi.
   2. GitHub Actions FreeBSD 15.1 CI iş akışının (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) izlenmesi ve kabul edilmesi.
-  3. CI kabulünün ardından `docs/migration/06_path_migration_map.csv` doğrultusunda `game` modülünün (`mt2009 - FULL SOURCE/Server Source/Server/game` -> `server/src/game`) taşınması.
+  3. CI kabulünün ardından `docs/migration/06_path_migration_map.csv` doğrultusunda sıradaki modüllerin taşınması.
 
 
 

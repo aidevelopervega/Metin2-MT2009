@@ -1,7 +1,7 @@
 CC = clang
 CXX = clang++
 
-GAME_VERSION := $(shell cat ../../__REVISION__)
+GAME_VERSION := $(shell cat ../../__REVISION__ 2>/dev/null || cat "../../../../mt2009 - FULL SOURCE/Server Source/Server/__REVISION__" 2>/dev/null || echo "1")
 LBITS := $(shell getconf LONG_BIT)
 
 GccMajorVersion := $(shell expr `$(CXX) -dumpversion | cut -f1 -d.`)
@@ -54,7 +54,7 @@ endif
 # MySQL
 INCDIR += -I/usr/local/include/mysql
 ifeq ($(LBITS),64)
-LIBS += ../../../Extern/lib/libmysqlclient.a -lz
+LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libmysqlclient.a ../../../../Extern/lib/libmysqlclient.a ../../../Extern/lib/libmysqlclient.a)) -lz
 else
 LIBS += /usr/local/lib/mysql/libmysqlclient.a /usr/lib/libz.a
 endif
@@ -74,14 +74,14 @@ CFLAGS += -fstack-protector-all
 CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PWD)\" -D__GAME_VERSION__=\"$(GAME_VERSION)\"
 
 # Boost
-INCDIR += -I../../../Extern/include/boost
+INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/boost" -I../../../../Extern/include/boost -I../../../Extern/include/boost
 
 # DevIL
-INCDIR += -I../../../Extern/include/IL
-LIBS += ../../../Extern/lib/libIL.a
+INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/IL" -I../../../../Extern/include/IL -I../../../Extern/include/IL
+LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libIL.a ../../../../Extern/lib/libIL.a ../../../Extern/lib/libIL.a))
 
 # CryptoPP
-LIBS += ../../../Extern/lib/libcryptopp.a
+LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libcryptopp.a ../../../../Extern/lib/libcryptopp.a ../../../Extern/lib/libcryptopp.a))
 
 # GTest
 ifeq ($(ENABLE_GOOGLE_TEST), 1)
@@ -100,29 +100,31 @@ endif
 # Lua
 CFLAGS += -DENABLE_LUA_5_VERSION=ENABLE_LUA_5_VERSION
 ifeq ($(ENABLE_LUA_5_VERSION), 2)
-INCDIR += -I../../../../../server/src/liblua/5.2/install/include -I../../../../server/src/liblua/5.2/install/include -I../../liblua/5.2/install/include
-LIBDIR += -L../../../../../server/src/liblua/5.2/install/lib -L../../../../server/src/liblua/5.2/install/lib -L../../liblua/5.2/install/lib
+INCDIR += -I../../liblua/5.2/install/include -I../../../../../server/src/liblua/5.2/install/include -I../../../../server/src/liblua/5.2/install/include
+LIBDIR += -L../../liblua/5.2/install/lib -L../../../../../server/src/liblua/5.2/install/lib -L../../../../server/src/liblua/5.2/install/lib
 LIBS += ../../liblua/5.2/install/lib/liblua.a
 else
-INCDIR += -I../../../../../server/src/liblua/5.0/include -I../../../../server/src/liblua/5.0/include -I../../liblua/5.0/include
-LIBDIR += -L../../../../../server/src/liblua/5.0/lib -L../../../../server/src/liblua/5.0/lib -L../../liblua/5.0/lib
+INCDIR += -I../../liblua/5.0/include -I../../../../../server/src/liblua/5.0/include -I../../../../server/src/liblua/5.0/include
+LIBDIR += -L../../liblua/5.0/lib -L../../../../../server/src/liblua/5.0/lib -L../../../../server/src/liblua/5.0/lib
 LIBS += ../../liblua/5.0/lib/liblua.a ../../liblua/5.0/lib/liblualib.a
 endif
 
 # Project Libraries
-INCDIR += -I../../../Extern/include
 INCDIR += -I/usr/local/include
-INCDIR += -I../../../../../server/src/libpoly -I../../../../server/src/libpoly -I../../libpoly
-INCDIR += -I../../../../../server/src/libgame/include -I../../../../server/src/libgame/include -I../../libgame/include
-INCDIR += -I../../../../../server/src/libthecore/include -I../../../../server/src/libthecore/include -I../../libthecore/include
-INCDIR += -I../../../../../server/src/libthecore/src
-INCDIR += -I../../../../../server/src/libsql -I../../../../server/src/libsql -I../../libsql
-INCDIR += -I../../../../../server/src/common -I../../../../server/src/common -I../../common
-INCDIR += -I../../../../../server/src
-INCDIR += -I../../../../server/src/game/src
+INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include" -I../../../../Extern/include -I../../../Extern/include
+INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Server"
+INCDIR += -I../../libpoly
+INCDIR += -I../../libgame/include
+INCDIR += -I../../libthecore/include
+INCDIR += -I../../libthecore/src
+INCDIR += -I../../libsql
+INCDIR += -I../../common
+INCDIR += -I../..
+INCDIR += -I.
 LIBDIR += -L/usr/local/lib
+LIBDIR += -L"../../../../mt2009 - FULL SOURCE/Server Source/Extern/lib" -L../../../../Extern/lib -L../../../Extern/lib
 
-LIBDIR += -L../../libthecore/lib -L../../../../../server/src/libthecore/lib -L../../../../server/src/libthecore/lib -L../../libpoly -L../../../../../server/src/libpoly -L../../../../server/src/libpoly -L../../../../../server/src/libsql -L../../../../server/src/libsql -L../../libsql -L../../../../../server/src/libgame/lib -L../../../../server/src/libgame/lib -L../../libgame/lib
+LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame
 
 # AUTO_DETECT_SOURCE_FILES BEGIN
