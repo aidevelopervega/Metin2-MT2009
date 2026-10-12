@@ -408,24 +408,30 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `.github/workflows/freebsd-gcc-test.yml`: `server/src/libsql/**` tetikleyici yollara eklendi.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı. `game/src` sözdizimi denetimi (`-fsyntax-only`) 0 hata ile doğrulandı.
 
+  * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Adım 4 `libsql` Göçü - Run ID: 38311132574, Commit: `f4a51133`):**
+    * **MariaDB 11.4 LTS (Job ID: 115016859360):** SUCCESS (4m 29s) — `server/src/libsql` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **MariaDB 12.3 LTS (Job ID: 115016859598):** SUCCESS (4m 14s) — `server/src/libsql` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **MySQL 8.4 LTS (Job ID: 115016859627):** SUCCESS (4m 12s) — `server/src/libsql` üzerinden derlendi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi, gerçek ELF64 `db_r1` ve 29 DB nesne deterministik manifesto (%100 PASS - 641 assertion).
+    * **Sonuç:** `libsql` göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Sıfır SQL regresyonu ve tam çift-motor uyumluluğu korundu.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 4 (`libsql` -> `server/src/libsql`) Git Senkronizasyonu ve FreeBSD CI İzleme — Değişikliklerin `origin dev/windows-gcc-baseline` dalına tek commit halinde push edilmesi ve GitHub Actions FreeBSD 15.1 amd64 GCC 14 CI iş akışının tamamlanana kadar izlenmesi.
-* **Mevcut Durum:** **TESTED LOCALLY (528/528 PASS) — PUSH & CI WATCH IN PROGRESS**.
+* **Aktif Görev:** Dizin Göçü Adım 4 Tamamlandı ve Kabul Edildi — Bir sonraki modül olan `common` veya `db` taşıması (Adım 5) için göç haritası analizlerinin yapılması.
+* **Mevcut Durum:** **STEP 4 VERIFIED & ACCEPTED (Local: 528/528 PASS, FreeBSD CI: 1,923/1,923 PASS across 3 engines)**.
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 4 commit ve push işlemi:
-  1. `git add -A` ile tüm değişikliklerin sahnelenmesi.
-  2. `git commit -m "refactor(build): migrate libsql to server/src/libsql (Step 4 of directory migration)"`.
-  3. `git push origin dev/windows-gcc-baseline`.
-  4. Yerel ve uzak SHA eşleşmesinin doğrulanması.
-  5. `gh run watch` ile yeni CI koşusunun tamamlanmasının izlenmesi.
-  6. CI tamamlandığında Adım 5 (`common` veya `db` göçü) adımına geçilmesi.
+* Dizin Göçü Adım 5:
+  1. `docs/migration/06_path_migration_map.csv` doğrultusunda bir sonraki hedef modülün (`common` veya `db`) bağımlılık ve include yapısının incelenmesi.
+  2. `git mv` ile kaynak dosyaların taşınması.
+  3. Git bütünlük denetiminin gerçekleştirilmesi.
+  4. Include ve Makefile yollarının güncellenmesi.
+  5. Yerel Windows GCC regresyon testlerinin (528/528) çalıştırılması.
+  6. Değişikliklerin commit/push edilmesi ve GitHub Actions FreeBSD 15.1 CI iş akışının izlenerek doğrulanması.
 
 
 
