@@ -60,12 +60,15 @@ try {
     # ------------------------------------------------------------------------------
     Write-Host "`n[1/2] libpoly derleniyor ve test ediliyor..." -ForegroundColor Yellow
     $PolyDir = if (Test-Path "$RootDir\server\src\libpoly") { "$RootDir\server\src\libpoly" } else { "$ServerDir\Server\libpoly" }
-    $ExternDir = "$ServerDir\Extern"
+    $ExternIncludes = @(
+        "-I$RootDir\extern\common\include",
+        "-I$RootDir\extern\server\include",
+        "-I$ServerDir\Extern\include"
+    )
 
     $PolyIncludes = @(
-        "-I$PolyDir",
-        "-I$ExternDir\include"
-    )
+        "-I$PolyDir"
+    ) + $ExternIncludes
 
     $PolySources = @("Base.cc", "Symbol.cc", "SymTable.cc", "Poly.cc")
     $PolyObjects = @()
@@ -98,9 +101,8 @@ try {
 
     $CoreIncludes = @(
         "-I$CoreDir\include",
-        "-I$CommonDir",
-        "-I$ExternDir\include"
-    )
+        "-I$CommonDir"
+    ) + $ExternIncludes
 
     $CoreSources = @(
         "DES_table.c",
@@ -152,9 +154,8 @@ try {
     $GameIncludes = @(
         "-I$GameDir\include",
         "-I$CoreDir\include",
-        "-I$CommonDir",
-        "-I$ExternDir\include"
-    )
+        "-I$CommonDir"
+    ) + $ExternIncludes
 
     $GameSources = @("grid.cc", "attribute.cc", "targa.cc")
     $GameObjects = @()
@@ -187,9 +188,8 @@ try {
     $SqlIncludes = @(
         "-I$SqlDir",
         "-I$CoreDir\include",
-        "-I$CommonDir",
-        "-I$ExternDir\include"
-    )
+        "-I$CommonDir"
+    ) + $ExternIncludes
 
     $SqlSources = @("AsyncSQL.cpp", "Semaphore.cpp", "Statement.cpp", "Tellwait.cpp")
     $SqlObjects = @()
@@ -220,9 +220,8 @@ try {
     $DbCacheIncludes = @(
         "-I$CoreDir\include",
         "-I$CommonDir",
-        "-I$SqlDir",
-        "-I$ExternDir\include"
-    )
+        "-I$SqlDir"
+    ) + $ExternIncludes
 
     $DbCacheTestExe = "$BuildDir\test_db_cache.exe"
     & $Gxx @CommonFlags @DbCacheIncludes "$RootDir\tests\test_db_cache.cpp" "$CoreLib" -lws2_32 -o "$DbCacheTestExe"

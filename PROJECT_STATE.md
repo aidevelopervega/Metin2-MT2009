@@ -496,23 +496,42 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 115040114544):** SUCCESS (3m 47s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi, 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **Sonuç:** `client/src` istemci kaynak kodları göçü üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB cache testleri tam başarıyla doğrulandı.
 
+  * **Dizin Göçü Adım 11: İki Extern Ağacının Kayıpsız Merkezî Göçü (`extern/common`, `extern/server`, `extern/client`, `extern/platform`):**
+    * `mt2009 - FULL SOURCE/Server Source/Extern` ve `mt2009 - FULL SOURCE/Source/Extern` dizinleri Git izleme, dosya içerik hash'leri (SHA256 ve Git blob SHA) ve mimari bazında tam olarak karşılaştırıldı.
+    * **Ortak Başlık Kütüphaneleri (`extern/common/include`):**
+      * `boost` (15.693 başlık): Sunucu C++20 `std::atoi` düzeltmeleri ve istemcinin 20 adet benzersiz detay başlığı birleştirilerek hiçbir başlık kaybedilmeden tek merkezde toplandı.
+      * `rapidjson` (37 başlık): Sunucunun C++20 standardına uygun `GenericStringRef::operator=` yamalı sürümü ortaklaştırıldı.
+      * `fmt` (16 başlık), `msl` (10 başlık), `OptionParser` (1 başlık), `opencv2` (166 başlık) ve ortak kök başlıkları (`lazy_importer.hpp`, `opencv.hpp`, `smbios.hpp`) kayıpsız taşındı.
+    * **Sunucu Harici Bağımlılıkları (`extern/server/`):**
+      * `include/mysql`: 64-bit MariaDB C/C bağlayıcı başlıkları (122 dosya).
+      * `include/cryptopp` (164 başlık) ve `cryptopp/` (365 kaynak dosya): GCC/FreeBSD uyumlu Crypto++.
+      * `include/IL`: FreeBSD DevIL başlıkları (5 dosya).
+      * `lib/`: FreeBSD static arşivleri (`libcryptopp.a`, `libIL.a`, `libILU.a`, `libILUT.a`, `libmysqlclient.a`).
+    * **İstemci Harici Bağımlılıkları (`extern/client/`):**
+      * `lib/`: 62 adet 32-bit Win32 statik `.lib` kütüphanesi.
+      * `dll/`: 11 adet 32-bit dinamik `.dll` kütüphanesi.
+      * `include/`: `Python27`, `inih`, `libjpeg`, `lz4`, `lzo`, `minIni`, `mysqlclient`, `snappy`, 32-bit Win32 `mysql` (35 başlık), `cryptopp` (183 başlık), `IL` (14 başlık) ve kök DirectX (`d3d9*.h`), Granny (`granny*.h`), Miles (`MSS.H`), SpeedTree (`SpeedTreeRT.h`), Themida (`ThemidaSDK.h`) vb. tüm başlıklar.
+      * `backup_dx8/`, `old_python_not_static/`, `openssl/`, `cryptopp/` dizinleri.
+      * **100 MB Sınırı Koruması:** `extern/client/lib/cryptlib-Debug.lib` (105.7 MB) `.gitignore` içinde kesin olarak hariç tutuldu.
+    * **Platform Kütüphaneleri (`extern/platform/windows-x64/lib/`):**
+      * MinGW-w64 64-bit MariaDB import library (`libmariadb.a`) yerleştirildi.
+    * **Yapılandırma ve Derleme Güncellemeleri:**
+      * Makefile'lar (`server/src/db/src/Makefile`, `server/src/game/src/Makefile`, `server/src/lib*/Makefile`), test betikleri (`tests/run_tests.ps1`, `tests/run_tests.sh`, `tests/run_db_integration_tests.ps1`, `tests/run_db_integration_tests.sh`) ve `.github/workflows/freebsd-gcc-test.yml` (`extern/**` tetikleyicisi) yeni yollara uyarlandı; geriye dönük fallback yolları korundu.
+      * Eski `mt2009 - FULL SOURCE/Server Source/Extern` ve `mt2009 - FULL SOURCE/Source/Extern` dizinleri diskten ve Git takibinden sıfır kayıpla tamamen kaldırıldı.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) başarıyla tamamlandı.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 1–10 Tamamlandı ve Kabul Edildi — Sıradaki aşama olan `Extern` kütüphanelerinin modern `extern/` dizin hiyerarşisine taşınması (Step 11).
-* **Mevcut Durum:** **STEPS 1-10 FULLY VERIFIED & ACCEPTED (FreeBSD CI: 1,923/1,923 PASS across 3 engines, Local: 528/528 PASS)**.
+* **Aktif Görev:** Dizin Göçü Adım 11 Tamamlandı — Commit ve push yapılarak FreeBSD 15.1 amd64 GCC 14 CI (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) koşusunun doğrulanması.
+* **Mevcut Durum:** **Step 11 local migration complete. Windows tests: 528/528 PASS. Ready for commit & CI verification.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Dizin Göçü Adım 11 (`Extern` dizinlerinin `extern/` yapısına taşınması):
-  1. `docs/migration/06_path_migration_map.csv` uyarınca `mt2009 - FULL SOURCE/Server Source/Extern` ve `mt2009 - FULL SOURCE/Source/Extern` modüllerinin incelenmesi.
-  2. Ortak başlıkların (`boost`, `rapidjson`, `fmt`, `msl` vb.) `extern/common` konumuna taşınması.
-  3. Sunucuya özel harici bağımlılıkların (`cryptopp`, `IL`, `mysql`) `extern/server` konumuna taşınması.
-  4. İstemciye özel harici bağımlılıkların (`directx`, `granny`, `Miles`, `SpeedTree` vb.) `extern/client` konumuna taşınması.
-  5. Include ve Makefile yollarının güncellenerek yerel ve CI ortamlarında doğrulanması.
+* Dizin Göçü Adım 12 (Kalan Server Source / common / liblua dosyalarının temizliği ve depo kökünün nihai modern yapıya kavuşturulması).
 
 
 

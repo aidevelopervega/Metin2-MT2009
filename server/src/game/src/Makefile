@@ -54,7 +54,7 @@ endif
 # MySQL
 INCDIR += -I/usr/local/include/mysql
 ifeq ($(LBITS),64)
-LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libmysqlclient.a ../../../../Extern/lib/libmysqlclient.a ../../../Extern/lib/libmysqlclient.a)) -lz
+LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libmysqlclient.a ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libmysqlclient.a ../../../../Extern/lib/libmysqlclient.a ../../../Extern/lib/libmysqlclient.a)) -lz
 else
 LIBS += /usr/local/lib/mysql/libmysqlclient.a /usr/lib/libz.a
 endif
@@ -74,14 +74,14 @@ CFLAGS += -fstack-protector-all
 CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PWD)\" -D__GAME_VERSION__=\"$(GAME_VERSION)\"
 
 # Boost
-INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/boost" -I../../../../Extern/include/boost -I../../../Extern/include/boost
+INCDIR += -I"../../../../extern/common/include/boost" -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/boost" -I../../../../Extern/include/boost -I../../../Extern/include/boost
 
 # DevIL
-INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/IL" -I../../../../Extern/include/IL -I../../../Extern/include/IL
-LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libIL.a ../../../../Extern/lib/libIL.a ../../../Extern/lib/libIL.a))
+INCDIR += -I"../../../../extern/server/include/IL" -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include/IL" -I../../../../Extern/include/IL -I../../../Extern/include/IL
+LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libIL.a ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libIL.a ../../../../Extern/lib/libIL.a ../../../Extern/lib/libIL.a))
 
 # CryptoPP
-LIBS += $(firstword $(wildcard ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libcryptopp.a ../../../../Extern/lib/libcryptopp.a ../../../Extern/lib/libcryptopp.a))
+LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a ../../../../mt2009\ -\ FULL\ SOURCE/Server\ Source/Extern/lib/libcryptopp.a ../../../../Extern/lib/libcryptopp.a ../../../Extern/lib/libcryptopp.a))
 
 # GTest
 ifeq ($(ENABLE_GOOGLE_TEST), 1)
@@ -111,6 +111,7 @@ endif
 
 # Project Libraries
 INCDIR += -I/usr/local/include
+INCDIR += -I../../../../extern/common/include -I../../../../extern/server/include
 INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include" -I../../../../Extern/include -I../../../Extern/include
 INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Server"
 INCDIR += -I../../libpoly
@@ -122,6 +123,7 @@ INCDIR += -I../../common
 INCDIR += -I../..
 INCDIR += -I.
 LIBDIR += -L/usr/local/lib
+LIBDIR += -L../../../../extern/server/lib
 LIBDIR += -L"../../../../mt2009 - FULL SOURCE/Server Source/Extern/lib" -L../../../../Extern/lib -L../../../Extern/lib
 
 LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
