@@ -813,8 +813,8 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (9/9) ve yerel regresyon testleri (560/560) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit b5189ef8574caede5fc7613325ec3477b525a3c1 ile senkronize edildi.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38403723838 (Rev 28 Boost 1.92.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 29 (Lua Quest regresyon testleri ve 64-bit lightuserdata düzeltmesi) ile yeni doğrulama tetiklenecektir.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `e02a8514b845eea564b9d1073c318bf70aa198b3` ile senkronize edildi.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38403723838 (Rev 28 Boost 1.92.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. CI Run ID 38407669703 (Rev 29 Lua Quest regresyon testleri ve 64-bit lightuserdata düzeltmesi) tetiklendi (RUNNING/QUEUED).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -840,11 +840,10 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38403723838 (Rev 28 Boost 1.92.0) %100 SUCCESS olarak doğrulandı; questmanager.cpp __codecache 64-bit pointer hassasiyet kaybı lua_pushlightuserdata ile kalıcı olarak giderildi; Lua 5.0 ve Lua 5.2 için CTest regresyon hedefleri eklendi; Windows GCC 16 CTest (9/9) ve regresyon testleri (560/560) %100 PASS.
+* **Aktif Görev:** CI 38403723838 (Rev 28 Boost 1.92.0) %100 SUCCESS olarak doğrulandı; questmanager.cpp __codecache 64-bit pointer hassasiyet kaybı lua_pushlightuserdata ile kalıcı olarak giderildi; Lua 5.0 ve Lua 5.2 için CTest regresyon hedefleri eklendi; Windows GCC 16 CTest (9/9) ve regresyon testleri (560/560) %100 PASS; Commit e02a8514 push edildi ve CI 38407669703 tetiklendi.
 * **Sıradaki Güvenli Adım:**
-   1. Değişiklikleri `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 29).
-   2. GitHub Actions FreeBSD CI Rev 29 koşusunu (Run ID) tespit edip kaydetmek.
-   3. Yol Haritası Adım 5: Sıradaki Server Extern bağımlılıkları (zlib, OpenSSL vb.) modernizasyonunu değerlendirip sürdürmek.
+   1. GitHub Actions FreeBSD CI Rev 29 (Run ID 38407669703) sonuçlarını kontrol etmek.
+   2. Yol Haritası Adım 5: Sıradaki Server Extern bağımlılıkları (zlib, OpenSSL vb.) modernizasyonunu değerlendirip sürdürmek.
 
 
 
