@@ -930,13 +930,13 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 343 FTP görevi matris testi %100 tamamlandı (290 PASS). 46 `.lua` dosyası ve Test 9 her üç Lua motorunda %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `148a94b2b0b76631b34a2b4f67d2cd0ba74ef078` (Rev 31) push edilmiş ve senkronize.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `eaa8ee120a9695fd3578ae7fa262067d94a49c75` (Rev 32) push edilmiş ve tam senkronize.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
-  * CI Run ID **38436002336** (Rev 31):
+  * Önceki CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
     * MariaDB 11.4 LTS (Job `115430004085`): **SUCCESS (15m 45s)**
     * MariaDB 12.3 LTS (Job `115430004252`): **SUCCESS (20m 29s)**
     * MySQL 8.4 LTS (Job `115430004050`): **SUCCESS (19m 26s)**
-    * **Sonuç: 3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
+  * Güncel CI Run ID **38443260331** (Rev 32): **IN_PROGRESS / RUNNING**
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -962,11 +962,10 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38436002336 (Rev 31) 3 matriste de %100 SUCCESS ile tamamlandı; `questlib.lua` vararg/nil sayımı `m2_lua_getn` ve `table.pack` ile korundu; `gameforge` proxy'si `translate` tablolarını çözecek ve eksik anahtarları belirtecek şekilde sertleştirildi; 343 quest ve 46 `.lua` dosyasının yükleme sırası ve çalışma zamanı her üç motorda doğrulandı; game server CMake ve Makefile'ına `ENABLE_LUA_5_VERSION=5` entegre edildi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
+* **Aktif Görev:** CI 38443260331 (Rev 32) koşusu başlatıldı (IN_PROGRESS); CI 38436002336 (Rev 31) 3 matriste de %100 SUCCESS ile tamamlandı; `questlib.lua` vararg/nil sayımı `m2_lua_getn` ve `table.pack` ile korundu; `gameforge` proxy'si `translate` tablolarını çözecek ve eksik anahtarları belirtecek şekilde sertleştirildi; 343 quest ve 46 `.lua` dosyasının yükleme sırası ve çalışma zamanı her üç motorda doğrulandı; game server CMake ve Makefile'ına `ENABLE_LUA_5_VERSION=5` entegre edildi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
 * **Sıradaki Güvenli Adım:**
-   1. Doğrulanmış runtime questlib, gameforge proxy, game CMake/Makefile ve test değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push etmek (Rev 32).
-   2. FreeBSD CI Rev 32 koşusunun Run ID'sini ve durumunu tespit etmek.
-   3. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
+   1. CI 38443260331'in FreeBSD işlerini bir sonraki kontrolde doğrulamak.
+   2. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
 
 
 
