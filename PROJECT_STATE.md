@@ -694,12 +694,31 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 ---
 
-## 8. TEK AKTİF GÖREV VE SIRADAKİ ADIM
+## 8. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI (AGENTS.md Madde 11)
 
-* **Aktif Görev:** Aşama 5 (Server Extern Modernizasyonu) başlangıcı. Pure libstdc++ game binary dönüşümü, C++20 enum uyarısı temizliği ve wire protocol doğrulaması tamamlandı.
+Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
+
+1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
+   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır.
+2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
+   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır.
+3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır.
+4. **Eski Makefile Eşdeğerlik Güvencesi:**
+   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir.
+5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
+6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
+   * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
+
+---
+
+## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
+
+* **Aktif Görev:** Yol Haritası Adım 2 (CMake + Ninja Derleme Altyapısı) hazırlığı. Pure libstdc++ game binary dönüşümü, C++20 enum uyarısı temizliği ve wire protocol doğrulaması tamamlandı.
 * **Sıradaki Güvenli Adım:**
-  1. Rev 22 CI koşusunu izlemek ve FreeBSD üzerinde `game_r41023`'ün `libc++.so` olmaksızın pure `libstdc++` olarak başarıyla bağlandığını doğrulamak.
-  2. Aşama 5 extern bileşenlerinden ilk izole kütüphanenin yükseltilmesine devam etmek.
+  1. Rev 23 CI koşusunu (Run ID: 38376898747) izlemek ve FreeBSD üzerinde `game_r41023`'ün `libc++.so` olmaksızın pure `libstdc++` olarak başarıyla bağlandığını doğrulamak.
+  2. Windows GCC 16 UCRT ve FreeBSD GCC 14 için tek merkezî CMake mimarisini oluşturmak.
 
 
 

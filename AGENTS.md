@@ -256,3 +256,23 @@ Kullanıcı açıkça yeni bir İstemci Modernizasyonu aşaması başlatana kada
    * `PROJECT_STATE.md` gerçekleşen işler, açık engeller, aktif aşama, ortam commit'leri ve test sonuçları için tek güncel durum belgesidir.
 3. **Kalıcı Kural Dokunulmazlığı:**
    * Kurallar her oturumda yeniden keşfedilmeyecek; `AGENTS.md` değişmez anayasa olarak uygulanacaktır.
+
+---
+
+## 11. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI
+
+Bu sıra, projenin modernizasyonunda takip edilecek değişmez operasyonel iş akışını belirler:
+
+1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
+   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır.
+2. **CMake + Ninja Derleme Altyapısı:**
+   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır.
+3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır.
+4. **Eski Makefile Eşdeğerlik Güvencesi:**
+   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir.
+5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
+6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
+   * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
+
