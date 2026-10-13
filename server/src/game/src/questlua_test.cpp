@@ -209,7 +209,11 @@ int RunGameQuestRuntimeTests()
 	int load_err = lua_dobuffer(co, quest_script, strlen(quest_script), "test_biologist");
 	RUNTIME_ASSERT(load_err == 0, "test_biologist quest script buffer compilation failed");
 	int resume_res = lua_resume(co, 0);
+#if LUA_V == 551 || LUA_V == 523
 	RUNTIME_ASSERT(resume_res == LUA_YIELD, "Coroutine must yield on select");
+#else
+	RUNTIME_ASSERT(resume_res == 0, "Coroutine must yield on select (0 in Lua 5.0)");
+#endif
 	RUNTIME_ASSERT(lua_gettop(co) >= 2, "Coroutine stack must contain yield type and args");
 	const char* yield_type = lua_tostring(co, 1);
 	RUNTIME_ASSERT(yield_type != nullptr && strcmp(yield_type, "select") == 0, "Yield type must be 'select'");
@@ -258,14 +262,71 @@ int RunGameQuestRuntimeTests()
 	int err_load = lua_dobuffer(co_err, bad_script, strlen(bad_script), "bad_quest");
 	RUNTIME_ASSERT(err_load == 0, "Loading bad_quest buffer must succeed");
 	int err_res = lua_resume(co_err, 0);
+#if LUA_V == 551 || LUA_V == 523
 	RUNTIME_ASSERT(err_res != 0 && err_res != LUA_YIELD, "Deliberate error must return non-zero error status");
+#else
+	RUNTIME_ASSERT(err_res != 0, "Deliberate error must return non-zero error status");
+#endif
 	lua_pop(L, 1);
 	std::cout << "  --> Deliberate script errors trapped without crashing server process" << std::endl;
 	checks_passed++;
 
+	// 11. Multi-State Quest Registration & Safe BuildStateIndexToName Two-Way Parity
+	std::cout << "[RUN] Check 11: Multi-State Quest Registration & Safe BuildStateIndexToName..." << std::endl;
+	const char* test_state_script =
+		"test_multistate_quest = {\n"
+		"    [\"start\"] = 0,\n"
+		"    [\"information\"] = 695801987,\n"
+		"    [\"go_to_disciple\"] = 1675612723,\n"
+		"    [\"__complete\"] = 557528158\n"
+		"}\n";
+	int state_load_err = lua_dostring(L, test_state_script);
+	RUNTIME_ASSERT(state_load_err == 0, "test_multistate_quest script execution failed");
+	qm.BuildStateIndexToName("test_multistate_quest");
+
+	lua_getglobal(L, "test_multistate_quest");
+	RUNTIME_ASSERT(lua_istable(L, -1), "test_multistate_quest table must exist");
+
+	// Verify forward mappings
+	lua_pushstring(L, "start"); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isnumber(L, -1) && (int)lua_tonumber(L, -1) == 0, "start forward mapping must be 0");
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "information"); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isnumber(L, -1) && (double)lua_tonumber(L, -1) == 695801987.0, "information forward mapping must be 695801987");
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "go_to_disciple"); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isnumber(L, -1) && (double)lua_tonumber(L, -1) == 1675612723.0, "go_to_disciple forward mapping must be 1675612723");
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "__complete"); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isnumber(L, -1) && (double)lua_tonumber(L, -1) == 557528158.0, "__complete forward mapping must be 557528158");
+	lua_pop(L, 1);
+
+	// Verify reverse mappings
+	lua_pushnumber(L, 0); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "start") == 0, "0 reverse mapping must be 'start'");
+	lua_pop(L, 1);
+
+	lua_pushnumber(L, 695801987); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "information") == 0, "695801987 reverse mapping must be 'information'");
+	lua_pop(L, 1);
+
+	lua_pushnumber(L, 1675612723); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "go_to_disciple") == 0, "1675612723 reverse mapping must be 'go_to_disciple'");
+	lua_pop(L, 1);
+
+	lua_pushnumber(L, 557528158); lua_gettable(L, -2);
+	RUNTIME_ASSERT(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "__complete") == 0, "557528158 reverse mapping must be '__complete'");
+	lua_pop(L, 2); // pop string and table
+
+	std::cout << "  --> Two-way multi-state index/name mappings verified with 0 loss" << std::endl;
+	checks_passed++;
+
 	// Summary
 	std::cout << "==================================================" << std::endl;
-	std::cout << " [SUCCESS] METIN2 QUEST RUNTIME: " << checks_passed << "/10 CHECKS PASSED!" << std::endl;
+	std::cout << " [SUCCESS] METIN2 QUEST RUNTIME: " << checks_passed << "/11 CHECKS PASSED!" << std::endl;
 	std::cout << "==================================================" << std::endl;
 	return 0;
 }

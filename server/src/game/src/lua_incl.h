@@ -56,6 +56,10 @@ extern "C" {
 #endif
 // #endif
 
+#ifndef LUA_YIELD
+#define LUA_YIELD 1
+#endif
+
 #if !defined(_MSC_VER) && defined(__cplusplus)
 }
 #endif

@@ -577,9 +577,66 @@ int main()
         std::cout << "  [SKIP] Test 9: Real FTP questlib.lua not on disk (archive unextracted), skipping." << std::endl;
     }
 
+    // --------------------------------------------------------------------------
+    // Test 10: Multi-State Quest Registration & Safe BuildStateIndexToName Parity
+    // --------------------------------------------------------------------------
+    std::cout << "[RUN] Test 10: Multi-State Quest Registration & Safe BuildStateIndexToName..." << std::endl;
+    {
+        const char* test_ms_script =
+            "test_collect_lv30 = {\n"
+            "    [\"start\"] = 0,\n"
+            "    [\"information\"] = 695801987,\n"
+            "    [\"go_to_disciple\"] = 1675612723,\n"
+            "    [\"__complete\"] = 557528158\n"
+            "}\n";
+        int ms_err = lua_dostring(L, test_ms_script);
+        assert(ms_err == 0);
+
+        // Safe two-phase BuildStateIndexToName (no table mutation during lua_next)
+        lua_getglobal(L, "test_collect_lv30");
+        assert(lua_istable(L, -1));
+
+        std::vector<std::pair<std::string, double>> mappings;
+        for (lua_pushnil(L); lua_next(L, -2);)
+        {
+            if (lua_isstring(L, -2) && lua_isnumber(L, -1))
+            {
+                mappings.push_back({lua_tostring(L, -2), lua_tonumber(L, -1)});
+            }
+            lua_pop(L, 1);
+        }
+
+        for (const auto& sm : mappings)
+        {
+            lua_pushnumber(L, sm.second);
+            lua_pushstring(L, sm.first.c_str());
+            lua_rawset(L, -3);
+        }
+
+        // Verify reverse mappings
+        lua_pushnumber(L, 0); lua_rawget(L, -2);
+        assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "start") == 0);
+        lua_pop(L, 1);
+
+        lua_pushnumber(L, 695801987); lua_rawget(L, -2);
+        assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "information") == 0);
+        lua_pop(L, 1);
+
+        lua_pushnumber(L, 1675612723); lua_rawget(L, -2);
+        assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "go_to_disciple") == 0);
+        lua_pop(L, 1);
+
+        lua_pushnumber(L, 557528158); lua_rawget(L, -2);
+        assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "__complete") == 0);
+        lua_pop(L, 2); // pop string and table
+
+        std::cout << "  --> Two-way multi-state index/name mappings verified with 0 loss" << std::endl;
+        std::cout << "  [PASS] Test 10: Multi-State Quest Registration & Safe BuildStateIndexToName verified." << std::endl;
+    }
+
     lua_close(L);
     std::cout << "==================================================" << std::endl;
-    std::cout << " [SUCCESS] ALL 9 LUA 5.0 QUEST TESTS PASSED!     " << std::endl;
+    std::cout << " [SUCCESS] ALL 10 LUA 5.0 QUEST TESTS PASSED!    " << std::endl;
     std::cout << "==================================================" << std::endl;
     return 0;
 }

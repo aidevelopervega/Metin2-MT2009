@@ -951,21 +951,43 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           * Her iki ikili üzerinde `./game_r41023 --check-lua` ve `./game_r41023_lua55 --check-lua` testleri çalıştırılarak FreeBSD 15.1 VM üzerinde doğrulanır.
 
       * **Genişletilmiş CTest Paketi (13/13 Test, 100% PASS):**
-        * Windows MinGW GCC 16.2 UCRT üzerinde: **13/13 CTest PASSED (%100 PASS, 0.49s)**.
+        * Windows MinGW GCC 16.2 UCRT üzerinde: **13/13 CTest PASSED (%100 PASS, 0.74s)**.
         * Standalone regresyon paketi (`tests/run_tests.ps1`): **290/290 birim test, 120/120 cache, 116/116 integration, 32/32 wire protocol PASSED (560/560 assertions %100 PASS)**.
+
+      * **Aşama 8: Lua 5.0 LUA_YIELD Derleme Düzeltmesi, BuildStateIndexToName Tablo Rehash Koruması ve 201 FTP Durumu %100 Paritesi (Rev 34):**
+        * **FreeBSD CI Rev 33 (Run 38448323786 / Commit 3a6b0eb3) Kök Neden Analizi:**
+          * MySQL 8.4 (Job `115472451269`) ve MariaDB 11.4 (Job `115472450953`), `ENABLE_LUA_5_VERSION=0` (Lua 5.0 varsayılan motor) ile `game_r41023` derlenirken `questlua_test.cpp:212` satırında `error: 'LUA_YIELD' was not declared in this scope` hatasıyla durmuştur.
+          * Kök Neden: Lua 5.0 API'sinde `LUA_YIELD` sembolü bulunmamakta; `lua_resume` coroutine yield durumunda da `0` döndürmektedir. Lua 5.2 ve 5.5 sürümlerinde ise yield durumunda `LUA_YIELD` (1), başarıyla tamamlandığında ise `0` (`LUA_OK`) döndürülmektedir.
+          * Kök Neden Çözümü:
+            1. `server/src/game/src/questlua_test.cpp`: `lua_resume` yield ve hata kontrolleri `#if LUA_V == 551 || LUA_V == 523` ile ayrılarak Lua 5.0 (`== 0`) ve Lua 5.2/5.5 (`== LUA_YIELD`) gerçek dönüş sözleşmesine göre tam hizalandı.
+            2. `server/src/game/src/lua_incl.h`: Kod genelinde olası referanslar için `#ifndef LUA_YIELD #define LUA_YIELD 1 #endif` fallback bildirimi eklendi.
+        * **Kritik Metin2 QuestManager Rehashing & Reverse-Indexing Hatası ve Kalıcı Çözümü:**
+          * `CQuestManager::BuildStateIndexToName` fonksiyonunda `lua_next` döngüsü içinde doğrudan `lua_rawset(L, -4)` ile numerik hash anahtarlarının tabloya eklenmesi, Lua'nın dahili tablo yapısının yeniden hashlenmesine (rehash / node reallocation) yol açmakta; bu durum `lua_next` yineleyicisini bozarak döngünün erken sonlanmasına veya durum anahtarlarını atlamasına neden olmaktaydı.
+          * Gerçek FTP arşivi `new_ftp.tar.gz` (`scratch/ftp_quests/.../object/state/`) içerisindeki 201 görev durum dosyasında yapılan doğrulamada, eski kodun Lua 5.0'da **130 görevi**, Lua 5.5'te ise **162 görevi** ters indeksleyemediği (reverse mapping missing) kanıtlandı!
+          * İki Aşamalı (Two-Phase) Güvenli Mimari:
+            * Aşama 1: `lua_next` gezinimi sırasında tablo kesinlikle mutasyona uğratılmaz; eşleşmeler `std::vector<std::pair<std::string, double>>` içine toplanır.
+            * Aşama 2: Tablo gezinmesi tamamlandıktan sonra ters eşleşmeler (`table[state_index] = state_name`) güvenle yazılır.
+          * Sonuç: `scratch/test_states_all_lua.cpp` ile 201 gerçek FTP dosyasının tamamı test edildi:
+            * **Lua 5.0.3:** 201/201 Görev Yüklendi, 1054/1054 Durum Doğrulandı, 0 Mismatch (**%100 KUSURSUZ**)
+            * **Lua 5.2.3:** 201/201 Görev Yüklendi, 1054/1054 Durum Doğrulandı, 0 Mismatch (**%100 KUSURSUZ**)
+            * **Lua 5.5.1:** 201/201 Görev Yüklendi, 1054/1054 Durum Doğrulandı, 0 Mismatch (**%100 KUSURSUZ**)
+        * **--check-lua ve Birim Test Paketlerinin Genişletilmesi:**
+          * `server/src/game/src/questlua_test.cpp`: Check 11 eklendi (`RunGameQuestRuntimeTests` 11/11 kontrol fail-closed doğrulandı).
+          * `tests/test_lua_quest.cpp`, `tests/test_lua52_quest.cpp`, `tests/test_lua55_quest.cpp`: Test 10 eklendi (10/10 test %100 PASS).
+          * FreeBSD CI iş akışı başlığı `# Rev 34` olarak güncellendi.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 343 FTP görevi matris testi %100 tamamlandı (290 PASS). 46 `.lua` dosyası ve Test 9 her üç Lua motorunda %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `eaa8ee120a9695fd3578ae7fa262067d94a49c75` (Rev 32) push edilmiş ve tam senkronize.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch).
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `3a6b0eb3e57552bc5b7aaa9d58e2cbe34d1a4f4f` (Rev 33) push edilmiş.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
-  * CI Run ID **38443260331** (Rev 32):
-    * MariaDB 11.4 LTS (Job `115454988700`): **SUCCESS (16m 20s)**
-    * MariaDB 12.3 LTS (Job `115454989928`): **SUCCESS (25m 35s)**
-    * MySQL 8.4 LTS (Job `115454988605`): Senaryo 11.B TCP proxy yarış durumu nedeniyle FAIL (kök neden çözüldü, `WaitForDroppedResponse` entegre edildi).
+  * CI Run ID **38448323786** (Rev 33):
+    * MySQL 8.4 LTS (Job `115472451269`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
+    * MariaDB 11.4 LTS (Job `115472450953`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
+    * MariaDB 12.3 LTS (Job `115472451193`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -983,7 +1005,7 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023_lua55 dual ELF64 staging ve --check-lua TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023_lua55 dual ELF64 staging, BuildStateIndexToName 1054/1054 state hardening ve --check-lua 11/11 TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -991,9 +1013,9 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38443260331 (Rev 32) MariaDB 11.4 işi başarıyla tamamlandı; `game_r41023_lua55` derleme hedefi Makefile ve CMake içerisine entegre edildi; `questlua_test.cpp` runtime test paketi eklendi; `main.cpp` içerisine `--check-lua` CLI bayrağı entegre edildi; FreeBSD CI Rev 33 güncellendi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
+* **Aktif Görev:** Rev 34: `questlua_test.cpp` içerisindeki Lua 5.0 `LUA_YIELD` derleyici hatası giderildi; `BuildStateIndexToName` iki aşamalı tablo rehash koruması entegre edilerek 201 gerçek görev ve 1054 durumun tamamı her üç Lua motorunda %100 doğrulandı; `--check-lua` 11/11 kontrole, test_lua suite'leri 10/10 teste genişletildi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
 * **Sıradaki Güvenli Adım:**
-   1. CI 38443260331 tamamlandığında Rev 33 değişikliklerini commit ve push ederek FreeBSD GCC 14 üzerinde `game_r41023_lua55` derleme ve `--check-lua` doğrulamasını başlatmak.
+   1. Rev 34 değişikliklerini commit ve push ederek FreeBSD GCC 14 üzerinde `game_r41023` ve `game_r41023_lua55` derleme ve `--check-lua` doğrulamasını başlatmak.
    2. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
 
 

@@ -620,17 +620,23 @@ namespace quest
 			return;
 		}
 
+		// Phase 1: Collect mappings without modifying table during lua_next traversal (prevents table rehashing corruption)
+		std::vector<std::pair<std::string, double>> state_mappings;
 		for (lua_pushnil(L); lua_next(L, -2);)
 		{
 			if (lua_isstring(L, -2) && lua_isnumber(L, -1))
 			{
-				lua_pushvalue(L, -2);
-				lua_rawset(L, -4);
+				state_mappings.push_back({lua_tostring(L, -2), lua_tonumber(L, -1)});
 			}
-			else
-			{
-				lua_pop(L, 1);
-			}
+			lua_pop(L, 1);
+		}
+
+		// Phase 2: Insert reverse mappings (table[state_index] = state_name)
+		for (const auto& sm : state_mappings)
+		{
+			lua_pushnumber(L, sm.second);
+			lua_pushstring(L, sm.first.c_str());
+			lua_rawset(L, -3);
 		}
 
 		lua_settop(L, x);

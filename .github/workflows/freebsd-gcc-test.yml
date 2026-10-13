@@ -1,4 +1,4 @@
-# Rev 33: FreeBSD GCC 14 game_r41023_lua55 build, dual ELF64 game binaries and --check-lua runtime verification
+# Rev 34: Fix Lua 5.0 LUA_YIELD in --check-lua, harden BuildStateIndexToName two-phase mapping (1054/1054 states), and expand runtime tests to 11/11
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
