@@ -8,8 +8,6 @@ set -e
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 BUILD_DIR="$ROOT_DIR/tests/build"
-SERVER_DIR="$ROOT_DIR/mt2009 - FULL SOURCE/Server Source"
-
 CXX=${CXX:-g++}
 AR=${AR:-ar}
 RANLIB=${RANLIB:-ranlib}
@@ -37,22 +35,9 @@ if [ -d "/usr/local/lib/gcc14" ]; then
     RPATH="-Wl,-rpath=/usr/local/lib/gcc14"
 fi
 
-if [ -d "$ROOT_DIR/server/src/libsql" ]; then
-    SQL_DIR="$ROOT_DIR/server/src/libsql"
-else
-    SQL_DIR="$SERVER_DIR/Server/libsql"
-fi
-if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
-    CORE_DIR="$ROOT_DIR/server/src/libthecore"
-else
-    CORE_DIR="$SERVER_DIR/Server/libthecore"
-fi
-if [ -d "$ROOT_DIR/server/src/common" ]; then
-    COMMON_DIR="$ROOT_DIR/server/src/common"
-else
-    COMMON_DIR="$SERVER_DIR/Server/common"
-fi
-EXTERN_DIR="$SERVER_DIR/Extern"
+SQL_DIR="$ROOT_DIR/server/src/libsql"
+CORE_DIR="$ROOT_DIR/server/src/libthecore"
+COMMON_DIR="$ROOT_DIR/server/src/common"
 
 # Bağlayıcı Başlık ve Kütüphane Tespiti
 INC_EXTRA=""

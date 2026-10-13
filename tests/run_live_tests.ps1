@@ -16,11 +16,11 @@ $ErrorActionPreference = "Stop"
 
 $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
 $BuildDir = "$RootDir\tests\build"
-$ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
-$SqlDir = if (Test-Path "$RootDir\server\src\libsql") { "$RootDir\server\src\libsql" } else { "$ServerDir\Server\libsql" }
-$CoreDir = if (Test-Path "$RootDir\server\src\libthecore") { "$RootDir\server\src\libthecore" } else { "$ServerDir\Server\libthecore" }
-$CommonDir = if (Test-Path "$RootDir\server\src\common") { "$RootDir\server\src\common" } else { "$ServerDir\Server\common" }
-$ExternDir = "$ServerDir\Extern"
+$SqlDir = "$RootDir\server\src\libsql"
+$CoreDir = "$RootDir\server\src\libthecore"
+$CommonDir = "$RootDir\server\src\common"
+$ExternCommonDir = "$RootDir\extern\common\include"
+$ExternServerDir = "$RootDir\extern\server\include"
 
 # GCC Araçlarını Tespit Et
 $GxxCmd = Get-Command "g++.exe" -ErrorAction SilentlyContinue
@@ -61,7 +61,8 @@ $CommonIncludes = @(
     "-I$SqlDir",
     "-I$CoreDir\include",
     "-I$CommonDir",
-    "-I$ExternDir\include"
+    "-I$ExternCommonDir",
+    "-I$ExternServerDir"
 )
 
 # Kütüphane ve Başlık Belirleme

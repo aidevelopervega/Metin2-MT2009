@@ -547,20 +547,48 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MySQL 8.4 LTS (Job ID: 115058430803):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **MariaDB 12.3 LTS (Job ID: 115058430914):** SUCCESS (4m 25s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **MariaDB 11.4 LTS (Job ID: 115058430987):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r1` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
-      * **Sonuç:** Adım 12 ve %100 kayıpsızlık üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r1` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
+  * **GameCoreTop.txt Dosyalarının Tamamen Kaldırılması ve Eski Fallback Yollarının Temizlenmesi:**
+    * **GameCoreTop.txt Temizliği:**
+      * Depo içindeki tüm kopyalar (`client/GameCoreTop.txt`, `mt2009 - FULL SOURCE/GameCoreTop.txt`, `server/GameCoreTop.txt`, `sql/GameCoreTop.txt`) `git rm` ile kaldırıldı.
+      * Git takibinde ve yerel çalışma ağacında kalan `GameCoreTop.txt` sayısı: **Tam 0 (SIFIR)** olarak doğrulandı.
+    * **Tüm Makefile ve Kaynak Kod Yollarının Düzeltilmesi:**
+      * `server/src/db/src/Makefile`: Eski `mt2009 - FULL SOURCE` include ve lib fallback yolları kaldırıldı; doğrudan `../../../../extern/...` ve `../...` yapılandırması korundu.
+      * `server/src/db/src/GuildManager.cpp`: Eski fallback `#elif __has_include("../../../../mt2009 - FULL SOURCE...")` satırı kaldırıldı.
+      * `server/src/game/src/Makefile`: Eski `mt2009 - FULL SOURCE` ve `../../../../../server/src` fallback yolları kaldırıldı; doğrudan `../../../../extern/server/lib`, `../../../../extern/common/include`, `../__REVISION__` ve `../../liblua` bağlayıcı yolları tanımlandı.
+      * `server/src/game/src/quest/Makefile`: `INCLUDEDIR` ve `LIBS` yolları doğrudan `../../../liblua/5.0/include` ve `../../../liblua/5.0/lib` olarak temizlendi.
+      * `server/src/libgame/src/Makefile`: Eski fallback `CFLAGS += -I"../../../mt2009 - FULL SOURCE..."` kaldırıldı.
+      * `server/src/libgame/src/attribute.cc`: Eski fallback `#include "../../../../mt2009 - FULL SOURCE..."` kaldırıldı.
+      * `server/src/libgame/src/grid.cc`: Eski fallback `#include` satırları kaldırıldı.
+      * `server/src/libgame/src/targa.cc`: Eski fallback `#include` satırı kaldırıldı.
+      * `server/src/libpoly/Makefile`: Eski `mt2009 - FULL SOURCE` ve `../../Extern` yolları kaldırıldı.
+      * `server/src/libsql/Makefile`: Eski `mt2009 - FULL SOURCE` ve `../../Extern` yolları kaldırıldı.
+      * `server/src/libthecore/src/Makefile`: Eski `mt2009 - FULL SOURCE` ve `../../../../Extern` yolları kaldırıldı.
+      * `server/src/Makefile`: Eski `elif [ -d "../../../server/src/..." ]` fallback blokları tamamen temizlendi; doğrudan `liblua/5.0`, `libsql`, `libgame/src`, `libpoly`, `libthecore/src`, `game/src`, `db/src` hedefleri tanımlandı.
+    * **Test Betikleri ve CI İş Akışının Temizlenmesi:**
+      * `tests/run_tests.sh`: Eski `SERVER_DIR` ve `if [ -d "$ROOT_DIR/server/src/..." ]; else ...` fallback yapıları kaldırıldı; tüm yollar doğrudan `server/src/...` ve `extern/...` olarak bağlandı.
+      * `tests/run_tests.ps1`: Eski `$ServerDir` ve tüm fallback include yolları kaldırıldı; tüm yollar doğrudan `$RootDir\server\src\...` ve `$RootDir\extern\...` yapıldı.
+      * `tests/run_db_integration_tests.sh`: Eski `SERVER_DIR` ve tüm `-I"$SERVER_DIR/..."` fallback argümanları kaldırıldı; doğrudan `server/src/...` bağlandı.
+      * `tests/run_db_integration_tests.ps1`: Eski `$ServerDir` ve tüm `-I$ServerDir\...` argümanları kaldırıldı; doğrudan `$RootDir\server\src\...` bağlandı.
+      * `tests/run_live_tests.sh`: Eski `SERVER_DIR` ve `EXTERN_DIR` argümanları kaldırıldı; doğrudan `server/src/...` bağlandı.
+      * `tests/run_live_tests.ps1`: Eski `$ServerDir` ve `$ExternDir` argümanları kaldırıldı; doğrudan `$RootDir\server\src\...` ve `$RootDir\extern\...` bağlandı.
+      * `.github/workflows/freebsd-gcc-test.yml`: Eski `mt2009 - FULL SOURCE/Server Source/...` tetikleyicileri kaldırıldı; `DB_DIR="server/src/db"` olarak doğrudan yapılandırıldı.
+    * **İstemci Proje Dosyaları (.vcxproj):**
+      * 16 istemci `.vcxproj` dosyasının tamamının yeni `../../extern/client/include`, `../../extern/common/include` ve `../../extern/client/lib` yollarını kullandığı ve hiçbir eski yola bağımlılık barındırmadığı teyit edildi.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 20, `libthecore` 105, `libgame` 24, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Dizin Göçü Adım 12 Kabul Edildi (Kayıpsızlık %100 Blob Bütünlüğü — 3/3 SUCCESS, 1.923 assertion, 0 kayıp).
-* **Mevcut Durum:** **STEP 11 LOSSLESS AUDIT & STEP 12 MIGRATION FULLY ACCEPTED (CI Run: 38324020775, Commit: d4d56454). Ready for next phase.**
+* **Aktif Görev:** GameCoreTop.txt tamamen kaldırıldı (0 kopya), tüm Makefile, kaynak kod ve test script fallback yolları temizlendi; Windows 528/528 PASS.
+* **Mevcut Durum:** **GameCoreTop.txt ELIMINATED (0 files on disk/git). ALL OBSOLETE FALLBACK PATHS CLEANED. Windows tests 528/528 PASS. Ready for push and CI verification.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
+* CI doğrulamasının ardından sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
+
 
 
 

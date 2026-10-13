@@ -6,10 +6,7 @@ GCC_VERSION = $(shell $(CC) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut
 
 CFLAGS  = -m32 -Wall -O2 -pipe -fno-exceptions -I../include
 CFLAGS += -I../../libthecore/include -I../../common
-CFLAGS += -I"../../../mt2009 - FULL SOURCE/Server Source/Server/libthecore/include"
-CFLAGS += -I"../../../mt2009 - FULL SOURCE/Server Source/Server/common"
 CFLAGS += -I../../../../extern/common/include -I../../../../extern/server/include
-CFLAGS += -I"../../../mt2009 - FULL SOURCE/Server Source/Extern/include"
 CFLAGS += -std=c++20
 
 LIBS =

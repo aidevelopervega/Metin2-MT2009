@@ -2,7 +2,7 @@ CXX = clang++
 BIN_DIR = ../lib
 BIN     = $(BIN_DIR)/libthecore.a
 INCLUDE = -I../include
-INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/include -I"../../../mt2009 - FULL SOURCE/Server Source/Extern/include" -I../../../../Extern/include
+INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/include
 
 GCC_VERSION = $(shell $(CXX) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut -d'.' -f1)
 

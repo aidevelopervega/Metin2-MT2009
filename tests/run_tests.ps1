@@ -7,7 +7,6 @@ $ErrorActionPreference = "Stop"
 try {
     $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
     $BuildDir = "$RootDir\tests\build"
-    $ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
 
     # GCC Araçlarını Tespit Et
     $GxxCmd = Get-Command "g++.exe" -ErrorAction SilentlyContinue
@@ -59,11 +58,10 @@ try {
     # 1. LIBPOLY DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[1/2] libpoly derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $PolyDir = if (Test-Path "$RootDir\server\src\libpoly") { "$RootDir\server\src\libpoly" } else { "$ServerDir\Server\libpoly" }
+    $PolyDir = "$RootDir\server\src\libpoly"
     $ExternIncludes = @(
         "-I$RootDir\extern\common\include",
-        "-I$RootDir\extern\server\include",
-        "-I$ServerDir\Extern\include"
+        "-I$RootDir\extern\server\include"
     )
 
     $PolyIncludes = @(
@@ -96,8 +94,8 @@ try {
     # 2. LIBTHECORE DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[2/3] libthecore derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $CoreDir = if (Test-Path "$RootDir\server\src\libthecore") { "$RootDir\server\src\libthecore" } else { "$ServerDir\Server\libthecore" }
-    $CommonDir = if (Test-Path "$RootDir\server\src\common") { "$RootDir\server\src\common" } else { "$ServerDir\Server\common" }
+    $CoreDir = "$RootDir\server\src\libthecore"
+    $CommonDir = "$RootDir\server\src\common"
 
     $CoreIncludes = @(
         "-I$CoreDir\include",
@@ -149,7 +147,7 @@ try {
     # 3. LIBGAME DERLEME VE TESTİ (Gerçek libthecore.a ile bağlı)
     # ------------------------------------------------------------------------------
     Write-Host "`n[3/3] libgame derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $GameDir = if (Test-Path "$RootDir\server\src\libgame") { "$RootDir\server\src\libgame" } else { "$ServerDir\Server\libgame" }
+    $GameDir = "$RootDir\server\src\libgame"
 
     $GameIncludes = @(
         "-I$GameDir\include",
@@ -183,7 +181,7 @@ try {
     # 4. LIBSQL DERLEME VE TESTİ
     # ------------------------------------------------------------------------------
     Write-Host "`n[4/4] libsql derleniyor ve test ediliyor..." -ForegroundColor Yellow
-    $SqlDir = if (Test-Path "$RootDir\server\src\libsql") { "$RootDir\server\src\libsql" } else { "$ServerDir\Server\libsql" }
+    $SqlDir = "$RootDir\server\src\libsql"
 
     $SqlIncludes = @(
         "-I$SqlDir",

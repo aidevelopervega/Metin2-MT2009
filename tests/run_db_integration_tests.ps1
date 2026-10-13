@@ -6,8 +6,7 @@ $ErrorActionPreference = "Stop"
 
 try {
     $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
-    $ServerDir = "$RootDir\mt2009 - FULL SOURCE\Server Source"
-    $DbSrcDir = if (Test-Path "$RootDir\server\src\db\src") { "$RootDir\server\src\db\src" } else { "$ServerDir\Server\db\src" }
+    $DbSrcDir = "$RootDir\server\src\db\src"
     $BuildDir = "$RootDir\tests\build"
     $DbWinDir = "$BuildDir\db_win"
 
@@ -40,22 +39,14 @@ try {
     $IncDirs = @(
         "-I$DbSrcDir",
         "-I$RootDir\server\src\libthecore\include",
-        "-I$ServerDir\Server\libthecore\include",
         "-I$RootDir\server\src\libsql",
-        "-I$ServerDir\Server\libsql",
         "-I$RootDir\server\src\libpoly",
-        "-I$ServerDir\Server\libpoly",
         "-I$RootDir\server\src\libgame\include",
         "-I$RootDir\server\src\libgame\src",
-        "-I$ServerDir\Server\libgame\include",
-        "-I$ServerDir\Server\libgame\src",
         "-I$RootDir\server\src\common",
-        "-I$ServerDir\Server\common",
         "-I$RootDir\extern\common\include",
         "-I$RootDir\extern\common\include\boost",
         "-I$RootDir\extern\server\include",
-        "-I$ServerDir\Extern\include",
-        "-I$ServerDir\Extern\include\boost",
         "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include",
         "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include\mysql"
     )

@@ -14,13 +14,13 @@ CPPFLAGS+= -static
 endif
 
 ifeq ($(ENABLE_LUA_5_VERSION), 2)
-INCLUDEDIR += -I../../../../../../server/src/liblua/5.2/install/include -I../../../liblua/5.2/install/include
-INCLUDEDIR += -I../../../../../../server/src/liblua/5.2/src/lib -I../../../liblua/5.2/src/lib
+INCLUDEDIR += -I../../../liblua/5.2/install/include
+INCLUDEDIR += -I../../../liblua/5.2/src/lib
 # LIBDIR += -L../../../liblua/5.2/install/lib
 LIBS += ../../../liblua/5.2/install/lib/liblua.a
 else
-INCLUDEDIR += -I../../../../../../server/src/liblua/5.0/include -I../../../liblua/5.0/include
-INCLUDEDIR += -I../../../../../../server/src/liblua/5.0/src -I../../../liblua/5.0/src
+INCLUDEDIR += -I../../../liblua/5.0/include
+INCLUDEDIR += -I../../../liblua/5.0/src
 # LIBDIR += -L../../../liblua/5.0/lib
 LIBS += ../../../liblua/5.0/lib/liblua.a ../../../liblua/5.0/lib/liblualib.a
 endif

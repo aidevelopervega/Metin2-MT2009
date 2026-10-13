@@ -13,65 +13,58 @@ default: liblua libsql libgame libpoly libthecore game db
 	@echo "--------------------------------------"
 
 quick: .
-	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0; fi
-	@if [ -d "libsql" ]; then $(MAKE) -C libsql; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql; fi
-	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src; fi
-	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly; fi
-	@if [ -d "libthecore" ]; then $(MAKE) -C libthecore/src; elif [ -d "../../../server/src/libthecore" ]; then $(MAKE) -C ../../../server/src/libthecore/src; fi
-	@if [ -d "game" ]; then touch game/src/main.cpp && $(MAKE) -C game/src && $(MAKE) -C game/src symlink; elif [ -d "../../../server/src/game" ]; then touch ../../../server/src/game/src/main.cpp && $(MAKE) -C ../../../server/src/game/src && $(MAKE) -C ../../../server/src/game/src symlink; fi
-	@if [ -d "db" ]; then touch db/src/Main.cpp && $(MAKE) -C db/src && $(MAKE) -C db/src symlink; elif [ -d "../../../server/src/db" ]; then touch ../../../server/src/db/src/Main.cpp && $(MAKE) -C ../../../server/src/db/src && $(MAKE) -C ../../../server/src/db/src symlink; fi
+	$(MAKE) -C liblua/5.0
+	$(MAKE) -C libsql
+	$(MAKE) -C libgame/src
+	$(MAKE) -C libpoly
+	$(MAKE) -C libthecore/src
+	touch game/src/main.cpp && $(MAKE) -C game/src && $(MAKE) -C game/src symlink
+	touch db/src/Main.cpp && $(MAKE) -C db/src && $(MAKE) -C db/src symlink
 
 liblua: .
-	@if [ -d "$@" ]; then $(MAKE) -C $@/5.0 clean && $(MAKE) -C $@/5.0; \
-	elif [ -d "../../../server/src/$@" ]; then $(MAKE) -C ../../../server/src/$@/5.0 clean && $(MAKE) -C ../../../server/src/$@/5.0; fi
+	$(MAKE) -C $@/5.0 clean && $(MAKE) -C $@/5.0
 
 libsql: .
-	@if [ -d "$@" ]; then touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/Depend && $(MAKE) -C ../../../server/src/$@ dep && $(MAKE) -C ../../../server/src/$@ clean && $(MAKE) -C ../../../server/src/$@; fi
+	touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@
 
 libgame: .
-	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/src/Depend && $(MAKE) -C ../../../server/src/$@/src dep && $(MAKE) -C ../../../server/src/$@/src clean && $(MAKE) -C ../../../server/src/$@/src; fi
+	touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src
 
 libpoly: .
-	@if [ -d "$@" ]; then touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/Depend && $(MAKE) -C ../../../server/src/$@ dep && $(MAKE) -C ../../../server/src/$@ clean && $(MAKE) -C ../../../server/src/$@; fi
+	touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@
 
 libthecore: .
-	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/src/Depend && $(MAKE) -C ../../../server/src/$@/src dep && $(MAKE) -C ../../../server/src/$@/src clean && $(MAKE) -C ../../../server/src/$@/src; fi
+	touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src
 
 game: .
-	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src && $(MAKE) -C $@/src symlink; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/src/Depend && $(MAKE) -C ../../../server/src/$@/src dep && $(MAKE) -C ../../../server/src/$@/src clean && $(MAKE) -C ../../../server/src/$@/src && $(MAKE) -C ../../../server/src/$@/src symlink; fi
+	touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src && $(MAKE) -C $@/src symlink
 
 db: .
-	@if [ -d "$@" ]; then touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src && $(MAKE) -C $@/src symlink; \
-	elif [ -d "../../../server/src/$@" ]; then touch ../../../server/src/$@/src/Depend && $(MAKE) -C ../../../server/src/$@/src dep && $(MAKE) -C ../../../server/src/$@/src clean && $(MAKE) -C ../../../server/src/$@/src && $(MAKE) -C ../../../server/src/$@/src symlink; fi
+	touch $@/src/Depend && $(MAKE) -C $@/src dep && $(MAKE) -C $@/src clean && $(MAKE) -C $@/src && $(MAKE) -C $@/src symlink
 
 ver:
 	@$(CC) -v
 
 ver2:
 	@$(CC) -v
-	@if [ -d "game" ]; then $(MAKE) -C game/src ver; elif [ -d "../../../server/src/game" ]; then $(MAKE) -C ../../../server/src/game/src ver; fi
+	$(MAKE) -C game/src ver
 
 symlink:
-	@if [ -d "game" ]; then $(MAKE) -C game/src symlink; elif [ -d "../../../server/src/game" ]; then $(MAKE) -C ../../../server/src/game/src symlink; fi
-	@if [ -d "db" ]; then $(MAKE) -C db/src symlink; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src symlink; fi
+	$(MAKE) -C game/src symlink
+	$(MAKE) -C db/src symlink
 
 strip:
-	@if [ -d "game" ]; then $(MAKE) -C game/src strip; elif [ -d "../../../server/src/game" ]; then $(MAKE) -C ../../../server/src/game/src strip; fi
-	@if [ -d "db" ]; then $(MAKE) -C db/src strip; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src strip; fi
+	$(MAKE) -C game/src strip
+	$(MAKE) -C db/src strip
 
 clean:
-	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0 clean; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0 clean; fi
-	@if [ -d "libsql" ]; then $(MAKE) -C libsql clean; elif [ -d "../../../server/src/libsql" ]; then $(MAKE) -C ../../../server/src/libsql clean; fi
-	@if [ -d "libgame" ]; then $(MAKE) -C libgame/src clean; elif [ -d "../../../server/src/libgame" ]; then $(MAKE) -C ../../../server/src/libgame/src clean; fi
-	@if [ -d "libpoly" ]; then $(MAKE) -C libpoly clean; elif [ -d "../../../server/src/libpoly" ]; then $(MAKE) -C ../../../server/src/libpoly clean; fi
-	@if [ -d "libthecore" ]; then $(MAKE) -C libthecore/src clean; elif [ -d "../../../server/src/libthecore" ]; then $(MAKE) -C ../../../server/src/libthecore/src clean; fi
-	@if [ -d "game" ]; then $(MAKE) -C game/src clean; elif [ -d "../../../server/src/game" ]; then $(MAKE) -C ../../../server/src/game/src clean; fi
-	@if [ -d "db" ]; then $(MAKE) -C db/src clean; elif [ -d "../../../server/src/db" ]; then $(MAKE) -C ../../../server/src/db/src clean; fi
+	$(MAKE) -C liblua/5.0 clean
+	$(MAKE) -C libsql clean
+	$(MAKE) -C libgame/src clean
+	$(MAKE) -C libpoly clean
+	$(MAKE) -C libthecore/src clean
+	$(MAKE) -C game/src clean
+	$(MAKE) -C db/src clean
 
 all:
 	@echo "--------------------------------------"
@@ -84,31 +77,18 @@ all:
 	@echo "Full Build Start"
 	@echo "--------------------------------------"
 
-	@if [ -d "liblua" ]; then $(MAKE) -C liblua/5.0 clean && $(MAKE) -C liblua/5.0; elif [ -d "../../../server/src/liblua" ]; then $(MAKE) -C ../../../server/src/liblua/5.0 clean && $(MAKE) -C ../../../server/src/liblua/5.0; fi
+	$(MAKE) -C liblua/5.0 clean && $(MAKE) -C liblua/5.0
 
 	# $(MAKE) -C liblua/5.2 clean
 	# $(MAKE) -C liblua/5.2 freebsd
 	# $(MAKE) -C liblua/5.2 local
 
-	@if [ -d "libsql" ]; then touch libsql/Depend && $(MAKE) -C libsql dep && $(MAKE) -C libsql clean && $(MAKE) -C libsql; \
-	elif [ -d "../../../server/src/libsql" ]; then touch ../../../server/src/libsql/Depend && $(MAKE) -C ../../../server/src/libsql dep && $(MAKE) -C ../../../server/src/libsql clean && $(MAKE) -C ../../../server/src/libsql; fi
-
-	@if [ -d "libgame" ]; then touch libgame/src/Depend && $(MAKE) -C libgame/src dep && $(MAKE) -C libgame/src clean && $(MAKE) -C libgame/src; \
-	elif [ -d "../../../server/src/libgame" ]; then touch ../../../server/src/libgame/src/Depend && $(MAKE) -C ../../../server/src/libgame/src dep && $(MAKE) -C ../../../server/src/libgame/src clean && $(MAKE) -C ../../../server/src/libgame/src; fi
-
-	@if [ -d "libpoly" ]; then touch libpoly/Depend && $(MAKE) -C libpoly dep && $(MAKE) -C libpoly clean && $(MAKE) -C libpoly; \
-	elif [ -d "../../../server/src/libpoly" ]; then touch ../../../server/src/libpoly/Depend && $(MAKE) -C ../../../server/src/libpoly dep && $(MAKE) -C ../../../server/src/libpoly clean && $(MAKE) -C ../../../server/src/libpoly; fi
-
-	@if [ -d "libthecore" ]; then touch libthecore/src/Depend && $(MAKE) -C libthecore/src dep && $(MAKE) -C libthecore/src clean && $(MAKE) -C libthecore/src; \
-	elif [ -d "../../../server/src/libthecore" ]; then touch ../../../server/src/libthecore/src/Depend && $(MAKE) -C ../../../server/src/libthecore/src dep && $(MAKE) -C ../../../server/src/libthecore/src clean && $(MAKE) -C ../../../server/src/libthecore/src; fi
-
-	@if [ -d "game" ]; then touch game/src/Depend && $(MAKE) -C game/src dep && $(MAKE) -C game/src clean && $(MAKE) -C game/src && $(MAKE) -C game/src symlink; \
-	elif [ -d "../../../server/src/game" ]; then touch ../../../server/src/game/src/Depend && $(MAKE) -C ../../../server/src/game/src dep && $(MAKE) -C ../../../server/src/game/src clean && $(MAKE) -C ../../../server/src/game/src && $(MAKE) -C ../../../server/src/game/src symlink; fi
-	# $(MAKE) -C game/src limit_time
-	# $(MAKE) -C game/src strip
-
-	@if [ -d "db" ]; then touch db/src/Depend && $(MAKE) -C db/src dep && $(MAKE) -C db/src clean && $(MAKE) -C db/src && $(MAKE) -C db/src symlink; \
-	elif [ -d "../../../server/src/db" ]; then touch ../../../server/src/db/src/Depend && $(MAKE) -C ../../../server/src/db/src dep && $(MAKE) -C ../../../server/src/db/src clean && $(MAKE) -C ../../../server/src/db/src && $(MAKE) -C ../../../server/src/db/src symlink; fi
+	touch libsql/Depend && $(MAKE) -C libsql dep && $(MAKE) -C libsql clean && $(MAKE) -C libsql
+	touch libgame/src/Depend && $(MAKE) -C libgame/src dep && $(MAKE) -C libgame/src clean && $(MAKE) -C libgame/src
+	touch libpoly/Depend && $(MAKE) -C libpoly dep && $(MAKE) -C libpoly clean && $(MAKE) -C libpoly
+	touch libthecore/src/Depend && $(MAKE) -C libthecore/src dep && $(MAKE) -C libthecore/src clean && $(MAKE) -C libthecore/src
+	touch game/src/Depend && $(MAKE) -C game/src dep && $(MAKE) -C game/src clean && $(MAKE) -C game/src && $(MAKE) -C game/src symlink
+	touch db/src/Depend && $(MAKE) -C db/src dep && $(MAKE) -C db/src clean && $(MAKE) -C db/src && $(MAKE) -C db/src symlink
 	# $(MAKE) -C db/src strip
 	@echo "--------------------------------------"
 	@echo "Full Build End"

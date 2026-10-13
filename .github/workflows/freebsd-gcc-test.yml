@@ -19,14 +19,6 @@ on:
       - 'sql/**'
       - 'client/**'
       - 'extern/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/libpoly/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/libthecore/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/libgame/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/libsql/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/common/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/db/**'
-      - 'mt2009 - FULL SOURCE/Server Source/Server/game/src/locale.hpp'
-      - 'mt2009 - FULL SOURCE/Server Source/Extern/**'
   workflow_dispatch:
 
 permissions:
@@ -154,11 +146,7 @@ jobs:
 
             # 5. FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
-            if [ -d "server/src/db/src" ]; then
-              DB_DIR="server/src/db"
-            else
-              DB_DIR="mt2009 - FULL SOURCE/Server Source/Server/db"
-            fi
+            DB_DIR="server/src/db"
             gmake -C "$DB_DIR/src" CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
             ls -lh "$DB_DIR"
             file "$DB_DIR"/db_r* || true

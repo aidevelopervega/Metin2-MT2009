@@ -59,8 +59,6 @@ CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PW
 # Project Libraries
 INCDIR += -I/usr/local/include
 INCDIR += -I../../../../extern/common/include -I../../../../extern/server/include
-INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Extern/include" -I../../../../Extern/include -I../../../Extern/include
-INCDIR += -I"../../../../mt2009 - FULL SOURCE/Server Source/Server"
 INCDIR += -I../../libpoly
 INCDIR += -I../../libgame/include
 INCDIR += -I../../libthecore/include
@@ -70,7 +68,6 @@ INCDIR += -I../../common
 INCDIR += -I../..
 INCDIR += -I.
 LIBDIR += -L../../../../extern/server/lib
-LIBDIR += -L"../../../../mt2009 - FULL SOURCE/Server Source/Extern/lib" -L../../../../Extern/lib -L../../../Extern/lib
 
 LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lsql -lpoly -lgame -lm

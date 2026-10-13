@@ -8,7 +8,6 @@ set -e
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 BUILD_DIR="$ROOT_DIR/tests/build"
-SERVER_DIR="$ROOT_DIR/mt2009 - FULL SOURCE/Server Source"
 
 CXX=${CXX:-g++}
 AR=${AR:-ar}
@@ -27,15 +26,12 @@ if [ -d "/usr/local/lib/gcc14" ]; then
     RPATH="-Wl,-rpath=/usr/local/lib/gcc14"
 fi
 
-# 1. libpoly
-echo "[1/2] libpoly derleniyor ve test ediliyor..."
-if [ -d "$ROOT_DIR/server/src/libpoly" ]; then
-    POLY_DIR="$ROOT_DIR/server/src/libpoly"
-else
-    POLY_DIR="$SERVER_DIR/Server/libpoly"
-fi
 EXTERN_COMMON_INC="$ROOT_DIR/extern/common/include"
 EXTERN_SERVER_INC="$ROOT_DIR/extern/server/include"
+
+# 1. libpoly
+echo "[1/2] libpoly derleniyor ve test ediliyor..."
+POLY_DIR="$ROOT_DIR/server/src/libpoly"
 
 $CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Base.cc" -o "$BUILD_DIR/Base.o"
 $CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Symbol.cc" -o "$BUILD_DIR/Symbol.o"
@@ -48,16 +44,8 @@ $CXX $FLAGS $RPATH -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "
 
 # 2. libthecore
 echo "[2/3] libthecore derleniyor ve test ediliyor..."
-if [ -d "$ROOT_DIR/server/src/libthecore" ]; then
-    CORE_DIR="$ROOT_DIR/server/src/libthecore"
-else
-    CORE_DIR="$SERVER_DIR/Server/libthecore"
-fi
-if [ -d "$ROOT_DIR/server/src/common" ]; then
-    COMMON_DIR="$ROOT_DIR/server/src/common"
-else
-    COMMON_DIR="$SERVER_DIR/Server/common"
-fi
+CORE_DIR="$ROOT_DIR/server/src/libthecore"
+COMMON_DIR="$ROOT_DIR/server/src/common"
 
 for src in DES_table.c buffer.c des.c fdwatch.c gost.c hangul.c heart.c kstbl.c log.c main.c memcpy.c signal.c socket.c tea.c utils.c; do
     obj_name=$(basename "$src" .c)
@@ -72,11 +60,7 @@ $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" 
 
 # 3. libgame (Gercek libthecore.a ile bagli)
 echo "[3/3] libgame derleniyor ve test ediliyor..."
-if [ -d "$ROOT_DIR/server/src/libgame" ]; then
-    GAME_DIR="$ROOT_DIR/server/src/libgame"
-else
-    GAME_DIR="$SERVER_DIR/Server/libgame"
-fi
+GAME_DIR="$ROOT_DIR/server/src/libgame"
 
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"
@@ -88,11 +72,7 @@ $CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -
 
 # 4. libsql
 echo "[4/4] libsql derleniyor ve test ediliyor..."
-if [ -d "$ROOT_DIR/server/src/libsql" ]; then
-    SQL_DIR="$ROOT_DIR/server/src/libsql"
-else
-    SQL_DIR="$SERVER_DIR/Server/libsql"
-fi
+SQL_DIR="$ROOT_DIR/server/src/libsql"
 
 for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
     obj_name=$(basename "$src" .cpp)

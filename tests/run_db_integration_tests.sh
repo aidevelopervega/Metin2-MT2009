@@ -8,12 +8,7 @@ set -e
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 BUILD_DIR="$ROOT_DIR/tests/build"
-SERVER_DIR="$ROOT_DIR/mt2009 - FULL SOURCE/Server Source"
-if [ -d "$ROOT_DIR/server/src/db/src" ]; then
-    DB_SRC_DIR="$ROOT_DIR/server/src/db/src"
-else
-    DB_SRC_DIR="$SERVER_DIR/Server/db/src"
-fi
+DB_SRC_DIR="$ROOT_DIR/server/src/db/src"
 DB_OBJ_DIR="$DB_SRC_DIR/.obj"
 
 CXX=${CXX:-g++}
@@ -126,15 +121,10 @@ echo "test_db_cache_integration derleniyor ve bağlanıyor..."
 $CXX $FLAGS \
     -I"$DB_SRC_DIR" \
     -I"$ROOT_DIR/server/src/libthecore/include" \
-    -I"$SERVER_DIR/Server/libthecore/include" \
     -I"$ROOT_DIR/server/src/libsql" \
-    -I"$SERVER_DIR/Server/libsql" \
     -I"$ROOT_DIR/server/src/libgame/include" \
-    -I"$SERVER_DIR/Server/libgame/include" \
     -I"$ROOT_DIR/server/src/libpoly" \
-    -I"$SERVER_DIR/Server/libpoly" \
     -I"$ROOT_DIR/server/src/common" \
-    -I"$SERVER_DIR/Server/common" \
     -I"$ROOT_DIR/extern/common/include" \
     -I"$ROOT_DIR/extern/server/include" \
     -I/usr/local/include/mysql \
