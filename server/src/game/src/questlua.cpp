@@ -648,11 +648,42 @@ namespace quest
 		//TEMP
 		luaopen_io(L);
 		luaopen_debug(L);
-#elif LUA_V == 523
+#elif LUA_V == 523 || LUA_V == 551
 		L = luaL_newstate();
 
 		luaL_openlibs(L);
 		//luaopen_debug(L);
+		{
+			const char* shims =
+				"if not math.mod then math.mod = math.fmod end\n"
+				"if not math.pow then math.pow = function(x, y) return x ^ y end end\n"
+				"if not string.gfind then string.gfind = string.gmatch end\n"
+				"if not table.getn then\n"
+				"    table.getn = function(t)\n"
+				"        if type(t) ~= 'table' then return 0 end\n"
+				"        if type(t.n) == 'number' then return t.n end\n"
+				"        return #t\n"
+				"    end\n"
+				"end\n"
+				"if not table.foreach then\n"
+				"    table.foreach = function(t, f)\n"
+				"        for k, v in pairs(t) do\n"
+				"            local r = f(k, v)\n"
+				"            if r ~= nil then return r end\n"
+				"        end\n"
+				"    end\n"
+				"end\n"
+				"if not table.foreachi then\n"
+				"    table.foreachi = function(t, f)\n"
+				"        for i, v in ipairs(t) do\n"
+				"            local r = f(i, v)\n"
+				"            if r ~= nil then return r end\n"
+				"        end\n"
+				"    end\n"
+				"end\n"
+				"if not unpack then unpack = table.unpack end\n";
+			luaL_dostring(L, shims);
+		}
 #else
 	#error "lua version not found"
 #endif
@@ -739,6 +770,13 @@ namespace quest
 			}
 		}
 
+#if LUA_V == 523 || LUA_V == 551
+		lua_dostring(L,
+			"select = function(...) local a = table.pack(...); return q.yield('select', a) end\n"
+			"debug = function(text, ...) if is_test_server and is_test_server() then syschat(string.format('[qDEBUG] '..text, ...)) end end\n"
+		);
+#endif
+
 #define ENABLE_TRANSLATE_LUA
 #ifdef ENABLE_TRANSLATE_LUA
 		{
@@ -756,6 +794,41 @@ namespace quest
 #endif
 
 		{
+			lua_dostring(L,
+				"if not gameforge or type(gameforge) ~= 'table' then\n"
+				"    local function make_gf_proxy(path)\n"
+				"        local t = {}\n"
+				"        local mt = {\n"
+				"            __index = function(self, k)\n"
+				"                local str_k = tostring(k)\n"
+				"                local full_path = (path and path ~= '' and path ~= 'gameforge') and (path .. '.' .. str_k) or str_k\n"
+				"                if translate and type(translate) == 'table' then\n"
+				"                    if not path or path == '' or path == 'gameforge' then\n"
+				"                        if translate[k] ~= nil then return translate[k] end\n"
+				"                    elseif path == 'locale' or path == 'gameforge.locale' then\n"
+				"                        if translate.general and translate.general[k] ~= nil then return translate.general[k] end\n"
+				"                        if translate.reward and translate.reward[k] ~= nil then return translate.reward[k] end\n"
+				"                        if translate[k] ~= nil then return translate[k] end\n"
+				"                    else\n"
+				"                        local sub = translate[path]\n"
+				"                        if sub and type(sub) == 'table' and sub[k] ~= nil then return sub[k] end\n"
+				"                    end\n"
+				"                end\n"
+				"                return make_gf_proxy(full_path)\n"
+				"            end,\n"
+				"            __concat = function(a, b)\n"
+				"                return tostring(a) .. tostring(b)\n"
+				"            end,\n"
+				"            __tostring = function(self)\n"
+				"                return string.format('[MISSING_LOCALE: %s]', tostring(path))\n"
+				"            end\n"
+				"        }\n"
+				"        return setmetatable(t, mt)\n"
+				"    end\n"
+				"    gameforge = make_gf_proxy('gameforge')\n"
+				"end\n"
+			);
+
 			char questLocaleFileName[256];
 			snprintf(questLocaleFileName, sizeof(questLocaleFileName), "%s/locale.lua", g_stQuestDir.c_str());
 

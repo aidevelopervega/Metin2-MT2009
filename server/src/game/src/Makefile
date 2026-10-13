@@ -133,8 +133,12 @@ INCDIR += -I/usr/include
 LIBS += -lssl -lcrypto
 
 # Lua
-CFLAGS += -DENABLE_LUA_5_VERSION=ENABLE_LUA_5_VERSION
-ifeq ($(ENABLE_LUA_5_VERSION), 2)
+CFLAGS += -DENABLE_LUA_5_VERSION=$(ENABLE_LUA_5_VERSION)
+ifeq ($(ENABLE_LUA_5_VERSION), 5)
+INCDIR += -I../../liblua/5.5/src
+LIBDIR += -L../../liblua/5.5/src
+LIBS += ../../liblua/5.5/src/liblua.a
+else ifeq ($(ENABLE_LUA_5_VERSION), 2)
 INCDIR += -I../../liblua/5.2/install/include
 LIBDIR += -L../../liblua/5.2/install/lib
 LIBS += ../../liblua/5.2/install/lib/liblua.a

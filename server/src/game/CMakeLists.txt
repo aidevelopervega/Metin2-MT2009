@@ -7,6 +7,22 @@ list(APPEND GAME_SOURCES "src/minilzo.c")
 
 add_executable(game ${GAME_SOURCES})
 
+set(ENABLE_LUA_5_VERSION 0 CACHE STRING "Lua version for game server (0=5.0, 2=5.2, 5=5.5)")
+
+if(ENABLE_LUA_5_VERSION EQUAL 5)
+    set(GAME_LUA_INC "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.5/src")
+    set(GAME_LUA_LIB lua55_lib)
+    set(GAME_LUA_DEF ENABLE_LUA_5_VERSION=5)
+elseif(ENABLE_LUA_5_VERSION EQUAL 2)
+    set(GAME_LUA_INC "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.2/src")
+    set(GAME_LUA_LIB lua52_lib)
+    set(GAME_LUA_DEF ENABLE_LUA_5_VERSION=2)
+else()
+    set(GAME_LUA_INC "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.0/include")
+    set(GAME_LUA_LIB lua_lib)
+    set(GAME_LUA_DEF ENABLE_LUA_5_VERSION=0)
+endif()
+
 target_include_directories(game PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
@@ -15,7 +31,7 @@ target_include_directories(game PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../libsql"
     "${CMAKE_CURRENT_SOURCE_DIR}/../libpoly"
     "${CMAKE_CURRENT_SOURCE_DIR}/../libgame/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.0/include"
+    "${GAME_LUA_INC}"
     "${CMAKE_SOURCE_DIR}/extern/common/include"
     "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
     "${CMAKE_SOURCE_DIR}/extern/server/include"
@@ -26,7 +42,7 @@ target_compile_definitions(game PRIVATE
     __HOSTNAME__="mt2009"
     __PWD__=""
     __GAME_VERSION__="${MT2_SERVER_REVISION}"
-    ENABLE_LUA_5_VERSION=0
+    ${GAME_LUA_DEF}
 )
 
 # game sunucusunda RTTI ve Exception aciktir (CryptoPP ve CAsyncSQL2)
@@ -39,7 +55,7 @@ target_link_libraries(game PRIVATE
     sql_lib
     poly
     game_lib
-    lua_lib
+    ${GAME_LUA_LIB}
     CryptoPP::CryptoPP
     Database::Client
 )

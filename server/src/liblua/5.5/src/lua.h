@@ -17,6 +17,7 @@
 #define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
 
 
+#define LUA_V 551
 #define LUA_VERSION_MAJOR_N	5
 #define LUA_VERSION_MINOR_N	5
 #define LUA_VERSION_RELEASE_N	1
