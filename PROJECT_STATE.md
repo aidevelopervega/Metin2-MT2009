@@ -617,13 +617,18 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `extern/platform/windows-x64/mingw-ucrt-gcc16/` platform ayrımı uygulandı; `libmariadb.a` bu konuma taşındı ve `tests/run_db_integration_tests.ps1` senkronize edildi.
       * `server/src/game/src/Makefile` ve `server/src/db/src/Makefile` içindeki eski 32-bit cross-compilation yapılandırmaları (`-L/usr/local/lib32/gcc12`, `/usr/lib32/libcrypto.a`, `extern/server/lib/*.a`) 64-bit modda tamamen engellendi; 64-bit FreeBSD amd64 GCC 14 uyumlu fail-closed kütüphane seçimi (`-Wl,-rpath=/usr/local/lib/gcc14`, `/usr/local/lib/mysql`, `/usr/lib -lssl -lcrypto`) sağlandı.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Extern x64 ve Makefile İyileştirmeleri - Run ID: 38327339109, Commit: `820cf42f`):**
+      * **MySQL 8.4 LTS (Job ID: 115068966327):** SUCCESS (3m 56s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115068966238):** SUCCESS (3m 36s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115068966076):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** Extern x64 modernizasyonu, Client vcxproj yol düzeltmeleri, `mingw-ucrt-gcc16` platform ayrımı ve 64-bit Makefile korumaları üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r41023` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Extern x64 Modernizasyonu, Client vcxproj yolları düzeltildi, Windows x64 platform ayrımı yapıldı, Makefile fail-closed korumaları eklendi ve 528/528 test PASS doğrulandı.
-* **Mevcut Durum:** **CLIENT VCXPROJ PATHS FIXED (PASS). ASSERTION DISTRIBUTION VERIFIED (24/97/28). EXTERN MANIFEST CREATED. PLATFORM DIRECTORY MINGW-UCRT-GCC16 SETUP. 528/528 PASS. Ready for commit & push.**
+* **Aktif Görev:** Extern x64 Modernizasyonu ve Platform Ayrımı tamamlandı; CI Run 38327339109 3/3 SUCCESS (%100 PASS) olarak doğrulandı.
+* **Mevcut Durum:** **EXTERN X64 MODERNIZATION & PLATFORM SEPARATION VERIFIED. Client vcxproj paths PASS. Assertion counts verified (24/97/28). Windows 528/528 PASS. FreeBSD CI 3/3 SUCCESS (1,923 assertions). Ready for next task.**
 
 ---
 
