@@ -108,8 +108,8 @@ EXTRA_LIBS= -lm
 # You need an ANSI C compiler. gcc is a popular one. We do not use -ansi in
 # WARN because it disables POSIX features used in the libraries.
 #
-CC = clang
-WARN= -m32 -Wall
+CC ?= gcc
+WARN= -Wall
 
 # ------------------------------------------------------------------ C options
 
@@ -129,12 +129,12 @@ MYCFLAGS= -O2 -g
 
 # This should work in all Unix systems.
 #
-AR= ar rcu
+AR ?= ar rcu
 
 # If your system doesn't have (or need) ranlib, use RANLIB=true.
 # On some systems, "ar s" does what ranlib would do.
 #
-RANLIB= ranlib
+RANLIB ?= ranlib
 #RANLIB= ar s
 #RANLIB= true
 

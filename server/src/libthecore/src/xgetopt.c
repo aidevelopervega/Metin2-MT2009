@@ -157,7 +157,7 @@ TCHAR	*optarg;		// global argument pointer
 int		optind = 0; 	// global argv index
 int		optreset = 0;
 
-int getopt(int argc, TCHAR *argv[], TCHAR *optstring)
+int getopt(int argc, TCHAR *argv[], const TCHAR *optstring)
 {
 	static TCHAR *next = NULL;
 
@@ -198,7 +198,7 @@ int getopt(int argc, TCHAR *argv[], TCHAR *optstring)
 	}
 
 	TCHAR c = *next++;
-	TCHAR *cp = _tcschr(optstring, c);
+	const TCHAR *cp = _tcschr(optstring, c);
 
 	if (cp == NULL || c == _T(':'))
 		return _T('?');
@@ -225,35 +225,9 @@ int getopt(int argc, TCHAR *argv[], TCHAR *optstring)
 	return c;
 }
 
-
-char* _optarg = NULL;
-int _optind = 1;
-
-int getopt(int argc, char *const argv[], const char *optstring)
+int getopt(int argc, const TCHAR *const argv[], const TCHAR *optstring)
 {
-	if ((_optind >= argc) || (argv[_optind][0] != '-') || (argv[_optind][0] == 0))
-	{
-		return -1;
-	}
-
-	int opt = argv[_optind][1];
-	const char *p = strchr(optstring, opt);
-
-	if (p == NULL)
-	{
-		return '?';
-	}
-	if (p[1] == ':')
-	{
-		_optind++;
-		if (_optind >= argc)
-		{
-			return '?';
-		}
-		_optarg = argv[_optind];
-		_optind++;
-	}
-	return opt;
+	return getopt(argc, (TCHAR**)(argv), optstring);
 }
 
 #endif // #ifdef __WIN32__

@@ -18,12 +18,8 @@
 extern int optind, opterr, optreset;
 extern TCHAR *optarg;
 
-int getopt(int argc, TCHAR *argv[], TCHAR *optstring);
-
-extern char* _optarg;
-extern int _optind;
-
-int getopt(int argc, char *const argv[], const char *optstring);
+int getopt(int argc, TCHAR *argv[], const TCHAR *optstring);
+int getopt(int argc, const TCHAR *const argv[], const TCHAR *optstring);
 
 #endif //XGETOPT_H
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -105,11 +105,11 @@ class CItem : public CEntity
 		void		ModifyPoints(bool bAdd);
 
 		bool		CreateSocket(BYTE bSlot, BYTE bGold);
-		const long *	GetSockets()		{ return &m_alSockets[0];	}
-		long		GetSocket(int i)	{ return m_alSockets[i];	}
+		const int32_t *	GetSockets()		{ return &m_alSockets[0];	}
+		int32_t		GetSocket(int i)	{ return m_alSockets[i];	}
 
-		void		SetSockets(const long * al);
-		void		SetSocket(int i, long v, bool bLog = true, const char* logHint="SOCKET");
+		void		SetSockets(const int32_t * al);
+		void		SetSocket(int i, int32_t v, bool bLog = true, const char* logHint="SOCKET");
 
 		int		GetSocketCount();
 		bool		AddSocket();
@@ -274,7 +274,7 @@ class CItem : public CEntity
 
 		bool		m_bExchanging;
 
-		long		m_alSockets[ITEM_SOCKET_MAX_NUM];
+		int32_t		m_alSockets[ITEM_SOCKET_MAX_NUM];
 		TPlayerItemAttribute	m_aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 
 		LPEVENT		m_pkDestroyEvent;

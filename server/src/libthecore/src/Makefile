@@ -1,12 +1,14 @@
-CXX = clang++
+CXX ?= g++
 BIN_DIR = ../lib
 BIN     = $(BIN_DIR)/libthecore.a
 INCLUDE = -I../include
 INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/include
+LBITS := $(shell getconf LONG_BIT)
 
-GCC_VERSION = $(shell $(CXX) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut -d'.' -f1)
-
-CFLAGS  = -m32 -Wall -O2 -pipe -g $(INCLUDE)
+CFLAGS  = -Wall -O2 -pipe -g $(INCLUDE)
+ifeq ($(LBITS),32)
+CFLAGS += -m32
+endif
 CFLAGS += -std=c++20 -Wno-invalid-source-encoding -Wno-deprecated
 
 LIBS    =

@@ -1,12 +1,14 @@
-CXX = clang++
+CXX ?= g++
 BIN = ./libpoly.a
-
-GCC_VERSION = $(shell $(CC) --version 2>&1 | grep "(GCC)" | cut -d' ' -f3  | cut -d'.' -f1)
+LBITS := $(shell getconf LONG_BIT)
 
 INCLUDE += -I../../../extern/common/include -I../../../extern/server/include
 LIBS =
 
-CFLAGS  = -m32 -Wall -O2 -pipe -fno-exceptions -fno-rtti $(INCLUDE)
+CFLAGS  = -Wall -O2 -pipe -fno-exceptions -fno-rtti $(INCLUDE)
+ifeq ($(LBITS),32)
+CFLAGS += -m32
+endif
 CFLAGS += -std=c++20
 
 OBJFILES = Base.o Poly.o SymTable.o Symbol.o

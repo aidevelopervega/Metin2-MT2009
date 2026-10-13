@@ -1,6 +1,8 @@
 #ifndef __INC_PACKET_H__
 #define __INC_PACKET_H__
 #include "stdafx.h"
+#include <cstdint>
+#include "../../common/tables.h"
 
 enum
 {
@@ -373,9 +375,9 @@ typedef struct SPacketGGLogin
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
 	DWORD	dwPID;
 	BYTE	bEmpire;
-	long	lMapIndex;
+	int32_t	lMapIndex;
 	BYTE	bChannel;
-	long	lPremium;
+	int32_t	lPremium;
 } TPacketGGLogin;
 
 typedef struct SPacketGGLogout
@@ -388,13 +390,13 @@ typedef struct SPacketGGRelay
 {
 	BYTE	bHeader;
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	long	lSize;
+	int32_t	lSize;
 } TPacketGGRelay;
 
 typedef struct SPacketGGNotice
 {
 	BYTE	bHeader;
-	long	lSize;
+	int32_t	lSize;
 	BYTE	bChatType;
 } TPacketGGNotice;
 
@@ -402,7 +404,7 @@ typedef struct SPacketGGMonarchNotice
 {
 	BYTE	bHeader;
 	BYTE	bEmpire;
-	long	lSize;
+	int32_t	lSize;
 } TPacketGGMonarchNotice;
 
 //FORKED_ROAD
@@ -473,7 +475,7 @@ typedef struct SPacketGGXmasWarpSanta
 {
 	BYTE	bHeader;
 	BYTE	bChannel;
-	long	lMapIndex;
+	int32_t	lMapIndex;
 } TPacketGGXmasWarpSanta;
 
 typedef struct SPacketGGXmasWarpSantaReply
@@ -501,8 +503,8 @@ typedef struct SPacketGGWarpCharacter
 {
 	BYTE header;
 	DWORD pid;
-	long x;
-	long y;
+	int32_t x;
+	int32_t y;
 #ifdef ENABLE_CMD_WARP_IN_DUNGEON
 	int mapIndex;
 #endif
@@ -516,14 +518,14 @@ typedef struct SPacketGGGuildWarMapIndex
 	BYTE bHeader;
 	DWORD dwGuildID1;
 	DWORD dwGuildID2;
-	long lMapIndex;
+	int32_t lMapIndex;
 } TPacketGGGuildWarMapIndex;
 
 typedef struct SPacketGGTransfer
 {
 	BYTE	bHeader;
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	long	lX, lY;
+	int32_t	lX, lY;
 } TPacketGGTransfer;
 
 typedef struct SPacketGGLoginPing
@@ -536,7 +538,7 @@ typedef struct SPacketGGBlockChat
 {
 	BYTE	bHeader;
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	long	lBlockDuration;
+	int32_t	lBlockDuration;
 } TPacketGGBlockChat;
 
 typedef struct SPacketGGDisconnectPlayer
@@ -568,9 +570,9 @@ typedef struct SPacketGGDungeonFind
 {
 	BYTE bHeader;
 	DWORD dwPID;
-	long lPosX;
-	long lPosY;
-	long lMapIndex;
+	int32_t lPosX;
+	int32_t lPosY;
+	int32_t lMapIndex;
 	int iChannel;
 } TPacketGGDungeonFind;
 
@@ -597,7 +599,7 @@ typedef struct command_handshake
 	BYTE	bHeader;
 	DWORD	dwHandshake;
 	DWORD	dwTime;
-	long	lDelta;
+	int32_t	lDelta;
 } TPacketCGHandshake;
 
 typedef struct command_login
@@ -678,16 +680,16 @@ typedef struct command_move
 	BYTE	bFunc;
 	BYTE	bArg;
 	BYTE	bRot;
-	long	lX;
-	long	lY;
+	int32_t	lX;
+	int32_t	lY;
 	DWORD	dwTime;
 } TPacketCGMove;
 
 typedef struct command_sync_position_element
 {
 	DWORD	dwVID;
-	long	lX;
-	long	lY;
+	int32_t	lX;
+	int32_t	lY;
 } TPacketCGSyncPositionElement;
 
 typedef struct command_sync_position
@@ -866,7 +868,7 @@ typedef struct packet_quest_confirm
 {
 	BYTE header;
 	char msg[64+1];
-	long timeout;
+	int32_t timeout;
 	DWORD requestPID;
 } TPacketGCQuestConfirm;
 
@@ -875,7 +877,7 @@ typedef struct packet_handshake
 	BYTE	bHeader;
 	DWORD	dwHandshake;
 	DWORD	dwTime;
-	long	lDelta;
+	int32_t	lDelta;
 } TPacketGCHandshake;
 
 enum EPhase
@@ -983,9 +985,9 @@ typedef struct packet_add_char
 	DWORD	dwVID;
 
 	float	angle;
-	long	x;
-	long	y;
-	long	z;
+	int32_t	x;
+	int32_t	y;
+	int32_t	z;
 
 	BYTE	bType;
 	DWORD	wRaceNum; // @fixme501
@@ -1064,7 +1066,7 @@ typedef struct packet_main_character
 	DWORD	dwVID;
 	DWORD	wRaceNum; // @fixme501
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	long	lx, ly, lz;
+	int32_t	lx, ly, lz;
 	BYTE	empire;
 	BYTE	skill_group;
 } TPacketGCMainCharacter;
@@ -1082,7 +1084,7 @@ typedef struct packet_main_character3_bgm
 	DWORD	wRaceNum; // @fixme501
 	char	szChrName[CHARACTER_NAME_MAX_LEN + 1];
 	char	szBGMName[MUSIC_NAME_LEN + 1];
-	long	lx, ly, lz;
+	int32_t	lx, ly, lz;
 	BYTE	empire;
 	BYTE	skill_group;
 } TPacketGCMainCharacter3_BGM;
@@ -1100,7 +1102,7 @@ typedef struct packet_main_character4_bgm_vol
 	char	szChrName[CHARACTER_NAME_MAX_LEN + 1];
 	char	szBGMName[MUSIC_NAME_LEN + 1];
 	float	fBGMVol;
-	long	lx, ly, lz;
+	int32_t	lx, ly, lz;
 	BYTE	empire;
 	BYTE	skill_group;
 } TPacketGCMainCharacter4_BGM_VOL;
@@ -1123,8 +1125,8 @@ typedef struct packet_point_change
 	int		header;
 	DWORD	dwVID;
 	BYTE	type;
-	long	amount;
-	long	value;
+	int32_t	amount;
+	int32_t	value;
 } TPacketGCPointChange;
 
 typedef struct SPacketGold
@@ -1159,7 +1161,7 @@ struct TPacketGCItemDelDeprecated
 	TItemPos Cell;
 	DWORD	vnum;
 	ITEM_COUNT	count;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 };
 
@@ -1172,7 +1174,7 @@ typedef struct packet_item_set
 	DWORD	flags;
 	DWORD	anti_flags;
 	bool	highlight;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 } TPacketGCItemSet;
 
@@ -1203,14 +1205,14 @@ typedef struct packet_item_update
 	BYTE	header;
 	TItemPos Cell;
 	ITEM_COUNT	count;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 } TPacketGCItemUpdate;
 
 typedef struct packet_item_ground_add
 {
 	BYTE	bHeader;
-	long 	x, y, z;
+	int32_t 	x, y, z;
 	DWORD	dwVID;
 	DWORD	dwVnum;
 	ITEM_COUNT count;
@@ -1332,7 +1334,7 @@ struct packet_shop_item
 #endif
 	ITEM_COUNT        count;
 	BYTE		display_pos;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 };
 
@@ -1383,7 +1385,7 @@ struct packet_exchange
 	TItemPos	arg2;	// cell
 	ITEM_COUNT	arg3;	// count
 	TItemPos	arg4;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 };
 
@@ -1449,8 +1451,8 @@ typedef struct packet_move
 	BYTE		bArg;
 	BYTE		bRot;
 	DWORD		dwVID;
-	long		lX;
-	long		lY;
+	int32_t		lX;
+	int32_t		lY;
 	DWORD		dwTime;
 	DWORD		dwDuration;
 } TPacketGCMove;
@@ -1465,8 +1467,8 @@ typedef struct packet_ownership
 typedef struct packet_sync_position_element
 {
 	DWORD	dwVID;
-	long	lX;
-	long	lY;
+	int32_t	lX;
+	int32_t	lY;
 } TPacketGCSyncPositionElement;
 
 typedef struct packet_sync_position
@@ -1487,7 +1489,7 @@ typedef struct command_fly_targeting
 {
 	BYTE		bHeader;
 	DWORD		dwTargetVID;
-	long		x, y;
+	int32_t		x, y;
 } TPacketCGFlyTargeting;
 
 typedef struct packet_fly_targeting
@@ -1495,7 +1497,7 @@ typedef struct packet_fly_targeting
 	BYTE		bHeader;
 	DWORD		dwShooterVID;
 	DWORD		dwTargetVID;
-	long		x, y;
+	int32_t		x, y;
 } TPacketGCFlyTargeting;
 
 typedef struct packet_fly_clear_targeting
@@ -1563,7 +1565,7 @@ typedef struct packet_target
 struct STargetDebuff
 {
 	DWORD affect;
-	long duration;
+	int32_t duration;
 };
 
 typedef struct subpacket_target_debuffs
@@ -1574,9 +1576,9 @@ typedef struct subpacket_target_debuffs
 typedef struct packet_warp
 {
 	BYTE	bHeader;
-	long	lX;
-	long	lY;
-	long	lAddr;
+	int32_t	lX;
+	int32_t	lY;
+	int32_t	lAddr;
 	WORD	wPort;
 } TPacketGCWarp;
 
@@ -1751,8 +1753,8 @@ typedef struct packet_party_update
 	BYTE	percent_hp;
 	short	affects[7];
 #ifdef PARTY_POSITION
-	long	x;
-	long	y;
+	int32_t	x;
+	int32_t	y;
 #endif
 } TPacketGCPartyUpdate;
 
@@ -1836,13 +1838,13 @@ typedef struct command_safebox_money
 {
 	BYTE        bHeader;
 	BYTE        bState;
-	long	lMoney;
+	int32_t	lMoney;
 } TPacketCGSafeboxMoney;
 
 typedef struct packet_safebox_money_change
 {
 	BYTE	bHeader;
-	long	lMoney;
+	int32_t	lMoney;
 } TPacketGCSafeboxMoneyChange;
 
 // Guild
@@ -2085,8 +2087,8 @@ typedef struct packet_dungeon
 
 typedef struct packet_dungeon_dest_position
 {
-	long x;
-	long y;
+	int32_t x;
+	int32_t y;
 } TPacketGCDungeonDestPosition;
 
 typedef struct SPacketGCShopSign
@@ -2107,7 +2109,7 @@ typedef struct SPacketCGMyShop
 typedef struct SPacketGCTime
 {
 	BYTE	bHeader;
-	time_t	time;
+	uint32_t	time;
 } TPacketGCTime;
 
 enum
@@ -2159,8 +2161,8 @@ struct TNPCPosition
 {
 	BYTE bType;
 	char name[CHARACTER_NAME_MAX_LEN+1];
-	long x;
-	long y;
+	int32_t x;
+	int32_t y;
 };
 
 typedef struct SPacketGCNPCPosition
@@ -2216,7 +2218,7 @@ typedef struct SEquipmentItemSet
 {
 	DWORD   vnum;
 	ITEM_COUNT    count;
-	long    alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t    alSockets[ITEM_SOCKET_MAX_NUM];
 	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 } TEquipmentItemSet;
 
@@ -2230,8 +2232,8 @@ typedef struct pakcet_view_equip
 typedef struct SLandPacketElement
 {
 	DWORD	dwID;
-	long	x, y;
-	long	width, height;
+	int32_t	x, y;
+	int32_t	width, height;
 	DWORD	dwGuildID;
 } TLandPacketElement;
 
@@ -2244,7 +2246,7 @@ typedef struct packet_land_list
 typedef struct SPacketGCTargetCreate
 {
 	BYTE	bHeader;
-	long	lID;
+	int32_t	lID;
 	char	szName[32+1];
 	DWORD	dwVID;
 	BYTE	bType;
@@ -2253,14 +2255,14 @@ typedef struct SPacketGCTargetCreate
 typedef struct SPacketGCTargetUpdate
 {
 	BYTE	bHeader;
-	long	lID;
-	long	lX, lY;
+	int32_t	lID;
+	int32_t	lX, lY;
 } TPacketGCTargetUpdate;
 
 typedef struct SPacketGCTargetDelete
 {
 	BYTE	bHeader;
-	long	lID;
+	int32_t	lID;
 } TPacketGCTargetDelete;
 
 typedef struct SPacketGCAffectAdd
@@ -2326,8 +2328,8 @@ typedef struct SPacketGGMonarchTransfer
 {
 	BYTE	bHeader;
 	DWORD	dwTargetPID;
-	long	x;
-	long	y;
+	int32_t	x;
+	int32_t	y;
 } TPacketMonarchGGTransfer;
 
 typedef struct SPacketGGCheckAwakeness
@@ -2501,15 +2503,15 @@ typedef struct SPacketGCDragonSoulRefine
 typedef struct SPacketCGStateCheck
 {
 	BYTE header;
-	unsigned long key;
-	unsigned long index;
+	uint32_t key;
+	uint32_t index;
 } TPacketCGStateCheck;
 
 typedef struct SPacketGCStateCheck
 {
 	BYTE header;
-	unsigned long key;
-	unsigned long index;
+	uint32_t key;
+	uint32_t index;
 	unsigned char state;
 } TPacketGCStateCheck;
 
@@ -2644,8 +2646,8 @@ namespace ikashop
 	struct TSubPacketGCShopPosition
 	{
 		DWORD vid;
-		long x;
-		long y;
+		int32_t x;
+		int32_t y;
 	};
 
 	struct TSubPacketGCShopExpiredGuesting 
@@ -2698,8 +2700,8 @@ namespace ikashop
 	struct TSubPacketGCShopSearchItemShop
 	{
 		DWORD shopVid;
-		long x;
-		long y;
+		int32_t x;
+		int32_t y;
 	};
 
 	//AUCTION

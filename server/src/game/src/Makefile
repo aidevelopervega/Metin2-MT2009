@@ -1,5 +1,5 @@
-CC = clang
-CXX = clang++
+CC ?= gcc
+CXX ?= g++
 
 GAME_VERSION := $(shell cat ../../__REVISION__ 2>/dev/null || echo "1")
 LBITS := $(shell getconf LONG_BIT)
@@ -30,8 +30,11 @@ endif
 LIBS = -lm -lmd
 
 # Project Flags
-CFLAGS  = -m32 -g -Wall -O2 -pipe -fexceptions -fno-strict-aliasing -pthread -D_THREAD_SAFE -DNDEBUG
-CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-deprecated-declarations -Wno-array-bounds -Wno-address
+CFLAGS  = -g -Wall -O2 -pipe -fexceptions -fno-strict-aliasing -pthread -D_THREAD_SAFE -DNDEBUG
+ifeq ($(LBITS),32)
+CFLAGS += -m32
+endif
+CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-array-bounds -Wno-address
 CFLAGS += -Wno-int-in-bool-context -Wno-format-truncation -Wno-stringop-truncation -Wno-sign-compare -Wno-deprecated-enum-enum-conversion
 CFLAGS += -w
 CXXFLAGS = -std=c++20
@@ -41,20 +44,32 @@ ifneq '' '$(findstring clang++,$(CXX))'
 CFLAGS += -Wno-invalid-source-encoding -Wno-deprecated-anon-enum-enum-conversion -Wno-unknown-warning-option
 # for gcc
 else ifneq '' '$(findstring g++,$(CXX))'
-ifeq ($(LBITS),64)
+ifneq ($(wildcard /usr/local/lib/gcc14),)
 CFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
-else
 CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
 endif
 endif
 
-# MySQL
-INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb
-ifeq ($(LBITS),64)
-LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb
-LIBS += $(firstword $(wildcard /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.a -lmariadb -lmysqlclient)) -lz
+# Database client libraries (MySQL / MariaDB)
+INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include
+LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb -L/usr/local/lib
+ifneq ($(wildcard /usr/local/lib/mariadb/libmariadb.so /usr/local/lib/libmariadb.so /usr/local/lib/mariadb/libmariadb.a /usr/local/lib/libmariadb.a),)
+LIBS += -lmariadb -lz
+else ifneq ($(wildcard /usr/local/lib/mysql/libmysqlclient.so /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.so /usr/local/lib/libmysqlclient.a),)
+LIBS += -lmysqlclient -lz
 else
-LIBS += /usr/local/lib/mysql/libmysqlclient.a /usr/lib/libz.a
+LIBS += -lmariadb -lz
+endif
+
+# Runtime library search paths (rpath)
+ifneq ($(wildcard /usr/local/lib/gcc14),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/gcc14
+endif
+ifneq ($(wildcard /usr/local/lib/mysql),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/mysql
+endif
+ifneq ($(wildcard /usr/local/lib/mariadb),)
+LIBDIR += -Wl,-rpath=/usr/local/lib/mariadb
 endif
 
 ifeq ($(ENABLE_STATIC), 1)
@@ -75,18 +90,26 @@ CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PW
 INCDIR += -I"../../../../extern/common/include/boost"
 
 # DevIL
-INCDIR += -I"../../../../extern/server/include/IL"
+INCDIR += -I"../../../../extern/server/include"
 ifeq ($(LBITS),64)
-LIBS += $(firstword $(wildcard /usr/local/lib/libIL.a -lIL))
+ifneq ($(wildcard /usr/local/lib/libIL.a),)
+LIBS += /usr/local/lib/libIL.a
 else
-LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libIL.a /usr/local/lib/libIL.a))
+LIBS += -lIL
+endif
+else
+LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libIL.a /usr/local/lib/libIL.a -lIL))
 endif
 
 # CryptoPP
 ifeq ($(LBITS),64)
-LIBS += $(firstword $(wildcard /usr/local/lib/libcryptopp.a -lcryptopp))
+ifneq ($(wildcard /usr/local/lib/libcryptopp.a),)
+LIBS += /usr/local/lib/libcryptopp.a
 else
-LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a /usr/local/lib/libcryptopp.a))
+LIBS += -lcryptopp
+endif
+else
+LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a /usr/local/lib/libcryptopp.a -lcryptopp))
 endif
 
 # GTest
@@ -127,7 +150,7 @@ ifeq ($(LBITS),32)
 LIBDIR += -L../../../../extern/server/lib
 endif
 
-LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
+LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib -L../../../../tests/build -L../../../tests/build
 LIBS += -lthecore -lpoly -lsql -lgame
 
 # AUTO_DETECT_SOURCE_FILES BEGIN

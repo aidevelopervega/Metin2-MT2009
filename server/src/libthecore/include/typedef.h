@@ -1,7 +1,13 @@
 #ifndef __INC_LIBTHECORE_TYPEDEF_H__
 #define __INC_LIBTHECORE_TYPEDEF_H__
 
-typedef unsigned long int       QWORD;
+#if defined(__clang__) || (defined(__GNUC__) && __cplusplus >= 201103L) || defined(_HAS_CXX11)
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
+typedef uint64_t                QWORD;
 typedef unsigned char           UBYTE;
 typedef signed char             sbyte;
 typedef unsigned short		sh_int;
@@ -16,8 +22,8 @@ typedef unsigned int		DWORD;
 typedef int			BOOL;
 typedef unsigned char		BYTE;
 typedef unsigned short 		WORD;
-typedef long			LONG;
-typedef unsigned long		ULONG;
+typedef int32_t			LONG;
+typedef uint32_t		ULONG;
 typedef int			INT;
 typedef unsigned int		UINT;
 

@@ -30,7 +30,7 @@ EXTERN_COMMON_INC="$ROOT_DIR/extern/common/include"
 EXTERN_SERVER_INC="$ROOT_DIR/extern/server/include"
 
 # 1. libpoly
-echo "[1/2] libpoly derleniyor ve test ediliyor..."
+echo "[1/6] libpoly derleniyor ve test ediliyor..."
 POLY_DIR="$ROOT_DIR/server/src/libpoly"
 
 $CXX $FLAGS -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$POLY_DIR/Base.cc" -o "$BUILD_DIR/Base.o"
@@ -43,7 +43,7 @@ $CXX $FLAGS $RPATH -I"$POLY_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "
 "$BUILD_DIR/test_libpoly"
 
 # 2. libthecore
-echo "[2/3] libthecore derleniyor ve test ediliyor..."
+echo "[2/6] libthecore derleniyor ve test ediliyor..."
 CORE_DIR="$ROOT_DIR/server/src/libthecore"
 COMMON_DIR="$ROOT_DIR/server/src/common"
 
@@ -59,7 +59,7 @@ $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" 
 "$BUILD_DIR/test_libthecore"
 
 # 3. libgame (Gercek libthecore.a ile bagli)
-echo "[3/3] libgame derleniyor ve test ediliyor..."
+echo "[3/6] libgame derleniyor ve test ediliyor..."
 GAME_DIR="$ROOT_DIR/server/src/libgame"
 
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
@@ -71,7 +71,7 @@ $CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -
 "$BUILD_DIR/test_libgame"
 
 # 4. libsql
-echo "[4/4] libsql derleniyor ve test ediliyor..."
+echo "[4/6] libsql derleniyor ve test ediliyor..."
 SQL_DIR="$ROOT_DIR/server/src/libsql"
 
 for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
@@ -86,9 +86,14 @@ $CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN
 "$BUILD_DIR/test_libsql"
 
 # 5. db cache
-echo "[5/5] db cache ve veri guvenligi testleri derleniyor ve test ediliyor..."
+echo "[5/6] db cache ve veri guvenligi testleri derleniyor ve test ediliyor..."
 $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
 "$BUILD_DIR/test_db_cache"
+
+# 6. wire protocol
+echo "[6/6] Wire protocol ve binary paket uyumlulugu test ediliyor..."
+$CXX $FLAGS $RPATH -I"$ROOT_DIR" -I"$ROOT_DIR/server/src/game/src" -I"$COMMON_DIR" -I"$CORE_DIR/include" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_packet_wire.cpp" -o "$BUILD_DIR/test_packet_wire"
+"$BUILD_DIR/test_packet_wire"
 
 echo "=== [BASARILI] TUM MODUL VE REGRESYON TESTLERI GECTI! ==="
 

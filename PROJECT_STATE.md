@@ -623,18 +623,49 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 115068966076):** SUCCESS (4m 21s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **Sonuç:** Extern x64 modernizasyonu, Client vcxproj yol düzeltmeleri, `mingw-ucrt-gcc16` platform ayrımı ve 64-bit Makefile korumaları üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r41023` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
+  * **Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game Derlemesi:**
+    * **1. 32-Bit İstemci Binary Wire Protocol & LP64 Uyumlaştırması:**
+      * İstemci `_USE_32BIT_TIME_T` tanımlı 32-bit Windows binary'si olduğu için sunucu tarafındaki tüm paket yapılarının `#pragma pack(1)` ve bayt hizalamaları denetlendi.
+      * `server/src/libthecore/include/typedef.h`: 64-bit safe `LONG` -> `int32_t`, `ULONG` -> `uint32_t`, `QWORD` -> `uint64_t` yapıldı.
+      * `server/src/common/tables.h`: 41 adet ham `long` alan `int32_t` ile sabitlendi; `TPlayerSkill.tNextRead` `uint32_t` yapıldı.
+      * `server/src/game/src/packet.h`: 70 adet ham `long` alan `int32_t` ile sabitlendi; `SPacketGCTime.time` `uint32_t` yapıldı.
+      * `server/src/db/src/Peer.h` ve `Peer.cpp`: `m_alMaps` dizisi `int32_t` ile `tables.h::alMaps` ile eşitlendi.
+      * `server/src/game/src/item.h` ve `item.cpp`: `m_alSockets` ve soket get/set fonksiyonları `long` yerine `int32_t` ile eşitlendi; 32-bit DB ve wire protocol uyumu garantilendi.
+    * **2. Wire Protocol Test Paketi (tests/test_packet_wire.cpp):**
+      * 32 compile-time `static_assert` ve çalışma zamanı assertion'ı içeren test paketi oluşturuldu.
+      * Paket boyutları (`TPacketCGMove` 16B, `TPacketGCMove` 24B, `TPacketGCCharacterAdd` 37B, `TPacketGCMainCharacter` 48B, `TPacketGCItemSet` 54B, `TPacketGCItemUpdate` 41B, `TPacketGCWarp` 15B, `TPacketGCTime` 5B, `TPlayerItem` 52B, `TSimplePlayer` 67B, `TPacketGDSetup` 155B, `TMapLocation` 147B) 32-bit istemciyle bayt bayt doğrulandı (%100 PASS).
+      * `tests/run_tests.ps1` ve `tests/run_tests.sh` çalıştırıcılarına entegre edildi: Toplam modül assertion sayısı 528'den **560'a (%100 PASS)** yükseldi (`libpoly`: 24, `libthecore`: 97, `libgame`: 28, `libsql`: 143, `db_cache`: 120, `db_cache_integration`: 116, `wire_protocol`: 32).
+    * **3. C++20 ve 64-Bit Kod Düzeltmeleri:**
+      * `xgetopt.h` / `xgetopt.c`: `const TCHAR *optstring` ve C++ aşırı yükleme belirsizliği (overload ambiguity) giderildi.
+      * `questlua*.cpp` (16 dosya): `sys_err(fmt, ...)` makrosundaki `__VA_ARGS__` argümansız çağrılarda sözdizimi hatası üreten boş virgül sorunu `##__VA_ARGS__` ile kalıcı olarak giderildi.
+      * `map_location.h`: `CMapLocation::Get` için template sarmalayıcılar eklenerek hem `int32_t&` hem `long&` referanslarının tip hatası olmadan sorunsuz bağlanması sağlandı.
+    * **4. Makefile ve Araç Zinciri Modernizasyonu:**
+      * `server/src/liblua/5.0/config`: `CC ?= gcc`, `WARN= -Wall` (hardcoded `-m32` kaldırıldı), `AR ?= ar rcu`, `RANLIB ?= ranlib`.
+      * `server/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`.
+      * `server/src/libpoly/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
+      * `server/src/libthecore/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
+      * `server/src/libgame/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
+      * `server/src/game/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; MySQL/MariaDB kütüphane tespiti `db/src/Makefile` ile eşitlendi; DevIL (`-lIL`) ve CryptoPP (`-lcryptopp`) 64-bit bağlama kuralları ve `tests/build` kütüphane arama yolu eklendi.
+    * **5. FreeBSD amd64 CI İş Akışı Entegrasyonu:**
+      * `.github/workflows/freebsd-gcc-test.yml`: `prepare` aşamasına `devil cryptopp` eklendi.
+      * 64-bit Lua 5.0 derleme adımı (`gmake -C server/src/liblua/5.0`) eklendi.
+      * 64-bit Game sunucusu derleme ve bağlama adımı (`gmake -C server/src/game/src -j2 CXX=/usr/local/bin/g++14 CC=/usr/local/bin/gcc14`) eklendi.
+      * `file` ve `readelf -h` ile ELF64 x86-64 executable doğrulama kontrolleri entegre edildi.
+    * **6. İstemci Dokunulmazlığı:**
+      * `client/src`, `client/files`, `extern/client` dizinlerine dokunulmadı; %100 korundu.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Extern x64 Modernizasyonu ve Platform Ayrımı tamamlandı; CI Run 38327339109 3/3 SUCCESS (%100 PASS) olarak doğrulandı.
-* **Mevcut Durum:** **EXTERN X64 MODERNIZATION & PLATFORM SEPARATION VERIFIED. Client vcxproj paths PASS. Assertion counts verified (24/97/28). Windows 528/528 PASS. FreeBSD CI 3/3 SUCCESS (1,923 assertions). Ready for next task.**
+* **Aktif Görev:** Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game Derlemesi yerel olarak tamamlandı; 560/560 yerel assertion doğrulandı (%100 PASS). CI koşusu ve doğrulama yürütülüyor.
+* **Mevcut Durum:** **SERVER X64 FULL COMPATIBILITY & REAL GAME BUILD LOCAL VERIFIED. Wire protocol 32/32 PASS. Total local tests 560/560 PASS (%100). Ready for Git commit, push and FreeBSD CI verification.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
+* Değişiklikleri `dev/windows-gcc-baseline` dalında commit edip push yapmak; GitHub Actions CI koşusunda üç FreeBSD işinin (`MySQL 8.4`, `MariaDB 12.3`, `MariaDB 11.4`) gerçek sonuçlarını, ELF64 `game_r*` ve `db_r*` ikililerini doğrulamak.
 
 
 

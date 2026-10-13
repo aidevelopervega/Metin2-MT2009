@@ -232,9 +232,28 @@ try {
     # ------------------------------------------------------------------------------
     # 6. DB CACHE / ACK GERÇEK ENTEGRASYON TESTİ (Senaryo 1 - 7)
     # ------------------------------------------------------------------------------
-    Write-Host "`n[6/6] DB cache / ACK gerçek entegrasyon testleri çalıştırılıyor..." -ForegroundColor Yellow
+    Write-Host "`n[6/7] DB cache / ACK gerçek entegrasyon testleri çalıştırılıyor..." -ForegroundColor Yellow
     & "$RootDir\tests\run_db_integration_tests.ps1"
     if ($LASTEXITCODE -ne 0) { throw "run_db_integration_tests testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
+    # ------------------------------------------------------------------------------
+    # 7. WIRE PROTOCOL VE BINARY UYUMLULUK TESTİ (32 assertion)
+    # ------------------------------------------------------------------------------
+    Write-Host "`n[7/7] Wire protocol ve binary paket uyumluluğu test ediliyor..." -ForegroundColor Yellow
+    $WireTestExe = "$BuildDir\test_packet_wire.exe"
+    $WireIncludes = @(
+        "-I$RootDir",
+        "-I$RootDir\server\src\game\src",
+        "-I$RootDir\server\src\common",
+        "-I$RootDir\server\src\libthecore\include"
+    ) + $ExternIncludes
+
+    & $Gxx @CommonFlags @WireIncludes "$RootDir\tests\test_packet_wire.cpp" -o "$WireTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_packet_wire derleme hatası" }
+
+    Write-Host "--> test_packet_wire.exe çalıştırılıyor..." -ForegroundColor Green
+    & "$WireTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_packet_wire testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
     Write-Host "`n==================================================" -ForegroundColor Cyan
     Write-Host " [BAŞARILI] TÜM MODÜL VE REGRESYON TESTLERİ GEÇTİ!" -ForegroundColor Green

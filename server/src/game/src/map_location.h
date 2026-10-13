@@ -1,5 +1,6 @@
 #include "../../common/stl.h"
 #include "../../common/CommonDefines.h"
+#include <cstdint>
 
 class CMapLocation : public singleton<CMapLocation>
 {
@@ -15,6 +16,27 @@ class CMapLocation : public singleton<CMapLocation>
 
 		bool    Get(long x, long y, long &lMapIndex, long &lAddr, WORD &wPort, BYTE channel = 0);
 		bool	Get(long iIndex, long &lAddr, WORD &wPort, BYTE channel);
+
+		template <typename TIndex, typename TAddr>
+		bool    Get(long x, long y, TIndex &lMapIndex, TAddr &lAddr, WORD &wPort, BYTE channel = 0)
+		{
+			long idx = 0;
+			long addr = 0;
+			bool bRet = Get(x, y, idx, addr, wPort, channel);
+			lMapIndex = static_cast<TIndex>(idx);
+			lAddr = static_cast<TAddr>(addr);
+			return bRet;
+		}
+
+		template <typename TAddr>
+		bool	Get(long iIndex, TAddr &lAddr, WORD &wPort, BYTE channel)
+		{
+			long addr = 0;
+			bool bRet = Get(iIndex, addr, wPort, channel);
+			lAddr = static_cast<TAddr>(addr);
+			return bRet;
+		}
+
 		void    Insert(long lIndex, const char *c_pszHost, WORD wPort, BYTE channel);
 
 	protected:
@@ -29,6 +51,27 @@ class CMapLocation : public singleton<CMapLocation>
 
 		bool    Get(long x, long y, long &lMapIndex, long &lAddr, WORD &wPort);
 		bool	Get(long iIndex, long &lAddr, WORD &wPort);
+
+		template <typename TIndex, typename TAddr>
+		bool    Get(long x, long y, TIndex &lMapIndex, TAddr &lAddr, WORD &wPort)
+		{
+			long idx = 0;
+			long addr = 0;
+			bool bRet = Get(x, y, idx, addr, wPort);
+			lMapIndex = static_cast<TIndex>(idx);
+			lAddr = static_cast<TAddr>(addr);
+			return bRet;
+		}
+
+		template <typename TAddr>
+		bool	Get(long iIndex, TAddr &lAddr, WORD &wPort)
+		{
+			long addr = 0;
+			bool bRet = Get(iIndex, addr, wPort);
+			lAddr = static_cast<TAddr>(addr);
+			return bRet;
+		}
+
 		void    Insert(long lIndex, const char *c_pszHost, WORD wPort);
 
 	protected:

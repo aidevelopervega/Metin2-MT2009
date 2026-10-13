@@ -56,8 +56,8 @@ class CPeer : public CPeerBase
 	void	SetP2PPort(WORD wPort);
 	WORD	GetP2PPort() { return m_wP2PPort; }
 
-	void	SetMaps(long* pl);
-	long *	GetMaps() { return &m_alMaps[0]; }
+	void	SetMaps(int32_t* pl);
+	int32_t *	GetMaps() { return &m_alMaps[0]; }
 
 	bool	SetItemIDRange(TItemIDRangeTable itemRange);
 	bool	SetSpareItemIDRange(TItemIDRangeTable itemRange);
@@ -72,7 +72,7 @@ class CPeer : public CPeerBase
 	DWORD	m_dwUserCount;
 	WORD	m_wListenPort;
 	WORD	m_wP2PPort;
-	long	m_alMaps[MAP_ALLOW_LIMIT];
+	int32_t	m_alMaps[MAP_ALLOW_LIMIT];
 
 	bool	m_bIsPremium;
 

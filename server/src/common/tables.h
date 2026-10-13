@@ -4,6 +4,7 @@
 #include "length.h"
 #include "item_length.h"
 #include "CommonDefines.h"
+#include <cstdint>
 
 typedef	DWORD IDENT;
 
@@ -318,8 +319,8 @@ enum ERequestChargeType
 typedef struct SRequestChargeCash
 {
 	DWORD		dwAID;		// id(primary key) - Account Table
-	long		lAmount;
-	long		lSecondAmount;
+	int32_t		lAmount;
+	int32_t		lSecondAmount;
 	ERequestChargeType	eChargeType;
 } TRequestChargeCash;
 
@@ -352,8 +353,8 @@ typedef struct SSimplePlayer
 	DWORD		wAccePart;
 #endif
 	BYTE		bDummy[4];
-	long		x, y;
-	long		lAddr;
+	int32_t		x, y;
+	int32_t		lAddr;
 	WORD		wPort;
 	BYTE		skill_group;
 } TSimplePlayer;
@@ -398,7 +399,7 @@ typedef struct SPlayerItem // reflect all the changes in this structure in UserI
 	ITEM_COUNT	count;
 
 	DWORD	vnum;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 
 	TPlayerItemAttribute    aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 
@@ -415,7 +416,7 @@ typedef struct SPlayerSkill
 {
 	BYTE	bMasterType;
 	BYTE	bLevel;
-	time_t	tNextRead;
+	uint32_t	tNextRead;
 } TPlayerSkill;
 
 struct	THorseInfo
@@ -448,8 +449,8 @@ typedef struct SPlayerTable
 	INT		x, y, z;
 	INT		lMapIndex;
 
-	long	lExitX, lExitY;
-	long	lExitMapIndex;
+	int32_t	lExitX, lExitY;
+	int32_t	lExitMapIndex;
 
 	// @fixme400
 	int		hp;
@@ -478,7 +479,7 @@ typedef struct SPlayerTable
 	short	stamina;
 
 	BYTE	skill_group;
-	long	lAlignment;
+	int32_t	lAlignment;
 
 	short	stat_reset_count;
 
@@ -605,7 +606,7 @@ typedef struct SSkillTable
 	DWORD	preSkillVnum;
 	BYTE	preSkillLevel;
 
-	long	lMaxHit;
+	int32_t	lMaxHit;
 	char	szSplashAroundDamageAdjustPoly[100 + 1];
 
 	BYTE	bSkillAttrType;
@@ -637,7 +638,7 @@ typedef struct SItemShopItem
 	DWORD dwPrice;
 	BYTE bCurrency;
 	BYTE bMinLevel;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TItemShopPromotion promotion;
 	TItemShopTimeAuction timeAuction;
 } TItemShopItem;
@@ -690,19 +691,19 @@ typedef struct SQuestTable
 	DWORD		dwPID;
 	char		szName[QUEST_NAME_MAX_LEN + 1];
 	char		szState[QUEST_STATE_MAX_LEN + 1];
-	long		lValue;
+	int32_t		lValue;
 } TQuestTable;
 
 typedef struct SItemLimit
 {
 	BYTE	bType;
-	long	lValue;
+	int32_t	lValue;
 } TItemLimit;
 
 typedef struct SItemApply
 {
 	BYTE	bType;
-	long	lValue;
+	int32_t	lValue;
 } TItemApply;
 
 typedef struct SItemTable : public SEntityTable
@@ -727,8 +728,8 @@ typedef struct SItemTable : public SEntityTable
 
 	TItemLimit	aLimits[ITEM_LIMIT_MAX_NUM];
 	TItemApply	aApplies[ITEM_APPLY_MAX_NUM];
-	long        alValues[ITEM_VALUES_MAX_NUM];
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t     alValues[ITEM_VALUES_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	DWORD	dwRefinedVnum;
 	WORD	wRefineSet;
 	BYTE	bAlterToMagicItemPct;
@@ -755,7 +756,7 @@ struct TItemAttrTable
 	char    szApply[APPLY_NAME_MAX_LEN + 1];
 	DWORD   dwApplyIndex;
 	DWORD   dwProb;
-	long    lValues[ITEM_ATTRIBUTE_MAX_LEVEL];
+	int32_t lValues[ITEM_ATTRIBUTE_MAX_LEVEL];
 	BYTE    bMaxLevelBySet[ATTRIBUTE_SET_MAX_NUM];
 };
 
@@ -812,17 +813,17 @@ typedef struct SMoveChannel
 {
 	DWORD	dwAID;
 	BYTE	bChannel;
-	long	lDestX;
-	long	lDestY;
-	long	lMapIndex;
+	int32_t	lDestX;
+	int32_t	lDestY;
+	int32_t	lMapIndex;
 } TMoveChannel;
 
 typedef struct SRespondMoveChannel
 {
 	BYTE	bChannel;
-	long	lDestX;
-	long	lDestY;
-	long	lDestMapIndex;
+	int32_t	lDestX;
+	int32_t	lDestY;
+	int32_t	lDestMapIndex;
 	BYTE	bPremium;
 } TRespondMoveChannel;
 #endif
@@ -878,7 +879,7 @@ typedef struct SPacketGDSetup
 	BYTE	bChannel;
 	WORD	wListenPort;
 	WORD	wP2PPort;
-	long	alMaps[MAP_ALLOW_LIMIT];
+	int32_t	alMaps[MAP_ALLOW_LIMIT];
 	DWORD	dwLoginCount;
 	BYTE	bAuthServer;
 	BYTE	bPremiumChannel;
@@ -891,7 +892,7 @@ typedef struct SPacketDGMapLocations
 
 typedef struct SMapLocation
 {
-	long	alMaps[MAP_ALLOW_LIMIT];
+	int32_t	alMaps[MAP_ALLOW_LIMIT];
 	char	szHost[MAX_HOST_LENGTH + 1];
 	WORD	wPort;
 #ifdef ENABLE_MOVE_CHANNEL
@@ -952,10 +953,10 @@ typedef struct TPacketAffectElement
 {
 	DWORD	dwType;
 	BYTE	bApplyOn;
-	long	lApplyValue;
+	int32_t	lApplyValue;
 	DWORD	dwFlag;
-	long	lDuration;
-	long	lSPCost;
+	int32_t	lDuration;
+	int32_t	lSPCost;
 	DWORD	dwItemVnum;
 } TPacketAffectElement;
 
@@ -1048,15 +1049,15 @@ typedef struct SPacketGuildWar
 	DWORD	dwGuildFrom;
 	DWORD	dwGuildTo;
 	YANG	lWarPrice;
-	long	lInitialScore;
+	int32_t	lInitialScore;
 } TPacketGuildWar;
 
 typedef struct SPacketGuildWarScore
 {
 	DWORD dwGuildGainPoint;
 	DWORD dwGuildOpponent;
-	long lScore;
-	long lBetScore;
+	int32_t lScore;
+	int32_t lBetScore;
 } TPacketGuildWarScore;
 
 typedef struct SRefineMaterial
@@ -1189,16 +1190,16 @@ typedef struct SPacketDGChangeName
 typedef struct SPacketGuildLadder
 {
 	DWORD dwGuild;
-	long lLadderPoint;
-	long lWin;
-	long lDraw;
-	long lLoss;
+	int32_t lLadderPoint;
+	int32_t lWin;
+	int32_t lDraw;
+	int32_t lLoss;
 } TPacketGuildLadder;
 
 typedef struct SPacketGuildLadderPoint
 {
 	DWORD dwGuild;
-	long lChange;
+	int32_t lChange;
 } TPacketGuildLadderPoint;
 
 typedef struct SPacketGuildUseSkill
@@ -1333,7 +1334,7 @@ typedef struct SPacketGDGuildMoneyWithdrawGiveReply
 typedef struct SPacketSetEventFlag
 {
 	char	szFlagName[EVENT_FLAG_NAME_MAX_LEN + 1];
-	long	lValue;
+	int32_t	lValue;
 } TPacketSetEventFlag;
 
 typedef struct SPacketLoginOnSetup
@@ -1365,13 +1366,13 @@ typedef struct SGuildReserve
 	DWORD       dwTime;
 	BYTE        bType;
 	YANG        lWarPrice;
-	long        lInitialScore;
+	int32_t     lInitialScore;
 	bool        bStarted;
 	YANG	dwBetFrom;
 	YANG	dwBetTo;
-	long	lPowerFrom;
-	long	lPowerTo;
-	long	lHandicap;
+	int32_t	lPowerFrom;
+	int32_t	lPowerTo;
+	int32_t	lHandicap;
 } TGuildWarReserve;
 
 typedef struct SPacketGDGuildWarBet
@@ -1455,7 +1456,7 @@ typedef struct SItemPriceListTable
 typedef struct SPacketBlockChat
 {
 	char szName[CHARACTER_NAME_MAX_LEN + 1];
-	long lDuration;
+	int32_t lDuration;
 } TPacketBlockChat;
 
 //ADMIN_MANAGER
