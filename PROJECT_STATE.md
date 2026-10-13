@@ -723,13 +723,49 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ---
 
+      * **Eski 32-Bit Sunucu İkililerinin Temizlenmesi (Kayıpsız x64 Hijyeni):**
+        * İstemci kodlarına (`client/src`, `client/files`, `extern/client`) kesinlikle dokunulmadan, sunucuya ait eski ve yanıltıcı 32-bit (`elf32-i386`) statik kütüphaneleri (`extern/server/lib/libIL.a`, `libILU.a`, `libILUT.a`, `libcryptopp.a`, `libmysqlclient.a`) `git rm` ile Git ağacından kaldırıldı.
+        * Yerel çalışma dizinindeki kalıntı 32-bit `.o` nesne dosyaları (`extern/server/cryptopp/*.o` ve `server/src/liblua/5.2/src/*.o`) temizlendi.
+        * `extern/server/cryptopp/GNUmakefile` dosyasında arşiv kopyalama kuralı `mkdir -p ../lib && cp -f $@ ../lib/` olarak güncellendi; `extern/server/lib/.gitkeep` ile klasör yapısı korundu.
+        * Temizlik sonrası Windows CTest (`7/7 PASS`) ve legacy `run_tests.ps1` (`560/560 assertion %100 PASS`) ile sıfır gerileme (zero regression) doğrulandı.
+
+---
+
+## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
+
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Run ID: 38379923295 (Rev 24 CMake + Ninja) devam etmektedir.
+* **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
+
+---
+
+## 8. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI (AGENTS.md Madde 11)
+
+Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
+
+1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
+   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır. (TAMAMLANDI)
+2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
+   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
+3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI tetiklendi)
+4. **Eski Makefile Eşdeğerlik Güvencesi:**
+   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
+5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
+6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
+   * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
+
+---
+
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Yol Haritası Adım 2 tamamlandı (CMake + Ninja altyapısı kuruldu, Windows CTest 7/7 %100 PASS, FreeBSD CI Rev 24 entegre edildi).
+* **Aktif Görev:** Eski 32-bit sunucu ikilileri temizlendi, CMake + Ninja altyapısı ve testleri doğrulandı.
 * **Sıradaki Güvenli Adım:**
-  1. CMake + Ninja altyapısını ve Rev 24 CI iş akışını commit ve push ederek GitHub ile senkronize etmek.
-  2. FreeBSD CI Rev 24 koşusunda CMake + Ninja derlemesini ve CTest test paketlerini doğrulamak.
-  3. Yol Haritası Adım 5 (Aşamalı Server/Common Extern modernizasyonu) hazırlıklarına başlamak.
+  1. 32-bit sunucu ikili temizliğini commit ve push ederek GitHub ile senkronize etmek.
+  2. FreeBSD CI Rev 24 (Run ID: 38379923295) sonucunu kontrol etmek.
+  3. Yol Haritası Adım 5: Server/Common Extern bağımlılıklarının aşamalı modernizasyonuna başlamak (İlk bileşen: Crypto++ / Lua / DevIL analizi ve planlaması).
 
 
 
