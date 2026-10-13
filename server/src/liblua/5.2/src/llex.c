@@ -86,17 +86,16 @@ void luaX_init (lua_State *L) {
 
 
 const char *luaX_token2str (LexState *ls, int token) {
+  (void)ls;
   if (token < FIRST_RESERVED) {  /* single-byte symbols? */
-    lua_assert(token == cast(unsigned char, token));
-    return (lisprint(token)) ? luaO_pushfstring(ls->L, LUA_QL("%c"), token) :
-                              luaO_pushfstring(ls->L, "char(%d)", token);
+    static char buf[4];
+    buf[0] = (char)token;
+    buf[1] = '\0';
+    return buf;
   }
   else {
     const char *s = luaX_tokens[token - FIRST_RESERVED];
-    if (token < TK_EOS)  /* fixed format (symbols and reserved words)? */
-      return luaO_pushfstring(ls->L, LUA_QS, s);
-    else  /* names, strings, and numerals */
-      return s;
+    return s;
   }
 }
 
@@ -488,7 +487,7 @@ int llex (LexState *ls, SemInfo *seminfo) {
       }
       case '!': {
         next(ls);
-        if (ls->current != '=') return '~';
+        if (ls->current != '=') return TK_NOT;
         else { next(ls); return TK_NE; }
       }
       case ':': {

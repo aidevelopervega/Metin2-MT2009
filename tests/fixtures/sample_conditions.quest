@@ -1,0 +1,18 @@
+quest sample_conditions begin
+    state start begin
+        when login or enter with pc.get_level() >= 10 and pc.get_level() <= 50 and pc.get_gold() != 0 begin
+            set_state(eligible)
+        end
+    end
+
+    state eligible begin
+        when 20016.chat."Blacksmith Test" with (not party.is_party()) and (pc.count_item(70001) > 0 or pc.getqf("free_pass") == 1) begin
+            say_title("Blacksmith:")
+            say("You meet all requirements.")
+            set_state(__COMPLETE__)
+        end
+    end
+
+    state __COMPLETE__ begin
+    end
+end

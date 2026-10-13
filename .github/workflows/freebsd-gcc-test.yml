@@ -1,4 +1,4 @@
-# Rev 30: System libraries discovery, Metin2 quest compiler (qc/qc_lua52), and 11/11 CTest suite
+# Rev 31: Integrate upstream stable Lua 5.5.1, qc_lua55 quest compiler, 343-quest matrix parity, and 13/13 CTest suite
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

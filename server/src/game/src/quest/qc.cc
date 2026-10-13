@@ -16,7 +16,11 @@ extern "C" {
 	#define lua_dofile		luaL_dofile
 	#define lua_dostring	luaL_dostring
 	#define luaL_getn		lua_rawlen
-	#define lua_resume(a,b)	lua_resume(a,0,b)
+	#if LUA_VERSION_NUM >= 504
+		#define lua_resume(a,b)	{ int nres = 0; lua_resume(a,0,b,&nres); }
+	#else
+		#define lua_resume(a,b)	lua_resume(a,0,b)
+	#endif
 	#define luaX_lex		llex
 
 	#define zname(z)		"quest"
@@ -99,6 +103,28 @@ static const char *getF (lua_State *L, void *ud, size_t *size) {
 	return (*size > 0) ? lf->buff : nullptr;
 }
 
+#if LUA_VERSION_NUM >= 505
+static void next (LexState * ls)
+{
+	luaX_next(ls);
+}
+
+static bool testnext (LexState * ls, int c)
+{
+	if (ls->t.token == c)
+	{
+		next(ls);
+		return true;
+	}
+	else
+		return false;
+}
+
+static void lookahead (LexState * ls)
+{
+	luaX_lookahead(ls);
+}
+#else
 static void next (LexState * ls)
 {
 	ls->lastline = ls->linenumber;
@@ -129,6 +155,7 @@ static void lookahead (LexState * ls)
 	lua_assert(ls->lookahead.token == TK_EOS);
 	ls->lookahead.token = luaX_lex(ls, &ls->lookahead.seminfo);
 }
+#endif
 
 enum parse_state
 {
@@ -157,7 +184,7 @@ void errorline(int line , const char * str)
 		cerr << g_filename <<":";
 	cerr << line<< ':';
 	cerr << str << endl;
-	abort();
+	exit(1);
 }
 void error(const char * str)
 {
@@ -169,7 +196,7 @@ void error(const char * str)
 		cout << pls->linenumber << ':';
 	}
 	cerr << str << endl;
-	abort();
+	exit(1);
 }
 
 #define assert(exp) if (!(exp)) error("assertion failure : " #exp)
@@ -179,13 +206,20 @@ ostream & operator << (ostream & ostr, const Token& tok)
 {
 	if (tok.token == TK_NAME)
 		ostr << getstr(tok.seminfo.ts);
+#if LUA_VERSION_NUM >= 503
+	else if (tok.token == TK_INT)
+		ostr << tok.seminfo.i;
+	else if (tok.token == TK_FLT)
+		ostr << tok.seminfo.r;
+#else
 	else if (tok.token == TK_NUMBER)
 		ostr << tok.seminfo.r;
+#endif
 	else if (tok.token == TK_STRING)
 		ostr << '"' << getstr(tok.seminfo.ts) <<'"';
 	else
 	{
-#if LUA_V == 523
+#if LUA_VERSION_NUM >= 502
 		if (tok.token < FIRST_RESERVED)
 			ostr << (char)tok.token;
 		else
@@ -298,14 +332,24 @@ void parse(char * filename)
 	ifstream inf(filename);
 	LoadF lf;
 	lf.f = fopen(filename,"r");
+	if (!lf.f)
+	{
+		cerr << "cannot open file: " << filename << endl;
+		exit(1);
+	}
 	ZIO z;
 	luaZ_init(&z, getF,&lf,"quest");
 	Mbuffer b;
+	memset(&b, 0, sizeof(b));
 	struct LexState lexstate;
+	memset(&lexstate, 0, sizeof(lexstate));
 	pls = &lexstate;
 	luaZ_initbuffer(L,&b);
 	lexstate.buff = &b;
 	luaX_setinput(L, &lexstate, &z, luaS_new(L, zname(&z)));
+#if LUA_VERSION_NUM >= 505
+	luaX_init_standalone(&lexstate);
+#endif
 
 	parse_state ps = ST_START;
 
@@ -389,6 +433,8 @@ void parse(char * filename)
 					next(&lexstate);
 					while (lexstate.t.token!=TK_DO)
 					{
+						if (lexstate.t.token == TK_EOS)
+							error("unexpected end of file in quest 'with' clause");
 						os << " " <<(lexstate.t);
 						//cout << TK_DO<<lexstate.t.token << " " <<(lexstate.t) <<endl;
 						next(&lexstate);
@@ -492,6 +538,29 @@ void parse(char * filename)
 			case ST_WHEN_NAME:
 				{
 					assert(nested==2);
+#if LUA_VERSION_NUM >= 503
+					if (t.token == TK_NAME || t.token == TK_STRING || t.token == TK_INT || t.token == TK_FLT)
+					{
+						if (t.token == TK_INT)
+						{
+							ostringstream os;
+							os << (unsigned int)t.seminfo.i;
+							current_when_name = os.str();
+							lexstate.lookahead.token  = '.';
+						}
+						else if (t.token == TK_FLT)
+						{
+							ostringstream os;
+							os << (unsigned int)t.seminfo.r;
+							current_when_name = os.str();
+							lexstate.lookahead.token  = '.';
+						}
+						else
+						{
+							current_when_name = getstr(t.seminfo.ts);
+							lookahead(&lexstate);
+						}
+#else
 					if (t.token == TK_NAME || t.token == TK_STRING || t.token == TK_NUMBER)
 					{
 						if (t.token == TK_NUMBER)
@@ -506,6 +575,7 @@ void parse(char * filename)
 							current_when_name = getstr(t.seminfo.ts);
 							lookahead(&lexstate);
 						}
+#endif
 						ps = ST_WHEN_WITH_OR_BEGIN;
 						current_when_argument = "";
 						if (lexstate.lookahead.token == '.')
@@ -554,6 +624,8 @@ void parse(char * filename)
 								int depth = 0;
 								while(lexstate.lookahead.token != TK_CLOSE_PARENTHESIS || depth > 1)
 								{
+									if (lexstate.lookahead.token == TK_EOS)
+										error("unexpected end of file in parenthesis argument");
 									if(lexstate.lookahead.token == TK_OPEN_PARENTHESIS) //allow function calls inside as well
 										depth++;
 									else if(lexstate.lookahead.token == TK_CLOSE_PARENTHESIS)
@@ -577,6 +649,8 @@ void parse(char * filename)
 								int depth = 0;
 								while (lexstate.lookahead.token != TK_CLOSE_PARENTHESIS2 || depth > 1)
 								{
+									if (lexstate.lookahead.token == TK_EOS)
+										error("unexpected end of file in array argument");
 									if (lexstate.lookahead.token == TK_OPEN_PARENTHESIS2) //allow function calls inside as well
 										depth++;
 									else if (lexstate.lookahead.token == TK_CLOSE_PARENTHESIS2)
@@ -645,6 +719,8 @@ void parse(char * filename)
 						next(&lexstate);
 						while (lexstate.t.token!=TK_DO)
 						{
+							if (lexstate.t.token == TK_EOS)
+								error("unexpected end of file in when 'with' clause");
 							os << " " <<(lexstate.t);
 							//cout << TK_DO<<lexstate.t.token << " " <<(lexstate.t) <<endl;
 							next(&lexstate);
@@ -685,6 +761,10 @@ void parse(char * filename)
 						prev.t.token = TK_DO; // any token
 					while (1)
 					{
+						if (lexstate.t.token == TK_EOS)
+						{
+							error("unexpected end of file in when body (missing 'end')");
+						}
 						if (lexstate.t.token == TK_DO || lexstate.t.token == TK_IF /*|| lexstate.t.token == TK_FOR*/ || lexstate.t.token == TK_BEGIN || lexstate.t.token == TK_FUNCTION)
 						{
 							//cout << ">>>" << endl;
@@ -826,6 +906,10 @@ void parse(char * filename)
 					string callname;
 					while (nested >= 3)
 					{
+						if (lexstate.t.token == TK_EOS)
+						{
+							error("unexpected end of file in function body (missing 'end')");
+						}
 						if (lexstate.t.token == TK_DO || lexstate.t.token == TK_IF /*|| lexstate.t.token == TK_FOR*/ || lexstate.t.token == TK_BEGIN || lexstate.t.token == TK_FUNCTION)
 						{
 							//cout << ">>>" << endl;
@@ -1055,15 +1139,22 @@ void parse(char * filename)
 	}
 
 	CheckUsedFunction();
+	fclose(lf.f);
+#if LUA_VERSION_NUM >= 505
+	luaX_close_standalone(&lexstate);
+#endif
 }
 
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
+	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
 	mkdir(OUTPUT_FOLDER, 0700);
-#if LUA_V == 503
+#if LUA_VERSION_NUM >= 502
+	L = luaL_newstate();
+#elif LUA_VERSION_NUM == 500
 	L = lua_open();
-#elif LUA_V == 523
-		L = luaL_newstate();
 #else
 	#error "lua version not found"
 #endif

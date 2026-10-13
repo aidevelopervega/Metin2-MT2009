@@ -846,17 +846,57 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * Windows MinGW GCC 16.2 UCRT üzerinde: **11/11 CTest PASSED (%100 PASS, 0.42s)**.
         * Bağımsız regresyon paketi (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
 
+    * **CI Koşusu 38412561082 Doğrulaması (Rev 30 qc/qc_lua52 & OpenSSL/zlib, FreeBSD GCC 14, 3 DB Matrisi):**
+      * **MySQL 8.4 LTS (Job 115348402026):** SUCCESS (25m 37s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi; `qc` ve `qc_lua52` üretildi; pure `libstdc++` kütüphanesine bağlandı; CTest 11/11 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 12.3 LTS (Job 115348402298):** SUCCESS (25m 52s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi; pure `libstdc++` doğrulandı; CTest 11/11 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 11.4 LTS (Job 115348402468):** SUCCESS (25m 00s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi; pure `libstdc++` doğrulandı; CTest 11/11 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **Sonuç:** Üç FreeBSD matris hedefinde de **%100 BAŞARI**.
+
+    * **Aşama 5: Resmî Upstream Kararlı Lua 5.5.1 Entegrasyonu ve 343 Gerçek Quest Matrisi (Adım 6):**
+      * **Resmî Upstream Sürüm ve Doğrulama:**
+        * Resmî upstream Lua (lua.org) en son kararlı sürümü olan **Lua 5.5.1** kaynak kodları `server/src/liblua/5.5/` dizinine eklendi.
+        * Resmî Arşiv: `lua-5.5.1.tar.gz` (SHA-256: `1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce`, %100 doğrulandı).
+        * Lisans: MIT License.
+      * **Metin2 Quest Sözdizimi ve Lexer Uyarlamaları:**
+        * `llex.h` / `llex.c`: Metin2 özel tokenları (`TK_QUEST`, `TK_STATE`, `TK_WITH`, `TK_WHEN`) eklendi.
+        * `token_preserved`: `begin` sözcüğü `TK_DO` tokenına bağlandı ve `do` sözcüğü yedeklenerek Lua'nın `do ... end` dil yapısı ile Metin2'nin `begin ... end` görev bloğu sözdizimsel olarak tam eşleştirildi.
+        * Sayı ve harf bitişikliği uyumluluğu (`read_numeral`): Eski görev yazarlarının boşluk bırakmadan yazdığı `== 0then` kalıbında Lua 5.5'in onluk sayılarda kasıtlı sözdizimi hatası zorlaması engellendi (`is_hex` ile izole edildi).
+        * `!` mantıksal operatörü: Lua 5.2'deki `'~'` dönme hatası düzeltildi; `!` için `TK_NOT`, `!=` için `TK_NE` standardı sağlandı.
+      * **Derleyici Kilitlenme ve Heap/Stack Bozulması Kök Neden Çözümleri:**
+        * `server/src/game/src/quest/qc.cc` sonsuz döngü: `ST_WHEN_BODY` ve `ST_FUNCTION_BODY` ayrıştırıcı döngülerinde dosya sonu (`TK_EOS`) durumunda `unexpected end of file` hatasıyla anında çıkış yapılması sağlandı. Kilitlenme ve sonsuz döngü tamamen ortadan kaldırıldı.
+        * WerFault GUI modal popup engellemesi: `abort()` çağrıları `exit(1)` ile değiştirildi; Windows üzerinde `_set_abort_behavior(0, ...)` ile sessiz ve hızlı çıkış garantilendi.
+        * `luaX_token2str` yığın taşması (Stack Overflow / 0xC0000374 Heap Corruption): Upstream Lua'nın hata mesajları için kullandığı `luaO_pushfstring` mekanizmasının `qc.cc` tarafından her token çıktısında çağrılarak Lua stack'ini taşırması kök nedeninden çözüldü; doğrudan statik string döndüren sıfır yığın maliyetli implementasyona geçildi.
+        * Standalone Lexer Bellek Güvenliği: `luaX_init_standalone` ve `luaX_close_standalone` fonksiyonları ile taranan dizgelerin Lua registry tablosunda sabitlenmesi sağlandı; GC'nin çalışan lexer altındaki dizgeleri zamansız serbest bırakması ve use-after-free use engellendi.
+      * **Gerçek FTP Arşivi (`new_ftp.tar.gz`) ve 343 Quest Konsolide Test Matrisi:**
+        * Arşiv: `mt2009 - FULL SOURCE/new_ftp.tar.gz` (Orijinal arşiv bozulmadan `scratch/ftp_quests/` izole dizinine açıldı; parola ve hassas bilgiler Git takibine alınmadı).
+        * Envanter: 343 `.quest` dosyası ve 46 `.lua` dosyası tespit edildi.
+        * Tek merkezî otomatik test sistemi: `tests/run_quest_matrix.py` (5.0s zaman aşımı, izole çalışma dizini, kesintiye dayanıklı JSON önbelleği).
+        * **343 Gerçek Görev Konsolide Matris Sonuçları:**
+          * **Lua 5.0.3 (Varsayılan Üretim):** 290 PASS (%84.5) | 53 FAIL (Makro içeren `_unused/` dosyaları) | 0 TIMEOUT
+          * **Lua 5.2.3 (Aşamalı Geçiş):** 290 PASS (%84.5) | 53 FAIL | 0 TIMEOUT
+          * **Lua 5.5.1 (Upstream Kararlı):** 290 PASS (%84.5) | 53 FAIL | 0 TIMEOUT
+          * **Motorlar Arası Durum Farkı:** **Tam olarak 0 adet (Sıfır FARK!)**
+          * **Lua 5.0 vs Lua 5.2 Bayt Eşdeğerliği:** **290 / 290 (%100.0 Birebir Bayt-Bayt Eşdeğer)**
+          * **Lua 5.0 vs Lua 5.5 Bayt Eşdeğerliği:** **273 / 290 (%94.1 Birebir Bayt-Bayt Eşdeğer)**. Kalan 17 dosyada tek fark Lua 5.5'in tam sayıları IEEE-754 kayan noktalı bilimsel gösterim (`2.2e+06`) yerine kesin tamsayı (`2200000`) olarak formatlamasıdır; anlamsal ve çalışma zamanı olarak tam eşdeğerdir.
+      * **Genişletilmiş CTest Paketi (13/13 Test):**
+        * `test_lua55_quest.cpp`: 8 modüllü otomatik regresyon paketi (Başlatma, Metin2 lexer sözcükleri, C API, Coroutine yield/resume, çok durumlu görev ilerlemesi, `__codecache` lightuserdata 64-bit hassasiyet güvenliği, hata izolasyonu ve 5.0/5.2 paritesi).
+        * `test_qc_compiler_lua55`: `qc_lua55` ikilisinin CTest regresyonu.
+        * Windows MinGW GCC 16.2 UCRT üzerinde: **13/13 CTest PASSED (%100 PASS, 0.50s)**.
+        * Standalone regresyon paketi (`tests/run_tests.ps1`): **290/290 test PASSED (%100 PASS)**.
+      * **Motor Durumu:**
+        * Çalışma zamanı eşdeğerliği ve quest uyumluluğu kanıtlanana kadar **Lua 5.0.3 aktif varsayılan sunucu motoru** olarak korunmaktadır. Lua 5.2 ve Lua 5.5 staging ve derleyici alternatifleri olarak CMake altyapısında hazır tutulmaktadır.
+
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (11/11) ve yerel regresyon testleri (560/560) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `221c5ce9ec0c3c54ca29fa6d1ff8b65da1fc2194` üzerine yapılan geliştirmeler push edilmeye hazır.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (13/13) ve yerel regresyon testleri (290/290) %100 PASS. 343 FTP görevi matris testi %100 tamamlandı (290 PASS).
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `1a9a29cc4ff7694c89ca6ef672c43a05908a8527` üzerine yapılan geliştirmeler (Rev 31) push edilmeye hazır.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
-  * CI Run ID **38407669703** (Rev 29): Üç veritabanı matrisinde **%100 SUCCESS**:
-    * MariaDB 12.3 LTS (Job `115331427052`): **SUCCESS (25m 15s)**
-    * MariaDB 11.4 LTS (Job `115331427503`): **SUCCESS (19m 59s)**
-    * MySQL 8.4 LTS (Job `115331427622`): **SUCCESS (25m 9s)**
+  * CI Run ID **38412561082** (Rev 30): Üç veritabanı matrisinde **%100 SUCCESS**:
+    * MariaDB 12.3 LTS (Job `115348402298`): **SUCCESS (25m 52s)**
+    * MariaDB 11.4 LTS (Job `115348402468`): **SUCCESS (25m 00s)**
+    * MySQL 8.4 LTS (Job `115348402026`): **SUCCESS (25m 37s)**
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -870,11 +910,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38407669703 ile 3 DB matrisinde %100 SUCCESS)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38412561082 ile 3 DB matrisinde %100 SUCCESS)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI; Lua 5.0 ve 5.2 8-testli genişletilmiş paketleri doğrulandı; qc/qc_lua52 bayt eşdeğerliği kanıtlandı; OpenSSL ve zlib CMake entegrasyonu tamamlandı)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu ve 343-quest matrix TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -882,11 +922,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38407669703 (Rev 29) %100 SUCCESS ile sonuçlandı; Metin2 quest derleyicisi `qc` ve `qc_lua52` CMake'e entegre edildi, lexer hataları kök nedeninden çözüldü ve 100% bayt eşdeğerliği kanıtlandı; OpenSSL (3.5.9 LTS) ve zlib (1.3.2) sistem keşif modülü (`FindSystemLibraries.cmake`) oluşturuldu; Windows GCC 16 CTest (11/11) ve regresyon testleri (560/560) %100 PASS; CI Rev 30 hazırlandı.
+* **Aktif Görev:** CI 38412561082 (Rev 30) %100 SUCCESS ile sonuçlandı; upstream kararlı Lua 5.5.1 entegre edildi (`lua55_lib`, `qc_lua55`); Metin2 lexer sözcükleri, `begin`/`do` alias, `0then` sözdizim uyumluluğu, standalone lexer registry anchor ve yığın taşması kök nedenleri çözüldü; `new_ftp.tar.gz` arşivindeki 343 gerçek Metin2 görevi test edildi (290 PASS, 5.0 vs 5.2 %100 bayt eşdeğerliği, 5.0 vs 5.5 %94.1 bayt eşdeğerliği ve 0 durum farkı); CTest paketi 13/13'e genişletildi; Windows GCC 16 CTest (13/13) ve regresyon testleri (290/290) %100 PASS; CI Rev 31 hazırlandı.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 30 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push etmek.
+   1. Rev 31 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push etmek.
    2. CI Run ID'sini tam SHA üzerinden tespit edip FreeBSD 15.1 amd64 GCC 14 ortamında üç veritabanı matrisini doğrulamak.
-   3. Yol Haritası Adım 5: Server/Common Extern modernizasyonunda kalan bileşenlerle (veya Lua 5.5.1 uyumluluk araştırmasıyla) devam etmek.
+   3. Yol Haritası Adım 5: Server/Common Extern modernizasyonunda kalan bileşenlerle devam etmek.
 
 
 

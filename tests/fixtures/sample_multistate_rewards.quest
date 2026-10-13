@@ -1,0 +1,39 @@
+quest sample_multistate_rewards begin
+    state start begin
+        when login begin
+            set_state(hunting)
+        end
+    end
+
+    state hunting begin
+        when 101.kill begin
+            local count = pc.getqf("kill_count") + 1
+            pc.setqf("kill_count", count)
+            if count >= 5 then
+                set_state(reward_choice)
+            end
+        end
+    end
+
+    state reward_choice begin
+        when 20084.chat."Select Reward" begin
+            say_title("Reward Selection:")
+            say("Choose your final reward:")
+            local s = select("Yang Reward", "Experience Reward", "Rare Item")
+            if s == 1 then
+                pc.give_gold(100000)
+            elseif s == 2 then
+                pc.give_exp2(50000)
+            else
+                pc.give_item2(50001, 1)
+            end
+            set_state(__COMPLETE__)
+        end
+    end
+
+    state __COMPLETE__ begin
+        when 20084.chat."Mission Finished" begin
+            say("You have already completed this mission.")
+        end
+    end
+end

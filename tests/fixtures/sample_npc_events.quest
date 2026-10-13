@@ -1,0 +1,41 @@
+quest sample_npc_events begin
+    state start begin
+        when 20001.click begin
+            say("Alchemist says welcome.")
+        end
+
+        when 20002.chat."Secret Offer" with pc.get_level() >= 15 begin
+            say_title("Suspicious Man:")
+            say("I have an interesting proposal for you.")
+        end
+
+        when 9001.take with item.vnum == 10 begin
+            say("Weapon smith inspects the sword.")
+            pc.give_gold(500)
+        end
+
+        when 50051.use begin
+            say("Horse summoning book used.")
+        end
+
+        when letter begin
+            setskin(NOWINDOW)
+            makequestbutton("Read Letter")
+            q.set_title("Read Letter")
+            q.start()
+        end
+
+        when button or info begin
+            say_title("Special Invitation:")
+            say("Meet the General in the castle.")
+        end
+
+        when event_timer.timer begin
+            say("The timer has expired.")
+        end
+
+        when 101.kill or 102.kill with pc.get_level() < 25 begin
+            pc.give_exp2(100)
+        end
+    end
+end

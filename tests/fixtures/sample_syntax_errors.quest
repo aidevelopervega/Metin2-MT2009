@@ -1,0 +1,4 @@
+quest sample_syntax_error begin
+    state start begin
+        when login begin
+            set_state(broken
