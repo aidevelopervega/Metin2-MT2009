@@ -1002,11 +1002,12 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch). `CQuestManager` singleton koruması ve Check 8 genişletmesi tamamlandı.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `7800d8ce3bd31925bea33641c0230422baf03250` (Rev 35). Rev 36 commit'i hazırlanıyor.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `d0650a9f2f7f7bcc17edc0e5023730cdf304979c` (Rev 36). Yerel HEAD ile tam senkron.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` include guard eksikliği (Rev 35 ile çözüldü).
   * CI Run ID **38456092378** (Rev 35): Hem `game_r41023` hem `game_r41023_lua55` çift ELF64 pure `libstdc++` olarak başarıyla derlendi ve bağlandı. `--check-lua` Check 2 singleton nullptr segfault kök nedeni tespit edildi ve Rev 36 ile çözüldü.
+  * CI Run ID **38459564231** (Rev 36 / Commit `d0650a9f`): **RUNNING** (FreeBSD 15.1 VM üzerinde MariaDB 11.4, MariaDB 12.3, MySQL 8.4 matris işleri çalışıyor).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
