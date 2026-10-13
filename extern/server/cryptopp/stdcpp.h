@@ -6,7 +6,7 @@
 #ifndef CRYPTOPP_STDCPP_H
 #define CRYPTOPP_STDCPP_H
 
-#if _MSC_VER >= 1500
+#if (CRYPTOPP_MSC_VERSION >= 1500)
 #define _DO_NOT_DECLARE_INTERLOCKED_INTRINSICS_IN_MEMORY
 #include <intrin.h>
 #endif
@@ -26,18 +26,28 @@
 #include <new>
 
 // http://connect.microsoft.com/VisualStudio/feedback/details/1600701/type-info-does-not-compile-with-has-exceptions-0
-#if defined(_MSC_VER) && (_MSC_VER < 1900) && defined(_HAS_EXCEPTIONS) && (_HAS_EXCEPTIONS == 0)
+#if defined(CRYPTOPP_MSC_VERSION) && (CRYPTOPP_MSC_VERSION < 1900) && defined(_HAS_EXCEPTIONS) && (_HAS_EXCEPTIONS == 0)
 namespace std {
   using ::type_info;
 }
 #endif
 
+// workaround needed for IBM XLC and debug heaps on AIX
+#if defined(_AIX) && (defined(__xlc__) || defined(__xlC__) || defined(__ibmxl__))
+# if defined(__DEBUG_ALLOC__)
+namespace std {
+  using ::_debug_memset;
+  using ::_debug_memcpy;
+}
+# endif
+#endif
+
 // make_unchecked_array_iterator
-#if _MSC_VER >= 1600
+#if (CRYPTOPP_MSC_VERSION >= 1600)
 #include <iterator>
 #endif
 
-#if defined(CRYPTOPP_CXX11_ATOMICS)
+#if defined(CRYPTOPP_CXX11_ATOMIC)
 #include <atomic>
 #endif
 
@@ -50,16 +60,31 @@ namespace std {
 #endif
 
 #include <cstdlib>
-#include <cstddef>
 #include <cstring>
 #include <climits>
 #include <cmath>
 
+// It is 2019 and VS2017/Win10 still can't compile a
+// program that includes <cstddef> without making users
+// do something special. "Epic fail" comes to mind.
+// Also see https://github.com/weidai11/cryptopp/issues/781
+#ifndef CRYPTOPP_MSC_VERSION
+# include <cstddef>
+#endif
+
 // uintptr_t and ptrdiff_t
-#if (__cplusplus < 201103L) && (!defined(_MSC_VER) || (_MSC_VER >= 1700))
+#if defined(__SUNPRO_CC)
+# if (__SUNPRO_CC >= 0x5100)
+#  include <stdint.h>
+# endif
+#elif defined(CRYPTOPP_MSC_VERSION)
+# if (CRYPTOPP_MSC_VERSION >= 1700)
+#  include <stdint.h>
+# else
+#  include <stddef.h>
+# endif
+#elif (__cplusplus < 201103L)
 # include <stdint.h>
-#elif defined(_MSC_VER) && (_MSC_VER < 1700)
-# include <stddef.h>
 #endif
 
 // workaround needed on Sun Studio 12u1 Sun C++ 5.10 SunOS_i386 128229-02 2009/09/21
@@ -73,4 +98,4 @@ namespace std {
 using std::log;
 #endif
 
-#endif
+#endif  // CRYPTOPP_STDCPP_H

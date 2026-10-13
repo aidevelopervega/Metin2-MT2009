@@ -17,7 +17,7 @@ template <class T>
 class CRYPTOPP_NO_VTABLE DMAC_Base : public SameKeyLengthAs<T>, public MessageAuthenticationCode
 {
 public:
-	CRYPTOPP_CONSTANT(DIGESTSIZE=T::BLOCKSIZE)
+	CRYPTOPP_CONSTANT(DIGESTSIZE=T::BLOCKSIZE);
 	static std::string StaticAlgorithmName() {return std::string("DMAC(") + T::StaticAlgorithmName() + ")";}
 
 	virtual~DMAC_Base() {}
@@ -28,6 +28,8 @@ public:
 	void TruncatedFinal(byte *mac, size_t size);
 	unsigned int DigestSize() const {return DIGESTSIZE;}
 
+	std::string AlgorithmProvider() const;
+
 private:
 	byte *GenerateSubKeys(const byte *key, size_t keylength);
 
@@ -37,6 +39,12 @@ private:
 	typename T::Encryption m_f2;
 	unsigned int m_counter;
 };
+
+template <class T>
+std::string DMAC_Base<T>::AlgorithmProvider() const
+{
+	return m_f2.AlgorithmProvider();
+}
 
 /// \brief DMAC message authentication code
 /// \tparam T class derived from BlockCipherDocumentation
@@ -82,7 +90,7 @@ void DMAC_Base<T>::TruncatedFinal(byte *mac, size_t size)
 
 	byte pad[T::BLOCKSIZE];
 	byte padByte = byte(T::BLOCKSIZE-m_counter);
-	memset(pad, padByte, padByte);
+	std::memset(pad, padByte, padByte);
 	m_mac1.Update(pad, padByte);
 	m_mac1.TruncatedFinal(mac, size);
 	m_f2.ProcessBlock(mac);
@@ -94,7 +102,7 @@ template <class T>
 byte *DMAC_Base<T>::GenerateSubKeys(const byte *key, size_t keylength)
 {
 	typename T::Encryption cipher(key, keylength);
-	memset(m_subkeys, 0, m_subkeys.size());
+	std::memset(m_subkeys, 0, m_subkeys.size());
 	cipher.ProcessBlock(m_subkeys);
 	m_subkeys[m_subkeys.size()/2 + T::BLOCKSIZE - 1] = 1;
 	cipher.ProcessBlock(m_subkeys+m_subkeys.size()/2);

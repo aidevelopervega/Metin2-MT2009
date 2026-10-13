@@ -693,13 +693,37 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **FreeBSD CI Entegrasyonu (Rev 24):**
         * `.github/workflows/freebsd-gcc-test.yml` güncellendi: VM prepare adımına `cmake ninja` eklendi; Step 5.4 ile `cmake --preset freebsd-gcc14`, `cmake --build --preset freebsd-gcc14` ve `ctest --preset freebsd-gcc14` doğrulaması devreye alındı.
 
+    * **Eski 32-Bit Sunucu İkililerinin Temizlenmesi (Kayıpsız x64 Hijyeni):**
+      * İstemci kodlarına (`client/src`, `client/files`, `extern/client`) kesinlikle dokunulmadan, sunucuya ait eski ve yanıltıcı 32-bit (`elf32-i386`) statik kütüphaneleri (`extern/server/lib/libIL.a`, `libILU.a`, `libILUT.a`, `libcryptopp.a`, `libmysqlclient.a`) `git rm` ile Git ağacından kaldırıldı.
+      * Yerel çalışma dizinindeki kalıntı 32-bit `.o` nesne dosyaları (`extern/server/cryptopp/*.o` ve `server/src/liblua/5.2/src/*.o`) temizlendi.
+      * `extern/server/cryptopp/GNUmakefile` dosyasında arşiv kopyalama kuralı `mkdir -p ../lib && cp -f $@ ../lib/` olarak güncellendi; `extern/server/lib/.gitkeep` ile klasör yapısı korundu.
+      * `.gitignore` dosyasına derleme çıktısı olarak `*.a` ve `*.so` eklendi; istemci ve platform istisnaları korunarak yeni üretilen 64-bit sunucu arşivlerinin yanlışlıkla Git'e girmesi engellendi.
+
+    * **CI Koşusu 38380990544 Kök Neden Analizi ve Kalıcı Çözüm:**
+      * **Hata Tespiti:** CMake + Ninja FreeBSD CI koşusu 38380990544'te her 3 DB matrisi de Step 5.4 sırasında `server/src/game/src/cmd_general.cpp:2269:17: error: 'MD5_CTX' was not declared in this scope` hatasıyla durdu.
+      * **Kök Neden:** `cmake/FindCryptoPP.cmake` içerisindeki `CRYPTOPP_INC_DIRS` tanımına `extern/server/cryptopp` eklenmişti. Bu dizindeki `md5.h` (Crypto++ C++ sınıfı), `cmd_general.cpp` içindeki `#include <md5.h>` sistem başlığı çağrısını gölgeledi (shadowing) ve FreeBSD'nin sistem `/usr/include/md5.h` (`MD5_CTX`) yapısını devre dışı bıraktı.
+      * **Kalıcı Çözüm:** Sunucu kaynaklarında Crypto++ başlıkları `<cryptopp/...>` önekiyle çağrıldığından, `cmake/FindCryptoPP.cmake` içinden `extern/server/cryptopp` kaldırıldı; yalnızca `extern/server/include` bırakıldı. Clang/libc++ fallback bloku tamamen silinerek fail-closed pure GCC / libstdc++ standardı güvenceye alındı.
+
+    * **Aşama 5: Server Extern Modernizasyonu — Crypto++ 8.9.0 Yükseltmesi:**
+      * **Sürüm Doğrulaması:** Eski Crypto++ 7.0.0 sürümünden, resmî GitHub deposundan doğrulanan en son kararlı sürüm olan Crypto++ 8.9.0'a (`CRYPTOPP_8_9_0`) yükseltildi.
+      * **Resmî SHA-256 Sağlaması:** `4CC0CCC324625B80B695FCD3DEE63A66F1A460D3E51B71640CDBFC4CD1A3779C` (Resmî kaynakla %100 eşleşti).
+      * **Lisans:** Boost Software License 1.0 (BSL-1.0) / Public Domain.
+      * **Entegrasyon ve Yapılandırma:**
+        * `extern/server/cryptopp/` içerisine 8.9.0 kaynakları ve `TestPrograms` mimari testleri aktarıldı.
+        * `extern/server/include/cryptopp/` içerisine 192 yeni 8.9.0 başlığı dağıtıldı; Metin2'ye özgü `cryptoppLibLink.h` korundu.
+        * `extern/server/cryptopp/GNUmakefile` kuralına `mkdir -p ../lib && cp -f $@ ../lib/` entegre edildi.
+      * **Doğrulama ve Test Sonuçları:**
+        * Windows MinGW GCC 16.2 UCRT üzerinde `cmake -B build/windows-gcc-ucrt --fresh` ve `ninja -C build/windows-gcc-ucrt` hatasız tamamlandı.
+        * CTest: **7/7 test paketi PASSED (%100 PASS, 1.13s)**.
+        * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)** (`libpoly`: 24/24, `libthecore`: 61/61, `libgame`: 64/64, `libsql`: 143/143, `db cache`: 120/120, `real db cache integration`: 116/116, `wire protocol`: 32/32).
+
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son doğrulanmış test koşusu (Run ID: 38376898747) 3 matris işi (%100 SUCCESS, pure libstdc++ kanıtlandı). Rev 24 ile CMake + Ninja CI testi hazırlandı.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38380990544 analizi tamamlandı, Rev 25 (Crypto++ 8.9.0 ve md5.h gölgeleme düzeltmesi) ile yeni doğrulama başlatılacaktır.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -713,47 +737,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI tetiklendi)
-4. **Eski Makefile Eşdeğerlik Güvencesi:**
-   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik doğrulanıyor)
-5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
-6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
-   * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
-
----
-
-      * **Eski 32-Bit Sunucu İkililerinin Temizlenmesi (Kayıpsız x64 Hijyeni):**
-        * İstemci kodlarına (`client/src`, `client/files`, `extern/client`) kesinlikle dokunulmadan, sunucuya ait eski ve yanıltıcı 32-bit (`elf32-i386`) statik kütüphaneleri (`extern/server/lib/libIL.a`, `libILU.a`, `libILUT.a`, `libcryptopp.a`, `libmysqlclient.a`) `git rm` ile Git ağacından kaldırıldı.
-        * Yerel çalışma dizinindeki kalıntı 32-bit `.o` nesne dosyaları (`extern/server/cryptopp/*.o` ve `server/src/liblua/5.2/src/*.o`) temizlendi.
-        * `extern/server/cryptopp/GNUmakefile` dosyasında arşiv kopyalama kuralı `mkdir -p ../lib && cp -f $@ ../lib/` olarak güncellendi; `extern/server/lib/.gitkeep` ile klasör yapısı korundu.
-        * Temizlik sonrası Windows CTest (`7/7 PASS`) ve legacy `run_tests.ps1` (`560/560 assertion %100 PASS`) ile sıfır gerileme (zero regression) doğrulandı.
-
----
-
-## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
-
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Run ID: 38379923295 (Rev 24 CMake + Ninja) devam etmektedir.
-* **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
-
----
-
-## 8. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI (AGENTS.md Madde 11)
-
-Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
-
-1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
-   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır. (TAMAMLANDI)
-2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
-   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
-3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI tetiklendi)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI Rev 25 ile doğrulanıyor)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0 TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -761,11 +749,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Eski 32-bit sunucu ikilileri temizlendi, CMake + Ninja altyapısı ve testleri doğrulandı.
+* **Aktif Görev:** Crypto++ 8.9.0 yükseltmesi tamamlandı, CMake `md5.h` include gölgelemesi ve fallback düzeltildi, Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 doğrulandı.
 * **Sıradaki Güvenli Adım:**
-  1. 32-bit sunucu ikili temizliğini commit ve push ederek GitHub ile senkronize etmek.
-  2. FreeBSD CI Rev 24 (Run ID: 38379923295) sonucunu kontrol etmek.
-  3. Yol Haritası Adım 5: Server/Common Extern bağımlılıklarının aşamalı modernizasyonuna başlamak (İlk bileşen: Crypto++ / Lua / DevIL analizi ve planlaması).
+  1. Değişiklikleri `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek.
+  2. GitHub Actions FreeBSD CI Rev 25 koşusunun (Run ID) gerçek durumunu denetlemek.
+  3. Yol Haritası Adım 5: Sıradaki Server/Common Extern bağımlılığına geçmek (Lua 5.0 -> modern güvenli Lua sürüm yükseltmesi veya Boost analizi).
 
 
 

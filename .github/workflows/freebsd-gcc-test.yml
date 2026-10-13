@@ -1,4 +1,4 @@
-# Rev 24: Add CMake + Ninja build validation and CTest to FreeBSD GCC 14 matrix
+# Rev 25: Upgrade Crypto++ to official stable 8.9.0 and resolve CMake md5.h include shadowing
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

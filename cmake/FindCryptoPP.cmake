@@ -8,7 +8,6 @@ endif()
 
 set(CRYPTOPP_INC_DIRS
     "${CMAKE_SOURCE_DIR}/extern/server/include"
-    "${CMAKE_SOURCE_DIR}/extern/server/cryptopp"
 )
 
 # 1. Öncelik: GCC 14 ile derlenen yerel 64-bit CryptoPP statik kütüphanesi
@@ -44,22 +43,6 @@ if(CRYPTOPP_STATIC_LIB)
     )
     set(CryptoPP_FOUND TRUE)
     message(STATUS "[CryptoPP] GCC ile derlenmiş yerel CryptoPP bulundu: ${CRYPTOPP_STATIC_LIB} (Pure libstdc++)")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    # 2. Fallback: FreeBSD sistem port kütüphanesi (Clang ile derlenmişse libc++ gerekebilir)
-    find_library(CRYPTOPP_SYS_LIB
-        NAMES cryptopp
-        PATHS /usr/local/lib
-    )
-    if(CRYPTOPP_SYS_LIB)
-        add_library(CryptoPP::CryptoPP UNKNOWN IMPORTED)
-        set_target_properties(CryptoPP::CryptoPP PROPERTIES
-            IMPORTED_LOCATION "${CRYPTOPP_SYS_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "/usr/local/include"
-            INTERFACE_LINK_LIBRARIES "c++"
-        )
-        set(CryptoPP_FOUND TRUE)
-        message(STATUS "[CryptoPP] Sistem CryptoPP kütüphanesi bulundu: ${CRYPTOPP_SYS_LIB} (Fallback libc++)")
-    endif()
 endif()
 
 if(NOT CryptoPP_FOUND)

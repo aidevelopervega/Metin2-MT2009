@@ -29,25 +29,25 @@
 
 #include <windows.h>
 
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-#ifdef _M_IX86
-#define _CRT_DEBUGGER_HOOK _crt_debugger_hook
-#else
-#define _CRT_DEBUGGER_HOOK __crt_debugger_hook
-#endif
-#if _MSC_VER < 1900
+#if defined(CRYPTOPP_MSC_VERSION) && CRYPTOPP_MSC_VERSION >= 1400
+# ifdef _M_IX86
+#  define _CRT_DEBUGGER_HOOK _crt_debugger_hook
+# else
+#  define _CRT_DEBUGGER_HOOK __crt_debugger_hook
+# endif
+# if CRYPTOPP_MSC_VERSION < 1900
 extern "C" {_CRTIMP void __cdecl _CRT_DEBUGGER_HOOK(int);}
-#else
+# else
 extern "C" {void __cdecl _CRT_DEBUGGER_HOOK(int); }
+# endif
 #endif
-#endif
-#endif
+#endif  // CRYPTOPP_WIN32_AVAILABLE
 
 #include <sstream>
 #include <iostream>
 
 #if CRYPTOPP_MSC_VERSION
-# pragma warning(disable: 4100 4702)
+# pragma warning(disable: 4702)
 #endif
 
 NAMESPACE_BEGIN(CryptoPP)
@@ -299,7 +299,7 @@ bool IntegrityCheckModule(const char *moduleFilename, const byte *expectedModule
 	char moduleFilenameBuf[FIPS_MODULE_MAX_PATH] = "";
 	if (moduleFilename == NULLPTR)
 	{
-#if (_MSC_VER >= 1400 && !defined(_STLPORT_VERSION))	// ifstream doesn't support wide filename on other compilers
+#if (CRYPTOPP_MSC_VERSION >= 1400 && !defined(_STLPORT_VERSION))	// ifstream doesn't support wide filename on other compilers
 		wchar_t wideModuleFilename[FIPS_MODULE_MAX_PATH];
 		if (GetModuleFileNameW(s_hModule, wideModuleFilename, FIPS_MODULE_MAX_PATH) > 0)
 		{
@@ -401,17 +401,19 @@ bool IntegrityCheckModule(const char *moduleFilename, const byte *expectedModule
 					}
 				}
 
-// #if defined(_MSC_VER) && _MSC_VER >= 1400 && !defined(_M_ARM)
-// 				// first byte of _CRT_DEBUGGER_HOOK gets modified in memory by the debugger invisibly, so read it from file
-// 				if (IsDebuggerPresent())
-// 				{
-// 					if (subSectionMemStart <= (byte *)&_CRT_DEBUGGER_HOOK && (byte *)&_CRT_DEBUGGER_HOOK < subSectionMemStart + subSectionSize)
-// 					{
-// 						subSectionSize = (byte *)&_CRT_DEBUGGER_HOOK - subSectionMemStart;
-// 						nextSubSectionStart = (byte *)&_CRT_DEBUGGER_HOOK - sectionMemStart + 1;
-// 					}
-// 				}
-// #endif
+				// Visual Studio 2019 is MSC_VER == 1920
+				// https://dev.to/yumetodo/list-of-mscver-and-mscfullver-8nds
+#if (CRYPTOPP_MSC_VERSION >= 1400 && CRYPTOPP_MSC_VERSION < 1920) && (defined(_M_IX86) || defined(_M_X64))
+				// first byte of _CRT_DEBUGGER_HOOK gets modified in memory by the debugger invisibly, so read it from file
+				if (IsDebuggerPresent())
+				{
+					if (subSectionMemStart <= (byte *)&_CRT_DEBUGGER_HOOK && (byte *)&_CRT_DEBUGGER_HOOK < subSectionMemStart + subSectionSize)
+					{
+						subSectionSize = (byte *)&_CRT_DEBUGGER_HOOK - subSectionMemStart;
+						nextSubSectionStart = (byte *)&_CRT_DEBUGGER_HOOK - sectionMemStart + 1;
+					}
+				}
+#endif
 
 				if (subSectionMemStart <= expectedModuleMac && expectedModuleMac < subSectionMemStart + subSectionSize)
 				{

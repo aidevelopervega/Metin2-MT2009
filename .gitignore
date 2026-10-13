@@ -5,6 +5,8 @@
 # --- Geçici Derleme Çıktıları (Build Artifacts) ---
 *.obj
 *.o
+*.a
+*.so
 *.d
 *.pdb
 *.idb
@@ -75,10 +77,9 @@ $RECYCLE.BIN/
 !*.sql
 !Makefile
 !*.lua
-!mt2009 - FULL SOURCE/Server Source/Extern/lib/*.a
 !mt2009 - FULL SOURCE/Source/Extern/lib/*.lib
-!extern/server/lib/*.a
 !extern/client/lib/*.lib
+!extern/client/lib/*.a
 !extern/client/dll/*.dll
 !extern/platform/**/*.a
 

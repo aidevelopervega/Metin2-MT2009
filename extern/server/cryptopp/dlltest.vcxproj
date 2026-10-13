@@ -22,13 +22,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <!-- Microsoft documentation clearly shows the Global property group -->
-  <!-- preceeds the import of Cpp.Default.props and Cpp.props -->
+  <!-- precedes the import of Cpp.Default.props and Cpp.props -->
   <!-- https://msdn.microsoft.com/en-us/library/2208a1f2.aspx -->
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1974a53a-9863-41c9-886d-b2b8c2fc3c8b}</ProjectGuid>
     <RootNamespace>dlltest</RootNamespace>
     <ConfigurationType>Application</ConfigurationType>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <!-- Use DefaultPlatformToolset after Microsoft.Cpp.Default.props -->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -64,10 +63,11 @@
       <DisableSpecificWarnings>4231; 4251; 4275; 4355; 4505</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
       <PrecompiledHeader />
+      <AdditionalOptions>$(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <ErrorReporting>NoErrorReport</ErrorReporting>
-      <AdditionalDependencies>cryptopp.lib;Ws2_32.lib</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(Platform)\DLL_Output\$(Configuration)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
@@ -123,16 +123,6 @@
     <Link>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-    </ClCompile>
   </ItemDefinitionGroup>
   <!-- Source Files -->
   <ItemGroup>

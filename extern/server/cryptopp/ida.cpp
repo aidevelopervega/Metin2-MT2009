@@ -6,17 +6,12 @@
 #include "ida.h"
 #include "stdcpp.h"
 #include "algebra.h"
-#include "gf2_32.h"
 #include "polynomi.h"
 #include "polynomi.cpp"
 
-ANONYMOUS_NAMESPACE_BEGIN
-const CryptoPP::GF2_32 field;
-NAMESPACE_END
-
 NAMESPACE_BEGIN(CryptoPP)
 
-#if (defined(_MSC_VER) && (_MSC_VER < 1400)) && !defined(__MWERKS__)
+#if (defined(CRYPTOPP_MSC_VERSION) && (CRYPTOPP_MSC_VERSION < 1400)) && !defined(__MWERKS__)
 	// VC60 and VC7 workaround: built-in reverse_iterator has two template parameters, Dinkumware only has one
 	typedef std::reverse_bidirectional_iterator<const byte *, const byte> RevIt;
 #elif defined(_RWSTD_NO_CLASS_PARTIAL_SPEC)
@@ -145,7 +140,7 @@ void RawIDA::ComputeV(unsigned int i)
 	if (m_outputToInput[i] == size_t(m_threshold) && i * size_t(m_threshold) <= 1000*1000)
 	{
 		m_v[i].resize(m_threshold);
-		PrepareBulkPolynomialInterpolationAt(field, m_v[i].begin(), m_outputChannelIds[i], &(m_inputChannelIds[0]), m_w.begin(), m_threshold);
+		PrepareBulkPolynomialInterpolationAt(m_gf32, m_v[i].begin(), m_outputChannelIds[i], &(m_inputChannelIds[0]), m_w.begin(), m_threshold);
 	}
 }
 
@@ -161,7 +156,7 @@ void RawIDA::AddOutputChannel(word32 channelId)
 void RawIDA::PrepareInterpolation()
 {
 	CRYPTOPP_ASSERT(m_inputChannelIds.size() == size_t(m_threshold));
-	PrepareBulkPolynomialInterpolation(field, m_w.begin(), &(m_inputChannelIds[0]), (unsigned int)(m_threshold));
+	PrepareBulkPolynomialInterpolation(m_gf32, m_w.begin(), &(m_inputChannelIds[0]), (unsigned int)(m_threshold));
 	for (unsigned int i=0; i<m_outputChannelIds.size(); i++)
 		ComputeV(i);
 }
@@ -190,12 +185,12 @@ void RawIDA::ProcessInputQueues()
 			if (m_outputToInput[i] != size_t(m_threshold))
 				m_outputQueues[i].PutWord32(m_y[m_outputToInput[i]]);
 			else if (m_v[i].size() == size_t(m_threshold))
-				m_outputQueues[i].PutWord32(BulkPolynomialInterpolateAt(field, m_y.begin(), m_v[i].begin(), m_threshold));
+				m_outputQueues[i].PutWord32(BulkPolynomialInterpolateAt(m_gf32, m_y.begin(), m_v[i].begin(), m_threshold));
 			else
 			{
 				m_u.resize(m_threshold);
-				PrepareBulkPolynomialInterpolationAt(field, m_u.begin(), m_outputChannelIds[i], &(m_inputChannelIds[0]), m_w.begin(), m_threshold);
-				m_outputQueues[i].PutWord32(BulkPolynomialInterpolateAt(field, m_y.begin(), m_u.begin(), m_threshold));
+				PrepareBulkPolynomialInterpolationAt(m_gf32, m_u.begin(), m_outputChannelIds[i], &(m_inputChannelIds[0]), m_w.begin(), m_threshold);
+				m_outputQueues[i].PutWord32(BulkPolynomialInterpolateAt(m_gf32, m_y.begin(), m_u.begin(), m_threshold));
 			}
 		}
 	}
@@ -255,7 +250,7 @@ size_t SecretSharing::Put2(const byte *begin, size_t length, int messageEnd, boo
 	if (!blocking)
 		throw BlockingInputOnly("SecretSharing");
 
-	SecByteBlock buf(UnsignedMin(256, length));
+	SecByteBlock buf(UnsignedMin(256u, length));
 	unsigned int threshold = m_ida.GetThreshold();
 	while (length > 0)
 	{
