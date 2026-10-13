@@ -65,14 +65,14 @@ utils.o: utils.c ../include/stdafx.h ../include/typedef.h \
   ../include/kstbl.h ../include/hangul.h ../include/buffer.h \
   ../include/signal.h ../include/log.h ../include/main.h \
   ../include/utils.h ../include/crypt.h ../include/memcpy.h \
-  ../../../Extern/include/msl/msl.h ../../../Extern/include/msl/bench.h \
-  ../../../Extern/include/msl/cast.h \
-  ../../../Extern/include/msl/assert.h \
-  ../../../Extern/include/msl/file_ptr.h \
-  ../../../Extern/include/msl/macro.h \
-  ../../../Extern/include/msl/random.h \
-  ../../../Extern/include/msl/range.h \
-  ../../../Extern/include/msl/utils.h
+  ../../../../extern/common/include/msl/msl.h ../../../../extern/common/include/msl/bench.h \
+  ../../../../extern/common/include/msl/cast.h \
+  ../../../../extern/common/include/msl/assert.h \
+  ../../../../extern/common/include/msl/file_ptr.h \
+  ../../../../extern/common/include/msl/macro.h \
+  ../../../../extern/common/include/msl/random.h \
+  ../../../../extern/common/include/msl/range.h \
+  ../../../../extern/common/include/msl/utils.h
 xdirent.o: xdirent.c ../include/stdafx.h ../include/typedef.h \
   ../include/heart.h ../include/fdwatch.h ../include/socket.h \
   ../include/kstbl.h ../include/hangul.h ../include/buffer.h \

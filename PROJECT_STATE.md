@@ -642,9 +642,10 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **4. Makefile ve Araç Zinciri Modernizasyonu:**
       * `server/src/liblua/5.0/config`: `CC ?= gcc`, `WARN= -Wall` (hardcoded `-m32` kaldırıldı), `AR ?= ar rcu`, `RANLIB ?= ranlib`.
       * `server/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`.
-      * `server/src/libpoly/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
-      * `server/src/libthecore/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
-      * `server/src/libgame/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
+      * `server/src/libpoly/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; `sinclude Depend` yapıldı.
+      * `server/src/libthecore/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; `sinclude Depend` yapıldı.
+      * `server/src/libgame/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; `sinclude Depend` yapıldı.
+      * `server/src/libthecore/src/Depend` ve `server/src/libpoly/Depend`: Eski `../../../Extern/include/msl/...` yolları merkezi `../../../../extern/common/include/msl/...` ile güncellendi.
       * `server/src/game/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; MySQL/MariaDB kütüphane tespiti `db/src/Makefile` ile eşitlendi; DevIL (`-lIL`) ve CryptoPP (`-lcryptopp`) 64-bit bağlama kuralları tanımlandı; `-w` bayrağı ve `tests/build` arama yolu fallback'i kaldırılarak doğrudan resmi kütüphane yollarına bağlandı.
       * `server/src/db/src/Makefile`: `-w` bayrağı ve `tests/build` arama yolu fallback'i kaldırılarak resmi kütüphane yollarına bağlandı.
     * **5. FreeBSD amd64 LP64 Tip ve Güvenlik Düzeltmeleri:**

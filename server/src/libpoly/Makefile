@@ -32,5 +32,5 @@ dep:
 $(OBJFILES):
 	$(CXX) $(CFLAGS) -c $<
 
-include Depend
+sinclude Depend
 

@@ -39,4 +39,4 @@ memcpy: memcpy.o utils.o log.o
 	$(CXX) $(CFLAGS) -c -D__MAIN__ memcpy.c
 	$(CXX) $(CFLAGS) -o memcpy memcpy.o utils.o log.o
 
-include Depend
+sinclude Depend
