@@ -28,3 +28,31 @@ end
 function mob_name(vnum)
     return "[MOB value;"..vnum.."]"
 end
+
+function select(...)
+    if table.pack then
+        return q.yield('select', table.pack(...))
+    else
+        return q.yield('select', arg)
+    end
+end
+
+function select_table(tbl)
+    return q.yield('select', tbl)
+end
+
+function wait()
+    return q.yield('wait')
+end
+
+function input()
+    return q.yield('input')
+end
+
+function confirm(vid, msg, timeout)
+    return q.yield('confirm', vid, msg, timeout)
+end
+
+function select_item()
+    return q.yield('select_item')
+end

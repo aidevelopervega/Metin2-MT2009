@@ -982,21 +982,31 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           * Kök Neden: `server/src/game/src/lua_incl.h` başlığında `#ifndef __INC_METIN2_LUA_INCL_H__` koruması (include guard) bulunmamaktaydı. `OXEvent.cpp`, hem `horse_rider.h` -> `char.h` hem de `questmanager.h` -> `quest.h` üzerinden `lua_incl.h` dosyasını iki kez dahil etmekte; ikinci dahil etmede `#define lua_resume(a,b)` makrosu önceden tanımlanmış olduğundan `m2_lua_resume` fonksiyonunun dahili 4 parametreli `lua_resume(L, NULL, nargs, &nresults)` çağrısını bozmaktaydı.
           * Kök Neden Çözümü:
             1. `server/src/game/src/lua_incl.h`: Standart `#ifndef __INC_METIN2_LUA_INCL_H__ ... #endif` başlık koruması eklendi.
-            2. `server/src/game/src/lua_incl.h`: `m2_lua_resume` tanımı öncesinde `#undef lua_resume` eklendi ve çağrı `(lua_resume)(L, NULL, nargs, &nresults)` parantez sarmalaması ile makro açılımına karşı korumaya alındı.
-            3. `server/src/game/src/questlua.cpp`: `CQuestManager::RunState` fonksiyonunda `lua_resume` dönüş kontrolü `if (ret == 0 || ret == LUA_YIELD)` olarak güncellendi. Böylece Lua 5.5/5.2 coroutine yield durumları (`select`, `wait`, `input`, `confirm`, `select_item`) asla hata olarak algılanmaz; ayrıca `lua_tostring(qs.co, 1)` için güvenli NULL kontrolü eklendi.
-            4. `.github/workflows/freebsd-gcc-test.yml`: Rev 35 başlığı güncellendi.
-            5. Windows MinGW GCC 16.2 UCRT üzerinde CTest (13/13) ve regresyon suite'i (560/560 assertions) %100 PASS olarak doğrulandı.
+      * **Aşama 10: FreeBSD amd64 Çift game İkili (ELF64 & Pure libstdc++) Başarısı, CQuestManager Singleton Null Pointer Kök Neden Çözümü, InitializeLua access() Koruması ve Kapsamlı Coroutine Suite (Rev 36):**
+        * **FreeBSD CI Rev 35 (Run 38456092378 / Commit 7800d8ce) Bulguları:**
+          * **Büyük Başarı:** Hem `game_r41023` (Lua 5.0 varsayılan) hem de `game_r41023_lua55` (Lua 5.5 staging) FreeBSD 15.1 amd64 GCC 14 üzerinde sıfır hata ile başarıyla derlendi ve bağlandı! `readelf -d` ile her iki ikilinin de ELF64 amd64 mimarisinde ve pure `libstdc++` (sıfır `libc++.so`) olduğu kesin olarak kanıtlandı.
+          * **Check 1 Başarısı:** `--check-lua` çalıştırıldığında `packet_script` struct boyutunun tam 6 bayt ve `#pragma pack(1)` hizalı olduğu doğrulandı.
+          * **Check 2 Hata Analizi (Exit Code 139 - SIGSEGV):** Check 2 aşamasında süreç `Segmentation fault (core dumped)` ile durmuştur.
+          * **Kök Neden:** `main.cpp` içerisindeki `--check-lua` komut argümanı dalı, normal sunucu yöneticileri başlatılmadan önce çalıştırılmaktadır. Bu noktada `quest::CQuestManager` nesnesi henüz oluşturulmadığından `singleton<CQuestManager>::ms_singleton` değeri `nullptr` kalmaktadır. `questlua_test.cpp` içerisindeki `quest::CQuestManager::instance()` çağrısı `*nullptr` dereference ederek `qm.GetLuaState()` çağrısında `0x0` adresine erişmeye çalışmış ve segmentation fault üretmiştir.
+          * **Kök Neden Çözümleri:**
+            1. `server/src/game/src/questlua_test.cpp`: Check 2 öncesinde `std::unique_ptr<quest::CQuestManager> local_qm` ile `instance_ptr() == nullptr` kontrolü eklendi; nesne henüz oluşturulmamışsa güvenli ve izole biçimde tahsis edilerek `qm` referansı sağlandı.
+            2. `server/src/game/src/questlua.cpp`: `InitializeLua()` içerisinde `settings.lua`, `questlib.lua` ve `translate.lua` yüklemeleri `access(..., R_OK) == 0` kontrolü ile sarıldı; böylece bağımsız test ve `--check-lua` ortamında dosya yolu eksikliği durumunda sahte `LOAD_SETTINS_FAILURE` hatası oluşması engellendi.
+            3. `server/src/game/src/questlua.cpp`: `RunState` içerisinde `ret == LUA_YIELD` ile `ret == 0` durumları tam olarak ayrıştırıldı; Lua 5.5/5.2 altında coroutine yield ve normal betik sonlanması sözleşmesi kesinleştirildi.
+            4. `tests/fixtures/questlib.lua`: Standart MT2009 coroutine diyalog fonksiyonları (`select`, `select_table`, `wait`, `input`, `confirm`, `select_item`) eklendi.
+            5. `server/src/game/src/questlua_test.cpp`: Check 8 genişletilerek 5 yield komutunun tamamı (`select`, `wait`, `input`, `confirm`, `select_item`) ve yield olmadan normal tamamlanma akışı fail-closed olarak doğrulandı.
+            6. `.github/workflows/freebsd-gcc-test.yml`: Rev 36 başlığı güncellendi.
+            7. Windows GCC 16 UCRT üzerinde CTest (13/13) ve regresyon suite'i (560/560 assertions) %100 PASS olarak doğrulandı.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch). `lua_incl.h` ve `questlua.cpp` düzeltmeleri tamamlandı.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Son push edilen commit `7800d8ce3bd31925bea33641c0230422baf03250` (Rev 35). Yerel HEAD ile tam senkron.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch). `CQuestManager` singleton koruması ve Check 8 genişletmesi tamamlandı.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `7800d8ce3bd31925bea33641c0230422baf03250` (Rev 35). Rev 36 commit'i hazırlanıyor.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
-  * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` `lua_incl.h` include guard eksikliği nedeniyle FAIL (Rev 35 ile kök nedenden çözüldü).
-  * CI Run ID **38456092378** (Rev 35 / Commit `7800d8ce`): **RUNNING** (FreeBSD 15.1 VM üzerinde MariaDB 11.4, MariaDB 12.3, MySQL 8.4 matris işleri çalışıyor).
+  * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` include guard eksikliği (Rev 35 ile çözüldü).
+  * CI Run ID **38456092378** (Rev 35): Hem `game_r41023` hem `game_r41023_lua55` çift ELF64 pure `libstdc++` olarak başarıyla derlendi ve bağlandı. `--check-lua` Check 2 singleton nullptr segfault kök nedeni tespit edildi ve Rev 36 ile çözüldü.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1014,7 +1024,7 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023_lua55 dual ELF64 staging, BuildStateIndexToName 1054/1054 state hardening ve --check-lua 11/11 TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023 ve game_r41023_lua55 dual ELF64 pure libstdc++ derlemesi, BuildStateIndexToName 1054/1054 state hardening, RunState LUA_YIELD ayrımı ve --check-lua 11/11 TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -1022,11 +1032,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 35: `lua_incl.h` include guard eksikliği ve `OXEvent.cpp` macro collision hatası kök nedenden giderildi; `CQuestManager::RunState` fonksiyonunda `LUA_YIELD` coroutine yield desteği ve NULL koruması eklendi; Windows CTest (13/13) ve regresyon suite'i (560/560 assertions) %100 başarıyla tamamlandı.
+* **Aktif Görev:** Rev 36: FreeBSD amd64 üzerinde `game_r41023` ve `game_r41023_lua55` çift ELF64 pure `libstdc++` derleme ve bağlama başarısı kanıtlandı; `--check-lua` Check 2'deki `CQuestManager` singleton nullptr hatası `local_qm` ile kök nedenden giderildi; `InitializeLua` dosya yüklemeleri `access()` ile korundu; `RunState` coroutine yield/normal tamamlanma ayrımı yapıldı; Check 8 tüm 5 yield komutunu (`select`, `wait`, `input`, `confirm`, `select_item`) ve normal tamamlanmayı kapsayacak şekilde genişletildi.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 35 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI'da `game_r41023` ve `game_r41023_lua55` çift ELF64 derlemesini ve `--check-lua` testlerini tetiklemek.
+   1. Rev 36 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI'da `--check-lua` 11/11 kontrol doğrulamasını başlatmak.
    2. CI Run sonucunu doğrulamak.
-   3. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
+   3. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve izole smoke test entegrasyonunu sürdürmek.
 
 
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <memory>
 #include "questmanager.h"
 #include "questlua.h"
 #include "packet.h"
@@ -60,6 +61,11 @@ int RunGameQuestRuntimeTests()
 
 	// 2. QuestManager & Lua State Initialization
 	std::cout << "[RUN] Check 2: QuestManager & Lua State Initialization..." << std::endl;
+	std::unique_ptr<quest::CQuestManager> local_qm;
+	if (quest::CQuestManager::instance_ptr() == nullptr)
+	{
+		local_qm = std::make_unique<quest::CQuestManager>();
+	}
 	quest::CQuestManager& qm = quest::CQuestManager::instance();
 	lua_State* L = qm.GetLuaState();
 	if (!L)
@@ -197,36 +203,106 @@ int RunGameQuestRuntimeTests()
 	std::cout << "  --> Gameforge proxy transparently resolves and flags missing keys" << std::endl;
 	checks_passed++;
 
-	// 8. Interactive Coroutine Dialog State Machine
+	// 8. Interactive Coroutine Dialog State Machine (select, wait, input, confirm, select_item, normal completion)
 	std::cout << "[RUN] Check 8: Interactive Coroutine Dialog State Machine..." << std::endl;
+#if LUA_V == 551 || LUA_V == 523
+	const int EXPECT_YIELD = LUA_YIELD;
+#else
+	const int EXPECT_YIELD = 0;
+#endif
+
+	// 8.1 select
 	lua_State* co = lua_newthread(L);
 	RUNTIME_ASSERT(co != nullptr, "Failed to create coroutine thread");
-
 	const char* quest_script =
 		"local choice = select('Accept Biologist Task', 'Refuse Task')\n"
 		"return choice\n";
-
 	int load_err = lua_dobuffer(co, quest_script, strlen(quest_script), "test_biologist");
 	RUNTIME_ASSERT(load_err == 0, "test_biologist quest script buffer compilation failed");
 	int resume_res = lua_resume(co, 0);
-#if LUA_V == 551 || LUA_V == 523
-	RUNTIME_ASSERT(resume_res == LUA_YIELD, "Coroutine must yield on select");
-#else
-	RUNTIME_ASSERT(resume_res == 0, "Coroutine must yield on select (0 in Lua 5.0)");
-#endif
+	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on select");
 	RUNTIME_ASSERT(lua_gettop(co) >= 2, "Coroutine stack must contain yield type and args");
 	const char* yield_type = lua_tostring(co, 1);
 	RUNTIME_ASSERT(yield_type != nullptr && strcmp(yield_type, "select") == 0, "Yield type must be 'select'");
 	size_t num_opts = luaL_getn(co, 2);
 	RUNTIME_ASSERT(num_opts == 2, "Must have exactly 2 options in select");
-
-	// Simulate player choosing option 1
 	lua_pushnumber(co, 1);
 	int resume2 = lua_resume(co, 1);
 	RUNTIME_ASSERT(resume2 == 0, "Coroutine must complete with 0 (LUA_OK)");
 	RUNTIME_ASSERT((int)lua_tonumber(co, -1) == 1, "Return value must be choice 1");
-	lua_pop(L, 1); // pop coroutine thread
-	std::cout << "  --> Coroutine yielded on select, resumed with choice, completed cleanly" << std::endl;
+	lua_pop(L, 1);
+
+	// 8.2 wait
+	lua_State* co_wait = lua_newthread(L);
+	RUNTIME_ASSERT(co_wait != nullptr, "Failed to create wait coroutine");
+	const char* script_wait = "wait()\nreturn 'after_wait'\n";
+	load_err = lua_dobuffer(co_wait, script_wait, strlen(script_wait), "test_wait");
+	RUNTIME_ASSERT(load_err == 0, "test_wait buffer compilation failed");
+	resume_res = lua_resume(co_wait, 0);
+	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on wait()");
+	RUNTIME_ASSERT(lua_gettop(co_wait) >= 1 && strcmp(lua_tostring(co_wait, 1), "wait") == 0, "Yield type must be 'wait'");
+	resume2 = lua_resume(co_wait, 0);
+	RUNTIME_ASSERT(resume2 == 0, "wait resumption must complete with 0");
+	RUNTIME_ASSERT(strcmp(lua_tostring(co_wait, -1), "after_wait") == 0, "wait return value must match");
+	lua_pop(L, 1);
+
+	// 8.3 input
+	lua_State* co_input = lua_newthread(L);
+	RUNTIME_ASSERT(co_input != nullptr, "Failed to create input coroutine");
+	const char* script_input = "local txt = input()\nreturn txt\n";
+	load_err = lua_dobuffer(co_input, script_input, strlen(script_input), "test_input");
+	RUNTIME_ASSERT(load_err == 0, "test_input buffer compilation failed");
+	resume_res = lua_resume(co_input, 0);
+	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on input()");
+	RUNTIME_ASSERT(lua_gettop(co_input) >= 1 && strcmp(lua_tostring(co_input, 1), "input") == 0, "Yield type must be 'input'");
+	lua_pushstring(co_input, "player_secret_word");
+	resume2 = lua_resume(co_input, 1);
+	RUNTIME_ASSERT(resume2 == 0, "input resumption must complete with 0");
+	RUNTIME_ASSERT(strcmp(lua_tostring(co_input, -1), "player_secret_word") == 0, "input return value must match player text");
+	lua_pop(L, 1);
+
+	// 8.4 confirm
+	lua_State* co_confirm = lua_newthread(L);
+	RUNTIME_ASSERT(co_confirm != nullptr, "Failed to create confirm coroutine");
+	const char* script_confirm = "local ans = confirm(1001, 'Do you accept the guild war?', 15)\nreturn ans\n";
+	load_err = lua_dobuffer(co_confirm, script_confirm, strlen(script_confirm), "test_confirm");
+	RUNTIME_ASSERT(load_err == 0, "test_confirm buffer compilation failed");
+	resume_res = lua_resume(co_confirm, 0);
+	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on confirm()");
+	RUNTIME_ASSERT(lua_gettop(co_confirm) >= 1 && strcmp(lua_tostring(co_confirm, 1), "confirm") == 0, "Yield type must be 'confirm'");
+	lua_pushnumber(co_confirm, 1); // CONFIRM_YES
+	resume2 = lua_resume(co_confirm, 1);
+	RUNTIME_ASSERT(resume2 == 0, "confirm resumption must complete with 0");
+	RUNTIME_ASSERT((int)lua_tonumber(co_confirm, -1) == 1, "confirm return value must be CONFIRM_YES");
+	lua_pop(L, 1);
+
+	// 8.5 select_item
+	lua_State* co_item = lua_newthread(L);
+	RUNTIME_ASSERT(co_item != nullptr, "Failed to create select_item coroutine");
+	const char* script_item = "local slot = select_item()\nreturn slot\n";
+	load_err = lua_dobuffer(co_item, script_item, strlen(script_item), "test_select_item");
+	RUNTIME_ASSERT(load_err == 0, "test_select_item buffer compilation failed");
+	resume_res = lua_resume(co_item, 0);
+	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on select_item()");
+	RUNTIME_ASSERT(lua_gettop(co_item) >= 1 && strcmp(lua_tostring(co_item, 1), "select_item") == 0, "Yield type must be 'select_item'");
+	lua_pushnumber(co_item, 5); // selected item cell 5
+	resume2 = lua_resume(co_item, 1);
+	RUNTIME_ASSERT(resume2 == 0, "select_item resumption must complete with 0");
+	RUNTIME_ASSERT((int)lua_tonumber(co_item, -1) == 5, "select_item return value must be slot 5");
+	lua_pop(L, 1);
+
+	// 8.6 Normal completion without yield
+	lua_State* co_norm = lua_newthread(L);
+	RUNTIME_ASSERT(co_norm != nullptr, "Failed to create normal coroutine");
+	const char* script_norm = "local a = 40 + 2\nreturn a\n";
+	load_err = lua_dobuffer(co_norm, script_norm, strlen(script_norm), "test_normal");
+	RUNTIME_ASSERT(load_err == 0, "test_normal buffer compilation failed");
+	resume_res = lua_resume(co_norm, 0);
+	RUNTIME_ASSERT(resume_res == 0, "normal completion must return 0 without yielding");
+	RUNTIME_ASSERT((int)lua_tonumber(co_norm, -1) == 42, "normal completion return value must be 42");
+	lua_pop(L, 1);
+
+	std::cout << "  --> All 5 yield commands (select, wait, input, confirm, select_item) & normal completion verified" << std::endl;
 	checks_passed++;
 
 	// 9. __codecache 64-Bit Pointer Safety

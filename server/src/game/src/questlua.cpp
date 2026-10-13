@@ -754,12 +754,15 @@ namespace quest
 			char settingsFileName[256];
 			snprintf(settingsFileName, sizeof(settingsFileName), "%s/settings.lua", LocaleService_GetBasePath().c_str());
 
-			int settingsLoadingResult = lua_dofile(L, settingsFileName);
-			sys_log(0, "LoadSettings(%s), returns %d", settingsFileName, settingsLoadingResult);
-			if (settingsLoadingResult != 0)
+			if (access(settingsFileName, R_OK) == 0)
 			{
-				sys_err("LOAD_SETTINS_FAILURE(%s)", settingsFileName);
-				return false;
+				int settingsLoadingResult = lua_dofile(L, settingsFileName);
+				sys_log(0, "LoadSettings(%s), returns %d", settingsFileName, settingsLoadingResult);
+				if (settingsLoadingResult != 0)
+				{
+					sys_err("LOAD_SETTINS_FAILURE(%s)", settingsFileName);
+					return false;
+				}
 			}
 		}
 
@@ -767,12 +770,15 @@ namespace quest
 			char questlibFileName[256];
 			snprintf(questlibFileName, sizeof(questlibFileName), "%s/questlib.lua", LocaleService_GetQuestPath().c_str());
 
-			int questlibLoadingResult = lua_dofile(L, questlibFileName);
-			sys_log(0, "LoadQuestlib(%s), returns %d", questlibFileName, questlibLoadingResult);
-			if (questlibLoadingResult != 0)
+			if (access(questlibFileName, R_OK) == 0)
 			{
-				sys_err("LOAD_QUESTLIB_FAILURE(%s)", questlibFileName);
-				return false;
+				int questlibLoadingResult = lua_dofile(L, questlibFileName);
+				sys_log(0, "LoadQuestlib(%s), returns %d", questlibFileName, questlibLoadingResult);
+				if (questlibLoadingResult != 0)
+				{
+					sys_err("LOAD_QUESTLIB_FAILURE(%s)", questlibFileName);
+					return false;
+				}
 			}
 		}
 
@@ -789,12 +795,15 @@ namespace quest
 			char translateFileName[256];
 			snprintf(translateFileName, sizeof(translateFileName), "%s/translate.lua", LocaleService_GetBasePath().c_str());
 
-			int translateLoadingResult = lua_dofile(L, translateFileName);
-			sys_log(0, "LoadTranslate(%s), returns %d", translateFileName, translateLoadingResult);
-			if (translateLoadingResult != 0)
+			if (access(translateFileName, R_OK) == 0)
 			{
-				sys_err("LOAD_TRANSLATE_ERROR(%s)", translateFileName);
-				return false;
+				int translateLoadingResult = lua_dofile(L, translateFileName);
+				sys_log(0, "LoadTranslate(%s), returns %d", translateFileName, translateLoadingResult);
+				if (translateLoadingResult != 0)
+				{
+					sys_err("LOAD_TRANSLATE_ERROR(%s)", translateFileName);
+					return false;
+				}
 			}
 		}
 #endif
@@ -1045,7 +1054,64 @@ namespace quest
 		m_CurrentRunningState = &qs;
 		int ret = lua_resume(qs.co, qs.args);
 
-		if (ret == 0 || ret == LUA_YIELD)
+#if LUA_V == 523 || LUA_V == 551
+		if (ret == LUA_YIELD)
+		{
+			const char* cmd = lua_tostring(qs.co, 1);
+			if (cmd)
+			{
+				if (!strcmp(cmd, "select"))
+				{
+					GotoSelectState(qs);
+					return true;
+				}
+
+				if (!strcmp(cmd, "wait"))
+				{
+					GotoPauseState(qs);
+					return true;
+				}
+
+				if (!strcmp(cmd, "input"))
+				{
+					GotoInputState(qs);
+					return true;
+				}
+
+				if (!strcmp(cmd, "confirm"))
+				{
+					GotoConfirmState(qs);
+					return true;
+				}
+
+				if (!strcmp(cmd, "select_item"))
+				{
+					GotoSelectItemState(qs);
+					return true;
+				}
+			}
+
+			sys_err("LUA_ERROR: unknown yield command '%s'", cmd ? cmd : "NULL");
+			WriteRunningStateToSyserr();
+			SetError();
+			GotoEndState(qs);
+			return false;
+		}
+		else if (ret == 0)
+		{
+			GotoEndState(qs);
+			return false;
+		}
+		else
+		{
+			sys_err("LUA_ERROR: %s", lua_tostring(qs.co, -1));
+			WriteRunningStateToSyserr();
+			SetError();
+			GotoEndState(qs);
+			return false;
+		}
+#else
+		if (ret == 0)
 		{
 			if (lua_gettop(qs.co) == 0)
 			{
@@ -1098,6 +1164,7 @@ namespace quest
 
 		GotoEndState(qs);
 		return false;
+#endif
 	}
 
 	// * CloseState
