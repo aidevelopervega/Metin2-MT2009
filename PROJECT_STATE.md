@@ -673,23 +673,33 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 115168530398):** SUCCESS (9m 50s) — Gerçek 64-bit `db_r41023` ve `game_r41023` ikilileri üretildi. Dinamik semboller ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mariadb`) doğrulandı. 412/412 modül testi, 116/116 DB cache entegrasyon testi, 113/113 canlı MariaDB 11.4 testi (%100 PASS - 641 assertion).
       * **Sonuç:** Server x64 tam uyumluluğu, 32-bit wire protokolü korunumu, gerçek 64-bit Game ve DB ikili derlemeleri ve bağlamaları, sıfır test fallback'i ile resmi kütüphane bağlaması ve üç motorda toplam **1.923 assertion** (%100 PASS) ile eksiksiz kabul edildi.
 
-    * **Game Binary Pure libstdc++ Dönüşümü ve Cift C++ Runtime Tehlikesinin Kalıcı Giderilmesi:**
-      * **Kök Neden Tespiti:** `server/src/game/src/Makefile` dosyasında `wildcard ../../../../extern/server/lib/libcryptopp.a` kontrolü bulunuyordu; ancak bu konumdaki `libcryptopp.a` arşivi eski 32-bit (`elf32-i386`) kalıntısıydı. Bu nedenle 64-bit aramada Clang ile derlenmiş sistem portu `/usr/local/lib/libcryptopp.a` devreye giriyor ve `-lc++` bayrağı ile ikiliye `libc++.so.1` bağlanıyordu (`game_r41023` hem `libstdc++.so.6` hem `libc++.so.1` içererek çift C++ runtime tehlikesi oluşturuyordu).
-      * **Kalıcı Kök Neden Çözümü:**
-        1. `server/src/game/src/Makefile`: 64-bit mimaride (`LBITS=64`) CryptoPP bağlama önceliği doğrudan GCC 14 ile derlenen `extern/server/cryptopp/libcryptopp.a` ve `extern/server/lib/libcryptopp.a` arşivlerine verildi. Bu kütüphaneler bağlandığında `-lc++` bayrağı tamamen devre dışı bırakıldı; `-lc++` yalnızca Clang ile derlenmiş sistem paketi fallback olarak kullanılırsa sınırlandırıldı.
-        2. `extern/server/cryptopp/GNUmakefile`: `libcryptopp.a` arşivi üretildiğinde `../lib/` dizinine kopyalanarak (`cp -f $@ ../lib/`) hem kaynak klasöründe hem ortak lib klasöründe 64-bit GCC arşivi muhafaza edildi.
-        3. `.github/workflows/freebsd-gcc-test.yml` (Rev 23): `game_r*` derlemesi sonrasında `readelf -d` çıktısında `libc++.so` bulunmadığını denetleyen fail-closed assertion eklendi.
-      * **C++20 Uyumlaştırması (Deprecated Enum-Enum Conversion):**
-        * `server/src/common/item_length.h` ve `server/src/common/length.h` dosyalarındaki Dragon Soul enum çarpımları (`DS_SLOT_MAX * DRAGON_SOUL_GRADE_MAX * DRAGON_SOUL_BOX_SIZE` vb.) `static_cast<int>` ile sarmalanarak C++20 standardındaki `-Wdeprecated-enum-enum-conversion` derleyici uyarıları tamamen sıfırlandı.
-      * **Yerel Windows Doğrulaması:** `tests/run_tests.ps1` çalıştırıldı; 7/7 modül test paketi, 32 wire protocol assertion'ı ve 116 DB ACK entegrasyon testi dahil olmak üzere **560/560 assertion (%100 PASS)** sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Rev 23 Pure libstdc++ & CryptoPP Düzeltmesi - Run ID: 38376898747, Commit: `b02c797e`):**
+      * **MySQL 8.4 LTS (Job ID: 115227429685):** SUCCESS (9m 58s) — `game_r*` ve `db_r*` ikilileri derlendi. `readelf -d` çıktısında `libc++.so` bulunmadığı ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mysql`) ile saf `libstdc++` kütüphanesine bağlandığı fail-closed assertion ile kesin olarak kanıtlandı: `--> game_r* pure libstdc++ olarak basariyla dogrulandi (libc++ bagimliligi yok)`. 113/113 canlı veritabanı testi %100 PASS.
+      * **MariaDB 12.3 LTS (Job ID: 115227429968):** SUCCESS (13m 44s) — Saf `libstdc++` ile 64-bit Game ve DB ikilileri, 113/113 canlı test %100 PASS.
+      * **MariaDB 11.4 LTS (Job ID: 115227429640):** SUCCESS (16m 02s) — Saf `libstdc++` ile 64-bit Game ve DB ikilileri, 113/113 canlı test %100 PASS.
+      * **Sonuç:** Çift C++ runtime tehlikesi (`libc++.so` + `libstdc++.so.6`) kök nedeninden çözüldü, üç motorda tüm testler başarıyla sonuçlandı.
+
+    * **CMake + Ninja Birleşik Derleme Altyapısı (Yol Haritası Adım 2 Tamamlandı):**
+      * **Mimari ve Yapı:**
+        * Kök `CMakeLists.txt` ve `CMakePresets.json` (`windows-gcc-ucrt` ve `freebsd-gcc14` yapılandırmaları).
+        * Platform ve Derleyici Modülleri: `cmake/CompilerFlags.cmake` (C++20, C11, amd64 kontrolü, GCC bayrakları), `cmake/FindDatabaseClient.cmake` (MariaDB/MySQL tespiti ve otomatik link bağımlılıkları), `cmake/FindCryptoPP.cmake` (pure GCC arşivi ve FreeBSD otomatik derleme), `cmake/FindDevIL.cmake`.
+        * Sunucu Kütüphane ve İkili Hedefleri: `server/CMakeLists.txt`, `libthecore`, `libpoly`, `libgame`, `libsql`, `liblua`, `db` (Windows ve FreeBSD için `db_r41023`), `game` (FreeBSD için `game_r41023`).
+        * Test ve Doğrulama Hedefleri: `tests/CMakeLists.txt` (7 test paketi: `test_libpoly`, `test_libthecore`, `test_libgame`, `test_libsql`, `test_db_cache`, `test_db_cache_integration`, `test_packet_wire`).
+      * **Windows Yerel CMake / CTest Doğrulaması:**
+        * `cmake --preset windows-gcc-ucrt` ve `ninja -C build/windows-gcc-ucrt` ile tüm hedefler ve 64-bit `db_r41023.exe` (PE x86-64) hatasız derlendi.
+        * `ctest --preset windows-gcc-ucrt` çalıştırıldı: **7/7 test paketi PASSED (%100 PASS, 0.26s)**.
+      * **Eski Makefile Eşdeğerlik Güvencesi:**
+        * `tests/run_tests.ps1` çalıştırıldı: **560/560 assertion PASSED (%100 PASS)**. Eski Makefiles ve scriptler depoda eksiksiz korunmaktadır.
+      * **FreeBSD CI Entegrasyonu (Rev 24):**
+        * `.github/workflows/freebsd-gcc-test.yml` güncellendi: VM prepare adımına `cmake ninja` eklendi; Step 5.4 ile `cmake --preset freebsd-gcc14`, `cmake --build --preset freebsd-gcc14` ve `ctest --preset freebsd-gcc14` doğrulaması devreye alındı.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, tüm yerel testler (560/560) %100 PASS.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son test koşusunda (Run ID: 38359016904) 3 matris işi (%100 SUCCESS, 1.923 assertion). Rev 23 ile yeni tetikleme hazırlanmıştır.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son doğrulanmış test koşusu (Run ID: 38376898747) 3 matris işi (%100 SUCCESS, pure libstdc++ kanıtlandı). Rev 24 ile CMake + Ninja CI testi hazırlandı.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -699,13 +709,13 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
-   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır.
+   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır. (TAMAMLANDI)
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
-   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır.
+   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır.
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI tetiklendi)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
-   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir.
+   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik doğrulanıyor)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
    * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
@@ -715,10 +725,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Yol Haritası Adım 2 (CMake + Ninja Derleme Altyapısı) hazırlığı. Pure libstdc++ game binary dönüşümü, C++20 enum uyarısı temizliği ve wire protocol doğrulaması tamamlandı.
+* **Aktif Görev:** Yol Haritası Adım 2 tamamlandı (CMake + Ninja altyapısı kuruldu, Windows CTest 7/7 %100 PASS, FreeBSD CI Rev 24 entegre edildi).
 * **Sıradaki Güvenli Adım:**
-  1. Rev 23 CI koşusunu (Run ID: 38376898747) izlemek ve FreeBSD üzerinde `game_r41023`'ün `libc++.so` olmaksızın pure `libstdc++` olarak başarıyla bağlandığını doğrulamak.
-  2. Windows GCC 16 UCRT ve FreeBSD GCC 14 için tek merkezî CMake mimarisini oluşturmak.
+  1. CMake + Ninja altyapısını ve Rev 24 CI iş akışını commit ve push ederek GitHub ile senkronize etmek.
+  2. FreeBSD CI Rev 24 koşusunda CMake + Ninja derlemesini ve CTest test paketlerini doğrulamak.
+  3. Yol Haritası Adım 5 (Aşamalı Server/Common Extern modernizasyonu) hazırlıklarına başlamak.
 
 
 

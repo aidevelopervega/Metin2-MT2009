@@ -1,0 +1,62 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-gcc-ucrt",
+      "displayName": "Windows MinGW-w64 GCC 16.2 UCRT x64",
+      "description": "Windows amd64 GCC build using Ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-gcc-ucrt",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "freebsd-gcc14",
+      "displayName": "FreeBSD 15.1 amd64 GCC 14",
+      "description": "FreeBSD amd64 GCC 14 build using Ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/freebsd-gcc14",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "/usr/local/bin/gcc14",
+        "CMAKE_CXX_COMPILER": "/usr/local/bin/g++14",
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-gcc-ucrt",
+      "configurePreset": "windows-gcc-ucrt"
+    },
+    {
+      "name": "freebsd-gcc14",
+      "configurePreset": "freebsd-gcc14"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-gcc-ucrt",
+      "configurePreset": "windows-gcc-ucrt",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "freebsd-gcc14",
+      "configurePreset": "freebsd-gcc14",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

@@ -20,6 +20,7 @@ Debug/
 Release/
 !mt2009 - FULL SOURCE/Server Source/Extern/**
 tests/build/
+build/
 scratch/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü

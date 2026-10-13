@@ -1,4 +1,4 @@
-# Rev 23: Fix CryptoPP lib copying, enable both search paths, verify pure libstdc++ in game
+# Rev 24: Add CMake + Ninja build validation and CTest to FreeBSD GCC 14 matrix
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -7,6 +7,10 @@ on:
       - dev/windows-gcc-baseline
     paths:
       - '.github/workflows/freebsd-gcc-test.yml'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'cmake/**'
+      - 'server/CMakeLists.txt'
       - 'tests/**'
       - 'server/src/libpoly/**'
       - 'server/src/libgame/**'
@@ -67,7 +71,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 gmake boost-libs devil cryptopp || pkg install -y gcc14 gmake boost-libs
+            pkg install -y gcc14 gmake cmake ninja boost-libs devil cryptopp || pkg install -y gcc14 gmake cmake ninja boost-libs
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -183,6 +187,13 @@ jobs:
               exit 1
             fi
             echo "--> game_r* pure libstdc++ olarak basariyla dogrulandi (libc++ bagimliligi yok)."
+
+            # 5.4 FreeBSD amd64 CMake + Ninja Derleme ve CTest Doğrulaması
+            echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
+            cmake --preset freebsd-gcc14
+            cmake --build --preset freebsd-gcc14 -v
+            ctest --preset freebsd-gcc14
+            echo "--> CMake + Ninja derleme ve CTest doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"
