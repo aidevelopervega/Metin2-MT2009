@@ -41,20 +41,18 @@ ifneq '' '$(findstring clang++,$(CXX))'
 CFLAGS += -Wno-invalid-source-encoding -Wno-deprecated-anon-enum-enum-conversion -Wno-unknown-warning-option
 # for gcc
 else ifneq '' '$(findstring g++,$(CXX))'
-# for 32bit on 64bit
 ifeq ($(LBITS),64)
-CFLAGS += -L/usr/local/lib32/gcc12
-CFLAGS += -Wl,-rpath=/usr/local/lib32/gcc12
+CFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
 else
-# for 32bit on 32bit
-CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc12
+CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
 endif
 endif
 
 # MySQL
-INCDIR += -I/usr/local/include/mysql
+INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb
 ifeq ($(LBITS),64)
-LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libmysqlclient.a /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.a)) -lz
+LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb
+LIBS += $(firstword $(wildcard /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.a -lmariadb -lmysqlclient)) -lz
 else
 LIBS += /usr/local/lib/mysql/libmysqlclient.a /usr/lib/libz.a
 endif
@@ -78,10 +76,18 @@ INCDIR += -I"../../../../extern/common/include/boost"
 
 # DevIL
 INCDIR += -I"../../../../extern/server/include/IL"
+ifeq ($(LBITS),64)
+LIBS += $(firstword $(wildcard /usr/local/lib/libIL.a -lIL))
+else
 LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libIL.a /usr/local/lib/libIL.a))
+endif
 
 # CryptoPP
+ifeq ($(LBITS),64)
+LIBS += $(firstword $(wildcard /usr/local/lib/libcryptopp.a -lcryptopp))
+else
 LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a /usr/local/lib/libcryptopp.a))
+endif
 
 # GTest
 ifeq ($(ENABLE_GOOGLE_TEST), 1)
@@ -91,11 +97,7 @@ endif
 
 # OpenSSL
 INCDIR += -I/usr/include
-ifeq ($(LBITS),64)
-LIBS += /usr/lib32/libcrypto.a /usr/lib32/libssl.a
-else
 LIBS += -lssl -lcrypto
-endif
 
 # Lua
 CFLAGS += -DENABLE_LUA_5_VERSION=ENABLE_LUA_5_VERSION
@@ -121,7 +123,9 @@ INCDIR += -I../../common
 INCDIR += -I../..
 INCDIR += -I.
 LIBDIR += -L/usr/local/lib
+ifeq ($(LBITS),32)
 LIBDIR += -L../../../../extern/server/lib
+endif
 
 LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame

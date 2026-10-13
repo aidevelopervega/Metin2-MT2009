@@ -98,7 +98,13 @@ try {
     $sql = "$BuildDir\libsql.a"
     $poly = "$BuildDir\libpoly.a"
     $game = "$BuildDir\libgame.a"
-    $mariadb = if (Test-Path "$RootDir\extern\platform\windows-x64\lib\libmariadb.a") { "$RootDir\extern\platform\windows-x64\lib\libmariadb.a" } else { "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib\libmariadb.a" }
+    $mariadb = if (Test-Path "$RootDir\extern\platform\windows-x64\mingw-ucrt-gcc16\lib\libmariadb.a") {
+        "$RootDir\extern\platform\windows-x64\mingw-ucrt-gcc16\lib\libmariadb.a"
+    } elseif (Test-Path "$RootDir\extern\platform\windows-x64\lib\libmariadb.a") {
+        "$RootDir\extern\platform\windows-x64\lib\libmariadb.a"
+    } else {
+        "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib\libmariadb.a"
+    }
 
     & $Gxx @Flags $obj @objs $thecore $sql $poly $game $mariadb -lws2_32 -lsecur32 -lcrypt32 -lshlwapi -o $target
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache_integration.exe bağlama hatası" }

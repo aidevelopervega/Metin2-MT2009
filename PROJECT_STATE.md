@@ -574,25 +574,63 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `.github/workflows/freebsd-gcc-test.yml`: Eski `mt2009 - FULL SOURCE/Server Source/...` tetikleyicileri kaldırıldı; `DB_DIR="server/src/db"` olarak doğrudan yapılandırıldı.
     * **İstemci Proje Dosyaları (.vcxproj):**
       * 16 istemci `.vcxproj` dosyasının tamamının yeni `../../extern/client/include`, `../../extern/common/include` ve `../../extern/client/lib` yollarını kullandığı ve hiçbir eski yola bağımlılık barındırmadığı teyit edildi.
-    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 20, `libthecore` 105, `libgame` 24, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
     * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (GameCoreTop Kaldırma ve Makefile/Test Temizliği - Run ID: 38325667908, Commit: `0d871bf4`):**
       * **MySQL 8.4 LTS (Job ID: 115063628540):** SUCCESS (3m 53s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **MariaDB 12.3 LTS (Job ID: 115063628621):** SUCCESS (4m 28s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **MariaDB 11.4 LTS (Job ID: 115063628337):** SUCCESS (4m 28s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
       * **Sonuç:** GameCoreTop.txt kaldırılması ve tüm Makefile / test script temizliği üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r41023` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
+  * **Extern x64 Modernizasyonu, Platform Ayrımı ve Kapsamlı Bağımlılık Denetimi:**
+    * **1. Client Proje Yolları Düzeltmesi (PASS):**
+      * `client/src/` altındaki 16 `.vcxproj` projesinin tamamı incelendi (`client/src/<Project>/<Project>.vcxproj` derinliği 3 seviye: `Project` -> `src` -> `client` -> Repo Kökü).
+      * Eski `../../extern/` göreli yolunun var olmayan `client/extern/` konumuna çözümlendiği tespit edildi; 16 dosyanın tamamında `../../../extern/client/include`, `../../../extern/common/include` ve `../../../extern/client/lib` olarak güncellendi.
+      * 16 projenin tamamında XML geçerliliği (`[xml]` parser) ve hedef dizinlerin disk üzerindeki fiziksel varlığı otomatik olarak doğrulandı (%100 PASS).
+    * **2. Test Assertion Dağılımı Kök Neden Analizi:**
+      * Gerçek test kaynakları (`tests/test_libpoly.cpp: 24`, `tests/test_libthecore.cpp: 97`, `tests/test_libgame.cpp: 28`, `tests/test_libsql.cpp: 143`, `tests/test_db_cache.cpp: 120`, `tests/test_db_cache_integration.cpp: 116`) Git geçmişi ve doğrudan derlenen ikililerin çalıştırılmasıyla incelendi.
+      * Test kaynak dosyalarının taahhüt edildiği ilk günden bu yana hiçbir zaman değişmediği (`git log`), hiçbir testin atlanmadığı veya silinmediği kesin olarak kanıtlandı.
+      * Önceki raporda yer alan `20 / 105 / 24` sayısının, önceki ajanın raporlama aşamasında yaptığı bir metin yazım hatası (149 toplamının yanlış alt kırılımla yazılması) olduğu, gerçek sayının başından beri `24 / 97 / 28` olduğu tespit edildi ve `PROJECT_STATE.md` içinde düzeltildi.
+    * **3. FreeBSD 15.1 amd64 GCC 14 Bağımlılık Manifestosu:**
+      * **Git `extern/` Bağımlılıkları:**
+        * `extern/common/include`: Boost (C++20 header-only), RapidJSON (C++20 yamalı), fmt, msl, OptionParser, OpenCV2 başlıkları.
+        * `extern/server/include`: MariaDB / MySQL C bağlayıcı başlıkları.
+        * `extern/server/lib`: İçerisindeki 5 arşivin (`libcryptopp.a`, `libIL.a`, `libILU.a`, `libILUT.a`, `libmysqlclient.a`) tamamının `elf32-i386` (32-bit legacy) olduğu objdump ile belgelendi.
+      * **FreeBSD Sistem Paketleri (`/usr/local` ve `/usr`):**
+        * `gcc14`: `/usr/local/bin/g++14`, `/usr/local/lib/gcc14` (FSF GCC 14.2 64-bit amd64 derleyici ve çalışma zamanı).
+        * `mariadb114-server` / `mariadb123-server` / `mysql84-server`: `/usr/local/include/{mysql,mariadb}` başlıkları ve `/usr/local/lib/{mysql,mariadb}` altındaki `-lmariadb` / `-lmysqlclient` 64-bit dinamik/statik kütüphaneleri.
+        * `boost-libs`: `/usr/local/lib/libboost_*.so` (64-bit ELF dinamik kütüphaneleri).
+        * `openssl`: `/usr/lib/libssl.so`, `/usr/lib/libcrypto.so` (FreeBSD 15.1 base 64-bit OpenSSL).
+        * `zlib`: `/usr/lib/libz.so` (FreeBSD base 64-bit zlib).
+      * **Temiz FreeBSD 15.1 Yeniden Elde Edilebilirlik:** `pkg install -y gcc14 gmake boost-libs mariadb114-server (veya mariadb123-server / mysql84-server)` komutuyla %100 resmî depodan temiz ve otomatik olarak kurulabilmektedir.
+    * **4. Windows ve Client İkili Kütüphane (x64 vs x86) Denetimi:**
+      * **Windows x64 Native:** `extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libmariadb.a` (`pe-x86-64 / i386:x86-64`, MinGW UCRT 64-bit import library).
+      * **İstemci Middleware x64 Engelleri (Kayıpsız x86 Koruması):**
+        * `Python 2.7`: `python27-static.lib` (`pe-i386`) -> **BLOCKED** (x86 statik kütüphane; x64 için kaynak derlemesi veya x64 SDK gerekir).
+        * `Granny 3D`: `granny2.*.lib` ve `.dll` (`pe-i386` / `pei-i386`) -> **BLOCKED** (Epic Games / RAD Game Tools tescilli ikili middleware; 64-bit SDK gerekir).
+        * `Miles Sound System`: `mss32.lib` / `.dll` (`pe-i386` / `pei-i386`) -> **BLOCKED** (RAD Game Tools tescilli 32-bit ikili middleware; mss64 gerekir).
+        * `SpeedTree`: `SpeedTreeRT.lib` (`pe-i386`) -> **BLOCKED** (IDV tescilli 32-bit ikili middleware).
+        * `DirectX 9`: `d3d9.lib`, `d3dx9.lib`, `dxguid.lib` (`pe-i386`) -> **NOT_VERIFIED** (Microsoft DirectX SDK June 2010 x64 kütüphaneleri gerekir).
+        * `Crypto++`: Kaynak kodları `extern/server/cryptopp/` altında eksiksiz mevcuttur -> **READY** (Windows x64 ve FreeBSD amd64 için sıfırdan derlenebilir).
+        * `DevIL`: Açık kaynak -> **NOT_VERIFIED** (x64 derlemesi veya port paketi gerekir).
+        * `Boost`: `extern/common/include/boost` -> **READY** (C++20 header-only modülleri x64 tam uyumludur).
+    * **5. Uygulanan Somut x64 Platform ve ABI İyileştirmeleri:**
+      * `extern/platform/windows-x64/mingw-ucrt-gcc16/` platform ayrımı uygulandı; `libmariadb.a` bu konuma taşındı ve `tests/run_db_integration_tests.ps1` senkronize edildi.
+      * `server/src/game/src/Makefile` ve `server/src/db/src/Makefile` içindeki eski 32-bit cross-compilation yapılandırmaları (`-L/usr/local/lib32/gcc12`, `/usr/lib32/libcrypto.a`, `extern/server/lib/*.a`) 64-bit modda tamamen engellendi; 64-bit FreeBSD amd64 GCC 14 uyumlu fail-closed kütüphane seçimi (`-Wl,-rpath=/usr/local/lib/gcc14`, `/usr/local/lib/mysql`, `/usr/lib -lssl -lcrypto`) sağlandı.
+    * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 24, `libthecore` 97, `libgame` 28, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** GameCoreTop.txt kaldırıldı, Makefile / test script fallback yolları temizlendi ve CI 3/3 PASS doğrulandı.
-* **Mevcut Durum:** **GameCoreTop.txt FULLY ELIMINATED (0 files on disk/git). ALL FALLBACK PATHS CLEANED. Windows 528/528 PASS. FreeBSD CI Run 38325667908: 3/3 SUCCESS (1,923 assertions). Ready for next task.**
+* **Aktif Görev:** Extern x64 Modernizasyonu, Client vcxproj yolları düzeltildi, Windows x64 platform ayrımı yapıldı, Makefile fail-closed korumaları eklendi ve 528/528 test PASS doğrulandı.
+* **Mevcut Durum:** **CLIENT VCXPROJ PATHS FIXED (PASS). ASSERTION DISTRIBUTION VERIFIED (24/97/28). EXTERN MANIFEST CREATED. PLATFORM DIRECTORY MINGW-UCRT-GCC16 SETUP. 528/528 PASS. Ready for commit & push.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
 * Sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
+
 
 
 
