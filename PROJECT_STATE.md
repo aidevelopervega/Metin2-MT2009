@@ -974,20 +974,28 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * **--check-lua ve Birim Test Paketlerinin Genişletilmesi:**
           * `server/src/game/src/questlua_test.cpp`: Check 11 eklendi (`RunGameQuestRuntimeTests` 11/11 kontrol fail-closed doğrulandı).
           * `tests/test_lua_quest.cpp`, `tests/test_lua52_quest.cpp`, `tests/test_lua55_quest.cpp`: Test 10 eklendi (10/10 test %100 PASS).
-          * FreeBSD CI iş akışı başlığı `# Rev 34` olarak güncellendi.
+          * Commit: `88d56a1f7d63914f54938111d607eaac0df70ff2` (Rev 34).
+
+      * **Aşama 9: lua_incl.h Include Guard & OXEvent.cpp Çakışması Kök Neden Çözümü, CQuestManager::RunState LUA_YIELD Desteği (Rev 35):**
+        * **FreeBSD CI Rev 34 (Run 38450564577 / Commit 88d56a1f) Kök Neden Analizi:**
+          * Tüm matris işleri (MariaDB 11.4, MySQL 8.4, MariaDB 12.3), `ENABLE_LUA_5_VERSION=5` staging motoru ile `game_r41023_lua55` derlenirken `OXEvent.cpp` dosyasında `lua_incl.h:39:60: error: macro "lua_resume" passed 4 arguments, but takes just 2` ve `redefinition of 'size_t m2_lua_getn'` hatalarıyla durmuştur.
+          * Kök Neden: `server/src/game/src/lua_incl.h` başlığında `#ifndef __INC_METIN2_LUA_INCL_H__` koruması (include guard) bulunmamaktaydı. `OXEvent.cpp`, hem `horse_rider.h` -> `char.h` hem de `questmanager.h` -> `quest.h` üzerinden `lua_incl.h` dosyasını iki kez dahil etmekte; ikinci dahil etmede `#define lua_resume(a,b)` makrosu önceden tanımlanmış olduğundan `m2_lua_resume` fonksiyonunun dahili 4 parametreli `lua_resume(L, NULL, nargs, &nresults)` çağrısını bozmaktaydı.
+          * Kök Neden Çözümü:
+            1. `server/src/game/src/lua_incl.h`: Standart `#ifndef __INC_METIN2_LUA_INCL_H__ ... #endif` başlık koruması eklendi.
+            2. `server/src/game/src/lua_incl.h`: `m2_lua_resume` tanımı öncesinde `#undef lua_resume` eklendi ve çağrı `(lua_resume)(L, NULL, nargs, &nresults)` parantez sarmalaması ile makro açılımına karşı korumaya alındı.
+            3. `server/src/game/src/questlua.cpp`: `CQuestManager::RunState` fonksiyonunda `lua_resume` dönüş kontrolü `if (ret == 0 || ret == LUA_YIELD)` olarak güncellendi. Böylece Lua 5.5/5.2 coroutine yield durumları (`select`, `wait`, `input`, `confirm`, `select_item`) asla hata olarak algılanmaz; ayrıca `lua_tostring(qs.co, 1)` için güvenli NULL kontrolü eklendi.
+            4. `.github/workflows/freebsd-gcc-test.yml`: Rev 35 başlığı güncellendi.
+            5. Windows MinGW GCC 16.2 UCRT üzerinde CTest (13/13) ve regresyon suite'i (560/560 assertions) %100 PASS olarak doğrulandı.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch).
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `3a6b0eb3e57552bc5b7aaa9d58e2cbe34d1a4f4f` (Rev 33) push edilmiş.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 201 FTP durum dosyası ve 1054 durum her üç Lua motorunda %100 test edildi (0 mismatch). `lua_incl.h` ve `questlua.cpp` düzeltmeleri tamamlandı.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Son push edilen commit `88d56a1f7d63914f54938111d607eaac0df70ff2` (Rev 34). Rev 35 commit'i hazırlanıyor.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
-  * CI Run ID **38448323786** (Rev 33):
-    * MySQL 8.4 LTS (Job `115472451269`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
-    * MariaDB 11.4 LTS (Job `115472450953`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
-    * MariaDB 12.3 LTS (Job `115472451193`): `LUA_YIELD` derleyici hatası (Rev 34 ile kod seviyesinde çözüldü).
+  * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` `lua_incl.h` include guard eksikliği nedeniyle FAIL (Rev 35 ile kök nedenden çözüldü).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1013,10 +1021,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 34: `questlua_test.cpp` içerisindeki Lua 5.0 `LUA_YIELD` derleyici hatası giderildi; `BuildStateIndexToName` iki aşamalı tablo rehash koruması entegre edilerek 201 gerçek görev ve 1054 durumun tamamı her üç Lua motorunda %100 doğrulandı; `--check-lua` 11/11 kontrole, test_lua suite'leri 10/10 teste genişletildi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
+* **Aktif Görev:** Rev 35: `lua_incl.h` include guard eksikliği ve `OXEvent.cpp` macro collision hatası kök nedenden giderildi; `CQuestManager::RunState` fonksiyonunda `LUA_YIELD` coroutine yield desteği ve NULL koruması eklendi; Windows CTest (13/13) ve regresyon suite'i (560/560 assertions) %100 başarıyla tamamlandı.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 34 değişikliklerini commit ve push ederek FreeBSD GCC 14 üzerinde `game_r41023` ve `game_r41023_lua55` derleme ve `--check-lua` doğrulamasını başlatmak.
-   2. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
+   1. Rev 35 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI'da `game_r41023` ve `game_r41023_lua55` çift ELF64 derlemesini ve `--check-lua` testlerini tetiklemek.
+   2. CI Run sonucunu doğrulamak.
+   3. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
 
 
 

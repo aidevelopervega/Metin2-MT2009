@@ -1,3 +1,6 @@
+#ifndef __INC_METIN2_LUA_INCL_H__
+#define __INC_METIN2_LUA_INCL_H__
+
 #if !defined(_MSC_VER) && defined(__cplusplus)
 extern "C" {
 #endif
@@ -32,12 +35,14 @@ extern "C" {
 	#define luaL_getn		m2_lua_getn
 
 #if LUA_V == 523
+	#undef lua_resume
 	#define lua_resume(a,b)	lua_resume(a,0,b)
 #elif LUA_V == 551
 	static inline int m2_lua_resume(lua_State* L, int nargs) {
 		int nresults = 0;
-		return lua_resume(L, NULL, nargs, &nresults);
+		return (lua_resume)(L, NULL, nargs, &nresults);
 	}
+	#undef lua_resume
 	#define lua_resume(a,b)	m2_lua_resume(a,b)
 #endif
 
@@ -63,6 +68,5 @@ extern "C" {
 #if !defined(_MSC_VER) && defined(__cplusplus)
 }
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top
+#endif // __INC_METIN2_LUA_INCL_H__

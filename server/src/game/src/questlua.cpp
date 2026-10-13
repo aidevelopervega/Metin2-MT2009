@@ -1045,7 +1045,7 @@ namespace quest
 		m_CurrentRunningState = &qs;
 		int ret = lua_resume(qs.co, qs.args);
 
-		if (ret == 0)
+		if (ret == 0 || ret == LUA_YIELD)
 		{
 			if (lua_gettop(qs.co) == 0)
 			{
@@ -1054,34 +1054,38 @@ namespace quest
 				return false;
 			}
 
-			if (!strcmp(lua_tostring(qs.co, 1), "select"))
+			const char* cmd = lua_tostring(qs.co, 1);
+			if (cmd)
 			{
-				GotoSelectState(qs);
-				return true;
-			}
+				if (!strcmp(cmd, "select"))
+				{
+					GotoSelectState(qs);
+					return true;
+				}
 
-			if (!strcmp(lua_tostring(qs.co, 1), "wait"))
-			{
-				GotoPauseState(qs);
-				return true;
-			}
+				if (!strcmp(cmd, "wait"))
+				{
+					GotoPauseState(qs);
+					return true;
+				}
 
-			if (!strcmp(lua_tostring(qs.co, 1), "input"))
-			{
-				GotoInputState(qs);
-				return true;
-			}
+				if (!strcmp(cmd, "input"))
+				{
+					GotoInputState(qs);
+					return true;
+				}
 
-			if (!strcmp(lua_tostring(qs.co, 1), "confirm"))
-			{
-				GotoConfirmState(qs);
-				return true;
-			}
+				if (!strcmp(cmd, "confirm"))
+				{
+					GotoConfirmState(qs);
+					return true;
+				}
 
-			if (!strcmp(lua_tostring(qs.co, 1), "select_item"))
-			{
-				GotoSelectItemState(qs);
-				return true;
+				if (!strcmp(cmd, "select_item"))
+				{
+					GotoSelectItemState(qs);
+					return true;
+				}
 			}
 		}
 		else

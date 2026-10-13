@@ -1,4 +1,4 @@
-# Rev 34: Fix Lua 5.0 LUA_YIELD in --check-lua, harden BuildStateIndexToName two-phase mapping (1054/1054 states), and expand runtime tests to 11/11
+# Rev 35: Add include guard to lua_incl.h, prevent lua_resume macro collision in OXEvent, support LUA_YIELD in RunState, and verify dual game ELF64 & --check-lua
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
