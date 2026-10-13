@@ -575,19 +575,24 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **İstemci Proje Dosyaları (.vcxproj):**
       * 16 istemci `.vcxproj` dosyasının tamamının yeni `../../extern/client/include`, `../../extern/common/include` ve `../../extern/client/lib` yollarını kullandığı ve hiçbir eski yola bağımlılık barındırmadığı teyit edildi.
     * **Yerel Windows Doğrulaması:** 528/528 test (%100 PASS: `libpoly` 20, `libthecore` 105, `libgame` 24, `libsql` 143, `db_cache` 120, `db_cache_integration` 116) sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (GameCoreTop Kaldırma ve Makefile/Test Temizliği - Run ID: 38325667908, Commit: `0d871bf4`):**
+      * **MySQL 8.4 LTS (Job ID: 115063628540):** SUCCESS (3m 53s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115063628621):** SUCCESS (4m 28s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115063628337):** SUCCESS (4m 28s) — `server/src/db` üzerinden doğrudan derlendi, gerçek ELF64 `server/src/db/db_r41023` üretildi (17M, dynamically linked, not stripped), 412/412 birim testi, 116/116 DB cache entegrasyon testi, 113/113 canlı veritabanı testi (%100 PASS - 641 assertion).
+      * **Sonuç:** GameCoreTop.txt kaldırılması ve tüm Makefile / test script temizliği üç motorda toplam 1.923 assertion ile resmen kabul edildi. Gerçek ELF64 `db_r41023` ikilisi ve tüm DB testleri tam başarıyla doğrulandı.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** GameCoreTop.txt tamamen kaldırıldı (0 kopya), tüm Makefile, kaynak kod ve test script fallback yolları temizlendi; Windows 528/528 PASS.
-* **Mevcut Durum:** **GameCoreTop.txt ELIMINATED (0 files on disk/git). ALL OBSOLETE FALLBACK PATHS CLEANED. Windows tests 528/528 PASS. Ready for push and CI verification.**
+* **Aktif Görev:** GameCoreTop.txt kaldırıldı, Makefile / test script fallback yolları temizlendi ve CI 3/3 PASS doğrulandı.
+* **Mevcut Durum:** **GameCoreTop.txt FULLY ELIMINATED (0 files on disk/git). ALL FALLBACK PATHS CLEANED. Windows 528/528 PASS. FreeBSD CI Run 38325667908: 3/3 SUCCESS (1,923 assertions). Ready for next task.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* CI doğrulamasının ardından sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
+* Sunucu çalışma zamanı arşivi (`new_ftp.tar.gz`) kontrollü parola/hassas veri sanitizasyonu ve `server/files` kurulumu; ardından `game` ve `client` C++20 x64 derleme modernizasyonu.
 
 
 
