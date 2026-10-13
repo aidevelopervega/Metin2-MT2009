@@ -667,18 +667,26 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **8. İstemci Dokunulmazlığı:**
       * `client/src`, `client/files`, `extern/client` dizinlerine dokunulmadı; %100 korundu.
 
+    * **FreeBSD 15.1 amd64 GCC 14 CI Doğrulaması (Gerçek Game ve DB 64-Bit Binary Üretimi - Run ID: 38359016904, Commit: `0f9a2aad`):**
+      * **MySQL 8.4 LTS (Job ID: 115168530439):** SUCCESS (10m 44s) — Gerçek 64-bit `server/src/db/db_r41023` (17M, ELF64 x86-64, dynamically linked) ve `server/src/game/game_r41023` (80M, ELF64 x86-64, dynamically linked) ikilileri üretildi. Dinamik semboller (`readelf -d`: libmd, libmysqlclient.so.24, libz, libIL, libc++, libcxxrt, libssl, libcrypto, libstdc++, libm, libgcc_s, libthr, libc) ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mysql`) doğrulandı. 412/412 modül testi, 116/116 DB cache entegrasyon testi, 113/113 canlı MySQL 8.4 testi (%100 PASS - 641 assertion).
+      * **MariaDB 12.3 LTS (Job ID: 115168530248):** SUCCESS (15m 43s) — Gerçek 64-bit `db_r41023` ve `game_r41023` ikilileri üretildi. Dinamik semboller ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mariadb`) doğrulandı. 412/412 modül testi, 116/116 DB cache entegrasyon testi, 113/113 canlı MariaDB 12.3 testi (%100 PASS - 641 assertion).
+      * **MariaDB 11.4 LTS (Job ID: 115168530398):** SUCCESS (9m 50s) — Gerçek 64-bit `db_r41023` ve `game_r41023` ikilileri üretildi. Dinamik semboller ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mariadb`) doğrulandı. 412/412 modül testi, 116/116 DB cache entegrasyon testi, 113/113 canlı MariaDB 11.4 testi (%100 PASS - 641 assertion).
+      * **Sonuç:** Server x64 tam uyumluluğu, 32-bit wire protokolü korunumu, gerçek 64-bit Game ve DB ikili derlemeleri ve bağlamaları, sıfır test fallback'i ile resmi kütüphane bağlaması ve üç motorda toplam **1.923 assertion** (%100 PASS) ile eksiksiz kabul edildi.
+
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game Derlemesi (LP64 tip düzeltmeleri, Makefile temizliği, CI kütüphane zinciri) yerel olarak tamamlandı; 560/560 yerel assertion doğrulandı (%100 PASS). CI koşusu ve doğrulama yürütülüyor.
-* **Mevcut Durum:** **SERVER X64 FULL COMPATIBILITY & REAL GAME BUILD LOCAL VERIFIED. Wire protocol 32/32 PASS. Total local tests 560/560 PASS (%100). Ready for Git commit, push and FreeBSD CI verification.**
+* **Aktif Görev:** Aşama 4 (Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game/DB Derlemesi) hem Windows MinGW-w64 GCC 16 (560/560 PASS) hem de FreeBSD 15.1 amd64 GCC 14 (3 motor x 641 = 1.923/1.923 PASS) üzerinde %100 BAŞARIYLA TAMAMLANDI. Gerçek 64-bit ELF64 ikilileri (`game_r41023` 80MB ve `db_r41023` 17MB) doğrulandı.
+* **Mevcut Durum:** **SERVER X64 FULL COMPATIBILITY & REAL 64-BIT GAME/DB BINARY BUILD VERIFIED ON ALL ENGINES (MySQL 8.4, MariaDB 12.3, MariaDB 11.4). Ready for Phase 5: Server Extern Upgrades.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Değişiklikleri `dev/windows-gcc-baseline` dalında commit edip push yapmak; GitHub Actions CI koşusunda üç FreeBSD işinin (`MySQL 8.4`, `MariaDB 12.3`, `MariaDB 11.4`) gerçek sonuçlarını, ELF64 `game_r*` ve `db_r*` ikililerini ve dinamik sembollerini doğrulamak.
+* **Aşama 5: Server Extern Resmî Sürüm Yükseltme Protokolü (AGENTS.md Madde 7):**
+  1. Sunucu ve ortak extern bileşenlerinin (Crypto++, RapidJSON, fmt, zlib, OpenSSL, DevIL, Boost, Lua) güncel resmi kararlı sürümleri, lisans ve API/ABI farklarının tespit edilmesi.
+  2. İlk izole bağımlılığın belirlenmesi, kaynak kodunun güncellenmesi, FreeBSD amd64 ve Windows x64 derleme/test doğrulaması ile adım adım yükseltilmesi.
 
 
 
