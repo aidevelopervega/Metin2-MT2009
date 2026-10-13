@@ -717,13 +717,34 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * CTest: **7/7 test paketi PASSED (%100 PASS, 1.13s)**.
         * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)** (`libpoly`: 24/24, `libthecore`: 61/61, `libgame`: 64/64, `libsql`: 143/143, `db cache`: 120/120, `real db cache integration`: 116/116, `wire protocol`: 32/32).
 
+    * **CI Koşusu 38384598415 Doğrulaması ve İncelemesi:**
+      * **Başarılı İş (SUCCESS):** `FreeBSD 15.1 - MariaDB 12.3 LTS` (Job 115253138270) baştan sona eksiksiz tamamlandı; Crypto++ 8.9.0 bağlandı, CMake + Ninja ile `game_r41023` ELF64 üretildi, CTest 7/7 (%100) ve canlı DB testleri başarıyla geçti.
+      * **İptal Edilen İşler (CANCELLED):** `MariaDB 11.4 LTS` ve `MySQL 8.4 LTS` işleri Ninja derlemesi [260/283] aşamasındayken 24m45s süresinde `timeout-minutes: 25` limitine takılarak iptal edildi (0 derleme hatası, 0 link hatası).
+      * **Rev 26 İyileştirmesi:** İş akışındaki timeout süresi 45 dakikaya (`timeout-minutes: 45`) yükseltildi; FreeBSD 2-vCPU sanal makinesindeki CPU yükünü dengelemek için `ninja` derleme komutu `-j2` ile sınırlandırıldı.
+
+    * **Aşama 5: Server/Common Extern Modernizasyonu — fmt 12.2.0 ve RapidJSON Yükseltmesi:**
+      * **fmt 12.2.0:**
+        * Eski 8.1.1 sürümünden resmî en güncel kararlı `{fmt}` 12.2.0 sürümüne yükseltildi.
+        * Resmî SHA-256: `a2f4a8d51178f954e4c339007f77edd76ba0cb2e36f87a48e5a5403d9be5878f` (MIT Lisansı).
+        * Metin2'ye özgü `fmt.h` tekil başlığı korundu; `fmt::format`, `FMT_COMPILE`, `fmt::sprintf` tam uyumlu doğrulandı.
+        * Eski 2016 kalıntısı `posix.h` ve `time.h` başlıkları temizlendi; modern `base.h`, `fmt-c.h`, `std.h` başlıkları entegre edildi.
+      * **RapidJSON (Modern Upstream Master):**
+        * Eski 2016 tarihli v1.1.0 sürümünden modern upstream master `24b5e7a8b27f42fa16b96fc70aade9106cf7102f` sürümüne yükseltildi.
+        * Resmî SHA-256: `df07f5ddfebbc2940181039f6c939ec2764a7303ef79b17958d9792a364306bb` (MIT/BSD Lisansı).
+        * Modern GCC 16/14 altında ortaya çıkan `-Wclass-memaccess` kopyalama uyarıları tamamen sıfırlandı; C++20 standart uyumluluğu sağlandı.
+        * `json_helper.h`, `ClientManager.h` ve `IkarusShopCache.cpp` ile tam fonksiyonel entegrasyon doğrulandı.
+      * **Doğrulama ve Test Sonuçları:**
+        * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` ile 81/81 hedef sıfır hata ve sıfır RapidJSON uyarısıyla derlendi.
+        * CTest: **7/7 test paketi PASSED (%100 PASS, 1.13s)**.
+        * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
+
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38380990544 analizi tamamlandı, Rev 25 (Crypto++ 8.9.0 ve md5.h gölgeleme düzeltmesi) ile yeni doğrulama başlatılacaktır.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38384598415 MariaDB 12.3 işi %100 SUCCESS. Rev 26 (fmt 12.2.0, modern RapidJSON, timeout: 45m, ninja -j2) ile yeni doğrulama tetiklenecektir.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -737,11 +758,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI Rev 25 ile doğrulanıyor)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI MariaDB 12.3 SUCCESS; Rev 26 ile doğrulanıyor)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0 TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -749,10 +770,10 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Crypto++ 8.9.0 yükseltmesi tamamlandı, CMake `md5.h` include gölgelemesi ve fallback düzeltildi, Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 doğrulandı.
+* **Aktif Görev:** Crypto++ 8.9.0, fmt 12.2.0 ve RapidJSON modernizasyonu tamamlandı; CI timeout ve Ninja paralelliği ayarlandı; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 doğrulandı.
 * **Sıradaki Güvenli Adım:**
   1. Değişiklikleri `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek.
-  2. GitHub Actions FreeBSD CI Rev 25 koşusunun (Run ID) gerçek durumunu denetlemek.
+  2. GitHub Actions FreeBSD CI Rev 26 koşusunun (Run ID) gerçek durumunu denetlemek.
   3. Yol Haritası Adım 5: Sıradaki Server/Common Extern bağımlılığına geçmek (Lua 5.0 -> modern güvenli Lua sürüm yükseltmesi veya Boost analizi).
 
 
