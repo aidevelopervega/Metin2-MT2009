@@ -1,4 +1,4 @@
-# Rev 37: Stage test fixtures in --check-lua, restore fail-closed InitializeLua, add packet_script wire serialization test
+# Rev 38: Fix Lua 5.0 vararg syntax in questlib fixture, verify game_r41023 and game_r41023_lua55 --check-lua
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 

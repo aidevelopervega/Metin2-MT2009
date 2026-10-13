@@ -29,10 +29,10 @@ function mob_name(vnum)
     return "[MOB value;"..vnum.."]"
 end
 
-function select(...)
-    if table.pack then
-        return q.yield('select', table.pack(...))
-    else
+if table.pack then
+    (loadstring or load)("function select(...) return q.yield('select', table.pack(...)) end")()
+else
+    function select(...)
         return q.yield('select', arg)
     end
 end

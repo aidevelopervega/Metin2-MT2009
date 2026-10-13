@@ -1005,18 +1005,46 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
             4. `server/src/game/src/questlua_test.cpp`: Check 6 sentetik fixture doğrulaması (`tests/fixtures/questlib.lua`, `locale.lua`, `settings.lua`, `translate.lua`) ve gerçek FTP arşiv doğrulaması (`scratch/ftp_quests/...`) olarak ikiye ayrıldı; her iki durum ayrı ayrı raporlandı.
             5. `tests/test_packet_wire.cpp`: `struct packet_script` için static_assert (6 bayt, ofsetler) ve Check 7 runtime serileştirme/deserileştirme testi eklendi; wire protokolü 37/37 assertions ile yerel olarak doğrulandı.
             6. Windows MinGW GCC 16.2 UCRT üzerinde hem `run_tests.ps1` (565 assertions) hem de `ctest --preset windows-gcc-ucrt` (13/13 test paketi, 0.51s) %100 PASS olarak doğrulandı.
+      * **Aşama 12: FreeBSD CI Rev 37 Kök Neden Analizi, Lua 5.0 Vararg Sözdizimi Düzeltmesi ve Çift Motor Doğrulaması (Rev 38):**
+        * **FreeBSD CI Rev 37 (Run 38464168058 / Commit 97fe3cc4) Bulguları:**
+          * **Derleme & Bağlama Başarısı:** `db_r41023`, `game_r41023` (Lua 5.0) ve `game_r41023_lua55` (Lua 5.5) her üç matris ortamında (MySQL 8.4, MariaDB 11.4, MariaDB 12.3) sıfır hata ile ELF64 amd64 ve pure libstdc++ olarak bağlandı.
+          * **DB Entegrasyon Testi:** `run_db_integration_tests.sh` sıfır hata ile başarıyla geçti.
+          * **Check 1 Başarısı:** `--check-lua` çalıştırıldığında 32-bit istemci `packet_script` struct boyutu tam 6 bayt (`#pragma pack(1)`) olarak doğrulandı.
+          * **Check 2 Hata Analizi (Line 98 - InitializeLua fail-closed):**
+            * Hata Çıktısı: `tests/fixtures/questlib.lua:34: unexpected symbol near '...'`
+            * `[FAIL] Line 98: InitializeLua() must succeed and load all mandatory lua files fail-closed`
+            * Kök Neden: Lua 5.0.3 sürümünde ifade (expression) pozisyonunda `...` token'ı (`table.pack(...)`) geçerli bir sözdizimi değildir. Lua 5.0 vararg değişkenlerini yalnızca yerleşik `arg` tablosu (`arg[1]`, `arg[2]`, `arg.n`) üzerinden sunar; `...` ifadesi Lua 5.1 ile tanıtılmıştır. `tests/fixtures/questlib.lua` dosyasındaki `table.pack(...)` çağrısı Lua 5.0 derleyicisi tarafından sözdizimi hatası olarak değerlendirilmiş, fail-closed `InitializeLua()` yükleme hatası vererek süreci durdurmuştur.
+        * **Rev 38 Kök Neden Çözümleri:**
+          1. `tests/fixtures/questlib.lua`: `select(...)` fonksiyonu Lua 5.0 altında dinamik olarak izole edildi:
+             ```lua
+             if table.pack then
+                 (loadstring or load)("function select(...) return q.yield('select', table.pack(...)) end")()
+             else
+                 function select(...)
+                     return q.yield('select', arg)
+                 end
+             end
+             ```
+             Böylece Lua 5.0 derleyicisi ham `...` ifadesiyle karşılaşmaz; gerçek MT2009 FTP `questlib.lua` (satır 492) davranışına tam uygun olarak `arg` tablosunu kullanır. Lua 5.2/5.5 motorlarında ise `table.pack(...)` dinamik olarak derlenir ve `questlua.cpp` satır 779-784'teki koruma ile tam uyum sağlanır.
+          2. Windows MinGW GCC 16.2 UCRT üzerinde:
+             - `test_lua_quest.exe` (Lua 5.0): 10/10 PASS
+             - `test_lua52_quest.exe` (Lua 5.2): 10/10 PASS
+             - `test_lua55_quest.exe` (Lua 5.5): 10/10 PASS
+             - `tests/run_tests.ps1`: 565/565 assertions (%100 PASS)
+             - `ctest --preset windows-gcc-ucrt`: 13/13 test paketi (%100 PASS, 0.50s)
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (565/565 assertions) %100 PASS. `packet_script` wire testi (6 bayt) doğrulandı. Fail-closed `InitializeLua()` ve fixture staging hazır.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `c9fa95a2537f59798caebae3923ce3e26bb9a444` (Rev 36).
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (565/565 assertions) %100 PASS. `questlib.lua` vararg sözdizimi Lua 5.0/5.2/5.5 çift motor için düzeltildi.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `97fe3cc4cbfe6373b6d43c6dd2e86b2037317e28` (Rev 37).
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` include guard eksikliği (Rev 35 ile çözüldü).
   * CI Run ID **38456092378** (Rev 35): Hem `game_r41023` hem `game_r41023_lua55` çift ELF64 pure `libstdc++` olarak başarıyla derlendi ve bağlandı.
-  * CI Run ID **38459564231** (Rev 36 / Commit `d0650a9f`): SIGSEGV %100 çözüldü; Check 1-3 geçti; Check 4'te Lua 5.0 questlib.lua yolu kök nedeni tespit edildi ve Rev 37 ile çözüldü.
+  * CI Run ID **38459564231** (Rev 36): SIGSEGV çözüldü; Check 4 questlib arama yolu eksikliği (Rev 37 ile çözüldü).
+  * CI Run ID **38464168058** (Rev 37): Check 1 geçti; Check 2'de Lua 5.0 `table.pack(...)` sözdizimi kök nedeni tespit edildi ve Rev 38 ile çözüldü.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1042,9 +1070,9 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 37: `InitializeLua()` fail-closed restorasyonu, staging yolu yönlendirmesi, sentetik vs gerçek FTP ayrı raporlaması ve `packet_script` wire testlerinin FreeBSD CI üzerinde doğrulanması.
+* **Aktif Görev:** Rev 38: Lua 5.0 vararg sözdizimi düzeltmesi ile FreeBSD CI üzerinde `game_r41023` ve `game_r41023_lua55` ikililerinin `--check-lua` (11/11 test) doğrulamasını tamamlamak.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 37 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI doğrulamasını başlatmak.
+   1. Rev 38 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI koşusunu başlatmak.
    2. CI Run sonucunu doğrulamak.
    3. Canlı DB ve oyun sunucusu başlatma senaryolarını doğrulamak.
 
