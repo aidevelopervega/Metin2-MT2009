@@ -108,6 +108,9 @@ LIBS += /usr/local/lib/libcryptopp.a
 else
 LIBS += -lcryptopp
 endif
+ifneq ($(wildcard /lib/libc++.so.1 /usr/lib/libc++.so),)
+LIBS += -lc++
+endif
 else
 LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a /usr/local/lib/libcryptopp.a -lcryptopp))
 endif
