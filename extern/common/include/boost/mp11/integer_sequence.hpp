@@ -11,9 +11,16 @@
 #include <boost/mp11/version.hpp>
 #include <cstddef>
 
+#if defined(_MSC_VER) || defined(__GNUC__)
+# pragma push_macro( "I" )
+# undef I
+#endif
+
 #if defined(__has_builtin)
 # if __has_builtin(__make_integer_seq)
 #  define BOOST_MP11_HAS_MAKE_INTEGER_SEQ
+# elif __has_builtin(__integer_pack)
+#  define BOOST_MP11_HAS_INTEGER_PACK
 # endif
 #endif
 
@@ -30,6 +37,10 @@ template<class T, T... I> struct integer_sequence
 #if defined(BOOST_MP11_HAS_MAKE_INTEGER_SEQ)
 
 template<class T, T N> using make_integer_sequence = __make_integer_seq<integer_sequence, T, N>;
+
+#elif defined(BOOST_MP11_HAS_INTEGER_PACK)
+
+template<class T, T N> using make_integer_sequence = integer_sequence<T, __integer_pack(N)...>;
 
 #else
 
@@ -108,5 +119,9 @@ template<class... T> using index_sequence_for = make_integer_sequence<std::size_
 
 } // namespace mp11
 } // namespace boost
+
+#if defined(_MSC_VER) || defined(__GNUC__)
+# pragma pop_macro( "I" )
+#endif
 
 #endif // #ifndef BOOST_MP11_INTEGER_SEQUENCE_HPP_INCLUDED

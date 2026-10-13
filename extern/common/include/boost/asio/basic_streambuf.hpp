@@ -2,7 +2,7 @@
 // basic_streambuf.hpp
 // ~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -34,6 +34,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 
 /// Automatically resizable buffer class based on std::streambuf.
 /**
@@ -104,7 +105,7 @@ namespace asio {
  * @endcode
  */
 #if defined(GENERATING_DOCUMENTATION)
-template <typename Allocator = std::allocator<char> >
+template <typename Allocator = std::allocator<char>>
 #else
 template <typename Allocator>
 #endif
@@ -120,8 +121,8 @@ public:
   /// The type used to represent the output sequence as a list of buffers.
   typedef implementation_defined mutable_buffers_type;
 #else
-  typedef BOOST_ASIO_CONST_BUFFER const_buffers_type;
-  typedef BOOST_ASIO_MUTABLE_BUFFER mutable_buffers_type;
+  typedef const_buffer const_buffers_type;
+  typedef mutable_buffer mutable_buffers_type;
 #endif
 
   /// Construct a basic_streambuf object.
@@ -156,7 +157,7 @@ public:
    * }
    * @endcode
    */
-  std::size_t size() const BOOST_ASIO_NOEXCEPT
+  std::size_t size() const noexcept
   {
     return pptr() - gptr();
   }
@@ -166,7 +167,7 @@ public:
    * @returns The allowed maximum of the sum of the sizes of the input sequence
    * and output sequence.
    */
-  std::size_t max_size() const BOOST_ASIO_NOEXCEPT
+  std::size_t max_size() const noexcept
   {
     return max_size_;
   }
@@ -176,7 +177,7 @@ public:
    * @returns The current total capacity of the streambuf, i.e. for both the
    * input sequence and output sequence.
    */
-  std::size_t capacity() const BOOST_ASIO_NOEXCEPT
+  std::size_t capacity() const noexcept
   {
     return buffer_.capacity();
   }
@@ -190,7 +191,7 @@ public:
    * @note The returned object is invalidated by any @c basic_streambuf member
    * function that modifies the input sequence or output sequence.
    */
-  const_buffers_type data() const BOOST_ASIO_NOEXCEPT
+  const_buffers_type data() const noexcept
   {
     return boost::asio::buffer(boost::asio::const_buffer(gptr(),
           (pptr() - gptr()) * sizeof(char_type)));
@@ -234,7 +235,7 @@ public:
   void commit(std::size_t n)
   {
     n = std::min<std::size_t>(n, epptr() - pptr());
-    pbump(static_cast<int>(n));
+    setp(pptr() + n, epptr());
     setg(eback(), gptr(), pptr());
   }
 
@@ -251,7 +252,7 @@ public:
       setg(&buffer_[0], gptr(), pptr());
     if (gptr() + n > pptr())
       n = pptr() - gptr();
-    gbump(static_cast<int>(n));
+    setg(eback(), gptr() + n, egptr());
   }
 
 protected:
@@ -362,7 +363,7 @@ private:
 
 /// Adapts basic_streambuf to the dynamic buffer sequence type requirements.
 #if defined(GENERATING_DOCUMENTATION)
-template <typename Allocator = std::allocator<char> >
+template <typename Allocator = std::allocator<char>>
 #else
 template <typename Allocator>
 #endif
@@ -384,39 +385,37 @@ public:
   }
 
   /// Copy construct a basic_streambuf_ref.
-  basic_streambuf_ref(const basic_streambuf_ref& other) BOOST_ASIO_NOEXCEPT
+  basic_streambuf_ref(const basic_streambuf_ref& other) noexcept
     : sb_(other.sb_)
   {
   }
 
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
   /// Move construct a basic_streambuf_ref.
-  basic_streambuf_ref(basic_streambuf_ref&& other) BOOST_ASIO_NOEXCEPT
+  basic_streambuf_ref(basic_streambuf_ref&& other) noexcept
     : sb_(other.sb_)
   {
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 
   /// Get the size of the input sequence.
-  std::size_t size() const BOOST_ASIO_NOEXCEPT
+  std::size_t size() const noexcept
   {
     return sb_.size();
   }
 
   /// Get the maximum size of the dynamic buffer.
-  std::size_t max_size() const BOOST_ASIO_NOEXCEPT
+  std::size_t max_size() const noexcept
   {
     return sb_.max_size();
   }
 
   /// Get the current capacity of the dynamic buffer.
-  std::size_t capacity() const BOOST_ASIO_NOEXCEPT
+  std::size_t capacity() const noexcept
   {
     return sb_.capacity();
   }
 
   /// Get a list of buffers that represents the input sequence.
-  const_buffers_type data() const BOOST_ASIO_NOEXCEPT
+  const_buffers_type data() const noexcept
   {
     return sb_.data();
   }
@@ -444,6 +443,7 @@ private:
   basic_streambuf<Allocator>& sb_;
 };
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

@@ -1,5 +1,6 @@
 //
 // Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
+// Copyright (c) 2022 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -11,7 +12,6 @@
 #define BOOST_URL_RFC_DETAIL_RELATIVE_PART_RULE_HPP
 
 #include <boost/url/detail/config.hpp>
-#include <boost/url/error_types.hpp>
 #include <boost/url/pct_string_view.hpp>
 #include <boost/url/rfc/authority_rule.hpp>
 #include <cstdlib>
@@ -50,6 +50,7 @@ struct relative_part_rule_t
         bool has_authority = false;
     };
 
+    BOOST_URL_CXX20_CONSTEXPR
     auto
     parse(
         char const*& it,
@@ -63,5 +64,7 @@ constexpr relative_part_rule_t relative_part_rule{};
 } // detail
 } // urls
 } // boost
+
+#include <boost/url/rfc/detail/impl/relative_part_rule.hpp>
 
 #endif

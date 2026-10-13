@@ -263,6 +263,9 @@
 #define BOOST_NO_CXX17_INLINE_VARIABLES
 #define BOOST_NO_CXX17_FOLD_EXPRESSIONS
 #endif
+#if (_MSC_VER < 1914) || (_MSVC_LANG < 201703)
+#define BOOST_NO_CXX17_AUTO_NONTYPE_TEMPLATE_PARAMS
+#endif
 
 //
 // Things that don't work in clr mode:
@@ -303,6 +306,10 @@
 #  define BOOST_CXX_VERSION 201703L
 #elif BOOST_MSVC >= 1916
 #  define BOOST_CXX_VERSION 201402L
+#endif
+
+#if BOOST_CXX_VERSION >= 201703L
+#  define BOOST_ATTRIBUTE_UNUSED [[maybe_unused]]
 #endif
 
 #ifndef BOOST_COMPILER
@@ -365,8 +372,10 @@
 #     define BOOST_COMPILER_VERSION 14.1
 #   elif _MSC_VER < 1930
 #     define BOOST_COMPILER_VERSION 14.2
-#   elif _MSC_VER < 1940
+#   elif _MSC_VER < 1950
 #     define BOOST_COMPILER_VERSION 14.3
+#   elif _MSC_VER < 1960
+#     define BOOST_COMPILER_VERSION 14.5
 #   else
 #     define BOOST_COMPILER_VERSION _MSC_VER
 #   endif
@@ -378,8 +387,8 @@
 #include <boost/config/pragma_message.hpp>
 
 //
-// last known and checked version is 19.3x (VS2022):
-#if (_MSC_VER >= 1940)
+// last known and checked version is 19.5x (VS2026):
+#if (_MSC_VER >= 1960)
 #  if defined(BOOST_ASSERT_CONFIG)
 #     error "Boost.Config is older than your current compiler version."
 #  elif !defined(BOOST_CONFIG_SUPPRESS_OUTDATED_MESSAGE)

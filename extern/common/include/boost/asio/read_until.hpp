@@ -2,7 +2,7 @@
 // read_until.hpp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -33,6 +33,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 char (&has_result_type_helper(...))[2];
@@ -74,8 +75,7 @@ struct is_match_condition
 #else
   enum
   {
-    value = boost::asio::is_function<
-        typename boost::asio::remove_pointer<T>::type>::value
+    value = boost::asio::is_function<remove_pointer_t<T>>::value
       || detail::has_result_type<T>::value
   };
 #endif
@@ -88,6 +88,8 @@ struct is_match_condition
  * into a dynamic buffer sequence, or into a streambuf, until it contains a
  * delimiter, matches a regular expression, or a function object indicates a
  * match.
+ *
+ * @sa @ref overview_line_based "Line-based operations"
  */
 /*@{*/
 
@@ -148,13 +150,13 @@ struct is_match_condition
  */
 template <typename SyncReadStream, typename DynamicBuffer_v1>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers, char delim,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    DynamicBuffer_v1&& buffers, char delim,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -192,14 +194,14 @@ std::size_t read_until(SyncReadStream& s,
  */
 template <typename SyncReadStream, typename DynamicBuffer_v1>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+    DynamicBuffer_v1&& buffers,
     char delim, boost::system::error_code& ec,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -254,14 +256,14 @@ std::size_t read_until(SyncReadStream& s,
  */
 template <typename SyncReadStream, typename DynamicBuffer_v1>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+    DynamicBuffer_v1&& buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -299,15 +301,15 @@ std::size_t read_until(SyncReadStream& s,
  */
 template <typename SyncReadStream, typename DynamicBuffer_v1>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+    DynamicBuffer_v1&& buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
     boost::system::error_code& ec,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 #if !defined(BOOST_ASIO_NO_EXTENSIONS)
 #if defined(BOOST_ASIO_HAS_BOOST_REGEX) \
@@ -367,16 +369,15 @@ std::size_t read_until(SyncReadStream& s,
  * This data may be the start of a new line, to be extracted by a subsequent
  * @c read_until operation.
  */
-template <typename SyncReadStream, typename DynamicBuffer_v1>
-std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
-    const boost::regex& expr,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+template <typename SyncReadStream, typename DynamicBuffer_v1, typename Traits>
+std::size_t read_until(SyncReadStream& s, DynamicBuffer_v1&& buffers,
+    const boost::basic_regex<char, Traits>& expr,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until some part of the data it
 /// contains matches a regular expression.
@@ -414,16 +415,15 @@ std::size_t read_until(SyncReadStream& s,
  * expression. An application will typically leave that data in the dynamic
  * buffer sequence for a subsequent read_until operation to examine.
  */
-template <typename SyncReadStream, typename DynamicBuffer_v1>
-std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
-    const boost::regex& expr, boost::system::error_code& ec,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+template <typename SyncReadStream, typename DynamicBuffer_v1, typename Traits>
+std::size_t read_until(SyncReadStream& s, DynamicBuffer_v1&& buffers,
+    const boost::basic_regex<char, Traits>& expr, boost::system::error_code& ec,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
        // || defined(GENERATING_DOCUMENTATION)
@@ -484,7 +484,7 @@ std::size_t read_until(SyncReadStream& s,
  * @par Examples
  * To read data into a dynamic buffer sequence until whitespace is encountered:
  * @code typedef boost::asio::buffers_iterator<
- *     boost::asio::const_buffers_1> iterator;
+ *     boost::asio::const_buffer> iterator;
  *
  * std::pair<iterator, bool>
  * match_whitespace(iterator begin, iterator end)
@@ -533,17 +533,17 @@ std::size_t read_until(SyncReadStream& s,
 template <typename SyncReadStream,
     typename DynamicBuffer_v1, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+    DynamicBuffer_v1&& buffers,
     MatchCondition match_condition,
-    typename constraint<
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    > = 0,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until a function object indicates a
 /// match.
@@ -601,17 +601,17 @@ std::size_t read_until(SyncReadStream& s,
 template <typename SyncReadStream,
     typename DynamicBuffer_v1, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+    DynamicBuffer_v1&& buffers,
     MatchCondition match_condition, boost::system::error_code& ec,
-    typename constraint<
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0);
+    > = 0,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0);
 
 #if !defined(BOOST_ASIO_NO_IOSTREAM)
 
@@ -843,9 +843,10 @@ std::size_t read_until(SyncReadStream& s,
  * This data may be the start of a new line, to be extracted by a subsequent
  * @c read_until operation.
  */
-template <typename SyncReadStream, typename Allocator>
+template <typename SyncReadStream, typename Allocator, typename Traits>
 std::size_t read_until(SyncReadStream& s,
-    boost::asio::basic_streambuf<Allocator>& b, const boost::regex& expr);
+    boost::asio::basic_streambuf<Allocator>& b,
+    const boost::basic_regex<char, Traits>& expr);
 
 /// Read data into a streambuf until some part of the data it contains matches
 /// a regular expression.
@@ -880,9 +881,10 @@ std::size_t read_until(SyncReadStream& s,
  * application will typically leave that data in the streambuf for a subsequent
  * read_until operation to examine.
  */
-template <typename SyncReadStream, typename Allocator>
+template <typename SyncReadStream, typename Allocator, typename Traits>
 std::size_t read_until(SyncReadStream& s,
-    boost::asio::basic_streambuf<Allocator>& b, const boost::regex& expr,
+    boost::asio::basic_streambuf<Allocator>& b,
+    const boost::basic_regex<char, Traits>& expr,
     boost::system::error_code& ec);
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
@@ -991,7 +993,7 @@ std::size_t read_until(SyncReadStream& s,
 template <typename SyncReadStream, typename Allocator, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s,
     boost::asio::basic_streambuf<Allocator>& b, MatchCondition match_condition,
-    typename constraint<is_match_condition<MatchCondition>::value>::type = 0);
+    constraint_t<is_match_condition<MatchCondition>::value> = 0);
 
 /// Read data into a streambuf until a function object indicates a match.
 /**
@@ -1048,7 +1050,7 @@ template <typename SyncReadStream, typename Allocator, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s,
     boost::asio::basic_streambuf<Allocator>& b,
     MatchCondition match_condition, boost::system::error_code& ec,
-    typename constraint<is_match_condition<MatchCondition>::value>::type = 0);
+    constraint_t<is_match_condition<MatchCondition>::value> = 0);
 
 #endif // !defined(BOOST_ASIO_NO_IOSTREAM)
 #endif // !defined(BOOST_ASIO_NO_EXTENSIONS)
@@ -1109,9 +1111,9 @@ std::size_t read_until(SyncReadStream& s,
  */
 template <typename SyncReadStream, typename DynamicBuffer_v2>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers, char delim,
-    typename constraint<
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -1150,9 +1152,9 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers, char delim,
 template <typename SyncReadStream, typename DynamicBuffer_v2>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
     char delim, boost::system::error_code& ec,
-    typename constraint<
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -1208,9 +1210,9 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
 template <typename SyncReadStream, typename DynamicBuffer_v2>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
-    typename constraint<
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until it contains a specified
 /// delimiter.
@@ -1249,9 +1251,9 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
 template <typename SyncReadStream, typename DynamicBuffer_v2>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim, boost::system::error_code& ec,
-    typename constraint<
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 #if !defined(BOOST_ASIO_NO_EXTENSIONS)
 #if defined(BOOST_ASIO_HAS_BOOST_REGEX) \
@@ -1311,12 +1313,12 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  * This data may be the start of a new line, to be extracted by a subsequent
  * @c read_until operation.
  */
-template <typename SyncReadStream, typename DynamicBuffer_v2>
+template <typename SyncReadStream, typename DynamicBuffer_v2, typename Traits>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
-    const boost::regex& expr,
-    typename constraint<
+    const boost::basic_regex<char, Traits>& expr,
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until some part of the data it
 /// contains matches a regular expression.
@@ -1354,12 +1356,12 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  * expression. An application will typically leave that data in the dynamic
  * buffer sequence for a subsequent read_until operation to examine.
  */
-template <typename SyncReadStream, typename DynamicBuffer_v2>
+template <typename SyncReadStream, typename DynamicBuffer_v2, typename Traits>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
-    const boost::regex& expr, boost::system::error_code& ec,
-    typename constraint<
+    const boost::basic_regex<char, Traits>& expr, boost::system::error_code& ec,
+    constraint_t<
         is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
        // || defined(GENERATING_DOCUMENTATION)
@@ -1420,7 +1422,7 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  * @par Examples
  * To read data into a dynamic buffer sequence until whitespace is encountered:
  * @code typedef boost::asio::buffers_iterator<
- *     boost::asio::const_buffers_1> iterator;
+ *     boost::asio::const_buffer> iterator;
  *
  * std::pair<iterator, bool>
  * match_whitespace(iterator begin, iterator end)
@@ -1470,12 +1472,12 @@ template <typename SyncReadStream,
     typename DynamicBuffer_v2, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
     MatchCondition match_condition,
-    typename constraint<
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
+    > = 0,
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 /// Read data into a dynamic buffer sequence until a function object indicates a
 /// match.
@@ -1534,12 +1536,12 @@ template <typename SyncReadStream,
     typename DynamicBuffer_v2, typename MatchCondition>
 std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
     MatchCondition match_condition, boost::system::error_code& ec,
-    typename constraint<
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
+    > = 0,
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0);
+    > = 0);
 
 #endif // !defined(BOOST_ASIO_NO_EXTENSIONS)
 
@@ -1551,6 +1553,8 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  * that reads data into a dynamic buffer sequence, or into a streambuf, until
  * it contains a delimiter, matches a regular expression, or a function object
  * indicates a match.
+ *
+ * @sa @ref overview_line_based "Line-based operations"
  */
 /*@{*/
 
@@ -1604,7 +1608,7 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -1655,27 +1659,29 @@ std::size_t read_until(SyncReadStream& s, DynamicBuffer_v2 buffers,
  */
 template <typename AsyncReadStream, typename DynamicBuffer_v1,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers, char delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    DynamicBuffer_v1&& buffers, char delim,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_delim_v1<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v1)(buffers), delim)));
+        declval<detail::initiate_async_read_until_delim_v1<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v1&&>(buffers), delim))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_v1<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v1&&>(buffers), delim);
+}
 
 /// Start an asynchronous operation to read data into a dynamic buffer sequence
 /// until it contains a specified delimiter.
@@ -1725,7 +1731,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -1776,30 +1782,33 @@ async_read_until(AsyncReadStream& s,
  */
 template <typename AsyncReadStream, typename DynamicBuffer_v1,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    DynamicBuffer_v1&& buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
         declval<detail::initiate_async_read_until_delim_string_v1<
-          AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v1)(buffers),
-        static_cast<std::string>(delim))));
+          AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v1&&>(buffers),
+        static_cast<std::string>(delim)))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_string_v1<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v1&&>(buffers),
+      static_cast<std::string>(delim));
+}
 
 #if !defined(BOOST_ASIO_NO_EXTENSIONS)
 #if defined(BOOST_ASIO_HAS_BOOST_REGEX) \
@@ -1857,7 +1866,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -1907,30 +1916,31 @@ async_read_until(AsyncReadStream& s,
  * if they are also supported by the @c AsyncReadStream type's
  * @c async_read_some operation.
  */
-template <typename AsyncReadStream, typename DynamicBuffer_v1,
+template <typename AsyncReadStream, typename DynamicBuffer_v1, typename Traits,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
-    const boost::regex& expr,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s, DynamicBuffer_v1&& buffers,
+    const boost::basic_regex<char, Traits>& expr,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_expr_v1<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v1)(buffers), expr)));
+        declval<detail::initiate_async_read_until_expr_v1<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v1&&>(buffers), expr))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_expr_v1<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v1&&>(buffers), expr);
+}
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
        // || defined(GENERATING_DOCUMENTATION)
@@ -1998,7 +2008,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @note After a successful async_read_until operation, the dynamic buffer
  * sequence may contain additional data beyond that which matched the function
@@ -2017,7 +2027,7 @@ async_read_until(AsyncReadStream& s,
  * To asynchronously read data into a @c std::string until whitespace is
  * encountered:
  * @code typedef boost::asio::buffers_iterator<
- *     boost::asio::const_buffers_1> iterator;
+ *     boost::asio::const_buffer> iterator;
  *
  * std::pair<iterator, bool>
  * match_whitespace(iterator begin, iterator end)
@@ -2082,32 +2092,34 @@ async_read_until(AsyncReadStream& s,
 template <typename AsyncReadStream,
     typename DynamicBuffer_v1, typename MatchCondition,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    BOOST_ASIO_MOVE_ARG(DynamicBuffer_v1) buffers,
-    MatchCondition match_condition,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    DynamicBuffer_v1&& buffers, MatchCondition match_condition,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
-      is_dynamic_buffer_v1<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0,
-    typename constraint<
-      !is_dynamic_buffer_v2<typename decay<DynamicBuffer_v1>::type>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    > = 0,
+    constraint_t<
+      is_dynamic_buffer_v1<decay_t<DynamicBuffer_v1>>::value
+    > = 0,
+    constraint_t<
+      !is_dynamic_buffer_v2<decay_t<DynamicBuffer_v1>>::value
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_match_v1<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v1)(buffers),
-        match_condition)));
+        declval<detail::initiate_async_read_until_match_v1<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v1&&>(buffers),
+        match_condition))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_match_v1<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v1&&>(buffers),
+      match_condition);
+}
 
 #if !defined(BOOST_ASIO_NO_IOSTREAM)
 
@@ -2158,7 +2170,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2208,19 +2220,23 @@ async_read_until(AsyncReadStream& s,
  */
 template <typename AsyncReadStream, typename Allocator,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
     boost::asio::basic_streambuf<Allocator>& b, char delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type))
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
-    async_read_until(s, basic_streambuf_ref<Allocator>(b),
-        delim, BOOST_ASIO_MOVE_CAST(ReadToken)(token))));
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>())
+  -> decltype(
+    async_initiate<ReadToken,
+      void (boost::system::error_code, std::size_t)>(
+        declval<detail::initiate_async_read_until_delim_v1<AsyncReadStream>>(),
+        token, basic_streambuf_ref<Allocator>(b), delim))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_v1<AsyncReadStream>(s),
+      token, basic_streambuf_ref<Allocator>(b), delim);
+}
 
 /// Start an asynchronous operation to read data into a streambuf until it
 /// contains a specified delimiter.
@@ -2269,7 +2285,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2319,20 +2335,27 @@ async_read_until(AsyncReadStream& s,
  */
 template <typename AsyncReadStream, typename Allocator,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
     boost::asio::basic_streambuf<Allocator>& b,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type))
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
-    async_read_until(s, basic_streambuf_ref<Allocator>(b),
-        delim, BOOST_ASIO_MOVE_CAST(ReadToken)(token))));
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>())
+  -> decltype(
+    async_initiate<ReadToken,
+      void (boost::system::error_code, std::size_t)>(
+        declval<detail::initiate_async_read_until_delim_string_v1<
+          AsyncReadStream>>(),
+        token, basic_streambuf_ref<Allocator>(b),
+        static_cast<std::string>(delim)))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_string_v1<AsyncReadStream>(s),
+      token, basic_streambuf_ref<Allocator>(b),
+      static_cast<std::string>(delim));
+}
 
 #if defined(BOOST_ASIO_HAS_BOOST_REGEX) \
   || defined(GENERATING_DOCUMENTATION)
@@ -2386,7 +2409,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2435,21 +2458,26 @@ async_read_until(AsyncReadStream& s,
  * if they are also supported by the @c AsyncReadStream type's
  * @c async_read_some operation.
  */
-template <typename AsyncReadStream, typename Allocator,
+template <typename AsyncReadStream, typename Allocator, typename Traits,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    boost::asio::basic_streambuf<Allocator>& b, const boost::regex& expr,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type))
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
-    async_read_until(s, basic_streambuf_ref<Allocator>(b),
-        expr, BOOST_ASIO_MOVE_CAST(ReadToken)(token))));
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    boost::asio::basic_streambuf<Allocator>& b,
+    const boost::basic_regex<char, Traits>& expr,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>())
+  -> decltype(
+    async_initiate<ReadToken,
+      void (boost::system::error_code, std::size_t)>(
+        declval<detail::initiate_async_read_until_expr_v1<AsyncReadStream>>(),
+        token, basic_streambuf_ref<Allocator>(b), expr))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_expr_v1<AsyncReadStream>(s),
+      token, basic_streambuf_ref<Allocator>(b), expr);
+}
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
        // || defined(GENERATING_DOCUMENTATION)
@@ -2514,7 +2542,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @note After a successful async_read_until operation, the streambuf may
  * contain additional data beyond that which matched the function object. An
@@ -2596,21 +2624,24 @@ async_read_until(AsyncReadStream& s,
  */
 template <typename AsyncReadStream, typename Allocator, typename MatchCondition,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s,
-    boost::asio::basic_streambuf<Allocator>& b,
-    MatchCondition match_condition,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<is_match_condition<MatchCondition>::value>::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
-    async_read_until(s, basic_streambuf_ref<Allocator>(b),
-        match_condition, BOOST_ASIO_MOVE_CAST(ReadToken)(token))));
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    boost::asio::basic_streambuf<Allocator>& b, MatchCondition match_condition,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<is_match_condition<MatchCondition>::value> = 0)
+  -> decltype(
+    async_initiate<ReadToken,
+      void (boost::system::error_code, std::size_t)>(
+        declval<detail::initiate_async_read_until_match_v1<AsyncReadStream>>(),
+        token, basic_streambuf_ref<Allocator>(b), match_condition))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_match_v1<AsyncReadStream>(s),
+      token, basic_streambuf_ref<Allocator>(b), match_condition);
+}
 
 #endif // !defined(BOOST_ASIO_NO_IOSTREAM)
 #endif // !defined(BOOST_ASIO_NO_EXTENSIONS)
@@ -2665,7 +2696,7 @@ async_read_until(AsyncReadStream& s,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2716,23 +2747,26 @@ async_read_until(AsyncReadStream& s,
  */
 template <typename AsyncReadStream, typename DynamicBuffer_v2,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers, char delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    DynamicBuffer_v2 buffers, char delim,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_delim_v2<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v2)(buffers), delim)));
+        declval<detail::initiate_async_read_until_delim_v2<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v2&&>(buffers), delim))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_v2<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v2&&>(buffers), delim);
+}
 
 /// Start an asynchronous operation to read data into a dynamic buffer sequence
 /// until it contains a specified delimiter.
@@ -2782,7 +2816,7 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers, char delim,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2833,26 +2867,29 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers, char delim,
  */
 template <typename AsyncReadStream, typename DynamicBuffer_v2,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
     BOOST_ASIO_STRING_VIEW_PARAM delim,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
         declval<detail::initiate_async_read_until_delim_string_v2<
-          AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v2)(buffers),
-        static_cast<std::string>(delim))));
+          AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v2&&>(buffers),
+        static_cast<std::string>(delim)))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_delim_string_v2<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v2&&>(buffers),
+      static_cast<std::string>(delim));
+}
 
 #if !defined(BOOST_ASIO_NO_EXTENSIONS)
 #if defined(BOOST_ASIO_HAS_BOOST_REGEX) \
@@ -2910,7 +2947,7 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @par Completion Signature
  * @code void(boost::system::error_code, std::size_t) @endcode
@@ -2960,26 +2997,28 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
  * if they are also supported by the @c AsyncReadStream type's
  * @c async_read_some operation.
  */
-template <typename AsyncReadStream, typename DynamicBuffer_v2,
+template <typename AsyncReadStream, typename DynamicBuffer_v2, typename Traits,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
-    const boost::regex& expr,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
+    const boost::basic_regex<char, Traits>& expr,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_expr_v2<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v2)(buffers), expr)));
+        declval<detail::initiate_async_read_until_expr_v2<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v2&&>(buffers), expr))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_expr_v2<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v2&&>(buffers), expr);
+}
 
 #endif // defined(BOOST_ASIO_HAS_BOOST_REGEX)
        // || defined(GENERATING_DOCUMENTATION)
@@ -3047,7 +3086,7 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
  * Regardless of whether the asynchronous operation completes immediately or
  * not, the completion handler will not be invoked from within this function.
  * On immediate completion, invocation of the handler will be performed in a
- * manner equivalent to using boost::asio::post().
+ * manner equivalent to using boost::asio::async_immediate().
  *
  * @note After a successful async_read_until operation, the dynamic buffer
  * sequence may contain additional data beyond that which matched the function
@@ -3066,7 +3105,7 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
  * To asynchronously read data into a @c std::string until whitespace is
  * encountered:
  * @code typedef boost::asio::buffers_iterator<
- *     boost::asio::const_buffers_1> iterator;
+ *     boost::asio::const_buffer> iterator;
  *
  * std::pair<iterator, bool>
  * match_whitespace(iterator begin, iterator end)
@@ -3131,33 +3170,36 @@ async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
 template <typename AsyncReadStream,
     typename DynamicBuffer_v2, typename MatchCondition,
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-      std::size_t)) ReadToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(
-          typename AsyncReadStream::executor_type)>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-    void (boost::system::error_code, std::size_t))
-async_read_until(AsyncReadStream& s, DynamicBuffer_v2 buffers,
-    MatchCondition match_condition,
-    BOOST_ASIO_MOVE_ARG(ReadToken) token
-      BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(
-        typename AsyncReadStream::executor_type),
-    typename constraint<
+      std::size_t)) ReadToken = default_completion_token_t<
+        typename AsyncReadStream::executor_type>>
+inline auto async_read_until(AsyncReadStream& s,
+    DynamicBuffer_v2 buffers, MatchCondition match_condition,
+    ReadToken&& token = default_completion_token_t<
+      typename AsyncReadStream::executor_type>(),
+    constraint_t<
       is_match_condition<MatchCondition>::value
-    >::type = 0,
-    typename constraint<
+    > = 0,
+    constraint_t<
       is_dynamic_buffer_v2<DynamicBuffer_v2>::value
-    >::type = 0)
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+    > = 0)
+  -> decltype(
     async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
-        declval<detail::initiate_async_read_until_match_v2<AsyncReadStream> >(),
-        token, BOOST_ASIO_MOVE_CAST(DynamicBuffer_v2)(buffers),
-        match_condition)));
+        declval<detail::initiate_async_read_until_match_v2<AsyncReadStream>>(),
+        token, static_cast<DynamicBuffer_v2&&>(buffers), match_condition))
+{
+  return async_initiate<ReadToken,
+    void (boost::system::error_code, std::size_t)>(
+      detail::initiate_async_read_until_match_v2<AsyncReadStream>(s),
+      token, static_cast<DynamicBuffer_v2&&>(buffers),
+      match_condition);
+}
 
 #endif // !defined(BOOST_ASIO_NO_EXTENSIONS)
 
 /*@}*/
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

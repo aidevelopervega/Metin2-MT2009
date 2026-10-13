@@ -1,4 +1,4 @@
-# Rev 27: Upgrade DevIL headers to official v1.8.0 release, aligning with FreeBSD devil pkg
+# Rev 28: Upgrade Boost to official 1.92.0 and fix 64-bit pointer cast in questmanager
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

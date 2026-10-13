@@ -10,6 +10,7 @@
 #ifndef BOOST_JSON_IMPL_ARRAY_IPP
 #define BOOST_JSON_IMPL_ARRAY_IPP
 
+#include <boost/core/detail/static_assert.hpp>
 #include <boost/container_hash/hash.hpp>
 #include <boost/json/array.hpp>
 #include <boost/json/pilfer.hpp>
@@ -178,8 +179,7 @@ array::
 array(detail::unchecked_array&& ua)
     : sp_(ua.storage())
 {
-    BOOST_STATIC_ASSERT(
-        alignof(table) == alignof(value));
+    BOOST_CORE_STATIC_ASSERT( alignof(table) == alignof(value) );
     if(ua.size() == 0)
     {
         t_ = &empty_;
@@ -370,6 +370,43 @@ operator=(
 
 //----------------------------------------------------------
 //
+// Element access
+//
+//----------------------------------------------------------
+
+system::result<value&>
+array::try_at(std::size_t pos) noexcept
+{
+    if(pos >= t_->size)
+    {
+        system::error_code ec;
+        BOOST_JSON_FAIL(ec, error::out_of_range);
+        return ec;
+    }
+    return (*t_)[pos];
+}
+
+system::result<value const&>
+array::try_at(std::size_t pos) const noexcept
+{
+    if(pos >= t_->size)
+    {
+        system::error_code ec;
+        BOOST_JSON_FAIL(ec, error::out_of_range);
+        return ec;
+    }
+    return (*t_)[pos];
+}
+
+value const&
+array::
+array::at(std::size_t pos, source_location const& loc) const&
+{
+    return try_at(pos).value(loc);
+}
+
+//----------------------------------------------------------
+//
 // Capacity
 //
 //----------------------------------------------------------
@@ -457,11 +494,15 @@ insert(
     value const& v) ->
         iterator
 {
+    // v may refer to an element of this array, whose
+    // storage revert_insert can relocate and free, so
+    // copy it before inserting
+    value const tmp(v, sp_);
     revert_insert r(
         pos, count, *this);
     while(count--)
     {
-        ::new(r.p) value(v, sp_);
+        ::new(r.p) value(tmp, sp_);
         ++r.p;
     }
     return r.commit();
@@ -582,11 +623,15 @@ resize(
         return;
     }
     count -= size();
+    // v may refer to an element of this array, whose
+    // storage revert_insert can relocate and free, so
+    // copy it before inserting
+    value const tmp(v, sp_);
     revert_insert r(
         end(), count, *this);
     while(count--)
     {
-        ::new(r.p) value(v, sp_);
+        ::new(r.p) value(tmp, sp_);
         ++r.p;
     }
     r.commit();

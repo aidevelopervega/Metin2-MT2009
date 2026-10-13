@@ -15,9 +15,11 @@
 #ifndef BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_FOLLOW_HELPERS_HPP
 #define BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_FOLLOW_HELPERS_HPP
 
+#include <memory>
 #include <vector>
 
 #include <boost/core/ignore_unused.hpp>
+#include <boost/range/size.hpp>
 
 #include <boost/geometry/algorithms/detail/overlay/get_turn_info_helpers.hpp>
 #include <boost/geometry/algorithms/detail/overlay/overlay_type.hpp>
@@ -29,6 +31,7 @@
 
 #include <boost/geometry/util/condition.hpp>
 #include <boost/geometry/util/range.hpp>
+#include <boost/geometry/util/type_traits.hpp>
 
 #include <type_traits>
 
@@ -41,10 +44,12 @@ namespace detail { namespace relate {
 // NOTE: This iterates through single geometries for which turns were not generated.
 //       It doesn't mean that the geometry is disjoint, only that no turns were detected.
 
-template <std::size_t OpId,
-          typename Geometry,
-          typename Tag = typename geometry::tag<Geometry>::type,
-          bool IsMulti = std::is_base_of<multi_tag, Tag>::value
+template
+<
+    std::size_t OpId,
+    typename Geometry,
+    typename Tag = geometry::tag_t<Geometry>,
+    bool IsMulti = util::is_multi<Geometry>::value
 >
 struct for_each_disjoint_geometry_if
     : public not_implemented<Tag>
@@ -98,7 +103,7 @@ struct for_each_disjoint_geometry_if<OpId, Geometry, Tag, true>
     {
         BOOST_GEOMETRY_ASSERT(first != last);
 
-        const std::size_t count = boost::size(geometry);
+        std::size_t const count = boost::size(geometry);
 
         // O(I)
         // gather info about turns generated for contained geometries
@@ -137,8 +142,8 @@ class point_info
 public:
     point_info() : sid_ptr(NULL), pt_ptr(NULL) {}
     point_info(Point const& pt, segment_identifier const& sid)
-        : sid_ptr(boost::addressof(sid))
-        , pt_ptr(boost::addressof(pt))
+        : sid_ptr(std::addressof(sid))
+        , pt_ptr(std::addressof(pt))
     {}
     segment_identifier const& seg_id() const
     {
@@ -168,7 +173,7 @@ class same_single
 {
 public:
     same_single(segment_identifier const& sid)
-        : sid_ptr(boost::addressof(sid))
+        : sid_ptr(std::addressof(sid))
     {}
 
     bool operator()(segment_identifier const& sid) const
@@ -190,7 +195,7 @@ class same_ring
 {
 public:
     same_ring(segment_identifier const& sid)
-        : sid_ptr(boost::addressof(sid))
+        : sid_ptr(std::addressof(sid))
     {}
 
     bool operator()(segment_identifier const& sid) const
@@ -216,7 +221,7 @@ public:
     bool update(segment_identifier const& seg_id)
     {
         bool result = m_seg_id_ptr == 0 || !SameRange(*m_seg_id_ptr)(seg_id);
-        m_seg_id_ptr = boost::addressof(seg_id);
+        m_seg_id_ptr = std::addressof(seg_id);
         return result;
     }
 
@@ -229,8 +234,8 @@ private:
 template <typename TurnInfo, std::size_t OpId>
 class exit_watcher
 {
-    static const std::size_t op_id = OpId;
-    static const std::size_t other_op_id = (OpId + 1) % 2;
+    static std::size_t const op_id = OpId;
+    static std::size_t const other_op_id = (OpId + 1) % 2;
 
     typedef typename TurnInfo::point_type point_type;
     typedef detail::relate::point_info<point_type> point_info;
@@ -272,7 +277,7 @@ public:
                 // here we know that we possibly left LS
                 // we must still check if we didn't get back on the same point
                 m_exit_operation = exit_op;
-                m_exit_turn_ptr = boost::addressof(turn);
+                m_exit_turn_ptr = std::addressof(turn);
             }
         }
     }
@@ -354,7 +359,7 @@ inline bool turn_on_the_same_ip(Turn const& prev_turn, Turn const& curr_turn,
 }
 
 template <typename IntersectionPoint, typename OperationInfo, typename BoundaryChecker>
-static inline bool is_ip_on_boundary(IntersectionPoint const& ip,
+inline bool is_ip_on_boundary(IntersectionPoint const& ip,
                                      OperationInfo const& operation_info,
                                      BoundaryChecker const& boundary_checker)
 {

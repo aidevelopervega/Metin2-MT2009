@@ -2,7 +2,7 @@
 // detail/winrt_ssocket_service.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -30,11 +30,12 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 template <typename Protocol>
 class winrt_ssocket_service :
-  public execution_context_service_base<winrt_ssocket_service<Protocol> >,
+  public execution_context_service_base<winrt_ssocket_service<Protocol>>,
   public winrt_ssocket_service_base
 {
 public:
@@ -63,7 +64,7 @@ public:
 
   // Constructor.
   winrt_ssocket_service(execution_context& context)
-    : execution_context_service_base<winrt_ssocket_service<Protocol> >(context),
+    : execution_context_service_base<winrt_ssocket_service<Protocol>>(context),
       winrt_ssocket_service_base(context)
   {
   }
@@ -76,7 +77,7 @@ public:
 
   // Move-construct a new socket implementation.
   void move_construct(implementation_type& impl,
-      implementation_type& other_impl) BOOST_ASIO_NOEXCEPT
+      implementation_type& other_impl) noexcept
   {
     this->base_move_construct(impl, other_impl);
 
@@ -225,7 +226,7 @@ public:
       Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
     // Allocate and construct an operation to wrap the handler.
     typedef winrt_socket_connect_op<Handler, IoExecutor> op;
@@ -242,6 +243,7 @@ public:
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

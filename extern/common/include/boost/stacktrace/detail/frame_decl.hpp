@@ -1,4 +1,4 @@
-// Copyright Antony Polukhin, 2016-2023.
+// Copyright Antony Polukhin, 2016-2026.
 //
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
@@ -7,23 +7,30 @@
 #ifndef BOOST_STACKTRACE_DETAIL_FRAME_DECL_HPP
 #define BOOST_STACKTRACE_DETAIL_FRAME_DECL_HPP
 
-#include <boost/config.hpp>
+#include <boost/stacktrace/detail/config.hpp>
+
+#if !defined(BOOST_USE_MODULES) || defined(BOOST_STACKTRACE_INTERFACE_UNIT)
+
 #ifdef BOOST_HAS_PRAGMA_ONCE
 #   pragma once
 #endif
 
-#include <iosfwd>
+#if !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
 #include <string>
+#endif // !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
 
-#include <boost/core/explicit_operator_bool.hpp>
+#if !defined(BOOST_USE_MODULES)
+#include <boost/stacktrace/safe_dump_to.hpp>
+#endif
 
-#include <boost/stacktrace/safe_dump_to.hpp> // boost::stacktrace::detail::native_frame_ptr_t
 #include <boost/stacktrace/detail/void_ptr_cast.hpp>
 
 #include <boost/stacktrace/detail/push_options.h>
 
 /// @file boost/stacktrace/detail/frame_decl.hpp
 /// Use <boost/stacktrace/frame.hpp> header instead of this one!
+
+BOOST_STACKTRACE_BEGIN_MODULE_EXPORT
 
 namespace boost { namespace stacktrace {
 
@@ -47,7 +54,7 @@ public:
     ///
     /// @b Async-Handler-Safety: Safe.
     /// @throws Nothing.
-    BOOST_CONSTEXPR frame() BOOST_NOEXCEPT
+    constexpr frame() noexcept
         : addr_(0)
     {}
 
@@ -75,7 +82,7 @@ public:
     ///
     /// @b Async-Handler-Safety: Safe.
     /// @throws Nothing.
-    BOOST_CONSTEXPR explicit frame(native_frame_ptr_t addr) BOOST_NOEXCEPT
+    constexpr explicit frame(native_frame_ptr_t addr) noexcept
         : addr_(addr)
     {}
 
@@ -86,7 +93,7 @@ public:
     /// @b Async-Handler-Safety: Safe.
     /// @throws Nothing.
     template <class T>
-    explicit frame(T* function_addr) BOOST_NOEXCEPT
+    explicit frame(T* function_addr) noexcept
         : addr_(boost::stacktrace::detail::void_ptr_cast<native_frame_ptr_t>(function_addr))
     {}
 
@@ -104,7 +111,7 @@ public:
     ///
     /// @b Async-Handler-Safety: Safe.
     /// @throws Nothing.
-    BOOST_CONSTEXPR native_frame_ptr_t address() const BOOST_NOEXCEPT {
+    constexpr native_frame_ptr_t address() const noexcept {
         return addr_;
     }
 
@@ -131,7 +138,7 @@ public:
     /// @b Complexity: O(1)
     ///
     /// @b Async-Handler-Safety: Safe.
-    BOOST_EXPLICIT_OPERATOR_BOOL()
+    constexpr explicit operator bool () const noexcept { return !empty(); }
 
     /// @brief Checks that frame references NULL address.
     /// @returns `true` if `this->address() == 0`
@@ -139,11 +146,7 @@ public:
     /// @b Complexity: O(1)
     ///
     /// @b Async-Handler-Safety: Safe.
-    BOOST_CONSTEXPR bool empty() const BOOST_NOEXCEPT { return !address(); }
-    
-    /// @cond
-    BOOST_CONSTEXPR bool operator!() const BOOST_NOEXCEPT { return !address(); }
-    /// @endcond
+    constexpr bool empty() const noexcept { return !address(); }
 };
 
 
@@ -153,7 +156,10 @@ namespace detail {
 
 }} // namespace boost::stacktrace
 
-
 #include <boost/stacktrace/detail/pop_options.h>
+
+BOOST_STACKTRACE_END_MODULE_EXPORT
+
+#endif // !defined(BOOST_USE_MODULES) || defined(BOOST_STACKTRACE_INTERFACE_UNIT)
 
 #endif // BOOST_STACKTRACE_DETAIL_FRAME_DECL_HPP

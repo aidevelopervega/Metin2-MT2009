@@ -14,28 +14,25 @@
 #ifndef BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_LINEAR_AREAL_HPP
 #define BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_LINEAR_AREAL_HPP
 
+#include <memory>
+
 #include <boost/core/ignore_unused.hpp>
 #include <boost/range/size.hpp>
 
-#include <boost/geometry/core/assert.hpp>
-#include <boost/geometry/core/topological_dimension.hpp>
-
-#include <boost/geometry/util/condition.hpp>
-#include <boost/geometry/util/range.hpp>
-#include <boost/geometry/util/type_traits.hpp>
-
-#include <boost/geometry/algorithms/num_interior_rings.hpp>
 #include <boost/geometry/algorithms/detail/point_on_border.hpp>
-#include <boost/geometry/algorithms/detail/sub_range.hpp>
-#include <boost/geometry/algorithms/detail/single_geometry.hpp>
-
-#include <boost/geometry/algorithms/detail/relate/point_geometry.hpp>
-#include <boost/geometry/algorithms/detail/relate/turns.hpp>
 #include <boost/geometry/algorithms/detail/relate/boundary_checker.hpp>
 #include <boost/geometry/algorithms/detail/relate/follow_helpers.hpp>
-
+#include <boost/geometry/algorithms/detail/relate/point_geometry.hpp>
+#include <boost/geometry/algorithms/detail/relate/turns.hpp>
+#include <boost/geometry/algorithms/detail/single_geometry.hpp>
+#include <boost/geometry/algorithms/detail/sub_range.hpp>
+#include <boost/geometry/algorithms/num_interior_rings.hpp>
+#include <boost/geometry/core/assert.hpp>
+#include <boost/geometry/core/topological_dimension.hpp>
 #include <boost/geometry/geometries/helper_geometry.hpp>
-
+#include <boost/geometry/util/constexpr.hpp>
+#include <boost/geometry/util/range.hpp>
+#include <boost/geometry/util/type_traits.hpp>
 #include <boost/geometry/views/detail/closed_clockwise_view.hpp>
 
 namespace boost { namespace geometry
@@ -68,26 +65,31 @@ public:
         , m_result(res)
         , m_strategy(strategy)
         , m_boundary_checker(boundary_checker)
-        , m_interrupt_flags(0)
+        , m_interrupt_flags(0x00)
     {
         if ( ! may_update<interior, interior, '1', TransposeResult>(m_result) )
         {
-            m_interrupt_flags |= 1;
+            m_interrupt_flags |= 0x01;
         }
 
         if ( ! may_update<interior, exterior, '1', TransposeResult>(m_result) )
         {
-            m_interrupt_flags |= 2;
+            m_interrupt_flags |= 0x02;
         }
 
         if ( ! may_update<boundary, interior, '0', TransposeResult>(m_result) )
         {
-            m_interrupt_flags |= 4;
+            m_interrupt_flags |= 0x04;
         }
 
         if ( ! may_update<boundary, exterior, '0', TransposeResult>(m_result) )
         {
-            m_interrupt_flags |= 8;
+            m_interrupt_flags |= 0x08;
+        }
+
+        if ( ! may_update<interior, boundary, '1', TransposeResult>(m_result) )
+        {
+            m_interrupt_flags |= 0x10;
         }
     }
 
@@ -97,7 +99,7 @@ public:
         std::size_t const count = boost::size(linestring);
 
         // invalid input
-        if ( count < 2 )
+        if ( count < 1 )
         {
             // ignore
             // TODO: throw an exception?
@@ -105,7 +107,7 @@ public:
         }
 
         // if those flags are set nothing will change
-        if ( m_interrupt_flags == 0xF )
+        if ( m_interrupt_flags == 0x1F )
         {
             return false;
         }
@@ -113,17 +115,24 @@ public:
         int const pig = detail::within::point_in_geometry(range::front(linestring),
                                                           m_geometry2,
                                                           m_strategy);
-        //BOOST_GEOMETRY_ASSERT_MSG(pig != 0, "There should be no IPs");
 
         if ( pig > 0 )
         {
             update<interior, interior, '1', TransposeResult>(m_result);
-            m_interrupt_flags |= 1;
+            m_interrupt_flags |= 0x01;
+        }
+        else if ( pig == 0 )
+        {
+            // no turns but still point on boundary can actually happen when the
+            // linestring is degenerate. so handle this case explicitly here.
+            // for consistency let's still report dimension 1 instead of 0
+            update<interior, boundary, '1', TransposeResult>(m_result);
+            m_interrupt_flags |= 0x10;
         }
         else
         {
             update<interior, exterior, '1', TransposeResult>(m_result);
-            m_interrupt_flags |= 2;
+            m_interrupt_flags |= 0x02;
         }
 
         // check if there is a boundary
@@ -134,16 +143,16 @@ public:
             if ( pig > 0 )
             {
                 update<boundary, interior, '0', TransposeResult>(m_result);
-                m_interrupt_flags |= 4;
+                m_interrupt_flags |= 0x04;
             }
             else
             {
                 update<boundary, exterior, '0', TransposeResult>(m_result);
-                m_interrupt_flags |= 8;
+                m_interrupt_flags |= 0x08;
             }
         }
 
-        return m_interrupt_flags != 0xF
+        return m_interrupt_flags != 0x1F
             && ! m_result.interrupt;
     }
 
@@ -177,7 +186,7 @@ public:
         // TODO:
         // handle empty/invalid geometries in a different way than below?
 
-        using point_type = typename geometry::point_type<Areal>::type;
+        using point_type = geometry::point_type_t<Areal>;
         typename helper_geometry<point_type>::type pt;
         bool const ok = geometry::point_on_border(pt, areal);
 
@@ -276,7 +285,7 @@ inline bool calculate_from_inside(Geometry1 const& geometry1,
 
     auto const& range1 = sub_range(geometry1, turn.operations[op_id].seg_id);
 
-    using range2_view = detail::closed_clockwise_view<typename ring_type<Geometry2>::type const>;
+    using range2_view = detail::closed_clockwise_view<ring_type_t<Geometry2> const>;
     range2_view const range2(sub_range(geometry2, turn.operations[other_op_id].seg_id));
 
     BOOST_GEOMETRY_ASSERT(boost::size(range1));
@@ -326,8 +335,9 @@ template <typename Geometry1, typename Geometry2, bool TransposeResult = false>
 struct linear_areal
 {
     // check Linear / Areal
-    BOOST_STATIC_ASSERT(topological_dimension<Geometry1>::value == 1
-                     && topological_dimension<Geometry2>::value == 2);
+    static_assert(topological_dimension<Geometry1>::value == 1
+        && topological_dimension<Geometry2>::value == 2,
+        "Specialization for linear/areal combination.");
 
     static const bool interruption_enabled = true;
 
@@ -502,7 +512,7 @@ struct linear_areal
                     }
                 }
 
-                prev_seg_id_ptr = boost::addressof(it->operations[1].seg_id);
+                prev_seg_id_ptr = std::addressof(it->operations[1].seg_id);
 
                 // find the next ring first iterator and check if the analysis should be performed
                 has_boundary_intersection has_boundary_inters;
@@ -854,30 +864,30 @@ struct linear_areal
                 m_exit_watcher.reset_detected_exit();
             }
 
-            if ( BOOST_GEOMETRY_CONDITION( util::is_multi<OtherGeometry>::value )
-              && m_first_from_unknown )
+            if BOOST_GEOMETRY_CONSTEXPR (util::is_multi<OtherGeometry>::value)
             {
-                // For MultiPolygon many x/u operations may be generated as a first IP
-                // if for all turns x/u was generated and any of the Polygons doesn't contain the LineString
-                // then we know that the LineString is outside
-                // Similar with the u/u turns, if it was the first one it doesn't mean that the
-                // Linestring came from the exterior
-                if ( ( m_previous_operation == overlay::operation_blocked
-                    && ( op != overlay::operation_blocked // operation different than block
-                        || seg_id.multi_index != m_previous_turn_ptr->operations[op_id].seg_id.multi_index ) ) // or the next single-geometry
-                  || ( m_previous_operation == overlay::operation_union
-                    && ! turn_on_the_same_ip<op_id>(*m_previous_turn_ptr, *it,
-                                                    strategy) )
-                   )
+                if (m_first_from_unknown)
                 {
-                    update<interior, exterior, '1', TransposeResult>(res);
-                    if ( m_first_from_unknown_boundary_detected )
+                    // For MultiPolygon many x/u operations may be generated as a first IP
+                    // if for all turns x/u was generated and any of the Polygons doesn't contain the LineString
+                    // then we know that the LineString is outside
+                    // Similar with the u/u turns, if it was the first one it doesn't mean that the
+                    // Linestring came from the exterior
+                    if ((m_previous_operation == overlay::operation_blocked
+                        && (op != overlay::operation_blocked // operation different than block
+                            || seg_id.multi_index != m_previous_turn_ptr->operations[op_id].seg_id.multi_index)) // or the next single-geometry
+                     || (m_previous_operation == overlay::operation_union
+                        && ! turn_on_the_same_ip<op_id>(*m_previous_turn_ptr, *it, strategy)))
                     {
-                        update<boundary, exterior, '0', TransposeResult>(res);
-                    }
+                        update<interior, exterior, '1', TransposeResult>(res);
+                        if ( m_first_from_unknown_boundary_detected )
+                        {
+                            update<boundary, exterior, '0', TransposeResult>(res);
+                        }
 
-                    m_first_from_unknown = false;
-                    m_first_from_unknown_boundary_detected = false;
+                        m_first_from_unknown = false;
+                        m_first_from_unknown_boundary_detected = false;
+                    }
                 }
             }
 
@@ -976,7 +986,7 @@ struct linear_areal
                             // don't update now
                             // we might enter a boundary of some other ring on the same IP
                             m_interior_detected = true;
-                            m_first_interior_other_id_ptr = boost::addressof(other_id);
+                            m_first_interior_other_id_ptr = std::addressof(other_id);
                         }
                     }
                 }
@@ -1037,7 +1047,7 @@ struct linear_areal
                     }
                 }
 
-                if ( BOOST_GEOMETRY_CONDITION( util::is_multi<OtherGeometry>::value ) )
+                if BOOST_GEOMETRY_CONSTEXPR (util::is_multi<OtherGeometry>::value)
                 {
                     m_first_from_unknown = false;
                     m_first_from_unknown_boundary_detected = false;
@@ -1123,9 +1133,9 @@ struct linear_areal
                         }
                         else
                         {
-                            if ( BOOST_GEOMETRY_CONDITION( util::is_multi<OtherGeometry>::value )
+                            if BOOST_GEOMETRY_CONSTEXPR (util::is_multi<OtherGeometry>::value)
                               /*&& ( op == overlay::operation_blocked
-                                || op == overlay::operation_union )*/ ) // if we're here it's u or x
+                                || op == overlay::operation_union )*/ // if we're here it's u or x
                             {
                                 m_first_from_unknown = true;
                             }
@@ -1150,9 +1160,9 @@ struct linear_areal
                                 }
                                 else
                                 {
-                                    if ( BOOST_GEOMETRY_CONDITION( util::is_multi<OtherGeometry>::value )
+                                    if BOOST_GEOMETRY_CONSTEXPR (util::is_multi<OtherGeometry>::value)
                                       /*&& ( op == overlay::operation_blocked
-                                        || op == overlay::operation_union )*/ ) // if we're here it's u or x
+                                        || op == overlay::operation_union )*/ // if we're here it's u or x
                                     {
                                         BOOST_GEOMETRY_ASSERT(m_first_from_unknown);
                                         m_first_from_unknown_boundary_detected = true;
@@ -1177,7 +1187,7 @@ struct linear_areal
             }
 
             // store ref to previously analysed (valid) turn
-            m_previous_turn_ptr = boost::addressof(*it);
+            m_previous_turn_ptr = std::addressof(*it);
             // and previously analysed (valid) operation
             m_previous_operation = op;
         }
@@ -1200,18 +1210,20 @@ struct linear_areal
             // For MultiPolygon many x/u operations may be generated as a first IP
             // if for all turns x/u was generated and any of the Polygons doesn't contain the LineString
             // then we know that the LineString is outside
-            if ( BOOST_GEOMETRY_CONDITION( util::is_multi<OtherGeometry>::value )
-              && m_first_from_unknown )
+            if BOOST_GEOMETRY_CONSTEXPR (util::is_multi<OtherGeometry>::value)
             {
-                update<interior, exterior, '1', TransposeResult>(res);
-                if ( m_first_from_unknown_boundary_detected )
+                if (m_first_from_unknown)
                 {
-                    update<boundary, exterior, '0', TransposeResult>(res);
-                }
+                    update<interior, exterior, '1', TransposeResult>(res);
+                    if ( m_first_from_unknown_boundary_detected )
+                    {
+                        update<boundary, exterior, '0', TransposeResult>(res);
+                    }
 
-                // done below
-                //m_first_from_unknown = false;
-                //m_first_from_unknown_boundary_detected = false;
+                    // done below
+                    //m_first_from_unknown = false;
+                    //m_first_from_unknown_boundary_detected = false;
+                }
             }
 
             // here, the possible exit is the real one
@@ -1444,7 +1456,7 @@ struct linear_areal
                 if ( op == overlay::operation_union )
                 {
                     is_union_detected = true;
-                    m_previous_turn_ptr = boost::addressof(*it);
+                    m_previous_turn_ptr = std::addressof(*it);
                 }
 
                 return true;

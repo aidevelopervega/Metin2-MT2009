@@ -2,7 +2,7 @@
 // detail/impl/winrt_ssocket_service_base.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -28,6 +28,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 winrt_ssocket_service_base::winrt_ssocket_service_base(
@@ -67,7 +68,7 @@ void winrt_ssocket_service_base::construct(
 void winrt_ssocket_service_base::base_move_construct(
     winrt_ssocket_service_base::base_implementation_type& impl,
     winrt_ssocket_service_base::base_implementation_type& other_impl)
-  BOOST_ASIO_NOEXCEPT
+  noexcept
 {
   impl.socket_ = other_impl.socket_;
   other_impl.socket_ = nullptr;
@@ -618,6 +619,7 @@ void winrt_ssocket_service_base::start_receive_op(
 }
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

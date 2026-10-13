@@ -10,6 +10,7 @@
 #ifndef BOOST_URL_DETAIL_PRINT_HPP
 #define BOOST_URL_DETAIL_PRINT_HPP
 
+#include <boost/core/detail/string_view.hpp>
 #include <cstdint>
 #include <type_traits>
 

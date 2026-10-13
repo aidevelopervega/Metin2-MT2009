@@ -2,7 +2,7 @@
 // detail/io_uring_descriptor_service.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -40,6 +40,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 class io_uring_descriptor_service :
@@ -86,7 +87,7 @@ public:
 
   // Move-construct a new descriptor implementation.
   BOOST_ASIO_DECL void move_construct(implementation_type& impl,
-      implementation_type& other_impl) BOOST_ASIO_NOEXCEPT;
+      implementation_type& other_impl) noexcept;
 
   // Move-assign from another descriptor implementation.
   BOOST_ASIO_DECL void move_assign(implementation_type& impl,
@@ -208,9 +209,9 @@ public:
       Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     int op_type;
@@ -303,9 +304,9 @@ public:
       const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -339,9 +340,9 @@ public:
       const null_buffers&, Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -408,9 +409,9 @@ public:
       const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -493,9 +494,9 @@ public:
       Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -529,9 +530,9 @@ public:
       const null_buffers&, Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -595,9 +596,9 @@ public:
       Handler& handler, const IoExecutor& io_ex)
   {
     bool is_continuation =
-      boost_asio_handler_cont_helpers::is_continuation(handler);
+      BOOST_ASIO_VERSIONED_NAME(handler_cont_helpers)::is_continuation(handler);
 
-    typename associated_cancellation_slot<Handler>::type slot
+    associated_cancellation_slot_t<Handler> slot
       = boost::asio::get_associated_cancellation_slot(handler);
 
     // Allocate and construct an operation to wrap the handler.
@@ -675,6 +676,7 @@ private:
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

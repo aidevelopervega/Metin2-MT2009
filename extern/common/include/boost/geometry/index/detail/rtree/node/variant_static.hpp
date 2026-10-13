@@ -15,8 +15,14 @@
 #ifndef BOOST_GEOMETRY_INDEX_DETAIL_RTREE_NODE_VARIANT_STATIC_HPP
 #define BOOST_GEOMETRY_INDEX_DETAIL_RTREE_NODE_VARIANT_STATIC_HPP
 
+#include <utility>
+#include <boost/container/allocator_traits.hpp>
+#include <boost/container/static_vector.hpp>
+#include <boost/core/invoke_swap.hpp>
+#include <boost/variant/static_visitor.hpp>
+#include <boost/variant/variant.hpp>
+
 #include <boost/geometry/index/detail/rtree/node/variant_dynamic.hpp>
-#include <boost/geometry/index/detail/varray.hpp>
 
 namespace boost { namespace geometry { namespace index {
 
@@ -27,10 +33,10 @@ namespace detail { namespace rtree {
 template <typename Value, typename Parameters, typename Box, typename Allocators>
 struct variant_internal_node<Value, Parameters, Box, Allocators, node_variant_static_tag>
 {
-    typedef detail::varray<
+    using elements_type = boost::container::static_vector<
         rtree::ptr_pair<Box, typename Allocators::node_pointer>,
         Parameters::max_elements + 1
-    > elements_type;
+    >;
 
     template <typename Alloc>
     inline variant_internal_node(Alloc const&) {}
@@ -41,10 +47,10 @@ struct variant_internal_node<Value, Parameters, Box, Allocators, node_variant_st
 template <typename Value, typename Parameters, typename Box, typename Allocators>
 struct variant_leaf<Value, Parameters, Box, Allocators, node_variant_static_tag>
 {
-    typedef detail::varray<
+    using elements_type = boost::container::static_vector<
         Value,
         Parameters::max_elements + 1
-    > elements_type;
+    >;
 
     template <typename Alloc>
     inline variant_leaf(Alloc const&) {}
@@ -146,7 +152,7 @@ public:
 
     void swap(allocators & a)
     {
-        boost::swap(node_allocator(), a.node_allocator());
+        boost::core::invoke_swap(node_allocator(), a.node_allocator());
     }
 
     bool operator==(allocators const& a) const { return node_allocator() == a.node_allocator(); }

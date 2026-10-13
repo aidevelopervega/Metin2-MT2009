@@ -2,7 +2,7 @@
 // ip/address_v4_iterator.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -22,6 +22,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace ip {
 
 template <typename> class basic_address_iterator;
@@ -54,65 +55,59 @@ public:
   typedef std::input_iterator_tag iterator_category;
 
   /// Construct an iterator that points to the specified address.
-  basic_address_iterator(const address_v4& addr) BOOST_ASIO_NOEXCEPT
+  basic_address_iterator(const address_v4& addr) noexcept
     : address_(addr)
   {
   }
 
   /// Copy constructor.
-  basic_address_iterator(
-      const basic_address_iterator& other) BOOST_ASIO_NOEXCEPT
+  basic_address_iterator(const basic_address_iterator& other) noexcept
     : address_(other.address_)
   {
   }
 
-#if defined(BOOST_ASIO_HAS_MOVE)
   /// Move constructor.
-  basic_address_iterator(basic_address_iterator&& other) BOOST_ASIO_NOEXCEPT
-    : address_(BOOST_ASIO_MOVE_CAST(address_v4)(other.address_))
+  basic_address_iterator(basic_address_iterator&& other) noexcept
+    : address_(static_cast<address_v4&&>(other.address_))
   {
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE)
 
   /// Assignment operator.
   basic_address_iterator& operator=(
-      const basic_address_iterator& other) BOOST_ASIO_NOEXCEPT
+      const basic_address_iterator& other) noexcept
   {
     address_ = other.address_;
     return *this;
   }
 
-#if defined(BOOST_ASIO_HAS_MOVE)
   /// Move assignment operator.
-  basic_address_iterator& operator=(
-      basic_address_iterator&& other) BOOST_ASIO_NOEXCEPT
+  basic_address_iterator& operator=(basic_address_iterator&& other) noexcept
   {
-    address_ = BOOST_ASIO_MOVE_CAST(address_v4)(other.address_);
+    address_ = static_cast<address_v4&&>(other.address_);
     return *this;
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE)
 
   /// Dereference the iterator.
-  const address_v4& operator*() const BOOST_ASIO_NOEXCEPT
+  const address_v4& operator*() const noexcept
   {
     return address_;
   }
 
   /// Dereference the iterator.
-  const address_v4* operator->() const BOOST_ASIO_NOEXCEPT
+  const address_v4* operator->() const noexcept
   {
     return &address_;
   }
 
   /// Pre-increment operator.
-  basic_address_iterator& operator++() BOOST_ASIO_NOEXCEPT
+  basic_address_iterator& operator++() noexcept
   {
     address_ = address_v4((address_.to_uint() + 1) & 0xFFFFFFFF);
     return *this;
   }
 
   /// Post-increment operator.
-  basic_address_iterator operator++(int) BOOST_ASIO_NOEXCEPT
+  basic_address_iterator operator++(int) noexcept
   {
     basic_address_iterator tmp(*this);
     ++*this;
@@ -120,7 +115,7 @@ public:
   }
 
   /// Pre-decrement operator.
-  basic_address_iterator& operator--() BOOST_ASIO_NOEXCEPT
+  basic_address_iterator& operator--() noexcept
   {
     address_ = address_v4((address_.to_uint() - 1) & 0xFFFFFFFF);
     return *this;
@@ -156,6 +151,7 @@ private:
 typedef basic_address_iterator<address_v4> address_v4_iterator;
 
 } // namespace ip
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

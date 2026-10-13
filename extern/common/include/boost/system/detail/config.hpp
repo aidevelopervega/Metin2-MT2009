@@ -8,26 +8,19 @@
 //
 // See http://www.boost.org/libs/system for documentation.
 
-#include <boost/system/detail/requires_cxx11.hpp>
 #include <boost/config.hpp>
 #include <boost/config/workaround.hpp>
 
-// BOOST_SYSTEM_HAS_SYSTEM_ERROR
-//
 // The macro BOOST_SYSTEM_DISABLE_THREADS can be defined on configurations
 // that provide <system_error> and <atomic>, but not <mutex>, such as the
 // single-threaded libstdc++.
 //
 // https://github.com/boostorg/system/issues/92
 
-#if !defined(BOOST_NO_CXX11_HDR_SYSTEM_ERROR) && !defined(BOOST_NO_CXX11_HDR_ATOMIC) && ( !defined(BOOST_NO_CXX11_HDR_MUTEX) || defined(BOOST_SYSTEM_DISABLE_THREADS) )
-# define BOOST_SYSTEM_HAS_SYSTEM_ERROR
-#endif
-
 // BOOST_SYSTEM_NOEXCEPT
 // Retained for backward compatibility
 
-#define BOOST_SYSTEM_NOEXCEPT BOOST_NOEXCEPT
+#define BOOST_SYSTEM_NOEXCEPT noexcept
 
 // BOOST_SYSTEM_HAS_CONSTEXPR
 
@@ -43,6 +36,22 @@
 # define BOOST_SYSTEM_CONSTEXPR constexpr
 #else
 # define BOOST_SYSTEM_CONSTEXPR
+#endif
+
+// BOOST_SYSTEM_HAS_CXX20_CONSTEXPR
+
+#if defined(__cpp_constexpr) && __cpp_constexpr >= 201907L
+# define BOOST_SYSTEM_HAS_CXX20_CONSTEXPR
+#endif
+
+#if BOOST_WORKAROUND(BOOST_CLANG_VERSION, < 110000)
+# undef BOOST_SYSTEM_HAS_CXX20_CONSTEXPR
+#endif
+
+#if defined(BOOST_SYSTEM_HAS_CXX20_CONSTEXPR)
+# define BOOST_SYSTEM_CXX20_CONSTEXPR constexpr
+#else
+# define BOOST_SYSTEM_CXX20_CONSTEXPR
 #endif
 
 // BOOST_SYSTEM_DEPRECATED

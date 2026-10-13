@@ -1,5 +1,5 @@
 // Copyright 2014 Renato Tegon Forti, Antony Polukhin.
-// Copyright Antony Polukhin, 2015-2023.
+// Copyright Antony Polukhin, 2015-2026.
 //
 // Distributed under the Boost Software License, Version 1.0.
 // (See accompanying file LICENSE_1_0.txt
@@ -13,8 +13,9 @@
 #   pragma once
 #endif
 
-#include <boost/static_assert.hpp>
-#include <boost/type_traits/is_pointer.hpp>
+#if !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
+#include <type_traits>
+#endif // !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
 
 #if defined(__GNUC__) && defined(__GNUC_MINOR__) && (__GNUC__ * 100 + __GNUC_MINOR__ > 301)
 #   pragma GCC system_header
@@ -23,15 +24,15 @@
 namespace boost { namespace stacktrace { namespace detail {
 
 // GCC warns when reinterpret_cast between function pointer and object pointer occur.
-// This functionsuppress the warnings and ensures that such casts are safe.
+// This function suppress the warnings and ensures that such casts are safe.
 template <class To, class From>
-To void_ptr_cast(From* v) BOOST_NOEXCEPT {
-    BOOST_STATIC_ASSERT_MSG(
-        boost::is_pointer<To>::value,
+To void_ptr_cast(From* v) noexcept {
+    static_assert(
+        std::is_pointer<To>::value,
         "`void_ptr_cast` function must be used only for casting to or from void pointers."
     );
 
-    BOOST_STATIC_ASSERT_MSG(
+    static_assert(
         sizeof(From*) == sizeof(To),
         "Pointer to function and pointer to object differ in size on your platform."
     );

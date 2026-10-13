@@ -2,7 +2,7 @@
 // impl/system_executor.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -24,11 +24,12 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 
 template <typename Blocking, typename Relationship, typename Allocator>
 inline system_context&
 basic_system_executor<Blocking, Relationship, Allocator>::query(
-    execution::context_t) BOOST_ASIO_NOEXCEPT
+    execution::context_t) noexcept
 {
   return detail::global<system_context>();
 }
@@ -36,7 +37,7 @@ basic_system_executor<Blocking, Relationship, Allocator>::query(
 template <typename Blocking, typename Relationship, typename Allocator>
 inline std::size_t
 basic_system_executor<Blocking, Relationship, Allocator>::query(
-    execution::occupancy_t) const BOOST_ASIO_NOEXCEPT
+    execution::occupancy_t) const noexcept
 {
   return detail::global<system_context>().num_threads_;
 }
@@ -45,7 +46,7 @@ template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function>
 inline void
 basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
-    BOOST_ASIO_MOVE_ARG(Function) f, execution::blocking_t::possibly_t) const
+    Function&& f, execution::blocking_t::possibly_t) const
 {
   // Obtain a non-const instance of the function.
   detail::non_const_lvalue<Function> f2(f);
@@ -55,7 +56,7 @@ basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
   {
 #endif// !defined(BOOST_ASIO_NO_EXCEPTIONS)
     detail::fenced_block b(detail::fenced_block::full);
-    boost_asio_handler_invoke_helpers::invoke(f2.value, f2.value);
+    static_cast<decay_t<Function>&&>(f2.value)();
 #if !defined(BOOST_ASIO_NO_EXCEPTIONS)
   }
   catch (...)
@@ -69,7 +70,7 @@ template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function>
 inline void
 basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
-    BOOST_ASIO_MOVE_ARG(Function) f, execution::blocking_t::always_t) const
+    Function&& f, execution::blocking_t::always_t) const
 {
   // Obtain a non-const instance of the function.
   detail::non_const_lvalue<Function> f2(f);
@@ -79,7 +80,7 @@ basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
   {
 #endif// !defined(BOOST_ASIO_NO_EXCEPTIONS)
     detail::fenced_block b(detail::fenced_block::full);
-    boost_asio_handler_invoke_helpers::invoke(f2.value, f2.value);
+    static_cast<decay_t<Function>&&>(f2.value)();
 #if !defined(BOOST_ASIO_NO_EXCEPTIONS)
   }
   catch (...)
@@ -92,16 +93,15 @@ basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
 template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function>
 void basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
-    BOOST_ASIO_MOVE_ARG(Function) f, execution::blocking_t::never_t) const
+    Function&& f, execution::blocking_t::never_t) const
 {
   system_context& ctx = detail::global<system_context>();
 
   // Allocate and construct an operation to wrap the function.
-  typedef typename decay<Function>::type function_type;
-  typedef detail::executor_op<function_type, Allocator> op;
+  typedef detail::executor_op<decay_t<Function>, Allocator> op;
   typename op::ptr p = { detail::addressof(allocator_),
       op::ptr::allocate(allocator_), 0 };
-  p.p = new (p.v) op(BOOST_ASIO_MOVE_CAST(Function)(f), allocator_);
+  p.p = new (p.v) op(static_cast<Function&&>(f), allocator_);
 
   if (is_same<Relationship, execution::relationship_t::continuation_t>::value)
   {
@@ -122,7 +122,7 @@ void basic_system_executor<Blocking, Relationship, Allocator>::do_execute(
 #if !defined(BOOST_ASIO_NO_TS_EXECUTORS)
 template <typename Blocking, typename Relationship, typename Allocator>
 inline system_context& basic_system_executor<
-    Blocking, Relationship, Allocator>::context() const BOOST_ASIO_NOEXCEPT
+    Blocking, Relationship, Allocator>::context() const noexcept
 {
   return detail::global<system_context>();
 }
@@ -130,25 +130,22 @@ inline system_context& basic_system_executor<
 template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function, typename OtherAllocator>
 void basic_system_executor<Blocking, Relationship, Allocator>::dispatch(
-    BOOST_ASIO_MOVE_ARG(Function) f, const OtherAllocator&) const
+    Function&& f, const OtherAllocator&) const
 {
-  typename decay<Function>::type tmp(BOOST_ASIO_MOVE_CAST(Function)(f));
-  boost_asio_handler_invoke_helpers::invoke(tmp, tmp);
+  decay_t<Function>(static_cast<Function&&>(f))();
 }
 
 template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function, typename OtherAllocator>
 void basic_system_executor<Blocking, Relationship, Allocator>::post(
-    BOOST_ASIO_MOVE_ARG(Function) f, const OtherAllocator& a) const
+    Function&& f, const OtherAllocator& a) const
 {
-  typedef typename decay<Function>::type function_type;
-
   system_context& ctx = detail::global<system_context>();
 
   // Allocate and construct an operation to wrap the function.
-  typedef detail::executor_op<function_type, OtherAllocator> op;
+  typedef detail::executor_op<decay_t<Function>, OtherAllocator> op;
   typename op::ptr p = { detail::addressof(a), op::ptr::allocate(a), 0 };
-  p.p = new (p.v) op(BOOST_ASIO_MOVE_CAST(Function)(f), a);
+  p.p = new (p.v) op(static_cast<Function&&>(f), a);
 
   BOOST_ASIO_HANDLER_CREATION((ctx, *p.p,
         "system_executor", &this->context(), 0, "post"));
@@ -160,16 +157,14 @@ void basic_system_executor<Blocking, Relationship, Allocator>::post(
 template <typename Blocking, typename Relationship, typename Allocator>
 template <typename Function, typename OtherAllocator>
 void basic_system_executor<Blocking, Relationship, Allocator>::defer(
-    BOOST_ASIO_MOVE_ARG(Function) f, const OtherAllocator& a) const
+    Function&& f, const OtherAllocator& a) const
 {
-  typedef typename decay<Function>::type function_type;
-
   system_context& ctx = detail::global<system_context>();
 
   // Allocate and construct an operation to wrap the function.
-  typedef detail::executor_op<function_type, OtherAllocator> op;
+  typedef detail::executor_op<decay_t<Function>, OtherAllocator> op;
   typename op::ptr p = { detail::addressof(a), op::ptr::allocate(a), 0 };
-  p.p = new (p.v) op(BOOST_ASIO_MOVE_CAST(Function)(f), a);
+  p.p = new (p.v) op(static_cast<Function&&>(f), a);
 
   BOOST_ASIO_HANDLER_CREATION((ctx, *p.p,
         "system_executor", &this->context(), 0, "defer"));
@@ -179,6 +174,7 @@ void basic_system_executor<Blocking, Relationship, Allocator>::defer(
 }
 #endif // !defined(BOOST_ASIO_NO_TS_EXECUTORS)
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

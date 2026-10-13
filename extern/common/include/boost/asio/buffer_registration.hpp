@@ -2,7 +2,7 @@
 // buffer_registration.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -17,6 +17,7 @@
 
 #include <boost/asio/detail/config.hpp>
 #include <iterator>
+#include <utility>
 #include <vector>
 #include <boost/asio/detail/memory.hpp>
 #include <boost/asio/execution/context.hpp>
@@ -31,21 +32,29 @@
 # include <boost/asio/detail/io_uring_service.hpp>
 #endif // defined(BOOST_ASIO_HAS_IO_URING)
 
-#if defined(BOOST_ASIO_HAS_MOVE)
-# include <utility>
-#endif // defined(BOOST_ASIO_HAS_MOVE)
-
 #include <boost/asio/detail/push_options.hpp>
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
+
+#if !defined(BOOST_ASIO_BUFFER_REGISTRATION_FWD_DECL)
+#define BOOST_ASIO_BUFFER_REGISTRATION_FWD_DECL
+
+// Forward declaration with defaulted arguments.
+template <typename MutableBufferSequence,
+    typename Allocator = std::allocator<void>>
+class buffer_registration;
+
+#endif // !defined(BOOST_ASIO_BUFFER_REGISTRATION_FWD_DECL)
+
 namespace detail {
 
 class buffer_registration_base
 {
 protected:
   static mutable_registered_buffer make_buffer(const mutable_buffer& b,
-      const void* scope, int index) BOOST_ASIO_NOEXCEPT
+      const void* scope, int index) noexcept
   {
     return mutable_registered_buffer(b, registered_buffer_id(scope, index));
   }
@@ -58,8 +67,7 @@ protected:
  * For portability, applications should assume that only one registration is
  * permitted per execution context.
  */
-template <typename MutableBufferSequence,
-    typename Allocator = std::allocator<void> >
+template <typename MutableBufferSequence, typename Allocator>
 class buffer_registration
   : detail::buffer_registration_base
 {
@@ -83,9 +91,9 @@ public:
   buffer_registration(const Executor& ex,
       const MutableBufferSequence& buffer_sequence,
       const allocator_type& alloc = allocator_type(),
-      typename constraint<
+      constraint_t<
         is_executor<Executor>::value || execution::is_executor<Executor>::value
-      >::type = 0)
+      > = 0)
     : buffer_sequence_(buffer_sequence),
       buffers_(
           BOOST_ASIO_REBIND_ALLOC(allocator_type,
@@ -101,9 +109,9 @@ public:
   buffer_registration(ExecutionContext& ctx,
       const MutableBufferSequence& buffer_sequence,
       const allocator_type& alloc = allocator_type(),
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value
-      >::type = 0)
+      > = 0)
     : buffer_sequence_(buffer_sequence),
       buffers_(
           BOOST_ASIO_REBIND_ALLOC(allocator_type,
@@ -114,9 +122,8 @@ public:
         boost::asio::buffer_sequence_end(buffer_sequence_));
   }
 
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
   /// Move constructor.
-  buffer_registration(buffer_registration&& other) BOOST_ASIO_NOEXCEPT
+  buffer_registration(buffer_registration&& other) noexcept
     : buffer_sequence_(std::move(other.buffer_sequence_)),
       buffers_(std::move(other.buffers_))
   {
@@ -125,7 +132,6 @@ public:
     other.service_ = 0;
 #endif // defined(BOOST_ASIO_HAS_IO_URING)
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 
   /// Unregisters the buffers.
   ~buffer_registration()
@@ -135,11 +141,9 @@ public:
       service_->unregister_buffers();
 #endif // defined(BOOST_ASIO_HAS_IO_URING)
   }
-  
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
+
   /// Move assignment.
-  buffer_registration& operator=(
-      buffer_registration&& other) BOOST_ASIO_NOEXCEPT
+  buffer_registration& operator=(buffer_registration&& other) noexcept
   {
     if (this != &other)
     {
@@ -154,59 +158,58 @@ public:
     }
     return *this;
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 
   /// Get the number of registered buffers.
-  std::size_t size() const BOOST_ASIO_NOEXCEPT
+  std::size_t size() const noexcept
   {
     return buffers_.size();
   }
 
   /// Get the begin iterator for the sequence of registered buffers.
-  const_iterator begin() const BOOST_ASIO_NOEXCEPT
+  const_iterator begin() const noexcept
   {
     return buffers_.begin();
   }
 
   /// Get the begin iterator for the sequence of registered buffers.
-  const_iterator cbegin() const BOOST_ASIO_NOEXCEPT
+  const_iterator cbegin() const noexcept
   {
     return buffers_.cbegin();
   }
 
   /// Get the end iterator for the sequence of registered buffers.
-  const_iterator end() const BOOST_ASIO_NOEXCEPT
+  const_iterator end() const noexcept
   {
     return buffers_.end();
   }
 
   /// Get the end iterator for the sequence of registered buffers.
-  const_iterator cend() const BOOST_ASIO_NOEXCEPT
+  const_iterator cend() const noexcept
   {
     return buffers_.cend();
   }
 
   /// Get the buffer at the specified index.
-  const mutable_registered_buffer& operator[](std::size_t i) BOOST_ASIO_NOEXCEPT
+  const mutable_registered_buffer& operator[](std::size_t i) noexcept
   {
     return buffers_[i];
   }
 
   /// Get the buffer at the specified index.
-  const mutable_registered_buffer& at(std::size_t i) BOOST_ASIO_NOEXCEPT
+  const mutable_registered_buffer& at(std::size_t i) noexcept
   {
     return buffers_.at(i);
   }
 
 private:
   // Disallow copying and assignment.
-  buffer_registration(const buffer_registration&) BOOST_ASIO_DELETED;
-  buffer_registration& operator=(const buffer_registration&) BOOST_ASIO_DELETED;
+  buffer_registration(const buffer_registration&) = delete;
+  buffer_registration& operator=(const buffer_registration&) = delete;
 
   // Helper function to get an executor's context.
   template <typename T>
   static execution_context& get_context(const T& t,
-      typename enable_if<execution::is_executor<T>::value>::type* = 0)
+      enable_if_t<execution::is_executor<T>::value>* = 0)
   {
     return boost::asio::query(t, execution::context);
   }
@@ -214,7 +217,7 @@ private:
   // Helper function to get an executor's context.
   template <typename T>
   static execution_context& get_context(const T& t,
-      typename enable_if<!execution::is_executor<T>::value>::type* = 0)
+      enable_if_t<!execution::is_executor<T>::value>* = 0)
   {
     return t.context();
   }
@@ -265,16 +268,15 @@ private:
 #endif // defined(BOOST_ASIO_HAS_IO_URING)
 };
 
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 /// Register buffers with an execution context.
 template <typename Executor, typename MutableBufferSequence>
 BOOST_ASIO_NODISCARD inline
 buffer_registration<MutableBufferSequence>
 register_buffers(const Executor& ex,
     const MutableBufferSequence& buffer_sequence,
-    typename constraint<
+    constraint_t<
       is_executor<Executor>::value || execution::is_executor<Executor>::value
-    >::type = 0)
+    > = 0)
 {
   return buffer_registration<MutableBufferSequence>(ex, buffer_sequence);
 }
@@ -285,9 +287,9 @@ BOOST_ASIO_NODISCARD inline
 buffer_registration<MutableBufferSequence, Allocator>
 register_buffers(const Executor& ex,
     const MutableBufferSequence& buffer_sequence, const Allocator& alloc,
-    typename constraint<
+    constraint_t<
       is_executor<Executor>::value || execution::is_executor<Executor>::value
-    >::type = 0)
+    > = 0)
 {
   return buffer_registration<MutableBufferSequence, Allocator>(
       ex, buffer_sequence, alloc);
@@ -299,9 +301,9 @@ BOOST_ASIO_NODISCARD inline
 buffer_registration<MutableBufferSequence>
 register_buffers(ExecutionContext& ctx,
     const MutableBufferSequence& buffer_sequence,
-    typename constraint<
+    constraint_t<
       is_convertible<ExecutionContext&, execution_context&>::value
-    >::type = 0)
+    > = 0)
 {
   return buffer_registration<MutableBufferSequence>(ctx, buffer_sequence);
 }
@@ -313,15 +315,15 @@ BOOST_ASIO_NODISCARD inline
 buffer_registration<MutableBufferSequence, Allocator>
 register_buffers(ExecutionContext& ctx,
     const MutableBufferSequence& buffer_sequence, const Allocator& alloc,
-    typename constraint<
+    constraint_t<
       is_convertible<ExecutionContext&, execution_context&>::value
-    >::type = 0)
+    > = 0)
 {
   return buffer_registration<MutableBufferSequence, Allocator>(
       ctx, buffer_sequence, alloc);
 }
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

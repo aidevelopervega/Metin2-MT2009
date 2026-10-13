@@ -206,6 +206,40 @@ shrink_to_fit()
 
 //----------------------------------------------------------
 //
+// Access
+//
+//----------------------------------------------------------
+
+system::result<char&>
+string::try_at(std::size_t pos) noexcept
+{
+    if( pos < size() )
+        return impl_.data()[pos];
+
+    system::error_code ec;
+    BOOST_JSON_FAIL(ec, error::out_of_range);
+    return ec;
+}
+
+system::result<char const&>
+string::try_at(std::size_t pos) const noexcept
+{
+    if( pos < size() )
+        return impl_.data()[pos];
+
+    system::error_code ec;
+    BOOST_JSON_FAIL(ec, error::out_of_range);
+    return ec;
+}
+
+char const&
+string::at(std::size_t pos, source_location const& loc) const
+{
+    return try_at(pos).value(loc);
+}
+
+//----------------------------------------------------------
+//
 // Operations
 //
 //----------------------------------------------------------
@@ -250,9 +284,22 @@ string&
 string::
 append(string_view sv)
 {
-    std::char_traits<char>::copy(
-        impl_.append(sv.size(), sp_),
-        sv.data(), sv.size());
+    auto const p = impl_.data();
+    if(detail::ptr_in_range(p, p + impl_.size(), sv.data()))
+    {
+        // sv aliases our own storage; appending may reallocate and free the
+        // buffer sv points into, so copy from the relocated offset afterwards
+        auto const offset = sv.data() - p;
+        auto const dest = impl_.append(sv.size(), sp_);
+        std::char_traits<char>::copy(
+            dest, impl_.data() + offset, sv.size());
+    }
+    else
+    {
+        std::char_traits<char>::copy(
+            impl_.append(sv.size(), sp_),
+            sv.data(), sv.size());
+    }
     return *this;
 }
 

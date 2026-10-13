@@ -19,7 +19,7 @@
 #include <boost/static_assert.hpp>
 #include <boost/assert.hpp>
 #include <boost/type_traits/is_same.hpp>
-#include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/throw_exception.hpp>
 #include <algorithm>
 #include <string>
@@ -74,9 +74,9 @@ namespace boost { namespace property_tree
     /// If instantiated with std::string and id_translator\<std::string\>,
     /// it accepts paths of the form "one.two.three.four".
     ///
-    /// @tparam String Any Sequence. If the sequence does not support random-
-    ///                access iteration, concatenation of paths assumes that
-    ///                insertions at the end preserve iterator validity.
+    /// @tparam String Any Sequence. If the sequence does not support
+    ///                random-access iteration, concatenation of paths assumes
+    ///                that insertions at the end preserve iterator validity.
     /// @tparam Translator A translator with internal_type == String.
     template <typename String, typename Translator>
     class string_path
@@ -98,8 +98,8 @@ namespace boost { namespace property_tree
         string_path(const String &value, char_type separator = char_type('.'),
                     Translator tr = Translator());
         /// Create a path by parsing the given string.
-        /// @param value A zero-terminated array of values. Only use if zero-
-        ///              termination makes sense for your type, and your
+        /// @param value A zero-terminated array of values. Only use if
+        ///              zero-termination makes sense for your type, and your
         ///              sequence supports construction from it. Intended for
         ///              string literals.
         /// @param separator The separator used in parsing. Defaults to '.'.
@@ -127,6 +127,13 @@ namespace boost { namespace property_tree
 
         std::string dump() const {
             return detail::dump_sequence(m_value);
+        }
+
+        /// Concatenates two path components
+        friend string_path operator /(string_path p1, const string_path &p2)
+        {
+            p1 /= p2;
+            return p1;
         }
 
         /// Append a second path to this one.
@@ -243,36 +250,6 @@ namespace boost { namespace property_tree
         typedef std::basic_string<Ch, Traits, Alloc> _string;
         typedef string_path< _string, id_translator<_string> > type;
     };
-
-    template <typename String, typename Translator> inline
-    string_path<String, Translator> operator /(
-                                  string_path<String, Translator> p1,
-                                  const string_path<String, Translator> &p2)
-    {
-        p1 /= p2;
-        return p1;
-    }
-
-    // These shouldn't be necessary, but GCC won't find the one above.
-    template <typename String, typename Translator> inline
-    string_path<String, Translator> operator /(
-                                  string_path<String, Translator> p1,
-                                  const typename String::value_type *p2)
-    {
-        p1 /= p2;
-        return p1;
-    }
-
-    template <typename String, typename Translator> inline
-    string_path<String, Translator> operator /(
-                                  const typename String::value_type *p1,
-                                  const string_path<String, Translator> &p2)
-    {
-        string_path<String, Translator> t(p1);
-        t /= p2;
-        return t;
-    }
-
 }}
 
 #endif

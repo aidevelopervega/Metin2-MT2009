@@ -12,35 +12,67 @@
 
 #include <boost/json/detail/config.hpp>
 #include <boost/json/value.hpp>
-#include <type_traits>
 #include <utility>
 
 namespace boost {
 namespace json {
 
-/** Invoke a function object with the contents of a @ref value
+/** Invoke a function object with the contents of a @ref value.
 
-    @return The value returned by Visitor.
+    Invokes `v` as if by `std::forward<Visitor>(v)( X )`, where `X` is
+    a `const` **(2)** or mutable **(1)** lvalue reference, or an rvalue
+    reference **(3)** to
 
-    @param v The visitation function to invoke
+    @li the underlying stored value, if `jv.kind()` is not equal to
+        @ref json::kind::null; or
+    @li an object of type @ref std::nullptr_t.
 
+    @returns The result of calling `v`.
+
+    @param v The visitation function to invoke.
     @param jv The value to visit.
+
+    @{
 */
-/** @{ */
 template<class Visitor>
 auto
 visit(
     Visitor&& v,
-    value& jv) -> decltype(
-        std::declval<Visitor>()(nullptr));
+    value& jv)
+#ifndef BOOST_JSON_DOCS
+        -> decltype(
+                static_cast<Visitor&&>(v)( std::declval<std::nullptr_t&>() ) )
+#else
+        -> __see_below__
+#endif
+        ;
 
 template<class Visitor>
 auto
 visit(
     Visitor &&v,
-    value const &jv) -> decltype(
-        std::declval<Visitor>()(nullptr));
-/** @} */
+    value const &jv)
+#ifndef BOOST_JSON_DOCS
+        -> decltype(
+                static_cast<Visitor&&>(v)( std::declval<std::nullptr_t const&>() ) )
+#else
+        -> __see_below__
+#endif
+        ;
+
+template<class Visitor>
+auto
+visit(
+    Visitor &&v,
+    value&& jv)
+#ifndef BOOST_JSON_DOCS
+        -> decltype(
+            static_cast<Visitor&&>(v)( std::declval<std::nullptr_t&&>() ) )
+#else
+        -> __see_below__
+#endif
+        ;
+/// @}
 
 } // namespace json
 } // namespace boost

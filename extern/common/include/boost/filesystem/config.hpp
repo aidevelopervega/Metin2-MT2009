@@ -17,7 +17,6 @@
 // http://www.boost.org/more/separate_compilation.html
 
 #include <boost/config.hpp>
-#include <boost/system/api_config.hpp> // for BOOST_POSIX_API or BOOST_WINDOWS_API
 #include <boost/detail/workaround.hpp>
 
 #if defined(BOOST_FILESYSTEM_VERSION) && BOOST_FILESYSTEM_VERSION != 3 && BOOST_FILESYSTEM_VERSION != 4
@@ -32,6 +31,7 @@
 #endif
 
 #define BOOST_FILESYSTEM_VERSIONED_SYM(sym) BOOST_JOIN(sym, BOOST_JOIN(_v, BOOST_FILESYSTEM_VERSION))
+#define BOOST_FILESYSTEM_VERSION_NAMESPACE BOOST_JOIN(v, BOOST_FILESYSTEM_VERSION)
 
 #if BOOST_FILESYSTEM_VERSION == 4
 #undef BOOST_FILESYSTEM_DEPRECATED
@@ -51,6 +51,31 @@
 
 #if defined(BOOST_FILESYSTEM_DEPRECATED) && defined(BOOST_FILESYSTEM_NO_DEPRECATED)
 #error Both BOOST_FILESYSTEM_DEPRECATED and BOOST_FILESYSTEM_NO_DEPRECATED are defined
+#endif
+
+//  BOOST_FILESYSTEM_WINDOWS_API or BOOST_FILESYSTEM_POSIX_API -------------------------//
+
+#if defined(BOOST_FILESYSTEM_WINDOWS_API) || defined(BOOST_FILESYSTEM_POSIX_API)
+#error BOOST_FILESYSTEM_WINDOWS_API and BOOST_FILESYSTEM_POSIX_API must not be defined by users
+#endif
+
+//  Note: Cygwin is treated as a POSIX platform
+#if defined(BOOST_WINDOWS)
+#define BOOST_FILESYSTEM_WINDOWS_API
+#else
+#define BOOST_FILESYSTEM_POSIX_API
+#endif
+
+#if !defined(BOOST_FILESYSTEM_ALLOW_SYSTEM_API_MISMATCH) || (BOOST_FILESYSTEM_ALLOW_SYSTEM_API_MISMATCH < 2)
+#include <boost/system/api_config.hpp>
+#if (defined(BOOST_FILESYSTEM_POSIX_API) && !defined(BOOST_POSIX_API)) || (defined(BOOST_FILESYSTEM_WINDOWS_API) && !defined(BOOST_WINDOWS_API))
+#if !defined(BOOST_FILESYSTEM_ALLOW_SYSTEM_API_MISMATCH) || (BOOST_FILESYSTEM_ALLOW_SYSTEM_API_MISMATCH < 1)
+#error Boost.Filesystem: Platform API mismatch between Boost.System and Boost.Filesystem, reported error code values will not match the error category
+#else
+#include <boost/config/pragma_message.hpp>
+BOOST_PRAGMA_MESSAGE("Boost.Filesystem: Platform API mismatch between Boost.System and Boost.Filesystem, reported error code values will not match the error category")
+#endif
+#endif
 #endif
 
 //  throw an exception  ----------------------------------------------------------------//

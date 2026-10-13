@@ -39,6 +39,7 @@ struct ipv6_addrz_rule_t
         pct_string_view zone_id;
     };
 
+    BOOST_URL_CXX20_CONSTEXPR
     auto
     parse(
         char const*& it,
@@ -52,5 +53,7 @@ constexpr ipv6_addrz_rule_t ipv6_addrz_rule{};
 } // detail
 } // urls
 } // boost
+
+#include <boost/url/rfc/detail/impl/ipv6_addrz_rule.hpp>
 
 #endif

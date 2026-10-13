@@ -17,6 +17,8 @@
 #ifndef BOOST_GEOMETRY_INDEX_DETAIL_RTREE_PACK_CREATE_HPP
 #define BOOST_GEOMETRY_INDEX_DETAIL_RTREE_PACK_CREATE_HPP
 
+#include <vector>
+
 #include <boost/core/ignore_unused.hpp>
 
 #include <boost/geometry/algorithms/centroid.hpp>
@@ -31,6 +33,8 @@
 #include <boost/geometry/index/detail/rtree/node/subtree_destroyer.hpp>
 #include <boost/geometry/index/parameters.hpp>
 
+#include <boost/geometry/util/constexpr.hpp>
+
 namespace boost { namespace geometry { namespace index { namespace detail { namespace rtree {
 
 namespace pack_utils {
@@ -38,12 +42,12 @@ namespace pack_utils {
 template <std::size_t Dimension>
 struct biggest_edge
 {
-    BOOST_STATIC_ASSERT(0 < Dimension);
+    static_assert(0 < Dimension, "Dimension must be positive.");
     template <typename Box>
-    static inline void apply(Box const& box, typename coordinate_type<Box>::type & length, std::size_t & dim_index)
+    static inline void apply(Box const& box, coordinate_type_t<Box> & length, std::size_t & dim_index)
     {
         biggest_edge<Dimension-1>::apply(box, length, dim_index);
-        typename coordinate_type<Box>::type curr
+        coordinate_type_t<Box> curr
             = geometry::get<max_corner, Dimension-1>(box) - geometry::get<min_corner, Dimension-1>(box);
         if ( length < curr )
         {
@@ -57,7 +61,7 @@ template <>
 struct biggest_edge<1>
 {
     template <typename Box>
-    static inline void apply(Box const& box, typename coordinate_type<Box>::type & length, std::size_t & dim_index)
+    static inline void apply(Box const& box, coordinate_type_t<Box> & length, std::size_t & dim_index)
     {
         dim_index = 0;
         length = geometry::get<max_corner, 0>(box) - geometry::get<min_corner, 0>(box);
@@ -203,7 +207,7 @@ public:
             template rebind_alloc<entry_type> temp_entry_allocator_type;
 
         temp_entry_allocator_type temp_entry_allocator(temp_allocator);
-        boost::container::vector<entry_type, temp_entry_allocator_type> entries(temp_entry_allocator);
+        std::vector<entry_type, temp_entry_allocator_type> entries(temp_entry_allocator);
 
         values_count = static_cast<size_type>(diff);
         entries.reserve(values_count);
@@ -343,11 +347,10 @@ private:
             // NOTE: this is done only if the Indexable is a different kind of Geometry
             //   than the bounds (only Box for now). Spatial predicates are checked
             //   the same way for Geometry of the same kind.
-            if ( BOOST_GEOMETRY_CONDITION((
-                    ! index::detail::is_bounding_geometry
-                        <
-                            typename indexable_type<translator_type>::type
-                        >::value )) )
+            if BOOST_GEOMETRY_CONSTEXPR (! index::detail::is_bounding_geometry
+                                            <
+                                                typename indexable_type<translator_type>::type
+                                            >::value)
             {
                 elements_box.expand_by_epsilon();
             }

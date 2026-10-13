@@ -1,4 +1,6 @@
 // Copyright (C) 2022-2023 Christian Mazakas
+// Copyright (C) 2024-2026 Joaquin M Lopez Munoz
+// Copyright (C) 2026 Braden Ganetsky
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
@@ -10,16 +12,18 @@
 #pragma once
 #endif
 
-#include <boost/unordered/detail/foa/element_type.hpp>
-#include <boost/unordered/detail/foa/node_handle.hpp>
+#include <boost/unordered/concurrent_node_map_fwd.hpp>
+#include <boost/unordered/detail/foa/node_map_handle.hpp>
 #include <boost/unordered/detail/foa/node_map_types.hpp>
 #include <boost/unordered/detail/foa/table.hpp>
+#include <boost/unordered/detail/ranges_support.hpp>
+#include <boost/unordered/detail/serialize_container.hpp>
+#include <boost/unordered/detail/throw_exception.hpp>
 #include <boost/unordered/detail/type_traits.hpp>
 #include <boost/unordered/unordered_node_map_fwd.hpp>
 
 #include <boost/core/allocator_access.hpp>
-#include <boost/functional/hash.hpp>
-#include <boost/throw_exception.hpp>
+#include <boost/container_hash/hash.hpp>
 
 #include <initializer_list>
 #include <iterator>
@@ -35,46 +39,15 @@ namespace boost {
 #pragma warning(disable : 4714) /* marked as __forceinline not inlined */
 #endif
 
-    namespace detail {
-      template <class TypePolicy, class Allocator>
-      struct node_map_handle
-          : public detail::foa::node_handle_base<TypePolicy, Allocator>
-      {
-      private:
-        using base_type = detail::foa::node_handle_base<TypePolicy, Allocator>;
-
-        using typename base_type::type_policy;
-
-        template <class Key, class T, class Hash, class Pred, class Alloc>
-        friend class boost::unordered::unordered_node_map;
-
-      public:
-        using key_type = typename TypePolicy::key_type;
-        using mapped_type = typename TypePolicy::mapped_type;
-
-        constexpr node_map_handle() noexcept = default;
-        node_map_handle(node_map_handle&& nh) noexcept = default;
-
-        node_map_handle& operator=(node_map_handle&&) noexcept = default;
-
-        key_type& key() const
-        {
-          BOOST_ASSERT(!this->empty());
-          return const_cast<key_type&>(this->data().first);
-        }
-
-        mapped_type& mapped() const
-        {
-          BOOST_ASSERT(!this->empty());
-          return const_cast<mapped_type&>(this->data().second);
-        }
-      };
-    } // namespace detail
-
     template <class Key, class T, class Hash, class KeyEqual, class Allocator>
     class unordered_node_map
     {
-      using map_types = detail::foa::node_map_types<Key, T>;
+      template <class Key2, class T2, class Hash2, class Pred2,
+        class Allocator2>
+      friend class concurrent_node_map;
+
+      using map_types = detail::foa::node_map_types<Key, T,
+        typename boost::allocator_void_pointer<Allocator>::type>;
 
       using table_type = detail::foa::table<map_types, Hash, KeyEqual,
         typename boost::allocator_rebind<Allocator,
@@ -97,9 +70,9 @@ namespace boost {
       using init_type = typename map_types::init_type;
       using size_type = std::size_t;
       using difference_type = std::ptrdiff_t;
-      using hasher = typename boost::type_identity<Hash>::type;
-      using key_equal = typename boost::type_identity<KeyEqual>::type;
-      using allocator_type = typename boost::type_identity<Allocator>::type;
+      using hasher = typename boost::unordered::detail::type_identity<Hash>::type;
+      using key_equal = typename boost::unordered::detail::type_identity<KeyEqual>::type;
+      using allocator_type = typename boost::unordered::detail::type_identity<Allocator>::type;
       using reference = value_type&;
       using const_reference = value_type const&;
       using pointer = typename boost::allocator_pointer<allocator_type>::type;
@@ -107,11 +80,15 @@ namespace boost {
         typename boost::allocator_const_pointer<allocator_type>::type;
       using iterator = typename table_type::iterator;
       using const_iterator = typename table_type::const_iterator;
-      using node_type = detail::node_map_handle<map_types,
+      using node_type = detail::foa::node_map_handle<map_types,
         typename boost::allocator_rebind<Allocator,
           typename map_types::value_type>::type>;
       using insert_return_type =
         detail::foa::insert_return_type<iterator, node_type>;
+
+#if defined(BOOST_UNORDERED_ENABLE_STATS)
+      using stats = typename table_type::stats;
+#endif
 
       unordered_node_map() : unordered_node_map(0) {}
 
@@ -138,6 +115,19 @@ namespace boost {
           : unordered_node_map(f, l, size_type(0), hasher(), key_equal(), a)
       {
       }
+
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_node_map(
+        FromRangeT&& fr, R&& rg, allocator_type const& a)
+          : unordered_node_map(
+            fr, std::forward<R>(rg), size_type(0), hasher(), key_equal(), a)
+      {
+      }
+#endif
 
       explicit unordered_node_map(allocator_type const& a)
           : unordered_node_map(0, a)
@@ -167,6 +157,41 @@ namespace boost {
       {
       }
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_node_map(FromRangeT&&, R&& rg, size_type n = 0,
+        hasher const& h = hasher(), key_equal const& pred = key_equal(),
+        allocator_type const& a = allocator_type())
+        :  unordered_node_map(n, h, pred, a)
+      {
+        this->insert_range(std::forward<R>(rg));
+      }
+
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_node_map(
+        FromRangeT&& fr, R&& rg, size_type n, allocator_type const& a)
+          : unordered_node_map(
+            fr, std::forward<R>(rg), n, hasher(), key_equal(), a)
+      {
+      }
+
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_node_map(FromRangeT&& fr, R&& rg, size_type n,
+        hasher const& h, allocator_type const& a)
+          : unordered_node_map(fr, std::forward<R>(rg), n, h, key_equal(), a)
+      {
+      }
+#endif
+
       unordered_node_map(unordered_node_map const& other) : table_(other.table_)
       {
       }
@@ -178,9 +203,7 @@ namespace boost {
       }
 
       unordered_node_map(unordered_node_map&& other)
-        noexcept(std::is_nothrow_move_constructible<hasher>::value&&
-            std::is_nothrow_move_constructible<key_equal>::value&&
-              std::is_nothrow_move_constructible<allocator_type>::value)
+        noexcept(std::is_nothrow_move_constructible<table_type>::value)
           : table_(std::move(other.table_))
       {
       }
@@ -216,6 +239,14 @@ namespace boost {
       {
       }
 
+      template <typename Key2,
+        typename std::enable_if<std::is_same<Key, Key2>::value, int>::type = 0>
+      unordered_node_map(
+        concurrent_node_map<Key2, T, Hash, KeyEqual, Allocator>&& other)
+          : table_(std::move(other.table_))
+      {
+      }
+
       ~unordered_node_map() = default;
 
       unordered_node_map& operator=(unordered_node_map const& other)
@@ -228,6 +259,13 @@ namespace boost {
         noexcept(std::declval<table_type&>() = std::declval<table_type&&>()))
       {
         table_ = std::move(other.table_);
+        return *this;
+      }
+
+      unordered_node_map& operator=(std::initializer_list<value_type> il)
+      {
+        this->clear();
+        this->insert(il.begin(), il.end());
         return *this;
       }
 
@@ -296,6 +334,16 @@ namespace boost {
         }
       }
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<detail::container_compatible_range<value_type> R>
+      BOOST_FORCEINLINE void insert_range(R&& rg)
+      {
+        auto first = std::ranges::begin(rg);
+        auto last = std::ranges::end(rg);
+        while (first != last) table_.emplace(*first++);
+      }
+#endif
+
       void insert(std::initializer_list<value_type> ilist)
       {
         this->insert(ilist.begin(), ilist.end());
@@ -303,15 +351,17 @@ namespace boost {
 
       insert_return_type insert(node_type&& nh)
       {
+        using access = detail::foa::node_handle_access;
+
         if (nh.empty()) {
           return {end(), false, node_type{}};
         }
 
         BOOST_ASSERT(get_allocator() == nh.get_allocator());
 
-        auto itp = table_.insert(std::move(nh.element()));
+        auto itp = table_.insert(std::move(access::element(nh)));
         if (itp.second) {
-          nh.reset();
+          access::reset(nh);
           return {itp.first, true, node_type{}};
         } else {
           return {itp.first, false, std::move(nh)};
@@ -320,15 +370,17 @@ namespace boost {
 
       iterator insert(const_iterator, node_type&& nh)
       {
+        using access = detail::foa::node_handle_access;
+
         if (nh.empty()) {
           return end();
         }
 
         BOOST_ASSERT(get_allocator() == nh.get_allocator());
 
-        auto itp = table_.insert(std::move(nh.element()));
+        auto itp = table_.insert(std::move(access::element(nh)));
         if (itp.second) {
-          nh.reset();
+          access::reset(nh);
           return itp.first;
         } else {
           return itp.first;
@@ -492,6 +544,11 @@ namespace boost {
         return table_.erase(key);
       }
 
+      BOOST_FORCEINLINE init_type pull(const_iterator pos)
+      {
+        return table_.pull(pos);
+      }
+
       void swap(unordered_node_map& rhs) noexcept(
         noexcept(std::declval<table_type&>().swap(std::declval<table_type&>())))
       {
@@ -503,7 +560,8 @@ namespace boost {
         BOOST_ASSERT(pos != end());
         node_type nh;
         auto elem = table_.extract(pos);
-        nh.emplace(std::move(elem), get_allocator());
+        detail::foa::node_handle_emplacer(nh)(
+          std::move(elem), get_allocator());
         return nh;
       }
 
@@ -529,6 +587,7 @@ namespace boost {
         unordered_node_map<key_type, mapped_type, H2, P2, allocator_type>&
           source)
       {
+        BOOST_ASSERT(get_allocator() == source.get_allocator());
         table_.merge(source.table_);
       }
 
@@ -537,6 +596,7 @@ namespace boost {
         unordered_node_map<key_type, mapped_type, H2, P2, allocator_type>&&
           source)
       {
+        BOOST_ASSERT(get_allocator() == source.get_allocator());
         table_.merge(std::move(source.table_));
       }
 
@@ -552,8 +612,8 @@ namespace boost {
         // TODO: someday refactor this to conditionally serialize the key and
         // include it in the error message
         //
-        boost::throw_exception(
-          std::out_of_range("key was not found in unordered_node_map"));
+        boost::unordered::detail::throw_out_of_range(
+          "key was not found in unordered_node_map");
       }
 
       mapped_type const& at(key_type const& key) const
@@ -562,8 +622,8 @@ namespace boost {
         if (pos != table_.end()) {
           return pos->second;
         }
-        boost::throw_exception(
-          std::out_of_range("key was not found in unordered_node_map"));
+        boost::unordered::detail::throw_out_of_range(
+          "key was not found in unordered_node_map");
       }
 
       template <class K>
@@ -576,8 +636,8 @@ namespace boost {
         if (pos != table_.end()) {
           return pos->second;
         }
-        boost::throw_exception(
-          std::out_of_range("key was not found in unordered_node_map"));
+        boost::unordered::detail::throw_out_of_range(
+          "key was not found in unordered_node_map");
       }
 
       template <class K>
@@ -590,8 +650,8 @@ namespace boost {
         if (pos != table_.end()) {
           return pos->second;
         }
-        boost::throw_exception(
-          std::out_of_range("key was not found in unordered_node_map"));
+        boost::unordered::detail::throw_out_of_range(
+          "key was not found in unordered_node_map");
       }
 
       BOOST_FORCEINLINE mapped_type& operator[](key_type const& key)
@@ -747,6 +807,14 @@ namespace boost {
 
       void reserve(size_type n) { table_.reserve(n); }
 
+#if defined(BOOST_UNORDERED_ENABLE_STATS)
+      /// Stats
+      ///
+      stats get_stats() const { return table_.get_stats(); }
+
+      void reset_stats() noexcept { table_.reset_stats(); }
+#endif
+
       /// Observers
       ///
 
@@ -788,6 +856,15 @@ namespace boost {
       return erase_if(map.table_, pred);
     }
 
+    template <class Archive, class Key, class T, class Hash, class KeyEqual,
+      class Allocator>
+    void serialize(Archive& ar,
+      unordered_node_map<Key, T, Hash, KeyEqual, Allocator>& map,
+      unsigned int version)
+    {
+      detail::serialize_container(ar, map, version);
+    }
+
 #if defined(BOOST_MSVC)
 #pragma warning(pop) /* C4714 */
 #endif
@@ -801,10 +878,10 @@ namespace boost {
         std::equal_to<boost::unordered::detail::iter_key_t<InputIterator> >,
       class Allocator = std::allocator<
         boost::unordered::detail::iter_to_alloc_t<InputIterator> >,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_pred_v<Pred> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(InputIterator, InputIterator,
       std::size_t = boost::unordered::detail::foa::default_bucket_count,
       Hash = Hash(), Pred = Pred(), Allocator = Allocator())
@@ -812,22 +889,43 @@ namespace boost {
         boost::unordered::detail::iter_val_t<InputIterator>, Hash, Pred,
         Allocator>;
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+    template <
+      boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Hash =
+        boost::hash<boost::unordered::detail::range_key_t<R> >,
+      class Pred =
+        std::equal_to<boost::unordered::detail::range_key_t<R> >,
+      class Allocator = std::allocator<
+        boost::unordered::detail::range_to_alloc_t<R> >,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_node_map(FromRangeT&&, R&&,
+      std::size_t = boost::unordered::detail::foa::default_bucket_count,
+      Hash = Hash(), Pred = Pred(), Allocator = Allocator())
+      -> unordered_node_map<boost::unordered::detail::range_key_t<R>,
+        boost::unordered::detail::range_mapped_t<R>, Hash, Pred,
+        Allocator>;
+#endif
+
     template <class Key, class T,
-      class Hash = boost::hash<boost::remove_const_t<Key> >,
-      class Pred = std::equal_to<boost::remove_const_t<Key> >,
+      class Hash = boost::hash<std::remove_const_t<Key> >,
+      class Pred = std::equal_to<std::remove_const_t<Key> >,
       class Allocator = std::allocator<std::pair<const Key, T> >,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_pred_v<Pred> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(std::initializer_list<std::pair<Key, T> >,
       std::size_t = boost::unordered::detail::foa::default_bucket_count,
       Hash = Hash(), Pred = Pred(), Allocator = Allocator())
-      -> unordered_node_map<boost::remove_const_t<Key>, T, Hash, Pred,
+      -> unordered_node_map<std::remove_const_t<Key>, T, Hash, Pred,
         Allocator>;
 
     template <class InputIterator, class Allocator,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(InputIterator, InputIterator, std::size_t, Allocator)
       -> unordered_node_map<boost::unordered::detail::iter_key_t<InputIterator>,
         boost::unordered::detail::iter_val_t<InputIterator>,
@@ -836,8 +934,8 @@ namespace boost {
         Allocator>;
 
     template <class InputIterator, class Allocator,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(InputIterator, InputIterator, Allocator)
       -> unordered_node_map<boost::unordered::detail::iter_key_t<InputIterator>,
         boost::unordered::detail::iter_val_t<InputIterator>,
@@ -846,9 +944,9 @@ namespace boost {
         Allocator>;
 
     template <class InputIterator, class Hash, class Allocator,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(
       InputIterator, InputIterator, std::size_t, Hash, Allocator)
       -> unordered_node_map<boost::unordered::detail::iter_key_t<InputIterator>,
@@ -856,26 +954,62 @@ namespace boost {
         std::equal_to<boost::unordered::detail::iter_key_t<InputIterator> >,
         Allocator>;
 
-    template <class Key, class T, class Allocator,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
-    unordered_node_map(std::initializer_list<std::pair<Key, T> >, std::size_t,
-      Allocator) -> unordered_node_map<boost::remove_const_t<Key>, T,
-      boost::hash<boost::remove_const_t<Key> >,
-      std::equal_to<boost::remove_const_t<Key> >, Allocator>;
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Allocator,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_node_map(FromRangeT&&, R&&, std::size_t, Allocator)
+      -> unordered_node_map<boost::unordered::detail::range_key_t<R>,
+        boost::unordered::detail::range_mapped_t<R>,
+        boost::hash<boost::unordered::detail::range_key_t<R> >,
+        std::equal_to<boost::unordered::detail::range_key_t<R> >,
+        Allocator>;
+
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Allocator,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_node_map(FromRangeT&&, R&&, Allocator)
+      -> unordered_node_map<boost::unordered::detail::range_key_t<R>,
+        boost::unordered::detail::range_mapped_t<R>,
+        boost::hash<boost::unordered::detail::range_key_t<R> >,
+        std::equal_to<boost::unordered::detail::range_key_t<R> >,
+        Allocator>;
+
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Hash, class Allocator,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_node_map(
+      FromRangeT&&, R&&, std::size_t, Hash, Allocator)
+      -> unordered_node_map<boost::unordered::detail::range_key_t<R>,
+        boost::unordered::detail::range_mapped_t<R>, Hash,
+        std::equal_to<boost::unordered::detail::range_key_t<R> >,
+        Allocator>;
+#endif
 
     template <class Key, class T, class Allocator,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_node_map(std::initializer_list<std::pair<Key, T> >, std::size_t,
+      Allocator) -> unordered_node_map<std::remove_const_t<Key>, T,
+      boost::hash<std::remove_const_t<Key> >,
+      std::equal_to<std::remove_const_t<Key> >, Allocator>;
+
+    template <class Key, class T, class Allocator,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(std::initializer_list<std::pair<Key, T> >, Allocator)
-      -> unordered_node_map<boost::remove_const_t<Key>, T,
-        boost::hash<boost::remove_const_t<Key> >,
-        std::equal_to<boost::remove_const_t<Key> >, Allocator>;
+      -> unordered_node_map<std::remove_const_t<Key>, T,
+        boost::hash<std::remove_const_t<Key> >,
+        std::equal_to<std::remove_const_t<Key> >, Allocator>;
 
     template <class Key, class T, class Hash, class Allocator,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_node_map(std::initializer_list<std::pair<Key, T> >, std::size_t,
-      Hash, Allocator) -> unordered_node_map<boost::remove_const_t<Key>, T,
-      Hash, std::equal_to<boost::remove_const_t<Key> >, Allocator>;
+      Hash, Allocator) -> unordered_node_map<std::remove_const_t<Key>, T,
+      Hash, std::equal_to<std::remove_const_t<Key> >, Allocator>;
 #endif
 
   } // namespace unordered

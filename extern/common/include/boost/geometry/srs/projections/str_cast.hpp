@@ -11,17 +11,18 @@
 #ifndef BOOST_GEOMETRY_SRS_PROJECTIONS_STR_CAST_HPP
 #define BOOST_GEOMETRY_SRS_PROJECTIONS_STR_CAST_HPP
 
+#include <type_traits>
+
 #include <boost/config.hpp>
 #include <boost/geometry/core/exception.hpp>
 #include <boost/throw_exception.hpp>
-#include <boost/type_traits/remove_cv.hpp>
 
 namespace boost { namespace geometry
 {
 
 class bad_str_cast : public geometry::exception
 {
-    virtual char const* what() const throw()
+    char const* what() const noexcept override
     {
         return "Unable to convert from string.";
     }
@@ -116,7 +117,7 @@ struct str_cast_traits_generic
         char * str_end = (char*)(void*)str;
         T res = str_cast_traits_strtox
                     <
-                        typename boost::remove_cv<T>::type
+                        typename std::remove_cv<T>::type
                     >::apply(str, &str_end);
         if (str_end == str)
         {

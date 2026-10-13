@@ -23,9 +23,9 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/utility/enable_if.hpp>
+#include <boost/core/enable_if.hpp>
 #include <boost/throw_exception.hpp>
-#include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
 #include <utility>                  // for std::pair
 
 namespace boost { namespace property_tree
@@ -270,6 +270,10 @@ namespace boost { namespace property_tree
         const self_type &get_child(const path_type &path,
                                    const self_type &default_value) const;
 
+        /** Prevents calls to get_child with temporary default values */
+        void get_child(const path_type &path,
+                       const self_type &&default_value) const = delete;
+
         /** Get the child at the given path, or return boost::null. */
         optional<self_type &> get_child_optional(const path_type &path);
 
@@ -458,7 +462,7 @@ namespace boost { namespace property_tree
         /** If the node identified by the path does not exist, create it,
          * including all its missing parents.
          * If the node already exists, add a sibling with the same key.
-         * Set the newly created node's value to the given paremeter,
+         * Set the newly created node's value to the given parameter,
          * translated with the supplied translator.
          * @param path Path to the child. The last fragment must not have an
          *             index.
@@ -475,7 +479,7 @@ namespace boost { namespace property_tree
         /** If the node identified by the path does not exist, create it,
          * including all its missing parents.
          * If the node already exists, add a sibling with the same key.
-         * Set the newly created node's value to the given paremeter,
+         * Set the newly created node's value to the given parameter,
          * translated with the supplied translator.
          * @param path Path to the child. The last fragment must not have an
          *             index.

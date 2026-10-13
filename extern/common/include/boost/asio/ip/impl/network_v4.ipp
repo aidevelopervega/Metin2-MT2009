@@ -2,7 +2,7 @@
 // ip/impl/network_v4.ipp
 // ~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2014 Oliver Kowalke (oliver dot kowalke at gmail dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -30,6 +30,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace ip {
 
 network_v4::network_v4(const address_v4& addr, unsigned short prefix_len)
@@ -69,19 +70,19 @@ network_v4::network_v4(const address_v4& addr, const address_v4& mask)
         break;
       case 254: // prefix_length_ += 7
         prefix_length_ += 1;
-      case 252: // prefix_length_ += 6
+      case /* fall-through */ 252: // prefix_length_ += 6
         prefix_length_ += 1;
-      case 248: // prefix_length_ += 5
+      case /* fall-through */ 248: // prefix_length_ += 5
         prefix_length_ += 1;
-      case 240: // prefix_length_ += 4
+      case /* fall-through */ 240: // prefix_length_ += 4
         prefix_length_ += 1;
-      case 224: // prefix_length_ += 3
+      case /* fall-through */ 224: // prefix_length_ += 3
         prefix_length_ += 1;
-      case 192: // prefix_length_ += 2
+      case /* fall-through */ 192: // prefix_length_ += 2
         prefix_length_ += 1;
-      case 128: // prefix_length_ += 1
+      case /* fall-through */ 128: // prefix_length_ += 1
         prefix_length_ += 1;
-      case 0:   // nbits += 0
+      case /* fall-through */ 0:   // nbits += 0
         finished = true;
         break;
       default:
@@ -92,7 +93,7 @@ network_v4::network_v4(const address_v4& addr, const address_v4& mask)
   }
 }
 
-address_v4 network_v4::netmask() const BOOST_ASIO_NOEXCEPT
+address_v4 network_v4::netmask() const noexcept
 {
   uint32_t nmbits = 0xffffffff;
   if (prefix_length_ == 0)
@@ -102,7 +103,7 @@ address_v4 network_v4::netmask() const BOOST_ASIO_NOEXCEPT
   return address_v4(nmbits);
 }
 
-address_v4_range network_v4::hosts() const BOOST_ASIO_NOEXCEPT
+address_v4_range network_v4::hosts() const noexcept
 {
   return is_host()
     ? address_v4_range(address_, address_v4(address_.to_uint() + 1))
@@ -212,6 +213,7 @@ network_v4 make_network_v4(string_view str,
 #endif // defined(BOOST_ASIO_HAS_STRING_VIEW)
 
 } // namespace ip
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

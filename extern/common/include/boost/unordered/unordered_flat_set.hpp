@@ -1,4 +1,6 @@
-// Copyright (C) 2022 Christian Mazakas
+// Copyright (C) 2022-2023 Christian Mazakas
+// Copyright (C) 2024-2026 Joaquin M Lopez Munoz
+// Copyright (C) 2026 Braden Ganetsky
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
@@ -10,13 +12,16 @@
 #pragma once
 #endif
 
+#include <boost/unordered/concurrent_flat_set_fwd.hpp>
 #include <boost/unordered/detail/foa/flat_set_types.hpp>
 #include <boost/unordered/detail/foa/table.hpp>
+#include <boost/unordered/detail/ranges_support.hpp>
+#include <boost/unordered/detail/serialize_container.hpp>
 #include <boost/unordered/detail/type_traits.hpp>
 #include <boost/unordered/unordered_flat_set_fwd.hpp>
 
 #include <boost/core/allocator_access.hpp>
-#include <boost/functional/hash.hpp>
+#include <boost/container_hash/hash.hpp>
 
 #include <initializer_list>
 #include <iterator>
@@ -34,6 +39,9 @@ namespace boost {
     template <class Key, class Hash, class KeyEqual, class Allocator>
     class unordered_flat_set
     {
+      template <class Key2, class Hash2, class KeyEqual2, class Allocator2>
+      friend class concurrent_flat_set;
+
       using set_types = detail::foa::flat_set_types<Key>;
 
       using table_type = detail::foa::table<set_types, Hash, KeyEqual,
@@ -67,6 +75,10 @@ namespace boost {
       using iterator = typename table_type::iterator;
       using const_iterator = typename table_type::const_iterator;
 
+#if defined(BOOST_UNORDERED_ENABLE_STATS)
+      using stats = typename table_type::stats;
+#endif
+
       unordered_flat_set() : unordered_flat_set(0) {}
 
       explicit unordered_flat_set(size_type n, hasher const& h = hasher(),
@@ -92,6 +104,19 @@ namespace boost {
           : unordered_flat_set(f, l, size_type(0), hasher(), key_equal(), a)
       {
       }
+
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_flat_set(
+        FromRangeT&& fr, R&& rg, allocator_type const& a)
+          : unordered_flat_set(
+            fr, std::forward<R>(rg), size_type(0), hasher(), key_equal(), a)
+      {
+      }
+#endif
 
       explicit unordered_flat_set(allocator_type const& a)
           : unordered_flat_set(0, a)
@@ -121,6 +146,41 @@ namespace boost {
       {
       }
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_flat_set(FromRangeT&&, R&& rg, size_type n = 0,
+        hasher const& h = hasher(), key_equal const& pred = key_equal(),
+        allocator_type const& a = allocator_type())
+        :  unordered_flat_set(n, h, pred, a)
+      {
+        this->insert_range(std::forward<R>(rg));
+      }
+
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_flat_set(
+        FromRangeT&& fr, R&& rg, size_type n, allocator_type const& a)
+          : unordered_flat_set(
+            fr, std::forward<R>(rg), n, hasher(), key_equal(), a)
+      {
+      }
+
+      template<
+        detail::convertible_to_from_range_t FromRangeT,
+        detail::container_compatible_range<value_type> R
+      >
+      unordered_flat_set(FromRangeT&& fr, R&& rg, size_type n,
+        hasher const& h, allocator_type const& a)
+          : unordered_flat_set(fr, std::forward<R>(rg), n, h, key_equal(), a)
+      {
+      }
+#endif
+
       unordered_flat_set(unordered_flat_set const& other) : table_(other.table_)
       {
       }
@@ -132,9 +192,7 @@ namespace boost {
       }
 
       unordered_flat_set(unordered_flat_set&& other)
-        noexcept(std::is_nothrow_move_constructible<hasher>::value&&
-            std::is_nothrow_move_constructible<key_equal>::value&&
-              std::is_nothrow_move_constructible<allocator_type>::value)
+        noexcept(std::is_nothrow_move_constructible<table_type>::value)
           : table_(std::move(other.table_))
       {
       }
@@ -170,6 +228,14 @@ namespace boost {
       {
       }
 
+      template <typename Key2,
+        typename std::enable_if<std::is_same<Key, Key2>::value, int>::type = 0>
+      unordered_flat_set(
+        concurrent_flat_set<Key2, Hash, KeyEqual, Allocator>&& other)
+          : table_(std::move(other.table_))
+      {
+      }
+
       ~unordered_flat_set() = default;
 
       unordered_flat_set& operator=(unordered_flat_set const& other)
@@ -182,6 +248,13 @@ namespace boost {
         noexcept(std::declval<table_type&>() = std::declval<table_type&&>()))
       {
         table_ = std::move(other.table_);
+        return *this;
+      }
+
+      unordered_flat_set& operator=(std::initializer_list<value_type> il)
+      {
+        this->clear();
+        this->insert(il.begin(), il.end());
         return *this;
       }
 
@@ -265,6 +338,16 @@ namespace boost {
         }
       }
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+      template<detail::container_compatible_range<value_type> R>
+      void insert_range(R&& rg)
+      {
+        auto first = std::ranges::begin(rg);
+        auto last = std::ranges::end(rg);
+        while (first != last) table_.emplace(*first++);
+      }
+#endif
+
       void insert(std::initializer_list<value_type> ilist)
       {
         this->insert(ilist.begin(), ilist.end());
@@ -308,6 +391,11 @@ namespace boost {
       erase(K const& key)
       {
         return table_.erase(key);
+      }
+
+      BOOST_FORCEINLINE init_type pull(const_iterator pos)
+      {
+        return table_.pull(pos);
       }
 
       void swap(unordered_flat_set& rhs) noexcept(
@@ -465,6 +553,14 @@ namespace boost {
 
       void reserve(size_type n) { table_.reserve(n); }
 
+#if defined(BOOST_UNORDERED_ENABLE_STATS)
+      /// Stats
+      ///
+      stats get_stats() const { return table_.get_stats(); }
+
+      void reset_stats() noexcept { table_.reset_stats(); }
+#endif
+
       /// Observers
       ///
 
@@ -505,6 +601,15 @@ namespace boost {
       return erase_if(set.table_, pred);
     }
 
+    template <class Archive, class Key, class Hash, class KeyEqual,
+      class Allocator>
+    void serialize(Archive& ar,
+      unordered_flat_set<Key, Hash, KeyEqual, Allocator>& set,
+      unsigned int version)
+    {
+      detail::serialize_container(ar, set, version);
+    }
+
 #if defined(BOOST_MSVC)
 #pragma warning(pop) /* C4714 */
 #endif
@@ -517,10 +622,10 @@ namespace boost {
         std::equal_to<typename std::iterator_traits<InputIterator>::value_type>,
       class Allocator = std::allocator<
         typename std::iterator_traits<InputIterator>::value_type>,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_pred_v<Pred> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(InputIterator, InputIterator,
       std::size_t = boost::unordered::detail::foa::default_bucket_count,
       Hash = Hash(), Pred = Pred(), Allocator = Allocator())
@@ -528,19 +633,38 @@ namespace boost {
         typename std::iterator_traits<InputIterator>::value_type, Hash, Pred,
         Allocator>;
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+    template <
+      boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Hash =
+        boost::hash<std::ranges::range_value_t<R> >,
+      class Pred =
+        std::equal_to<std::ranges::range_value_t<R> >,
+      class Allocator = std::allocator<std::ranges::range_value_t<R> >,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_flat_set(FromRangeT&&, R&&,
+      std::size_t = boost::unordered::detail::foa::default_bucket_count,
+      Hash = Hash(), Pred = Pred(), Allocator = Allocator())
+      -> unordered_flat_set<std::ranges::range_value_t<R>,
+        Hash, Pred, Allocator>;
+#endif
+
     template <class T, class Hash = boost::hash<T>,
       class Pred = std::equal_to<T>, class Allocator = std::allocator<T>,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_pred_v<Pred> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_pred_v<Pred> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(std::initializer_list<T>,
       std::size_t = boost::unordered::detail::foa::default_bucket_count,
       Hash = Hash(), Pred = Pred(), Allocator = Allocator())
       -> unordered_flat_set<T, Hash, Pred, Allocator>;
 
     template <class InputIterator, class Allocator,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(InputIterator, InputIterator, std::size_t, Allocator)
       -> unordered_flat_set<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -549,9 +673,9 @@ namespace boost {
         Allocator>;
 
     template <class InputIterator, class Hash, class Allocator,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(
       InputIterator, InputIterator, std::size_t, Hash, Allocator)
       -> unordered_flat_set<
@@ -559,20 +683,43 @@ namespace boost {
         std::equal_to<typename std::iterator_traits<InputIterator>::value_type>,
         Allocator>;
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Allocator,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_flat_set(FromRangeT&&, R&&, std::size_t, Allocator)
+      -> unordered_flat_set<std::ranges::range_value_t<R>,
+        boost::hash<std::ranges::range_value_t<R> >,
+        std::equal_to<std::ranges::range_value_t<R> >,
+        Allocator>;
+
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Hash, class Allocator,
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_flat_set(
+      FromRangeT&&, R&&, std::size_t, Hash, Allocator)
+      -> unordered_flat_set<std::ranges::range_value_t<R>,
+        Hash, std::equal_to<std::ranges::range_value_t<R> >,
+        Allocator>;
+#endif
+
     template <class T, class Allocator,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(std::initializer_list<T>, std::size_t, Allocator)
       -> unordered_flat_set<T, boost::hash<T>, std::equal_to<T>, Allocator>;
 
     template <class T, class Hash, class Allocator,
-      class = boost::enable_if_t<detail::is_hash_v<Hash> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_hash_v<Hash> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(std::initializer_list<T>, std::size_t, Hash, Allocator)
       -> unordered_flat_set<T, Hash, std::equal_to<T>, Allocator>;
 
     template <class InputIterator, class Allocator,
-      class = boost::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_input_iterator_v<InputIterator> >,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(InputIterator, InputIterator, Allocator)
       -> unordered_flat_set<
         typename std::iterator_traits<InputIterator>::value_type,
@@ -580,8 +727,20 @@ namespace boost {
         std::equal_to<typename std::iterator_traits<InputIterator>::value_type>,
         Allocator>;
 
+#if !defined(BOOST_UNORDERED_NO_RANGES)
+    template <boost::unordered::detail::convertible_to_from_range_t FromRangeT,
+      std::ranges::input_range R,
+      class Allocator,
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
+    unordered_flat_set(FromRangeT&&, R&&, Allocator)
+      -> unordered_flat_set<std::ranges::range_value_t<R>,
+        boost::hash<std::ranges::range_value_t<R> >,
+        std::equal_to<std::ranges::range_value_t<R> >,
+        Allocator>;
+#endif
+
     template <class T, class Allocator,
-      class = boost::enable_if_t<detail::is_allocator_v<Allocator> > >
+      class = std::enable_if_t<detail::is_allocator_v<Allocator> > >
     unordered_flat_set(std::initializer_list<T>, Allocator)
       -> unordered_flat_set<T, boost::hash<T>, std::equal_to<T>, Allocator>;
 #endif

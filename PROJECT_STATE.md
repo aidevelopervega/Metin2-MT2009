@@ -754,13 +754,52 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           * CTest: **7/7 test paketi PASSED (%100 PASS, 0.30s)**.
           * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
 
+    * **CI Koşusu 38399674627 Doğrulaması (Rev 27 DevIL 1.8.0 Headers, FreeBSD GCC 14, 3 DB Matrisi):**
+      * **MariaDB 12.3 LTS (Job 115303750717):** SUCCESS (25m 15s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri üretildi; pure `libstdc++` kütüphanesine bağlandı (`libc++.so` yok); CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MySQL 8.4 LTS (Job 115303750920):** SUCCESS (25m 28s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri üretildi; pure `libstdc++` kütüphanesine bağlandı; CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 11.4 LTS (Job 115303751177):** SUCCESS (14m 55s) — CMake + Ninja ile `game_r41023` ve `db_r41023` ELF64 ikilileri üretildi; pure `libstdc++` kütüphanesine bağlandı; CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **Sonuç:** Üç FreeBSD matris hedefinde de **%100 BAŞARI**. DevIL 1.8.0 başlıklarının FreeBSD amd64 GCC 14 ve sistem `devil-1.8.0` paketiyle tam uyumlu olduğu fiziksel olarak doğrulandı.
+
+    * **Aşama 5: Server/Common Extern Modernizasyonu — Boost 1.92.0 Yükseltmesi:**
+      * **Sürüm Doğrulaması:** Eski Boost 1.83.0 (`BOOST_VERSION 108300`) sürümünden, resmî Boost.org tarafından yayınlanan en güncel kararlı `boost-1.92.0` (12 Ağustos 2026) sürümüne yükseltildi.
+      * **Resmî SHA-256 Sağlaması:** `e2a814b3a158ab482c7a3d330f8bf5a7a8423d258a4e2fb396996e00fcee2111` (`boost-1.92.0-b2-nodocs.tar.gz`, %100 eşleşti).
+      * **Lisans:** Boost Software License 1.0 (BSL-1.0).
+      * **Kapsam ve İstemci Dokunulmazlığı (AGENTS.md Madde 8):**
+        * Yalnızca `extern/common/include/boost/` (Server/Common Boost) güncellendi.
+        * `extern/client/include/boost/` istemci dokunulmazlığı gereği kesinlikle DEĞİŞTİRİLMEMİŞTİR (%100 korundu).
+      * **Gerçekte Kullanılan 10 Boost Modülü:**
+        * `boost/algorithm/string.hpp` (Metin düzenleme, kırpma: `char_shop.cpp`)
+        * `boost/algorithm/string/predicate.hpp` (Önek/sonek arama: `shop_manager.cpp`)
+        * `boost/bind.hpp` (İşlev bağlama: `char_manager.cpp`)
+        * `boost/function.hpp` (Genel callback: `IFileMonitor.h`, `any_function.h`)
+        * `boost/intrusive_ptr.hpp` (Olay sayaçlı işaretçi: `event.h`)
+        * `boost/lexical_cast.hpp` (Metin-sayı dönüşümü: `DragonSoul.cpp`, `dragon_soul_table.cpp`)
+        * `boost/pool/object_pool.hpp` (Hızlı nesne havuzu: `affect.cpp`)
+        * `boost/typeof/typeof.hpp` (Tür çıkarımı: `qc.cc`, `libthecore/stdafx.h`)
+        * `boost/unordered_map.hpp` (Hash map: `ClientManager.h`, `char.h`, `desc_manager.h`, `p2p.h`, vb.)
+        * `boost/unordered_set.hpp` (Hash set: `ClientManager.h`, `stdafx.h`)
+      * **Mimari:** Tüm modüller **%100 header-only**'dir; sunucu tarafında hiçbir derlenmiş Boost kütüphanesi (`.a` veya `.so`) kullanılmamakta ve bağlanmamaktadır.
+      * **64-Bit LLP64 Kök Neden Düzeltmesi:**
+        * `server/src/game/src/questmanager.cpp` (satır 1852 ve 1867): `__codecache` tablosuna kod işaretçisi yazılırken kullanılan `(long)code` dönüştürmesi, Windows amd64 (LLP64, `sizeof(long)==4`, `sizeof(pointer)==8`) üzerinde hassasiyet kaybı hatası (`cast from 'const char*' to 'long int' loses precision`) vermekteydi. Kod `(uintptr_t)code` olarak düzeltilerek hem Windows LLP64 hem de FreeBSD LP64 üzerinde standart 64-bit güvenli hale getirildi.
+      * **Doğrulama ve Test Sonuçları:**
+        * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` hatasız tamamlandı.
+        * CTest: **7/7 test paketi PASSED (%100 PASS, 1.11s)**.
+        * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
+
+    * **Aşama 5: Lua Quest Motoru Durumu ve İncelemesi (Adım 4):**
+      * `server/src/liblua/5.0/` (aktif Lua 5.0.3) ve `server/src/liblua/5.2/` (Lua 5.2.3) kaynakları detaylı incelendi.
+      * `liblua/5.2/src` içerisindeki 32 C dosyasının tamamı GCC ile 0 hata ile derlendi.
+      * `questlua.cpp`, `questlua_pc.cpp`, `questlua_npc.cpp`, `questlua_quest.cpp` ve quest derleyicisi `qc.cc` Lua 5.2.3 ile derlendiğinde 0 hata verdiği doğrulandı.
+      * `questmanager.cpp` hem Lua 5.0 hem Lua 5.2 yapılandırmasında 0 hata ile derlenmektedir.
+      * Çalışan quest sisteminin ve coroutine davranışının geriye dönük uyumluluğunu korumak için aşamalı geçiş altyapısı hazırlandı.
+
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38393245226 (Rev 26) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 27 (DevIL 1.8.0) ile yeni doğrulama tetiklenecektir.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38399674627 (Rev 27 DevIL 1.8.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 28 (Boost 1.92.0 ve questmanager 64-bit düzeltmesi) ile yeni doğrulama tetiklenecektir.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -774,11 +813,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38393245226 ile 3 DB matrisinde %100 SUCCESS)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38399674627 ile 3 DB matrisinde %100 SUCCESS)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0 TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -786,11 +825,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38393245226 %100 SUCCESS olarak doğrulandı; RapidJSON teknik istisna politikası belgelendi; DevIL 1.8.0 yükseltmesi tamamlandı; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 PASS.
+* **Aktif Görev:** CI 38399674627 (Rev 27 DevIL 1.8.0) %100 SUCCESS olarak doğrulandı; Boost 1.92.0 yükseltmesi tamamlandı; questmanager.cpp 64-bit işaretçi dönüştürme hatası çözüldü; Lua 5.2 kaynakları ve uyumluluğu test edildi; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 PASS.
 * **Sıradaki Güvenli Adım:**
-   1. DevIL 1.8.0 yükseltmesini `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 27).
-   2. GitHub Actions FreeBSD CI Rev 27 koşusunu (Run ID) tespit edip kaydetmek.
-   3. Yol Haritası Adım 5: Sıradaki Server/Common Extern bağımlılığına geçmek (Lua 5.0 -> modern güvenli Lua sürüm yükseltmesi veya Boost analizi).
+   1. Boost 1.92.0 ve questmanager 64-bit düzeltmesini `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 28).
+   2. GitHub Actions FreeBSD CI Rev 28 koşusunu (Run ID) tespit edip kaydetmek.
+   3. Yol Haritası Adım 5: Lua quest motoru aşamalı geçiş testlerine ve kalan sunucu bileşenlerinin doğrulamasına devam etmek.
 
 
 

@@ -1,4 +1,4 @@
-// Copyright Antony Polukhin, 2016-2023.
+// Copyright Antony Polukhin, 2016-2026.
 //
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
@@ -12,18 +12,20 @@
 #   pragma once
 #endif
 
-#include <boost/stacktrace/safe_dump_to.hpp>
-
+#if !defined(BOOST_STACKTRACE_INTERFACE_UNIT)
 #include <boost/core/noncopyable.hpp>
 
 #include <boost/winapi/get_current_process.hpp>
 #include <boost/winapi/file_management.hpp>
 #include <boost/winapi/handles.hpp>
 #include <boost/winapi/access_rights.hpp>
+#endif // !defined(BOOST_STACKTRACE_INTERFACE_UNIT)
+
+#include <boost/stacktrace/safe_dump_to.hpp>
 
 namespace boost { namespace stacktrace { namespace detail {
 
-std::size_t dump(void* /*fd*/, const native_frame_ptr_t* /*frames*/, std::size_t /*frames_count*/) BOOST_NOEXCEPT {
+std::size_t dump(void* /*fd*/, const native_frame_ptr_t* /*frames*/, std::size_t /*frames_count*/) noexcept {
 #if 0 // This code potentially could cause deadlocks (according to the MSDN). Disabled
     boost::winapi::DWORD_ written;
     const boost::winapi::DWORD_ bytes_to_write = static_cast<boost::winapi::DWORD_>(
@@ -38,7 +40,7 @@ std::size_t dump(void* /*fd*/, const native_frame_ptr_t* /*frames*/, std::size_t
     return 0;
 }
 
-std::size_t dump(const char* /*file*/, const native_frame_ptr_t* /*frames*/, std::size_t /*frames_count*/) BOOST_NOEXCEPT {
+std::size_t dump(const char* /*file*/, const native_frame_ptr_t* /*frames*/, std::size_t /*frames_count*/) noexcept {
 #if 0 // This code causing deadlocks on some platforms. Disabled
     void* const fd = boost::winapi::CreateFileA(
         file,

@@ -10,6 +10,7 @@
 #ifndef BOOST_URL_DETAIL_PATH_HPP
 #define BOOST_URL_DETAIL_PATH_HPP
 
+#include <boost/url/detail/config.hpp>
 #include <boost/core/detail/string_view.hpp>
 
 namespace boost {
@@ -70,7 +71,7 @@ path_prefix(
 
 // returns the number of adjusted
 // segments based on the malleable prefix.
-inline
+BOOST_URL_CXX14_CONSTEXPR_OR_INLINE
 std::size_t
 path_segments(
     core::string_view s,

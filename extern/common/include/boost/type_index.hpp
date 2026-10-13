@@ -1,5 +1,5 @@
 //
-// Copyright 2012-2023 Antony Polukhin.
+// Copyright 2012-2026 Antony Polukhin.
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -14,30 +14,10 @@
 /// By inclusion of this file most optimal type index classes will be included and used 
 /// as a boost::typeindex::type_index and boost::typeindex::type_info.
 
-#include <boost/config.hpp>
+#include <boost/type_index/detail/config.hpp>
 
 #ifdef BOOST_HAS_PRAGMA_ONCE
 # pragma once
-#endif
-
-
-
-#include <boost/config/pragma_message.hpp>
-#if defined(BOOST_NO_CXX11_RVALUE_REFERENCES) || \
-    defined(BOOST_NO_CXX11_AUTO_DECLARATIONS) || \
-    defined(BOOST_NO_CXX11_CONSTEXPR) || \
-    defined(BOOST_NO_CXX11_NULLPTR) || \
-    defined(BOOST_NO_CXX11_NOEXCEPT) || \
-    defined(BOOST_NO_CXX11_DEFAULTED_FUNCTIONS) || \
-    defined(BOOST_NO_CXX11_FINAL) || \
-    defined(BOOST_NO_CXX11_ALIGNOF) || \
-    defined(BOOST_NO_CXX11_STATIC_ASSERT) || \
-    defined(BOOST_NO_CXX11_SMART_PTR) || \
-    defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST) || \
-    defined(BOOST_NO_CXX11_HDR_TYPE_TRAITS)
-
-BOOST_PRAGMA_MESSAGE("C++03 support is deprecated in Boost.TypeIndex 1.82 and will be removed in Boost.TypeIndex 1.84.")
-
 #endif
 
 #if defined(BOOST_TYPE_INDEX_USER_TYPEINDEX)
@@ -69,7 +49,11 @@ BOOST_PRAGMA_MESSAGE("C++03 support is deprecated in Boost.TypeIndex 1.82 and wi
 #define BOOST_TYPE_INDEX_REGISTER_CLASS
 #endif
 
+#if !defined(BOOST_USE_MODULES) || defined(BOOST_TYPE_INDEX_INTERFACE_UNIT)
+
 namespace boost { namespace typeindex {
+
+BOOST_TYPE_INDEX_BEGIN_MODULE_EXPORT
 
 #if defined(BOOST_TYPE_INDEX_DOXYGEN_INVOKED)
 
@@ -145,13 +129,13 @@ namespace boost { namespace typeindex {
     /// user defined type_index class.
     ///
     /// \b See boost::typeindex::type_index_facade for a full description of type_index functions.
-    typedef platform_specific type_index;
+    using type_index = platform_specific;
 #elif defined(BOOST_TYPE_INDEX_USER_TYPEINDEX)
     // Nothing to do
 #elif (!defined(BOOST_NO_RTTI) && !defined(BOOST_TYPE_INDEX_FORCE_NO_RTTI_COMPATIBILITY)) || defined(BOOST_MSVC)
-    typedef boost::typeindex::stl_type_index type_index;
+    using type_index = boost::typeindex::stl_type_index;
 #else 
-    typedef boost::typeindex::ctti_type_index type_index;
+    using type_index = boost::typeindex::ctti_type_index;
 #endif
 
 /// Depending on a compiler flags, optimal implementation of type_info will be used 
@@ -161,7 +145,7 @@ namespace boost { namespace typeindex {
 /// some user defined class.
 ///
 /// type_info \b is \b not copyable or default constructible. It is \b not assignable too!
-typedef type_index::type_info_t type_info;
+using type_info = type_index::type_info_t;
 
 #if defined(BOOST_TYPE_INDEX_DOXYGEN_INVOKED)
 
@@ -228,7 +212,7 @@ typedef type_index::type_info_t type_info;
 /// \throw Nothing.
 /// \return boost::typeindex::type_index with information about the specified type T.
 template <class T>
-inline type_index type_id() BOOST_NOEXCEPT {
+inline type_index type_id() noexcept {
     return type_index::type_id<T>();
 }
 
@@ -248,7 +232,7 @@ inline type_index type_id() BOOST_NOEXCEPT {
 /// \throw Nothing.
 /// \return boost::typeindex::type_index with information about the specified type T.
 template <class T>
-inline type_index type_id_with_cvr() BOOST_NOEXCEPT {
+inline type_index type_id_with_cvr() noexcept {
     return type_index::type_id_with_cvr<T>();
 }
 
@@ -273,13 +257,15 @@ inline type_index type_id_with_cvr() BOOST_NOEXCEPT {
 /// \throw Nothing.
 /// \return boost::typeindex::type_index with information about the specified variable.
 template <class T>
-inline type_index type_id_runtime(const T& runtime_val) BOOST_NOEXCEPT {
+inline type_index type_id_runtime(const T& runtime_val) noexcept {
     return type_index::type_id_runtime(runtime_val);
 }
 
+BOOST_TYPE_INDEX_END_MODULE_EXPORT
+
 }} // namespace boost::typeindex
 
-
+#endif  // #if !defined(BOOST_USE_MODULES) || defined(BOOST_TYPE_INDEX_INTERFACE_UNIT)
 
 #endif // BOOST_TYPE_INDEX_HPP
 

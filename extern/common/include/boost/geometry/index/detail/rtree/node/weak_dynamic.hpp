@@ -16,10 +16,12 @@
 #ifndef BOOST_GEOMETRY_INDEX_DETAIL_RTREE_NODE_WEAK_DYNAMIC_HPP
 #define BOOST_GEOMETRY_INDEX_DETAIL_RTREE_NODE_WEAK_DYNAMIC_HPP
 
+#include <vector>
+#include <memory>
+
 #include <boost/container/allocator_traits.hpp>
-#include <boost/container/vector.hpp>
 #include <boost/core/pointer_traits.hpp>
-#include <boost/core/swap.hpp>
+#include <boost/core/invoke_swap.hpp>
 
 #include <boost/geometry/index/detail/rtree/options.hpp>
 #include <boost/geometry/index/detail/rtree/node/concept.hpp>
@@ -46,7 +48,7 @@ struct weak_internal_node
             typename Allocators::internal_node_allocator_type
         >::template rebind_alloc<element_type> allocator_type;
 
-    typedef boost::container::vector<element_type, allocator_type> elements_type;
+    using elements_type = std::vector<element_type, allocator_type>;
 
     template <typename Al>
     inline weak_internal_node(Al const& al)
@@ -65,7 +67,7 @@ struct weak_leaf
             typename Allocators::leaf_allocator_type
         >::template rebind_alloc<Value> allocator_type;
 
-    typedef boost::container::vector<Value, allocator_type> elements_type;
+    using elements_type = std::vector<Value, allocator_type>;
 
     template <typename Al>
     inline weak_leaf(Al const& al)
@@ -228,8 +230,8 @@ public:
 
     void swap(allocators & a)
     {
-        boost::swap(internal_node_allocator(), a.internal_node_allocator());
-        boost::swap(leaf_allocator(), a.leaf_allocator());
+        boost::core::invoke_swap(internal_node_allocator(), a.internal_node_allocator());
+        boost::core::invoke_swap(leaf_allocator(), a.leaf_allocator());
     }
 
     bool operator==(allocators const& a) const { return leaf_allocator() == a.leaf_allocator(); }
@@ -281,7 +283,7 @@ struct destroy_weak_node
         typedef typename Al::pointer P;
 
         P p(&static_cast<Node&>(rtree::get<Node>(*n)));
-        Al::destroy(alloc_node, boost::addressof(*p));
+        Al::destroy(alloc_node, std::addressof(*p));
         Al::deallocate(alloc_node, p, 1);
     }
 };

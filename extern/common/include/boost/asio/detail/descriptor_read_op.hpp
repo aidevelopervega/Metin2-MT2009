@@ -2,7 +2,7 @@
 // detail/descriptor_read_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -17,7 +17,8 @@
 
 #include <boost/asio/detail/config.hpp>
 
-#if !defined(BOOST_ASIO_WINDOWS) && !defined(__CYGWIN__)
+#if !defined(BOOST_ASIO_WINDOWS) \
+  && !defined(BOOST_ASIO_CYGWIN_W32_SOCKETS)
 
 #include <boost/asio/detail/bind_handler.hpp>
 #include <boost/asio/detail/buffer_sequence_adapter.hpp>
@@ -32,6 +33,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 template <typename MutableBufferSequence>
@@ -98,7 +100,7 @@ public:
       Handler& handler, const IoExecutor& io_ex)
     : descriptor_read_op_base<MutableBufferSequence>(success_ec,
         descriptor, buffers, &descriptor_read_op::do_complete),
-      handler_(BOOST_ASIO_MOVE_CAST(Handler)(handler)),
+      handler_(static_cast<Handler&&>(handler)),
       work_(handler_, io_ex)
   {
   }
@@ -116,7 +118,7 @@ public:
 
     // Take ownership of the operation's outstanding work.
     handler_work<Handler, IoExecutor> w(
-        BOOST_ASIO_MOVE_CAST2(handler_work<Handler, IoExecutor>)(
+        static_cast<handler_work<Handler, IoExecutor>&&>(
           o->work_));
 
     BOOST_ASIO_ERROR_LOCATION(o->ec_);
@@ -153,7 +155,7 @@ public:
 
     // Take ownership of the operation's outstanding work.
     immediate_handler_work<Handler, IoExecutor> w(
-        BOOST_ASIO_MOVE_CAST2(handler_work<Handler, IoExecutor>)(
+        static_cast<handler_work<Handler, IoExecutor>&&>(
           o->work_));
 
     BOOST_ASIO_ERROR_LOCATION(o->ec_);
@@ -180,11 +182,13 @@ private:
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 
 #include <boost/asio/detail/pop_options.hpp>
 
-#endif // !defined(BOOST_ASIO_WINDOWS) && !defined(__CYGWIN__)
+#endif // !defined(BOOST_ASIO_WINDOWS)
+       //   && !defined(BOOST_ASIO_CYGWIN_W32_SOCKETS)
 
 #endif // BOOST_ASIO_DETAIL_DESCRIPTOR_READ_OP_HPP

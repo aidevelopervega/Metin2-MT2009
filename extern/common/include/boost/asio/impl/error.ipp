@@ -2,7 +2,7 @@
 // impl/error.ipp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -23,16 +23,18 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace error {
 
-#if !defined(BOOST_ASIO_WINDOWS) && !defined(__CYGWIN__)
+#if !defined(BOOST_ASIO_WINDOWS) \
+  && !defined(BOOST_ASIO_CYGWIN_W32_SOCKETS)
 
 namespace detail {
 
 class netdb_category : public boost::system::error_category
 {
 public:
-  const char* name() const BOOST_ASIO_ERROR_CATEGORY_NOEXCEPT
+  const char* name() const noexcept
   {
     return "asio.netdb";
   }
@@ -64,7 +66,7 @@ namespace detail {
 class addrinfo_category : public boost::system::error_category
 {
 public:
-  const char* name() const BOOST_ASIO_ERROR_CATEGORY_NOEXCEPT
+  const char* name() const noexcept
   {
     return "asio.addrinfo";
   }
@@ -87,14 +89,15 @@ const boost::system::error_category& get_addrinfo_category()
   return instance;
 }
 
-#endif // !defined(BOOST_ASIO_WINDOWS) && !defined(__CYGWIN__)
+#endif // !defined(BOOST_ASIO_WINDOWS)
+       //   && !defined(BOOST_ASIO_CYGWIN_W32_SOCKETS)
 
 namespace detail {
 
 class misc_category : public boost::system::error_category
 {
 public:
-  const char* name() const BOOST_ASIO_ERROR_CATEGORY_NOEXCEPT
+  const char* name() const noexcept
   {
     return "asio.misc";
   }
@@ -122,6 +125,7 @@ const boost::system::error_category& get_misc_category()
 }
 
 } // namespace error
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

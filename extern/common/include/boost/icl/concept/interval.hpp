@@ -9,6 +9,7 @@ Copyright (c) 2010-2010: Joachim Faulhaber
 #define BOOST_ICL_CONCEPT_INTERVAL_HPP_JOFA_100323
 
 #include <boost/assert.hpp>
+#include <boost/core/ignore_unused.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/mpl/and.hpp>
 #include <boost/mpl/or.hpp>
@@ -112,6 +113,7 @@ singleton(const typename interval_traits<Type>::domain_type& value)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than(value) ));
+    boost::ignore_unused<domain_type, domain_compare>();
 
     return interval_traits<Type>::construct(domain_prior<Type>(value), value);
 }
@@ -125,6 +127,7 @@ singleton(const typename interval_traits<Type>::domain_type& value)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than(value)));
+    boost::ignore_unused<domain_type, domain_compare>();
 
     return interval_traits<Type>::construct( domain_prior<Type>(value)
                                            , domain_next<Type>(value));
@@ -181,6 +184,7 @@ unit_trail(const typename interval_traits<Type>::domain_type& value)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than(value) ));
+    boost::ignore_unused<domain_type, domain_compare>();
 
     return interval_traits<Type>::construct(domain_prior<Type>(value), value);
 }
@@ -198,6 +202,7 @@ unit_trail(const typename interval_traits<Type>::domain_type& value)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than(value)));
+    boost::ignore_unused<domain_type, domain_compare>();
 
     return interval_traits<Type>::construct( domain_prior<Type>(value)
                                            ,  domain_next<Type>(value));
@@ -292,6 +297,8 @@ hull(const typename interval_traits<Type>::domain_type& left,
 {
     typedef typename interval_traits<Type>::domain_type    domain_type;
     typedef typename interval_traits<Type>::domain_compare domain_compare;
+    boost::ignore_unused<domain_type>();
+
     if(domain_compare()(left,right))
     {
         BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
@@ -325,6 +332,8 @@ hull(const typename interval_traits<Type>::domain_type& left,
 {
     typedef typename interval_traits<Type>::domain_type    domain_type;
     typedef typename interval_traits<Type>::domain_compare domain_compare;
+    boost::ignore_unused<domain_type>();
+
     if(domain_compare()(left,right))
     {
         BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
@@ -425,6 +434,8 @@ last(const Type& object)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than(upper(object)) ));
+    boost::ignore_unused<domain_type, domain_compare>();
+
     return domain_prior<Type>(upper(object));
 }
 
@@ -437,6 +448,8 @@ last(const Type& object)
     typedef typename interval_traits<Type>::domain_compare domain_compare;
     BOOST_ASSERT((numeric_minimum<domain_type, domain_compare, is_numeric<domain_type>::value>
                                  ::is_less_than_or(upper(object), is_right_closed(object.bounds())) ));
+    boost::ignore_unused<domain_type, domain_compare>();
+
     return is_right_closed(object.bounds()) ?
                                   upper(object) :
                domain_prior<Type>(upper(object));
@@ -552,8 +565,10 @@ template<class Type>
 typename boost::enable_if<is_static_open<Type>, bool>::type
 is_empty(const Type& object)
 {
-    return domain_less_equal<Type>(upper(object),                   lower(object) )
-        || domain_less_equal<Type>(upper(object), domain_next<Type>(lower(object)));
+    // we use ternary operator instead of || to prevent a codegen bug with GCC 10-11
+    return domain_less_equal<Type>(upper(object), lower(object))?
+        true:
+        domain_less_equal<Type>(upper(object), domain_next<Type>(lower(object)));
 }
 
 template<class Type>
@@ -563,8 +578,10 @@ is_empty(const Type& object)
     if(object.bounds() == interval_bounds::closed())
         return domain_less<Type>(upper(object), lower(object));
     else if(object.bounds() == interval_bounds::open())
-        return domain_less_equal<Type>(upper(object),                   lower(object) )
-            || domain_less_equal<Type>(upper(object), domain_next<Type>(lower(object)));
+        // we use ternary operator instead of || to prevent a codegen bug with GCC 10-11
+        return domain_less_equal<Type>(upper(object), lower(object))?
+            true:
+            domain_less_equal<Type>(upper(object), domain_next<Type>(lower(object)));
     else
         return domain_less_equal<Type>(upper(object), lower(object));
 }
@@ -909,11 +926,9 @@ template<class Type>
 typename boost::enable_if<is_interval<Type>, bool>::type
 operator < (const Type& left, const Type& right)
 {
-    if(icl::is_empty(left))
-        return !icl::is_empty(right);
-    else
-        return lower_less(left,right)
-            || (lower_equal(left,right) && upper_less(left,right));
+    return (!icl::is_empty(left) && !icl::is_empty(right))
+        && (     lower_less(left,right)
+             || (lower_equal(left,right) && upper_less(left,right)) );
 }
 
 template<class Type>
@@ -921,6 +936,27 @@ inline typename boost::enable_if<is_interval<Type>, bool>::type
 operator > (const Type& left, const Type& right)
 {
     return right < left;
+}
+
+//- operator <= ----------------------------------------------------------------
+template<class Type>
+inline typename boost::enable_if<is_interval<Type>, bool>::type
+operator <= (const Type& left, const Type& right)
+{
+    if(icl::is_empty(left) || icl::is_empty(right))
+        return false;
+
+    return !(left > right);
+}
+
+template<class Type>
+inline typename boost::enable_if<is_interval<Type>, bool>::type
+operator >= (const Type& left, const Type& right)
+{
+    if(icl::is_empty(left) || icl::is_empty(right))
+        return false;
+
+    return !(left < right);
 }
 
 

@@ -2,7 +2,7 @@
 // detail/resolve_endpoint_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -19,7 +19,6 @@
 #include <boost/asio/detail/bind_handler.hpp>
 #include <boost/asio/detail/fenced_block.hpp>
 #include <boost/asio/detail/handler_alloc_helpers.hpp>
-#include <boost/asio/detail/handler_invoke_helpers.hpp>
 #include <boost/asio/detail/handler_work.hpp>
 #include <boost/asio/detail/memory.hpp>
 #include <boost/asio/detail/resolve_op.hpp>
@@ -37,6 +36,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 template <typename Protocol, typename Handler, typename IoExecutor>
@@ -61,7 +61,7 @@ public:
       cancel_token_(cancel_token),
       endpoint_(endpoint),
       scheduler_(sched),
-      handler_(BOOST_ASIO_MOVE_CAST(Handler)(handler)),
+      handler_(static_cast<Handler&&>(handler)),
       work_(handler_, io_ex)
   {
   }
@@ -79,7 +79,7 @@ public:
     {
       // The operation is being run on the worker io_context. Time to perform
       // the resolver operation.
-    
+
       // Perform the blocking endpoint resolution operation.
       char host_name[NI_MAXHOST] = "";
       char service_name[NI_MAXSERV] = "";
@@ -101,7 +101,7 @@ public:
 
       // Take ownership of the operation's outstanding work.
       handler_work<Handler, IoExecutor> w(
-          BOOST_ASIO_MOVE_CAST2(handler_work<Handler, IoExecutor>)(
+          static_cast<handler_work<Handler, IoExecutor>&&>(
             o->work_));
 
       // Make a copy of the handler so that the memory can be deallocated
@@ -135,6 +135,7 @@ private:
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

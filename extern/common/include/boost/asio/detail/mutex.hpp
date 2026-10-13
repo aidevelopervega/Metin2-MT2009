@@ -2,7 +2,7 @@
 // detail/mutex.hpp
 // ~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -19,31 +19,35 @@
 
 #if !defined(BOOST_ASIO_HAS_THREADS)
 # include <boost/asio/detail/null_mutex.hpp>
-#elif defined(BOOST_ASIO_WINDOWS)
+#elif defined(BOOST_ASIO_WINDOWS) && defined(BOOST_ASIO_HAS_WINDOWS_SRWLOCK)
 # include <boost/asio/detail/win_mutex.hpp>
+#elif defined(BOOST_ASIO_WINDOWS)
+# include <boost/asio/detail/win_critsec_mutex.hpp>
 #elif defined(BOOST_ASIO_HAS_PTHREADS)
 # include <boost/asio/detail/posix_mutex.hpp>
-#elif defined(BOOST_ASIO_HAS_STD_MUTEX_AND_CONDVAR)
-# include <boost/asio/detail/std_mutex.hpp>
 #else
-# error Only Windows, POSIX and std::mutex are supported!
+# include <boost/asio/detail/std_mutex.hpp>
 #endif
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 #if !defined(BOOST_ASIO_HAS_THREADS)
 typedef null_mutex mutex;
-#elif defined(BOOST_ASIO_WINDOWS)
+#elif defined(BOOST_ASIO_WINDOWS) && defined(BOOST_ASIO_HAS_WINDOWS_SRWLOCK)
 typedef win_mutex mutex;
+#elif defined(BOOST_ASIO_WINDOWS)
+typedef win_critsec_mutex mutex;
 #elif defined(BOOST_ASIO_HAS_PTHREADS)
 typedef posix_mutex mutex;
-#elif defined(BOOST_ASIO_HAS_STD_MUTEX_AND_CONDVAR)
+#else
 typedef std_mutex mutex;
 #endif
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

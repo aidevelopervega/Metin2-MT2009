@@ -1,6 +1,6 @@
 // Copyright Kevlin Henney, 2000-2005.
 // Copyright Alexander Nasonov, 2006-2010.
-// Copyright Antony Polukhin, 2011-2023.
+// Copyright Antony Polukhin, 2011-2026.
 //
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
@@ -18,6 +18,11 @@
 #ifndef BOOST_LEXICAL_CAST_BAD_LEXICAL_CAST_HPP
 #define BOOST_LEXICAL_CAST_BAD_LEXICAL_CAST_HPP
 
+#include <boost/lexical_cast/detail/config.hpp>
+
+#if !defined(BOOST_USE_MODULES) || defined(BOOST_LEXICAL_CAST_INTERFACE_UNIT)
+
+#ifndef BOOST_LEXICAL_CAST_INTERFACE_UNIT
 #include <boost/config.hpp>
 #ifdef BOOST_HAS_PRAGMA_ONCE
 #   pragma once
@@ -26,9 +31,11 @@
 #include <exception>
 #include <typeinfo>
 #include <boost/throw_exception.hpp>
+#endif
 
 namespace boost
 {
+BOOST_LEXICAL_CAST_BEGIN_MODULE_EXPORT
     // exception used to indicate runtime lexical_cast failure
     class BOOST_SYMBOL_VISIBLE bad_lexical_cast :
     // workaround MSVC bug with std::bad_cast when _HAS_EXCEPTIONS == 0
@@ -37,15 +44,9 @@ namespace boost
 #else
         public std::bad_cast
 #endif
-
-#if defined(BOOST_BORLANDC) && BOOST_WORKAROUND( BOOST_BORLANDC, < 0x560 )
-        // under bcc32 5.5.1 bad_cast doesn't derive from exception
-        , public std::exception
-#endif
-
     {
     public:
-        bad_lexical_cast() BOOST_NOEXCEPT
+        bad_lexical_cast() noexcept
 #ifndef BOOST_NO_TYPEID
            : source(&typeid(void)), target(&typeid(void))
 #endif
@@ -56,8 +57,8 @@ namespace boost
                    "source type value could not be interpreted as target";
         }
 
-        ~bad_lexical_cast() BOOST_NOEXCEPT_OR_NOTHROW BOOST_OVERRIDE
-        {}
+        bad_lexical_cast(const bad_lexical_cast&) = default;
+        bad_lexical_cast& operator=(const bad_lexical_cast&) = default;
 
 #ifndef BOOST_NO_TYPEID
     private:
@@ -69,15 +70,15 @@ namespace boost
     public:
         bad_lexical_cast(
                 const type_info_t &source_type_arg,
-                const type_info_t &target_type_arg) BOOST_NOEXCEPT
+                const type_info_t &target_type_arg) noexcept
             : source(&source_type_arg), target(&target_type_arg)
         {}
 
-        const type_info_t &source_type() const BOOST_NOEXCEPT {
+        const type_info_t &source_type() const noexcept {
             return *source;
         }
 
-        const type_info_t &target_type() const BOOST_NOEXCEPT {
+        const type_info_t &target_type() const noexcept {
             return *target;
         }
 
@@ -86,6 +87,7 @@ namespace boost
         const type_info_t *target;
 #endif
     };
+BOOST_LEXICAL_CAST_END_MODULE_EXPORT
 
     namespace conversion { namespace detail {
 #ifdef BOOST_NO_TYPEID
@@ -102,5 +104,7 @@ namespace boost
     }} // namespace conversion::detail
 
 } // namespace boost
+
+#endif  // #if !defined(BOOST_USE_MODULES) || defined(BOOST_LEXICAL_CAST_INTERFACE_UNIT)
 
 #endif // BOOST_LEXICAL_CAST_BAD_LEXICAL_CAST_HPP

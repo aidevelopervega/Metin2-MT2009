@@ -131,5 +131,3 @@
 // to ensure the correct libraries are selected at link time.
 // #define BOOST_LIB_BUILDID amd64
 
-#define BOOST_ERROR_CODE_HEADER_ONLY
-#define BOOST_SYSTEM_NO_DEPRECATED

@@ -2,7 +2,7 @@
 // basic_signal_set.hpp
 // ~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -33,6 +33,16 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
+
+#if !defined(BOOST_ASIO_BASIC_SIGNAL_SET_FWD_DECL)
+#define BOOST_ASIO_BASIC_SIGNAL_SET_FWD_DECL
+
+// Forward declaration with defaulted arguments.
+template <typename Executor = any_io_executor>
+class basic_signal_set;
+
+#endif // !defined(BOOST_ASIO_BASIC_SIGNAL_SET_FWD_DECL)
 
 /// Provides signal functionality.
 /**
@@ -93,8 +103,10 @@ namespace asio {
  * and @c pthread_sigmask(). For signals to be delivered, programs must ensure
  * that any signals registered using signal_set objects are unblocked in at
  * least one thread.
+ *
+ * @sa @ref overview_signals "Signal handling"
  */
-template <typename Executor = any_io_executor>
+template <typename Executor>
 class basic_signal_set : public signal_set_base
 {
 private:
@@ -135,10 +147,10 @@ public:
    */
   template <typename ExecutionContext>
   explicit basic_signal_set(ExecutionContext& context,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(0, 0, context)
   {
   }
@@ -181,10 +193,10 @@ public:
    */
   template <typename ExecutionContext>
   basic_signal_set(ExecutionContext& context, int signal_number_1,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -240,10 +252,10 @@ public:
   template <typename ExecutionContext>
   basic_signal_set(ExecutionContext& context, int signal_number_1,
       int signal_number_2,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -309,10 +321,10 @@ public:
   template <typename ExecutionContext>
   basic_signal_set(ExecutionContext& context, int signal_number_1,
       int signal_number_2, int signal_number_3,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -335,7 +347,7 @@ public:
   }
 
   /// Get the executor associated with the object.
-  const executor_type& get_executor() BOOST_ASIO_NOEXCEPT
+  const executor_type& get_executor() noexcept
   {
     return impl_.get_executor();
   }
@@ -574,7 +586,7 @@ public:
    * Regardless of whether the asynchronous operation completes immediately or
    * not, the completion handler will not be invoked from within this function.
    * On immediate completion, invocation of the handler will be performed in a
-   * manner equivalent to using boost::asio::post().
+   * manner equivalent to using boost::asio::async_immediate().
    *
    * @par Completion Signature
    * @code void(boost::system::error_code, int) @endcode
@@ -588,18 +600,20 @@ public:
    * @li @c cancellation_type::partial
    *
    * @li @c cancellation_type::total
+   *
+   * @note Unlike the POSIX function @c signal, @c async_wait executes its
+   * completion handler as specified in the @ref async_op_requirements. This
+   * means it places no async-signal safety restrictions on what work can be
+   * performed in a completion handler.
    */
   template <
     BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code, int))
-      SignalToken BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(SignalToken,
-      void (boost::system::error_code, int))
-  async_wait(
-      BOOST_ASIO_MOVE_ARG(SignalToken) token
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+      SignalToken = default_completion_token_t<executor_type>>
+  auto async_wait(
+      SignalToken&& token = default_completion_token_t<executor_type>())
+    -> decltype(
       async_initiate<SignalToken, void (boost::system::error_code, int)>(
-          declval<initiate_async_wait>(), token)))
+        declval<initiate_async_wait>(), token))
   {
     return async_initiate<SignalToken, void (boost::system::error_code, int)>(
         initiate_async_wait(this), token);
@@ -607,8 +621,8 @@ public:
 
 private:
   // Disallow copying and assignment.
-  basic_signal_set(const basic_signal_set&) BOOST_ASIO_DELETED;
-  basic_signal_set& operator=(const basic_signal_set&) BOOST_ASIO_DELETED;
+  basic_signal_set(const basic_signal_set&) = delete;
+  basic_signal_set& operator=(const basic_signal_set&) = delete;
 
   class initiate_async_wait
   {
@@ -620,13 +634,13 @@ private:
     {
     }
 
-    const executor_type& get_executor() const BOOST_ASIO_NOEXCEPT
+    const executor_type& get_executor() const noexcept
     {
       return self_->get_executor();
     }
 
     template <typename SignalHandler>
-    void operator()(BOOST_ASIO_MOVE_ARG(SignalHandler) handler) const
+    void operator()(SignalHandler&& handler) const
     {
       // If you get an error on the following line it means that your handler
       // does not meet the documented type requirements for a SignalHandler.
@@ -645,6 +659,7 @@ private:
   detail::io_object_impl<detail::signal_set_service, Executor> impl_;
 };
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

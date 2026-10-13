@@ -2,7 +2,7 @@
 // detail/io_uring_descriptor_write_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -31,6 +31,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 template <typename ConstBufferSequence>
@@ -64,7 +65,7 @@ public:
     {
       ::io_uring_prep_write_fixed(sqe, o->descriptor_,
           o->bufs_.buffers()->iov_base, o->bufs_.buffers()->iov_len,
-          0, o->bufs_.registered_id().native_handle());
+          -1, o->bufs_.registered_id().native_handle());
     }
     else
     {
@@ -126,7 +127,7 @@ public:
       const IoExecutor& io_ex)
     : io_uring_descriptor_write_op_base<ConstBufferSequence>(success_ec,
         descriptor, state, buffers, &io_uring_descriptor_write_op::do_complete),
-      handler_(BOOST_ASIO_MOVE_CAST(Handler)(handler)),
+      handler_(static_cast<Handler&&>(handler)),
       work_(handler_, io_ex)
   {
   }
@@ -145,7 +146,7 @@ public:
 
     // Take ownership of the operation's outstanding work.
     handler_work<Handler, IoExecutor> w(
-        BOOST_ASIO_MOVE_CAST2(handler_work<Handler, IoExecutor>)(
+        static_cast<handler_work<Handler, IoExecutor>&&>(
           o->work_));
 
     BOOST_ASIO_ERROR_LOCATION(o->ec_);
@@ -177,6 +178,7 @@ private:
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

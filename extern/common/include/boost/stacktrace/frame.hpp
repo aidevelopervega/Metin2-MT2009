@@ -1,4 +1,4 @@
-// Copyright Antony Polukhin, 2016-2023.
+// Copyright Antony Polukhin, 2016-2026.
 //
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
@@ -7,51 +7,50 @@
 #ifndef BOOST_STACKTRACE_FRAME_HPP
 #define BOOST_STACKTRACE_FRAME_HPP
 
-#include <boost/config.hpp>
+#include <boost/stacktrace/detail/backend_config.hpp>
+
+#if !defined(BOOST_USE_MODULES) || defined(BOOST_STACKTRACE_INTERFACE_UNIT)
+
 #ifdef BOOST_HAS_PRAGMA_ONCE
 #   pragma once
 #endif
 
-#include <boost/config/pragma_message.hpp>
-#if defined(BOOST_NO_CXX11_RVALUE_REFERENCES) || \
-    defined(BOOST_NO_CXX11_AUTO_DECLARATIONS) || \
-    defined(BOOST_NO_CXX11_CONSTEXPR) || \
-    defined(BOOST_NO_CXX11_NULLPTR) || \
-    defined(BOOST_NO_CXX11_NOEXCEPT) || \
-    defined(BOOST_NO_CXX11_DEFAULTED_FUNCTIONS) || \
-    defined(BOOST_NO_CXX11_FINAL) || \
-    defined(BOOST_NO_CXX11_ALIGNOF) || \
-    defined(BOOST_NO_CXX11_STATIC_ASSERT) || \
-    defined(BOOST_NO_CXX11_SMART_PTR) || \
-    defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST) || \
-    defined(BOOST_NO_CXX11_HDR_TYPE_TRAITS)
-
-BOOST_PRAGMA_MESSAGE("C++03 support is deprecated in Boost.Stacktrace 1.82 and will be removed in Boost.Stacktrace 1.84.")
-
-#endif
-
+#if !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
 #include <iosfwd>
 #include <string>
-
-#include <boost/core/explicit_operator_bool.hpp>
-
-#include <boost/stacktrace/safe_dump_to.hpp> // boost::stacktrace::detail::native_frame_ptr_t
+#endif // !defined(BOOST_STACKTRACE_INTERFACE_UNIT) && !defined(BOOST_STACKTRACE_USE_STD_MODULE)
 
 #include <boost/stacktrace/detail/frame_decl.hpp>
 #include <boost/stacktrace/detail/push_options.h>
 
+#if defined(BOOST_MSVC) && (defined(BOOST_STACKTRACE_INTERNAL_BUILD_LIBS) || !defined(BOOST_STACKTRACE_LINK))
+extern "C" {
+
+#if defined(BOOST_STACKTRACE_DYN_LINK)
+BOOST_SYMBOL_EXPORT
+#elif defined(BOOST_STACKTRACE_LINK)
+#else
+BOOST_SYMBOL_EXPORT inline
+#endif
+void* boost_stacktrace_impl_return_nullptr() { return nullptr; }
+
+}
+#endif
+
+BOOST_STACKTRACE_BEGIN_MODULE_EXPORT
+
 namespace boost { namespace stacktrace {
 
 /// Comparison operators that provide platform dependant ordering and have O(1) complexity; are Async-Handler-Safe.
-BOOST_CONSTEXPR inline bool operator< (const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return lhs.address() < rhs.address(); }
-BOOST_CONSTEXPR inline bool operator> (const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return rhs < lhs; }
-BOOST_CONSTEXPR inline bool operator<=(const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return !(lhs > rhs); }
-BOOST_CONSTEXPR inline bool operator>=(const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return !(lhs < rhs); }
-BOOST_CONSTEXPR inline bool operator==(const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return lhs.address() == rhs.address(); }
-BOOST_CONSTEXPR inline bool operator!=(const frame& lhs, const frame& rhs) BOOST_NOEXCEPT { return !(lhs == rhs); }
+constexpr inline bool operator< (const frame& lhs, const frame& rhs) noexcept { return lhs.address() < rhs.address(); }
+constexpr inline bool operator> (const frame& lhs, const frame& rhs) noexcept { return rhs < lhs; }
+constexpr inline bool operator<=(const frame& lhs, const frame& rhs) noexcept { return !(lhs > rhs); }
+constexpr inline bool operator>=(const frame& lhs, const frame& rhs) noexcept { return !(lhs < rhs); }
+constexpr inline bool operator==(const frame& lhs, const frame& rhs) noexcept { return lhs.address() == rhs.address(); }
+constexpr inline bool operator!=(const frame& lhs, const frame& rhs) noexcept { return !(lhs == rhs); }
 
 /// Fast hashing support, O(1) complexity; Async-Handler-Safe.
-inline std::size_t hash_value(const frame& f) BOOST_NOEXCEPT {
+inline std::size_t hash_value(const frame& f) noexcept {
     return reinterpret_cast<std::size_t>(f.address());
 }
 
@@ -66,11 +65,13 @@ std::basic_ostream<CharT, TraitsT>& operator<<(std::basic_ostream<CharT, TraitsT
 
 }} // namespace boost::stacktrace
 
+BOOST_STACKTRACE_END_MODULE_EXPORT
+
 /// @cond
 
 #include <boost/stacktrace/detail/pop_options.h>
 
-#ifndef BOOST_STACKTRACE_LINK
+#if !defined(BOOST_STACKTRACE_LINK)
 #   if defined(BOOST_STACKTRACE_USE_NOOP)
 #       include <boost/stacktrace/detail/frame_noop.ipp>
 #   elif defined(BOOST_MSVC) || defined(BOOST_STACKTRACE_USE_WINDBG) || defined(BOOST_STACKTRACE_USE_WINDBG_CACHED)
@@ -81,5 +82,6 @@ std::basic_ostream<CharT, TraitsT>& operator<<(std::basic_ostream<CharT, TraitsT
 #endif
 /// @endcond
 
+#endif // !defined(BOOST_USE_MODULES) || defined(BOOST_STACKTRACE_INTERFACE_UNIT)
 
 #endif // BOOST_STACKTRACE_FRAME_HPP

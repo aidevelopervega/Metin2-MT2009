@@ -34,7 +34,7 @@
 #include <boost/interprocess/detail/workaround.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <cstddef>
-#include <ostream>
+#include <cassert>
 
 #if defined(BOOST_INTERPROCESS_WINDOWS)
 #  include <boost/interprocess/detail/win32_api.hpp>
@@ -44,16 +44,48 @@
 #  include <unistd.h>
 #  include <sched.h>
 #  include <time.h>
+#  include <errno.h>
+#  include <sys/types.h>
 #  ifdef BOOST_INTERPROCESS_BSD_DERIVATIVE
       //Some *BSD systems (OpenBSD & NetBSD) need sys/param.h before sys/sysctl.h, whereas
       //others (FreeBSD & Darwin) need sys/types.h
-#     include <sys/types.h>
 #     include <sys/param.h>
 #     include <sys/sysctl.h>
 #  endif
 #if defined(__VXWORKS__) 
 #include <vxCpuLib.h>
 #endif 
+
+#if defined(__linux__)
+   #include <sys/syscall.h>
+#elif defined(__FreeBSD__)
+   #include <pthread_np.h>
+#elif defined(__APPLE__)
+   #include <pthread.h>
+#elif defined(__NetBSD__)
+   #include <lwp.h>
+#elif defined(__OpenBSD__)
+   #include <unistd.h>
+#elif defined(__sun)
+   #include <thread.h>
+#elif defined(_AIX)
+   #include <sys/thread.h>
+#elif defined(__CYGWIN__)
+   #ifndef __LP64__	// 32 bit target
+   typedef unsigned long BOOSTIPC_CYGWIN_DWORD;
+   #else			// 64 bit Cygwin target
+   typedef unsigned int BOOSTIPC_CYGWIN_DWORD;
+   #endif
+   extern "C" {
+   __declspec(dllimport) BOOSTIPC_CYGWIN_DWORD __stdcall GetCurrentThreadId (void);
+   }  //extern "C" {
+#elif defined(__VXWORKS__)
+   #include <taskLib.h>
+#elif defined(__QNXNTO__)
+   #include <process.h>
+#endif
+
+
 //According to the article "C/C++ tip: How to measure elapsed real time for benchmarking"
 //Check MacOs first as macOS 10.12 SDK defines both CLOCK_MONOTONIC and
 //CLOCK_MONOTONIC_RAW and no clock_gettime.
@@ -93,8 +125,6 @@ struct OS_thread_t
 
    void* m_handle;
 };
-
-typedef OS_thread_id_t OS_systemwide_thread_id_t;
 
 //process
 inline OS_process_id_t get_current_process_id()
@@ -160,6 +190,12 @@ inline OS_highres_count_t get_current_system_highres_count()
    return (OS_highres_count_t)count;
 }
 
+inline unsigned get_current_system_highres_rand()
+{
+   unsigned __int64 count = (unsigned __int64) get_current_system_highres_count();
+   return static_cast<unsigned>(count + (count >> 32u));
+}
+
 inline void zero_highres_count(OS_highres_count_t &count)
 {  count = 0;  }
 
@@ -188,42 +224,49 @@ inline void thread_sleep_tick()
 inline void thread_yield()
 {  winapi::sched_yield();  }
 
-inline void thread_sleep(unsigned int ms)
+inline void thread_sleep_ms(unsigned int ms)
 {  winapi::sleep(ms);  }
 
-//systemwide thread
+
+class OS_systemwide_thread_id_t
+{
+   OS_thread_id_t m_thrhnd;
+
+   public:
+   explicit OS_systemwide_thread_id_t(OS_thread_id_t thid)
+      : m_thrhnd(thid)
+   {}
+
+   OS_systemwide_thread_id_t()
+      : m_thrhnd(get_invalid_thread_id())
+   {}
+
+   friend bool operator == (const OS_systemwide_thread_id_t &id1, const OS_systemwide_thread_id_t &id2)
+   {  return id1.m_thrhnd == id2.m_thrhnd;  }
+};
+
 inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
 {
-   return get_current_thread_id();
-}
-
-inline void systemwide_thread_id_copy
-   (const volatile OS_systemwide_thread_id_t &from, volatile OS_systemwide_thread_id_t &to)
-{
-   to = from;
-}
-
-inline bool equal_systemwide_thread_id(const OS_systemwide_thread_id_t &id1, const OS_systemwide_thread_id_t &id2)
-{
-   return equal_thread_id(id1, id2);
+   return OS_systemwide_thread_id_t(get_current_thread_id());
 }
 
 inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
 {
-   return get_invalid_thread_id();
+   return OS_systemwide_thread_id_t(get_invalid_thread_id());
 }
 
-inline long double get_current_process_creation_time()
+inline unsigned long long get_current_process_creation_time()
 {
    winapi::interprocess_filetime CreationTime, ExitTime, KernelTime, UserTime;
 
    winapi::get_process_times
       ( winapi::get_current_process(), &CreationTime, &ExitTime, &KernelTime, &UserTime);
 
-   typedef long double ldouble_t;
-   const ldouble_t resolution = (100.0l/1000000000.0l);
-   return CreationTime.dwHighDateTime*(ldouble_t(1u<<31u)*2.0l*resolution) +
-              CreationTime.dwLowDateTime*resolution;
+   unsigned long long microsecs = CreationTime.dwHighDateTime;
+   microsecs <<= 32u;
+   microsecs |= CreationTime.dwLowDateTime;
+   microsecs /= 10u;
+   return microsecs;
 }
 
 inline unsigned int get_num_cores()
@@ -239,44 +282,6 @@ inline unsigned int get_num_cores()
 typedef pthread_t OS_thread_t;
 typedef pthread_t OS_thread_id_t;
 typedef pid_t     OS_process_id_t;
-
-struct OS_systemwide_thread_id_t
-{
-   OS_systemwide_thread_id_t()
-      :  pid(), tid()
-   {}
-
-   OS_systemwide_thread_id_t(pid_t p, pthread_t t)
-      :  pid(p), tid(t)
-   {}
-
-   OS_systemwide_thread_id_t(const OS_systemwide_thread_id_t &x)
-      :  pid(x.pid), tid(x.tid)
-   {}
-
-   OS_systemwide_thread_id_t(const volatile OS_systemwide_thread_id_t &x)
-      :  pid(x.pid), tid(x.tid)
-   {}
-
-   OS_systemwide_thread_id_t & operator=(const OS_systemwide_thread_id_t &x)
-   {  pid = x.pid;   tid = x.tid;   return *this;   }
-
-   OS_systemwide_thread_id_t & operator=(const volatile OS_systemwide_thread_id_t &x)
-   {  pid = x.pid;   tid = x.tid;   return *this;  }
-
-   void operator=(const OS_systemwide_thread_id_t &x) volatile
-   {  pid = x.pid;   tid = x.tid;   }
-
-   pid_t       pid;
-   pthread_t   tid;
-};
-
-inline void systemwide_thread_id_copy
-   (const volatile OS_systemwide_thread_id_t &from, volatile OS_systemwide_thread_id_t &to)
-{
-   to.pid = from.pid;
-   to.tid = from.tid;
-}
 
 //process
 inline OS_process_id_t get_current_process_id()
@@ -297,6 +302,147 @@ inline OS_thread_id_t get_invalid_thread_id()
 
 inline bool equal_thread_id(OS_thread_id_t id1, OS_thread_id_t id2)
 {  return 0 != pthread_equal(id1, id2);  }
+
+
+#if defined(__linux__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef pid_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return (pid_t)syscall(SYS_gettid);  }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (pid_t)(-1); }
+
+#elif defined(__FreeBSD__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef int OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return pthread_getthreadid_np();  }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return -1;   }
+
+#elif defined(__APPLE__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef uint64_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  uint64_t tid; pthread_threadid_np(NULL, &tid); return tid;   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (uint64_t)(-1);  }
+
+#elif defined(__NetBSD__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef lwpid_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return _lwp_self();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (lwpid_t)(-1);  }
+
+#elif defined(__OpenBSD__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef pid_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return getthrid();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (pid_t)(-1);  }
+
+#elif defined(__sun) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef thread_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return thr_self();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (thread_t)(-1);  }
+
+#elif defined(_AIX) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef tid_t OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return thread_self();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (tid_t)(-1);  }
+
+#elif defined(__CYGWIN__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef BOOSTIPC_CYGWIN_DWORD OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return ::GetCurrentThreadId();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (OS_systemwide_thread_id_t)(-1);  }
+
+#elif defined(__VXWORKS__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef int OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return taskIdSelf();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (OS_systemwide_thread_id_t)(-1);  }
+
+#elif defined(__QNXNTO__) && !defined(BOOST_INTERPROCESS_USE_PTHREAD_AS_SYSTEMWIDE_THREAD_ID)
+
+typedef int OS_systemwide_thread_id_t;
+
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{  return gettid();   }
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{  return (OS_systemwide_thread_id_t)(-1);  }
+
+#else //fallback to fragile and mostly wrong pthread-based solution
+
+class OS_systemwide_thread_id_t
+{
+   pid_t       pid;
+   pthread_t   tid;
+
+   public:
+   OS_systemwide_thread_id_t()
+      :  pid(), tid()
+   {}
+
+   OS_systemwide_thread_id_t(pid_t p, pthread_t t)
+      :  pid(p), tid(t)
+   {}
+
+   OS_systemwide_thread_id_t(const OS_systemwide_thread_id_t &x)
+      :  pid(x.pid), tid(x.tid)
+   {}
+
+   OS_systemwide_thread_id_t & operator=(const OS_systemwide_thread_id_t &x)
+   {  pid = x.pid;   tid = x.tid;   return *this;   }
+
+   friend bool operator == (const OS_systemwide_thread_id_t &id1, const OS_systemwide_thread_id_t &id2)
+   {  return id1.pid == id2.pid && (0 != pthread_equal(id1.tid, id2.tid));  }
+};
+
+//systemwide thread
+inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
+{
+   return OS_systemwide_thread_id_t(::getpid(), ::pthread_self());
+}
+
+inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
+{
+   return OS_systemwide_thread_id_t(get_invalid_process_id(), get_invalid_thread_id());
+}
+
+#endif
 
 inline void thread_yield()
 {  ::sched_yield();  }
@@ -350,6 +496,16 @@ inline OS_highres_count_t get_current_system_highres_count()
       return count;
    #elif defined(BOOST_INTERPROCESS_MATCH_ABSOLUTE_TIME)
       return ::mach_absolute_time();
+   #endif
+}
+
+inline unsigned get_current_system_highres_rand()
+{
+   OS_highres_count_t count = get_current_system_highres_count();
+   #if defined(BOOST_INTERPROCESS_CLOCK_MONOTONIC)
+      return static_cast<unsigned>(count.tv_sec + count.tv_nsec);
+   #elif defined(BOOST_INTERPROCESS_MATCH_ABSOLUTE_TIME)
+      return static_cast<unsigned>(count);
    #endif
 }
 
@@ -422,35 +578,29 @@ inline void thread_sleep_tick()
    //Sleep for the half of the tick time
    rqt.tv_sec  = 0;
    rqt.tv_nsec = (long)get_system_tick_ns()/2;
-   ::nanosleep(&rqt, 0);
+
+   struct timespec rmn;
+   while (0 != BOOST_INTERPROCESS_EINTR_RETRY(int, -1, ::nanosleep(&rqt, &rmn)) && errno == EINTR) {
+      rqt.tv_sec = rmn.tv_sec;
+      rqt.tv_nsec = rmn.tv_nsec;
+   }
 }
 
-inline void thread_sleep(unsigned int ms)
+inline void thread_sleep_ms(unsigned int ms)
 {
    struct timespec rqt;
-   rqt.tv_sec = ms/1000u;
-   rqt.tv_nsec = (ms%1000u)*1000000u;
-   ::nanosleep(&rqt, 0);
+   rqt.tv_sec = static_cast<time_t>(ms/1000u);
+   rqt.tv_nsec = static_cast<long int>((ms%1000u)*1000000u);
+
+   struct timespec rmn;
+   while (0 != BOOST_INTERPROCESS_EINTR_RETRY(int, -1, ::nanosleep(&rqt, &rmn)) && errno == EINTR) {
+      rqt.tv_sec  = rmn.tv_sec;
+      rqt.tv_nsec = rmn.tv_nsec;
+   }
 }
 
-//systemwide thread
-inline OS_systemwide_thread_id_t get_current_systemwide_thread_id()
-{
-   return OS_systemwide_thread_id_t(::getpid(), ::pthread_self());
-}
-
-inline bool equal_systemwide_thread_id(const OS_systemwide_thread_id_t &id1, const OS_systemwide_thread_id_t &id2)
-{
-   return (0 != pthread_equal(id1.tid, id2.tid)) && (id1.pid == id2.pid);
-}
-
-inline OS_systemwide_thread_id_t get_invalid_systemwide_thread_id()
-{
-   return OS_systemwide_thread_id_t(get_invalid_process_id(), get_invalid_thread_id());
-}
-
-inline long double get_current_process_creation_time()
-{ return 0.0L; }
+inline unsigned long long get_current_process_creation_time()
+{ return 0u; }
 
 inline unsigned int get_num_cores()
 {
@@ -501,7 +651,11 @@ inline int thread_create(OS_thread_t * thread, void *(*start_routine)(void*), vo
 {  return pthread_create(thread, 0, start_routine, arg); }
 
 inline void thread_join(OS_thread_t thread)
-{  (void)pthread_join(thread, 0);  }
+{
+   int ret = pthread_join(thread, 0);
+   (void)ret;
+   assert(0 == ret);
+}
 
 #endif   //#if defined (BOOST_INTERPROCESS_WINDOWS)
 
@@ -533,8 +687,16 @@ inline int thread_create( OS_thread_t * thread, boost::ipwinapiext::LPTHREAD_STA
 
 inline void thread_join( OS_thread_t thread)
 {
-   winapi::wait_for_single_object( thread.handle(), winapi::infinite_time );
-   winapi::close_handle( thread.handle() );
+   {
+      unsigned long ret = winapi::wait_for_single_object( thread.handle(), winapi::infinite_time );
+      assert(0 == ret);
+      (void)ret;
+   }
+   {
+      bool ret = winapi::close_handle(thread.handle());
+      assert(true == ret);
+      (void)ret;
+   }
 }
 
 #endif

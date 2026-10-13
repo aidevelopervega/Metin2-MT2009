@@ -2,7 +2,7 @@
 // detail/base_from_cancellation_state.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -24,6 +24,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 template <typename Handler, typename = void>
@@ -32,12 +33,12 @@ class base_from_cancellation_state
 public:
   typedef cancellation_slot cancellation_slot_type;
 
-  cancellation_slot_type get_cancellation_slot() const BOOST_ASIO_NOEXCEPT
+  cancellation_slot_type get_cancellation_slot() const noexcept
   {
     return cancellation_state_.slot();
   }
 
-  cancellation_state get_cancellation_state() const BOOST_ASIO_NOEXCEPT
+  cancellation_state get_cancellation_state() const noexcept
   {
     return cancellation_state_;
   }
@@ -58,12 +59,12 @@ protected:
 
   template <typename InFilter, typename OutFilter>
   base_from_cancellation_state(const Handler& handler,
-      BOOST_ASIO_MOVE_ARG(InFilter) in_filter,
-      BOOST_ASIO_MOVE_ARG(OutFilter) out_filter)
+      InFilter&& in_filter,
+      OutFilter&& out_filter)
     : cancellation_state_(
         boost::asio::get_associated_cancellation_slot(handler),
-        BOOST_ASIO_MOVE_CAST(InFilter)(in_filter),
-        BOOST_ASIO_MOVE_CAST(OutFilter)(out_filter))
+        static_cast<InFilter&&>(in_filter),
+        static_cast<OutFilter&&>(out_filter))
   {
   }
 
@@ -82,16 +83,16 @@ protected:
 
   template <typename InFilter, typename OutFilter>
   void reset_cancellation_state(const Handler& handler,
-      BOOST_ASIO_MOVE_ARG(InFilter) in_filter,
-      BOOST_ASIO_MOVE_ARG(OutFilter) out_filter)
+      InFilter&& in_filter,
+      OutFilter&& out_filter)
   {
     cancellation_state_ = cancellation_state(
         boost::asio::get_associated_cancellation_slot(handler),
-        BOOST_ASIO_MOVE_CAST(InFilter)(in_filter),
-        BOOST_ASIO_MOVE_CAST(OutFilter)(out_filter));
+        static_cast<InFilter&&>(in_filter),
+        static_cast<OutFilter&&>(out_filter));
   }
 
-  cancellation_type_t cancelled() const BOOST_ASIO_NOEXCEPT
+  cancellation_type_t cancelled() const noexcept
   {
     return cancellation_state_.cancelled();
   }
@@ -102,17 +103,18 @@ private:
 
 template <typename Handler>
 class base_from_cancellation_state<Handler,
-    typename enable_if<
+    enable_if_t<
       is_same<
         typename associated_cancellation_slot<
           Handler, cancellation_slot
         >::asio_associated_cancellation_slot_is_unspecialised,
         void
       >::value
-    >::type>
+    >
+  >
 {
 public:
-  cancellation_state get_cancellation_state() const BOOST_ASIO_NOEXCEPT
+  cancellation_state get_cancellation_state() const noexcept
   {
     return cancellation_state();
   }
@@ -129,8 +131,8 @@ protected:
 
   template <typename InFilter, typename OutFilter>
   base_from_cancellation_state(const Handler&,
-      BOOST_ASIO_MOVE_ARG(InFilter),
-      BOOST_ASIO_MOVE_ARG(OutFilter))
+      InFilter&&,
+      OutFilter&&)
   {
   }
 
@@ -145,18 +147,19 @@ protected:
 
   template <typename InFilter, typename OutFilter>
   void reset_cancellation_state(const Handler&,
-      BOOST_ASIO_MOVE_ARG(InFilter),
-      BOOST_ASIO_MOVE_ARG(OutFilter))
+      InFilter&&,
+      OutFilter&&)
   {
   }
 
-  BOOST_ASIO_CONSTEXPR cancellation_type_t cancelled() const BOOST_ASIO_NOEXCEPT
+  constexpr cancellation_type_t cancelled() const noexcept
   {
     return cancellation_type::none;
   }
 };
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

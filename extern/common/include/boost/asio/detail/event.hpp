@@ -2,7 +2,7 @@
 // detail/event.hpp
 // ~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -23,14 +23,13 @@
 # include <boost/asio/detail/win_event.hpp>
 #elif defined(BOOST_ASIO_HAS_PTHREADS)
 # include <boost/asio/detail/posix_event.hpp>
-#elif defined(BOOST_ASIO_HAS_STD_MUTEX_AND_CONDVAR)
-# include <boost/asio/detail/std_event.hpp>
 #else
-# error Only Windows, POSIX and std::condition_variable are supported!
+# include <boost/asio/detail/std_event.hpp>
 #endif
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 #if !defined(BOOST_ASIO_HAS_THREADS)
@@ -39,11 +38,12 @@ typedef null_event event;
 typedef win_event event;
 #elif defined(BOOST_ASIO_HAS_PTHREADS)
 typedef posix_event event;
-#elif defined(BOOST_ASIO_HAS_STD_MUTEX_AND_CONDVAR)
+#else
 typedef std_event event;
 #endif
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

@@ -160,6 +160,17 @@ lexer<IteratorT, PositionT, TokenT>::lexer(IteratorT const &first,
 #else
     scanner.act_in_cpp2a_mode = false;
 #endif
+
+#if BOOST_WAVE_SUPPORT_CPP2B != 0
+    scanner.act_in_cpp2b_mode = boost::wave::need_cpp2b(language_);
+    scanner.act_in_cpp2a_mode = boost::wave::need_cpp2b(language_)
+        || boost::wave::need_cpp2a(language_);
+    scanner.act_in_cpp0x_mode = boost::wave::need_cpp2b(language_)
+        || boost::wave::need_cpp2a(language_)
+        || boost::wave::need_cpp0x(language_);
+#else
+    scanner.act_in_cpp2b_mode = false;
+#endif
 }
 
 template <typename IteratorT, typename PositionT, typename TokenT>
@@ -234,6 +245,7 @@ lexer<IteratorT, PositionT, TokenT>::get(TokenT& result)
     case T_DECIMALINT:
     case T_HEXAINT:
     case T_INTLIT:
+    case T_SIZETLIT:
     case T_FLOATLIT:
     case T_FIXEDPOINTLIT:
     case T_CCOMMENT:
@@ -273,7 +285,8 @@ lexer<IteratorT, PositionT, TokenT>::get(TokenT& result)
     case T_ANY_TRIGRAPH:
         if (boost::wave::need_convert_trigraphs(language)) {
             value = impl::convert_trigraph(
-                string_type((char const *)scanner.tok));
+                string_type((char const *)scanner.tok,
+                            scanner.cur-scanner.tok));
         }
         else {
             value = string_type((char const *)scanner.tok,
@@ -314,12 +327,13 @@ lexer<IteratorT, PositionT, TokenT>::report_error(Scanner<IteratorT> const *s, i
     BOOST_ASSERT(0 != s);
     BOOST_ASSERT(0 != msg);
 
-    using namespace std;    // some system have vsprintf in namespace std
+    using namespace std;    // some systems have vsnprintf in namespace std
 
-    char buffer[200];           // should be large enough
+    constexpr std::size_t bufsize = 200;            // should be large enough
+    char buffer[bufsize];
     va_list params;
     va_start(params, msg);
-    vsprintf(buffer, msg, params);
+    vsnprintf(buffer, bufsize, msg, params);
     va_end(params);
 
     BOOST_WAVE_LEXER_THROW_VAR(lexing_exception, errcode, buffer, s->line,

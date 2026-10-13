@@ -2,7 +2,7 @@
 // uses_executor.hpp
 // ~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -22,6 +22,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 
 /// A special type, similar to std::nothrow_t, used to disambiguate
 /// constructors that accept executor arguments.
@@ -35,7 +36,7 @@ namespace asio {
 struct executor_arg_t
 {
   /// Constructor.
-  BOOST_ASIO_CONSTEXPR executor_arg_t() BOOST_ASIO_NOEXCEPT
+  constexpr executor_arg_t() noexcept
   {
   }
 };
@@ -46,11 +47,7 @@ struct executor_arg_t
  * See boost::asio::executor_arg_t and boost::asio::uses_executor
  * for more information.
  */
-#if defined(BOOST_ASIO_HAS_CONSTEXPR) || defined(GENERATING_DOCUMENTATION)
-constexpr executor_arg_t executor_arg;
-#elif defined(BOOST_ASIO_MSVC)
-__declspec(selectany) executor_arg_t executor_arg;
-#endif
+BOOST_ASIO_INLINE_VARIABLE constexpr executor_arg_t executor_arg;
 
 /// The uses_executor trait detects whether a type T has an associated executor
 /// that is convertible from type Executor.
@@ -65,6 +62,7 @@ __declspec(selectany) executor_arg_t executor_arg;
 template <typename T, typename Executor>
 struct uses_executor : false_type {};
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

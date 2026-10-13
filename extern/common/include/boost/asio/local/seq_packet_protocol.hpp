@@ -2,7 +2,7 @@
 // local/seq_packet_protocol.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -29,6 +29,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace local {
 
 /// Encapsulates the flags needed for seq_packet UNIX sockets.
@@ -47,19 +48,19 @@ class seq_packet_protocol
 {
 public:
   /// Obtain an identifier for the type of the protocol.
-  int type() const BOOST_ASIO_NOEXCEPT
+  int type() const noexcept
   {
     return SOCK_SEQPACKET;
   }
 
   /// Obtain an identifier for the protocol.
-  int protocol() const BOOST_ASIO_NOEXCEPT
+  int protocol() const noexcept
   {
     return 0;
   }
 
   /// Obtain an identifier for the protocol family.
-  int family() const BOOST_ASIO_NOEXCEPT
+  int family() const noexcept
   {
     return AF_UNIX;
   }
@@ -75,6 +76,7 @@ public:
 };
 
 } // namespace local
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

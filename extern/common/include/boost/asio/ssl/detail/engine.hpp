@@ -2,7 +2,7 @@
 // ssl/detail/engine.hpp
 // ~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -28,6 +28,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace ssl {
 namespace detail {
 
@@ -57,23 +58,21 @@ public:
   };
 
   // Construct a new engine for the specified context.
-  BOOST_ASIO_DECL explicit engine(SSL_CTX* context);
+  BOOST_ASIO_DECL engine(SSL_CTX* context,
+      std::size_t output_buffer_size, std::size_t input_buffer_size);
 
   // Construct a new engine for an existing native SSL implementation.
-  BOOST_ASIO_DECL explicit engine(SSL* ssl_impl);
+  BOOST_ASIO_DECL engine(SSL* ssl_impl,
+      std::size_t output_buffer_size, std::size_t input_buffer_size);
 
-#if defined(BOOST_ASIO_HAS_MOVE)
   // Move construct from another engine.
-  BOOST_ASIO_DECL engine(engine&& other) BOOST_ASIO_NOEXCEPT;
-#endif // defined(BOOST_ASIO_HAS_MOVE)
+  BOOST_ASIO_DECL engine(engine&& other) noexcept;
 
   // Destructor.
   BOOST_ASIO_DECL ~engine();
 
-#if defined(BOOST_ASIO_HAS_MOVE)
   // Move assign from another engine.
-  BOOST_ASIO_DECL engine& operator=(engine&& other) BOOST_ASIO_NOEXCEPT;
-#endif // defined(BOOST_ASIO_HAS_MOVE)
+  BOOST_ASIO_DECL engine& operator=(engine&& other) noexcept;
 
   // Get the underlying implementation in the native type.
   BOOST_ASIO_DECL SSL* native_handle();
@@ -125,6 +124,10 @@ private:
   engine(const engine&);
   engine& operator=(const engine&);
 
+  // Helper to complete construction of the engine.
+  BOOST_ASIO_DECL void init(std::size_t output_buffer_size,
+      std::size_t input_buffer_size);
+
   // Callback used when the SSL implementation wants to verify a certificate.
   BOOST_ASIO_DECL static int verify_callback_function(
       int preverified, X509_STORE_CTX* ctx);
@@ -163,6 +166,7 @@ private:
 
 } // namespace detail
 } // namespace ssl
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

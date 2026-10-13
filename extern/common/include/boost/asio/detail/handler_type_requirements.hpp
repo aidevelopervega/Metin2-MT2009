@@ -2,7 +2,7 @@
 // detail/handler_type_requirements.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -55,6 +55,7 @@
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
 namespace detail {
 
 #if defined(BOOST_ASIO_ENABLE_HANDLER_TYPE_REQUIREMENTS)
@@ -65,7 +66,7 @@ template <typename Handler>
 auto zero_arg_copyable_handler_test(Handler h, void*)
   -> decltype(
     sizeof(Handler(static_cast<const Handler&>(h))),
-    (BOOST_ASIO_MOVE_OR_LVALUE(Handler)(h)()),
+    (static_cast<Handler&&>(h)()),
     char(0));
 
 template <typename Handler>
@@ -74,8 +75,8 @@ char (&zero_arg_copyable_handler_test(Handler, ...))[2];
 template <typename Handler, typename Arg1>
 auto one_arg_handler_test(Handler h, Arg1* a1)
   -> decltype(
-    sizeof(Handler(BOOST_ASIO_MOVE_CAST(Handler)(h))),
-    (BOOST_ASIO_MOVE_OR_LVALUE(Handler)(h)(*a1)),
+    sizeof(Handler(static_cast<Handler&&>(h))),
+    (static_cast<Handler&&>(h)(*a1)),
     char(0));
 
 template <typename Handler>
@@ -84,8 +85,8 @@ char (&one_arg_handler_test(Handler h, ...))[2];
 template <typename Handler, typename Arg1, typename Arg2>
 auto two_arg_handler_test(Handler h, Arg1* a1, Arg2* a2)
   -> decltype(
-    sizeof(Handler(BOOST_ASIO_MOVE_CAST(Handler)(h))),
-    (BOOST_ASIO_MOVE_OR_LVALUE(Handler)(h)(*a1, *a2)),
+    sizeof(Handler(static_cast<Handler&&>(h))),
+    (static_cast<Handler&&>(h)(*a1, *a2)),
     char(0));
 
 template <typename Handler>
@@ -94,9 +95,9 @@ char (&two_arg_handler_test(Handler, ...))[2];
 template <typename Handler, typename Arg1, typename Arg2>
 auto two_arg_move_handler_test(Handler h, Arg1* a1, Arg2* a2)
   -> decltype(
-    sizeof(Handler(BOOST_ASIO_MOVE_CAST(Handler)(h))),
-    (BOOST_ASIO_MOVE_OR_LVALUE(Handler)(h)(
-      *a1, BOOST_ASIO_MOVE_CAST(Arg2)(*a2))),
+    sizeof(Handler(static_cast<Handler&&>(h))),
+    (static_cast<Handler&&>(h)(
+      *a1, static_cast<Arg2&&>(*a2))),
     char(0));
 
 template <typename Handler>
@@ -115,43 +116,15 @@ template <typename T> T& lvref();
 template <typename T> T& lvref(T);
 template <typename T> const T& clvref();
 template <typename T> const T& clvref(T);
-#if defined(BOOST_ASIO_HAS_MOVE)
 template <typename T> T rvref();
 template <typename T> T rvref(T);
 template <typename T> T rorlvref();
-#else // defined(BOOST_ASIO_HAS_MOVE)
-template <typename T> const T& rvref();
-template <typename T> const T& rvref(T);
-template <typename T> T& rorlvref();
-#endif // defined(BOOST_ASIO_HAS_MOVE)
 template <typename T> char argbyv(T);
 
 template <int>
 struct handler_type_requirements
 {
 };
-
-#define BOOST_ASIO_LEGACY_COMPLETION_HANDLER_CHECK( \
-    handler_type, handler) \
-  \
-  typedef BOOST_ASIO_HANDLER_TYPE(handler_type, \
-      void()) asio_true_handler_type; \
-  \
-  BOOST_ASIO_HANDLER_TYPE_REQUIREMENTS_ASSERT( \
-      sizeof(boost::asio::detail::zero_arg_copyable_handler_test( \
-          boost::asio::detail::clvref< \
-            asio_true_handler_type>(), 0)) == 1, \
-      "CompletionHandler type requirements not met") \
-  \
-  typedef boost::asio::detail::handler_type_requirements< \
-      sizeof( \
-        boost::asio::detail::argbyv( \
-          boost::asio::detail::clvref< \
-            asio_true_handler_type>())) + \
-      sizeof( \
-        boost::asio::detail::rorlvref< \
-          asio_true_handler_type>()(), \
-        char(0))> BOOST_ASIO_UNUSED_TYPEDEF
 
 #define BOOST_ASIO_READ_HANDLER_CHECK( \
     handler_type, handler) \
@@ -555,6 +528,7 @@ struct handler_type_requirements
 #endif // !defined(BOOST_ASIO_ENABLE_HANDLER_TYPE_REQUIREMENTS)
 
 } // namespace detail
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

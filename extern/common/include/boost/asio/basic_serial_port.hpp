@@ -2,7 +2,7 @@
 // basic_serial_port.hpp
 // ~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2023 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2008 Rep Invariant Systems, Inc. (info@repinvariant.com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -22,6 +22,7 @@
   || defined(GENERATING_DOCUMENTATION)
 
 #include <string>
+#include <utility>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/async_result.hpp>
 #include <boost/asio/detail/handler_type_requirements.hpp>
@@ -38,14 +39,20 @@
 # include <boost/asio/detail/posix_serial_port_service.hpp>
 #endif
 
-#if defined(BOOST_ASIO_HAS_MOVE)
-# include <utility>
-#endif // defined(BOOST_ASIO_HAS_MOVE)
-
 #include <boost/asio/detail/push_options.hpp>
 
 namespace boost {
 namespace asio {
+BOOST_ASIO_INLINE_NAMESPACE_BEGIN
+
+#if !defined(BOOST_ASIO_BASIC_SERIAL_PORT_FWD_DECL)
+#define BOOST_ASIO_BASIC_SERIAL_PORT_FWD_DECL
+
+// Forward declaration with defaulted arguments.
+template <typename Executor = any_io_executor>
+class basic_serial_port;
+
+#endif // !defined(BOOST_ASIO_BASIC_SERIAL_PORT_FWD_DECL)
 
 /// Provides serial port functionality.
 /**
@@ -55,8 +62,10 @@ namespace asio {
  * @par Thread Safety
  * @e Distinct @e objects: Safe.@n
  * @e Shared @e objects: Unsafe.
+ *
+ * @sa @ref overview_serial_ports "Serial ports"
  */
-template <typename Executor = any_io_executor>
+template <typename Executor>
 class basic_serial_port
   : public serial_port_base
 {
@@ -113,10 +122,10 @@ public:
    */
   template <typename ExecutionContext>
   explicit basic_serial_port(ExecutionContext& context,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(0, 0, context)
   {
   }
@@ -155,9 +164,9 @@ public:
    */
   template <typename ExecutionContext>
   basic_serial_port(ExecutionContext& context, const char* device,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value
-      >::type = 0)
+      > = 0)
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -199,9 +208,9 @@ public:
    */
   template <typename ExecutionContext>
   basic_serial_port(ExecutionContext& context, const std::string& device,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value
-      >::type = 0)
+      > = 0)
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -248,9 +257,9 @@ public:
   template <typename ExecutionContext>
   basic_serial_port(ExecutionContext& context,
       const native_handle_type& native_serial_port,
-      typename constraint<
+      constraint_t<
         is_convertible<ExecutionContext&, execution_context&>::value
-      >::type = 0)
+      > = 0)
     : impl_(0, 0, context)
   {
     boost::system::error_code ec;
@@ -259,7 +268,6 @@ public:
     boost::asio::detail::throw_error(ec, "assign");
   }
 
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
   /// Move-construct a basic_serial_port from another.
   /**
    * This constructor moves a serial port from one object to another.
@@ -311,10 +319,10 @@ public:
    */
   template <typename Executor1>
   basic_serial_port(basic_serial_port<Executor1>&& other,
-      typename constraint<
+      constraint_t<
         is_convertible<Executor1, Executor>::value,
         defaulted_constraint
-      >::type = defaulted_constraint())
+      > = defaulted_constraint())
     : impl_(std::move(other.impl_))
   {
   }
@@ -332,16 +340,15 @@ public:
    * constructor.
    */
   template <typename Executor1>
-  typename constraint<
+  constraint_t<
     is_convertible<Executor1, Executor>::value,
     basic_serial_port&
-  >::type operator=(basic_serial_port<Executor1>&& other)
+  > operator=(basic_serial_port<Executor1>&& other)
   {
     basic_serial_port tmp(std::move(other));
     impl_ = std::move(tmp.impl_);
     return *this;
   }
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
 
   /// Destroys the serial port.
   /**
@@ -354,7 +361,7 @@ public:
   }
 
   /// Get the executor associated with the object.
-  const executor_type& get_executor() BOOST_ASIO_NOEXCEPT
+  const executor_type& get_executor() noexcept
   {
     return impl_.get_executor();
   }
@@ -560,12 +567,12 @@ public:
    *
    * @throws boost::system::system_error Thrown on failure.
    *
-   * @sa SettableSerialPortOption @n
-   * boost::asio::serial_port_base::baud_rate @n
-   * boost::asio::serial_port_base::flow_control @n
-   * boost::asio::serial_port_base::parity @n
-   * boost::asio::serial_port_base::stop_bits @n
-   * boost::asio::serial_port_base::character_size
+   * @sa
+   * @li boost::asio::serial_port_base::baud_rate
+   * @li boost::asio::serial_port_base::flow_control
+   * @li boost::asio::serial_port_base::parity
+   * @li boost::asio::serial_port_base::stop_bits
+   * @li boost::asio::serial_port_base::character_size
    */
   template <typename SettableSerialPortOption>
   void set_option(const SettableSerialPortOption& option)
@@ -583,12 +590,12 @@ public:
    *
    * @param ec Set to indicate what error occurred, if any.
    *
-   * @sa SettableSerialPortOption @n
-   * boost::asio::serial_port_base::baud_rate @n
-   * boost::asio::serial_port_base::flow_control @n
-   * boost::asio::serial_port_base::parity @n
-   * boost::asio::serial_port_base::stop_bits @n
-   * boost::asio::serial_port_base::character_size
+   * @sa
+   * @li boost::asio::serial_port_base::baud_rate
+   * @li boost::asio::serial_port_base::flow_control
+   * @li boost::asio::serial_port_base::parity
+   * @li boost::asio::serial_port_base::stop_bits
+   * @li boost::asio::serial_port_base::character_size
    */
   template <typename SettableSerialPortOption>
   BOOST_ASIO_SYNC_OP_VOID set_option(const SettableSerialPortOption& option,
@@ -607,12 +614,12 @@ public:
    *
    * @throws boost::system::system_error Thrown on failure.
    *
-   * @sa GettableSerialPortOption @n
-   * boost::asio::serial_port_base::baud_rate @n
-   * boost::asio::serial_port_base::flow_control @n
-   * boost::asio::serial_port_base::parity @n
-   * boost::asio::serial_port_base::stop_bits @n
-   * boost::asio::serial_port_base::character_size
+   * @sa
+   * @li boost::asio::serial_port_base::baud_rate
+   * @li boost::asio::serial_port_base::flow_control
+   * @li boost::asio::serial_port_base::parity
+   * @li boost::asio::serial_port_base::stop_bits
+   * @li boost::asio::serial_port_base::character_size
    */
   template <typename GettableSerialPortOption>
   void get_option(GettableSerialPortOption& option) const
@@ -631,12 +638,12 @@ public:
    *
    * @param ec Set to indicate what error occurred, if any.
    *
-   * @sa GettableSerialPortOption @n
-   * boost::asio::serial_port_base::baud_rate @n
-   * boost::asio::serial_port_base::flow_control @n
-   * boost::asio::serial_port_base::parity @n
-   * boost::asio::serial_port_base::stop_bits @n
-   * boost::asio::serial_port_base::character_size
+   * @sa
+   * @li boost::asio::serial_port_base::baud_rate
+   * @li boost::asio::serial_port_base::flow_control
+   * @li boost::asio::serial_port_base::parity
+   * @li boost::asio::serial_port_base::stop_bits
+   * @li boost::asio::serial_port_base::character_size
    */
   template <typename GettableSerialPortOption>
   BOOST_ASIO_SYNC_OP_VOID get_option(GettableSerialPortOption& option,
@@ -730,7 +737,7 @@ public:
    * Regardless of whether the asynchronous operation completes immediately or
    * not, the completion handler will not be invoked from within this function.
    * On immediate completion, invocation of the handler will be performed in a
-   * manner equivalent to using boost::asio::post().
+   * manner equivalent to using boost::asio::async_immediate().
    *
    * @par Completion Signature
    * @code void(boost::system::error_code, std::size_t) @endcode
@@ -761,17 +768,13 @@ public:
    */
   template <typename ConstBufferSequence,
       BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-        std::size_t)) WriteToken
-          BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(WriteToken,
-      void (boost::system::error_code, std::size_t))
-  async_write_some(const ConstBufferSequence& buffers,
-      BOOST_ASIO_MOVE_ARG(WriteToken) token
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+        std::size_t)) WriteToken = default_completion_token_t<executor_type>>
+  auto async_write_some(const ConstBufferSequence& buffers,
+      WriteToken&& token = default_completion_token_t<executor_type>())
+    -> decltype(
       async_initiate<WriteToken,
         void (boost::system::error_code, std::size_t)>(
-          declval<initiate_async_write_some>(), token, buffers)))
+          declval<initiate_async_write_some>(), token, buffers))
   {
     return async_initiate<WriteToken,
       void (boost::system::error_code, std::size_t)>(
@@ -864,7 +867,7 @@ public:
    * Regardless of whether the asynchronous operation completes immediately or
    * not, the completion handler will not be invoked from within this function.
    * On immediate completion, invocation of the handler will be performed in a
-   * manner equivalent to using boost::asio::post().
+   * manner equivalent to using boost::asio::async_immediate().
    *
    * @par Completion Signature
    * @code void(boost::system::error_code, std::size_t) @endcode
@@ -896,17 +899,13 @@ public:
    */
   template <typename MutableBufferSequence,
       BOOST_ASIO_COMPLETION_TOKEN_FOR(void (boost::system::error_code,
-        std::size_t)) ReadToken
-          BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
-  BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_PREFIX(ReadToken,
-      void (boost::system::error_code, std::size_t))
-  async_read_some(const MutableBufferSequence& buffers,
-      BOOST_ASIO_MOVE_ARG(ReadToken) token
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE_SUFFIX((
+        std::size_t)) ReadToken = default_completion_token_t<executor_type>>
+  auto async_read_some(const MutableBufferSequence& buffers,
+      ReadToken&& token = default_completion_token_t<executor_type>())
+    -> decltype(
       async_initiate<ReadToken,
         void (boost::system::error_code, std::size_t)>(
-          declval<initiate_async_read_some>(), token, buffers)))
+          declval<initiate_async_read_some>(), token, buffers))
   {
     return async_initiate<ReadToken,
       void (boost::system::error_code, std::size_t)>(
@@ -915,8 +914,8 @@ public:
 
 private:
   // Disallow copying and assignment.
-  basic_serial_port(const basic_serial_port&) BOOST_ASIO_DELETED;
-  basic_serial_port& operator=(const basic_serial_port&) BOOST_ASIO_DELETED;
+  basic_serial_port(const basic_serial_port&) = delete;
+  basic_serial_port& operator=(const basic_serial_port&) = delete;
 
   class initiate_async_write_some
   {
@@ -928,13 +927,13 @@ private:
     {
     }
 
-    const executor_type& get_executor() const BOOST_ASIO_NOEXCEPT
+    const executor_type& get_executor() const noexcept
     {
       return self_->get_executor();
     }
 
     template <typename WriteHandler, typename ConstBufferSequence>
-    void operator()(BOOST_ASIO_MOVE_ARG(WriteHandler) handler,
+    void operator()(WriteHandler&& handler,
         const ConstBufferSequence& buffers) const
     {
       // If you get an error on the following line it means that your handler
@@ -961,13 +960,13 @@ private:
     {
     }
 
-    const executor_type& get_executor() const BOOST_ASIO_NOEXCEPT
+    const executor_type& get_executor() const noexcept
     {
       return self_->get_executor();
     }
 
     template <typename ReadHandler, typename MutableBufferSequence>
-    void operator()(BOOST_ASIO_MOVE_ARG(ReadHandler) handler,
+    void operator()(ReadHandler&& handler,
         const MutableBufferSequence& buffers) const
     {
       // If you get an error on the following line it means that your handler
@@ -991,6 +990,7 @@ private:
 #endif
 };
 
+BOOST_ASIO_INLINE_NAMESPACE_END
 } // namespace asio
 } // namespace boost
 

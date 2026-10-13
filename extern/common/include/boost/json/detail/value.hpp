@@ -10,6 +10,7 @@
 #ifndef BOOST_JSON_DETAIL_VALUE_HPP
 #define BOOST_JSON_DETAIL_VALUE_HPP
 
+#include <boost/json/fwd.hpp>
 #include <boost/json/kind.hpp>
 #include <boost/json/storage_ptr.hpp>
 #include <cstdint>
@@ -269,6 +270,22 @@ struct access
     next(KeyValuePair const& e) noexcept
     {
         return e.next_;
+    }
+
+    template<class Value>
+    static
+    auto
+    get_scalar(Value& jv) -> scalar&
+    {
+        return jv.sca_;
+    }
+
+    template<class Value>
+    static
+    auto
+    get_scalar(Value const& jv) -> scalar const&
+    {
+        return jv.sca_;
     }
 };
 

@@ -11,62 +11,19 @@
 #ifndef BOOST_URL_DETAIL_NORMALIZED_HPP
 #define BOOST_URL_DETAIL_NORMALIZED_HPP
 
+#include <boost/url/detail/config.hpp>
 #include <boost/core/detail/string_view.hpp>
+#include <boost/url/detail/fnv_1a.hpp>
 #include <boost/url/segments_encoded_view.hpp>
-#include <boost/url/detail/normalize.hpp>
 
 namespace boost {
 namespace urls {
 namespace detail {
 
-class fnv_1a
-{
-public:
-    using digest_type = std::size_t;
-
-#if BOOST_URL_ARCH == 64
-    static constexpr std::size_t const prime =
-        static_cast<std::size_t>(0x100000001B3ULL);
-    static constexpr std::size_t init_hash  =
-        static_cast<std::size_t>(0xcbf29ce484222325ULL);
-#else
-    static constexpr std::size_t const prime =
-        static_cast<std::size_t>(0x01000193UL);
-    static constexpr std::size_t init_hash  =
-        static_cast<std::size_t>(0x811C9DC5UL);
-#endif
-
-    explicit
-    fnv_1a(std::size_t salt) noexcept
-    : h_(init_hash + salt)
-    {
-    }
-
-    void
-    put(char c) noexcept
-    {
-        h_ ^= c;
-        h_ *= prime;
-    }
-
-    void
-    put(core::string_view s) noexcept
-    {
-        for (char c: s)
-        {
-            put(c);
-        }
-    }
-
-    digest_type
-    digest() const noexcept
-    {
-        return h_;
-    }
-
-private:
-    std::size_t h_;
-};
+// These functions are defined in src/detail/normalize.cpp.
+// BOOST_URL_DECL is required because they are called from
+// inline functions in public headers (url_view_base::compare,
+// url_view_base::digest, authority_view::compare, etc.).
 
 void
 pop_encoded_front(
@@ -76,13 +33,26 @@ pop_encoded_front(
 
 // compare two core::string_views as if they are both
 // percent-decoded
+BOOST_URL_DECL
 int
 compare_encoded(
     core::string_view lhs,
     core::string_view rhs) noexcept;
 
+// compare two core::string_views as if they are both
+// percent-decoded but do not consider the special
+// query chars ("&=+") equivalent unless they are
+// both decoded or encoded the same way, because
+// that gives them different meanings
+BOOST_URL_DECL
+int
+compare_encoded_query(
+    core::string_view lhs,
+    core::string_view rhs) noexcept;
+
 // digest a core::string_view as if it were
 // percent-decoded
+BOOST_URL_DECL
 void
 digest_encoded(
     core::string_view s,
@@ -113,6 +83,7 @@ path_ends_with(
 
 // compare two core::string_views as if they are both
 // percent-decoded and lowercase
+BOOST_URL_DECL
 int
 ci_compare_encoded(
     core::string_view lhs,
@@ -120,12 +91,14 @@ ci_compare_encoded(
 
 // digest a core::string_view as if it were decoded
 // and lowercase
+BOOST_URL_DECL
 void
 ci_digest_encoded(
     core::string_view s,
     fnv_1a& hasher) noexcept;
 
 // compare two ascii core::string_views
+BOOST_URL_DECL
 int
 compare(
     core::string_view lhs,
@@ -133,12 +106,14 @@ compare(
 
 // compare two core::string_views as if they are both
 // lowercase
+BOOST_URL_DECL
 int
 ci_compare(
     core::string_view lhs,
     core::string_view rhs) noexcept;
 
 // digest a core::string_view as if it were lowercase
+BOOST_URL_DECL
 void
 ci_digest(
     core::string_view s,
@@ -149,24 +124,26 @@ std::size_t
 remove_dot_segments(
     char* dest,
     char const* end,
-    core::string_view s) noexcept;
+    core::string_view input) noexcept;
 
 void
 pop_last_segment(
-    core::string_view& s,
-    core::string_view& c,
+    core::string_view& str,
+    core::string_view& seg,
     std::size_t& level,
-    bool r) noexcept;
+    bool remove_unmatched) noexcept;
 
 char
 path_pop_back( core::string_view& s );
 
+BOOST_URL_DECL
 void
 normalized_path_digest(
-    core::string_view s,
+    core::string_view str,
     bool remove_unmatched,
     fnv_1a& hasher) noexcept;
 
+BOOST_URL_DECL
 int
 segments_compare(
     segments_encoded_view seg0,
