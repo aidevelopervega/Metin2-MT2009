@@ -1,4 +1,4 @@
-# Rev 32: Lua 5.5.1 game server runtime integration, hardened questlib.lua vararg/nil and gameforge localization shims
+# Rev 33: FreeBSD GCC 14 game_r41023_lua55 build, dual ELF64 game binaries and --check-lua runtime verification
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -156,11 +156,13 @@ jobs:
             gmake -C server/src/libgame/src CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
             LUA_DIR="server/src/liblua/5.0"
             gmake -C "$LUA_DIR" CC="/usr/local/bin/gcc14" AR="ar rcu" RANLIB="ranlib"
+            LUA55_DIR="server/src/liblua/5.5/src"
+            gmake -C "$LUA55_DIR" a CC="/usr/local/bin/gcc14" AR="ar rcu" RANLIB="ranlib"
             echo "=== FREEBSD 15.1 amd64 GERCEK CRYPTOPP DERLEMESI ==="
             CRYPTOPP_DIR="extern/server/cryptopp"
             gmake -C "$CRYPTOPP_DIR" -j4 static CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$CRYPTOPP_DIR"/libcryptopp.a
-            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$CRYPTOPP_DIR"/libcryptopp.a
+            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
+            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
 
             # 5.1 FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
@@ -174,11 +176,13 @@ jobs:
             chmod +x ./tests/run_db_integration_tests.sh
             ./tests/run_db_integration_tests.sh
 
-            # 5.3 FreeBSD amd64 Gerçek Game Sunucusu Derlemesi
-            echo "=== FREEBSD 15.1 amd64 GERCEK GAME SUNUCUSU DERLEMESI ==="
+            # 5.3 FreeBSD amd64 Gerçek Game Sunucusu Derlemesi (Lua 5.0 Varsayılan & Lua 5.5 Staging)
+            echo "=== FREEBSD 15.1 amd64 GERCEK GAME SUNUCUSU DERLEMESI (LUA 5.0) ==="
             GAME_DIR="server/src/game"
-            gmake -C "$GAME_DIR/src" -j2 CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            ls -lh "$GAME_DIR"
+            gmake -C "$GAME_DIR/src" -j2 CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14" ENABLE_LUA_5_VERSION=0
+            echo "=== FREEBSD 15.1 amd64 GERCEK GAME SUNUCUSU DERLEMESI (LUA 5.5) ==="
+            gmake -C "$GAME_DIR/src" -j2 CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14" ENABLE_LUA_5_VERSION=5
+            ls -lh "$GAME_DIR"/game_r*
             file "$GAME_DIR"/game_r* || true
             readelf -h "$GAME_DIR"/game_r* | grep -E 'Class|Machine|Type' || true
             readelf -d "$GAME_DIR"/game_r* | grep -E 'NEEDED|RPATH|RUNPATH' || true
@@ -187,6 +191,12 @@ jobs:
               exit 1
             fi
             echo "--> game_r* pure libstdc++ olarak basariyla dogrulandi (libc++ bagimliligi yok)."
+
+            # 5.3.1 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua)
+            echo "=== GAME SUNUCUSU LUA QUEST RUNTIME DOGRULAMASI ==="
+            "$GAME_DIR"/game_r41023 --check-lua
+            "$GAME_DIR"/game_r41023_lua55 --check-lua
+            echo "--> Her iki game ikilisinde de Lua quest runtime dogrulamasi basariyla tamamlandi."
 
             # 5.4 FreeBSD amd64 CMake + Ninja Derleme ve CTest Doğrulaması
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="

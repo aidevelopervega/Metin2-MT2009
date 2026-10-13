@@ -11,15 +11,26 @@ GccMinorEGT8 := $(shell expr $(GccMinorVersion) \>= 8)
 INCDIR =
 LIBDIR =
 BINDIR = ..
-OBJDIR = .obj
-$(shell if [ ! -d $(OBJDIR) ]; then mkdir $(OBJDIR); fi)
 
 ## LIST OF CONSTANTS BEGIN
 ENABLE_GOOGLE_TEST = 0
-ENABLE_LUA_5_VERSION = 0
+ENABLE_LUA_5_VERSION ?= 0
 ENABLE_GCC_AUTODEPEND = 1
 ENABLE_STATIC = 0
 ## LIST OF CONSTANTS END
+
+ifeq ($(ENABLE_LUA_5_VERSION), 5)
+OBJDIR = .obj_lua55
+MAIN_TARGET = $(BINDIR)/game_r$(GAME_VERSION)_lua55
+else ifeq ($(ENABLE_LUA_5_VERSION), 2)
+OBJDIR = .obj_lua52
+MAIN_TARGET = $(BINDIR)/game_r$(GAME_VERSION)_lua52
+else
+OBJDIR = .obj
+MAIN_TARGET = $(BINDIR)/game_r$(GAME_VERSION)
+endif
+
+$(shell if [ ! -d $(OBJDIR) ]; then mkdir $(OBJDIR); fi)
 
 # Depend Path File
 ifneq ($(ENABLE_GCC_AUTODEPEND), 1)
@@ -194,8 +205,6 @@ endif
 # PROJECT_OBJ_FILES END
 
 # Target Paths
-MAIN_TARGET = $(BINDIR)/game_r$(GAME_VERSION)
-
 default: $(MAIN_TARGET)
 
 $(OBJDIR)/%.o: %.c
@@ -235,6 +244,11 @@ clean:
 ifeq ($(ENABLE_GCC_AUTODEPEND), 1)
 	@rm -f $(CDEPS) $(CPPDEPS) $(MAINDEPS)
 endif
+	@rm -f $(MAIN_TARGET)
+
+clean_all:
+	@echo cleaning all game objects and targets
+	@rm -rf .obj .obj_lua52 .obj_lua55
 	@rm -f $(BINDIR)/game_r*
 
 dep:

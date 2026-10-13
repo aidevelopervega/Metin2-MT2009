@@ -493,7 +493,7 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(resA->IsError() == true, "Interrupted query correctly flagged as IsError() == true");
 			LIVE_ASSERT(resA->uiSQLErrno == CR_SERVER_LOST || resA->uiSQLErrno == CR_SERVER_GONE_ERROR,
 				"Mid-query disconnection preserves CR_SERVER_LOST (2013) or CR_SERVER_GONE_ERROR (2006)");
-			LIVE_ASSERT(proxy.WasSeverMidQueryTriggered() == true,
+			LIVE_ASSERT(proxy.WaitForSeverMidQuery() == true,
 				"TCP proxy actively severed client and server sockets during mid-query execution");
 			std::cout << "    -> Captured In-Flight Disconnect Error: " << resA->uiSQLErrno << " (" << (resA->uiSQLErrno == 2013 ? "CR_SERVER_LOST" : "CR_SERVER_GONE_ERROR") << ")" << std::endl;
 
@@ -542,7 +542,7 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(resB->IsError() == true, "Client marked dropped response as IsError() == true");
 			LIVE_ASSERT(resB->uiSQLErrno == CR_SERVER_LOST || resB->uiSQLErrno == CR_SERVER_GONE_ERROR,
 				"Dropped response returned CR_SERVER_LOST (2013) or CR_SERVER_GONE_ERROR (2006)");
-			LIVE_ASSERT(proxy.WasDroppedResponseCaptured() == true,
+			LIVE_ASSERT(proxy.WaitForDroppedResponse() == true,
 				"TCP proxy verified server executed query and dropped OK response before client received it");
 			std::cout << "    -> Client Seen Error Code: " << resB->uiSQLErrno
 					  << " | Transaction Status: UNKNOWN (client saw socket drop after commit)" << std::endl;

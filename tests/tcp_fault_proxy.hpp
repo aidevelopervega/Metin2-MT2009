@@ -136,6 +136,25 @@ public:
 
 	bool WasDroppedResponseCaptured() const { return m_droppedResponseCaptured.load(); }
 	bool WasSeverMidQueryTriggered() const { return m_severMidQueryTriggered.load(); }
+
+	bool WaitForDroppedResponse(int timeoutMs = 1000) const {
+		for (int i = 0; i < timeoutMs / 10; ++i) {
+			if (m_droppedResponseCaptured.load())
+				return true;
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+		return m_droppedResponseCaptured.load();
+	}
+
+	bool WaitForSeverMidQuery(int timeoutMs = 1000) const {
+		for (int i = 0; i < timeoutMs / 10; ++i) {
+			if (m_severMidQueryTriggered.load())
+				return true;
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+		return m_severMidQueryTriggered.load();
+	}
+
 	int GetListenPort() const { return m_listenPort; }
 
 private:

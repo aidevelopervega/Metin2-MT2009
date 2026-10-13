@@ -357,6 +357,12 @@ int main(int argc, char **argv)
 #endif
 #endif
 
+	if (argc > 1 && (strcmp(argv[1], "--test-quest") == 0 || strcmp(argv[1], "--check-lua") == 0 || strcmp(argv[1], "-t") == 0))
+	{
+		extern int RunGameQuestRuntimeTests();
+		return RunGameQuestRuntimeTests();
+	}
+
 	ilInit(); // DevIL Initialize
 
 	WriteVersion();

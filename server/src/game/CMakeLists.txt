@@ -81,3 +81,66 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         $<$<NOT:$<TARGET_EXISTS:ZLIB::ZLIB>>:z>
     )
 endif()
+
+# ==============================================================================
+# game_lua55: Staging Target with Lua 5.5 Upstream Engine
+# ==============================================================================
+add_executable(game_lua55 ${GAME_SOURCES})
+
+target_include_directories(game_lua55 PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../common"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    "${CMAKE_CURRENT_SOURCE_DIR}/../libthecore/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../libsql"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../libpoly"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../libgame/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.5/src"
+    "${CMAKE_SOURCE_DIR}/extern/common/include"
+    "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
+    "${CMAKE_SOURCE_DIR}/extern/server/include"
+)
+
+target_compile_definitions(game_lua55 PRIVATE
+    __USER__="metin2"
+    __HOSTNAME__="mt2009"
+    __PWD__=""
+    __GAME_VERSION__="${MT2_SERVER_REVISION}"
+    ENABLE_LUA_5_VERSION=5
+)
+
+target_compile_options(game_lua55 PRIVATE
+    -fexceptions
+)
+
+target_link_libraries(game_lua55 PRIVATE
+    thecore
+    sql_lib
+    poly
+    game_lib
+    lua55_lib
+    CryptoPP::CryptoPP
+    Database::Client
+)
+
+set_target_properties(game_lua55 PROPERTIES
+    OUTPUT_NAME "game_r${MT2_SERVER_REVISION}_lua55"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+if(WIN32)
+    target_link_libraries(game_lua55 PRIVATE ws2_32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(game_lua55 PRIVATE
+        DevIL::IL
+        pthread
+        m
+        md
+        $<$<TARGET_EXISTS:OpenSSL::SSL>:OpenSSL::SSL>
+        $<$<NOT:$<TARGET_EXISTS:OpenSSL::SSL>>:ssl>
+        $<$<TARGET_EXISTS:OpenSSL::Crypto>:OpenSSL::Crypto>
+        $<$<NOT:$<TARGET_EXISTS:OpenSSL::Crypto>>:crypto>
+        $<$<TARGET_EXISTS:ZLIB::ZLIB>:ZLIB::ZLIB>
+        $<$<NOT:$<TARGET_EXISTS:ZLIB::ZLIB>>:z>
+    )
+endif()

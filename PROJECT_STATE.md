@@ -921,8 +921,37 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           * `server/src/game/src/Makefile`: `ENABLE_LUA_5_VERSION=5` dalı eklendi.
           * Tüm uyumluluk kanıtları tamamlanana kadar **Lua 5.0.3 üretim varsayılanı** olarak aktif bırakılmıştır.
 
+      * **Aşama 7: FreeBSD GCC 14 Game Server Dual Build (game_r41023_lua55), --check-lua ve TCP Fault Proxy İyileştirmesi:**
+        * **Game Server Makefile Dual Target Desteği:**
+          * `server/src/game/src/Makefile`: `ENABLE_LUA_5_VERSION ?= 0` tanımlandı.
+          * `ENABLE_LUA_5_VERSION=5` için izole `OBJDIR = .obj_lua55` ve `MAIN_TARGET = $(BINDIR)/game_r$(GAME_VERSION)_lua55` yapılandırıldı.
+          * `clean` hedefi aktif hedefi silerken tüm derlemeleri tek seferde temizleyen `clean_all` hedefi eklendi (`.obj`, `.obj_lua52`, `.obj_lua55` ve tüm `game_r*` ikilileri).
+        * **Game Server CMake Dual Target Desteği:**
+          * `server/src/game/CMakeLists.txt`: `game` (Lua 5.0 varsayılan, `game_r41023`) yanında `game_lua55` (Lua 5.5 staging, `game_r41023_lua55`) bağımsız çalıştırılabilir hedefi eklendi; `lua55_lib` ve `5.5/src` başlıklarına bağlandı.
+        * **Game Server İzole Lua Quest Runtime Test Paketi (`server/src/game/src/questlua_test.cpp`):**
+          * `RunGameQuestRuntimeTests()` fonksiyonu eklendi; fail-closed `RUNTIME_ASSERT` makrosu ile 10 kritik çalışma zamanı kontrolü gerçekleştirir (hata anında 1 koduyla anında sonlanır, atlama yapmaz):
+            1. 32-Bit Client wire protokolü `packet_script` struct boyutu ve hizalaması (`#pragma pack(1)`).
+            2. QuestManager ve Lua state başlatması.
+            3. `math.mod`, `math.pow`, `table.getn`, `table.foreach`, `unpack` uyumluluk shimleri.
+            4. Metin2 C API fonksiyon tabloları (`pc`, `q`, `say`, `select`, `npc`, `item` vb.).
+            5. `select(...)` nil argüman sayımı ve `m2_lua_getn` sözleşmesi.
+            6. Gerçek `tests/fixtures/questlib.lua` ve `tests/fixtures/locale.lua` yüklemesi ve değişken kontrolleri (`CONFIRM_YES == 1`, `locale.yes`).
+            7. Gameforge çeviri proxy'si ve eksik anahtar teşhisi.
+            8. Etkileşimli coroutine dialog durum makinesi (`select` ile yield, seçenek sayısı doğrulaması, oyuncu seçimi ile resume).
+            9. `__codecache` 64-bit işaretçi güvenliği (hassasiyet kaybı olmadan depolama ve okuma).
+            10. Coroutine hata izolasyonu ve çökme engelleme.
+        * **Game Server CLI Doğrulama Bayrağı (`server/src/game/src/main.cpp`):**
+          * `./game_r41023 --check-lua`, `./game_r41023_lua55 --check-lua` veya `--test-quest` bayrakları eklendi. Ağ soketleri ve MySQL bağlantısı açılmadan doğrudan `RunGameQuestRuntimeTests()` çalıştırılır ve temiz çıkış kodu üretilir.
+        * **TCP Fault Proxy Race Condition Kök Neden Çözümü (`tests/tcp_fault_proxy.hpp`, `tests/test_live_db.cpp`):**
+          * FreeBSD VM yüksek CPU yükü altında Senaryo 11.B'de `DirectQuery` tamamlandıktan mikrosaniyeler sonra arka plan proxy iş parçacığının `SeverSocket` çağrısını tamamlaması arasındaki yarış durumu (race condition) giderildi; `WaitForDroppedResponse(1000)` ve `WaitForSeverMidQuery(1000)` duyarlı bekleme metotları eklendi.
+        * **FreeBSD CI Rev 33 Mimarisi (`.github/workflows/freebsd-gcc-test.yml`):**
+          * `server/src/liblua/5.5/src/liblua.a` derleme adımı eklendi.
+          * Hem `game_r41023` (Lua 5.0) hem de `game_r41023_lua55` (Lua 5.5) ikilileri gmake ile derlenir.
+          * `readelf` ile ELF64 amd64 mimarisi ve pure `libstdc++` (sıfır `libc++.so`) doğrulanır.
+          * Her iki ikili üzerinde `./game_r41023 --check-lua` ve `./game_r41023_lua55 --check-lua` testleri çalıştırılarak FreeBSD 15.1 VM üzerinde doğrulanır.
+
       * **Genişletilmiş CTest Paketi (13/13 Test, 100% PASS):**
-        * Windows MinGW GCC 16.2 UCRT üzerinde: **13/13 CTest PASSED (%100 PASS, 1.45s)**.
+        * Windows MinGW GCC 16.2 UCRT üzerinde: **13/13 CTest PASSED (%100 PASS, 0.49s)**.
         * Standalone regresyon paketi (`tests/run_tests.ps1`): **290/290 birim test, 120/120 cache, 116/116 integration, 32/32 wire protocol PASSED (560/560 assertions %100 PASS)**.
 
 ---
@@ -932,11 +961,11 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (13/13) ve yerel regresyon testleri (560/560 assertions) %100 PASS. 343 FTP görevi matris testi %100 tamamlandı (290 PASS). 46 `.lua` dosyası ve Test 9 her üç Lua motorunda %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `eaa8ee120a9695fd3578ae7fa262067d94a49c75` (Rev 32) push edilmiş ve tam senkronize.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
-  * Önceki CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
-    * MariaDB 11.4 LTS (Job `115430004085`): **SUCCESS (15m 45s)**
-    * MariaDB 12.3 LTS (Job `115430004252`): **SUCCESS (20m 29s)**
-    * MySQL 8.4 LTS (Job `115430004050`): **SUCCESS (19m 26s)**
-  * Güncel CI Run ID **38443260331** (Rev 32): **IN_PROGRESS / RUNNING**
+  * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
+  * CI Run ID **38443260331** (Rev 32):
+    * MariaDB 11.4 LTS (Job `115454988700`): **SUCCESS (16m 20s)**
+    * MariaDB 12.3 LTS (Job `115454989928`): **SUCCESS (25m 35s)**
+    * MySQL 8.4 LTS (Job `115454988605`): Senaryo 11.B TCP proxy yarış durumu nedeniyle FAIL (kök neden çözüldü, `WaitForDroppedResponse` entegre edildi).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -954,7 +983,7 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain ve questlib.lua runtime compatibility TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023_lua55 dual ELF64 staging ve --check-lua TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -962,9 +991,9 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38443260331 (Rev 32) koşusu başlatıldı (IN_PROGRESS); CI 38436002336 (Rev 31) 3 matriste de %100 SUCCESS ile tamamlandı; `questlib.lua` vararg/nil sayımı `m2_lua_getn` ve `table.pack` ile korundu; `gameforge` proxy'si `translate` tablolarını çözecek ve eksik anahtarları belirtecek şekilde sertleştirildi; 343 quest ve 46 `.lua` dosyasının yükleme sırası ve çalışma zamanı her üç motorda doğrulandı; game server CMake ve Makefile'ına `ENABLE_LUA_5_VERSION=5` entegre edildi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
+* **Aktif Görev:** CI 38443260331 (Rev 32) MariaDB 11.4 işi başarıyla tamamlandı; `game_r41023_lua55` derleme hedefi Makefile ve CMake içerisine entegre edildi; `questlua_test.cpp` runtime test paketi eklendi; `main.cpp` içerisine `--check-lua` CLI bayrağı entegre edildi; FreeBSD CI Rev 33 güncellendi; CTest 13/13 (%100) ve `run_tests.ps1` (560/560 assertions %100) başarıyla tamamlandı.
 * **Sıradaki Güvenli Adım:**
-   1. CI 38443260331'in FreeBSD işlerini bir sonraki kontrolde doğrulamak.
+   1. CI 38443260331 tamamlandığında Rev 33 değişikliklerini commit ve push ederek FreeBSD GCC 14 üzerinde `game_r41023_lua55` derleme ve `--check-lua` doğrulamasını başlatmak.
    2. Yol Haritası Adım 6: Sunucu çekirdeğinde kalan diğer harici bağımlılıkları ve entegrasyon kontrollerini sürdürmek.
 
 
