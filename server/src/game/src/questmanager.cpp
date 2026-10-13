@@ -1849,7 +1849,7 @@ namespace quest
 		{
 			lua_getglobal(qs.co, "__codecache");
 			// stack : __codecache
-			lua_pushnumber(qs.co, (uintptr_t)code);
+			lua_pushlightuserdata(qs.co, const_cast<char*>(code));
 			// stack : __codecache (codeptr)
 			lua_rawget(qs.co, -2);
 			// stack : __codecache (compiled-code)
@@ -1864,7 +1864,7 @@ namespace quest
 				// stack : __codecache
 				luaL_loadbuffer(qs.co, code, code_size, quest_name.c_str());
 				// stack : __codecache (compiled-code)
-				lua_pushnumber(qs.co, (uintptr_t)code);
+				lua_pushlightuserdata(qs.co, const_cast<char*>(code));
 				// stack : __codecache (compiled-code) (codeptr)
 				lua_pushvalue(qs.co, -2);
 				// stack : __codecache (compiled-code) (codeptr) (compiled_code)

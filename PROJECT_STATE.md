@@ -786,20 +786,35 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * CTest: **7/7 test paketi PASSED (%100 PASS, 1.11s)**.
         * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
 
-    * **Aşama 5: Lua Quest Motoru Durumu ve İncelemesi (Adım 4):**
-      * `server/src/liblua/5.0/` (aktif Lua 5.0.3) ve `server/src/liblua/5.2/` (Lua 5.2.3) kaynakları detaylı incelendi.
-      * `liblua/5.2/src` içerisindeki 32 C dosyasının tamamı GCC ile 0 hata ile derlendi.
-      * `questlua.cpp`, `questlua_pc.cpp`, `questlua_npc.cpp`, `questlua_quest.cpp` ve quest derleyicisi `qc.cc` Lua 5.2.3 ile derlendiğinde 0 hata verdiği doğrulandı.
-      * `questmanager.cpp` hem Lua 5.0 hem Lua 5.2 yapılandırmasında 0 hata ile derlenmektedir.
-      * Çalışan quest sisteminin ve coroutine davranışının geriye dönük uyumluluğunu korumak için aşamalı geçiş altyapısı hazırlandı.
+    * **CI Koşusu 38403723838 Doğrulaması (Rev 28 Boost 1.92.0, FreeBSD GCC 14, 3 DB Matrisi):**
+      * **MySQL 8.4 LTS (Job 115317714114):** SUCCESS (26m 34s) — Boost 1.92.0 başlıkları ile CMake + Ninja üzerinden `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi ve bağlandı; pure `libstdc++` doğrulandı; CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 12.3 LTS (Job 115317714452):** SUCCESS (24m 57s) — Boost 1.92.0 başlıkları ile CMake + Ninja üzerinden `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi ve bağlandı; pure `libstdc++` doğrulandı; CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 11.4 LTS (Job 115317714544):** SUCCESS (25m 20s) — Boost 1.92.0 başlıkları ile CMake + Ninja üzerinden `game_r41023` ve `db_r41023` ELF64 ikilileri derlendi ve bağlandı; pure `libstdc++` doğrulandı; CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **Sonuç:** Üç FreeBSD matris hedefinde de **%100 BAŞARI**. Boost 1.92.0 sürümünün FreeBSD amd64 GCC 14 ve sunucu kodları ile tam uyumlu olduğu fiziksel olarak doğrulandı.
+
+    * **Aşama 5: Lua Quest Motoru ve Otomatik Regresyon Altyapısı (Adım 4):**
+      * **`__codecache` 64-Bit İşaretçi ve Kayan Nokta Hassasiyet Kaybı Kök Neden Çözümü:**
+        * `server/src/game/src/questmanager.cpp` (satır 1852 ve 1867): Kod işaretçisi Lua'ya `lua_pushnumber` ile iletiliyordu. 64-bit mimarilerde $2^{53}$ değerinden büyük sanal bellek adreslerinde (`0x0040000000000001` vb.) IEEE-754 `double` (`lua_Number`) mantissa biti yetersizliği nedeniyle en anlamsız bitler yuvarlanmakta ve iki farklı kod işaretçisi aynı sayıya dönüşerek cache çarpışması/yanlış quest fonksiyonu çalıştırma riski oluşturmaktaydı.
+        * `lua_pushnumber(qs.co, (uintptr_t)code)` yerine yerel işaretçi tabanlı `lua_pushlightuserdata(qs.co, const_cast<char*>(code))` mimarisine geçildi.
+        * Hem Lua 5.0 hem de Lua 5.2'de lightuserdata 64-bit işaretçiyi ham bitleriyle saklar ve Lua tablosunda pointer hash ile doğrudan eşleştirir. Kayan nokta dönüşümü ve hassasiyet kaybı %100 ortadan kaldırıldı.
+      * **Otomatik CMake Regresyon Hedefleri (CTest 9/9):**
+        * `server/src/liblua/CMakeLists.txt`: `lua52_lib` static kütüphane hedefi eklendi (32 kaynak dosya).
+        * `tests/test_lua_quest.cpp`: Varsayılan motor olan Lua 5.0.3 için otomatik regresyon paketi yazıldı (C API kayıtları, coroutine yield/resume durum makinesi, `__codecache` lightuserdata 64-bit güvenliği).
+        * `tests/test_lua52_quest.cpp`: Aşamalı geçiş motoru olan Lua 5.2.3 için otomatik regresyon paketi yazıldı (C API kayıtları, coroutine yield/resume durum makinesi, `__codecache` lightuserdata 64-bit güvenliği).
+        * `tests/CMakeLists.txt`: `test_lua_quest` ve `test_lua52_quest` CTest hedeflerine bağlandı.
+      * **Doğrulama ve Test Sonuçları:**
+        * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` hatasız tamamlandı.
+        * CTest: **9/9 test paketi PASSED (%100 PASS, 0.51s)**.
+        * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
+      * **Motor Durumu:** Lua 5.0.3 aktif varsayılan sunucu motoru olarak korunmaktadır. Lua 5.2.3 aşamalı geçiş motoru olarak doğrulanmış durumdadır.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38399674627 (Rev 27 DevIL 1.8.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 28 (Boost 1.92.0 ve questmanager 64-bit düzeltmesi) ile yeni doğrulama tetiklenecektir.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (9/9) ve yerel regresyon testleri (560/560) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit b5189ef8574caede5fc7613325ec3477b525a3c1 ile senkronize edildi.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38403723838 (Rev 28 Boost 1.92.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 29 (Lua Quest regresyon testleri ve 64-bit lightuserdata düzeltmesi) ile yeni doğrulama tetiklenecektir.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -813,11 +828,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38399674627 ile 3 DB matrisinde %100 SUCCESS)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38403723838 ile 3 DB matrisinde %100 SUCCESS)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI; Lua 5.0 ve 5.2 testleri hazırlandı)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -825,11 +840,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38399674627 (Rev 27 DevIL 1.8.0) %100 SUCCESS olarak doğrulandı; Boost 1.92.0 yükseltmesi tamamlandı; questmanager.cpp 64-bit işaretçi dönüştürme hatası çözüldü; Lua 5.2 kaynakları ve uyumluluğu test edildi; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 PASS.
+* **Aktif Görev:** CI 38403723838 (Rev 28 Boost 1.92.0) %100 SUCCESS olarak doğrulandı; questmanager.cpp __codecache 64-bit pointer hassasiyet kaybı lua_pushlightuserdata ile kalıcı olarak giderildi; Lua 5.0 ve Lua 5.2 için CTest regresyon hedefleri eklendi; Windows GCC 16 CTest (9/9) ve regresyon testleri (560/560) %100 PASS.
 * **Sıradaki Güvenli Adım:**
-   1. Boost 1.92.0 ve questmanager 64-bit düzeltmesini `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 28).
-   2. GitHub Actions FreeBSD CI Rev 28 koşusunu (Run ID) tespit edip kaydetmek.
-   3. Yol Haritası Adım 5: Lua quest motoru aşamalı geçiş testlerine ve kalan sunucu bileşenlerinin doğrulamasına devam etmek.
+   1. Değişiklikleri `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 29).
+   2. GitHub Actions FreeBSD CI Rev 29 koşusunu (Run ID) tespit edip kaydetmek.
+   3. Yol Haritası Adım 5: Sıradaki Server Extern bağımlılıkları (zlib, OpenSSL vb.) modernizasyonunu değerlendirip sürdürmek.
 
 
 

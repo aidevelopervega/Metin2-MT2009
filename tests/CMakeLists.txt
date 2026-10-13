@@ -93,6 +93,28 @@ target_include_directories(test_packet_wire PRIVATE
 )
 add_test(NAME test_packet_wire COMMAND test_packet_wire)
 
+# 8. test_lua_quest (Lua 5.0 Default Engine)
+add_executable(test_lua_quest test_lua_quest.cpp)
+target_include_directories(test_lua_quest PRIVATE
+    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.0/include"
+)
+target_link_libraries(test_lua_quest PRIVATE lua_lib)
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(test_lua_quest PRIVATE m)
+endif()
+add_test(NAME test_lua_quest COMMAND test_lua_quest)
+
+# 9. test_lua52_quest (Lua 5.2 Staged Migration Engine)
+add_executable(test_lua52_quest test_lua52_quest.cpp)
+target_include_directories(test_lua52_quest PRIVATE
+    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.2/src"
+)
+target_link_libraries(test_lua52_quest PRIVATE lua52_lib)
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(test_lua52_quest PRIVATE m)
+endif()
+add_test(NAME test_lua52_quest COMMAND test_lua52_quest)
+
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala
     add_custom_target(copy_test_dlls ALL

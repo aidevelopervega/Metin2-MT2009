@@ -1,4 +1,4 @@
-# Rev 28: Upgrade Boost to official 1.92.0 and fix 64-bit pointer cast in questmanager
+# Rev 29: CMake Lua 5.0 and Lua 5.2 automated quest regression suites and 64-bit pointer safety
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
