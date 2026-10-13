@@ -21,7 +21,7 @@ extern "C" {
 
 	#define zname(z)		"quest"
 	#define luaZ_init(a,b,c,d)	luaZ_init(L,a,b,c)
-	#define luaX_setinput(a,b,c,d)	luaX_setinput(a,b,c,d,0)
+	#define luaX_setinput(a,b,c,d)	luaX_setinput(a,b,c,d,zgetc(c))
 
 	#define lua_ref(L,lock)	((lock) ? luaL_ref(L, LUA_REGISTRYINDEX) : \
 	  (lua_pushstring(L, "unlocked references are obsolete"), lua_error(L), 0))
@@ -182,10 +182,25 @@ ostream & operator << (ostream & ostr, const Token& tok)
 	else if (tok.token == TK_NUMBER)
 		ostr << tok.seminfo.r;
 	else if (tok.token == TK_STRING)
-		//ostr << "[[" << getstr(tok.seminfo.ts) <<"]]";
 		ostr << '"' << getstr(tok.seminfo.ts) <<'"';
 	else
+	{
+#if LUA_V == 523
+		if (tok.token < FIRST_RESERVED)
+			ostr << (char)tok.token;
+		else
+		{
+			const char* s = luaX_token2str(pls, tok.token);
+			size_t len = s ? strlen(s) : 0;
+			if (len >= 2 && s[0] == '\'' && s[len - 1] == '\'')
+				ostr << string(s + 1, len - 2);
+			else if (s)
+				ostr << s;
+		}
+#else
 		ostr << luaX_token2str(pls,tok.token);
+#endif
+	}
 	return ostr;
 }
 

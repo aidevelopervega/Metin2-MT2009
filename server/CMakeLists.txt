@@ -17,6 +17,7 @@ add_subdirectory(src/libgame)
 add_subdirectory(src/libsql)
 add_subdirectory(src/liblua)
 add_subdirectory(src/db)
+add_subdirectory(src/game/src/quest)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     add_subdirectory(src/game)

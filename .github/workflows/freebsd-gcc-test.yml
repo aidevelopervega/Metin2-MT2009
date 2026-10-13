@@ -1,4 +1,4 @@
-# Rev 29: CMake Lua 5.0 and Lua 5.2 automated quest regression suites and 64-bit pointer safety
+# Rev 30: System libraries discovery, Metin2 quest compiler (qc/qc_lua52), and 11/11 CTest suite
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

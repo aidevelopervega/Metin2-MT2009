@@ -797,24 +797,66 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * `server/src/game/src/questmanager.cpp` (satır 1852 ve 1867): Kod işaretçisi Lua'ya `lua_pushnumber` ile iletiliyordu. 64-bit mimarilerde $2^{53}$ değerinden büyük sanal bellek adreslerinde (`0x0040000000000001` vb.) IEEE-754 `double` (`lua_Number`) mantissa biti yetersizliği nedeniyle en anlamsız bitler yuvarlanmakta ve iki farklı kod işaretçisi aynı sayıya dönüşerek cache çarpışması/yanlış quest fonksiyonu çalıştırma riski oluşturmaktaydı.
         * `lua_pushnumber(qs.co, (uintptr_t)code)` yerine yerel işaretçi tabanlı `lua_pushlightuserdata(qs.co, const_cast<char*>(code))` mimarisine geçildi.
         * Hem Lua 5.0 hem de Lua 5.2'de lightuserdata 64-bit işaretçiyi ham bitleriyle saklar ve Lua tablosunda pointer hash ile doğrudan eşleştirir. Kayan nokta dönüşümü ve hassasiyet kaybı %100 ortadan kaldırıldı.
-      * **Otomatik CMake Regresyon Hedefleri (CTest 9/9):**
+      * **Genişletilmiş Otomatik CMake Regresyon Hedefleri (CTest 9/9, 8'er Kapsamlı Test Paketi):**
         * `server/src/liblua/CMakeLists.txt`: `lua52_lib` static kütüphane hedefi eklendi (32 kaynak dosya).
-        * `tests/test_lua_quest.cpp`: Varsayılan motor olan Lua 5.0.3 için otomatik regresyon paketi yazıldı (C API kayıtları, coroutine yield/resume durum makinesi, `__codecache` lightuserdata 64-bit güvenliği).
-        * `tests/test_lua52_quest.cpp`: Aşamalı geçiş motoru olan Lua 5.2.3 için otomatik regresyon paketi yazıldı (C API kayıtları, coroutine yield/resume durum makinesi, `__codecache` lightuserdata 64-bit güvenliği).
+        * `tests/test_lua_quest.cpp`: Varsayılan motor olan Lua 5.0.3 için 8 modüllü otomatik regresyon paketi yazıldı:
+          1. Motor başlatma ve sürüm doğrulaması (`_VERSION == "Lua 5.0.3"`).
+          2. Metin2 lexer özel rezerve sözcük doğrulaması (`quest`, `state`, `with`, `when`, `begin` token tanımları).
+          3. Metin2 C API tablo fonksiyonları (`pc.get_name`, `pc.get_gold`, `pc.give_gold`, `pc.get_level`, `pc.getqf`, `pc.setqf`, `pc.count_item`, `pc.give_item2`, `pc.remove_item`, `say_title`, `say`, `set_state`).
+          4. Gerçekçi NPC diyalog ve coroutine yield/resume durum makinesi (Biyolog Chaegirab görev diyaloğu ve seçenekli seçim).
+          5. Çok aşamalı görev ilerlemesi (`start` -> `collecting` -> `__COMPLETE__`) ve eşya teslimatı / envanter düşümü / Yang ödülü.
+          6. `__codecache` 64-bit işaretçi güvenliği: $2^{53}$ üstündeki adreslerde `double` çarpışma kanıtı ve `lua_pushlightuserdata` ile %100 çarpışmasız geri çağırma.
+          7. Hata izolasyonu ve sunucu çökme koruması: Hatalı coroutine çağrısının yakalanması ve ana `lua_State* L` durumunun bozulmaması.
+          8. Yaşam döngüsü metrikleri ve motorlar arası eşdeğerlik doğrulaması.
+        * `tests/test_lua52_quest.cpp`: Aşamalı geçiş motoru olan Lua 5.2.3 için birebir eşdeğer 8 modüllü regresyon paketi yazıldı.
         * `tests/CMakeLists.txt`: `test_lua_quest` ve `test_lua52_quest` CTest hedeflerine bağlandı.
       * **Doğrulama ve Test Sonuçları:**
         * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` hatasız tamamlandı.
-        * CTest: **9/9 test paketi PASSED (%100 PASS, 0.51s)**.
+        * CTest: **9/9 test paketi PASSED (%100 PASS, 0.32s)**.
         * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
-      * **Motor Durumu:** Lua 5.0.3 aktif varsayılan sunucu motoru olarak korunmaktadır. Lua 5.2.3 aşamalı geçiş motoru olarak doğrulanmış durumdadır.
+      * **Motor Durumu ve Upstream Lua Analizi:**
+        * Resmî Lua upstream (lua.org) en son kararlı sürümü **Lua 5.5.1** olarak doğrulanmıştır.
+        * Lua 5.2.3 nihai modernizasyon hedefi değil, Metin2 C API ve quest uyumluluğunu adım adım güvenceye alan kontrollü bir ara aşamadır.
+        * Tüm Metin2 quest dosyalarında tam uyumluluk kanıtlanana kadar **Lua 5.0.3 aktif varsayılan sunucu motoru** olarak korunmaktadır.
+
+      * **Metin2 Quest Derleyicisi (qc) CMake Entegrasyonu ve Çapraz Motor Bayt Eşdeğerliği (qc & qc_lua52):**
+        * `server/src/game/src/quest/CMakeLists.txt`: `qc` (varsayılan Lua 5.0.3) ve `qc_lua52` (aşamalı geçiş Lua 5.2.3) derleme hedefleri eklendi.
+        * `server/src/game/src/quest/crc32.h`: C++20 standardında `size_t` ve `std::string` için `<cstddef>` ve `<cstring>` başlıkları eklendi.
+        * `server/src/liblua/5.2/src/llex.c`:
+          1. Standalone lexer'larda (`qc.cc`) `ls->fs == NULL` durumunda `luaX_newstring` içindeki `luaH_set` çağrısının çökmesini (`0xC0000005` Access Violation) önlemek için `if (ls->fs)` null denetimi eklendi.
+          2. `read_numeral`: Sayı ve olay adı sözdiziminde (`when 20084.chat."..."`) `.` karakterinden sonra gelen harfin onaltılık rakam (`lisxdigit`: a-f, A-F) olarak sayı tamponuna dahil edilmesini önlemek amacıyla onaltılık kontrol (`is_hex`) ayrıştırıldı; `20084.chat` sözdiziminde `malformed number near '20084.c'` hatası kök nedeninden çözüldü.
+        * `server/src/game/src/quest/qc.cc`: Lua 5.2'nin `luaX_token2str` fonksiyonunun tokenları tek tırnakla (`'...'`) sarmalaması sonucu oluşan `pc '.' get_level` sözdizimi bozulması `operator <<` içerisinde tırnak ayıklama ile giderildi.
+        * `tests/fixtures/sample_biologist.quest`: Gerçek Metin2 görev sözdizimini içeren (`login or enter`, `when 20084.chat."..."`, envanter eşya kontrolü/turn-in ve çok durumlu durum geçişi) test fixture'ı eklendi.
+        * **100% Bayt Eşdeğerliği Kanıtı:** Hem `qc.exe` (Lua 5.0.3) hem de `qc_lua52.exe` (Lua 5.2.3) tarafından üretilen tüm `object/` çıktıları (`20084/chat/*.arg`, `*.script`, `*.when`, `notarget/enter/*`, `notarget/login/*`, `state/*`) ikili (binary) düzeyde karşılaştırılmış ve **%100 BAYT-BAYT BİREBİR EŞDEĞER (BYTE-IDENTICAL)** olduğu kanıtlanmıştır.
+
+    * **Aşama 5: Server/Common Extern Modernizasyonu — OpenSSL ve zlib İncelemesi (Adım 5):**
+      * **zlib Sürüm ve Bağlantı Durumu:**
+        * Resmî upstream en son kararlı sürüm: **zlib v1.3.2** (17 Şubat 2026, zlib.net).
+        * FreeBSD 15.1 ortamında sistem taban kütüphanesi `/usr/lib/libz.so` ve `/usr/include/zlib.h` out-of-the-box sağlanmaktadır.
+        * Windows tarafında MariaDB Connector/C (`libmariadb.a`) kendi sıkıştırma rutinlerini barındırmaktadır.
+      * **OpenSSL Sürüm ve Bağlantı Durumu:**
+        * Resmî upstream en son kararlı LTS sürüm: **OpenSSL 3.5.9 LTS** / OpenSSL 3.6+ (openssl-library.org).
+        * FreeBSD 15.1 ortamında taban sistem kütüphaneleri `/usr/lib/libssl.so`, `/usr/lib/libcrypto.so` ve `/usr/include/openssl/` mevcuttur.
+        * Windows tarafında MariaDB Connector/C (`libmariadb.dll`) TLS bağlantılarını Windows güvenli sağlayıcıları veya dinamik OpenSSL üzerinden yönetmektedir.
+      * **CMake + Ninja Sistem Kütüphaneleri Entegrasyonu (`cmake/FindSystemLibraries.cmake`):**
+        * Sistem kütüphanelerini gereksiz yere Git deposuna kopyalamadan (`AGENTS.md` ve kullanıcı talimatı) doğrudan platform bağlayıcılarıyla temiz keşif yapan `FindSystemLibraries.cmake` modülü oluşturuldu.
+        * `server/src/game/CMakeLists.txt` içerisinde `OpenSSL::SSL`, `OpenSSL::Crypto` ve `ZLIB::ZLIB` hedefleri şeffaf ve geriye uyumlu biçimde entegre edildi.
+      * **Genişletilmiş CTest Paketi (11/11):**
+        * `test_qc_compiler_lua50` ve `test_qc_compiler_lua52` CTest testlerine eklendi.
+        * Windows MinGW GCC 16.2 UCRT üzerinde: **11/11 CTest PASSED (%100 PASS, 0.42s)**.
+        * Bağımsız regresyon paketi (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (9/9) ve yerel regresyon testleri (560/560) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `e02a8514b845eea564b9d1073c318bf70aa198b3` ile senkronize edildi.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38403723838 (Rev 28 Boost 1.92.0) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. CI Run ID 38407669703 (Rev 29 Lua Quest regresyon testleri ve 64-bit lightuserdata düzeltmesi) tetiklendi (RUNNING/QUEUED).
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (11/11) ve yerel regresyon testleri (560/560) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `221c5ce9ec0c3c54ca29fa6d1ff8b65da1fc2194` üzerine yapılan geliştirmeler push edilmeye hazır.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
+  * CI Run ID **38407669703** (Rev 29): Üç veritabanı matrisinde **%100 SUCCESS**:
+    * MariaDB 12.3 LTS (Job `115331427052`): **SUCCESS (25m 15s)**
+    * MariaDB 11.4 LTS (Job `115331427503`): **SUCCESS (19m 59s)**
+    * MySQL 8.4 LTS (Job `115331427622`): **SUCCESS (25m 9s)**
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -828,11 +870,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38403723838 ile 3 DB matrisinde %100 SUCCESS)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38407669703 ile 3 DB matrisinde %100 SUCCESS)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI; Lua 5.0 ve 5.2 testleri hazırlandı)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0 TAMAMLANDI; Lua 5.0 ve 5.2 8-testli genişletilmiş paketleri doğrulandı; qc/qc_lua52 bayt eşdeğerliği kanıtlandı; OpenSSL ve zlib CMake entegrasyonu tamamlandı)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -840,10 +882,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** CI 38403723838 (Rev 28 Boost 1.92.0) %100 SUCCESS olarak doğrulandı; questmanager.cpp __codecache 64-bit pointer hassasiyet kaybı lua_pushlightuserdata ile kalıcı olarak giderildi; Lua 5.0 ve Lua 5.2 için CTest regresyon hedefleri eklendi; Windows GCC 16 CTest (9/9) ve regresyon testleri (560/560) %100 PASS; Commit e02a8514 push edildi ve CI 38407669703 tetiklendi.
+* **Aktif Görev:** CI 38407669703 (Rev 29) %100 SUCCESS ile sonuçlandı; Metin2 quest derleyicisi `qc` ve `qc_lua52` CMake'e entegre edildi, lexer hataları kök nedeninden çözüldü ve 100% bayt eşdeğerliği kanıtlandı; OpenSSL (3.5.9 LTS) ve zlib (1.3.2) sistem keşif modülü (`FindSystemLibraries.cmake`) oluşturuldu; Windows GCC 16 CTest (11/11) ve regresyon testleri (560/560) %100 PASS; CI Rev 30 hazırlandı.
 * **Sıradaki Güvenli Adım:**
-   1. GitHub Actions FreeBSD CI Rev 29 (Run ID 38407669703) sonuçlarını kontrol etmek.
-   2. Yol Haritası Adım 5: Sıradaki Server Extern bağımlılıkları (zlib, OpenSSL vb.) modernizasyonunu değerlendirip sürdürmek.
+   1. Rev 30 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push etmek.
+   2. CI Run ID'sini tam SHA üzerinden tespit edip FreeBSD 15.1 amd64 GCC 14 ortamında üç veritabanı matrisini doğrulamak.
+   3. Yol Haritası Adım 5: Server/Common Extern modernizasyonunda kalan bileşenlerle (veya Lua 5.5.1 uyumluluk araştırmasıyla) devam etmek.
 
 
 

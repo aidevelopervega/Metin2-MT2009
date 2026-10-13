@@ -97,6 +97,7 @@ add_test(NAME test_packet_wire COMMAND test_packet_wire)
 add_executable(test_lua_quest test_lua_quest.cpp)
 target_include_directories(test_lua_quest PRIVATE
     "${CMAKE_SOURCE_DIR}/server/src/liblua/5.0/include"
+    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.0/src"
 )
 target_link_libraries(test_lua_quest PRIVATE lua_lib)
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
@@ -114,6 +115,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     target_link_libraries(test_lua52_quest PRIVATE m)
 endif()
 add_test(NAME test_lua52_quest COMMAND test_lua52_quest)
+
+# 10. test_qc_compiler_lua50 (Real Metin2 quest compilation with Lua 5.0 qc)
+add_test(NAME test_qc_compiler_lua50 COMMAND qc "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
+
+# 11. test_qc_compiler_lua52 (Real Metin2 quest compilation with Lua 5.2 qc_lua52)
+add_test(NAME test_qc_compiler_lua52 COMMAND qc_lua52 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
 
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala

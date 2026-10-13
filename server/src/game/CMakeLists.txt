@@ -57,8 +57,11 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         pthread
         m
         md
-        ssl
-        crypto
-        z
+        $<$<TARGET_EXISTS:OpenSSL::SSL>:OpenSSL::SSL>
+        $<$<NOT:$<TARGET_EXISTS:OpenSSL::SSL>>:ssl>
+        $<$<TARGET_EXISTS:OpenSSL::Crypto>:OpenSSL::Crypto>
+        $<$<NOT:$<TARGET_EXISTS:OpenSSL::Crypto>>:crypto>
+        $<$<TARGET_EXISTS:ZLIB::ZLIB>:ZLIB::ZLIB>
+        $<$<NOT:$<TARGET_EXISTS:ZLIB::ZLIB>>:z>
     )
 endif()

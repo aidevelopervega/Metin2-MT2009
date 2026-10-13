@@ -136,20 +136,22 @@ l_noret luaX_syntaxerror (LexState *ls, const char *msg) {
 */
 TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
   lua_State *L = ls->L;
-  TValue *o;  /* entry for `str' */
   TString *ts = luaS_newlstr(L, str, l);  /* create new string */
-  setsvalue2s(L, L->top++, ts);  /* temporarily anchor it in stack */
-  o = luaH_set(L, ls->fs->h, L->top - 1);
-  if (ttisnil(o)) {  /* not in use yet? (see 'addK') */
-    /* boolean value does not need GC barrier;
-       table has no metatable, so it does not need to invalidate cache */
-    setbvalue(o, 1);  /* t[string] = true */
-    luaC_checkGC(L);
+  if (ls->fs) {
+    TValue *o;  /* entry for `str' */
+    setsvalue2s(L, L->top++, ts);  /* temporarily anchor it in stack */
+    o = luaH_set(L, ls->fs->h, L->top - 1);
+    if (ttisnil(o)) {  /* not in use yet? (see 'addK') */
+      /* boolean value does not need GC barrier;
+         table has no metatable, so it does not need to invalidate cache */
+      setbvalue(o, 1);  /* t[string] = true */
+      luaC_checkGC(L);
+    }
+    else {  /* string already present */
+      ts = rawtsvalue(keyfromval(o));  /* re-use value previously stored */
+    }
+    L->top--;  /* remove string from stack */
   }
-  else {  /* string already present */
-    ts = rawtsvalue(keyfromval(o));  /* re-use value previously stored */
-  }
-  L->top--;  /* remove string from stack */
   return ts;
 }
 
@@ -245,14 +247,17 @@ static void trydecpoint (LexState *ls, SemInfo *seminfo) {
 static void read_numeral (LexState *ls, SemInfo *seminfo) {
   const char *expo = "Ee";
   int first = ls->current;
+  int is_hex = 0;
   lua_assert(lisdigit(ls->current));
   save_and_next(ls);
-  if (first == '0' && check_next(ls, "Xx"))  /* hexadecimal? */
+  if (first == '0' && check_next(ls, "Xx")) { /* hexadecimal? */
     expo = "Pp";
+    is_hex = 1;
+  }
   for (;;) {
     if (check_next(ls, expo))  /* exponent part? */
       check_next(ls, "+-");  /* optional exponent sign */
-    if (lisxdigit(ls->current) || ls->current == '.')
+    if ((is_hex ? lisxdigit(ls->current) : lisdigit(ls->current)) || ls->current == '.')
       save_and_next(ls);
     else  break;
   }

@@ -1,6 +1,9 @@
 #ifndef __INC_CRC32_H__
 #define __INC_CRC32_H__
 
+#include <cstddef>
+#include <cstring>
+
 #ifndef __WIN32__
 #include <unistd.h>
 #endif
@@ -15,6 +18,3 @@ crc_t	get_fast_hash(const char * key, size_t len);
 #define CRC32CASE(buf) get_crc32_case(buf, strlen(buf))
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
-
-// Files shared by GameCore.top

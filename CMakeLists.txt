@@ -20,6 +20,7 @@ include(CompilerFlags)
 include(FindDatabaseClient)
 include(FindCryptoPP)
 include(FindDevIL)
+include(FindSystemLibraries)
 
 # 3. Sunucu Kütüphaneleri ve İkilileri
 add_subdirectory(server)
