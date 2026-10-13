@@ -676,8 +676,9 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
     * **Game Binary Pure libstdc++ Dönüşümü ve Cift C++ Runtime Tehlikesinin Kalıcı Giderilmesi:**
       * **Kök Neden Tespiti:** `server/src/game/src/Makefile` dosyasında `wildcard ../../../../extern/server/lib/libcryptopp.a` kontrolü bulunuyordu; ancak bu konumdaki `libcryptopp.a` arşivi eski 32-bit (`elf32-i386`) kalıntısıydı. Bu nedenle 64-bit aramada Clang ile derlenmiş sistem portu `/usr/local/lib/libcryptopp.a` devreye giriyor ve `-lc++` bayrağı ile ikiliye `libc++.so.1` bağlanıyordu (`game_r41023` hem `libstdc++.so.6` hem `libc++.so.1` içererek çift C++ runtime tehlikesi oluşturuyordu).
       * **Kalıcı Kök Neden Çözümü:**
-        1. `server/src/game/src/Makefile`: 64-bit mimaride (`LBITS=64`) CryptoPP bağlama önceliği doğrudan GCC 14 ile derlenen `extern/server/cryptopp/libcryptopp.a` arşivine verildi. Bu kütüphane bağlandığında `-lc++` bayrağı tamamen devre dışı bırakıldı; `-lc++` yalnızca Clang ile derlenmiş sistem paketi fallback olarak kullanılırsa sınırlandırıldı.
-        2. `.github/workflows/freebsd-gcc-test.yml` (Rev 22): `game_r*` derlemesi sonrasında `readelf -d` çıktısında `libc++.so` bulunmadığını denetleyen fail-closed assertion eklendi.
+        1. `server/src/game/src/Makefile`: 64-bit mimaride (`LBITS=64`) CryptoPP bağlama önceliği doğrudan GCC 14 ile derlenen `extern/server/cryptopp/libcryptopp.a` ve `extern/server/lib/libcryptopp.a` arşivlerine verildi. Bu kütüphaneler bağlandığında `-lc++` bayrağı tamamen devre dışı bırakıldı; `-lc++` yalnızca Clang ile derlenmiş sistem paketi fallback olarak kullanılırsa sınırlandırıldı.
+        2. `extern/server/cryptopp/GNUmakefile`: `libcryptopp.a` arşivi üretildiğinde `../lib/` dizinine kopyalanarak (`cp -f $@ ../lib/`) hem kaynak klasöründe hem ortak lib klasöründe 64-bit GCC arşivi muhafaza edildi.
+        3. `.github/workflows/freebsd-gcc-test.yml` (Rev 23): `game_r*` derlemesi sonrasında `readelf -d` çıktısında `libc++.so` bulunmadığını denetleyen fail-closed assertion eklendi.
       * **C++20 Uyumlaştırması (Deprecated Enum-Enum Conversion):**
         * `server/src/common/item_length.h` ve `server/src/common/length.h` dosyalarındaki Dragon Soul enum çarpımları (`DS_SLOT_MAX * DRAGON_SOUL_GRADE_MAX * DRAGON_SOUL_BOX_SIZE` vb.) `static_cast<int>` ile sarmalanarak C++20 standardındaki `-Wdeprecated-enum-enum-conversion` derleyici uyarıları tamamen sıfırlandı.
       * **Yerel Windows Doğrulaması:** `tests/run_tests.ps1` çalıştırıldı; 7/7 modül test paketi, 32 wire protocol assertion'ı ve 116 DB ACK entegrasyon testi dahil olmak üzere **560/560 assertion (%100 PASS)** sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
@@ -688,7 +689,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, tüm yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son test koşusunda (Run ID: 38359016904) 3 matris işi (%100 SUCCESS, 1.923 assertion). Rev 22 ile yeni tetikleme hazırlanmıştır.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son test koşusunda (Run ID: 38359016904) 3 matris işi (%100 SUCCESS, 1.923 assertion). Rev 23 ile yeni tetikleme hazırlanmıştır.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---

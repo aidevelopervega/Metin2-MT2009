@@ -1,4 +1,4 @@
-# Rev 22: Pure libstdc++ game binary verification, elimination of dual C++ runtime hazard, and C++20 clean enum conversion
+# Rev 23: Fix CryptoPP lib copying, enable both search paths, verify pure libstdc++ in game
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

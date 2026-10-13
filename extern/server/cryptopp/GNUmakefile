@@ -895,7 +895,7 @@ libcryptopp.a: $(LIBOBJS)
 ifeq ($(IS_SUN),0)
 	$(RANLIB) $@
 endif
-	mv $@ ../lib/
+	cp -f $@ ../lib/
 
 ifeq ($(HAS_SOLIB_VERSION),1)
 .PHONY: libcryptopp.so
