@@ -754,15 +754,12 @@ namespace quest
 			char settingsFileName[256];
 			snprintf(settingsFileName, sizeof(settingsFileName), "%s/settings.lua", LocaleService_GetBasePath().c_str());
 
-			if (access(settingsFileName, R_OK) == 0)
+			int settingsLoadingResult = lua_dofile(L, settingsFileName);
+			sys_log(0, "LoadSettings(%s), returns %d", settingsFileName, settingsLoadingResult);
+			if (settingsLoadingResult != 0)
 			{
-				int settingsLoadingResult = lua_dofile(L, settingsFileName);
-				sys_log(0, "LoadSettings(%s), returns %d", settingsFileName, settingsLoadingResult);
-				if (settingsLoadingResult != 0)
-				{
-					sys_err("LOAD_SETTINS_FAILURE(%s)", settingsFileName);
-					return false;
-				}
+				sys_err("LOAD_SETTINS_FAILURE(%s)", settingsFileName);
+				return false;
 			}
 		}
 
@@ -770,15 +767,12 @@ namespace quest
 			char questlibFileName[256];
 			snprintf(questlibFileName, sizeof(questlibFileName), "%s/questlib.lua", LocaleService_GetQuestPath().c_str());
 
-			if (access(questlibFileName, R_OK) == 0)
+			int questlibLoadingResult = lua_dofile(L, questlibFileName);
+			sys_log(0, "LoadQuestlib(%s), returns %d", questlibFileName, questlibLoadingResult);
+			if (questlibLoadingResult != 0)
 			{
-				int questlibLoadingResult = lua_dofile(L, questlibFileName);
-				sys_log(0, "LoadQuestlib(%s), returns %d", questlibFileName, questlibLoadingResult);
-				if (questlibLoadingResult != 0)
-				{
-					sys_err("LOAD_QUESTLIB_FAILURE(%s)", questlibFileName);
-					return false;
-				}
+				sys_err("LOAD_QUESTLIB_FAILURE(%s)", questlibFileName);
+				return false;
 			}
 		}
 
@@ -795,15 +789,12 @@ namespace quest
 			char translateFileName[256];
 			snprintf(translateFileName, sizeof(translateFileName), "%s/translate.lua", LocaleService_GetBasePath().c_str());
 
-			if (access(translateFileName, R_OK) == 0)
+			int translateLoadingResult = lua_dofile(L, translateFileName);
+			sys_log(0, "LoadTranslate(%s), returns %d", translateFileName, translateLoadingResult);
+			if (translateLoadingResult != 0)
 			{
-				int translateLoadingResult = lua_dofile(L, translateFileName);
-				sys_log(0, "LoadTranslate(%s), returns %d", translateFileName, translateLoadingResult);
-				if (translateLoadingResult != 0)
-				{
-					sys_err("LOAD_TRANSLATE_ERROR(%s)", translateFileName);
-					return false;
-				}
+				sys_err("LOAD_TRANSLATE_ERROR(%s)", translateFileName);
+				return false;
 			}
 		}
 #endif

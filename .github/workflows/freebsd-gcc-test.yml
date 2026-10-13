@@ -1,5 +1,6 @@
-# Rev 36: Fix CQuestManager singleton init and access-guarded locale loading in --check-lua, expand coroutine yield/resume suite
+# Rev 37: Stage test fixtures in --check-lua, restore fail-closed InitializeLua, add packet_script wire serialization test
 name: FreeBSD 15.1 amd64 GCC 14 Verification
+
 
 on:
   push:

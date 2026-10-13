@@ -33,6 +33,9 @@
 		} \
 	} while (0)
 
+extern std::string g_stQuestDir;
+extern std::string g_stServiceBasePath;
+
 int RunGameQuestRuntimeTests()
 {
 	std::cout << "==================================================" << std::endl;
@@ -61,6 +64,27 @@ int RunGameQuestRuntimeTests()
 
 	// 2. QuestManager & Lua State Initialization
 	std::cout << "[RUN] Check 2: QuestManager & Lua State Initialization..." << std::endl;
+
+	// Stage fixture path to ensure fail-closed loading of settings.lua, questlib.lua, translate.lua, locale.lua
+	const char* candidate_dirs[] = {
+		"tests/fixtures",
+		"../tests/fixtures",
+		"../../tests/fixtures"
+	};
+	std::string staging_dir = "";
+	for (const char* dir : candidate_dirs) {
+		std::string test_path = std::string(dir) + "/questlib.lua";
+		FILE* fp = fopen(test_path.c_str(), "r");
+		if (fp) {
+			fclose(fp);
+			staging_dir = dir;
+			break;
+		}
+	}
+	RUNTIME_ASSERT(!staging_dir.empty(), "Mandatory tests/fixtures directory with questlib.lua must exist");
+	g_stQuestDir = staging_dir;
+	g_stServiceBasePath = staging_dir;
+
 	std::unique_ptr<quest::CQuestManager> local_qm;
 	if (quest::CQuestManager::instance_ptr() == nullptr)
 	{
@@ -70,11 +94,12 @@ int RunGameQuestRuntimeTests()
 	lua_State* L = qm.GetLuaState();
 	if (!L)
 	{
-		qm.InitializeLua();
+		bool init_ok = qm.InitializeLua();
+		RUNTIME_ASSERT(init_ok, "InitializeLua() must succeed and load all mandatory lua files fail-closed");
 		L = qm.GetLuaState();
 	}
 	RUNTIME_ASSERT(L != nullptr, "Lua state must be initialized and non-null");
-	std::cout << "  --> Lua state initialized at: " << (void*)L << std::endl;
+	std::cout << "  --> Lua state initialized at: " << (void*)L << " from staging: " << staging_dir << std::endl;
 	checks_passed++;
 
 	// 3. Compatibility Shims
@@ -131,48 +156,12 @@ int RunGameQuestRuntimeTests()
 	checks_passed++;
 
 	// 6. Real questlib.lua and locale.lua execution
-	std::cout << "[RUN] Check 6: Real questlib.lua and locale.lua loading..." << std::endl;
-	const char* questlib_paths[] = {
-		"tests/fixtures/questlib.lua",
-		"../tests/fixtures/questlib.lua",
-		"../../tests/fixtures/questlib.lua",
-		"scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua"
-	};
-	std::string found_ql = "";
-	for (const char* p : questlib_paths) {
-		FILE* fp = fopen(p, "r");
-		if (fp) {
-			fclose(fp);
-			found_ql = p;
-			break;
-		}
-	}
-	RUNTIME_ASSERT(!found_ql.empty(), "A valid questlib.lua fixture must be available on disk");
-	int ql_res = lua_dofile(L, found_ql.c_str());
-	RUNTIME_ASSERT(ql_res == 0, "questlib.lua execution must succeed without error");
+	std::cout << "[RUN] Check 6: questlib.lua and locale.lua verification (Synthetic & Real FTP)..." << std::endl;
 
+	// 6.1 Synthetic Fixture Verification (Loaded in InitializeLua)
 	lua_getglobal(L, "CONFIRM_YES");
 	RUNTIME_ASSERT(lua_isnumber(L, -1) && (int)lua_tonumber(L, -1) == 1, "CONFIRM_YES must be 1 in questlib.lua");
 	lua_pop(L, 1);
-
-	const char* locale_paths[] = {
-		"tests/fixtures/locale.lua",
-		"../tests/fixtures/locale.lua",
-		"../../tests/fixtures/locale.lua",
-		"scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/locale.lua"
-	};
-	std::string found_loc = "";
-	for (const char* p : locale_paths) {
-		FILE* fp = fopen(p, "r");
-		if (fp) {
-			fclose(fp);
-			found_loc = p;
-			break;
-		}
-	}
-	RUNTIME_ASSERT(!found_loc.empty(), "A valid locale.lua fixture must be available on disk");
-	int loc_res = lua_dofile(L, found_loc.c_str());
-	RUNTIME_ASSERT(loc_res == 0, "locale.lua execution must succeed without error");
 
 	lua_getglobal(L, "locale");
 	RUNTIME_ASSERT(lua_istable(L, -1), "locale table must be defined in locale.lua");
@@ -180,7 +169,30 @@ int RunGameQuestRuntimeTests()
 	lua_gettable(L, -2);
 	RUNTIME_ASSERT(lua_isstring(L, -1), "locale.yes must be a string");
 	lua_pop(L, 2);
-	std::cout << "  --> Loaded questlib (" << found_ql << ") and locale (" << found_loc << ") verified" << std::endl;
+	std::cout << "  --> [PASS] Synthetic fixtures (questlib.lua, locale.lua, settings.lua, translate.lua) verified" << std::endl;
+
+	// 6.2 Real FTP Archive Verification (if extracted on disk)
+	const char* real_ftp_paths[] = {
+		"scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua",
+		"../scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua",
+		"../../scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua"
+	};
+	std::string found_real_ftp = "";
+	for (const char* p : real_ftp_paths) {
+		FILE* fp = fopen(p, "r");
+		if (fp) {
+			fclose(fp);
+			found_real_ftp = p;
+			break;
+		}
+	}
+	if (!found_real_ftp.empty()) {
+		int real_ql_res = lua_dofile(L, found_real_ftp.c_str());
+		RUNTIME_ASSERT(real_ql_res == 0, "Real FTP questlib.lua execution must succeed without error");
+		std::cout << "  --> [PASS] Real FTP questlib.lua (" << found_real_ftp << ") runtime verified" << std::endl;
+	} else {
+		std::cout << "  --> [SKIP] Real FTP archive files not unpacked on this host (Synthetic fixtures verified)" << std::endl;
+	}
 	checks_passed++;
 
 	// 7. Gameforge Localization Proxy

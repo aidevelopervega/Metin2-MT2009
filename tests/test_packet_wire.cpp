@@ -56,6 +56,11 @@ static_assert(sizeof(TPacketGCTargetDelete) == 5, "TPacketGCTargetDelete size mi
 static_assert(sizeof(TPacketGCDungeonDestPosition) == 8, "TPacketGCDungeonDestPosition size mismatch");
 static_assert(sizeof(TPacketCGStateCheck) == 9, "TPacketCGStateCheck size mismatch");
 static_assert(sizeof(TPacketGCStateCheck) == 10, "TPacketGCStateCheck size mismatch");
+static_assert(sizeof(struct packet_script) == 6, "struct packet_script size mismatch (must be 6 bytes for 32-bit client)");
+static_assert(offsetof(struct packet_script, header) == 0, "packet_script.header offset mismatch");
+static_assert(offsetof(struct packet_script, size) == 1, "packet_script.size offset mismatch");
+static_assert(offsetof(struct packet_script, skin) == 3, "packet_script.skin offset mismatch");
+static_assert(offsetof(struct packet_script, src_size) == 4, "packet_script.src_size offset mismatch");
 
 static_assert(sizeof(TPlayerItem) == 52, "TPlayerItem size mismatch");
 static_assert(sizeof(TSimplePlayer) == 67, "TSimplePlayer size mismatch");
@@ -264,6 +269,28 @@ int main()
         WIRE_ASSERT(buffer.size() == 67, "SimplePlayer size is strictly 67 bytes");
     }
 
+    // 7. packet_script (Quest dialog / NPC script packet) Wire Test
+    {
+        struct packet_script outScript{};
+        outScript.header = HEADER_GC_SCRIPT;
+        outScript.size = sizeof(struct packet_script) + 24; // 6 + 24 = 30 bytes total
+        outScript.skin = 1;
+        outScript.src_size = 24;
+
+        std::vector<uint8_t> buffer(sizeof(struct packet_script));
+        std::memcpy(buffer.data(), &outScript, sizeof(struct packet_script));
+
+        struct packet_script inScript{};
+        std::memcpy(&inScript, buffer.data(), sizeof(struct packet_script));
+
+        WIRE_ASSERT(inScript.header == HEADER_GC_SCRIPT, "packet_script header match");
+        WIRE_ASSERT(inScript.size == sizeof(struct packet_script) + 24, "packet_script size match");
+        WIRE_ASSERT(inScript.skin == 1, "packet_script skin match");
+        WIRE_ASSERT(inScript.src_size == 24, "packet_script src_size match");
+        WIRE_ASSERT(buffer.size() == 6, "packet_script wire size must be strictly 6 bytes for 32-bit client");
+    }
+
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;
     return 0;
 }
+
