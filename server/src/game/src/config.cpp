@@ -177,18 +177,18 @@ void map_allow_add(int index)
 	s_set_map_allows.emplace(index);
 }
 
-void map_allow_copy(long * pl, int size)
+void map_allow_copy(int32_t * pl, int size)
 {
 	int iCount = 0;
 	std::set<int>::iterator it = s_set_map_allows.begin();
 
-	while (it != s_set_map_allows.end())
+	while (it != s_set_map_allows.end() && iCount < size)
 	{
 		int i = *(it++);
 		*(pl++) = i;
 
-		if (++iCount > size)
-			break;
+		++iCount;
+
 	}
 }
 

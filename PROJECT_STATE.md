@@ -645,27 +645,36 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `server/src/libpoly/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
       * `server/src/libthecore/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
       * `server/src/libgame/src/Makefile`: `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif.
-      * `server/src/game/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; MySQL/MariaDB kütüphane tespiti `db/src/Makefile` ile eşitlendi; DevIL (`-lIL`) ve CryptoPP (`-lcryptopp`) 64-bit bağlama kuralları ve `tests/build` kütüphane arama yolu eklendi.
-    * **5. FreeBSD amd64 CI İş Akışı Entegrasyonu:**
+      * `server/src/game/src/Makefile`: `CC ?= gcc`, `CXX ?= g++`, `-m32` yalnızca 32-bit mimaride aktif; MySQL/MariaDB kütüphane tespiti `db/src/Makefile` ile eşitlendi; DevIL (`-lIL`) ve CryptoPP (`-lcryptopp`) 64-bit bağlama kuralları tanımlandı; `-w` bayrağı ve `tests/build` arama yolu fallback'i kaldırılarak doğrudan resmi kütüphane yollarına bağlandı.
+      * `server/src/db/src/Makefile`: `-w` bayrağı ve `tests/build` arama yolu fallback'i kaldırılarak resmi kütüphane yollarına bağlandı.
+    * **5. FreeBSD amd64 LP64 Tip ve Güvenlik Düzeltmeleri:**
+      * `server/src/game/src/config.h` ve `config.cpp`: `map_allow_copy(long * pl, int size)` imzası `int32_t * pl` olarak güncellendi. `desc_client.cpp:158` çağrısında `TPacketGDSetup::alMaps` (`int32_t[MAP_ALLOW_LIMIT]`) ile LP64 tip uyumsuzluğu ve derleme hatası (`cannot convert 'int32_t*' to 'long int*'`) kalıcı olarak çözüldü; `map_allow_copy` içine sınır kontrolü (`iCount < size`) eklendi.
+      * `server/src/game/src/config.h`: `<cstdint>` başlığı dahil edildi, eski `GameCore.top` yorum satırı temizlendi.
+    * **6. FreeBSD amd64 CI İş Akışı Entegrasyonu:**
       * `.github/workflows/freebsd-gcc-test.yml`: `prepare` aşamasına `devil cryptopp` eklendi.
-      * 64-bit Lua 5.0 derleme adımı (`gmake -C server/src/liblua/5.0`) eklendi.
-      * 64-bit Game sunucusu derleme ve bağlama adımı (`gmake -C server/src/game/src -j2 CXX=/usr/local/bin/g++14 CC=/usr/local/bin/gcc14`) eklendi.
-      * `file` ve `readelf -h` ile ELF64 x86-64 executable doğrulama kontrolleri entegre edildi.
-    * **6. İstemci Dokunulmazlığı:**
+      * `server/src/` altındaki resmi sunucu kütüphaneleri (`libthecore`, `libpoly`, `libsql`, `libgame`, `liblua`) DB ve Game derlemelerinden önce doğrudan kendi Makefile'larıyla derlendi.
+      * 64-bit Game sunucusu derleme ve bağlama adımı (`gmake -C server/src/game/src -j2 CXX=/usr/local/bin/g++14 CC=/usr/local/bin/gcc14`) entegre edildi.
+      * `file`, `readelf -h` (ELF64 x86-64 executable) ve `readelf -d` (dinamik kütüphane bağımlılıkları: NEEDED, RPATH) kontrolleri eklendi.
+    * **7. AGENTS.md Kalıcı Kurallar Güncellemesi:**
+      * Madde 7: Server Extern Resmî Sürüm Yükseltme Anayasası eklendi.
+      * Madde 8: İstemci Kaynak ve SDK Dokunulmazlığı (Client Strict Embargo) eklendi.
+      * Madde 9: Çoklu Ortam Senkronizasyon ve Doğrulama Standardı eklendi.
+      * Madde 10: Sürekli ve Otonom Geliştirme Protokolü (Gereksiz prompt bekleme yasağı) eklendi.
+    * **8. İstemci Dokunulmazlığı:**
       * `client/src`, `client/files`, `extern/client` dizinlerine dokunulmadı; %100 korundu.
 
 ---
 
 ## 7. TEK AKTİF GÖREV
 
-* **Aktif Görev:** Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game Derlemesi yerel olarak tamamlandı; 560/560 yerel assertion doğrulandı (%100 PASS). CI koşusu ve doğrulama yürütülüyor.
+* **Aktif Görev:** Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game Derlemesi (LP64 tip düzeltmeleri, Makefile temizliği, CI kütüphane zinciri) yerel olarak tamamlandı; 560/560 yerel assertion doğrulandı (%100 PASS). CI koşusu ve doğrulama yürütülüyor.
 * **Mevcut Durum:** **SERVER X64 FULL COMPATIBILITY & REAL GAME BUILD LOCAL VERIFIED. Wire protocol 32/32 PASS. Total local tests 560/560 PASS (%100). Ready for Git commit, push and FreeBSD CI verification.**
 
 ---
 
 ## 8. SONRAKİ GÜVENLİ ADIM
 
-* Değişiklikleri `dev/windows-gcc-baseline` dalında commit edip push yapmak; GitHub Actions CI koşusunda üç FreeBSD işinin (`MySQL 8.4`, `MariaDB 12.3`, `MariaDB 11.4`) gerçek sonuçlarını, ELF64 `game_r*` ve `db_r*` ikililerini doğrulamak.
+* Değişiklikleri `dev/windows-gcc-baseline` dalında commit edip push yapmak; GitHub Actions CI koşusunda üç FreeBSD işinin (`MySQL 8.4`, `MariaDB 12.3`, `MariaDB 11.4`) gerçek sonuçlarını, ELF64 `game_r*` ve `db_r*` ikililerini ve dinamik sembollerini doğrulamak.
 
 
 

@@ -193,3 +193,66 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      * CI Run ID ve üç FreeBSD işinin gerçek durumu
      * Devam eden veya çözülemeyen sorunlar
    * Başarı kanıtı bulunmayan hiçbir aşama tamamlandı ilan edilmeyecektir.
+
+---
+
+## 7. KALICI SERVER EXTERN SÜRÜM YÜKSELTME ANAYASASI
+
+Server ve Common Extern bağımlılıklarının en güncel kararlı resmî sürümlerine yükseltilmesi projenin kalıcı ve zorunlu hedefidir.
+
+1. **Öncelikli Bileşenler:**
+   * Lua (5.0'dan güvenli yükseltme), Crypto++, Boost, DevIL (IL/ILU/ILUT), RapidJSON, fmt, zlib, OpenSSL, MySQL/MariaDB istemci kütüphaneleri ve Server'ın kullandığı diğer harici bileşenler.
+2. **Adım Adım Bağımlılık Yükseltme Protokolü:**
+   * Tüm Extern aynı anda değiştirilemez; her bağımlılık tek tek ele alınır:
+     1. Mevcut gerçek sürüm belirlenir.
+     2. En son resmî kararlı sürüm doğrulanır.
+     3. Lisans, güvenlik, API/ABI farkları incelenir.
+     4. Doğrulanmış resmî kaynak ve SHA256 ile sürüm sabitlenir.
+     5. Kaynak kodu veya uygun sistem paketi güncellenir.
+     6. Gerekli Server Source API uyarlamaları yapılır.
+     7. FreeBSD GCC 14 amd64 ve Windows GCC 16 UCRT üzerinde derlenip bağlanır.
+     8. İlgili protokol, SQL, quest ve regresyon testleri çalıştırılır.
+     9. Başarılı güncelleme küçük, izole ve geri alınabilir commit ile kaydedilir.
+3. **Gerçek Derleme Şartı:**
+   * Yalnızca yeni sürüm dosyalarını indirmek veya manifestte belirtmek UPGRADED sayılamaz; gerçek binary derlemesinde yeni sürüm fiziksel olarak bağlanmalıdır.
+4. **Hata ve Engel Yönetimi:**
+   * Güncelleme testleri bozarsa kök neden çözülür; uyumsuzluk maskelenemez. Gerçek ve aşılamayan engeller şeffaf biçimde `BLOCKED` olarak raporlanır.
+
+---
+
+## 8. İSTEMCİ KAYNAK VE SDK DOKUNULMAZLIĞI (CLIENT STRICT EMBARGO)
+
+Kullanıcı açıkça yeni bir İstemci Modernizasyonu aşaması başlatana kadar:
+1. `client/src/` altındaki hiçbir dosya değiştirilemez.
+2. `client/files/` altındaki hiçbir dosya değiştirilemez.
+3. `extern/client/` altındaki hiçbir başlık veya kütüphane değiştirilemez.
+4. Client x64 derlemesi veya SDK (Granny, Miles Sound, SpeedTree, DirectX, Python) yükseltmesi başlatılamaz.
+5. İstemci kaynakları yalnızca 32-bit ağ protokolü ve veri yapıları için **salt-okunur (read-only) referans** olarak kullanılır.
+
+---
+
+## 9. ÇOKLU ORTAM SENKRONİZASYON VE DOĞRULAMA STANDARDI
+
+1. **Ortamlar:**
+   * Windows Yerel Geliştirme Ortamı (`D:\mt22009`).
+   * FreeBSD 15.1 amd64 Sanal Sunucusu gerçek çalışma ortamı.
+   * FreeBSD sanal sunucusundaki kalıcı Git deposu (mevcutsa; CI'ın geçici checkout'u kalıcı depo olarak raporlanamaz).
+   * GitHub Uzak Dalı (`origin/dev/windows-gcc-baseline`).
+   * GitHub Actions FreeBSD CI temiz checkout ortamı.
+2. **Kayıpsız Uzlaşma:**
+   * Farklı commit veya yerel değişiklik varsa kayıpsız uzlaştırılır; asla force reset, zorla overwrite veya veri silme yapılmaz.
+   * Erişilemeyen ortamlar asla `SYNCHRONIZED` olarak ilan edilemez; durum dürüstçe `UNKNOWN` veya `EPHEMERAL` olarak bildirilir.
+3. **Tek Kaynak Kod Bütünlüğü:**
+   * Windows ve FreeBSD aynı Git commit SHA'sındaki kaynak kodları kullanır; platform ikilileri ve nesne dosyaları kendi mimarilerine göre ayrı derlenir.
+
+---
+
+## 10. SÜREKLİ VE OTONOM GELİŞTİRME PROTOKOLÜ (NO REDUNDANT PROMPTS)
+
+1. **Gereksiz Prompt Bekleme Yasağı:**
+   * Her küçük görev sonunda kullanıcıdan yeni ve uzun prompt istenmeyecektir.
+   * Tamamlanan iş kapatılacak; `PROJECT_STATE.md` güncellenecek; sıradaki somut ve güvenli adıma doğrudan kurallara dayanarak devam edilecektir.
+2. **Tek Doğruluk Kaynağı:**
+   * `PROJECT_STATE.md` gerçekleşen işler, açık engeller, aktif aşama, ortam commit'leri ve test sonuçları için tek güncel durum belgesidir.
+3. **Kalıcı Kural Dokunulmazlığı:**
+   * Kurallar her oturumda yeniden keşfedilmeyecek; `AGENTS.md` değişmez anayasa olarak uygulanacaktır.

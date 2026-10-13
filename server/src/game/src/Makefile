@@ -36,7 +36,7 @@ CFLAGS += -m32
 endif
 CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-array-bounds -Wno-address
 CFLAGS += -Wno-int-in-bool-context -Wno-format-truncation -Wno-stringop-truncation -Wno-sign-compare -Wno-deprecated-enum-enum-conversion
-CFLAGS += -w
+
 CXXFLAGS = -std=c++20
 
 # for clang
@@ -150,7 +150,7 @@ ifeq ($(LBITS),32)
 LIBDIR += -L../../../../extern/server/lib
 endif
 
-LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib -L../../../../tests/build -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame
 
 # AUTO_DETECT_SOURCE_FILES BEGIN

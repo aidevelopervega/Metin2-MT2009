@@ -24,7 +24,7 @@ endif
 CFLAGS  = -g -Wall -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE
 CFLAGS += -Wno-deprecated-declarations -Wno-array-bounds -Wno-address
 CFLAGS += -Wno-format-truncation -Wno-deprecated-enum-enum-conversion
-CFLAGS += -w
+
 CXXFLAGS = -std=c++20
 
 # Database client libraries
@@ -71,7 +71,7 @@ ifeq ($(LBITS),32)
 LIBDIR += -L../../../../extern/server/lib
 endif
 
-LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib -L../../../../tests/build -L../../../tests/build
+LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib
 LIBS += -lthecore -lsql -lpoly -lgame -lm
 
 # OpenSSL

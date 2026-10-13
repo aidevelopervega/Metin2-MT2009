@@ -63,7 +63,7 @@ extern BYTE	g_bPremiumChannel;
 extern bool	g_bIsMaintenance;
 
 extern bool	map_allow_find(int index);
-extern void	map_allow_copy(long * pl, int size);
+extern void	map_allow_copy(int32_t * pl, int size);
 extern bool	no_wander;
 
 extern int		g_iUserLimit;
@@ -156,4 +156,4 @@ extern void map_allow_log();
 #endif /* __INC_METIN_II_GAME_CONFIG_H__ */
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top
+
