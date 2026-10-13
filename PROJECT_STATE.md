@@ -673,20 +673,32 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **MariaDB 11.4 LTS (Job ID: 115168530398):** SUCCESS (9m 50s) — Gerçek 64-bit `db_r41023` ve `game_r41023` ikilileri üretildi. Dinamik semboller ve RUNPATH (`/usr/local/lib/gcc14:/usr/local/lib/mariadb`) doğrulandı. 412/412 modül testi, 116/116 DB cache entegrasyon testi, 113/113 canlı MariaDB 11.4 testi (%100 PASS - 641 assertion).
       * **Sonuç:** Server x64 tam uyumluluğu, 32-bit wire protokolü korunumu, gerçek 64-bit Game ve DB ikili derlemeleri ve bağlamaları, sıfır test fallback'i ile resmi kütüphane bağlaması ve üç motorda toplam **1.923 assertion** (%100 PASS) ile eksiksiz kabul edildi.
 
+    * **Game Binary Pure libstdc++ Dönüşümü ve Cift C++ Runtime Tehlikesinin Kalıcı Giderilmesi:**
+      * **Kök Neden Tespiti:** `server/src/game/src/Makefile` dosyasında `wildcard ../../../../extern/server/lib/libcryptopp.a` kontrolü bulunuyordu; ancak bu konumdaki `libcryptopp.a` arşivi eski 32-bit (`elf32-i386`) kalıntısıydı. Bu nedenle 64-bit aramada Clang ile derlenmiş sistem portu `/usr/local/lib/libcryptopp.a` devreye giriyor ve `-lc++` bayrağı ile ikiliye `libc++.so.1` bağlanıyordu (`game_r41023` hem `libstdc++.so.6` hem `libc++.so.1` içererek çift C++ runtime tehlikesi oluşturuyordu).
+      * **Kalıcı Kök Neden Çözümü:**
+        1. `server/src/game/src/Makefile`: 64-bit mimaride (`LBITS=64`) CryptoPP bağlama önceliği doğrudan GCC 14 ile derlenen `extern/server/cryptopp/libcryptopp.a` arşivine verildi. Bu kütüphane bağlandığında `-lc++` bayrağı tamamen devre dışı bırakıldı; `-lc++` yalnızca Clang ile derlenmiş sistem paketi fallback olarak kullanılırsa sınırlandırıldı.
+        2. `.github/workflows/freebsd-gcc-test.yml` (Rev 22): `game_r*` derlemesi sonrasında `readelf -d` çıktısında `libc++.so` bulunmadığını denetleyen fail-closed assertion eklendi.
+      * **C++20 Uyumlaştırması (Deprecated Enum-Enum Conversion):**
+        * `server/src/common/item_length.h` ve `server/src/common/length.h` dosyalarındaki Dragon Soul enum çarpımları (`DS_SLOT_MAX * DRAGON_SOUL_GRADE_MAX * DRAGON_SOUL_BOX_SIZE` vb.) `static_cast<int>` ile sarmalanarak C++20 standardındaki `-Wdeprecated-enum-enum-conversion` derleyici uyarıları tamamen sıfırlandı.
+      * **Yerel Windows Doğrulaması:** `tests/run_tests.ps1` çalıştırıldı; 7/7 modül test paketi, 32 wire protocol assertion'ı ve 116 DB ACK entegrasyon testi dahil olmak üzere **560/560 assertion (%100 PASS)** sıfır hata ve sıfır uyarı ile başarıyla tamamlandı.
+
 ---
 
-## 7. TEK AKTİF GÖREV
+## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **Aktif Görev:** Aşama 4 (Server x64 Tam Uyumluluk, Veri Güvenliği ve Gerçek Game/DB Derlemesi) hem Windows MinGW-w64 GCC 16 (560/560 PASS) hem de FreeBSD 15.1 amd64 GCC 14 (3 motor x 641 = 1.923/1.923 PASS) üzerinde %100 BAŞARIYLA TAMAMLANDI. Gerçek 64-bit ELF64 ikilileri (`game_r41023` 80MB ve `db_r41023` 17MB) doğrulandı.
-* **Mevcut Durum:** **SERVER X64 FULL COMPATIBILITY & REAL 64-BIT GAME/DB BINARY BUILD VERIFIED ON ALL ENGINES (MySQL 8.4, MariaDB 12.3, MariaDB 11.4). Ready for Phase 5: Server Extern Upgrades.**
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, tüm yerel testler (560/560) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). Son test koşusunda (Run ID: 38359016904) 3 matris işi (%100 SUCCESS, 1.923 assertion). Rev 22 ile yeni tetikleme hazırlanmıştır.
+* **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
 
-## 8. SONRAKİ GÜVENLİ ADIM
+## 8. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aşama 5: Server Extern Resmî Sürüm Yükseltme Protokolü (AGENTS.md Madde 7):**
-  1. Sunucu ve ortak extern bileşenlerinin (Crypto++, RapidJSON, fmt, zlib, OpenSSL, DevIL, Boost, Lua) güncel resmi kararlı sürümleri, lisans ve API/ABI farklarının tespit edilmesi.
-  2. İlk izole bağımlılığın belirlenmesi, kaynak kodunun güncellenmesi, FreeBSD amd64 ve Windows x64 derleme/test doğrulaması ile adım adım yükseltilmesi.
+* **Aktif Görev:** Aşama 5 (Server Extern Modernizasyonu) başlangıcı. Pure libstdc++ game binary dönüşümü, C++20 enum uyarısı temizliği ve wire protocol doğrulaması tamamlandı.
+* **Sıradaki Güvenli Adım:**
+  1. Rev 22 CI koşusunu izlemek ve FreeBSD üzerinde `game_r41023`'ün `libc++.so` olmaksızın pure `libstdc++` olarak başarıyla bağlandığını doğrulamak.
+  2. Aşama 5 extern bileşenlerinden ilk izole kütüphanenin yükseltilmesine devam etmek.
 
 
 

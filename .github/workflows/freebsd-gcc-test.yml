@@ -1,4 +1,4 @@
-# Rev 21: Real mysql_real_escape_string Delegation, Subscript Quote Counterexample Hardening, Fail-Closed DBManager, and Live Multibyte SQL Suite
+# Rev 22: Pure libstdc++ game binary verification, elimination of dual C++ runtime hazard, and C++20 clean enum conversion
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:
@@ -155,8 +155,8 @@ jobs:
             echo "=== FREEBSD 15.1 amd64 GERCEK CRYPTOPP DERLEMESI ==="
             CRYPTOPP_DIR="extern/server/cryptopp"
             gmake -C "$CRYPTOPP_DIR" -j4 static CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a extern/server/lib/libcryptopp.a
-            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a extern/server/lib/libcryptopp.a
+            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$CRYPTOPP_DIR"/libcryptopp.a
+            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$CRYPTOPP_DIR"/libcryptopp.a
 
             # 5.1 FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
@@ -178,6 +178,11 @@ jobs:
             file "$GAME_DIR"/game_r* || true
             readelf -h "$GAME_DIR"/game_r* | grep -E 'Class|Machine|Type' || true
             readelf -d "$GAME_DIR"/game_r* | grep -E 'NEEDED|RPATH|RUNPATH' || true
+            if readelf -d "$GAME_DIR"/game_r* | grep -q "libc++.so"; then
+              echo "HATA: game_r* ikilisinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
+              exit 1
+            fi
+            echo "--> game_r* pure libstdc++ olarak basariyla dogrulandi (libc++ bagimliligi yok)."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"

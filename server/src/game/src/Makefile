@@ -103,17 +103,18 @@ endif
 
 # CryptoPP
 ifeq ($(LBITS),64)
-ifneq ($(wildcard ../../../../extern/server/lib/libcryptopp.a),)
-LIBS += ../../../../extern/server/lib/libcryptopp.a
-else ifneq ($(wildcard ../../../../extern/server/cryptopp/libcryptopp.a),)
+ifneq ($(wildcard ../../../../extern/server/cryptopp/libcryptopp.a),)
 LIBS += ../../../../extern/server/cryptopp/libcryptopp.a
 else ifneq ($(wildcard /usr/local/lib/libcryptopp.a),)
 LIBS += /usr/local/lib/libcryptopp.a
-else
-LIBS += -lcryptopp
-endif
 ifneq ($(wildcard /lib/libc++.so.1 /usr/lib/libc++.so),)
 LIBS += -lc++
+endif
+else
+LIBS += -lcryptopp
+ifneq ($(wildcard /lib/libc++.so.1 /usr/lib/libc++.so),)
+LIBS += -lc++
+endif
 endif
 else
 LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libcryptopp.a /usr/local/lib/libcryptopp.a -lcryptopp))
