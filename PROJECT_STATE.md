@@ -650,7 +650,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * `server/src/libsql/Depend`: MySQL 8.4 derlemesini bozan `/usr/local/include/mysql/mariadb_com.h` ve türevi sistem başlık bağımlılıkları temizlendi; hem Oracle MySQL hem MariaDB ile %100 uyumlu kılındı.
       * `server/src/libsql/Makefile`: `-fno-rtti` bayrağı kaldırılarak C++ RTTI (`typeinfo for CAsyncSQL`) etkinleştirildi; `game` sunucusundaki `CAsyncSQL2` türetiminde oluşan link hatası kalıcı olarak giderildi.
       * `extern/server/cryptopp/GNUmakefile`: `CXX ?= g++` ve `CC ?= gcc` varsayılanlarına geçildi.
-      * `server/src/game/src/Makefile`: Clang/libc++ ile GCC/libstdc++ arasındaki C++ ABI uyumsuzluğunu (`std::__cxx11::basic_string` eksik sembolleri) önlemek adına GCC ile derlenen `extern/server/cryptopp/libcryptopp.a` arşivi birinci öncelikli bağlama kütüphanesi yapıldı.
+      * `server/src/game/src/Makefile`: Clang/libc++ ile GCC/libstdc++ arasındaki C++ ABI uyumsuzluğunu (`std::__cxx11::basic_string` eksik sembolleri) önlemek adına GCC 14 ile derlenip `extern/server/lib/` dizinine taşınan `libcryptopp.a` arşivi birinci öncelikli bağlama kütüphanesi yapıldı.
     * **5. FreeBSD amd64 LP64 Tip ve Güvenlik Düzeltmeleri:**
       * `server/src/game/src/config.h` ve `config.cpp`: `map_allow_copy(long * pl, int size)` imzası `int32_t * pl` olarak güncellendi. `desc_client.cpp:158` çağrısında `TPacketGDSetup::alMaps` (`int32_t[MAP_ALLOW_LIMIT]`) ile LP64 tip uyumsuzluğu ve derleme hatası (`cannot convert 'int32_t*' to 'long int*'`) kalıcı olarak çözüldü; `map_allow_copy` içine sınır kontrolü (`iCount < size`) eklendi.
       * `server/src/game/src/config.h`: `<cstdint>` başlığı dahil edildi, eski `GameCore.top` yorum satırı temizlendi.
