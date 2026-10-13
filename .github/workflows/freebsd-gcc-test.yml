@@ -1,4 +1,4 @@
-# Rev 26: Upgrade fmt to 12.2.0, RapidJSON to modern master, and increase CI timeout to 45m
+# Rev 27: Upgrade DevIL headers to official v1.8.0 release, aligning with FreeBSD devil pkg
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 on:

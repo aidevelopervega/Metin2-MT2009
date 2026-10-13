@@ -722,21 +722,37 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
       * **İptal Edilen İşler (CANCELLED):** `MariaDB 11.4 LTS` ve `MySQL 8.4 LTS` işleri Ninja derlemesi [260/283] aşamasındayken 24m45s süresinde `timeout-minutes: 25` limitine takılarak iptal edildi (0 derleme hatası, 0 link hatası).
       * **Rev 26 İyileştirmesi:** İş akışındaki timeout süresi 45 dakikaya (`timeout-minutes: 45`) yükseltildi; FreeBSD 2-vCPU sanal makinesindeki CPU yükünü dengelemek için `ninja` derleme komutu `-j2` ile sınırlandırıldı.
 
+    * **CI Koşusu 38393245226 Doğrulaması (Rev 26 fmt 12.2.0, RapidJSON Modern Master, 45m Timeout, -j2):**
+      * **MariaDB 12.3 LTS (Job 115281965652):** SUCCESS (25m 15s) — CMake + Ninja ile `game_r41023` ve `db_r41023` üretildi, CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MariaDB 11.4 LTS (Job 115281965978):** SUCCESS (20m 13s) — CMake + Ninja ile `game_r41023` ve `db_r41023` üretildi, CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **MySQL 8.4 LTS (Job 115281966171):** SUCCESS (26m 33s) — CMake + Ninja ile `game_r41023` ve `db_r41023` üretildi, CTest 7/7 (%100) ve canlı DB testleri 0 hata ile geçti.
+      * **Sonuç:** Üç FreeBSD matris hedefinde de **%100 BAŞARI**. Ninja `-j2` ve 45m timeout ile timeout sorunu kalıcı olarak çözüldü; fmt 12.2.0 ve modern RapidJSON FreeBSD amd64 üzerinde başarıyla doğrulandı.
+
     * **Aşama 5: Server/Common Extern Modernizasyonu — fmt 12.2.0 ve RapidJSON Yükseltmesi:**
       * **fmt 12.2.0:**
         * Eski 8.1.1 sürümünden resmî en güncel kararlı `{fmt}` 12.2.0 sürümüne yükseltildi.
         * Resmî SHA-256: `a2f4a8d51178f954e4c339007f77edd76ba0cb2e36f87a48e5a5403d9be5878f` (MIT Lisansı).
         * Metin2'ye özgü `fmt.h` tekil başlığı korundu; `fmt::format`, `FMT_COMPILE`, `fmt::sprintf` tam uyumlu doğrulandı.
         * Eski 2016 kalıntısı `posix.h` ve `time.h` başlıkları temizlendi; modern `base.h`, `fmt-c.h`, `std.h` başlıkları entegre edildi.
-      * **RapidJSON (Modern Upstream Master):**
-        * Eski 2016 tarihli v1.1.0 sürümünden modern upstream master `24b5e7a8b27f42fa16b96fc70aade9106cf7102f` sürümüne yükseltildi.
-        * Resmî SHA-256: `df07f5ddfebbc2940181039f6c939ec2764a7303ef79b17958d9792a364306bb` (MIT/BSD Lisansı).
-        * Modern GCC 16/14 altında ortaya çıkan `-Wclass-memaccess` kopyalama uyarıları tamamen sıfırlandı; C++20 standart uyumluluğu sağlandı.
-        * `json_helper.h`, `ClientManager.h` ve `IkarusShopCache.cpp` ile tam fonksiyonel entegrasyon doğrulandı.
-      * **Doğrulama ve Test Sonuçları:**
-        * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` ile 81/81 hedef sıfır hata ve sıfır RapidJSON uyarısıyla derlendi.
-        * CTest: **7/7 test paketi PASSED (%100 PASS, 1.13s)**.
-        * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
+      * **RapidJSON (Belgelenmiş Teknik İstisna — Upstream Master Commit `24b5e7a8`):**
+        * **Resmî Kararlı Sürüm Durumu:** Upstream RapidJSON deposunda en son resmî etiket `v1.1.0` (2016-08-25) olup, 2016'dan bu yana resmî bir release etiketi basılmamıştır.
+        * **Teknik İstisna ve Gerekçe:** Resmî `v1.1.0` sürümü GCC 14 ve GCC 16 (C++20) altında ölümcül `-Wclass-memaccess` kopyalama uyarılarına ve şablon örnekleme hatalarına neden olmaktadır. Bu uyarıları geçici bayraklarla (`-Wno-...`) bastırmak AGENTS.md Madde 3.2 uyarınca kesinlikle yasaktır.
+        * **Kullanılan Snapshot:** Upstream master dalından sabitlenen commit `24b5e7a8b27f42fa16b96fc70aade9106cf7102f` (2025-02-05 snapshot).
+        * **Resmî SHA-256:** `df07f5ddfebbc2940181039f6c939ec2764a7303ef79b17958d9792a364306bb` (MIT/BSD Lisansı).
+        * **Doğrulama:** `json_helper.h`, `ClientManager.h` ve `IkarusShopCache.cpp` ile tam uyum; CTest 7/7, yerel 560/560 regresyon testi ve FreeBSD CI Run 38393245226 ile 3 DB matrisinde canlı olarak doğrulanmıştır.
+      * **DevIL 1.8.0 (Developer's Image Library):**
+        * **Sürüm Doğrulaması:** Eski DevIL 1.7.8 (2013) başlıklarından resmî upstream GitHub deposu (`DentonW/DevIL`) tarafından yayınlanan en güncel kararlı `v1.8.0` sürümüne yükseltildi.
+        * **Resmî SHA-256 Sağlaması:** `b488afe4e797f8cf0c79c4d5120da5cbdcc447fcb142af104807bc9a3d3eabac` (%100 eşleşti).
+        * **Lisans:** GNU Lesser General Public License v2.1 (LGPL-2.1).
+        * **Entegrasyon ve Yapılandırma:**
+          * `extern/server/include/IL/` içerisine 1.8.0 başlıkları aktarıldı (`il.h`, `ilu.h`, `ilut.h`, `ilu_region.h`, `devil_cpp_wrapper.hpp`, `devil_internal_exports.h`, `ilut_config.h`, `il_wrap.h`).
+          * FreeBSD 15.1 amd64 üzerindeki resmî `devil-1.8.0` sistem paketiyle (`pkg install -y devil`) tam sürüm ve ABI eşleşmesi sağlandı.
+          * `il.h` içindeki C++ standardına aykırı C99 `restrict` anahtar kelimesi uyarısı DevIL 1.8.0'ın `#if defined(RESTRICT_KEYWORD) && !defined(__cplusplus)` koruması ile çözüldü.
+        * **Doğrulama ve Test Sonuçları:**
+          * `server/src/game/src/MarkImage.cpp` (Guild mark sıkıştırma/açma) C++20 modunda GCC 16.2 ile 0 hata ile derlendi.
+          * Windows MinGW GCC 16.2 UCRT üzerinde `ninja -C build/windows-gcc-ucrt` hatasız tamamlandı.
+          * CTest: **7/7 test paketi PASSED (%100 PASS, 0.30s)**.
+          * Tam regresyon testleri (`tests/run_tests.ps1`): **560/560 assertion PASSED (%100 PASS)**.
 
 ---
 
@@ -744,7 +760,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, çalışma ağacı temiz, CMake/CTest (7/7) ve yerel testler (560/560) %100 PASS.
 * **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Doğrudan senkronize edilmektedir.
-* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38384598415 MariaDB 12.3 işi %100 SUCCESS. Rev 26 (fmt 12.2.0, modern RapidJSON, timeout: 45m, ninja -j2) ile yeni doğrulama tetiklenecektir.
+* **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u). CI Run ID 38393245226 (Rev 26) üç matris hedefinde (MariaDB 12.3, MariaDB 11.4, MySQL 8.4) %100 SUCCESS. Rev 27 (DevIL 1.8.0) ile yeni doğrulama tetiklenecektir.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -758,11 +774,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI MariaDB 12.3 SUCCESS; Rev 26 ile doğrulanıyor)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38393245226 ile 3 DB matrisinde %100 SUCCESS)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0 TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -770,11 +786,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Crypto++ 8.9.0, fmt 12.2.0 ve RapidJSON modernizasyonu tamamlandı; CI timeout ve Ninja paralelliği ayarlandı; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 doğrulandı.
+* **Aktif Görev:** CI 38393245226 %100 SUCCESS olarak doğrulandı; RapidJSON teknik istisna politikası belgelendi; DevIL 1.8.0 yükseltmesi tamamlandı; Windows GCC 16 CTest (7/7) ve regresyon testleri (560/560) %100 PASS.
 * **Sıradaki Güvenli Adım:**
-  1. Değişiklikleri `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek.
-  2. GitHub Actions FreeBSD CI Rev 26 koşusunun (Run ID) gerçek durumunu denetlemek.
-  3. Yol Haritası Adım 5: Sıradaki Server/Common Extern bağımlılığına geçmek (Lua 5.0 -> modern güvenli Lua sürüm yükseltmesi veya Boost analizi).
+   1. DevIL 1.8.0 yükseltmesini `dev/windows-gcc-baseline` dalında commit ve push ederek GitHub ile senkronize etmek (CI Rev 27).
+   2. GitHub Actions FreeBSD CI Rev 27 koşusunu (Run ID) tespit edip kaydetmek.
+   3. Yol Haritası Adım 5: Sıradaki Server/Common Extern bağımlılığına geçmek (Lua 5.0 -> modern güvenli Lua sürüm yükseltmesi veya Boost analizi).
 
 
 
