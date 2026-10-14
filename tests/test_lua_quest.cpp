@@ -11,6 +11,9 @@
 //   8. Lifecycle Summary & Regression Parity
 // ==============================================================================
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <iostream>
 #include <cassert>
 #include <cstring>
@@ -614,6 +617,48 @@ int main()
         lua_gettable(L, -2);
         assert(lua_isstring(L, -1) && strlen(lua_tostring(L, -1)) > 0);
         lua_pop(L, 2);
+
+        // Audit locale table for any [MISSING_LOCALE] masked entries
+        lua_dostring(L,
+            "local missing_count = 0\n"
+            "local real_str_count = 0\n"
+            "local missing_samples = {}\n"
+            "local visited = {}\n"
+            "local function scan_tbl(t, prefix, depth)\n"
+            "    if depth > 6 or visited[t] then return end\n"
+            "    visited[t] = true\n"
+            "    for k, v in pairs(t) do\n"
+            "        local p = prefix .. '.' .. tostring(k)\n"
+            "        if type(v) == 'string' then\n"
+            "            if string.find(v, 'MISSING_LOCALE', 1, true) then\n"
+            "                missing_count = missing_count + 1\n"
+            "                if table.getn(missing_samples) < 10 then table.insert(missing_samples, p .. '=' .. v) end\n"
+            "            else\n"
+            "                real_str_count = real_str_count + 1\n"
+            "            end\n"
+            "        elseif type(v) == 'table' then\n"
+            "            local s = tostring(v)\n"
+            "            if string.find(s, 'MISSING_LOCALE', 1, true) then\n"
+            "                missing_count = missing_count + 1\n"
+            "                if table.getn(missing_samples) < 10 then table.insert(missing_samples, p .. '=' .. s) end\n"
+            "            else\n"
+            "                scan_tbl(v, p, depth + 1)\n"
+            "            end\n"
+            "        end\n"
+            "    end\n"
+            "end\n"
+            "scan_tbl(locale, 'locale', 1)\n"
+            "g_locale_missing_count = missing_count\n"
+            "g_locale_real_str_count = real_str_count\n"
+        );
+        lua_getglobal(L, "g_locale_missing_count");
+        int loc_missing = (int)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        lua_getglobal(L, "g_locale_real_str_count");
+        int loc_real = (int)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        std::cout << "  --> locale.* table audit: real_strings=" << loc_real << ", missing_locale_entries=" << loc_missing << std::endl;
+        assert(loc_missing == 0 && "locale.* must have 0 [MISSING_LOCALE] masked entries");
 
         lua_dostring(L, "missing_locale_check = tostring(gameforge.locale.some_untranslated_key)");
         lua_getglobal(L, "missing_locale_check");

@@ -1,4 +1,4 @@
-# Rev 39: Fix Check 8/10 luaL_loadbuffer on coroutines, verify CMake+Ninja game_r41023 & game_r41023_lua55 --check-lua 11/11
+# Rev 40: Fix CMake binary verification paths, add isolated db_r41023 + game_r41023 + game_r41023_lua55 startup & handshake smoke test
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -177,42 +177,28 @@ jobs:
             chmod +x ./tests/run_db_integration_tests.sh
             ./tests/run_db_integration_tests.sh
 
-            # 5.3 FreeBSD amd64 Gerçek Game Sunucusu Derlemesi (Lua 5.0 Varsayılan & Lua 5.5 Staging)
-            echo "=== FREEBSD 15.1 amd64 GERCEK GAME SUNUCUSU DERLEMESI (LUA 5.0) ==="
-            GAME_DIR="server/src/game"
-            gmake -C "$GAME_DIR/src" -j2 CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14" ENABLE_LUA_5_VERSION=0
-            echo "=== FREEBSD 15.1 amd64 GERCEK GAME SUNUCUSU DERLEMESI (LUA 5.5) ==="
-            gmake -C "$GAME_DIR/src" -j2 CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14" ENABLE_LUA_5_VERSION=5
-            ls -lh "$GAME_DIR"/game_r*
-            file "$GAME_DIR"/game_r* || true
-            readelf -h "$GAME_DIR"/game_r* | grep -E 'Class|Machine|Type' || true
-            readelf -d "$GAME_DIR"/game_r* | grep -E 'NEEDED|RPATH|RUNPATH' || true
-            if readelf -d "$GAME_DIR"/game_r* | grep -q "libc++.so"; then
-              echo "HATA: game_r* ikilisinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
-              exit 1
-            fi
-            echo "--> game_r* pure libstdc++ olarak basariyla dogrulandi (libc++ bagimliligi yok)."
-
-            # 5.3.1 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua)
-            echo "=== GAME SUNUCUSU LUA QUEST RUNTIME DOGRULAMASI ==="
-            "$GAME_DIR"/game_r41023 --check-lua
-            "$GAME_DIR"/game_r41023_lua55 --check-lua
-            echo "--> Her iki game ikilisinde de Lua quest runtime dogrulamasi basariyla tamamlandi."
-
-            # 5.4 FreeBSD amd64 CMake + Ninja Derleme ve CTest Doğrulaması
+            # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023, game_r41023_lua55) ve CTest Doğrulaması
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
+            GAME_DIR="server/src/game"
+            rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
             cmake --preset freebsd-gcc14
-            cmake --build --preset freebsd-gcc14 -v -- -j2
+            cmake --build --preset freebsd-gcc14 -- -j2
             ctest --preset freebsd-gcc14 --output-on-failure
-            ls -lh build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55
-            file build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55
-            if readelf -d build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55 | grep -q "libc++.so"; then
-              echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi!" >&2
+            ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
+            file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
+            readelf -h "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -E 'Class|Machine|Type' || true
+            readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -E 'NEEDED|RPATH|RUNPATH' || true
+            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -q "libc++.so"; then
+              echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
               exit 1
             fi
-            build/freebsd-gcc14/server/src/game/game_r41023 --check-lua
-            build/freebsd-gcc14/server/src/game/game_r41023_lua55 --check-lua
-            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest ve --check-lua doğrulaması başarıyla tamamlandı."
+            echo "--> CMake ikilileri (db_r41023, game_r41023, game_r41023_lua55) ELF64 pure libstdc++ olarak basariyla dogrulandi."
+
+            # 5.4 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua 11/11)
+            echo "=== GAME SUNUCUSU LUA QUEST RUNTIME DOGRULAMASI (--check-lua) ==="
+            "$GAME_DIR/game_r41023" --check-lua
+            "$GAME_DIR/game_r41023_lua55" --check-lua
+            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (13/13) ve --check-lua (11/11) doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"
@@ -309,6 +295,10 @@ jobs:
             export MT2_TEST_INVALID_SSL_CA="$SSL_DIR/invalid-ca-cert.pem"
 
             ./tests/run_live_tests.sh
+
+            # İzole Sunucu Başlatma (db_r41023 + game_r41023 + game_r41023_lua55) ve 32-Bit İstemci El Sıkışma Duman Testi
+            chmod +x ./tests/run_server_smoke_test.sh
+            ./tests/run_server_smoke_test.sh
 
             # Sunucuyu Temiz Kapatma
             kill $SERVER_PID || true

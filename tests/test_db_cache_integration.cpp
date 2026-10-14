@@ -476,7 +476,7 @@ int main()
         {
             TPlayerTable pt{};
             pt.id = id;
-            snprintf(pt.name, sizeof(pt.name), "DrainingHero%u", id);
+            snprintf(pt.name, sizeof(pt.name), "DrainingHero%u", static_cast<unsigned int>(id));
             pt.gold = id * 1000;
             clientManager.PutPlayerCache(&pt);
             clientManager.FlushPlayerCacheSet(id);
@@ -598,6 +598,7 @@ int main()
 
         // 8A. Ilk SQL sorgusu basarisiz oldugunda:
         testDirectSql->m_directQueryHandler = [](const char* q) -> std::unique_ptr<SQLMsg> {
+            (void)q;
             auto msg = std::make_unique<SQLMsg>();
             msg->uiSQLErrno = CR_SERVER_GONE_ERROR;
             return msg;

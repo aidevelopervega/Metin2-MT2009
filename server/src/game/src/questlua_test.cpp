@@ -259,7 +259,35 @@ int RunGameQuestRuntimeTests()
 	RUNTIME_ASSERT(lua_isstring(L, -1), "missing_str must be a string");
 	RUNTIME_ASSERT(strstr(lua_tostring(L, -1), "MISSING_LOCALE") != nullptr, "Missing keys must not be silently masked");
 	lua_pop(L, 1);
-	std::cout << "  --> Gameforge proxy transparently resolves and flags missing keys" << std::endl;
+
+	int audit_err = lua_dostring(L,
+		"local missing_count = 0\n"
+		"local real_str_count = 0\n"
+		"local visited = {}\n"
+		"local function scan_tbl(t, depth)\n"
+		"    if depth > 6 or visited[t] then return end\n"
+		"    visited[t] = true\n"
+		"    for k, v in pairs(t) do\n"
+		"        if type(v) == 'string' then\n"
+		"            if string.find(v, 'MISSING_LOCALE', 1, true) then missing_count = missing_count + 1 else real_str_count = real_str_count + 1 end\n"
+		"        elseif type(v) == 'table' then\n"
+		"            if string.find(tostring(v), 'MISSING_LOCALE', 1, true) then missing_count = missing_count + 1 else scan_tbl(v, depth + 1) end\n"
+		"        end\n"
+		"    end\n"
+		"end\n"
+		"if type(locale) == 'table' then scan_tbl(locale, 1) end\n"
+		"g_check7_missing = missing_count\n"
+		"g_check7_real = real_str_count\n"
+	);
+	RUNTIME_ASSERT(audit_err == 0, "locale.* audit script must succeed");
+	lua_getglobal(L, "g_check7_missing");
+	int check7_missing = (int)lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	lua_getglobal(L, "g_check7_real");
+	int check7_real = (int)lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	RUNTIME_ASSERT(check7_missing == 0, "locale.* must have 0 [MISSING_LOCALE] masked entries");
+	std::cout << "  --> Gameforge proxy transparently resolves and flags missing keys (locale.* audit: real_strings=" << check7_real << ", missing=0)" << std::endl;
 	checks_passed++;
 
 	// 8. Interactive Coroutine Dialog State Machine (select, wait, input, confirm, select_item, normal completion)
