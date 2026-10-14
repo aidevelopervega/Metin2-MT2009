@@ -172,38 +172,85 @@ int RunGameQuestRuntimeTests()
 	std::cout << "  --> [PASS] Synthetic fixtures (questlib.lua, locale.lua, settings.lua, translate.lua) verified" << std::endl;
 
 	// 6.2 Real FTP Archive Verification (if extracted on disk)
-	const char* real_ftp_paths[] = {
-		"scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua",
-		"../scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua",
-		"../../scratch/ftp_quests/usr/home/mt2/share/locale/poland/quest/questlib.lua"
+	const char* real_ftp_dirs[] = {
+		"scratch/ftp_quests/usr/home/mt2/share/locale/poland",
+		"../scratch/ftp_quests/usr/home/mt2/share/locale/poland",
+		"../../scratch/ftp_quests/usr/home/mt2/share/locale/poland"
 	};
-	std::string found_real_ftp = "";
-	for (const char* p : real_ftp_paths) {
-		FILE* fp = fopen(p, "r");
+	std::string found_poland_dir = "";
+	for (const char* d : real_ftp_dirs) {
+		std::string ql_path = std::string(d) + "/quest/questlib.lua";
+		FILE* fp = fopen(ql_path.c_str(), "r");
 		if (fp) {
 			fclose(fp);
-			found_real_ftp = p;
+			found_poland_dir = d;
 			break;
 		}
 	}
-	if (!found_real_ftp.empty()) {
-		int real_ql_res = lua_dofile(L, found_real_ftp.c_str());
-		RUNTIME_ASSERT(real_ql_res == 0, "Real FTP questlib.lua execution must succeed without error");
-		std::cout << "  --> [PASS] Real FTP questlib.lua (" << found_real_ftp << ") runtime verified" << std::endl;
+	if (!found_poland_dir.empty()) {
+		std::string prev_service_path = g_stServiceBasePath;
+		std::string prev_quest_dir = g_stQuestDir;
+		g_stServiceBasePath = found_poland_dir;
+		g_stQuestDir = found_poland_dir + "/quest";
+
+		std::string settings_path = found_poland_dir + "/settings.lua";
+		FILE* fp_set = fopen(settings_path.c_str(), "r");
+		if (fp_set) {
+			fclose(fp_set);
+			RUNTIME_ASSERT(lua_dofile(L, settings_path.c_str()) == 0, "Real FTP settings.lua execution must succeed");
+		}
+
+		std::string ql_path = found_poland_dir + "/quest/questlib.lua";
+		RUNTIME_ASSERT(lua_dofile(L, ql_path.c_str()) == 0, "Real FTP questlib.lua execution must succeed");
+#if LUA_V == 523 || LUA_V == 551
+		lua_dostring(L,
+			"select = function(...) local a = table.pack(...); return q.yield('select', a) end\n"
+			"debug = function(text, ...) if is_test_server and is_test_server() then syschat(string.format('[qDEBUG] '..text, ...)) end end\n"
+		);
+#endif
+		std::string trans_path = found_poland_dir + "/translate.lua";
+		FILE* fp_tr = fopen(trans_path.c_str(), "r");
+		if (fp_tr) {
+			fclose(fp_tr);
+			RUNTIME_ASSERT(lua_dofile(L, trans_path.c_str()) == 0, "Real FTP translate.lua execution must succeed");
+		}
+
+		std::string loc_path = found_poland_dir + "/quest/locale.lua";
+		FILE* fp_loc = fopen(loc_path.c_str(), "r");
+		if (fp_loc) {
+			fclose(fp_loc);
+			RUNTIME_ASSERT(lua_dofile(L, loc_path.c_str()) == 0, "Real FTP locale.lua execution must succeed");
+		}
+
+		g_stServiceBasePath = prev_service_path;
+		g_stQuestDir = prev_quest_dir;
+		std::cout << "  --> [PASS] Real FTP locale/poland runtime scripts verified in InitializeLua order" << std::endl;
 	} else {
-		std::cout << "  --> [SKIP] Real FTP archive files not unpacked on this host (Synthetic fixtures verified)" << std::endl;
+		std::cout << "  --> [INFO] Real FTP archive not unpacked on this host; mandatory synthetic fixtures verified" << std::endl;
 	}
 	checks_passed++;
 
 	// 7. Gameforge Localization Proxy
 	std::cout << "[RUN] Check 7: Gameforge translation proxy..." << std::endl;
 	int gf_err = lua_dostring(L,
-		"if not gameforge or type(gameforge) ~= 'table' then\n"
-		"    gameforge = setmetatable({}, {\n"
-		"        __index = function(t, k) return setmetatable({}, {\n"
-		"            __tostring = function() return '[MISSING_LOCALE: ' .. tostring(k) .. ']' end\n"
-		"        }) end\n"
+		"local function ensure_gf_proxy(path, tbl)\n"
+		"    local t = tbl or {}\n"
+		"    return setmetatable(t, {\n"
+		"        __index = function(self, k)\n"
+		"            local p = (path and path ~= '' and path ~= 'gameforge') and (path .. '.' .. tostring(k)) or tostring(k)\n"
+		"            return ensure_gf_proxy(p)\n"
+		"        end,\n"
+		"        __concat = function(a, b) return tostring(a) .. tostring(b) end,\n"
+		"        __tostring = function() return '[MISSING_LOCALE: ' .. tostring(path) .. ']' end\n"
 		"    })\n"
+		"end\n"
+		"if not gameforge or type(gameforge) ~= 'table' then\n"
+		"    gameforge = ensure_gf_proxy('gameforge')\n"
+		"elseif not getmetatable(gameforge) then\n"
+		"    ensure_gf_proxy('gameforge', gameforge)\n"
+		"    if type(gameforge.locale) == 'table' and not getmetatable(gameforge.locale) then\n"
+		"        ensure_gf_proxy('locale', gameforge.locale)\n"
+		"    end\n"
 		"end\n"
 		"missing_str = tostring(gameforge.locale.unknown_test_key_xyz)\n"
 	);
@@ -223,13 +270,13 @@ int RunGameQuestRuntimeTests()
 	const int EXPECT_YIELD = 0;
 #endif
 
-	// 8.1 select
+	// 8.1 select (must compile with luaL_loadbuffer onto coroutine stack, then execute via lua_resume)
 	lua_State* co = lua_newthread(L);
 	RUNTIME_ASSERT(co != nullptr, "Failed to create coroutine thread");
 	const char* quest_script =
 		"local choice = select('Accept Biologist Task', 'Refuse Task')\n"
 		"return choice\n";
-	int load_err = lua_dobuffer(co, quest_script, strlen(quest_script), "test_biologist");
+	int load_err = luaL_loadbuffer(co, quest_script, strlen(quest_script), "test_biologist");
 	RUNTIME_ASSERT(load_err == 0, "test_biologist quest script buffer compilation failed");
 	int resume_res = lua_resume(co, 0);
 	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on select");
@@ -248,7 +295,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_wait = lua_newthread(L);
 	RUNTIME_ASSERT(co_wait != nullptr, "Failed to create wait coroutine");
 	const char* script_wait = "wait()\nreturn 'after_wait'\n";
-	load_err = lua_dobuffer(co_wait, script_wait, strlen(script_wait), "test_wait");
+	load_err = luaL_loadbuffer(co_wait, script_wait, strlen(script_wait), "test_wait");
 	RUNTIME_ASSERT(load_err == 0, "test_wait buffer compilation failed");
 	resume_res = lua_resume(co_wait, 0);
 	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on wait()");
@@ -262,7 +309,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_input = lua_newthread(L);
 	RUNTIME_ASSERT(co_input != nullptr, "Failed to create input coroutine");
 	const char* script_input = "local txt = input()\nreturn txt\n";
-	load_err = lua_dobuffer(co_input, script_input, strlen(script_input), "test_input");
+	load_err = luaL_loadbuffer(co_input, script_input, strlen(script_input), "test_input");
 	RUNTIME_ASSERT(load_err == 0, "test_input buffer compilation failed");
 	resume_res = lua_resume(co_input, 0);
 	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on input()");
@@ -277,7 +324,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_confirm = lua_newthread(L);
 	RUNTIME_ASSERT(co_confirm != nullptr, "Failed to create confirm coroutine");
 	const char* script_confirm = "local ans = confirm(1001, 'Do you accept the guild war?', 15)\nreturn ans\n";
-	load_err = lua_dobuffer(co_confirm, script_confirm, strlen(script_confirm), "test_confirm");
+	load_err = luaL_loadbuffer(co_confirm, script_confirm, strlen(script_confirm), "test_confirm");
 	RUNTIME_ASSERT(load_err == 0, "test_confirm buffer compilation failed");
 	resume_res = lua_resume(co_confirm, 0);
 	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on confirm()");
@@ -292,7 +339,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_item = lua_newthread(L);
 	RUNTIME_ASSERT(co_item != nullptr, "Failed to create select_item coroutine");
 	const char* script_item = "local slot = select_item()\nreturn slot\n";
-	load_err = lua_dobuffer(co_item, script_item, strlen(script_item), "test_select_item");
+	load_err = luaL_loadbuffer(co_item, script_item, strlen(script_item), "test_select_item");
 	RUNTIME_ASSERT(load_err == 0, "test_select_item buffer compilation failed");
 	resume_res = lua_resume(co_item, 0);
 	RUNTIME_ASSERT(resume_res == EXPECT_YIELD, "Coroutine must yield on select_item()");
@@ -307,7 +354,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_norm = lua_newthread(L);
 	RUNTIME_ASSERT(co_norm != nullptr, "Failed to create normal coroutine");
 	const char* script_norm = "local a = 40 + 2\nreturn a\n";
-	load_err = lua_dobuffer(co_norm, script_norm, strlen(script_norm), "test_normal");
+	load_err = luaL_loadbuffer(co_norm, script_norm, strlen(script_norm), "test_normal");
 	RUNTIME_ASSERT(load_err == 0, "test_normal buffer compilation failed");
 	resume_res = lua_resume(co_norm, 0);
 	RUNTIME_ASSERT(resume_res == 0, "normal completion must return 0 without yielding");
@@ -347,7 +394,7 @@ int RunGameQuestRuntimeTests()
 	lua_State* co_err = lua_newthread(L);
 	RUNTIME_ASSERT(co_err != nullptr, "Failed to create error test coroutine");
 	const char* bad_script = "error('Deliberate quest error for safety test')";
-	int err_load = lua_dobuffer(co_err, bad_script, strlen(bad_script), "bad_quest");
+	int err_load = luaL_loadbuffer(co_err, bad_script, strlen(bad_script), "bad_quest");
 	RUNTIME_ASSERT(err_load == 0, "Loading bad_quest buffer must succeed");
 	int err_res = lua_resume(co_err, 0);
 #if LUA_V == 551 || LUA_V == 523

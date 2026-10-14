@@ -1,4 +1,4 @@
-# Rev 38: Fix Lua 5.0 vararg syntax in questlib fixture, verify game_r41023 and game_r41023_lua55 --check-lua
+# Rev 39: Fix Check 8/10 luaL_loadbuffer on coroutines, verify CMake+Ninja game_r41023 & game_r41023_lua55 --check-lua 11/11
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -203,8 +203,16 @@ jobs:
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
             cmake --preset freebsd-gcc14
             cmake --build --preset freebsd-gcc14 -v -- -j2
-            ctest --preset freebsd-gcc14
-            echo "--> CMake + Ninja derleme ve CTest doğrulaması başarıyla tamamlandı."
+            ctest --preset freebsd-gcc14 --output-on-failure
+            ls -lh build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55
+            file build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55
+            if readelf -d build/freebsd-gcc14/server/src/db/db_r41023 build/freebsd-gcc14/server/src/game/game_r41023 build/freebsd-gcc14/server/src/game/game_r41023_lua55 | grep -q "libc++.so"; then
+              echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi!" >&2
+              exit 1
+            fi
+            build/freebsd-gcc14/server/src/game/game_r41023 --check-lua
+            build/freebsd-gcc14/server/src/game/game_r41023_lua55 --check-lua
+            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest ve --check-lua doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"

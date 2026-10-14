@@ -1032,19 +1032,44 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
              - `test_lua55_quest.exe` (Lua 5.5): 10/10 PASS
              - `tests/run_tests.ps1`: 565/565 assertions (%100 PASS)
              - `ctest --preset windows-gcc-ucrt`: 13/13 test paketi (%100 PASS, 0.50s)
+      * **Aşama 13: FreeBSD CI Rev 38 Log Analizi, Coroutine luaL_loadbuffer vs lua_dobuffer Kök Neden Çözümü ve Gerçek FTP 51-Dosya / 1.04 MB translate.lua Yükleme Sırası Doğrulaması (Rev 39):**
+        * **FreeBSD CI Rev 38 (Run 38468055806 / Commit f8555510) Bulguları:**
+          * **Derleme & Bağlama Başarısı:** `db_r41023`, `game_r41023` (Lua 5.0.3) ve `game_r41023_lua55` (Lua 5.5.1) her üç matris işinde (`MariaDB 11.4 LTS` ID `115539769892`, `MySQL 8.4 LTS` ID `115539770093`, `MariaDB 12.3 LTS` ID `115539770246`) ELF64 amd64 ve pure `libstdc++` (sıfır `libc++.so`) olarak başarıyla bağlandı.
+          * **Check 1 - Check 7 Başarısı (%100 Kanıtlandı):**
+            * Check 1 (`packet_script` 6 bayt `#pragma pack(1)`): PASS
+            * Check 2 (`QuestManager & Lua State Initialization`): PASS (`Lua state initialized at: 0x2a66cca54000 from staging: tests/fixtures`) — Rev 38'deki Lua 5.0 vararg sözdizimi düzeltmesi (`tests/fixtures/questlib.lua`) FreeBSD 15.1 üzerinde %100 doğrulandı!
+            * Check 3 (`Standard compatibility shims`): PASS
+            * Check 4 (`Registered Metin2 C API function tables`): PASS
+            * Check 5 (`select(...) nil-argument preservation & m2_lua_getn contract`): PASS
+            * Check 6 (`questlib.lua and locale.lua verification`): PASS
+            * Check 7 (`Gameforge translation proxy`): PASS
+          * **Check 8 Hata Analizi (Line 233 - attempt to yield across metamethod/C-call boundary):**
+            * Hata Çıktısı:
+              `[RUN] Check 8: Interactive Coroutine Dialog State Machine...`
+              `attempt to yield across metamethod/C-call boundary`
+              `[FAIL] Line 233: test_biologist quest script buffer compilation failed`
+            * Kök Neden: `server/src/game/src/questlua_test.cpp` içerisinde Check 8 (satır 232, 251, 265, 280, 295, 310) ve Check 10 (satır 350), betiği coroutine yığınına yüklemek için `luaL_loadbuffer(co, ...)` yerine `lua_dobuffer(co, ...)` çağırmaktaydı! `lua_dobuffer` yalnızca derleme yapmaz; betiği derledikten hemen sonra `lua_pcall` (`luaD_pcall`, yani C-call sınırı / `nCcalls > 0`) içinde anında çalıştırır! Betik içindeki `select(...)` -> `q.yield` -> `lua_yield(co, ...)` çağrısı `lua_dobuffer`'ın `lua_pcall` sınırı içinde çalıştığı için Lua VM `attempt to yield across metamethod/C-call boundary` hatası döndürmüştür. Gerçek oyun sunucusunda (`questmanager.cpp:1884`, `cmd_gm.cpp:2908`) ise görev betikleri her zaman `luaL_loadbuffer(qs.co, ...)` ile derlenip ardından `lua_resume(qs.co, 0)` (`RunState`) ile çalıştırılmaktadır.
+        * **Rev 39 Kök Neden Çözümleri ve Gerçek FTP Doğrulaması:**
+          1. `server/src/game/src/questlua_test.cpp`: Check 8 (6 alt test: `select`, `wait`, `input`, `confirm`, `select_item`, normal bitiş) ve Check 10 içindeki tüm `lua_dobuffer(co*, ...)` çağrıları gerçek sunucu mimarisiyle birebir aynı şekilde `luaL_loadbuffer(co*, ...)` olarak düzeltildi.
+          2. `server/src/game/src/questlua.cpp`: `make_gf_proxy` fonksiyonu, gerçek `poland/translate.lua` (1.04 MB, 9.869 Lehçe çeviri anahtarı) yüklendiğinde mevcut `gameforge` ve alt tablolarına (`gameforge.locale` vb.) da fallback metatable bağlayacak şekilde güçlendirildi. Böylece mevcut 9.869 anahtar doğrudan tablo hızında çözülürken, eksik anahtarlar çökmeye yol açmadan `translate` tablosuna veya `[MISSING_LOCALE: ...]` işaretçisine düşer.
+          3. **Gerçek FTP 51 `.lua` Dosyası Envanteri ve Tam `InitializeLua()` Yükleme Sırası Doğrulaması:**
+             - `new_ftp.tar.gz` içerisindeki toplam 51 `.lua` dosyasının **46 adedi** saf Lua VM çalışma zamanı betiğidir (`poland/settings.lua` [91 goto, 41 bgm], `poland/BlueDragon.lua`, `poland/translate.lua` [1.04 MB], `poland/oxquiz.lua` [217 aktif OX sorusu], `poland/monkey_dungeon.lua` [124 ışınlanma], `poland/quest/questlib.lua`, `poland/quest/locale.lua` [103 KB] ve `poland/quest/libs/` altındaki 7 modül yükleyici + 32 yardımcı kütüphane); **5 adedi** ise `quest ... state ... when` sözdizimli Quest-DSL dosyasıdır (`crafting.lua`, `potion_use.lua`, `herbalism.lua` x2, `spider_dungeon_3floor_boss.quest.lua`).
+             - `tests/test_lua_quest.cpp` (Lua 5.0.3), `tests/test_lua52_quest.cpp` (Lua 5.2.3) ve `tests/test_lua55_quest.cpp` (Lua 5.5.1) içerisindeki Test 9 güncellenerek gerçek FTP dosyalarının tam `InitializeLua()` sırasıyla (`settings.lua` -> `BlueDragon.lua` + `GFquestlib.lua` -> `questlib.lua` + 39 `libs/` -> `translate.lua` [1.04 MB] -> `make_gf_proxy` -> `locale.lua` [103 KB] -> `oxquiz.lua` -> `monkey_dungeon.lua`) yüklenmesi ve gerçek `q.yield` (`lua_yield`) üzerinden 6 coroutine durum makinesi akışının (`select` [nil argüman korumalı], `wait`, `input`, `confirm`, `select_item`, normal bitiş) üç motorda da %100 PASS vermesi sağlandı.
+          4. `.github/workflows/freebsd-gcc-test.yml` (Rev 39): CMake + Ninja ile üretilen `build/freebsd-gcc14/server/src/db/db_r41023`, `game_r41023` ve `game_r41023_lua55` ikilileri için de ELF64, `readelf -d` (pure `libstdc++`) ve `--check-lua` doğrulaması eklendi.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13) ve yerel regresyon testleri (565/565 assertions) %100 PASS. `questlib.lua` vararg sözdizimi Lua 5.0/5.2/5.5 çift motor için düzeltildi.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Commit `97fe3cc4cbfe6373b6d43c6dd2e86b2037317e28` (Rev 37).
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 0.79s) ve yerel regresyon testleri (565/565 assertions) %100 PASS. Gerçek FTP `locale/poland` (46 runtime `.lua` dosyası, 1.04 MB `translate.lua`) ve 6 coroutine akışı Lua 5.0/5.2/5.5 üzerinde doğrulandı.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Rev 39 commit ve push edilecek.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38450564577** (Rev 34): `OXEvent.cpp` include guard eksikliği (Rev 35 ile çözüldü).
   * CI Run ID **38456092378** (Rev 35): Hem `game_r41023` hem `game_r41023_lua55` çift ELF64 pure `libstdc++` olarak başarıyla derlendi ve bağlandı.
   * CI Run ID **38459564231** (Rev 36): SIGSEGV çözüldü; Check 4 questlib arama yolu eksikliği (Rev 37 ile çözüldü).
   * CI Run ID **38464168058** (Rev 37): Check 1 geçti; Check 2'de Lua 5.0 `table.pack(...)` sözdizimi kök nedeni tespit edildi ve Rev 38 ile çözüldü.
+  * CI Run ID **38468055806** (Rev 38 / Commit `f8555510`): Check 1 - Check 7 %100 PASS (Check 2 `InitializeLua()` düzeltmesi kanıtlandı); Check 8'de `lua_dobuffer` C-call boundary yield hatası tespit edildi ve Rev 39'da `luaL_loadbuffer` ile çözüldü.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1062,7 +1087,7 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023 ve game_r41023_lua55 dual ELF64 pure libstdc++ derlemesi, BuildStateIndexToName 1054/1054 state hardening, RunState LUA_YIELD ayrımı ve --check-lua 11/11 TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023 ve game_r41023_lua55 dual ELF64 pure libstdc++ derlemesi, BuildStateIndexToName 1054/1054 state hardening, RunState LUA_YIELD ayrımı ve Check 8/10 luaL_loadbuffer coroutine düzeltmesi TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -1070,11 +1095,10 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 38: Lua 5.0 vararg sözdizimi düzeltmesi ile FreeBSD CI üzerinde `game_r41023` ve `game_r41023_lua55` ikililerinin `--check-lua` (11/11 test) doğrulamasını tamamlamak.
+* **Aktif Görev:** Rev 39: `questlua_test.cpp` Check 8 ve Check 10 içindeki `luaL_loadbuffer` coroutine düzeltmesi ile FreeBSD CI üzerinde `game_r41023` ve `game_r41023_lua55` ikililerinin `--check-lua` (11/11 test) doğrulamasını tamamlamak.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 38 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI koşusunu başlatmak.
-   2. CI Run sonucunu doğrulamak.
-   3. Canlı DB ve oyun sunucusu başlatma senaryolarını doğrulamak.
+   1. Rev 39 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI koşusunu başlatmak.
+   2. Yeni CI Run ID'sini doğrulamak ve 11/11 `--check-lua` geçişinden sonra Lua 5.5.1 varsayılan geçiş kararını değerlendirmek.
 
 
 
