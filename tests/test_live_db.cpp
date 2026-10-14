@@ -8,9 +8,9 @@
 #include <cstdlib>
 
 #include "AsyncSQL.h"
-#include <mysql/mysql.h>
-#include <mysql/errmsg.h>
-#include <mysql/mysqld_error.h>
+#include <mysql.h>
+#include <errmsg.h>
+#include <mysqld_error.h>
 #include "tcp_fault_proxy.hpp"
 
 // ==============================================================================

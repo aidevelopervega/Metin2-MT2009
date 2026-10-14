@@ -48,7 +48,8 @@ try {
         "-I$RootDir\extern\common\include\boost",
         "-I$RootDir\extern\server\include",
         "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include",
-        "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include\mysql"
+        "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include\mysql",
+        "-I$RootDir\extern\server\include\mysql"
     )
 
     $Flags = @(
@@ -73,11 +74,24 @@ try {
         "PrivManager.cpp", "ProtoReader.cpp", "version.cpp"
     )
 
+    # Header/flag dependency stamp: objects must be rebuilt when any shared header
+    # (db, libsql, libthecore, common) or this build script (flags/include order) changes.
+    $DepRoots = @($DbSrcDir, "$RootDir\server\src\libsql", "$RootDir\server\src\libthecore\include", "$RootDir\server\src\common")
+    $NewestDep = (Get-ChildItem -Path $DepRoots -Include *.h, *.hpp -Recurse -File |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+    $ScriptTime = (Get-Item $PSCommandPath).LastWriteTime
+    if ($ScriptTime -gt $NewestDep) { $NewestDep = $ScriptTime }
+
     foreach ($src in $DbSources) {
         $objName = [System.IO.Path]::GetFileNameWithoutExtension($src) + ".o"
         $objPath = "$DbWinDir\$objName"
         $srcPath = "$DbSrcDir\$src"
-        if (-not (Test-Path $objPath) -or ((Get-Item $srcPath).LastWriteTime -gt (Get-Item $objPath).LastWriteTime)) {
+        $stale = $true
+        if (Test-Path $objPath) {
+            $objTime = (Get-Item $objPath).LastWriteTime
+            $stale = ((Get-Item $srcPath).LastWriteTime -gt $objTime) -or ($NewestDep -gt $objTime)
+        }
+        if ($stale) {
             Write-Host "Compiling $src..." -ForegroundColor Yellow
             & $Gxx @Flags @IncDirs -c $srcPath -o $objPath
             if ($LASTEXITCODE -ne 0) { throw "Derleme hatası: $src" }

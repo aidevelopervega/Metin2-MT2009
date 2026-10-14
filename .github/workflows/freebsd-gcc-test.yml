@@ -1,4 +1,4 @@
-# Rev 41: Fix MySQL 8.4 system mysql.h include priority in CMake/Makefile, add full HEADER_DG_BOOT & real AUTH_SERVER/GAME_SERVER login smoke test
+# Rev 42: Use <mysql.h> (no extern shadowing) + runtime client ABI guard, C++ mysql_hash_password (no SQL PASSWORD()), smoke schema aligned with db_r41023 InitializeTables queries
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 

@@ -61,7 +61,8 @@ try {
     $PolyDir = "$RootDir\server\src\libpoly"
     $ExternIncludes = @(
         "-I$RootDir\extern\common\include",
-        "-I$RootDir\extern\server\include"
+        "-I$RootDir\extern\server\include",
+        "-I$RootDir\extern\server\include\mysql"
     )
 
     $PolyIncludes = @(

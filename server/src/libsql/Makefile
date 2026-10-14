@@ -2,7 +2,7 @@ CXX ?= g++
 
 BIN     = ./libsql.a
 
-INCDIR  = -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -I../libthecore/include -I../../../extern/common/include -I../../../extern/server/include
+INCDIR  = -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -I../libthecore/include -I../../../extern/common/include -I../../../extern/server/include -I../../../extern/server/include/mysql
 CFLAGS  = $(INCDIR) -Wall -Wextra -O2 -pipe -D_THREAD_SAFE -fno-exceptions -std=c++20
 
 LIBS =

@@ -1113,20 +1113,33 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
              - **`[4/6]` Gerçek `db_r41023` <-> `game` Tam `HEADER_DG_BOOT` ve `CQuestManager::Boot`:** Her iki `game` ikilisinin gerçek `db_r41023` üzerinden `HEADER_DG_BOOT` paketini uçtan uca işlemesi (`boot packet end check ok [ffff]==0xffff`), `CQuestManager::Initialize()` + `CQuestManager::Boot()` çalıştırması ve `bootlog` SQL tablosuna kayıt düşmesi doğrulanır.
              - **`[5/6]` `game_r41023` (Lua 5.0.3) Uçtan Uca `AUTH_SERVER` + `GAME_SERVER` Hesap Girişi (`LoginByKey`):** Gerçek `AUTH_SERVER` (`PORT 15110`) üzerinde 32-bit istemci protokolüyle `HEADER_CG_LOGIN3` (TEA şifreli, 49 bayt) gönderilir -> `QID_AUTH_LOGIN` SQL doğrulaması -> `HEADER_GD_AUTH_LOGIN` (`db_r41023` oturum anahtarı kaydı) -> `HEADER_GC_AUTH_SUCCESS (0x96)` (`dwLoginKey`) alınır -> ardından gerçek `GAME_SERVER` (`PORT 15100`) üzerinde `HEADER_CG_LOGIN2` (`dwLoginKey` + `adwClientKey`, 45 bayt) gönderilir -> `HEADER_GD_LOGIN_BY_KEY` -> `HEADER_DG_LOGIN_SUCCESS` -> `HEADER_GC_PHASE(PHASE_SELECT=3)` + `HEADER_GC_LOGIN_SUCCESS_NEWSLOT (0x20)` (429 bayt) + `HEADER_GC_EMPIRE (0x5A)` paketleri doğrulanır!
              - **`[6/6]` `game_r41023_lua55` (Lua 5.5.1) Uçtan Uca `AUTH_SERVER` + `GAME_SERVER` Hesap Girişi (`LoginByKey`):** Aynı tam kimlik doğrulama ve `PHASE_SELECT` akışı Lua 5.5.1 oyun sunucusu ikilisiyle birebir doğrulanır ve Lua 5.0.3 ile %100 protokol/davranış eşdeğerliği kanıtlanır.
+      * **Aşama 16: FreeBSD CI Rev 41 (`38641852249`) Kök Neden Analizi, MySQL 8.4 `PASSWORD()` Kaldırılması ve Smoke Şemasının `db_r41023` Sorgularıyla Hizalanması (Rev 42):**
+        * **FreeBSD CI Rev 41 (Run 38641852249 / Commit `4fd19abc`) Bulguları (3/3 FAILURE, test aşamasında):**
+          * **MySQL 8.4 LTS (Job `116119050134`):** `db_r41023` yine `SSL error: Unable to get certificate from '^A^H'` verdi. Kök neden: CMake, FreeBSD'de `-I/usr/local/include` dizinini örtük sistem dizini olarak komut satırından düşürmekte; `-I/usr/local/include/mysql` ve `-Iextern/server/include` kalmaktadır. `#include <mysql/mysql.h>` ilk dizinde bulunamadığı için `extern/server/include/mysql/mysql.h` (MariaDB) başlığına çözülüyordu. Rev 41 düzeltmesi bu nedenle etkisiz kaldı.
+          * **MariaDB 12.3 (Job `116119049627`) ve MariaDB 11.4 (Job `116119049997`):** `db_r41023` `mob_proto`, `item_proto`, `shop` tablolarını yükledikten sonra `InitializeSkillTable()` aşamasında `Unknown column 'dwSplashRange'` ile durdu (smoke şeması eksik/yanlış sütunlar içeriyordu).
+          * **MySQL 8.4 `PASSWORD()`:** Smoke testi `PASSWORD('...')` SQL fonksiyonunu kullanıyordu; MySQL 8.0+ bu fonksiyonu kaldırmıştır.
+        * **Rev 42 Kök Neden Çözümleri:**
+          1. `AsyncSQL.h`, `DBManager.h`, `tests/test_live_db.cpp`: `<mysql/mysql.h>`, `<mysql/errmsg.h>`, `<mysql/mysqld_error.h>` yerine `<mysql.h>`, `<errmsg.h>`, `<mysqld_error.h>` kullanıldı; ilk `-I` dizini olan `/usr/local/include/mysql` (veya `/usr/local/include/mariadb`) doğrudan eşleşir, `extern` gölgelemesi imkânsızlaşır. Makefile ve test betiklerinde `extern/server/include/mysql` en sona taşındı.
+          2. `cmake/FindDatabaseClient.cmake` + `AsyncSQL.cpp`: derleme zamanı başlık/kütüphane eşleşme kontrolü ve çalışma zamanında `mysql_get_client_version()` ile fail-closed ABI koruması eklendi.
+          3. `input_auth.cpp`: Hesap şifresi C++ tarafında `mysql_hash_password()` ile (gerçek MT2009 41 karakter `*`+40 büyük hex = `SHA1(SHA1(pwd))` biçimi) hesaplanır; SQL `PASSWORD()` kullanılmaz. Hesap formatı değiştirilmedi, eski hesaplar aynen çalışır. Login ve HWID kaçışlanır.
+          4. `tests/test_server_smoke_client.cpp`: Taşınabilir SHA-1 ile `--hash-env-pass`, ortam değişkeninden geçici kimlik bilgisi (`@ENV`) ve `TPacketGCLoginSuccess` karakter slotu (`SmokeHero`, id 90011, level 15) doğrulaması eklendi. Smoke betiği hash'i SQL `CONCAT('*',UPPER(SHA1(UNHEX(SHA1(pwd)))))` ile çapraz doğrular.
+          5. `tests/run_server_smoke_test.sh`: `ClientManagerBoot.cpp`, `ClientManagerIkarusShop.cpp`, `ItemAwardManager.cpp` içindeki gerçek SELECT sorgularına göre `skill_proto`, `item_attr`, `item_attr_rare` (pendant sütunları + zorunlu 1 satır), `name_reservation`, `guild_land`, `itemshop_*`, `ikashop_offlineshop`, `offlineshop_limit` (zorunlu 1 satır), `crafting_proto`, `quest_reward_proto`, `shop_special`, `shop_special_proto`, `item_award` şemaları düzeltildi. Arka plan süreçleri `exec` ile başlatılarak `$!` doğrudan sunucu PID'i oldu.
+        * **Windows Doğrulaması (Rev 42):** `cmake --build --preset windows-gcc-ucrt` (db_r41023.exe dahil bağlandı) ve `ctest --preset windows-gcc-ucrt` **13/13 PASS (1.33s)**. `run_server_smoke_test.sh` yalnızca FreeBSD'de çalışır — **FreeBSD CI ile doğrulanacak, henüz DOĞRULANMADI**.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 1.65s, 0 hata) ve `test_server_smoke_client.exe` (`-Wall -Wextra -Werror`) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Rev 41 commit ve push edilecek.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Rev 41 (`4fd19abc`) push edildi; Rev 42 commit ve push edilecek.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38627313843** (Rev 39 / Commit `a6333936b82819ecbc1c9d7e86832dd5a5ce13a7`): Hem `game_r41023 --check-lua` (Lua 5.0.3) hem `game_r41023_lua55 --check-lua` (Lua 5.5.1) **11/11 PASS (exit code 0)**, CMake + Ninja `[541/541]` hedef derlemesi ve `ctest --preset freebsd-gcc14` **13/13 PASS (0.09s)** kanıtlandı.
   * CI Run ID **38634314243** (Rev 40 / Commit `81c2e219335fdcab6c6840ed0caf896ab13b608a`):
     * **MariaDB 12.3 LTS (`116093447898`):** **SUCCESS** (`run_server_smoke_test.sh` `[1/4]..[4/4]` dahil tüm adımlar geçti).
     * **MariaDB 11.4 LTS (`116093448516`):** **SUCCESS** (`run_server_smoke_test.sh` `[1/4]..[4/4]` dahil tüm adımlar geçti).
-    * **MySQL 8.4 LTS (`116093448281`):** **FAILURE** (`extern/server/include/mysql/mysql.h` başlığının `/usr/local/include/mysql/mysql.h` başlığını gölgelemesi nedeniyle `db_r41023` içinde `MYSQL_OPT_RECONNECT=20` değerinin MySQL 8.4 `MYSQL_OPT_SSL_CERT=20` olarak yorumlanması — Rev 41 ile kök nedeninden çözüldü).
+    * **MySQL 8.4 LTS (`116093448281`):** **FAILURE** (başlık gölgelemesi).
+  * CI Run ID **38641852249** (Rev 41 / Commit `4fd19abc`): **3/3 FAILURE** — MySQL 8.4 (`116119050134`) başlık gölgelemesi sürdü; MariaDB 12.3 (`116119049627`) ve 11.4 (`116119049997`) `skill_proto.dwSplashRange` eksik sütunu. Rev 42 ile kök nedenlerinden düzeltildi (FreeBSD'de henüz doğrulanmadı).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1152,8 +1165,8 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 41: FreeBSD MySQL 8.4 LTS `mysql/mysql.h` başlık önceliği düzeltmesini ve 6 aşamalı gerçek `db_r41023` + `HEADER_DG_BOOT` + `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey` / `PHASE_SELECT`) duman testini (`tests/run_server_smoke_test.sh`) 3 DB matrisinde (`MariaDB 11.4 LTS`, `MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) doğrulamak.
+* **Aktif Görev:** Rev 42: `<mysql.h>` başlık düzeltmesi, C++ `mysql_hash_password` (SQL `PASSWORD()` yok) ve `db_r41023` sorgularıyla hizalanmış smoke şeması ile 6 aşamalı gerçek `db_r41023` + `HEADER_DG_BOOT` + `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey` / `PHASE_SELECT`) duman testini 3 DB matrisinde (`MariaDB 11.4 LTS`, `MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) doğrulamak.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 41 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek FreeBSD CI koşusunu başlatmak.
-   2. Yeni CI Run ID'sinde 3/3 matris işinin (`--check-lua` 11/11, CTest 13/13, canlı SQL testleri ve `[1/6]..[6/6]` sunucu/auth/login duman testi) %100 SUCCESS sonucunu doğruladıktan sonra Lua 5.5.1'i (`ENABLE_LUA_5_VERSION=5`) varsayılan üretim motoruna yükseltmek.
+   1. Rev 42 CI koşusunun sonucunu tam SHA ile bir kez sorgulamak; FAILED ise ilk gerçek hata logundan düzeltmek.
+   2. 3/3 matris işinde `[1/6]..[6/6]` duman testi %100 SUCCESS doğrulandıktan sonra Lua 5.5.1'i (`ENABLE_LUA_5_VERSION=5`) varsayılan üretim motoruna yükseltmek.
 

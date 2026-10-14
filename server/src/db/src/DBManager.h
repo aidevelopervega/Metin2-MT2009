@@ -2,7 +2,7 @@
 #ifndef __INC_METIN2_DB_DBMANAGER_H__
 #define __INC_METIN2_DB_DBMANAGER_H__
 
-#include <mysql/mysql.h>
+#include <mysql.h>
 
 #if __has_include("../../../../../server/src/libsql/AsyncSQL.h")
 #include "../../../../../server/src/libsql/AsyncSQL.h"

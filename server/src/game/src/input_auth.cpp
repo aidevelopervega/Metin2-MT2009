@@ -71,34 +71,26 @@ CInputAuth::CInputAuth()
 {
 }
 
-std::string GetAuthLoginQuery(const char* c_pszLogin, const char* c_pszPassword, const char* c_pszHardware)
+std::string GetAuthLoginQuery(const char* c_pszLogin, const char* c_pszPasswordHash, const char* c_pszHardware)
 {
-	// @fixme138 alternative for mysql8
-	#define _MYSQL_NATIVE_PASSWORD(str) "CONCAT('*', UPPER(SHA1(UNHEX(SHA1(" str ")))))"
-
 	char szQuery[1024];
-auto query = "SELECT " 
-#ifdef _WIN32
-    _MYSQL_NATIVE_PASSWORD("'%s'")
-#else
-    "'%s'"
-#endif
-    ",ac.password,'%s',ac.social_id,ac.id,ac.status,hw.status,ac.availDt - NOW() > 0,"
-    "UNIX_TIMESTAMP(ac.premium_expire),"
-    "UNIX_TIMESTAMP(ac.silver_expire),"
-    "UNIX_TIMESTAMP(ac.gold_expire),"
-    "UNIX_TIMESTAMP(ac.safebox_expire),"
-    "UNIX_TIMESTAMP(ac.autoloot_expire),"
-    "UNIX_TIMESTAMP(ac.fish_mind_expire),"
-    "UNIX_TIMESTAMP(ac.marriage_fast_expire),"
-    "UNIX_TIMESTAMP(ac.money_drop_rate_expire),"
-    "UNIX_TIMESTAMP(ac.shop_expire),"
-    "UNIX_TIMESTAMP(ac.create_time) "
-    "FROM account AS ac "
-    "LEFT JOIN hardware_status AS hw ON hw.hwid='%s' "
-    "WHERE login = '%s'";
+	const char* query = "SELECT "
+	    "'%s',ac.password,'%s',ac.social_id,ac.id,ac.status,hw.status,ac.availDt - NOW() > 0,"
+	    "UNIX_TIMESTAMP(ac.premium_expire),"
+	    "UNIX_TIMESTAMP(ac.silver_expire),"
+	    "UNIX_TIMESTAMP(ac.gold_expire),"
+	    "UNIX_TIMESTAMP(ac.safebox_expire),"
+	    "UNIX_TIMESTAMP(ac.autoloot_expire),"
+	    "UNIX_TIMESTAMP(ac.fish_mind_expire),"
+	    "UNIX_TIMESTAMP(ac.marriage_fast_expire),"
+	    "UNIX_TIMESTAMP(ac.money_drop_rate_expire),"
+	    "UNIX_TIMESTAMP(ac.shop_expire),"
+	    "UNIX_TIMESTAMP(ac.create_time) "
+	    "FROM account AS ac "
+	    "LEFT JOIN hardware_status AS hw ON hw.hwid='%s' "
+	    "WHERE login = '%s'";
 
-	snprintf(szQuery, sizeof(szQuery), query, c_pszPassword, c_pszHardware, c_pszHardware, c_pszLogin);
+	snprintf(szQuery, sizeof(szQuery), query, c_pszPasswordHash, c_pszHardware, c_pszHardware, c_pszLogin);
 	return szQuery;
 }
 
@@ -193,8 +185,7 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 	TPacketCGLogin3 * p = M2_NEW TPacketCGLogin3;
 	thecore_memcpy(p, pinfo, sizeof(TPacketCGLogin3));
 
-	char szPasswd[PASSWD_MAX_LEN * 2 + 1];
-	DBManager::instance().EscapeString(szPasswd, sizeof(szPasswd), passwd, strlen(passwd));
+	const std::string stPasswordHash = mysql_hash_password(passwd);
 
 	char szLogin[LOGIN_MAX_LEN * 2 + 1];
 	DBManager::instance().EscapeString(szLogin, sizeof(szLogin), login, strlen(login));
@@ -208,21 +199,13 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		sys_log(0, "ChannelServiceLogin [%s]", szLogin);
 
 		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, p,
-				GetAuthLoginQuery(szLogin, szPasswd, szHardware).c_str());
+				GetAuthLoginQuery(szLogin, stPasswordHash.c_str(), szHWID).c_str());
 	}
 	// END_OF_CHANNEL_SERVICE_LOGIN
 	else
 	{
-#ifdef __WIN32__
 		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, p,
-			GetAuthLoginQuery(szLogin, szPasswd, szHardware).c_str());
-#else
-		// @fixme138 1. PASSWORD('%s') -> %s 2. szPasswd wrapped inside mysql_hash_password(%s).c_str()
-		// nie wysylamy szPasswd po escape stringu bo i tak sam string nie trafia jako query tylko hash
-		// a powoduje to blad hasla przy haslach ze znakiem "'" lub "/" i "\"
-		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, p,
-			GetAuthLoginQuery(szLogin, mysql_hash_password(passwd).c_str(), szHardware).c_str());
-#endif
+			GetAuthLoginQuery(szLogin, stPasswordHash.c_str(), szHWID).c_str());
 	}
 }
 

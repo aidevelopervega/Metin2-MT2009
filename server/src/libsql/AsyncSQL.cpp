@@ -273,6 +273,21 @@ bool CAsyncSQL::QueryLocaleSet()
 
 bool CAsyncSQL::Connect()
 {
+	const unsigned long client_ver = mysql_get_client_version();
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
+	if (client_ver >= 80000UL && client_ver < 100000UL)
+	{
+		fprintf(stderr, "AsyncSQL FATAL ABI MISMATCH: compiled with MariaDB headers but linked against MySQL client library (%lu)\n", client_ver);
+		return false;
+	}
+#else
+	if (client_ver < 80000UL || client_ver >= 100000UL)
+	{
+		fprintf(stderr, "AsyncSQL FATAL ABI MISMATCH: compiled with MySQL headers (%d) but linked against non-MySQL client library (%lu)\n", MYSQL_VERSION_ID, client_ver);
+		return false;
+	}
+#endif
+
 	if (0 == mysql_init(&m_hDB))
 	{
 		fprintf(stderr, "mysql_init failed\n");

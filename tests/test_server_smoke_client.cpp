@@ -371,7 +371,89 @@ static int run_probe_game(int port) {
 	return ok ? 0 : 1;
 }
 
-static int run_auth_login(int port, const char* login, const char* passwd, const char* hwid_hex, const char* key_out_file) {
+static void sha1_compute(const uint8_t* data, size_t len, uint8_t digest[20]) {
+	auto rol32 = [](uint32_t v, unsigned int b) -> uint32_t { return (v << b) | (v >> (32 - b)); };
+	uint32_t h0 = 0x67452301u, h1 = 0xEFCDAB89u, h2 = 0x98BADCFEu, h3 = 0x10325476u, h4 = 0xC3D2E1F0u;
+	size_t padded_len = ((len + 8) / 64 + 1) * 64;
+	uint8_t block[128]{};
+	std::memcpy(block, data, len);
+	block[len] = 0x80u;
+	uint64_t bit_len = static_cast<uint64_t>(len) * 8ULL;
+	for (int i = 0; i < 8; ++i)
+		block[padded_len - 1 - i] = static_cast<uint8_t>((bit_len >> (i * 8)) & 0xFFu);
+
+	for (size_t chunk = 0; chunk < padded_len; chunk += 64) {
+		uint32_t w[80]{};
+		for (int i = 0; i < 16; ++i) {
+			w[i] = (static_cast<uint32_t>(block[chunk + i * 4]) << 24) |
+			       (static_cast<uint32_t>(block[chunk + i * 4 + 1]) << 16) |
+			       (static_cast<uint32_t>(block[chunk + i * 4 + 2]) << 8) |
+			       static_cast<uint32_t>(block[chunk + i * 4 + 3]);
+		}
+		for (int i = 16; i < 80; ++i)
+			w[i] = rol32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+
+		uint32_t a = h0, b = h1, c = h2, d = h3, e = h4;
+		for (int i = 0; i < 80; ++i) {
+			uint32_t f = 0, k = 0;
+			if (i < 20) { f = (b & c) | ((~b) & d); k = 0x5A827999u; }
+			else if (i < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1u; }
+			else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDCu; }
+			else { f = b ^ c ^ d; k = 0xCA62C1D6u; }
+			uint32_t temp = rol32(a, 5) + f + e + k + w[i];
+			e = d; d = c; c = rol32(b, 30); b = a; a = temp;
+		}
+		h0 += a; h1 += b; h2 += c; h3 += d; h4 += e;
+	}
+	uint32_t hs[5] = { h0, h1, h2, h3, h4 };
+	for (int i = 0; i < 5; ++i) {
+		digest[i * 4]     = static_cast<uint8_t>((hs[i] >> 24) & 0xFFu);
+		digest[i * 4 + 1] = static_cast<uint8_t>((hs[i] >> 16) & 0xFFu);
+		digest[i * 4 + 2] = static_cast<uint8_t>((hs[i] >> 8) & 0xFFu);
+		digest[i * 4 + 3] = static_cast<uint8_t>(hs[i] & 0xFFu);
+	}
+}
+
+static void compute_mt2_password_hash(const char* plain, char out_hash[42]) {
+	uint8_t stage1[20]{};
+	uint8_t stage2[20]{};
+	sha1_compute(reinterpret_cast<const uint8_t*>(plain), std::strlen(plain), stage1);
+	sha1_compute(stage1, 20, stage2);
+	static const char hex[] = "0123456789ABCDEF";
+	out_hash[0] = '*';
+	for (int i = 0; i < 20; ++i) {
+		out_hash[1 + i * 2]     = hex[(stage2[i] >> 4) & 0x0Fu];
+		out_hash[1 + i * 2 + 1] = hex[stage2[i] & 0x0Fu];
+	}
+	out_hash[41] = '\0';
+}
+
+static int run_hash_env_pass(const char* out_file) {
+	const char* pass = std::getenv("SMOKE_TEST_PASS");
+	if (!pass || !*pass || std::strlen(pass) > 16) {
+		std::fprintf(stderr, "[hash-env-pass] FAIL: SMOKE_TEST_PASS missing or exceeds 16 chars\n");
+		return 1;
+	}
+	char hash[42]{};
+	compute_mt2_password_hash(pass, hash);
+	FILE* fp = std::fopen(out_file, "w");
+	if (!fp) {
+		std::fprintf(stderr, "[hash-env-pass] FAIL: cannot write hash file\n");
+		return 1;
+	}
+	std::fprintf(fp, "%s\n", hash);
+	std::fclose(fp);
+	return 0;
+}
+
+static int run_auth_login(int port, const char* login_arg, const char* passwd_arg, const char* hwid_hex, const char* key_out_file) {
+	const char* login = (std::strcmp(login_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_LOGIN") : login_arg;
+	const char* passwd = (std::strcmp(passwd_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_PASS") : passwd_arg;
+	if (!login || !*login || !passwd || !*passwd) {
+		std::fprintf(stderr, "[auth-login] FAIL: missing login or password environment variable\n");
+		return 1;
+	}
+
 	sock_t s = connect_with_retry(port, 60);
 	if (s == INVALID_SOCKET) {
 		std::fprintf(stderr, "[auth-login] FAIL: could not connect to AUTH_SERVER on 127.0.0.1:%d\n", port);
@@ -449,13 +531,19 @@ static int run_auth_login(int port, const char* login, const char* passwd, const
 		std::fclose(fp);
 	}
 
-	std::printf("  [PASS] [auth-login] Real AUTH_SERVER authenticated account '%s' -> HEADER_GC_AUTH_SUCCESS(150) dwLoginKey=%u bResult=%u\n",
-		login, authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
+	std::printf("  [PASS] [auth-login] Real AUTH_SERVER authenticated ephemeral account -> HEADER_GC_AUTH_SUCCESS(150) dwLoginKey=%u bResult=%u\n",
+		authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
 	CLOSESOCK(s);
 	return 0;
 }
 
-static int run_game_login_key(int port, const char* login, uint32_t login_key) {
+static int run_game_login_key(int port, const char* login_arg, uint32_t login_key) {
+	const char* login = (std::strcmp(login_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_LOGIN") : login_arg;
+	if (!login || !*login) {
+		std::fprintf(stderr, "[game-login-key] FAIL: missing login environment variable\n");
+		return 1;
+	}
+
 	sock_t s = connect_with_retry(port, 60);
 	if (s == INVALID_SOCKET) {
 		std::fprintf(stderr, "[game-login-key] FAIL: could not connect to GAME_SERVER on 127.0.0.1:%d\n", port);
@@ -505,8 +593,12 @@ static int run_game_login_key(int port, const char* login, uint32_t login_key) {
 	bool sawPhaseSelect = false;
 	bool sawEmpire = false;
 	bool sawLoginSuccess = false;
+	uint8_t empireId = 0;
+	uint32_t player0Id = 0;
+	char player0Name[25]{};
+	uint8_t player0Level = 0;
 
-	for (int iter = 0; iter < 50 && !(sawPhaseSelect && sawLoginSuccess); ++iter) {
+	for (int iter = 0; iter < 50 && !(sawPhaseSelect && sawLoginSuccess && player0Id != 0); ++iter) {
 		fd_set rfds;
 		FD_ZERO(&rfds);
 		FD_SET(s, &rfds);
@@ -525,10 +617,19 @@ static int run_game_login_key(int port, const char* login, uint32_t login_key) {
 				smoke_tea_decrypt(reinterpret_cast<uint32_t*>(blk), reinterpret_cast<const uint32_t*>(rxEnc + off), serverEncKey, 8);
 				if (blk[0] == 90 /* HEADER_GC_EMPIRE */) {
 					sawEmpire = true;
+					empireId = blk[1];
 				} else if (blk[0] == 0xFD /* HEADER_GC_PHASE */ && blk[1] == 3 /* PHASE_SELECT */) {
 					sawPhaseSelect = true;
 				} else if (blk[0] == 32 /* HEADER_GC_LOGIN_SUCCESS_NEWSLOT */ || blk[0] == 6 /* HEADER_GC_LOGIN_SUCCESS */) {
 					sawLoginSuccess = true;
+					if (off + 32 <= alignedLen) {
+						uint8_t dec32[32]{};
+						smoke_tea_decrypt(reinterpret_cast<uint32_t*>(dec32), reinterpret_cast<const uint32_t*>(rxEnc + off), serverEncKey, 32);
+						std::memcpy(&player0Id, dec32 + 1, sizeof(uint32_t));
+						std::memcpy(player0Name, dec32 + 5, 24);
+						player0Name[24] = '\0';
+						player0Level = dec32[31];
+					}
 				} else if (blk[0] == 7 /* HEADER_GC_LOGIN_FAILURE */) {
 					std::fprintf(stderr, "[game-login-key] FAIL: GAME_SERVER returned HEADER_GC_LOGIN_FAILURE\n");
 					CLOSESOCK(s);
@@ -538,15 +639,16 @@ static int run_game_login_key(int port, const char* login, uint32_t login_key) {
 		}
 	}
 
-	if (!sawPhaseSelect || !sawLoginSuccess) {
-		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d)\n",
-			rxTotal, sawEmpire ? 1 : 0, sawPhaseSelect ? 1 : 0, sawLoginSuccess ? 1 : 0);
+	if (!sawPhaseSelect || !sawLoginSuccess || player0Id != 90011u || std::strcmp(player0Name, "SmokeHero") != 0 || player0Level != 15u) {
+		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%u name='%s' level=%u)\n",
+			rxTotal, sawEmpire ? 1 : 0, sawPhaseSelect ? 1 : 0, sawLoginSuccess ? 1 : 0,
+			player0Id, player0Name, static_cast<unsigned>(player0Level));
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=%u via db_r41023 -> HEADER_GC_EMPIRE(90) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32) (%zu wire bytes)\n",
-		login_key, rxTotal);
+	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=%u via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
+		login_key, static_cast<unsigned>(empireId), player0Id, player0Name, static_cast<unsigned>(player0Level), rxTotal);
 	CLOSESOCK(s);
 	return 0;
 }
@@ -574,6 +676,8 @@ int main(int argc, char** argv) {
 		rc = run_probe_game(std::atoi(argv[2]));
 	} else if (argc >= 3 && std::strcmp(argv[1], "--probe-db") == 0) {
 		rc = run_probe_db(std::atoi(argv[2]));
+	} else if (argc >= 3 && std::strcmp(argv[1], "--hash-env-pass") == 0) {
+		rc = run_hash_env_pass(argv[2]);
 	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-login") == 0) {
 		rc = run_auth_login(std::atoi(argv[2]), argv[3], argv[4], argv[5], argv[6]);
 	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key") == 0) {
@@ -583,9 +687,10 @@ int main(int argc, char** argv) {
 			"  %s --mock-db <port> <ready_file> <out_file>\n"
 			"  %s --probe-game <port>\n"
 			"  %s --probe-db <port>\n"
-			"  %s --auth-login <port> <login> <passwd> <hwid_hex> <key_out_file>\n"
-			"  %s --game-login-key <port> <login> <login_key>\n",
-			argv[0], argv[0], argv[0], argv[0], argv[0]);
+			"  %s --hash-env-pass <out_file>\n"
+			"  %s --auth-login <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <key_out_file>\n"
+			"  %s --game-login-key <port> <login|@ENV> <login_key>\n",
+			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();

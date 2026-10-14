@@ -24,6 +24,11 @@ static uint64_t s_mock_num_rows = 0;
 static bool s_mock_force_connect_fail = false;
 
 extern "C" {
+unsigned long STDCALL mysql_get_client_version(void)
+{
+	return MYSQL_VERSION_ID;
+}
+
 MYSQL * STDCALL mysql_init(MYSQL * mysql)
 {
 	if (!mysql)

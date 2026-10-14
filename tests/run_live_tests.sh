@@ -42,7 +42,7 @@ COMMON_DIR="$ROOT_DIR/server/src/common"
 # Bağlayıcı Başlık ve Kütüphane Tespiti
 INC_EXTRA=""
 if [ -f "/usr/local/include/mysql/mysql.h" ]; then
-    INC_EXTRA="-I/usr/local/include -I/usr/local/include/mysql"
+    INC_EXTRA="-I/usr/local/include/mysql -I/usr/local/include"
 elif [ -f "/usr/local/include/mariadb/mysql.h" ]; then
     INC_EXTRA="-I/usr/local/include/mariadb -I/usr/local/include"
 else

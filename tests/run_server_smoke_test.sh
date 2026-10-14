@@ -35,8 +35,9 @@ GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua55}
 # Deterministic AES-128-ECB("SMOKETEST_HWID1\x01", key="VBlk2yQRtiHA1oj7") hex string
 SMOKE_HWID_PLAIN="SMOKETEST_HWID1"
 SMOKE_HWID_HEX="5BE8C5A4CAFB1014505B16C5D68D28A9"
-SMOKE_LOGIN="smoketest"
-SMOKE_PASS="SmokeTestPass1!"
+SMOKE_TEST_LOGIN="smk$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 7)"
+SMOKE_TEST_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)"
+export SMOKE_TEST_LOGIN SMOKE_TEST_PASS
 
 echo "=================================================="
 echo " METIN2 MT2009 - ISOLATED SERVER & AUTH/LOGIN SMOKE TEST"
@@ -71,6 +72,10 @@ if [ -z "$DB_CLI" ]; then
 fi
 
 SMOKE_ROOT="/tmp/mt2_smoke_$$"
+mkdir -p "$SMOKE_ROOT"
+"$BUILD_DIR/test_server_smoke_client" --hash-env-pass "$SMOKE_ROOT/pass_hash.txt"
+SMOKE_PASS_HASH=$(tr -d '\r\n ' < "$SMOKE_ROOT/pass_hash.txt")
+rm -f "$SMOKE_ROOT/pass_hash.txt"
 ACTIVE_GAME_PID=""
 ACTIVE_AUTH_PID=""
 ACTIVE_MOCK_PID=""
@@ -193,9 +198,6 @@ CREATE TABLE account (
   UNIQUE KEY idx_login (login)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
-INSERT INTO account (id, login, password, social_id, status, hwid)
-VALUES (9001, 'smoketest', CONCAT('*', UPPER(SHA1(UNHEX(SHA1('SmokeTestPass1!'))))), '1234567', 'OK', 'SMOKETEST_HWID1');
-
 DROP TABLE IF EXISTS hardware_status;
 CREATE TABLE hardware_status (
   hwid VARCHAR(255) NOT NULL DEFAULT '',
@@ -218,7 +220,7 @@ CREATE TABLE player_index (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 INSERT INTO player_index (id, pid1, pid2, pid3, pid4, pid5, empire)
-VALUES (9001, 0, 0, 0, 0, 0, 1);
+VALUES (9001, 90011, 0, 0, 0, 0, 1);
 
 DROP TABLE IF EXISTS locale;
 CREATE TABLE locale (
@@ -530,9 +532,8 @@ CREATE TABLE skill_proto (
   dwVnum INT NOT NULL DEFAULT 0,
   szName VARCHAR(32) NOT NULL DEFAULT '',
   bType TINYINT NOT NULL DEFAULT 0,
-  bLevelStep TINYINT NOT NULL DEFAULT 0,
   bMaxLevel TINYINT NOT NULL DEFAULT 0,
-  bLevelLimit TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  dwSplashRange INT UNSIGNED NOT NULL DEFAULT 0,
   szPointOn VARCHAR(100) NOT NULL DEFAULT '0',
   szPointPoly VARCHAR(100) NOT NULL DEFAULT '',
   szSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
@@ -540,18 +541,24 @@ CREATE TABLE skill_proto (
   szDurationSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
   szCooldownPoly VARCHAR(100) NOT NULL DEFAULT '',
   szMasterBonusPoly VARCHAR(100) NOT NULL DEFAULT '',
-  szAttackGradePoly VARCHAR(100) NOT NULL DEFAULT '',
-  setFlag VARCHAR(64) DEFAULT '',
-  setAffectFlag VARCHAR(64) NOT NULL DEFAULT 'YMIR',
+  setFlag INT UNSIGNED NOT NULL DEFAULT 0,
+  setAffectFlag INT UNSIGNED NOT NULL DEFAULT 1,
   szPointOn2 VARCHAR(100) NOT NULL DEFAULT 'NONE',
   szPointPoly2 VARCHAR(100) NOT NULL DEFAULT '',
   szDurationPoly2 VARCHAR(100) NOT NULL DEFAULT '',
-  setAffectFlag2 VARCHAR(64) NOT NULL DEFAULT 'YMIR',
+  setAffectFlag2 INT UNSIGNED NOT NULL DEFAULT 1,
   szPointOn3 VARCHAR(100) NOT NULL DEFAULT 'NONE',
   szPointPoly3 VARCHAR(100) NOT NULL DEFAULT '',
   szDurationPoly3 VARCHAR(100) NOT NULL DEFAULT '',
+  setAffectFlag3 INT UNSIGNED NOT NULL DEFAULT 1,
   szGrandMasterAddSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
-  bSkillAttrType TINYINT NOT NULL DEFAULT 0,
+  bLevelStep TINYINT NOT NULL DEFAULT 0,
+  bLevelLimit TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  prerequisiteSkillVnum INT NOT NULL DEFAULT 0,
+  prerequisiteSkillLevel INT NOT NULL DEFAULT 0,
+  iMaxHit SMALLINT NOT NULL DEFAULT 0,
+  szSplashAroundDamageAdjustPoly VARCHAR(100) NOT NULL DEFAULT '1',
+  eSkillType TINYINT UNSIGNED NOT NULL DEFAULT 0,
   dwTargetRange INT NOT NULL DEFAULT 1000,
   PRIMARY KEY (dwVnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -579,7 +586,7 @@ CREATE TABLE refine_proto (
 
 DROP TABLE IF EXISTS item_attr;
 CREATE TABLE item_attr (
-  apply VARCHAR(32) NOT NULL DEFAULT 'MAX_HP',
+  apply ENUM('MAX_HP','MAX_SP') NOT NULL DEFAULT 'MAX_HP',
   prob INT NOT NULL DEFAULT 1,
   lv1 INT NOT NULL DEFAULT 100,
   lv2 INT NOT NULL DEFAULT 200,
@@ -594,12 +601,18 @@ CREATE TABLE item_attr (
   head INT NOT NULL DEFAULT 0,
   shield INT NOT NULL DEFAULT 0,
   ear INT NOT NULL DEFAULT 0,
+  costume_body INT NOT NULL DEFAULT 0,
+  costume_hair INT NOT NULL DEFAULT 0,
+  costume_weapon INT NOT NULL DEFAULT 0,
+  pendant INT NOT NULL DEFAULT 0,
+  glove INT NOT NULL DEFAULT 0,
   PRIMARY KEY (apply)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO item_attr (apply, prob) VALUES ('MAX_HP', 10);
 
 DROP TABLE IF EXISTS item_attr_rare;
 CREATE TABLE item_attr_rare (
-  apply VARCHAR(32) NOT NULL DEFAULT 'MAX_HP',
+  apply ENUM('MAX_HP','MAX_SP') NOT NULL DEFAULT 'MAX_HP',
   prob INT NOT NULL DEFAULT 1,
   lv1 INT NOT NULL DEFAULT 100,
   lv2 INT NOT NULL DEFAULT 200,
@@ -614,8 +627,14 @@ CREATE TABLE item_attr_rare (
   head INT NOT NULL DEFAULT 0,
   shield INT NOT NULL DEFAULT 0,
   ear INT NOT NULL DEFAULT 0,
+  costume_body INT NOT NULL DEFAULT 0,
+  costume_hair INT NOT NULL DEFAULT 0,
+  costume_weapon INT NOT NULL DEFAULT 0,
+  pendant INT NOT NULL DEFAULT 0,
+  glove INT NOT NULL DEFAULT 0,
   PRIMARY KEY (apply)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO item_attr_rare (apply, prob) VALUES ('MAX_HP', 10);
 
 DROP TABLE IF EXISTS banword;
 CREATE TABLE banword (
@@ -625,8 +644,8 @@ CREATE TABLE banword (
 
 DROP TABLE IF EXISTS name_reservation;
 CREATE TABLE name_reservation (
+  account_id INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(24) NOT NULL DEFAULT '',
-  owner INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -647,17 +666,9 @@ CREATE TABLE land (
 
 DROP TABLE IF EXISTS guild_land;
 CREATE TABLE guild_land (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  map_index INT NOT NULL DEFAULT 0,
-  x INT NOT NULL DEFAULT 0,
-  y INT NOT NULL DEFAULT 0,
-  width INT NOT NULL DEFAULT 0,
-  height INT NOT NULL DEFAULT 0,
+  land_id INT UNSIGNED NOT NULL DEFAULT 0,
   guild_id INT UNSIGNED NOT NULL DEFAULT 0,
-  guild_level_limit TINYINT NOT NULL DEFAULT 0,
-  price BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  enable ENUM('YES','NO') NOT NULL DEFAULT 'YES',
-  PRIMARY KEY (id)
+  PRIMARY KEY (land_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS object_proto;
@@ -706,123 +717,148 @@ CREATE TABLE monarch (
 
 DROP TABLE IF EXISTS itemshop_items;
 CREATE TABLE itemshop_items (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `index` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
   count INT UNSIGNED NOT NULL DEFAULT 1,
   price INT UNSIGNED NOT NULL DEFAULT 0,
-  category TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  sub_category TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  currency TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  minLevel TINYINT UNSIGNED NOT NULL DEFAULT 0,
   socket0 INT NOT NULL DEFAULT 0,
   socket1 INT NOT NULL DEFAULT 0,
   socket2 INT NOT NULL DEFAULT 0,
-  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  limit_value INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id)
+  PRIMARY KEY (`index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_promotions;
 CREATE TABLE itemshop_promotions (
-  vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  value INT UNSIGNED NOT NULL DEFAULT 0,
-  duration DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (vnum)
+  item_index INT UNSIGNED NOT NULL DEFAULT 0,
+  price INT UNSIGNED NOT NULL DEFAULT 0,
+  start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  end_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (item_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_time_auctions;
 CREATE TABLE itemshop_time_auctions (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  item_id INT UNSIGNED NOT NULL DEFAULT 0,
-  end_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  avail_amount INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id)
+  item_index INT UNSIGNED NOT NULL DEFAULT 0,
+  max_amount INT UNSIGNED NOT NULL DEFAULT 0,
+  account_limit INT UNSIGNED NOT NULL DEFAULT 0,
+  start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  end_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (item_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_time_auction;
 CREATE TABLE itemshop_time_auction (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  item_id INT UNSIGNED NOT NULL DEFAULT 0,
-  end_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  avail_amount INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id)
+  item_index INT UNSIGNED NOT NULL DEFAULT 0,
+  buy_count INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (item_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS ikashop_offlineshop;
 CREATE TABLE ikashop_offlineshop (
   owner INT UNSIGNED NOT NULL DEFAULT 0,
   duration INT UNSIGNED NOT NULL DEFAULT 0,
+  name VARCHAR(64) NOT NULL DEFAULT '',
+  map INT NOT NULL DEFAULT 0,
+  x INT NOT NULL DEFAULT 0,
+  y INT NOT NULL DEFAULT 0,
+  channel TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  unlock_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  is_premium TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (owner)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS offlineshop_limit;
 CREATE TABLE offlineshop_limit (
-  channel TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  map_index INT UNSIGNED NOT NULL DEFAULT 0,
-  `limit` INT UNSIGNED NOT NULL DEFAULT 100,
+  channel TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  map_index INT UNSIGNED NOT NULL DEFAULT 1,
+  shop_limit INT UNSIGNED NOT NULL DEFAULT 100,
+  premium_limit INT UNSIGNED NOT NULL DEFAULT 100,
   PRIMARY KEY (channel, map_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO offlineshop_limit (channel, map_index, shop_limit, premium_limit) VALUES (1, 1, 100, 100);
 
 DROP TABLE IF EXISTS crafting_proto;
 CREATE TABLE crafting_proto (
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  item_vnum INT UNSIGNED NOT NULL DEFAULT 0,
   count INT UNSIGNED NOT NULL DEFAULT 1,
-  category TINYINT UNSIGNED NOT NULL DEFAULT 0,
   price BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  prob TINYINT UNSIGNED NOT NULL DEFAULT 100,
-  req_vnum0 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_count0 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_vnum1 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_count1 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_vnum2 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_count2 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_vnum3 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_count3 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_vnum4 INT UNSIGNED NOT NULL DEFAULT 0,
-  req_count4 INT UNSIGNED NOT NULL DEFAULT 0,
+  chance TINYINT UNSIGNED NOT NULL DEFAULT 100,
+  recipe VARCHAR(128) NOT NULL DEFAULT '',
+  req_progress INT UNSIGNED NOT NULL DEFAULT 0,
+  req_level TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  recipe_vnum INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS quest_reward_proto;
 CREATE TABLE quest_reward_proto (
-  quest_index INT UNSIGNED NOT NULL DEFAULT 0,
-  job TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  vnum0 INT UNSIGNED NOT NULL DEFAULT 0,
-  count0 INT UNSIGNED NOT NULL DEFAULT 0,
-  vnum1 INT UNSIGNED NOT NULL DEFAULT 0,
-  count1 INT UNSIGNED NOT NULL DEFAULT 0,
-  vnum2 INT UNSIGNED NOT NULL DEFAULT 0,
-  count2 INT UNSIGNED NOT NULL DEFAULT 0,
-  vnum3 INT UNSIGNED NOT NULL DEFAULT 0,
-  count3 INT UNSIGNED NOT NULL DEFAULT 0,
-  vnum4 INT UNSIGNED NOT NULL DEFAULT 0,
-  count4 INT UNSIGNED NOT NULL DEFAULT 0,
-  vnum5 INT UNSIGNED NOT NULL DEFAULT 0,
-  count5 INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (quest_index, job)
+  quest_name VARCHAR(64) NOT NULL DEFAULT '',
+  exp INT UNSIGNED NOT NULL DEFAULT 0,
+  gold INT UNSIGNED NOT NULL DEFAULT 0,
+  alignment INT NOT NULL DEFAULT 0,
+  items VARCHAR(255) NOT NULL DEFAULT '',
+  warrior_items VARCHAR(255) NOT NULL DEFAULT '',
+  assassin_items VARCHAR(255) NOT NULL DEFAULT '',
+  sura_items VARCHAR(255) NOT NULL DEFAULT '',
+  shaman_items VARCHAR(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (quest_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS shop_special;
 CREATE TABLE shop_special (
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  npc_vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  limit_value0 INT NOT NULL DEFAULT 0,
-  limit_value1 INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (vnum)
+  item_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (vnum, item_vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS shop_special_proto;
 CREATE TABLE shop_special_proto (
+  vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  item_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  count INT UNSIGNED NOT NULL DEFAULT 1,
+  rare_pct TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  price_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  price INT UNSIGNED NOT NULL DEFAULT 0,
+  items VARCHAR(255) NOT NULL DEFAULT '',
+  random_item_count INT UNSIGNED NOT NULL DEFAULT 0,
+  random_item_group INT UNSIGNED NOT NULL DEFAULT 0,
+  limittype0 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  limitvalue0 INT NOT NULL DEFAULT 0,
+  limittype1 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  limitvalue1 INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (vnum)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS item_award;
+CREATE TABLE item_award (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  shop_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  login VARCHAR(30) NOT NULL DEFAULT '',
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
   count INT UNSIGNED NOT NULL DEFAULT 1,
-  price_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  price0 INT UNSIGNED NOT NULL DEFAULT 0,
-  price0_vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  price1 INT UNSIGNED NOT NULL DEFAULT 0,
-  price1_vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  limit_value INT UNSIGNED NOT NULL DEFAULT 0,
+  socket0 INT UNSIGNED NOT NULL DEFAULT 0,
+  socket1 INT UNSIGNED NOT NULL DEFAULT 0,
+  socket2 INT UNSIGNED NOT NULL DEFAULT 0,
+  attrtype0 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue0 SMALLINT NOT NULL DEFAULT 0,
+  attrtype1 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue1 SMALLINT NOT NULL DEFAULT 0,
+  attrtype2 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue2 SMALLINT NOT NULL DEFAULT 0,
+  attrtype3 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue3 SMALLINT NOT NULL DEFAULT 0,
+  attrtype4 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue4 SMALLINT NOT NULL DEFAULT 0,
+  attrtype5 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue5 SMALLINT NOT NULL DEFAULT 0,
+  attrtype6 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  attrvalue6 SMALLINT NOT NULL DEFAULT 0,
+  mall TINYINT NOT NULL DEFAULT 1,
+  why VARCHAR(128) DEFAULT NULL,
+  given_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  taken_time DATETIME DEFAULT NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -842,7 +878,23 @@ CREATE TABLE gmlist (
   mAuthority ENUM('IMPLEMENTOR','HIGH_WIZARD','GOD','LOW_WIZARD','PLAYER') NOT NULL DEFAULT 'PLAYER',
   PRIMARY KEY (mID)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO `player` (id, account_id, name, job, level, playtime, st, ht, dx, iq, part_main, part_hair, part_acce, x, y, skill_group, change_name, gold)
+VALUES (90011, 9001, 'SmokeHero', 0, 15, 42, 10, 10, 10, 10, 11209, 0, 0, 469300, 964200, 1, 0, 50000);
 EOF
+
+"$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<EOF
+SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+INSERT INTO account (id, login, password, social_id, status, hwid)
+VALUES (9001, '$SMOKE_TEST_LOGIN', '$SMOKE_PASS_HASH', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
+EOF
+
+HASH_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT IF(password = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('$SMOKE_TEST_PASS'))))), 1, 0) FROM account WHERE id=9001;")
+if [ "$HASH_MATCH" != "1" ]; then
+    echo "HATA: [1/6] MT2009 C++ mysql_hash_password ile SQL SHA1(UNHEX(SHA1(...))) hesap hash formatı eşleşmedi!" >&2
+    exit 1
+fi
+echo "  [PASS] [1/6] Strict SQL Mode şeması, geçici test hesabı (C++ mysql_hash_password == SQL SHA1(UNHEX(SHA1)) doğrulandı, PASSWORD() SQL fonksiyonu kullanılmadı) ve SmokeHero (id=90011, level=15) karakteri hazırlandı."
 
 # ------------------------------------------------------------------------------
 # [2/6] Real db_r41023 Isolated Startup, SQL Table Load & TCP Listener Probe
@@ -873,7 +925,7 @@ EOF
 
 (
     cd "$DB_WORK"
-    "$DB_BIN" >"$DB_WORK/db_stdout.log" 2>"$DB_WORK/db_stderr.log"
+    exec "$DB_BIN" >"$DB_WORK/db_stdout.log" 2>"$DB_WORK/db_stderr.log"
 ) &
 ACTIVE_DB_PID=$!
 
@@ -938,7 +990,7 @@ EOF
 
     (
         cd "$GAME_WORK"
-        "$GAME_BIN" -I 127.0.0.1 -v >"$GAME_WORK/game_stdout.log" 2>"$GAME_WORK/game_stderr.log"
+        exec "$GAME_BIN" -I 127.0.0.1 -v >"$GAME_WORK/game_stdout.log" 2>"$GAME_WORK/game_stderr.log"
     ) &
     ACTIVE_GAME_PID=$!
 
@@ -995,7 +1047,7 @@ run_real_db_auth_and_game_smoke() {
     ACTIVE_DB_PID=""
     (
         cd "$DB_WORK"
-        "$DB_BIN" >"$DB_WORK/db_stdout_${HOSTNAME_TAG}.log" 2>"$DB_WORK/db_stderr_${HOSTNAME_TAG}.log"
+        exec "$DB_BIN" >"$DB_WORK/db_stdout_${HOSTNAME_TAG}.log" 2>"$DB_WORK/db_stderr_${HOSTNAME_TAG}.log"
     ) &
     ACTIVE_DB_PID=$!
     if ! "$BUILD_DIR/test_server_smoke_client" --probe-db 15010; then
@@ -1026,7 +1078,7 @@ EOF
 
     (
         cd "$AUTH_WORK"
-        "$GAME_BIN" -I 127.0.0.1 -v >"$AUTH_WORK/auth_stdout.log" 2>"$AUTH_WORK/auth_stderr.log"
+        exec "$GAME_BIN" -I 127.0.0.1 -v >"$AUTH_WORK/auth_stdout.log" 2>"$AUTH_WORK/auth_stderr.log"
     ) &
     ACTIVE_AUTH_PID=$!
 
@@ -1052,7 +1104,7 @@ EOF
 
     (
         cd "$GAME_WORK"
-        "$GAME_BIN" -I 127.0.0.1 -v >"$GAME_WORK/game_stdout.log" 2>"$GAME_WORK/game_stderr.log"
+        exec "$GAME_BIN" -I 127.0.0.1 -v >"$GAME_WORK/game_stdout.log" 2>"$GAME_WORK/game_stderr.log"
     ) &
     ACTIVE_GAME_PID=$!
 
@@ -1102,7 +1154,7 @@ EOF
     # 3. Execute real AUTH_SERVER login (HEADER_CG_LOGIN3 -> QID_AUTH_LOGIN -> HEADER_GD_AUTH_LOGIN -> HEADER_GC_AUTH_SUCCESS)
     KEY_FILE="$AUTH_WORK/login_key.txt"
     rm -f "$KEY_FILE"
-    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "$SMOKE_LOGIN" "$SMOKE_PASS" "$SMOKE_HWID_HEX" "$KEY_FILE"; then
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "@ENV" "@ENV" "$SMOKE_HWID_HEX" "$KEY_FILE"; then
         echo "HATA: $STAGE_TAG $LABEL gerçek AUTH_SERVER hesap girişi (HEADER_CG_LOGIN3) başarısız oldu!" >&2
         cat "$AUTH_WORK/auth_stdout.log" 2>/dev/null || true
         cat "$AUTH_WORK/auth_stderr.log" 2>/dev/null || true
@@ -1118,7 +1170,7 @@ EOF
     fi
 
     # 4. Execute real GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> HEADER_GD_LOGIN_BY_KEY -> HEADER_DG_LOGIN_SUCCESS -> PHASE_SELECT)
-    if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "$SMOKE_LOGIN" "$LOGIN_KEY"; then
+    if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "@ENV" "$LOGIN_KEY"; then
         echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> PHASE_SELECT) başarısız oldu!" >&2
         cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
         cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
@@ -1151,7 +1203,7 @@ DROP TABLE IF EXISTS
   skill_proto, refine_proto, item_attr, item_attr_rare, banword, name_reservation,
   land, guild_land, object_proto, object, monarch, itemshop_items, itemshop_promotions,
   itemshop_time_auctions, itemshop_time_auction, ikashop_offlineshop, offlineshop_limit,
-  crafting_proto, quest_reward_proto, shop_special, shop_special_proto, gmhost, gmlist;
+  crafting_proto, quest_reward_proto, shop_special, shop_special_proto, item_award, gmhost, gmlist;
 EOF
 
 echo "=================================================="

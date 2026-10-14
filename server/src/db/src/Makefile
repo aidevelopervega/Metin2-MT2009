@@ -58,7 +58,7 @@ CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PW
 
 # Project Libraries
 INCDIR += -I/usr/local/include
-INCDIR += -I../../../../extern/common/include -I../../../../extern/server/include
+INCDIR += -I../../../../extern/common/include -I../../../../extern/server/include -I../../../../extern/server/include/mysql
 INCDIR += -I../../libpoly
 INCDIR += -I../../libgame/include
 INCDIR += -I../../libthecore/include
