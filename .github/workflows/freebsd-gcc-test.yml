@@ -1,4 +1,4 @@
-# Rev 42: Use <mysql.h> (no extern shadowing) + runtime client ABI guard, C++ mysql_hash_password (no SQL PASSWORD()), smoke schema aligned with db_r41023 InitializeTables queries
+# Rev 43: legacy-hash KAT + smklegacy/WRONGPWD auth, runtime ABI evidence, real-DB boot diagnostics (liveness/exit code/log tails), 900s smoke watchdog, 55 min job cap
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -37,7 +37,7 @@ jobs:
   freebsd-gcc14-matrix:
     name: FreeBSD 15.1 - ${{ matrix.engine_name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:

@@ -1133,13 +1133,23 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           2. `tests/run_server_smoke_test.sh`: Hash öz-testi başlangıçta zorunlu; sabit eski hash'li `smklegacy` hesabı (id 9002) eklendi; her iki Lua ikilisinde gerçek `AUTH_SERVER` üzerinde yanlış şifre → `WRONGPWD` reddi ve eski hesap → `HEADER_GC_AUTH_SUCCESS` doğrulanır (`PulseManager` 500 ms/IP sınırı için 1 sn aralık). `[2/6]` aşamasında `db_r41023` çalışma zamanı ABI satırı zorunlu tutulur ve başlık türü sunucu motoruyla (`VERSION()`) karşılaştırılır.
           3. `server/src/libsql/AsyncSQL.cpp`: Fail-closed ABI korumasına ek olarak bir kez `AsyncSQL client ABI OK: header=...(MYSQL_VERSION_ID=...) runtime_lib=...(client_version=...)` kanıt satırı yazılır.
         * **Windows:** `--self-test-hash` 2/2 PASS (exit 0, `-Wall -Wextra -Werror`); CTest 13/13 PASS. FreeBSD tarafı **henüz doğrulanmadı**.
+        * **FreeBSD CI Rev 42 (Run 38647690114 / Commit `76c2adea`) Kesin Sonuçları — 3/3 FAILURE (takılma YOK):**
+          * MySQL 8.4 (`116138527814`, 16 dk), MariaDB 12.3 (`116138527928`, 25 dk), MariaDB 11.4 (`116138528000`, 24 dk). MariaDB işleri yavaş derleme nedeniyle uzun sürdü; log zaman damgaları sürekli ilerliyordu, gerçek takılma yoktu ve CI iptal edilmedi.
+          * **Doğrulanan ilerleme (üç motorda da PASS):** `[1/6]` strict şema + C++ hash == SQL `SHA1(UNHEX(SHA1))` (PASSWORD() yok); `[2/6]` gerçek `db_r41023` başlangıcı ve tüm tablo yüklemesi — **MySQL 8.4'te ilk kez geçti, `<mysql.h>` başlık düzeltmesi FreeBSD'de kanıtlandı**; `[3a/6]` Lua 5.0 ve `[3b/6]` Lua 5.5 mock-DB + 32-bit handshake + InitializeLua.
+          * **İlk gerçek hata (üç motorda aynı):** `[4-5/6] game_r41023 (Lua 5.0.3)` gerçek `db_r41023` ile 10 sn içinde `boot packet end check ok` satırına ulaşmadı. Oyun `syserr` boş; `db_r41023` logları ve oyun süreç durumu betik tarafından yazdırılmadığı için kök neden kanıtlanamadı (oyunun sessizce çökmesi veya boot paketinin ulaşmaması ayırt edilemedi). Motor bağımsız olduğu için SQL motoru kaynaklı değildir.
+          * **Gerçek login (AUTH → LoginByKey → PHASE_SELECT → karakter listesi):** Lua 5.0 ve Lua 5.5 için **ÇALIŞTIRILAMADI** (boot aşamasında durdu).
+        * **Rev 43 Ek Düzeltmeleri (tanı ve takılma koruması):**
+          1. `run_server_smoke_test.sh`: `dump_stage_logs` — db/AUTH/GAME süreç canlılığı ve çıkış kodu (sinyal numarası dahil), oyun/auth/db stdout/stderr/syserr/syslog son 60 satır ve `BOOT`/`QUERY_BOOT`/`PHASE_DBCLIENT` ilerleme satırları; tüm gerçek-DB hata yollarında kullanılır.
+          2. Boot bekleme: 30 sn üst sınır, `GAME_SERVER` erken ölürse anında hata.
+          3. Global 900 sn smoke watchdog (`SMOKE_TIMEOUT_SEC`) → SIGTERM → trap ile sınırlı süreç temizliği; Windows Git sh ile normal çıkış (0 sn ek gecikme) ve takılma (2 sn'de tetiklendi) senaryoları doğrulandı.
+          4. `freebsd-gcc-test.yml`: iş başına `timeout-minutes` 45 → 55 (≈25 dk derleme + 15 dk smoke watchdog tanıların kesilmeden yazılmasına izin verir; CI yine sınırsız RUNNING kalamaz).
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 1.65s, 0 hata) ve `test_server_smoke_client.exe` (`-Wall -Wextra -Werror`) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline`):** Rev 41 (`4fd19abc`) push edildi; Rev 42 commit ve push edilecek.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 42 (`76c2adea`) push edildi; Rev 43 push edilecek.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38627313843** (Rev 39 / Commit `a6333936b82819ecbc1c9d7e86832dd5a5ce13a7`): Hem `game_r41023 --check-lua` (Lua 5.0.3) hem `game_r41023_lua55 --check-lua` (Lua 5.5.1) **11/11 PASS (exit code 0)**, CMake + Ninja `[541/541]` hedef derlemesi ve `ctest --preset freebsd-gcc14` **13/13 PASS (0.09s)** kanıtlandı.
@@ -1173,8 +1183,8 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 42: `<mysql.h>` başlık düzeltmesi, C++ `mysql_hash_password` (SQL `PASSWORD()` yok) ve `db_r41023` sorgularıyla hizalanmış smoke şeması ile 6 aşamalı gerçek `db_r41023` + `HEADER_DG_BOOT` + `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey` / `PHASE_SELECT`) duman testini 3 DB matrisinde (`MariaDB 11.4 LTS`, `MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) doğrulamak.
+* **Aktif Görev:** Rev 43: Rev 42 CI 38647690114'te 3/3 motorda `[4-5/6] game_r41023 (Lua 5.0.3)` gerçek DB ile `HEADER_DG_BOOT` tamamlanmadı (syserr boş, kök neden kanıtlanmadı). Rev 43 tanı çıktıları (`[DIAG]`: GAME pid çıkış kodu/sinyal, BOOT ilerleme satırları, game/db syslog/syserr kuyrukları), 30 sn crash algılamalı boot beklemesi, 900 sn global watchdog ve 55 dk job sınırı eklendi. Hedef: kök nedeni bulup 6 aşamalı gerçek AUTH + GAME login testini Lua 5.0 ve Lua 5.5 için 3 DB matrisinde geçirmek.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 42 CI koşusunun sonucunu tam SHA ile bir kez sorgulamak; FAILED ise ilk gerçek hata logundan düzeltmek.
+   1. Rev 43 CI koşusunu tam SHA ile bir kez sorgulamak; `[DIAG]` bloklarından gerçek DB boot hatasının kök nedenini bulup düzeltmek.
    2. 3/3 matris işinde `[1/6]..[6/6]` duman testi %100 SUCCESS doğrulandıktan sonra Lua 5.5.1'i (`ENABLE_LUA_5_VERSION=5`) varsayılan üretim motoruna yükseltmek.
 

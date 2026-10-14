@@ -112,9 +112,77 @@ cleanup_all() {
     ACTIVE_MOCK_PID=""
     stop_pid_bounded "$ACTIVE_DB_PID"
     ACTIVE_DB_PID=""
+    if [ -n "$WATCHDOG_PID" ]; then
+        kill -TERM "$WATCHDOG_PID" 2>/dev/null || true
+        WATCHDOG_PID=""
+    fi
     rm -rf "$SMOKE_ROOT"
 }
 trap cleanup_all EXIT INT TERM
+
+# Global watchdog: the whole smoke test must finish within SMOKE_TIMEOUT_SEC (default 900s).
+# On expiry the main shell gets SIGTERM -> trap -> bounded cleanup of every server process.
+SMOKE_TIMEOUT_SEC="${SMOKE_TIMEOUT_SEC:-900}"
+MAIN_SHELL_PID=$$
+(
+    trap 'kill "$WD_SLEEP_PID" 2>/dev/null; exit 0' TERM INT
+    sleep "$SMOKE_TIMEOUT_SEC" </dev/null >/dev/null 2>&1 &
+    WD_SLEEP_PID=$!
+    wait "$WD_SLEEP_PID" || exit 0
+    echo "HATA: [WATCHDOG] run_server_smoke_test.sh ${SMOKE_TIMEOUT_SEC} sn sınırını aştı; süreçler sonlandırılıyor." >&2
+    kill -TERM "$MAIN_SHELL_PID" 2>/dev/null
+) &
+WATCHDOG_PID=$!
+
+# Report whether a background PID is alive; if it exited, reap it and print its exit status
+report_pid_state() {
+    TAG="$1"
+    P="$2"
+    if [ -z "$P" ]; then
+        echo "  [DIAG] $TAG: PID yok"
+        return 0
+    fi
+    if kill -0 "$P" 2>/dev/null; then
+        echo "  [DIAG] $TAG (pid=$P): ÇALIŞIYOR"
+    else
+        RC=0
+        wait "$P" 2>/dev/null || RC=$?
+        echo "  [DIAG] $TAG (pid=$P): SONLANDI exit=$RC (>128 ise sinyal=$((RC - 128)))"
+    fi
+}
+
+# Print the tail of a log file with a header (bounded output)
+tail_log() {
+    if [ -s "$2" ]; then
+        echo "----- [DIAG] $1: $2 (son 60 satır) -----"
+        tail -n 60 "$2"
+    else
+        echo "----- [DIAG] $1: $2 (yok veya boş) -----"
+    fi
+}
+
+# Dump every relevant log for a failed real-DB stage (game, auth, db)
+dump_stage_logs() {
+    report_pid_state "db_r41023" "$ACTIVE_DB_PID"
+    report_pid_state "AUTH_SERVER" "$ACTIVE_AUTH_PID"
+    report_pid_state "GAME_SERVER" "$ACTIVE_GAME_PID"
+    for d in "$GAME_WORK" "$AUTH_WORK"; do
+        if [ -z "$d" ]; then continue; fi
+        for f in game_stdout.log game_stderr.log auth_stdout.log auth_stderr.log syserr syslog; do
+            if [ -e "$d/$f" ]; then tail_log "$(basename "$d")" "$d/$f"; fi
+        done
+    done
+    for f in "$DB_WORK"/db_stdout*.log "$DB_WORK"/db_stderr*.log "$DB_WORK/syserr" "$DB_WORK/syslog"; do
+        if [ -e "$f" ]; then tail_log "db" "$f"; fi
+    done
+    for f in "$GAME_WORK/syslog" "$DB_WORK/syslog"; do
+        if [ -s "$f" ]; then
+            echo "----- [DIAG] BOOT ilerleme satırları: $f -----"
+            grep -E "BOOT|QUERY_BOOT|boot packet|PHASE_DBCLIENT|SETUP" "$f" | tail -n 40 || true
+        fi
+    done
+    return 0
+}
 
 # ------------------------------------------------------------------------------
 # Helper: Prepare isolated game working directory (real FTP Lua if present + drop/map files)
@@ -1128,22 +1196,29 @@ EOF
     ) &
     ACTIVE_GAME_PID=$!
 
-    # Wait up to 10s for CInputDB::Boot ("boot packet end check ok") on GAME_SERVER
+    # Wait up to 30s for CInputDB::Boot ("boot packet end check ok"); abort early if GAME_SERVER dies
     BOOT_OK=0
-    for _ in $(seq 1 20); do
+    GAME_DIED=0
+    for _ in $(seq 1 60); do
         if grep -q "boot packet end check ok" "$GAME_WORK/game_stdout.log" 2>/dev/null || \
            grep -q "boot packet end check ok" "$GAME_WORK/syslog" 2>/dev/null; then
             BOOT_OK=1
+            break
+        fi
+        if ! kill -0 "$ACTIVE_GAME_PID" 2>/dev/null; then
+            GAME_DIED=1
             break
         fi
         sleep 0.5 2>/dev/null || sleep 1
     done
 
     if [ "$BOOT_OK" != "1" ]; then
-        echo "HATA: $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot) akışını tamamlamadı!" >&2
-        cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
-        cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
-        cat "$GAME_WORK/syserr" 2>/dev/null || true
+        if [ "$GAME_DIED" = "1" ]; then
+            echo "HATA: $STAGE_TAG $LABEL GAME_SERVER HEADER_DG_BOOT tamamlanmadan sonlandı!" >&2
+        else
+            echo "HATA: $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot) akışını 30 sn içinde tamamlamadı!" >&2
+        fi
+        dump_stage_logs
         exit 1
     fi
     echo "  [PASS] $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot + CQuestManager::Boot) paketini eksiksiz yükledi (boot packet end check ok [ffff]==0xffff)."
@@ -1174,7 +1249,7 @@ EOF
     # 3a. Negative check: wrong password must be rejected by the real AUTH_SERVER with WRONGPWD
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "@ENV" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
         echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER yanlış şifreyi WRONGPWD ile reddetmedi!" >&2
-        cat "$AUTH_WORK/syserr" 2>/dev/null || true
+        dump_stage_logs
         exit 1
     fi
     sleep 1
@@ -1184,7 +1259,7 @@ EOF
     rm -f "$LEGACY_KEY_FILE"
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
         echo "HATA: $STAGE_TAG $LABEL eski (MySQL 5.x PASSWORD) biçimli hesap AUTH_SERVER üzerinde doğrulanamadı!" >&2
-        cat "$AUTH_WORK/syserr" 2>/dev/null || true
+        dump_stage_logs
         exit 1
     fi
     echo "  [PASS] $STAGE_TAG $LABEL eski MT2009 hesap şifre biçimi (*SHA1(SHA1)) gerçek AUTH_SERVER üzerinde kabul edildi, yanlış şifre reddedildi."
@@ -1195,10 +1270,7 @@ EOF
     rm -f "$KEY_FILE"
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "@ENV" "@ENV" "$SMOKE_HWID_HEX" "$KEY_FILE"; then
         echo "HATA: $STAGE_TAG $LABEL gerçek AUTH_SERVER hesap girişi (HEADER_CG_LOGIN3) başarısız oldu!" >&2
-        cat "$AUTH_WORK/auth_stdout.log" 2>/dev/null || true
-        cat "$AUTH_WORK/auth_stderr.log" 2>/dev/null || true
-        cat "$AUTH_WORK/syserr" 2>/dev/null || true
-        cat "$DB_WORK/db_stderr_${HOSTNAME_TAG}.log" 2>/dev/null || true
+        dump_stage_logs
         exit 1
     fi
 
@@ -1211,10 +1283,7 @@ EOF
     # 4. Execute real GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> HEADER_GD_LOGIN_BY_KEY -> HEADER_DG_LOGIN_SUCCESS -> PHASE_SELECT)
     if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "@ENV" "$LOGIN_KEY"; then
         echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> PHASE_SELECT) başarısız oldu!" >&2
-        cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
-        cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
-        cat "$GAME_WORK/syserr" 2>/dev/null || true
-        cat "$DB_WORK/db_stderr_${HOSTNAME_TAG}.log" 2>/dev/null || true
+        dump_stage_logs
         exit 1
     fi
 
