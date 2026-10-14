@@ -29,6 +29,11 @@ unsigned long STDCALL mysql_get_client_version(void)
 	return MYSQL_VERSION_ID;
 }
 
+const char * STDCALL mysql_get_client_info(void)
+{
+	return "mock-client";
+}
+
 MYSQL * STDCALL mysql_init(MYSQL * mysql)
 {
 	if (!mysql)

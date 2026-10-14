@@ -73,6 +73,7 @@ fi
 
 SMOKE_ROOT="/tmp/mt2_smoke_$$"
 mkdir -p "$SMOKE_ROOT"
+"$BUILD_DIR/test_server_smoke_client" --self-test-hash
 "$BUILD_DIR/test_server_smoke_client" --hash-env-pass "$SMOKE_ROOT/pass_hash.txt"
 SMOKE_PASS_HASH=$(tr -d '\r\n ' < "$SMOKE_ROOT/pass_hash.txt")
 rm -f "$SMOKE_ROOT/pass_hash.txt"
@@ -887,6 +888,9 @@ EOF
 SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
 INSERT INTO account (id, login, password, social_id, status, hwid)
 VALUES (9001, '$SMOKE_TEST_LOGIN', '$SMOKE_PASS_HASH', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
+-- Legacy account: literal hash as stored by MySQL 5.x/MariaDB PASSWORD('password') in existing MT2009 databases
+INSERT INTO account (id, login, password, social_id, status, hwid)
+VALUES (9002, 'smklegacy', '*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
 EOF
 
 HASH_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT IF(password = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('$SMOKE_TEST_PASS'))))), 1, 0) FROM account WHERE id=9001;")
@@ -937,6 +941,22 @@ if ! "$BUILD_DIR/test_server_smoke_client" --probe-db 15010; then
     exit 1
 fi
 echo "  [PASS] [2/6] db_r41023 izole ortamda başarıyla başlatıldı, tüm SQL proto/cache tablolarını yükledi ve 127.0.0.1:15010 üzerinde aktif."
+
+ABI_LINE=$(grep -m1 "AsyncSQL client ABI OK" "$DB_WORK/db_stdout.log" 2>/dev/null || true)
+if [ -z "$ABI_LINE" ]; then
+    echo "HATA: [2/6] db_r41023 çalışma zamanı istemci ABI doğrulama satırını üretmedi!" >&2
+    cat "$DB_WORK/db_stdout.log" 2>/dev/null || true
+    exit 1
+fi
+SERVER_FLAVOR=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" -e "SELECT IF(VERSION() LIKE '%MariaDB%', 'MariaDB', 'MySQL');")
+case "$ABI_LINE" in
+    *"header=$SERVER_FLAVOR("*) ;;
+    *)
+        echo "HATA: [2/6] db_r41023 başlık türü sunucu motoruyla eşleşmiyor (motor=$SERVER_FLAVOR): $ABI_LINE" >&2
+        exit 1
+        ;;
+esac
+echo "  [PASS] [2/6] Çalışma zamanı ABI doğrulandı (motor=$SERVER_FLAVOR): $ABI_LINE"
 
 # ------------------------------------------------------------------------------
 # [3/6] Mock-DB + 32-Bit TCP Wire Handshake (PHASE_HANDSHAKE -> PHASE_LOGIN)
@@ -1150,6 +1170,25 @@ EOF
         exit 1
     fi
     echo "  [PASS] $STAGE_TAG $LABEL canlı SQL veritabanına bootlog kaydını başarıyla yazdı (hostname=$HOSTNAME_TAG)."
+
+    # 3a. Negative check: wrong password must be rejected by the real AUTH_SERVER with WRONGPWD
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "@ENV" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER yanlış şifreyi WRONGPWD ile reddetmedi!" >&2
+        cat "$AUTH_WORK/syserr" 2>/dev/null || true
+        exit 1
+    fi
+    sleep 1
+
+    # 3b. Legacy account compatibility: literal MySQL 5.x PASSWORD('password') hash must authenticate on every engine
+    LEGACY_KEY_FILE="$AUTH_WORK/legacy_login_key.txt"
+    rm -f "$LEGACY_KEY_FILE"
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
+        echo "HATA: $STAGE_TAG $LABEL eski (MySQL 5.x PASSWORD) biçimli hesap AUTH_SERVER üzerinde doğrulanamadı!" >&2
+        cat "$AUTH_WORK/syserr" 2>/dev/null || true
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL eski MT2009 hesap şifre biçimi (*SHA1(SHA1)) gerçek AUTH_SERVER üzerinde kabul edildi, yanlış şifre reddedildi."
+    sleep 1
 
     # 3. Execute real AUTH_SERVER login (HEADER_CG_LOGIN3 -> QID_AUTH_LOGIN -> HEADER_GD_AUTH_LOGIN -> HEADER_GC_AUTH_SUCCESS)
     KEY_FILE="$AUTH_WORK/login_key.txt"

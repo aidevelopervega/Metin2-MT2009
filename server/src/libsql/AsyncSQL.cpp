@@ -6,6 +6,7 @@
 #include <cstring>
 #include <memory>
 #include <cctype>
+#include <mutex>
 
 #include "AsyncSQL.h"
 
@@ -287,6 +288,19 @@ bool CAsyncSQL::Connect()
 		return false;
 	}
 #endif
+	{
+		static std::once_flag s_abiLogOnce;
+		std::call_once(s_abiLogOnce, [client_ver]() {
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
+			const char* header_flavor = "MariaDB";
+#else
+			const char* header_flavor = "MySQL";
+#endif
+			fprintf(stdout, "AsyncSQL client ABI OK: header=%s(MYSQL_VERSION_ID=%d) runtime_lib=%s(client_version=%lu)\n",
+				header_flavor, static_cast<int>(MYSQL_VERSION_ID), mysql_get_client_info(), client_ver);
+			fflush(stdout);
+		});
+	}
 
 	if (0 == mysql_init(&m_hDB))
 	{

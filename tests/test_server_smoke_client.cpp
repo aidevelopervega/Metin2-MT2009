@@ -446,7 +446,29 @@ static int run_hash_env_pass(const char* out_file) {
 	return 0;
 }
 
-static int run_auth_login(int port, const char* login_arg, const char* passwd_arg, const char* hwid_hex, const char* key_out_file) {
+// Known-answer vectors produced by legacy MySQL 4.1+/5.x/MariaDB PASSWORD() and stored
+// verbatim in existing MT2009 account.password rows. The game's mysql_hash_password()
+// must reproduce them byte-for-byte so old accounts keep authenticating on MySQL 8.4.
+static int run_self_test_hash() {
+	struct { const char* pwd; const char* expected; } vectors[] = {
+		{ "password", "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19" },
+		{ "root",     "*81F5E21E35407D884A6CD4A731AEBFB6AF209E1B" },
+	};
+	int failures = 0;
+	for (const auto& v : vectors) {
+		char hash[42]{};
+		compute_mt2_password_hash(v.pwd, hash);
+		if (std::strcmp(hash, v.expected) != 0) {
+			std::fprintf(stderr, "[self-test-hash] FAIL: legacy vector mismatch got=%s expected=%s\n", hash, v.expected);
+			++failures;
+		}
+	}
+	if (failures == 0)
+		std::printf("  [PASS] [self-test-hash] %zu legacy MySQL PASSWORD() known-answer vectors reproduced byte-for-byte\n", sizeof(vectors) / sizeof(vectors[0]));
+	return failures == 0 ? 0 : 1;
+}
+
+static int run_auth_login(int port, const char* login_arg, const char* passwd_arg, const char* hwid_hex, const char* key_out_file, const char* expect_fail_status = nullptr) {
 	const char* login = (std::strcmp(login_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_LOGIN") : login_arg;
 	const char* passwd = (std::strcmp(passwd_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_PASS") : passwd_arg;
 	if (!login || !*login || !passwd || !*passwd) {
@@ -512,7 +534,22 @@ static int run_auth_login(int port, const char* login_arg, const char* passwd_ar
 		SmokePacketGCLoginFailure failPkt{};
 		std::memcpy(&failPkt, respDec, sizeof(failPkt));
 		failPkt.szStatus[sizeof(failPkt.szStatus) - 1] = '\0';
+		CLOSESOCK(s);
+		if (expect_fail_status) {
+			if (std::strcmp(failPkt.szStatus, expect_fail_status) == 0) {
+				std::printf("  [PASS] [auth-expect-fail] AUTH_SERVER correctly rejected login with HEADER_GC_LOGIN_FAILURE status='%s'\n", failPkt.szStatus);
+				return 0;
+			}
+			std::fprintf(stderr, "[auth-expect-fail] FAIL: expected status='%s' but got '%s'\n", expect_fail_status, failPkt.szStatus);
+			return 1;
+		}
 		std::fprintf(stderr, "[auth-login] FAIL: AUTH_SERVER returned HEADER_GC_LOGIN_FAILURE status='%s'\n", failPkt.szStatus);
+		return 1;
+	}
+
+	if (expect_fail_status) {
+		std::fprintf(stderr, "[auth-expect-fail] FAIL: AUTH_SERVER did not reject login (header=%u), expected status='%s'\n",
+			static_cast<unsigned>(respDec[0]), expect_fail_status);
 		CLOSESOCK(s);
 		return 1;
 	}
@@ -680,6 +717,10 @@ int main(int argc, char** argv) {
 		rc = run_hash_env_pass(argv[2]);
 	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-login") == 0) {
 		rc = run_auth_login(std::atoi(argv[2]), argv[3], argv[4], argv[5], argv[6]);
+	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-expect-fail") == 0) {
+		rc = run_auth_login(std::atoi(argv[2]), argv[3], argv[4], argv[5], "", argv[6]);
+	} else if (argc >= 2 && std::strcmp(argv[1], "--self-test-hash") == 0) {
+		rc = run_self_test_hash();
 	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key") == 0) {
 		rc = run_game_login_key(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
 	} else {
@@ -688,9 +729,11 @@ int main(int argc, char** argv) {
 			"  %s --probe-game <port>\n"
 			"  %s --probe-db <port>\n"
 			"  %s --hash-env-pass <out_file>\n"
+			"  %s --self-test-hash\n"
 			"  %s --auth-login <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <key_out_file>\n"
+			"  %s --auth-expect-fail <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <expected_status>\n"
 			"  %s --game-login-key <port> <login|@ENV> <login_key>\n",
-			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
+			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();
