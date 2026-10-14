@@ -25,7 +25,7 @@ typedef int sock_t;
 #pragma pack(push, 1)
 struct SmokePacketGCPhase {
 	uint8_t header; // 0xFD (HEADER_GC_PHASE)
-	uint8_t phase;  // 1 = PHASE_HANDSHAKE, 2 = PHASE_LOGIN
+	uint8_t phase;  // 1 = PHASE_HANDSHAKE, 2 = PHASE_LOGIN, 3 = PHASE_SELECT, 10 = PHASE_AUTH
 };
 
 struct SmokePacketHandshake {
@@ -34,10 +34,108 @@ struct SmokePacketHandshake {
 	uint32_t dwTime;
 	int32_t  lDelta;
 };
+
+struct SmokePacketCGLogin2 {
+	uint8_t  header;      // 109 (HEADER_CG_LOGIN2)
+	char     login[31];   // LOGIN_MAX_LEN (30) + 1
+	uint32_t dwLoginKey;
+	uint32_t adwClientKey[4];
+};
+
+struct SmokePacketCGLogin3 {
+	uint8_t  header;      // 111 (HEADER_CG_LOGIN3)
+	char     login[31];   // LOGIN_MAX_LEN (30) + 1
+	char     passwd[17];  // PASSWD_MAX_LEN (16) + 1
+	uint32_t adwClientKey[4];
+	char     hwid[256];   // HWID_MAX_LEN (255) + 1
+};
+
+struct SmokePacketGCAuthSuccess {
+	uint8_t  bHeader;     // 150 (HEADER_GC_AUTH_SUCCESS)
+	uint32_t dwLoginKey;
+	uint8_t  bResult;
+};
+
+struct SmokePacketGCLoginFailure {
+	uint8_t  header;      // 7 (HEADER_GC_LOGIN_FAILURE)
+	char     szStatus[9]; // ACCOUNT_STATUS_MAX_LEN (8) + 1
+};
 #pragma pack(pop)
 
 static_assert(sizeof(SmokePacketGCPhase) == 2, "SmokePacketGCPhase must be 2 bytes");
 static_assert(sizeof(SmokePacketHandshake) == 13, "SmokePacketHandshake must be 13 bytes");
+static_assert(sizeof(SmokePacketCGLogin2) == 52, "SmokePacketCGLogin2 must be 52 bytes");
+static_assert(sizeof(SmokePacketCGLogin3) == 321, "SmokePacketCGLogin3 must be 321 bytes");
+static_assert(sizeof(SmokePacketGCAuthSuccess) == 6, "SmokePacketGCAuthSuccess must be 6 bytes");
+static_assert(sizeof(SmokePacketGCLoginFailure) == 10, "SmokePacketGCLoginFailure must be 10 bytes");
+
+// ==============================================================================
+// Metin2 32-Bit Wire TEA Cipher (matches server/src/libthecore/src/tea.c & desc.cpp)
+// ==============================================================================
+static constexpr uint32_t TEA_DELTA = 0x9E3779B9u;
+static constexpr uint32_t TEA_ROUNDS = 32u;
+
+static void tea_code(uint32_t sz, uint32_t sy, const uint32_t* key, uint32_t* dest) {
+	uint32_t y = sy, z = sz, sum = 0;
+	for (uint32_t r = 0; r < TEA_ROUNDS; ++r) {
+		y += (((z << 4) ^ (z >> 5)) + z) ^ (sum + key[sum & 3]);
+		sum += TEA_DELTA;
+		z += (((y << 4) ^ (y >> 5)) + y) ^ (sum + key[(sum >> 11) & 3]);
+	}
+	dest[0] = y;
+	dest[1] = z;
+}
+
+static void tea_decode(uint32_t sz, uint32_t sy, const uint32_t* key, uint32_t* dest) {
+	uint32_t y = sy, z = sz, sum = TEA_DELTA * TEA_ROUNDS;
+	for (uint32_t r = 0; r < TEA_ROUNDS; ++r) {
+		z -= (((y << 4) ^ (y >> 5)) + y) ^ (sum + key[(sum >> 11) & 3]);
+		sum -= TEA_DELTA;
+		y -= (((z << 4) ^ (z >> 5)) + z) ^ (sum + key[sum & 3]);
+	}
+	dest[0] = y;
+	dest[1] = z;
+}
+
+static int smoke_tea_encrypt(uint32_t* dest, const uint32_t* src, const uint32_t* key, int size) {
+	int resize = (size % 8 != 0) ? (size + 8 - (size % 8)) : size;
+	for (int i = 0; i < (resize >> 3); ++i, dest += 2, src += 2)
+		tea_code(*(src + 1), *src, key, dest);
+	return resize;
+}
+
+static int smoke_tea_decrypt(uint32_t* dest, const uint32_t* src, const uint32_t* key, int size) {
+	int resize = (size % 8 != 0) ? (size + 8 - (size % 8)) : size;
+	for (int i = 0; i < (resize >> 3); ++i, dest += 2, src += 2)
+		tea_decode(*(src + 1), *src, key, dest);
+	return resize;
+}
+
+static const uint8_t* get_key_20050304_myevan() {
+	static bool bGenerated = false;
+	static uint32_t s_adwKey[1938];
+	if (!bGenerated) {
+		bGenerated = true;
+		uint32_t seed = 1491971513u;
+		for (uint32_t i = 0; i < static_cast<uint8_t>(seed); ++i) {
+			seed ^= 2148941891u;
+			seed += 3592385981u;
+			s_adwKey[i] = seed;
+		}
+	}
+	return reinterpret_cast<const uint8_t*>(s_adwKey);
+}
+
+static void get_initial_tea_key(uint32_t out_key[4]) {
+	std::memcpy(out_key, "9382ujfn8237gydb", 16);
+}
+
+static void compute_security_tea_key(const uint32_t client_key[4], uint32_t out_server_enc_key[4]) {
+	const uint8_t* c_pszKey = get_key_20050304_myevan() + 37;
+	uint32_t aligned_key[4]{};
+	std::memcpy(aligned_key, c_pszKey, 16);
+	smoke_tea_encrypt(out_server_enc_key, client_key, aligned_key, 16);
+}
 
 static void sleep_ms(int ms) {
 #ifdef _WIN32
@@ -120,11 +218,10 @@ static int run_mock_db(int port, const char* ready_file, const char* out_file) {
 	uint8_t first_header = 0;
 	uint8_t buf[4096];
 
-	// Wait up to 3 seconds for initial GD packets (HEADER_GD_BOOT, HEADER_GD_SETUP, HEADER_GD_UPDATE_CHANNELSTATUS)
 	for (int iter = 0; iter < 30; ++iter) {
 		FD_ZERO(&rfds);
 		FD_SET(cli, &rfds);
-		struct timeval rtv{0, 100000}; // 100ms
+		struct timeval rtv{0, 100000};
 		int sel = select(static_cast<int>(cli + 1), &rfds, nullptr, nullptr, &rtv);
 		if (sel > 0) {
 			int n = recv(cli, reinterpret_cast<char*>(buf), sizeof(buf), 0);
@@ -144,8 +241,7 @@ static int run_mock_db(int port, const char* ready_file, const char* out_file) {
 		std::fclose(fp);
 	}
 
-	// Keep the socket open until the game server closes it (max 10s)
-	for (int iter = 0; iter < 100; ++iter) {
+	for (int iter = 0; iter < 60; ++iter) {
 		FD_ZERO(&rfds);
 		FD_SET(cli, &rfds);
 		struct timeval rtv{0, 100000};
@@ -182,65 +278,275 @@ static sock_t connect_with_retry(int port, int max_attempts) {
 	return INVALID_SOCKET;
 }
 
-static int run_probe_game(int port) {
-	sock_t s = connect_with_retry(port, 60);
-	if (s == INVALID_SOCKET) {
-		std::fprintf(stderr, "[probe-game] FAIL: could not connect to 127.0.0.1:%d\n", port);
-		return 1;
-	}
-
+// Completes the unencrypted 32-bit wire handshake (PHASE_HANDSHAKE -> expected_phase).
+// Handles multi-round TPacketGCHandshake(0xFF) time-sync challenges until TPacketGCPhase(0xFD, expected_phase) arrives.
+static bool complete_wire_handshake(sock_t s, uint8_t expected_phase, const char* tag) {
 	SmokePacketGCPhase phasePkt{};
 	SmokePacketHandshake hsPkt{};
 	uint8_t initBuf[15]{};
 	if (!recv_exact_timeout(s, initBuf, sizeof(initBuf), 5)) {
-		std::fprintf(stderr, "[probe-game] FAIL: timeout reading initial 15-byte phase+handshake packet\n");
-		CLOSESOCK(s);
-		return 1;
+		std::fprintf(stderr, "[%s] FAIL: timeout reading initial 15-byte phase+handshake packet\n", tag);
+		return false;
 	}
 
 	std::memcpy(&phasePkt, initBuf, sizeof(phasePkt));
 	std::memcpy(&hsPkt, initBuf + sizeof(phasePkt), sizeof(hsPkt));
 
 	if (phasePkt.header != 0xFD || phasePkt.phase != 1) {
-		std::fprintf(stderr, "[probe-game] FAIL: expected TPacketGCPhase(0xFD, 1), got (0x%02X, %u)\n",
-			phasePkt.header, phasePkt.phase);
-		CLOSESOCK(s);
-		return 1;
+		std::fprintf(stderr, "[%s] FAIL: expected TPacketGCPhase(0xFD, 1), got (0x%02X, %u)\n",
+			tag, phasePkt.header, phasePkt.phase);
+		return false;
 	}
 
 	if (hsPkt.bHeader != 0xFF || hsPkt.dwHandshake == 0 || hsPkt.lDelta != 0) {
-		std::fprintf(stderr, "[probe-game] FAIL: invalid TPacketGCHandshake header=0x%02X handshake=%u time=%u delta=%d\n",
-			hsPkt.bHeader, hsPkt.dwHandshake, hsPkt.dwTime, hsPkt.lDelta);
+		std::fprintf(stderr, "[%s] FAIL: invalid initial TPacketGCHandshake header=0x%02X handshake=%u time=%u delta=%d\n",
+			tag, hsPkt.bHeader, hsPkt.dwHandshake, hsPkt.dwTime, hsPkt.lDelta);
+		return false;
+	}
+
+	std::printf("  [PASS] [%s] Received 32-bit wire TPacketGCPhase(0xFD, PHASE_HANDSHAKE=1) + TPacketGCHandshake(0xFF, id=%u, time=%u, delta=%d)\n",
+		tag, hsPkt.dwHandshake, hsPkt.dwTime, hsPkt.lDelta);
+
+	for (int round = 1; round <= 16; ++round) {
+		SmokePacketHandshake reply{};
+		reply.bHeader = 0xFF;
+		reply.dwHandshake = hsPkt.dwHandshake;
+		// Advance dwTime + lDelta slightly ahead to match the next 25-FPS server heart pulse (40ms) so bias is within [0, 50]
+		reply.dwTime = hsPkt.dwTime + (hsPkt.lDelta > 0 ? static_cast<uint32_t>(hsPkt.lDelta) : 0u);
+		reply.lDelta = 25;
+
+		if (send(s, reinterpret_cast<const char*>(&reply), sizeof(reply), 0) != sizeof(reply)) {
+			std::fprintf(stderr, "[%s] FAIL: could not send TPacketCGHandshake reply (round %d)\n", tag, round);
+			return false;
+		}
+
+		uint8_t nextHeader = 0;
+		if (!recv_exact_timeout(s, &nextHeader, 1, 5)) {
+			std::fprintf(stderr, "[%s] FAIL: timeout reading post-handshake header (round %d)\n", tag, round);
+			return false;
+		}
+
+		if (nextHeader == 0xFD) {
+			uint8_t newPhase = 0;
+			if (!recv_exact_timeout(s, &newPhase, 1, 5)) {
+				std::fprintf(stderr, "[%s] FAIL: timeout reading TPacketGCPhase phase byte\n", tag);
+				return false;
+			}
+			if (newPhase != expected_phase) {
+				std::fprintf(stderr, "[%s] FAIL: expected phase %u after handshake, got %u\n",
+					tag, static_cast<unsigned>(expected_phase), static_cast<unsigned>(newPhase));
+				return false;
+			}
+			std::printf("  [PASS] [%s] Handshake completed in %d round(s) -> TPacketGCPhase(0xFD, phase=%u)\n",
+				tag, round, static_cast<unsigned>(newPhase));
+			return true;
+		} else if (nextHeader == 0xFF) {
+			uint8_t rem[12]{};
+			if (!recv_exact_timeout(s, rem, sizeof(rem), 5)) {
+				std::fprintf(stderr, "[%s] FAIL: timeout reading retry TPacketGCHandshake body\n", tag);
+				return false;
+			}
+			hsPkt.bHeader = 0xFF;
+			std::memcpy(&hsPkt.dwHandshake, rem, sizeof(rem));
+			continue;
+		} else {
+			std::fprintf(stderr, "[%s] FAIL: unexpected header 0x%02X during handshake (round %d)\n",
+				tag, static_cast<unsigned>(nextHeader), round);
+			return false;
+		}
+	}
+
+	std::fprintf(stderr, "[%s] FAIL: handshake did not converge within 16 rounds\n", tag);
+	return false;
+}
+
+static int run_probe_game(int port) {
+	sock_t s = connect_with_retry(port, 60);
+	if (s == INVALID_SOCKET) {
+		std::fprintf(stderr, "[probe-game] FAIL: could not connect to 127.0.0.1:%d\n", port);
+		return 1;
+	}
+	bool ok = complete_wire_handshake(s, 2 /* PHASE_LOGIN */, "probe-game");
+	CLOSESOCK(s);
+	return ok ? 0 : 1;
+}
+
+static int run_auth_login(int port, const char* login, const char* passwd, const char* hwid_hex, const char* key_out_file) {
+	sock_t s = connect_with_retry(port, 60);
+	if (s == INVALID_SOCKET) {
+		std::fprintf(stderr, "[auth-login] FAIL: could not connect to AUTH_SERVER on 127.0.0.1:%d\n", port);
+		return 1;
+	}
+
+	if (!complete_wire_handshake(s, 10 /* PHASE_AUTH */, "auth-login")) {
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	std::printf("  [PASS] Received 32-bit wire TPacketGCPhase(0xFD, PHASE_HANDSHAKE=1) + TPacketGCHandshake(0xFF, id=%u, time=%u, delta=%d)\n",
-		hsPkt.dwHandshake, hsPkt.dwTime, hsPkt.lDelta);
+	SmokePacketCGLogin3 pkt{};
+	pkt.header = 111; // HEADER_CG_LOGIN3
+	std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
+	std::snprintf(pkt.passwd, sizeof(pkt.passwd), "%s", passwd);
+	pkt.adwClientKey[0] = 0x11223344u;
+	pkt.adwClientKey[1] = 0x55667788u;
+	pkt.adwClientKey[2] = 0x99AABBCCu;
+	pkt.adwClientKey[3] = 0xDDEEFF00u;
+	std::snprintf(pkt.hwid, sizeof(pkt.hwid), "%s", hwid_hex);
 
-	// Echo TPacketCGHandshake back to complete handshake and trigger PHASE_LOGIN transition
-	SmokePacketHandshake reply = hsPkt;
-	reply.lDelta = 0;
-	if (send(s, reinterpret_cast<const char*>(&reply), sizeof(reply), 0) != sizeof(reply)) {
-		std::fprintf(stderr, "[probe-game] FAIL: could not send TPacketCGHandshake reply\n");
+	// Pad 321-byte TPacketCGLogin3 to 328 bytes (multiple of 8) and TEA-encrypt with initial key "9382ujfn8237gydb"
+	uint8_t plainBuf[328]{};
+	uint8_t encBuf[328]{};
+	std::memcpy(plainBuf, &pkt, sizeof(pkt));
+
+	uint32_t initKey[4]{};
+	get_initial_tea_key(initKey);
+	int encLen = smoke_tea_encrypt(
+		reinterpret_cast<uint32_t*>(encBuf),
+		reinterpret_cast<const uint32_t*>(plainBuf),
+		initKey,
+		static_cast<int>(sizeof(pkt)));
+
+	if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen) {
+		std::fprintf(stderr, "[auth-login] FAIL: could not send TEA-encrypted TPacketCGLogin3 (%d bytes)\n", encLen);
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	fd_set rfds;
-	FD_ZERO(&rfds);
-	FD_SET(s, &rfds);
-	struct timeval tv{4, 0};
-	uint8_t respBuf[64]{};
-	int sel = select(static_cast<int>(s + 1), &rfds, nullptr, nullptr, &tv);
-	int n = (sel > 0) ? recv(s, reinterpret_cast<char*>(respBuf), sizeof(respBuf), 0) : -1;
-	if (n <= 0) {
-		std::fprintf(stderr, "[probe-game] FAIL: no post-handshake PHASE_LOGIN response received (n=%d)\n", n);
+	// Read first 8-byte TEA block from AUTH_SERVER
+	uint8_t respEnc[16]{};
+	uint8_t respDec[16]{};
+	if (!recv_exact_timeout(s, respEnc, 8, 8)) {
+		std::fprintf(stderr, "[auth-login] FAIL: timeout waiting for TPacketGCAuthSuccess from AUTH_SERVER\n");
+		CLOSESOCK(s);
+		return 1;
+	}
+	smoke_tea_decrypt(reinterpret_cast<uint32_t*>(respDec), reinterpret_cast<const uint32_t*>(respEnc), initKey, 8);
+
+	if (respDec[0] == 7 /* HEADER_GC_LOGIN_FAILURE */) {
+		// Read second 8-byte block of 10-byte TPacketGCLoginFailure
+		if (recv_exact_timeout(s, respEnc + 8, 8, 2)) {
+			smoke_tea_decrypt(reinterpret_cast<uint32_t*>(respDec + 8), reinterpret_cast<const uint32_t*>(respEnc + 8), initKey, 8);
+		}
+		SmokePacketGCLoginFailure failPkt{};
+		std::memcpy(&failPkt, respDec, sizeof(failPkt));
+		failPkt.szStatus[sizeof(failPkt.szStatus) - 1] = '\0';
+		std::fprintf(stderr, "[auth-login] FAIL: AUTH_SERVER returned HEADER_GC_LOGIN_FAILURE status='%s'\n", failPkt.szStatus);
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	std::printf("  [PASS] Handshake reply accepted by game server; received %d post-handshake wire bytes (PHASE_LOGIN transition)\n", n);
+	SmokePacketGCAuthSuccess authOk{};
+	std::memcpy(&authOk, respDec, sizeof(authOk));
+	if (authOk.bHeader != 150 || authOk.bResult != 1 || authOk.dwLoginKey == 0) {
+		std::fprintf(stderr, "[auth-login] FAIL: unexpected auth response header=%u key=%u result=%u\n",
+			static_cast<unsigned>(authOk.bHeader), authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	if (FILE* fp = std::fopen(key_out_file, "w")) {
+		std::fprintf(fp, "%u\n", authOk.dwLoginKey);
+		std::fclose(fp);
+	}
+
+	std::printf("  [PASS] [auth-login] Real AUTH_SERVER authenticated account '%s' -> HEADER_GC_AUTH_SUCCESS(150) dwLoginKey=%u bResult=%u\n",
+		login, authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
+	CLOSESOCK(s);
+	return 0;
+}
+
+static int run_game_login_key(int port, const char* login, uint32_t login_key) {
+	sock_t s = connect_with_retry(port, 60);
+	if (s == INVALID_SOCKET) {
+		std::fprintf(stderr, "[game-login-key] FAIL: could not connect to GAME_SERVER on 127.0.0.1:%d\n", port);
+		return 1;
+	}
+
+	if (!complete_wire_handshake(s, 2 /* PHASE_LOGIN */, "game-login-key")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	SmokePacketCGLogin2 pkt{};
+	pkt.header = 109; // HEADER_CG_LOGIN2
+	std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
+	pkt.dwLoginKey = login_key;
+	pkt.adwClientKey[0] = 0x11223344u;
+	pkt.adwClientKey[1] = 0x55667788u;
+	pkt.adwClientKey[2] = 0x99AABBCCu;
+	pkt.adwClientKey[3] = 0xDDEEFF00u;
+
+	// Pad 52-byte TPacketCGLogin2 to 56 bytes (multiple of 8) and TEA-encrypt with initial key "9382ujfn8237gydb"
+	uint8_t plainBuf[56]{};
+	uint8_t encBuf[56]{};
+	std::memcpy(plainBuf, &pkt, sizeof(pkt));
+
+	uint32_t initKey[4]{};
+	get_initial_tea_key(initKey);
+	int encLen = smoke_tea_encrypt(
+		reinterpret_cast<uint32_t*>(encBuf),
+		reinterpret_cast<const uint32_t*>(plainBuf),
+		initKey,
+		static_cast<int>(sizeof(pkt)));
+
+	if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen) {
+		std::fprintf(stderr, "[game-login-key] FAIL: could not send TEA-encrypted TPacketCGLogin2 (%d bytes)\n", encLen);
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// CInputLogin::LoginByKey calls d->SetSecurityKey(pinfo->adwClientKey) before sending replies
+	uint32_t serverEncKey[4]{};
+	compute_security_tea_key(pkt.adwClientKey, serverEncKey);
+
+	// Read TEA-encrypted packets from GAME_SERVER (TPacketGCEmpire [8B] + TPacketGCPhase(PHASE_SELECT=3) [8B] + TPacketGCLoginSuccess)
+	uint8_t rxEnc[512]{};
+	size_t rxTotal = 0;
+	bool sawPhaseSelect = false;
+	bool sawEmpire = false;
+	bool sawLoginSuccess = false;
+
+	for (int iter = 0; iter < 50 && !(sawPhaseSelect && sawLoginSuccess); ++iter) {
+		fd_set rfds;
+		FD_ZERO(&rfds);
+		FD_SET(s, &rfds);
+		struct timeval tv{0, 100000}; // 100ms
+		int sel = select(static_cast<int>(s + 1), &rfds, nullptr, nullptr, &tv);
+		if (sel > 0 && rxTotal < sizeof(rxEnc)) {
+			int n = recv(s, reinterpret_cast<char*>(rxEnc + rxTotal), static_cast<int>(sizeof(rxEnc) - rxTotal), 0);
+			if (n <= 0)
+				break;
+			rxTotal += static_cast<size_t>(n);
+
+			// Decrypt all complete 8-byte blocks received so far
+			size_t alignedLen = (rxTotal / 8) * 8;
+			for (size_t off = 0; off < alignedLen; off += 8) {
+				uint8_t blk[8]{};
+				smoke_tea_decrypt(reinterpret_cast<uint32_t*>(blk), reinterpret_cast<const uint32_t*>(rxEnc + off), serverEncKey, 8);
+				if (blk[0] == 90 /* HEADER_GC_EMPIRE */) {
+					sawEmpire = true;
+				} else if (blk[0] == 0xFD /* HEADER_GC_PHASE */ && blk[1] == 3 /* PHASE_SELECT */) {
+					sawPhaseSelect = true;
+				} else if (blk[0] == 32 /* HEADER_GC_LOGIN_SUCCESS_NEWSLOT */ || blk[0] == 6 /* HEADER_GC_LOGIN_SUCCESS */) {
+					sawLoginSuccess = true;
+				} else if (blk[0] == 7 /* HEADER_GC_LOGIN_FAILURE */) {
+					std::fprintf(stderr, "[game-login-key] FAIL: GAME_SERVER returned HEADER_GC_LOGIN_FAILURE\n");
+					CLOSESOCK(s);
+					return 1;
+				}
+			}
+		}
+	}
+
+	if (!sawPhaseSelect || !sawLoginSuccess) {
+		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d)\n",
+			rxTotal, sawEmpire ? 1 : 0, sawPhaseSelect ? 1 : 0, sawLoginSuccess ? 1 : 0);
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=%u via db_r41023 -> HEADER_GC_EMPIRE(90) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32) (%zu wire bytes)\n",
+		login_key, rxTotal);
 	CLOSESOCK(s);
 	return 0;
 }
@@ -268,11 +574,18 @@ int main(int argc, char** argv) {
 		rc = run_probe_game(std::atoi(argv[2]));
 	} else if (argc >= 3 && std::strcmp(argv[1], "--probe-db") == 0) {
 		rc = run_probe_db(std::atoi(argv[2]));
+	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-login") == 0) {
+		rc = run_auth_login(std::atoi(argv[2]), argv[3], argv[4], argv[5], argv[6]);
+	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key") == 0) {
+		rc = run_game_login_key(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
 	} else {
 		std::fprintf(stderr, "Usage:\n"
 			"  %s --mock-db <port> <ready_file> <out_file>\n"
 			"  %s --probe-game <port>\n"
-			"  %s --probe-db <port>\n", argv[0], argv[0], argv[0]);
+			"  %s --probe-db <port>\n"
+			"  %s --auth-login <port> <login> <passwd> <hwid_hex> <key_out_file>\n"
+			"  %s --game-login-key <port> <login> <login_key>\n",
+			argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();

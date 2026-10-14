@@ -76,18 +76,18 @@ SQL_DIR="$ROOT_DIR/server/src/libsql"
 
 for src in AsyncSQL.cpp Semaphore.cpp Statement.cpp Tellwait.cpp; do
     obj_name=$(basename "$src" .cpp)
-    $CXX $FLAGS -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -c "$SQL_DIR/$src" -o "$BUILD_DIR/sql_${obj_name}.o"
+    $CXX $FLAGS -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$SQL_DIR/$src" -o "$BUILD_DIR/sql_${obj_name}.o"
 done
 
 $AR cru "$BUILD_DIR/libsql.a" "$BUILD_DIR"/sql_*.o
 $RANLIB "$BUILD_DIR/libsql.a"
 
-$CXX $FLAGS $RPATH -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
+$CXX $FLAGS $RPATH -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -I"$SQL_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libsql.cpp" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libsql"
 "$BUILD_DIR/test_libsql"
 
 # 5. db cache
 echo "[5/6] db cache ve veri guvenligi testleri derleniyor ve test ediliyor..."
-$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
+$CXX $FLAGS $RPATH -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$SQL_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_db_cache.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_db_cache"
 "$BUILD_DIR/test_db_cache"
 
 # 6. wire protocol

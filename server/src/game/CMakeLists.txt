@@ -24,6 +24,7 @@ else()
 endif()
 
 target_include_directories(game PRIVATE
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
     "${CMAKE_CURRENT_SOURCE_DIR}/.."
@@ -88,6 +89,7 @@ endif()
 add_executable(game_lua55 ${GAME_SOURCES})
 
 target_include_directories(game_lua55 PRIVATE
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
     "${CMAKE_CURRENT_SOURCE_DIR}/.."

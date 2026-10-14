@@ -563,7 +563,7 @@ void CClientManager::QUERY_BOOT(CPeer* peer, TPacketGDBoot * p)
 
 	peer->EncodeWORD(sizeof(TNameReservationTable));
 	peer->EncodeWORD(m_vec_nameReservationTable.size());
-	peer->Encode(&m_vec_nameReservationTable[0], sizeof(TNameReservationTable) * m_vec_nameReservationTable.size());
+	peer->Encode(m_vec_nameReservationTable);
 
 	peer->EncodeWORD(sizeof(building::TLand));
 	peer->EncodeWORD(m_vec_kLandTable.size());
@@ -588,15 +588,15 @@ void CClientManager::QUERY_BOOT(CPeer* peer, TPacketGDBoot * p)
 
 	peer->EncodeWORD(sizeof(TItemShopItem));
 	peer->EncodeWORD(m_vec_itemShopItemTable.size());
-	peer->Encode(&m_vec_itemShopItemTable[0], sizeof(TItemShopItem) * m_vec_itemShopItemTable.size());
+	peer->Encode(m_vec_itemShopItemTable);
 
 	peer->EncodeWORD(sizeof(TCraftingItem));
 	peer->EncodeWORD(m_vec_CraftingTable.size());
-	peer->Encode(&m_vec_CraftingTable[0], sizeof(TCraftingItem) * m_vec_CraftingTable.size());
+	peer->Encode(m_vec_CraftingTable);
 
 	peer->EncodeWORD(sizeof(TSpecialShopItem));
 	peer->EncodeWORD(m_vec_SpecialShopItemTable.size());
-	peer->Encode(&m_vec_SpecialShopItemTable[0], sizeof(TSpecialShopItem) * m_vec_SpecialShopItemTable.size());
+	peer->Encode(m_vec_SpecialShopItemTable);
 
 	peer->EncodeWORD(sizeof(TSpecialShopTable));
 	peer->EncodeWORD(m_iSpecialShopTableSize);
@@ -613,7 +613,7 @@ void CClientManager::QUERY_BOOT(CPeer* peer, TPacketGDBoot * p)
 
 	peer->EncodeWORD(sizeof(TQuestRewardItem));
 	peer->EncodeWORD(m_vec_QuestRewardTable.size());
-	peer->Encode(&m_vec_QuestRewardTable[0], sizeof(TQuestRewardItem) * m_vec_QuestRewardTable.size());
+	peer->Encode(m_vec_QuestRewardTable);
 	
 
 	time_t now = time(0);
@@ -2027,7 +2027,7 @@ void CClientManager::ReloadItemShop()
 			sizeof(WORD) + sizeof(TItemShopItem) * m_vec_itemShopItemTable.size());
 
 		tmp->EncodeWORD(m_vec_itemShopItemTable.size());
-		tmp->Encode(&m_vec_itemShopItemTable[0], sizeof(TItemShopItem) * m_vec_itemShopItemTable.size());
+		tmp->Encode(m_vec_itemShopItemTable);
 	}
 }
 

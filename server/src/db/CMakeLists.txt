@@ -10,6 +10,7 @@ list(FILTER DB_CORE_SOURCES EXCLUDE REGEX ".*Main\\.cpp$")
 add_library(db_core STATIC ${DB_CORE_SOURCES})
 
 target_include_directories(db_core PUBLIC
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
     "${CMAKE_CURRENT_SOURCE_DIR}/.."

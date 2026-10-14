@@ -154,6 +154,9 @@ void CPeerBase::Encode(const void* data, DWORD size)
 		return;
 	}
 
+	if (size == 0 || !data)
+		return;
+
 	buffer_write(m_outBuffer, data, size);
 	fdwatch_add_fd(m_fdWatcher, m_fd, this, FDW_WRITE, true);
 }

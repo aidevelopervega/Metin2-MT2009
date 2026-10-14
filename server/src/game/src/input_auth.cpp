@@ -94,8 +94,8 @@ auto query = "SELECT "
     "UNIX_TIMESTAMP(ac.money_drop_rate_expire),"
     "UNIX_TIMESTAMP(ac.shop_expire),"
     "UNIX_TIMESTAMP(ac.create_time) "
-    "FROM account.account AS ac "  // DODAJ account.
-    "LEFT JOIN account.hardware_status AS hw ON hw.hwid='%s' "  // DODAJ account.
+    "FROM account AS ac "
+    "LEFT JOIN hardware_status AS hw ON hw.hwid='%s' "
     "WHERE login = '%s'";
 
 	snprintf(szQuery, sizeof(szQuery), query, c_pszPassword, c_pszHardware, c_pszHardware, c_pszLogin);

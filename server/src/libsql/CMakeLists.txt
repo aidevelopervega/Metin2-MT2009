@@ -12,6 +12,7 @@ set(SQL_LIB_SOURCES
 add_library(sql_lib STATIC ${SQL_LIB_SOURCES})
 
 target_include_directories(sql_lib PUBLIC
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
     "${CMAKE_CURRENT_SOURCE_DIR}/../libthecore/include"

@@ -1,12 +1,17 @@
 #!/bin/sh
 # ==============================================================================
-# Metin2 MT2009 - Isolated FreeBSD Server Startup & Wire Handshake Smoke Test
-# Tests:
-#   1. db_r41023 isolated startup against live MariaDB/MySQL under strict SQL mode
-#   2. game_r41023 (Lua 5.0.3) isolated startup, QuestManager::InitializeLua(),
-#      DB peer connection, and 32-bit client wire TPacketGCHandshake / PHASE_LOGIN
-#   3. game_r41023_lua55 (Lua 5.5.1) isolated startup, QuestManager::InitializeLua(),
-#      DB peer connection, and 32-bit client wire TPacketGCHandshake / PHASE_LOGIN
+# Metin2 MT2009 - Isolated FreeBSD Server Startup, Full DB Boot & Auth/Login Smoke Test
+# Stages (strictly separated and reported by category):
+#   [1/6] Strict SQL Mode schema & temporary test account preparation in mt2_testdb
+#   [2/6] Real db_r41023 isolated startup, SQL table load & TCP listener probe
+#   [3/6] Mock-DB + 32-bit TCP wire handshake (PHASE_HANDSHAKE -> PHASE_LOGIN)
+#         for game_r41023 (Lua 5.0.3) and game_r41023_lua55 (Lua 5.5.1)
+#   [4/6] Real db_r41023 <-> normal game_r41023 (Lua 5.0.3) & game_r41023_lua55 (Lua 5.5.1)
+#         full HEADER_DG_BOOT (CInputDB::Boot + CQuestManager::Boot) comparison
+#   [5/6] Real db_r41023 + Real AUTH_SERVER + Real GAME_SERVER (Lua 5.0.3)
+#         account authentication (HEADER_CG_LOGIN3 -> dwLoginKey) & LoginByKey (PHASE_SELECT)
+#   [6/6] Real db_r41023 + Real AUTH_SERVER + Real GAME_SERVER (Lua 5.5.1)
+#         account authentication (HEADER_CG_LOGIN3 -> dwLoginKey) & LoginByKey (PHASE_SELECT)
 # ==============================================================================
 
 set -e
@@ -27,8 +32,14 @@ DB_BIN="${MT2_SMOKE_DB_BIN:-$ROOT_DIR/server/src/db/db_r41023}"
 GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
 GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua55}"
 
+# Deterministic AES-128-ECB("SMOKETEST_HWID1\x01", key="VBlk2yQRtiHA1oj7") hex string
+SMOKE_HWID_PLAIN="SMOKETEST_HWID1"
+SMOKE_HWID_HEX="5BE8C5A4CAFB1014505B16C5D68D28A9"
+SMOKE_LOGIN="smoketest"
+SMOKE_PASS="SmokeTestPass1!"
+
 echo "=================================================="
-echo " METIN2 MT2009 - ISOLATED SERVER STARTUP SMOKE TEST"
+echo " METIN2 MT2009 - ISOLATED SERVER & AUTH/LOGIN SMOKE TEST"
 echo " Engine:         $ENGINE ($HOST:$PORT / $DB)"
 echo " DB Binary:      $DB_BIN"
 echo " Game 5.0 Bin:   $GAME50_BIN"
@@ -60,26 +71,154 @@ if [ -z "$DB_CLI" ]; then
 fi
 
 SMOKE_ROOT="/tmp/mt2_smoke_$$"
+ACTIVE_GAME_PID=""
+ACTIVE_AUTH_PID=""
+ACTIVE_MOCK_PID=""
+ACTIVE_DB_PID=""
+
+# Bounded process termination helper (SIGTERM -> up to 4s wait -> SIGKILL -> wait)
+stop_pid_bounded() {
+    TARGET_PID="$1"
+    if [ -z "$TARGET_PID" ]; then
+        return 0
+    fi
+    if kill -0 "$TARGET_PID" 2>/dev/null; then
+        kill -TERM "$TARGET_PID" 2>/dev/null || true
+        for _ in 1 2 3 4 5 6 7 8; do
+            if ! kill -0 "$TARGET_PID" 2>/dev/null; then
+                break
+            fi
+            sleep 0.5 2>/dev/null || sleep 1
+        done
+        if kill -0 "$TARGET_PID" 2>/dev/null; then
+            kill -KILL "$TARGET_PID" 2>/dev/null || true
+        fi
+    fi
+    wait "$TARGET_PID" 2>/dev/null || true
+}
+
 cleanup_all() {
-    if [ -n "$ACTIVE_GAME_PID" ]; then
-        kill "$ACTIVE_GAME_PID" 2>/dev/null || true
-        wait "$ACTIVE_GAME_PID" 2>/dev/null || true
-    fi
-    if [ -n "$ACTIVE_MOCK_PID" ]; then
-        kill "$ACTIVE_MOCK_PID" 2>/dev/null || true
-        wait "$ACTIVE_MOCK_PID" 2>/dev/null || true
-    fi
-    if [ -n "$ACTIVE_DB_PID" ]; then
-        kill "$ACTIVE_DB_PID" 2>/dev/null || true
-        wait "$ACTIVE_DB_PID" 2>/dev/null || true
-    fi
+    stop_pid_bounded "$ACTIVE_GAME_PID"
+    ACTIVE_GAME_PID=""
+    stop_pid_bounded "$ACTIVE_AUTH_PID"
+    ACTIVE_AUTH_PID=""
+    stop_pid_bounded "$ACTIVE_MOCK_PID"
+    ACTIVE_MOCK_PID=""
+    stop_pid_bounded "$ACTIVE_DB_PID"
+    ACTIVE_DB_PID=""
     rm -rf "$SMOKE_ROOT"
 }
 trap cleanup_all EXIT INT TERM
 
-echo "[1/4] Strict SQL Mode altında izole duman testi şeması hazırlanıyor..."
+# ------------------------------------------------------------------------------
+# Helper: Prepare isolated game working directory (real FTP Lua if present + drop/map files)
+# ------------------------------------------------------------------------------
+prepare_game_workdir() {
+    WORK_DIR="$1"
+    mkdir -p "$WORK_DIR/locale/poland/quest/object" "$WORK_DIR/locale/poland/map" "$WORK_DIR/package" "$WORK_DIR/panama" "$WORK_DIR/mark"
+
+    FTP_TAR=""
+    for cand in "/tmp/new_ftp.tar.gz" "$ROOT_DIR/new_ftp.tar.gz"; do
+        if [ -f "$cand" ]; then
+            FTP_TAR="$cand"
+            break
+        fi
+    done
+
+    if [ -n "$FTP_TAR" ]; then
+        FTP_EXTRACT="$SMOKE_ROOT/ftp_extract"
+        if [ ! -d "$FTP_EXTRACT" ]; then
+            mkdir -p "$FTP_EXTRACT"
+            tar -xzf "$FTP_TAR" -C "$FTP_EXTRACT" \
+                "share/locale/poland/settings.lua" \
+                "share/locale/poland/translate.lua" \
+                "share/locale/poland/quest" 2>/dev/null || true
+        fi
+    fi
+
+    if [ -n "$FTP_TAR" ] && [ -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/quest/questlib.lua" ]; then
+        cp -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
+        cp -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
+        cp -R "$SMOKE_ROOT/ftp_extract/share/locale/poland/quest/"* "$WORK_DIR/locale/poland/quest/" 2>/dev/null || true
+    else
+        cp "$ROOT_DIR/tests/fixtures/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
+        cp "$ROOT_DIR/tests/fixtures/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
+        cp "$ROOT_DIR/tests/fixtures/questlib.lua" "$WORK_DIR/locale/poland/quest/questlib.lua"
+        cp "$ROOT_DIR/tests/fixtures/locale.lua" "$WORK_DIR/locale/poland/quest/locale.lua"
+    fi
+
+    printf "20016\tblacksmith\n9001\tweapon_shop\n" > "$WORK_DIR/locale/poland/quest/questnpc.txt"
+    : > "$WORK_DIR/locale/poland/forkedmapindex.txt"
+    : > "$WORK_DIR/locale/poland/cube.txt"
+    : > "$WORK_DIR/locale/poland/blend.txt"
+    : > "$WORK_DIR/locale/poland/locale_string.txt"
+    : > "$WORK_DIR/locale/poland/common_drop_item.txt"
+    : > "$WORK_DIR/locale/poland/etc_drop_item.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/drop_item_group.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/special_item_group.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/mob_drop_item.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/special_spawns.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/map/index"
+    : > "$WORK_DIR/CMD"
+}
+
+# ------------------------------------------------------------------------------
+# [1/6] Strict SQL Mode Schema & Temporary Account Preparation
+# ------------------------------------------------------------------------------
+echo "[1/6] Strict SQL Mode altında izole duman testi şeması ve geçici test hesabı hazırlanıyor..."
 "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<'EOF'
 SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
+DROP TABLE IF EXISTS account;
+CREATE TABLE account (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  login VARCHAR(30) NOT NULL DEFAULT '',
+  password VARCHAR(45) NOT NULL DEFAULT '',
+  social_id VARCHAR(18) NOT NULL DEFAULT '1234567',
+  status VARCHAR(8) NOT NULL DEFAULT 'OK',
+  hwid VARCHAR(255) NOT NULL DEFAULT '',
+  availDt DATETIME NOT NULL DEFAULT '2020-01-01 00:00:00',
+  create_time DATETIME NOT NULL DEFAULT '2025-01-01 00:00:00',
+  last_play DATETIME NOT NULL DEFAULT '2025-01-01 00:00:00',
+  premium_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  silver_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  gold_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  safebox_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  autoloot_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  fish_mind_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  marriage_fast_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  money_drop_rate_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  shop_expire DATETIME NOT NULL DEFAULT '2030-01-01 00:00:00',
+  PRIMARY KEY (id),
+  UNIQUE KEY idx_login (login)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO account (id, login, password, social_id, status, hwid)
+VALUES (9001, 'smoketest', CONCAT('*', UPPER(SHA1(UNHEX(SHA1('SmokeTestPass1!'))))), '1234567', 'OK', 'SMOKETEST_HWID1');
+
+DROP TABLE IF EXISTS hardware_status;
+CREATE TABLE hardware_status (
+  hwid VARCHAR(255) NOT NULL DEFAULT '',
+  status VARCHAR(8) NOT NULL DEFAULT 'OK',
+  PRIMARY KEY (hwid)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO hardware_status (hwid, status) VALUES ('SMOKETEST_HWID1', 'OK');
+
+DROP TABLE IF EXISTS player_index;
+CREATE TABLE player_index (
+  id INT UNSIGNED NOT NULL DEFAULT 0,
+  pid1 INT UNSIGNED NOT NULL DEFAULT 0,
+  pid2 INT UNSIGNED NOT NULL DEFAULT 0,
+  pid3 INT UNSIGNED NOT NULL DEFAULT 0,
+  pid4 INT UNSIGNED NOT NULL DEFAULT 0,
+  pid5 INT UNSIGNED NOT NULL DEFAULT 0,
+  empire TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO player_index (id, pid1, pid2, pid3, pid4, pid5, empire)
+VALUES (9001, 0, 0, 0, 0, 0, 1);
 
 DROP TABLE IF EXISTS locale;
 CREATE TABLE locale (
@@ -116,6 +255,14 @@ CREATE TABLE bootlog (
   time DATETIME NOT NULL,
   hostname VARCHAR(64) NOT NULL,
   channel INT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS special_spawn;
+CREATE TABLE special_spawn (
+  vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  channel TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  kill_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (vnum, channel)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS priv_settings;
@@ -183,8 +330,23 @@ CREATE TABLE `player` (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   account_id INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(24) NOT NULL DEFAULT '',
+  job TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  playtime INT UNSIGNED NOT NULL DEFAULT 0,
+  st SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  ht SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  dx SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  iq SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  part_main SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  part_hair SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  part_acce SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  x INT NOT NULL DEFAULT 0,
+  y INT NOT NULL DEFAULT 0,
+  skill_group TINYINT NOT NULL DEFAULT 0,
+  change_name TINYINT NOT NULL DEFAULT 0,
   gold BIGINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  KEY idx_account_id (account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS item;
@@ -358,46 +520,42 @@ DROP TABLE IF EXISTS shop_item;
 CREATE TABLE shop_item (
   shop_vnum INT NOT NULL DEFAULT 0,
   item_vnum INT NOT NULL DEFAULT 0,
-  count TINYINT UNSIGNED NOT NULL DEFAULT 1
+  count TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  display_pos TINYINT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO shop_item (shop_vnum, item_vnum, count) VALUES (1, 10, 1);
+INSERT INTO shop_item (shop_vnum, item_vnum, count, display_pos) VALUES (1, 10, 1, 0);
 
 DROP TABLE IF EXISTS skill_proto;
 CREATE TABLE skill_proto (
   dwVnum INT NOT NULL DEFAULT 0,
   szName VARCHAR(32) NOT NULL DEFAULT '',
   bType TINYINT NOT NULL DEFAULT 0,
-  bMaxLevel TINYINT NOT NULL DEFAULT 20,
-  dwSplashRange INT NOT NULL DEFAULT 0,
-  szPointOn VARCHAR(64) NOT NULL DEFAULT 'NONE',
-  szPointPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  szSPCostPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  szDurationPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  szDurationSPCostPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  szCooldownPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  szMasterBonusPoly VARCHAR(100) NOT NULL DEFAULT '0',
-  setFlag INT UNSIGNED NOT NULL DEFAULT 0,
-  setAffectFlag INT UNSIGNED NOT NULL DEFAULT 1,
-  szPointOn2 VARCHAR(64) NOT NULL DEFAULT 'NONE',
-  szPointPoly2 VARCHAR(100) NOT NULL DEFAULT '0',
-  szDurationPoly2 VARCHAR(100) NOT NULL DEFAULT '0',
-  setAffectFlag2 INT UNSIGNED NOT NULL DEFAULT 1,
-  szPointOn3 VARCHAR(64) NOT NULL DEFAULT 'NONE',
-  szPointPoly3 VARCHAR(100) NOT NULL DEFAULT '0',
-  szDurationPoly3 VARCHAR(100) NOT NULL DEFAULT '0',
-  setAffectFlag3 INT UNSIGNED NOT NULL DEFAULT 1,
-  szGrandMasterAddSPCostPoly VARCHAR(100) NOT NULL DEFAULT '0',
   bLevelStep TINYINT NOT NULL DEFAULT 0,
-  bLevelLimit TINYINT NOT NULL DEFAULT 0,
-  prerequisiteSkillVnum INT NOT NULL DEFAULT 0,
-  prerequisiteSkillLevel INT NOT NULL DEFAULT 0,
-  iMaxHit SMALLINT NOT NULL DEFAULT 0,
-  szSplashAroundDamageAdjustPoly VARCHAR(100) NOT NULL DEFAULT '1',
-  eSkillType TINYINT NOT NULL DEFAULT 0,
-  dwTargetRange INT NOT NULL DEFAULT 0,
+  bMaxLevel TINYINT NOT NULL DEFAULT 0,
+  bLevelLimit TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  szPointOn VARCHAR(100) NOT NULL DEFAULT '0',
+  szPointPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szDurationPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szDurationSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szCooldownPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szMasterBonusPoly VARCHAR(100) NOT NULL DEFAULT '',
+  szAttackGradePoly VARCHAR(100) NOT NULL DEFAULT '',
+  setFlag VARCHAR(64) DEFAULT '',
+  setAffectFlag VARCHAR(64) NOT NULL DEFAULT 'YMIR',
+  szPointOn2 VARCHAR(100) NOT NULL DEFAULT 'NONE',
+  szPointPoly2 VARCHAR(100) NOT NULL DEFAULT '',
+  szDurationPoly2 VARCHAR(100) NOT NULL DEFAULT '',
+  setAffectFlag2 VARCHAR(64) NOT NULL DEFAULT 'YMIR',
+  szPointOn3 VARCHAR(100) NOT NULL DEFAULT 'NONE',
+  szPointPoly3 VARCHAR(100) NOT NULL DEFAULT '',
+  szDurationPoly3 VARCHAR(100) NOT NULL DEFAULT '',
+  szGrandMasterAddSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
+  bSkillAttrType TINYINT NOT NULL DEFAULT 0,
+  dwTargetRange INT NOT NULL DEFAULT 1000,
   PRIMARY KEY (dwVnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO skill_proto (dwVnum, szName, bType) VALUES (1, 'ThreeWay', 1);
+INSERT INTO skill_proto (dwVnum, szName, bType, bMaxLevel) VALUES (1, 'ThreeWay', 1, 40);
 
 DROP TABLE IF EXISTS refine_proto;
 CREATE TABLE refine_proto (
@@ -412,7 +570,7 @@ CREATE TABLE refine_proto (
   count3 SMALLINT NOT NULL DEFAULT 0,
   vnum4 INT UNSIGNED NOT NULL DEFAULT 0,
   count4 SMALLINT NOT NULL DEFAULT 0,
-  cost INT NOT NULL DEFAULT 0,
+  cost BIGINT NOT NULL DEFAULT 0,
   src_vnum INT UNSIGNED NOT NULL DEFAULT 0,
   result_vnum INT UNSIGNED NOT NULL DEFAULT 0,
   prob SMALLINT NOT NULL DEFAULT 100,
@@ -421,29 +579,43 @@ CREATE TABLE refine_proto (
 
 DROP TABLE IF EXISTS item_attr;
 CREATE TABLE item_attr (
-  apply ENUM('MAX_HP','MAX_SP') NOT NULL DEFAULT 'MAX_HP',
+  apply VARCHAR(32) NOT NULL DEFAULT 'MAX_HP',
   prob INT NOT NULL DEFAULT 1,
   lv1 INT NOT NULL DEFAULT 100,
   lv2 INT NOT NULL DEFAULT 200,
   lv3 INT NOT NULL DEFAULT 300,
   lv4 INT NOT NULL DEFAULT 400,
   lv5 INT NOT NULL DEFAULT 500,
-  weapon INT NOT NULL DEFAULT 5,
+  weapon INT NOT NULL DEFAULT 0,
   body INT NOT NULL DEFAULT 5,
   wrist INT NOT NULL DEFAULT 5,
   foots INT NOT NULL DEFAULT 5,
   neck INT NOT NULL DEFAULT 5,
-  head INT NOT NULL DEFAULT 5,
-  shield INT NOT NULL DEFAULT 5,
-  ear INT NOT NULL DEFAULT 5,
-  pendant INT NOT NULL DEFAULT 5,
+  head INT NOT NULL DEFAULT 0,
+  shield INT NOT NULL DEFAULT 0,
+  ear INT NOT NULL DEFAULT 0,
   PRIMARY KEY (apply)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO item_attr (apply, prob) VALUES ('MAX_HP', 10);
 
 DROP TABLE IF EXISTS item_attr_rare;
-CREATE TABLE item_attr_rare LIKE item_attr;
-INSERT INTO item_attr_rare (apply, prob) VALUES ('MAX_HP', 10);
+CREATE TABLE item_attr_rare (
+  apply VARCHAR(32) NOT NULL DEFAULT 'MAX_HP',
+  prob INT NOT NULL DEFAULT 1,
+  lv1 INT NOT NULL DEFAULT 100,
+  lv2 INT NOT NULL DEFAULT 200,
+  lv3 INT NOT NULL DEFAULT 300,
+  lv4 INT NOT NULL DEFAULT 400,
+  lv5 INT NOT NULL DEFAULT 500,
+  weapon INT NOT NULL DEFAULT 0,
+  body INT NOT NULL DEFAULT 5,
+  wrist INT NOT NULL DEFAULT 5,
+  foots INT NOT NULL DEFAULT 5,
+  neck INT NOT NULL DEFAULT 5,
+  head INT NOT NULL DEFAULT 0,
+  shield INT NOT NULL DEFAULT 0,
+  ear INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (apply)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS banword;
 CREATE TABLE banword (
@@ -453,14 +625,14 @@ CREATE TABLE banword (
 
 DROP TABLE IF EXISTS name_reservation;
 CREATE TABLE name_reservation (
-  account_id INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(24) NOT NULL DEFAULT '',
+  owner INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS land;
 CREATE TABLE land (
-  id INT NOT NULL AUTO_INCREMENT,
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   map_index INT NOT NULL DEFAULT 0,
   x INT NOT NULL DEFAULT 0,
   y INT NOT NULL DEFAULT 0,
@@ -469,15 +641,23 @@ CREATE TABLE land (
   guild_id INT UNSIGNED NOT NULL DEFAULT 0,
   guild_level_limit TINYINT NOT NULL DEFAULT 0,
   price BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  enable ENUM('YES','NO') NOT NULL DEFAULT 'NO',
+  enable ENUM('YES','NO') NOT NULL DEFAULT 'YES',
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS guild_land;
 CREATE TABLE guild_land (
-  land_id INT NOT NULL DEFAULT 0,
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  map_index INT NOT NULL DEFAULT 0,
+  x INT NOT NULL DEFAULT 0,
+  y INT NOT NULL DEFAULT 0,
+  width INT NOT NULL DEFAULT 0,
+  height INT NOT NULL DEFAULT 0,
   guild_id INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (land_id)
+  guild_level_limit TINYINT NOT NULL DEFAULT 0,
+  price BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  enable ENUM('YES','NO') NOT NULL DEFAULT 'YES',
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS object_proto;
@@ -501,8 +681,8 @@ CREATE TABLE object_proto (
 
 DROP TABLE IF EXISTS object;
 CREATE TABLE object (
-  id INT NOT NULL AUTO_INCREMENT,
-  land_id INT NOT NULL DEFAULT 0,
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  land_id INT UNSIGNED NOT NULL DEFAULT 0,
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
   map_index INT NOT NULL DEFAULT 0,
   x INT NOT NULL DEFAULT 0,
@@ -518,124 +698,132 @@ DROP TABLE IF EXISTS monarch;
 CREATE TABLE monarch (
   empire INT UNSIGNED NOT NULL DEFAULT 0,
   pid INT UNSIGNED NOT NULL DEFAULT 0,
+  name VARCHAR(24) NOT NULL DEFAULT '',
   windate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  money BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  money BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (empire)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_items;
 CREATE TABLE itemshop_items (
-  `index` INT NOT NULL,
-  vnum INT NOT NULL,
-  count SMALLINT NOT NULL,
-  price INT NOT NULL,
-  currency ENUM('DRAGON_COIN','DRAGON_MARK') NOT NULL DEFAULT 'DRAGON_COIN',
-  minLevel INT NOT NULL DEFAULT 0,
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  count INT UNSIGNED NOT NULL DEFAULT 1,
+  price INT UNSIGNED NOT NULL DEFAULT 0,
+  category TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  sub_category TINYINT UNSIGNED NOT NULL DEFAULT 0,
   socket0 INT NOT NULL DEFAULT 0,
   socket1 INT NOT NULL DEFAULT 0,
   socket2 INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (`index`)
+  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  limit_value INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_promotions;
 CREATE TABLE itemshop_promotions (
-  item_index INT NOT NULL,
-  price INT NOT NULL,
-  start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  end_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (item_index)
+  vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  value INT UNSIGNED NOT NULL DEFAULT 0,
+  duration DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_time_auctions;
 CREATE TABLE itemshop_time_auctions (
-  item_index INT NOT NULL,
-  max_amount INT NOT NULL DEFAULT 0,
-  account_limit INT UNSIGNED NOT NULL DEFAULT 0,
-  start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  end_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (item_index)
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  item_id INT UNSIGNED NOT NULL DEFAULT 0,
+  end_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  avail_amount INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS itemshop_time_auction;
 CREATE TABLE itemshop_time_auction (
-  item_index INT NOT NULL,
-  buy_count INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (item_index)
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  item_id INT UNSIGNED NOT NULL DEFAULT 0,
+  end_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  avail_amount INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS ikashop_offlineshop;
 CREATE TABLE ikashop_offlineshop (
-  owner INT UNSIGNED NOT NULL,
+  owner INT UNSIGNED NOT NULL DEFAULT 0,
   duration INT UNSIGNED NOT NULL DEFAULT 0,
-  name VARCHAR(64) NOT NULL DEFAULT '',
-  map INT NOT NULL DEFAULT 1,
-  x INT NOT NULL DEFAULT 0,
-  y INT NOT NULL DEFAULT 0,
-  channel TINYINT NOT NULL DEFAULT 1,
-  unlock_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  is_premium TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (owner)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS offlineshop_limit;
 CREATE TABLE offlineshop_limit (
-  channel TINYINT NOT NULL DEFAULT 1,
-  map_index INT NOT NULL DEFAULT 1,
-  shop_limit INT UNSIGNED NOT NULL DEFAULT 100,
-  premium_limit INT UNSIGNED NOT NULL DEFAULT 100
+  channel TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  map_index INT UNSIGNED NOT NULL DEFAULT 0,
+  `limit` INT UNSIGNED NOT NULL DEFAULT 100,
+  PRIMARY KEY (channel, map_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO offlineshop_limit (channel, map_index, shop_limit, premium_limit) VALUES (1, 1, 100, 100);
 
 DROP TABLE IF EXISTS crafting_proto;
 CREATE TABLE crafting_proto (
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  item_vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  count SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  count INT UNSIGNED NOT NULL DEFAULT 1,
+  category TINYINT UNSIGNED NOT NULL DEFAULT 0,
   price BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  chance SMALLINT UNSIGNED NOT NULL DEFAULT 100,
-  recipe VARCHAR(128) NOT NULL DEFAULT '',
-  req_progress SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  req_level SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  recipe_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  prob TINYINT UNSIGNED NOT NULL DEFAULT 100,
+  req_vnum0 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_count0 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_vnum1 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_count1 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_vnum2 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_count2 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_vnum3 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_count3 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_vnum4 INT UNSIGNED NOT NULL DEFAULT 0,
+  req_count4 INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS quest_reward_proto;
 CREATE TABLE quest_reward_proto (
-  quest_name VARCHAR(64) NOT NULL DEFAULT '',
-  exp INT UNSIGNED NOT NULL DEFAULT 0,
-  gold INT UNSIGNED NOT NULL DEFAULT 0,
-  alignment INT NOT NULL DEFAULT 0,
-  items VARCHAR(128) NOT NULL DEFAULT '',
-  warrior_items VARCHAR(128) NOT NULL DEFAULT '',
-  assassin_items VARCHAR(128) NOT NULL DEFAULT '',
-  sura_items VARCHAR(128) NOT NULL DEFAULT '',
-  shaman_items VARCHAR(128) NOT NULL DEFAULT '',
-  PRIMARY KEY (quest_name)
+  quest_index INT UNSIGNED NOT NULL DEFAULT 0,
+  job TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  vnum0 INT UNSIGNED NOT NULL DEFAULT 0,
+  count0 INT UNSIGNED NOT NULL DEFAULT 0,
+  vnum1 INT UNSIGNED NOT NULL DEFAULT 0,
+  count1 INT UNSIGNED NOT NULL DEFAULT 0,
+  vnum2 INT UNSIGNED NOT NULL DEFAULT 0,
+  count2 INT UNSIGNED NOT NULL DEFAULT 0,
+  vnum3 INT UNSIGNED NOT NULL DEFAULT 0,
+  count3 INT UNSIGNED NOT NULL DEFAULT 0,
+  vnum4 INT UNSIGNED NOT NULL DEFAULT 0,
+  count4 INT UNSIGNED NOT NULL DEFAULT 0,
+  vnum5 INT UNSIGNED NOT NULL DEFAULT 0,
+  count5 INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (quest_index, job)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS shop_special;
 CREATE TABLE shop_special (
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  item_vnum INT UNSIGNED NOT NULL DEFAULT 0
+  npc_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  limit_value0 INT NOT NULL DEFAULT 0,
+  limit_value1 INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS shop_special_proto;
 CREATE TABLE shop_special_proto (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  shop_vnum INT UNSIGNED NOT NULL DEFAULT 0,
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  item_vnum INT UNSIGNED NOT NULL DEFAULT 0,
-  count SMALLINT UNSIGNED NOT NULL DEFAULT 1,
-  rare_pct SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  price_type TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  price BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  items VARCHAR(128) NOT NULL DEFAULT '',
-  random_item_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  random_item_group INT UNSIGNED NOT NULL DEFAULT 0,
-  limittype0 TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  limitvalue0 INT NOT NULL DEFAULT 0,
-  limittype1 TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  limitvalue1 INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (vnum)
+  count INT UNSIGNED NOT NULL DEFAULT 1,
+  price_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  price0 INT UNSIGNED NOT NULL DEFAULT 0,
+  price0_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  price1 INT UNSIGNED NOT NULL DEFAULT 0,
+  price1_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+  limit_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  limit_value INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS gmhost;
@@ -643,7 +831,6 @@ CREATE TABLE gmhost (
   mIP VARCHAR(16) NOT NULL DEFAULT '',
   PRIMARY KEY (mIP)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO gmhost (mIP) VALUES ('127.0.0.1');
 
 DROP TABLE IF EXISTS gmlist;
 CREATE TABLE gmlist (
@@ -658,9 +845,9 @@ CREATE TABLE gmlist (
 EOF
 
 # ------------------------------------------------------------------------------
-# 2. db_r41023 Isolated Startup & TCP Peer Acceptance Smoke Test
+# [2/6] Real db_r41023 Isolated Startup, SQL Table Load & TCP Listener Probe
 # ------------------------------------------------------------------------------
-echo "[2/4] db_r41023 izole başlatma ve TCP dinleme duman testi..."
+echo "[2/6] Gerçek db_r41023 izole başlatma, SQL tablo yükleme ve TCP dinleme duman testi..."
 DB_WORK="$SMOKE_ROOT/db"
 mkdir -p "$DB_WORK"
 
@@ -693,20 +880,16 @@ ACTIVE_DB_PID=$!
 if ! "$BUILD_DIR/test_server_smoke_client" --probe-db 15010; then
     echo "HATA: db_r41023 başlatılamadı veya 127.0.0.1:15010 üzerinde dinlemiyor!" >&2
     cat "$DB_WORK/db_stderr.log" 2>/dev/null || true
-    cat "$DB_WORK/sysserr" 2>/dev/null || true
+    cat "$DB_WORK/syserr" 2>/dev/null || true
     cat "$DB_WORK/syslog" 2>/dev/null || true
     exit 1
 fi
-
-kill "$ACTIVE_DB_PID" 2>/dev/null || true
-wait "$ACTIVE_DB_PID" 2>/dev/null || true
-ACTIVE_DB_PID=""
-echo "  [PASS] db_r41023 izole ortamda başarıyla başlatıldı, tüm SQL tablolarını yükledi ve temiz kapatıldı."
+echo "  [PASS] [2/6] db_r41023 izole ortamda başarıyla başlatıldı, tüm SQL proto/cache tablolarını yükledi ve 127.0.0.1:15010 üzerinde aktif."
 
 # ------------------------------------------------------------------------------
-# Helper function to smoke-test a Game Server binary (Lua 5.0.3 or Lua 5.5.1)
+# [3/6] Mock-DB + 32-Bit TCP Wire Handshake (PHASE_HANDSHAKE -> PHASE_LOGIN)
 # ------------------------------------------------------------------------------
-run_game_smoke() {
+run_mock_db_game_smoke() {
     LABEL="$1"
     GAME_BIN="$2"
     HOSTNAME_TAG="$3"
@@ -714,20 +897,9 @@ run_game_smoke() {
     P2P_PORT="$5"
     MOCK_DB_PORT="$6"
 
-    echo "$LABEL izole başlatma, Lua quest runtime ve 32-bit istemci el sıkışma (handshake) testi..."
+    echo "$LABEL Mock-DB başlatma, Lua quest runtime ve 32-bit TCP wire handshake testi..."
     GAME_WORK="$SMOKE_ROOT/$HOSTNAME_TAG"
-    mkdir -p "$GAME_WORK/locale/poland/quest/object" "$GAME_WORK/package" "$GAME_WORK/mark"
-
-    cp "$ROOT_DIR/tests/fixtures/settings.lua" "$GAME_WORK/locale/poland/settings.lua"
-    cp "$ROOT_DIR/tests/fixtures/translate.lua" "$GAME_WORK/locale/poland/translate.lua"
-    cp "$ROOT_DIR/tests/fixtures/questlib.lua" "$GAME_WORK/locale/poland/quest/questlib.lua"
-    cp "$ROOT_DIR/tests/fixtures/locale.lua" "$GAME_WORK/locale/poland/quest/locale.lua"
-    printf "20016\tblacksmith\n9001\tweapon_shop\n" > "$GAME_WORK/locale/poland/quest/questnpc.txt"
-    : > "$GAME_WORK/locale/poland/forkedmapindex.txt"
-    : > "$GAME_WORK/locale/poland/cube.txt"
-    : > "$GAME_WORK/locale/poland/blend.txt"
-    : > "$GAME_WORK/locale/poland/locale_string.txt"
-    : > "$GAME_WORK/CMD"
+    prepare_game_workdir "$GAME_WORK"
 
     cat > "$GAME_WORK/CONFIG" <<EOF
 HOSTNAME: $HOSTNAME_TAG
@@ -771,7 +943,7 @@ EOF
     ACTIVE_GAME_PID=$!
 
     if ! "$BUILD_DIR/test_server_smoke_client" --probe-game "$GAME_PORT"; then
-        echo "HATA: $LABEL istemci TCP/handshake doğrulaması başarısız oldu!" >&2
+        echo "HATA: $LABEL istemci TCP wire handshake (PHASE_HANDSHAKE -> PHASE_LOGIN) doğrulaması başarısız oldu!" >&2
         cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
         cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
         cat "$GAME_WORK/syserr" 2>/dev/null || true
@@ -784,9 +956,8 @@ EOF
         cat "$OUT_FILE" 2>/dev/null || true
         exit 1
     fi
-    echo "  [PASS] $LABEL db_clientdesc paketlerini gönderdi ($(tr '\n' ' ' < "$OUT_FILE"))."
+    echo "  [PASS] $LABEL Mock-DB db_clientdesc paketlerini gönderdi ($(tr '\n' ' ' < "$OUT_FILE"))."
 
-    # Check that syserr has no Lua errors
     if [ -f "$GAME_WORK/syserr" ] && grep -qiE "LUA_ERROR|InitializeLua|questlib|locale\.lua|settings\.lua|translate\.lua" "$GAME_WORK/syserr"; then
         echo "HATA: $LABEL syserr içinde Lua çalışma zamanı hatası tespit edildi!" >&2
         cat "$GAME_WORK/syserr" >&2
@@ -794,7 +965,126 @@ EOF
     fi
     echo "  [PASS] $LABEL CQuestManager::Initialize() -> InitializeLua() 0 Lua hatası ile tamamlandı."
 
-    # Verify bootlog row was inserted into live SQL DB (wait up to 10s for CAsyncSQL worker flush)
+    stop_pid_bounded "$ACTIVE_GAME_PID"
+    ACTIVE_GAME_PID=""
+    stop_pid_bounded "$ACTIVE_MOCK_PID"
+    ACTIVE_MOCK_PID=""
+}
+
+echo "[3/6] Mock-DB + 32-Bit TCP Wire Handshake (Lua 5.0.3 & Lua 5.5.1) testi..."
+run_mock_db_game_smoke "[3a/6] game_r41023 (Lua 5.0.3)" "$GAME50_BIN" "mock_lua50" 13011 14011 15011
+run_mock_db_game_smoke "[3b/6] game_r41023_lua55 (Lua 5.5.1)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
+
+# ------------------------------------------------------------------------------
+# [4/6] Real db_r41023 <-> Normal Game Server Full HEADER_DG_BOOT + Real Auth/Login
+# ------------------------------------------------------------------------------
+run_real_db_auth_and_game_smoke() {
+    STAGE_TAG="$1"
+    LABEL="$2"
+    GAME_BIN="$3"
+    HOSTNAME_TAG="$4"
+    AUTH_PORT="$5"
+    AUTH_P2P_PORT="$6"
+    GAME_PORT="$7"
+    GAME_P2P_PORT="$8"
+
+    echo "$STAGE_TAG $LABEL: Gerçek db_r41023 <-> HEADER_DG_BOOT + Gerçek AUTH_SERVER (HEADER_CG_LOGIN3) + Gerçek GAME_SERVER (HEADER_CG_LOGIN2 -> PHASE_SELECT) testi..."
+
+    # Reset any previous logon state in db_r41023 by restarting db_r41023 cleanly for this engine run
+    stop_pid_bounded "$ACTIVE_DB_PID"
+    ACTIVE_DB_PID=""
+    (
+        cd "$DB_WORK"
+        "$DB_BIN" >"$DB_WORK/db_stdout_${HOSTNAME_TAG}.log" 2>"$DB_WORK/db_stderr_${HOSTNAME_TAG}.log"
+    ) &
+    ACTIVE_DB_PID=$!
+    if ! "$BUILD_DIR/test_server_smoke_client" --probe-db 15010; then
+        echo "HATA: $STAGE_TAG db_r41023 yeniden başlatılamadı!" >&2
+        cat "$DB_WORK/db_stderr_${HOSTNAME_TAG}.log" 2>/dev/null || true
+        exit 1
+    fi
+
+    # 1. Start Real AUTH_SERVER (AUTH_SERVER: master) connected to live db_r41023 (15010)
+    AUTH_WORK="$SMOKE_ROOT/auth_${HOSTNAME_TAG}"
+    prepare_game_workdir "$AUTH_WORK"
+
+    cat > "$AUTH_WORK/CONFIG" <<EOF
+HOSTNAME: auth_${HOSTNAME_TAG}
+CHANNEL: 99
+PORT: $AUTH_PORT
+P2P_PORT: $AUTH_P2P_PORT
+DB_PORT: 15010
+DB_ADDR: 127.0.0.1
+BIND_IP: 127.0.0.1
+AUTH_SERVER: master
+PLAYER_SQL: $HOST $USER $PASS $DB $PORT
+COMMON_SQL: $HOST $USER $PASS $DB $PORT
+ACCOUNT_SQL: $HOST $USER $PASS $DB $PORT
+LOG_SQL: $HOST $USER $PASS $DB $PORT
+TEST_SERVER: 1
+EOF
+
+    (
+        cd "$AUTH_WORK"
+        "$GAME_BIN" -I 127.0.0.1 -v >"$AUTH_WORK/auth_stdout.log" 2>"$AUTH_WORK/auth_stderr.log"
+    ) &
+    ACTIVE_AUTH_PID=$!
+
+    # 2. Start Real GAME_SERVER (CHANNEL: 1) connected to live db_r41023 (15010)
+    GAME_WORK="$SMOKE_ROOT/game_${HOSTNAME_TAG}"
+    prepare_game_workdir "$GAME_WORK"
+
+    cat > "$GAME_WORK/CONFIG" <<EOF
+HOSTNAME: $HOSTNAME_TAG
+CHANNEL: 1
+PORT: $GAME_PORT
+P2P_PORT: $GAME_P2P_PORT
+DB_PORT: 15010
+DB_ADDR: 127.0.0.1
+BIND_IP: 127.0.0.1
+MAP_ALLOW: 1
+PLAYER_SQL: $HOST $USER $PASS $DB $PORT
+COMMON_SQL: $HOST $USER $PASS $DB $PORT
+ACCOUNT_SQL: $HOST $USER $PASS $DB $PORT
+LOG_SQL: $HOST $USER $PASS $DB $PORT
+TEST_SERVER: 1
+EOF
+
+    (
+        cd "$GAME_WORK"
+        "$GAME_BIN" -I 127.0.0.1 -v >"$GAME_WORK/game_stdout.log" 2>"$GAME_WORK/game_stderr.log"
+    ) &
+    ACTIVE_GAME_PID=$!
+
+    # Wait up to 10s for CInputDB::Boot ("boot packet end check ok") on GAME_SERVER
+    BOOT_OK=0
+    for _ in $(seq 1 20); do
+        if grep -q "boot packet end check ok" "$GAME_WORK/game_stdout.log" 2>/dev/null || \
+           grep -q "boot packet end check ok" "$GAME_WORK/syslog" 2>/dev/null; then
+            BOOT_OK=1
+            break
+        fi
+        sleep 0.5 2>/dev/null || sleep 1
+    done
+
+    if [ "$BOOT_OK" != "1" ]; then
+        echo "HATA: $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot) akışını tamamlamadı!" >&2
+        cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
+        cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
+        cat "$GAME_WORK/syserr" 2>/dev/null || true
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot + CQuestManager::Boot) paketini eksiksiz yükledi (boot packet end check ok [ffff]==0xffff)."
+
+    # Check that syserr has no Lua errors after CQuestManager::InitializeLua() + CQuestManager::Boot()
+    if [ -f "$GAME_WORK/syserr" ] && grep -qiE "LUA_ERROR|InitializeLua|questlib|locale\.lua|settings\.lua|translate\.lua" "$GAME_WORK/syserr"; then
+        echo "HATA: $STAGE_TAG $LABEL syserr içinde Lua çalışma zamanı hatası tespit edildi!" >&2
+        cat "$GAME_WORK/syserr" >&2
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL CQuestManager::InitializeLua() + CQuestManager::Boot() 0 Lua hatası ile tamamlandı."
+
+    # Verify bootlog row was inserted into live SQL DB
     BOOT_COUNT="0"
     for _ in $(seq 1 10); do
         BOOT_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM bootlog WHERE hostname='$HOSTNAME_TAG';")
@@ -804,34 +1094,59 @@ EOF
         sleep 1
     done
     if [ "$BOOT_COUNT" != "1" ]; then
-        echo "HATA: $LABEL bootlog kaydı bulunamadı (beklenen: 1, bulunan: $BOOT_COUNT)!" >&2
+        echo "HATA: $STAGE_TAG $LABEL bootlog kaydı bulunamadı (beklenen: 1, bulunan: $BOOT_COUNT)!" >&2
         exit 1
     fi
-    echo "  [PASS] $LABEL canlı SQL veritabanına bootlog kaydını başarıyla yazdı (hostname=$HOSTNAME_TAG)."
+    echo "  [PASS] $STAGE_TAG $LABEL canlı SQL veritabanına bootlog kaydını başarıyla yazdı (hostname=$HOSTNAME_TAG)."
 
-    kill "$ACTIVE_GAME_PID" 2>/dev/null || true
-    wait "$ACTIVE_GAME_PID" 2>/dev/null || true
+    # 3. Execute real AUTH_SERVER login (HEADER_CG_LOGIN3 -> QID_AUTH_LOGIN -> HEADER_GD_AUTH_LOGIN -> HEADER_GC_AUTH_SUCCESS)
+    KEY_FILE="$AUTH_WORK/login_key.txt"
+    rm -f "$KEY_FILE"
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "$SMOKE_LOGIN" "$SMOKE_PASS" "$SMOKE_HWID_HEX" "$KEY_FILE"; then
+        echo "HATA: $STAGE_TAG $LABEL gerçek AUTH_SERVER hesap girişi (HEADER_CG_LOGIN3) başarısız oldu!" >&2
+        cat "$AUTH_WORK/auth_stdout.log" 2>/dev/null || true
+        cat "$AUTH_WORK/auth_stderr.log" 2>/dev/null || true
+        cat "$AUTH_WORK/syserr" 2>/dev/null || true
+        cat "$DB_WORK/db_stderr_${HOSTNAME_TAG}.log" 2>/dev/null || true
+        exit 1
+    fi
+
+    LOGIN_KEY=$(cat "$KEY_FILE" 2>/dev/null | tr -d '\r\n ')
+    if [ -z "$LOGIN_KEY" ] || [ "$LOGIN_KEY" = "0" ]; then
+        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER geçerli bir dwLoginKey üretmedi ($LOGIN_KEY)!" >&2
+        exit 1
+    fi
+
+    # 4. Execute real GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> HEADER_GD_LOGIN_BY_KEY -> HEADER_DG_LOGIN_SUCCESS -> PHASE_SELECT)
+    if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "$SMOKE_LOGIN" "$LOGIN_KEY"; then
+        echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> PHASE_SELECT) başarısız oldu!" >&2
+        cat "$GAME_WORK/game_stdout.log" 2>/dev/null || true
+        cat "$GAME_WORK/game_stderr.log" 2>/dev/null || true
+        cat "$GAME_WORK/syserr" 2>/dev/null || true
+        cat "$DB_WORK/db_stderr_${HOSTNAME_TAG}.log" 2>/dev/null || true
+        exit 1
+    fi
+
+    stop_pid_bounded "$ACTIVE_GAME_PID"
     ACTIVE_GAME_PID=""
-
-    kill "$ACTIVE_MOCK_PID" 2>/dev/null || true
-    wait "$ACTIVE_MOCK_PID" 2>/dev/null || true
-    ACTIVE_MOCK_PID=""
+    stop_pid_bounded "$ACTIVE_AUTH_PID"
+    ACTIVE_AUTH_PID=""
 }
 
-# ------------------------------------------------------------------------------
-# 3. game_r41023 (Lua 5.0.3) Isolated Startup & Handshake Smoke Test
-# ------------------------------------------------------------------------------
-run_game_smoke "[3/4] game_r41023 (Lua 5.0.3)" "$GAME50_BIN" "smoke_lua50" 13011 14011 15011
+echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3) tam başlangıç ve hesap girişi testi..."
+run_real_db_auth_and_game_smoke "[4-5/6]" "game_r41023 (Lua 5.0.3)" "$GAME50_BIN" "real_lua50" 15012 15013 15020 15021
 
-# ------------------------------------------------------------------------------
-# 4. game_r41023_lua55 (Lua 5.5.1) Isolated Startup & Handshake Smoke Test
-# ------------------------------------------------------------------------------
-run_game_smoke "[4/4] game_r41023_lua55 (Lua 5.5.1)" "$GAME55_BIN" "smoke_lua55" 13012 14012 15012
+echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1) tam başlangıç ve hesap girişi testi..."
+run_real_db_auth_and_game_smoke "[4-6/6]" "game_r41023_lua55 (Lua 5.5.1)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
 
-# Clean up temporary smoke test tables in mt2_testdb
+stop_pid_bounded "$ACTIVE_DB_PID"
+ACTIVE_DB_PID=""
+
+# Clean up temporary smoke test tables and test account in mt2_testdb
 "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<'EOF'
 DROP TABLE IF EXISTS
-  locale, exp_table, spam_db, bootlog, priv_settings, guild, guild_war_reservation,
+  account, hardware_status, player_index,
+  locale, exp_table, spam_db, bootlog, special_spawn, priv_settings, guild, guild_war_reservation,
   marriage, `player`, item, quest, mob_proto, item_proto, shop, shop_item,
   skill_proto, refine_proto, item_attr, item_attr_rare, banword, name_reservation,
   land, guild_land, object_proto, object, monarch, itemshop_items, itemshop_promotions,
@@ -840,5 +1155,5 @@ DROP TABLE IF EXISTS
 EOF
 
 echo "=================================================="
-echo " [BASARILI] IZOLE DB + GAME (LUA 5.0 & LUA 5.5.1) SUNUCU DUMAN TESTI TAMAMLANDI!"
+echo " [BASARILI] IZOLE DB + MOCK-DB + GERCEK DB BOOT + GERCEK AUTH/LOGIN (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
 echo "=================================================="

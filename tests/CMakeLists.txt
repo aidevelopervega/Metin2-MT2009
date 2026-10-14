@@ -4,6 +4,7 @@
 
 # Ortak test include dizinleri
 set(TEST_COMMON_INCLUDES
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_SOURCE_DIR}/server/src/common"
     "${CMAKE_SOURCE_DIR}/server/src/libthecore/include"
     "${CMAKE_SOURCE_DIR}/server/src/libthecore/src"
@@ -47,6 +48,7 @@ add_test(NAME test_db_cache COMMAND test_db_cache)
 # 6. test_db_cache_integration
 add_executable(test_db_cache_integration test_db_cache_integration.cpp)
 target_include_directories(test_db_cache_integration PRIVATE
+    ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_SOURCE_DIR}/server/src/db/src"
     "${CMAKE_SOURCE_DIR}/server/src/libthecore/include"
     "${CMAKE_SOURCE_DIR}/server/src/libsql"

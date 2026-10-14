@@ -45,6 +45,7 @@ int STDCALL mysql_options(MYSQL *, enum mysql_option, const void *)
 	return 0;
 }
 
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
 int STDCALL mysql_get_option(MYSQL *, enum mysql_option, void * arg)
 {
 	if (arg) {
@@ -52,6 +53,15 @@ int STDCALL mysql_get_option(MYSQL *, enum mysql_option, void * arg)
 	}
 	return 0;
 }
+#else
+int STDCALL mysql_get_option(MYSQL *, enum mysql_option, const void * arg)
+{
+	if (arg) {
+		*reinterpret_cast<int*>(const_cast<void*>(arg)) = 1;
+	}
+	return 0;
+}
+#endif
 
 int STDCALL mysql_set_character_set(MYSQL *, const char *)
 {
@@ -157,6 +167,17 @@ unsigned long STDCALL mysql_real_escape_string(MYSQL *, char * to, const char * 
 	return written;
 }
 
+#if defined(MARIADB_BASE_VERSION) || defined(MARIADB_VERSION_ID)
+typedef my_bool mt2_my_bool;
+#else
+typedef bool mt2_my_bool;
+#endif
+
+unsigned long STDCALL mysql_real_escape_string_quote(MYSQL * mysql, char * to, const char * from, unsigned long length, char)
+{
+	return mysql_real_escape_string(mysql, to, from, length);
+}
+
 MYSQL_STMT * STDCALL mysql_stmt_init(MYSQL *)
 {
 	static int dummy_stmt = 1;
@@ -168,7 +189,7 @@ int STDCALL mysql_stmt_prepare(MYSQL_STMT *, const char *, unsigned long)
 	return 0;
 }
 
-my_bool STDCALL mysql_stmt_close(MYSQL_STMT *)
+mt2_my_bool STDCALL mysql_stmt_close(MYSQL_STMT *)
 {
 	return 0;
 }
@@ -183,7 +204,7 @@ const char * STDCALL mysql_stmt_error(MYSQL_STMT *)
 	return "";
 }
 
-my_bool STDCALL mariadb_reconnect(MYSQL *)
+mt2_my_bool STDCALL mariadb_reconnect(MYSQL *)
 {
 	s_mock_connected = true;
 	return 0;

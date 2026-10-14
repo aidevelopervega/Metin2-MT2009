@@ -108,6 +108,10 @@ fi
 
 ranlib "$BUILD_DIR/libdb_objs.a"
 
+if [ -f "$ROOT_DIR/server/src/libsql/libsql.a" ]; then
+    cp -f "$ROOT_DIR/server/src/libsql/libsql.a" "$BUILD_DIR/libsql.a"
+fi
+
 # Negatif Kontrol 6: Bağımlılık kütüphanelerinin varlık denetimi
 for lib in "$BUILD_DIR/libthecore.a" "$BUILD_DIR/libsql.a" "$BUILD_DIR/libpoly.a" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libdb_objs.a"; do
     if [ ! -f "$lib" ]; then
@@ -119,6 +123,9 @@ done
 echo "test_db_cache_integration derleniyor ve bağlanıyor..."
 # eval KULLANILMAZ: Her yol doğrudan çift tırnakla korunur
 $CXX $FLAGS \
+    -I/usr/local/include/mysql \
+    -I/usr/local/include/mariadb \
+    -I/usr/local/include \
     -I"$DB_SRC_DIR" \
     -I"$ROOT_DIR/server/src/libthecore/include" \
     -I"$ROOT_DIR/server/src/libsql" \
@@ -127,9 +134,6 @@ $CXX $FLAGS \
     -I"$ROOT_DIR/server/src/common" \
     -I"$ROOT_DIR/extern/common/include" \
     -I"$ROOT_DIR/extern/server/include" \
-    -I/usr/local/include/mysql \
-    -I/usr/local/include/mariadb \
-    -I/usr/local/include \
     "$ROOT_DIR/tests/test_db_cache_integration.cpp" \
     "$BUILD_DIR/libdb_objs.a" \
     "$BUILD_DIR/libthecore.a" \

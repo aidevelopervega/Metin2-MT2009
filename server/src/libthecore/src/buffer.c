@@ -149,6 +149,9 @@ void buffer_reset(LPBUFFER buffer)
 
 void buffer_write(LPBUFFER& buffer, const void *src, int length)
 {
+	if (!buffer || length <= 0 || !src)
+		return;
+
 	if (buffer->write_point_pos + length >= buffer->mem_size)
 		buffer_realloc(buffer, buffer->mem_size + length + MIN(10240, length));
 

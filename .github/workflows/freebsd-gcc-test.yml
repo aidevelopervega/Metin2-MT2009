@@ -1,4 +1,4 @@
-# Rev 40: Fix CMake binary verification paths, add isolated db_r41023 + game_r41023 + game_r41023_lua55 startup & handshake smoke test
+# Rev 41: Fix MySQL 8.4 system mysql.h include priority in CMake/Makefile, add full HEADER_DG_BOOT & real AUTH_SERVER/GAME_SERVER login smoke test
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -153,6 +153,7 @@ jobs:
             echo "=== FREEBSD 15.1 amd64 GERCEK SUNUCU KUTUPHANELERI DERLEMESI ==="
             gmake -C server/src/libthecore/src CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
             gmake -C server/src/libpoly CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            gmake -C server/src/libsql clean
             gmake -C server/src/libsql CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
             gmake -C server/src/libgame/src CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
             LUA_DIR="server/src/liblua/5.0"

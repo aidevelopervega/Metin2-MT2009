@@ -42,7 +42,17 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
             /usr/local/include/mysql
             /usr/local/include/mariadb
             /usr/local/include
+        NO_DEFAULT_PATH
     )
+    if(NOT DB_INCLUDE_DIR)
+        find_path(DB_INCLUDE_DIR
+            NAMES mysql.h
+            PATHS
+                /usr/local/include/mysql
+                /usr/local/include/mariadb
+                /usr/local/include
+        )
+    endif()
 
     find_library(DB_CLIENT_LIB
         NAMES mariadb mysqlclient
@@ -50,13 +60,31 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
             /usr/local/lib/mariadb
             /usr/local/lib/mysql
             /usr/local/lib
+        NO_DEFAULT_PATH
     )
+    if(NOT DB_CLIENT_LIB)
+        find_library(DB_CLIENT_LIB
+            NAMES mariadb mysqlclient
+            PATHS
+                /usr/local/lib/mariadb
+                /usr/local/lib/mysql
+                /usr/local/lib
+        )
+    endif()
 
     if(DB_INCLUDE_DIR AND DB_CLIENT_LIB)
+        get_filename_component(DB_INCLUDE_PARENT "${DB_INCLUDE_DIR}" DIRECTORY)
+        set(DB_CLIENT_INCLUDE_DIRS "${DB_INCLUDE_DIR}")
+        if(DB_INCLUDE_PARENT AND NOT "${DB_INCLUDE_PARENT}" STREQUAL "${DB_INCLUDE_DIR}")
+            list(APPEND DB_CLIENT_INCLUDE_DIRS "${DB_INCLUDE_PARENT}")
+        endif()
+        list(APPEND DB_CLIENT_INCLUDE_DIRS "/usr/local/include")
+        list(REMOVE_DUPLICATES DB_CLIENT_INCLUDE_DIRS)
+
         add_library(Database::Client UNKNOWN IMPORTED)
         set_target_properties(Database::Client PROPERTIES
             IMPORTED_LOCATION "${DB_CLIENT_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${DB_INCLUDE_DIR}"
+            INTERFACE_INCLUDE_DIRECTORIES "${DB_CLIENT_INCLUDE_DIRS}"
             INTERFACE_LINK_LIBRARIES "z"
         )
         
@@ -66,7 +94,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
             INTERFACE_LINK_OPTIONS "-Wl,-rpath=${DB_LIB_DIR}"
         )
         set(DatabaseClient_FOUND TRUE)
-        message(STATUS "[Database::Client] FreeBSD kütüphanesi bulundu: ${DB_CLIENT_LIB} (Başlık: ${DB_INCLUDE_DIR})")
+        message(STATUS "[Database::Client] FreeBSD kütüphanesi bulundu: ${DB_CLIENT_LIB} (Başlık: ${DB_CLIENT_INCLUDE_DIRS})")
     else()
         message(FATAL_ERROR "[Database::Client] FreeBSD üzerinde MySQL veya MariaDB kütüphanesi bulunamadı!")
     endif()

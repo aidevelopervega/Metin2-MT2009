@@ -275,19 +275,26 @@ int Start()
 		sys_log(0, "connecting to MySQL server (player)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_PLAYER, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
-		} while (iRetry--);
+		} while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 		fprintf(stderr, "Success PLAYER\n");
 		SetPlayerDBName(szDB);
 	}
@@ -303,19 +310,26 @@ int Start()
 		sys_log(0, "connecting to MySQL server (account)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_ACCOUNT, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
-		} while (iRetry--);
+		} while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 		fprintf(stderr, "Success ACCOUNT\n");
 	}
 	else
@@ -330,19 +344,26 @@ int Start()
 		sys_log(0, "connecting to MySQL server (common)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_COMMON, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
-		} while (iRetry--);
+		} while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 		fprintf(stderr, "Success COMMON\n");
 	}
 	else
@@ -357,20 +378,27 @@ int Start()
 		sys_log(0, "connecting to MySQL server (hotbackup)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_HOTBACKUP, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
 		}
-		while (iRetry--);
+		while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 
 		fprintf(stderr, "Success HOTBACKUP\n");
 	}
@@ -388,19 +416,26 @@ int Start()
 		sys_log(0, "connecting to MySQL server (log)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_LOG, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
-		} while (iRetry--);
+		} while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 
 		fprintf(stderr, "Success LOG\n");
 	}
@@ -417,19 +452,26 @@ int Start()
 		sys_log(0, "connecting to MySQL server (world)");
 
 		int iRetry = 5;
+		bool bConnected = false;
 
 		do
 		{
 			if (CDBManager::instance().Connect(SQL_WORLD, szAddr, iPort, szDB, szUser, szPassword))
 			{
 				sys_log(0, "   OK");
+				bConnected = true;
 				break;
 			}
+
+			if (thecore_is_shutdowned())
+				return false;
 
 			sys_log(0, "   failed, retrying in 5 seconds");
 			fprintf(stderr, "   failed, retrying in 5 seconds");
 			sleep(5);
-		} while (iRetry--);
+		} while (iRetry-- && !thecore_is_shutdowned());
+		if (!bConnected)
+			return false;
 		fprintf(stderr, "Success WORLD\n");
 	}
 	else
