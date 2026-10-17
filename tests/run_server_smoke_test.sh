@@ -151,11 +151,11 @@ report_pid_state() {
     fi
 }
 
-# Print the tail of a log file with a header (bounded output)
+# Print the tail of a log file with a header (bounded output, masking any raw login_key values)
 tail_log() {
     if [ -s "$2" ]; then
         echo "----- [DIAG] $1: $2 (son 60 satır) -----"
-        tail -n 60 "$2"
+        tail -n 60 "$2" | sed -E 's/(login_key)[(:= ]+[0-9]+/\1=***MASKED***/gi'
     else
         echo "----- [DIAG] $1: $2 (yok veya boş) -----"
     fi
@@ -178,7 +178,7 @@ dump_stage_logs() {
     for f in "$GAME_WORK/syslog" "$DB_WORK/syslog"; do
         if [ -s "$f" ]; then
             echo "----- [DIAG] BOOT ilerleme satırları: $f -----"
-            grep -E "BOOT|QUERY_BOOT|boot packet|PHASE_DBCLIENT|SETUP" "$f" | tail -n 40 || true
+            grep -E "BOOT|QUERY_BOOT|boot packet|PHASE_DBCLIENT|SETUP" "$f" | tail -n 40 | sed -E 's/(login_key)[(:= ]+[0-9]+/\1=***MASKED***/gi' || true
         fi
     done
     return 0
@@ -189,7 +189,7 @@ dump_stage_logs() {
 # ------------------------------------------------------------------------------
 prepare_game_workdir() {
     WORK_DIR="$1"
-    mkdir -p "$WORK_DIR/locale/poland/quest/object" "$WORK_DIR/locale/poland/map" "$WORK_DIR/package" "$WORK_DIR/panama" "$WORK_DIR/mark"
+    mkdir -p "$WORK_DIR/locale/poland/quest/object" "$WORK_DIR/locale/poland/map/metin2_map_a1" "$WORK_DIR/package" "$WORK_DIR/panama" "$WORK_DIR/mark"
 
     FTP_TAR=""
     for cand in "/tmp/new_ftp.tar.gz" "$ROOT_DIR/new_ftp.tar.gz"; do
@@ -221,10 +221,33 @@ prepare_game_workdir() {
         cp "$ROOT_DIR/tests/fixtures/locale.lua" "$WORK_DIR/locale/poland/quest/locale.lua"
     fi
 
-    # Provide a clean, deterministic notarget/boot quest object directory for CQuestManager::Boot()
+    # Provide a clean, deterministic quest/object directory for CQuestManager::Boot(), Login, and NPC 20016 click coroutines
     rm -rf "$WORK_DIR/locale/poland/quest/object"
-    mkdir -p "$WORK_DIR/locale/poland/quest/object/notarget/boot"
+    mkdir -p "$WORK_DIR/locale/poland/quest/object/state" \
+             "$WORK_DIR/locale/poland/quest/object/notarget/boot" \
+             "$WORK_DIR/locale/poland/quest/object/notarget/login" \
+             "$WORK_DIR/locale/poland/quest/object/20016/click"
+
+    printf 'smoke_boot={["start"]=0}\n' > "$WORK_DIR/locale/poland/quest/object/state/smoke_boot"
+    printf 'smoke_world={["start"]=0}\n' > "$WORK_DIR/locale/poland/quest/object/state/smoke_world"
     printf 'game.set_event_flag("smoke_boot_ok", 1)\n' > "$WORK_DIR/locale/poland/quest/object/notarget/boot/smoke_boot.start"
+
+    cat > "$WORK_DIR/locale/poland/quest/object/notarget/login/smoke_world.start" <<'EOF_QLOGIN'
+local seed = pc.getqf("db_seed_val")
+local has_yes = (type(locale) == "table" and type(locale.yes) == "string" and CONFIRM_YES == 1) and 1 or 0
+pc.setqf("login_verified", 1)
+syschat(string.format("[SMOKE_QUEST_LOGIN_OK] db_seed=%d lv=%d item19=%d qlib=%d", seed, pc.get_level(), pc.count_item(19), has_yes))
+EOF_QLOGIN
+
+    cat > "$WORK_DIR/locale/poland/quest/object/20016/click/smoke_world.start" <<'EOF_QCLICK'
+say("Smoke NPC 20016 Coroutine Test")
+wait()
+local sel = select("Continue", "Cancel")
+say("Enter verification token:")
+local txt = input()
+pc.setqf("npc_flow_done", 1)
+syschat(string.format("[SMOKE_NPC_COROUTINE_OK] sel=%d input=%s", sel, txt))
+EOF_QCLICK
 
     printf "20016\tblacksmith\n9001\tweapon_shop\n" > "$WORK_DIR/locale/poland/quest/questnpc.txt"
     : > "$WORK_DIR/locale/poland/forkedmapindex.txt"
@@ -239,7 +262,25 @@ prepare_game_workdir() {
     printf "# empty\n" > "$WORK_DIR/locale/poland/special_item_group.txt"
     printf "# empty\n" > "$WORK_DIR/locale/poland/mob_drop_item.txt"
     printf "# empty\n" > "$WORK_DIR/locale/poland/special_spawns.txt"
-    printf "# empty\n" > "$WORK_DIR/locale/poland/map/index"
+
+    # Prepare map index 1 (metin2_map_a1: 4x5, BasePosition 409600x896000) so SmokeHero (469300x964200) and NPC 20016 spawn cleanly
+    printf "1 metin2_map_a1\n" > "$WORK_DIR/locale/poland/map/index"
+    cat > "$WORK_DIR/locale/poland/map/metin2_map_a1/Setting.txt" <<'EOF_MAPSET'
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	4	5
+BasePosition	409600	896000
+TextureSet	metin2_a1.txt
+Environment	a1.msenv
+EOF_MAPSET
+    printf "597 682\n" > "$WORK_DIR/locale/poland/map/metin2_map_a1/Town.txt"
+    printf "m\t598\t682\t0\t0\t0\t0\t1m\t100\t1\t20016\n" > "$WORK_DIR/locale/poland/map/metin2_map_a1/npc.txt"
+    "$BUILD_DIR/test_server_smoke_client" --gen-server-attr "$WORK_DIR/locale/poland/map/metin2_map_a1/server_attr" 16 20
     : > "$WORK_DIR/CMD"
 }
 
@@ -318,7 +359,7 @@ CREATE TABLE exp_table (
   exp INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (level)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO exp_table (level, exp) VALUES (1, 300), (2, 800), (3, 1500);
+INSERT INTO exp_table (level, exp) VALUES (1, 300), (2, 800), (3, 1500), (15, 25000);
 
 DROP TABLE IF EXISTS spam_db;
 CREATE TABLE spam_db (
@@ -409,20 +450,50 @@ CREATE TABLE `player` (
   account_id INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(24) NOT NULL DEFAULT '',
   job TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  level TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  voice TINYINT NOT NULL DEFAULT 0,
+  dir TINYINT NOT NULL DEFAULT 0,
+  x INT NOT NULL DEFAULT 469300,
+  y INT NOT NULL DEFAULT 964200,
+  z INT NOT NULL DEFAULT 0,
+  map_index INT NOT NULL DEFAULT 1,
+  exit_x INT NOT NULL DEFAULT 469300,
+  exit_y INT NOT NULL DEFAULT 964200,
+  exit_map_index INT NOT NULL DEFAULT 1,
+  hp INT NOT NULL DEFAULT 800,
+  mp INT NOT NULL DEFAULT 300,
+  stamina SMALLINT NOT NULL DEFAULT 800,
+  random_hp SMALLINT NOT NULL DEFAULT 0,
+  random_sp SMALLINT NOT NULL DEFAULT 0,
   playtime INT UNSIGNED NOT NULL DEFAULT 0,
-  st SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  ht SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  dx SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  iq SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  gold BIGINT NOT NULL DEFAULT 0,
+  level TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  level_step TINYINT NOT NULL DEFAULT 0,
+  st SMALLINT UNSIGNED NOT NULL DEFAULT 10,
+  ht SMALLINT UNSIGNED NOT NULL DEFAULT 10,
+  dx SMALLINT UNSIGNED NOT NULL DEFAULT 10,
+  iq SMALLINT UNSIGNED NOT NULL DEFAULT 10,
+  exp INT UNSIGNED NOT NULL DEFAULT 0,
+  stat_point SMALLINT NOT NULL DEFAULT 0,
+  skill_point SMALLINT NOT NULL DEFAULT 0,
+  sub_skill_point SMALLINT NOT NULL DEFAULT 0,
+  stat_reset_count TINYINT NOT NULL DEFAULT 0,
+  ip VARCHAR(16) NOT NULL DEFAULT '127.0.0.1',
   part_main SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  part_base TINYINT UNSIGNED NOT NULL DEFAULT 0,
   part_hair SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   part_acce SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  x INT NOT NULL DEFAULT 0,
-  y INT NOT NULL DEFAULT 0,
+  skill_level BLOB DEFAULT NULL,
+  quickslot BLOB DEFAULT NULL,
   skill_group TINYINT NOT NULL DEFAULT 0,
+  alignment INT NOT NULL DEFAULT 0,
+  last_play DATETIME NOT NULL DEFAULT '2025-01-01 00:00:00',
+  horse_level TINYINT NOT NULL DEFAULT 0,
+  horse_riding TINYINT NOT NULL DEFAULT 0,
+  horse_hp SMALLINT NOT NULL DEFAULT 0,
+  horse_hp_droptime INT UNSIGNED NOT NULL DEFAULT 0,
+  horse_stamina SMALLINT NOT NULL DEFAULT 0,
+  horse_skill_point SMALLINT NOT NULL DEFAULT 0,
   change_name TINYINT NOT NULL DEFAULT 0,
-  gold BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   KEY idx_account_id (account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -431,7 +502,7 @@ DROP TABLE IF EXISTS item;
 CREATE TABLE item (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   owner_id INT UNSIGNED NOT NULL DEFAULT 0,
-  `window` VARCHAR(32) NOT NULL DEFAULT 'INVENTORY',
+  `window` ENUM('INVENTORY','EQUIPMENT','SAFEBOX','MALL','DRAGON_SOUL_INVENTORY','BELT_INVENTORY','GROUND','IKASHOP_OFFLINESHOP','IKASHOP_SAFEBOX','IKASHOP_AUCTION') NOT NULL DEFAULT 'INVENTORY',
   pos SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   count INT UNSIGNED NOT NULL DEFAULT 0,
   vnum INT UNSIGNED NOT NULL DEFAULT 0,
@@ -453,8 +524,12 @@ CREATE TABLE item (
   attrtype6 TINYINT NOT NULL DEFAULT 0,
   attrvalue6 SMALLINT NOT NULL DEFAULT 0,
   ikashop_data TEXT DEFAULT NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  KEY idx_owner_id (owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO item (id, owner_id, `window`, pos, count, vnum)
+VALUES (10000001, 90011, 'INVENTORY', 0, 1, 19);
 
 DROP TABLE IF EXISTS quest;
 CREATE TABLE quest (
@@ -463,6 +538,130 @@ CREATE TABLE quest (
   szState VARCHAR(64) NOT NULL DEFAULT '',
   lValue INT NOT NULL DEFAULT 0,
   PRIMARY KEY (dwPID, szName, szState)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO quest (dwPID, szName, szState, lValue) VALUES
+  (90011, 'smoke_world', '__status', 0),
+  (90011, 'smoke_world', 'db_seed_val', 77);
+
+DROP TABLE IF EXISTS affect;
+CREATE TABLE affect (
+  dwPID INT UNSIGNED NOT NULL DEFAULT 0,
+  bType SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  bApplyOn TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  lApplyValue INT NOT NULL DEFAULT 0,
+  dwFlag INT UNSIGNED NOT NULL DEFAULT 0,
+  lDuration INT NOT NULL DEFAULT 0,
+  lSPCost INT NOT NULL DEFAULT 0,
+  itemVnum INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (dwPID, bType, bApplyOn, lApplyValue)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS player_special_flag;
+CREATE TABLE player_special_flag (
+  pid INT UNSIGNED NOT NULL DEFAULT 0,
+  aid INT UNSIGNED NOT NULL DEFAULT 0,
+  flag VARCHAR(32) NOT NULL DEFAULT '',
+  value BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (pid, aid, flag)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS safebox;
+CREATE TABLE safebox (
+  account_id INT UNSIGNED NOT NULL DEFAULT 0,
+  size TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  password VARCHAR(6) NOT NULL DEFAULT '',
+  gold BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS messenger_list;
+CREATE TABLE messenger_list (
+  account VARCHAR(24) NOT NULL DEFAULT '',
+  companion VARCHAR(24) NOT NULL DEFAULT '',
+  PRIMARY KEY (account, companion)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS messenger_block_list;
+CREATE TABLE messenger_block_list (
+  pid INT UNSIGNED NOT NULL DEFAULT 0,
+  companion VARCHAR(24) NOT NULL DEFAULT '',
+  PRIMARY KEY (pid, companion)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS ikashop_safebox;
+CREATE TABLE ikashop_safebox (
+  owner INT UNSIGNED NOT NULL DEFAULT 0,
+  gold BIGINT NOT NULL DEFAULT 0,
+  cheque INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (owner)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS ikashop_notification;
+CREATE TABLE ikashop_notification (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  owner INT UNSIGNED NOT NULL DEFAULT 0,
+  type VARCHAR(64) NOT NULL DEFAULT 'SELLER_SOLD_ITEM',
+  who VARCHAR(32) NOT NULL DEFAULT '',
+  what INT UNSIGNED NOT NULL DEFAULT 0,
+  format VARCHAR(64) NOT NULL DEFAULT '',
+  seen TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  datetime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS loginlog;
+CREATE TABLE loginlog (
+  type VARCHAR(20) DEFAULT NULL,
+  time DATETIME DEFAULT NULL,
+  channel TINYINT DEFAULT NULL,
+  account_id INT UNSIGNED DEFAULT NULL,
+  pid INT UNSIGNED DEFAULT NULL,
+  level SMALLINT DEFAULT NULL,
+  job TINYINT DEFAULT NULL,
+  playtime INT UNSIGNED DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS loginlog2;
+CREATE TABLE loginlog2 (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  type VARCHAR(20) DEFAULT NULL,
+  is_gm VARCHAR(4) DEFAULT NULL,
+  login_time DATETIME DEFAULT NULL,
+  channel TINYINT DEFAULT NULL,
+  account_id INT UNSIGNED DEFAULT NULL,
+  pid INT UNSIGNED DEFAULT NULL,
+  ip INT UNSIGNED DEFAULT NULL,
+  client_version VARCHAR(32) DEFAULT NULL,
+  logout_time DATETIME DEFAULT NULL,
+  playtime INT DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS char_log;
+CREATE TABLE char_log (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  time DATETIME DEFAULT NULL,
+  channel TINYINT DEFAULT NULL,
+  account_id INT UNSIGNED DEFAULT NULL,
+  pid INT UNSIGNED DEFAULT NULL,
+  name VARCHAR(24) DEFAULT NULL,
+  what VARCHAR(64) DEFAULT NULL,
+  how VARCHAR(64) DEFAULT NULL,
+  hint VARCHAR(128) DEFAULT NULL,
+  ip VARCHAR(20) DEFAULT NULL,
+  dwVnum INT UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS quest_state_log;
+CREATE TABLE quest_state_log (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  quest_name VARCHAR(64) DEFAULT NULL,
+  quest_state VARCHAR(64) DEFAULT NULL,
+  pid INT UNSIGNED DEFAULT NULL,
+  date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 DROP TABLE IF EXISTS mob_proto;
@@ -542,9 +741,10 @@ CREATE TABLE mob_proto (
   fraction TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO mob_proto (vnum, name, locale_name, type, level, max_hp) VALUES
-  (101, 'WildDog', 'Dziki Pies', 0, 1, 100),
-  (9001, 'WeaponSeller', 'Handlarz Bronia', 1, 1, 100);
+INSERT INTO mob_proto (vnum, name, locale_name, type, on_click, level, max_hp) VALUES
+  (101, 'WildDog', 'Dziki Pies', 0, 0, 1, 100),
+  (9001, 'WeaponSeller', 'Handlarz Bronia', 1, 2, 1, 100),
+  (20016, 'Blacksmith', 'Kowal', 1, 2, 1, 1000);
 
 DROP TABLE IF EXISTS item_proto;
 CREATE TABLE item_proto (
@@ -585,7 +785,9 @@ CREATE TABLE item_proto (
   value5 INT NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO item_proto (vnum, type, subtype, name, locale_name, size) VALUES (10, 1, 0, 'Sword+0', 'Miecz+0', 2);
+INSERT INTO item_proto (vnum, type, subtype, name, locale_name, size, wearflag) VALUES
+  (10, 1, 0, 'Sword+0', 'Miecz+0', 2, 16),
+  (19, 1, 0, 'Sword+9', 'Miecz+9', 1, 16);
 
 DROP TABLE IF EXISTS shop;
 CREATE TABLE shop (
@@ -957,8 +1159,8 @@ CREATE TABLE gmlist (
   PRIMARY KEY (mID)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
-INSERT INTO `player` (id, account_id, name, job, level, playtime, st, ht, dx, iq, part_main, part_hair, part_acce, x, y, skill_group, change_name, gold)
-VALUES (90011, 9001, 'SmokeHero', 0, 15, 42, 10, 10, 10, 10, 11209, 0, 0, 469300, 964200, 1, 0, 50000);
+INSERT INTO `player` (id, account_id, name, job, level, playtime, st, ht, dx, iq, part_main, part_hair, part_acce, x, y, map_index, exit_x, exit_y, exit_map_index, hp, mp, stamina, skill_group, change_name, gold)
+VALUES (90011, 9001, 'SmokeHero', 0, 15, 42, 10, 10, 10, 10, 11209, 0, 0, 469300, 964200, 1, 469300, 964200, 1, 800, 300, 800, 1, 0, 50000);
 EOF
 
 "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<EOF
@@ -977,7 +1179,7 @@ if [ "$HASH_MATCH" != "1" ]; then
     echo "HATA: [1/6] MT2009 C++ mysql_hash_password ile SQL SHA1(UNHEX(SHA1(...))) hesap hash formatı eşleşmedi!" >&2
     exit 1
 fi
-echo "  [PASS] [1/6] Strict SQL Mode şeması, geçici test hesabı (C++ mysql_hash_password == SQL SHA1(UNHEX(SHA1)) doğrulandı, PASSWORD() SQL fonksiyonu kullanılmadı) ve SmokeHero (id=90011, level=15) karakteri hazırlandı."
+echo "  [PASS] [1/6] Strict SQL Mode şeması, geçici test hesabı (C++ mysql_hash_password == SQL SHA1(UNHEX(SHA1)) doğrulandı, PASSWORD() SQL fonksiyonu kullanılmadı) ve SmokeHero (id=90011, level=15, map=1 469300x964200) karakteri hazırlandı."
 
 # ------------------------------------------------------------------------------
 # [2/6] Real db_r41023 Isolated Startup, SQL Table Load & TCP Listener Probe
@@ -1127,7 +1329,7 @@ run_mock_db_game_smoke "[3a/6] game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_
 run_mock_db_game_smoke "[3b/6] game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
 
 # ------------------------------------------------------------------------------
-# [4/6] Real db_r41023 <-> Normal Game Server Full HEADER_DG_BOOT + Real Auth/Login
+# [4/6] Real db_r41023 <-> Normal Game Server Full HEADER_DG_BOOT + Real Auth/Login + PHASE_GAME World Entry
 # ------------------------------------------------------------------------------
 run_real_db_auth_and_game_smoke() {
     STAGE_TAG="$1"
@@ -1139,11 +1341,20 @@ run_real_db_auth_and_game_smoke() {
     GAME_PORT="$7"
     GAME_P2P_PORT="$8"
 
-    echo "$STAGE_TAG $LABEL: Gerçek db_r41023 <-> HEADER_DG_BOOT + Gerçek AUTH_SERVER (HEADER_CG_LOGIN3) + Gerçek GAME_SERVER (HEADER_CG_LOGIN2 -> PHASE_SELECT) testi..."
+    echo "$STAGE_TAG $LABEL: Gerçek db_r41023 <-> HEADER_DG_BOOT + Gerçek AUTH_SERVER (HEADER_CG_LOGIN3) + Gerçek GAME_SERVER (LoginByKey -> PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME + Quest/NPC Coroutine) testi..."
 
-    # Reset any previous logon state in db_r41023 by restarting db_r41023 cleanly for this engine run
+    # Reset quest flags and player position in SQL before restarting db_r41023 so each Lua engine run starts from identical state
     stop_pid_bounded "$ACTIVE_DB_PID"
     ACTIVE_DB_PID=""
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<'EOF_RESET'
+SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+DELETE FROM quest WHERE dwPID = 90011;
+INSERT INTO quest (dwPID, szName, szState, lValue) VALUES
+  (90011, 'smoke_world', '__status', 0),
+  (90011, 'smoke_world', 'db_seed_val', 77);
+UPDATE `player` SET x=469300, y=964200, map_index=1, exit_x=469300, exit_y=964200, exit_map_index=1, hp=800, mp=300, stamina=800 WHERE id=90011;
+EOF_RESET
+
     (
         cd "$DB_WORK"
         exec "$DB_BIN" >"$DB_WORK/db_stdout_${HOSTNAME_TAG}.log" 2>"$DB_WORK/db_stderr_${HOSTNAME_TAG}.log"
@@ -1273,6 +1484,7 @@ EOF
         dump_stage_logs
         exit 1
     fi
+    rm -f "$LEGACY_KEY_FILE"
     echo "  [PASS] $STAGE_TAG $LABEL eski MT2009 hesap şifre biçimi (*SHA1(SHA1)) gerçek AUTH_SERVER üzerinde kabul edildi, yanlış şifre reddedildi."
     sleep 1
 
@@ -1286,17 +1498,42 @@ EOF
     fi
 
     LOGIN_KEY=$(cat "$KEY_FILE" 2>/dev/null | tr -d '\r\n ')
+    rm -f "$KEY_FILE"
     if [ -z "$LOGIN_KEY" ] || [ "$LOGIN_KEY" = "0" ]; then
-        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER geçerli bir dwLoginKey üretmedi ($LOGIN_KEY)!" >&2
+        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER geçerli bir dwLoginKey üretmedi!" >&2
         exit 1
     fi
 
-    # 4. Execute real GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> HEADER_GD_LOGIN_BY_KEY -> HEADER_DG_LOGIN_SUCCESS -> PHASE_SELECT)
+    # 4. Execute real GAME_SERVER LoginByKey -> PHASE_SELECT -> CharacterSelect -> PHASE_LOADING -> Entergame -> PHASE_GAME + Quest/NPC Coroutine
     if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "@ENV" "$LOGIN_KEY"; then
-        echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER LoginByKey (HEADER_CG_LOGIN2 -> PHASE_SELECT) başarısız oldu!" >&2
+        echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER (LoginByKey -> PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME + Quest/NPC Coroutine) akışı başarısız oldu!" >&2
         dump_stage_logs
         exit 1
     fi
+
+    # 5. Verify zero map/sectree/PlayerLoad/Lua runtime errors in GAME_WORK/syserr after full world entry & NPC coroutine
+    if [ -f "$GAME_WORK/syserr" ] && grep -qiE "GetServerLocation|cannot find sectree|PlayerLoad|LUA_ERROR|WriteRunningStateToSyserr" "$GAME_WORK/syserr"; then
+        echo "HATA: $STAGE_TAG $LABEL oyun dünyasına giriş veya NPC/quest coroutine sırasında syserr hatası oluştu!" >&2
+        cat "$GAME_WORK/syserr" >&2
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL harita/sectree (MapIndex=1, 469300x964200), PlayerLoad ve Quest/NPC coroutine akışı 0 syserr hatası ile tamamlandı."
+
+    # 6. Verify quest state flags (login_verified=1 and npc_flow_done=1) were persisted to live SQL DB via HEADER_GD_QUEST_SAVE on disconnect
+    QUEST_SAVED_COUNT="0"
+    for _ in $(seq 1 10); do
+        QUEST_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM quest WHERE dwPID=90011 AND szName='smoke_world' AND ((szState='login_verified' AND lValue=1) OR (szState='npc_flow_done' AND lValue=1));")
+        if [ "$QUEST_SAVED_COUNT" = "2" ]; then
+            break
+        fi
+        sleep 1
+    done
+    if [ "$QUEST_SAVED_COUNT" != "2" ]; then
+        echo "HATA: $STAGE_TAG $LABEL quest state bayrakları (login_verified=1, npc_flow_done=1) canlı SQL quest tablosuna kaydedilmedi (bulunan: $QUEST_SAVED_COUNT)!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL PC::Save -> HEADER_GD_QUEST_SAVE ile quest bayrakları (login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
 
     stop_pid_bounded "$ACTIVE_GAME_PID"
     ACTIVE_GAME_PID=""
@@ -1304,10 +1541,10 @@ EOF
     ACTIVE_AUTH_PID=""
 }
 
-echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3 Rollback) tam başlangıç ve hesap girişi testi..."
+echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3 Rollback) tam başlangıç, oyun dünyasına giriş ve NPC/quest coroutine testi..."
 run_real_db_auth_and_game_smoke "[4-5/6]" "game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_BIN" "real_lua50" 15012 15013 15020 15021
 
-echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1 Default) tam başlangıç ve hesap girişi testi..."
+echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1 Default) tam başlangıç, oyun dünyasına giriş ve NPC/quest coroutine testi..."
 run_real_db_auth_and_game_smoke "[4-6/6]" "game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
 
 stop_pid_bounded "$ACTIVE_DB_PID"
@@ -1318,7 +1555,9 @@ ACTIVE_DB_PID=""
 DROP TABLE IF EXISTS
   account, hardware_status, player_index,
   locale, exp_table, spam_db, bootlog, special_spawn, priv_settings, guild, guild_war_reservation,
-  marriage, `player`, item, quest, mob_proto, item_proto, shop, shop_item,
+  marriage, `player`, item, quest, affect, player_special_flag, safebox, messenger_list, messenger_block_list,
+  ikashop_safebox, ikashop_notification, loginlog, loginlog2, char_log, quest_state_log,
+  mob_proto, item_proto, shop, shop_item,
   skill_proto, refine_proto, item_attr, item_attr_rare, banword, name_reservation,
   land, guild_land, object_proto, object, monarch, itemshop_items, itemshop_promotions,
   itemshop_time_auctions, itemshop_time_auction, ikashop_offlineshop, offlineshop_limit,
@@ -1326,5 +1565,5 @@ DROP TABLE IF EXISTS
 EOF
 
 echo "=================================================="
-echo " [BASARILI] IZOLE DB + MOCK-DB + GERCEK DB BOOT + GERCEK AUTH/LOGIN (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
+echo " [BASARILI] IZOLE DB + MOCK-DB + GERCEK DB BOOT + GERCEK AUTH/LOGIN + PHASE_GAME & QUEST/NPC COROUTINE (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
 echo "=================================================="

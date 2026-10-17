@@ -70,6 +70,30 @@ static_assert(sizeof(TPacketAffectElement) == 25, "TPacketAffectElement size mis
 static_assert(sizeof(TPacketGDSetup) == 155, "TPacketGDSetup size mismatch");
 static_assert(sizeof(TMapLocation) == 147, "TMapLocation size mismatch");
 
+static_assert(sizeof(TPacketGCLoginSuccess) == 353, "TPacketGCLoginSuccess size mismatch");
+static_assert(sizeof(TPacketCGPlayerSelect) == 2, "TPacketCGPlayerSelect size mismatch");
+static_assert(sizeof(TPacketCGEnterGame) == 1, "TPacketCGEnterGame size mismatch");
+static_assert(sizeof(TPacketCGOnClick) == 5, "TPacketCGOnClick size mismatch");
+static_assert(sizeof(TPacketCGScriptAnswer) == 2, "TPacketCGScriptAnswer size mismatch");
+static_assert(sizeof(TPacketCGQuestInputString) == 66, "TPacketCGQuestInputString size mismatch");
+static_assert(sizeof(TPacketGCMainCharacter3_BGM) == 73, "TPacketGCMainCharacter3_BGM size mismatch");
+static_assert(sizeof(TPacketGCMainCharacter4_BGM_VOL) == 77, "TPacketGCMainCharacter4_BGM_VOL size mismatch");
+static_assert(sizeof(TPacketGCPoints) == 709, "TPacketGCPoints size mismatch");
+static_assert(sizeof(TPacketGCSkillLevel) == 1591, "TPacketGCSkillLevel size mismatch");
+static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 62, "TPacketGCCharacterAdditionalInfo size mismatch");
+static_assert(sizeof(TPacketGCCharacterUpdate) == 44, "TPacketGCCharacterUpdate size mismatch");
+static_assert(sizeof(TPacketGCCharacterDelete) == 5, "TPacketGCCharacterDelete size mismatch");
+static_assert(sizeof(TPacketGCAffectAdd) == 26, "TPacketGCAffectAdd size mismatch");
+static_assert(sizeof(TPacketGCAffectRemove) == 6, "TPacketGCAffectRemove size mismatch");
+static_assert(sizeof(TPacketGCWalkMode) == 6, "TPacketGCWalkMode size mismatch");
+static_assert(sizeof(TPacketGCChangeSkillGroup) == 2, "TPacketGCChangeSkillGroup size mismatch");
+static_assert(sizeof(TPacketGCSpecialEffect) == 6, "TPacketGCSpecialEffect size mismatch");
+static_assert(sizeof(TPacketGCChannel) == 2, "TPacketGCChannel size mismatch");
+static_assert(sizeof(TPacketGCGoldUpdate) == 9, "TPacketGCGoldUpdate size mismatch");
+static_assert(sizeof(TPacketGCSpecialFlag) == 42, "TPacketGCSpecialFlag size mismatch");
+static_assert(sizeof(TPacketGCGuildToken) == 9, "TPacketGCGuildToken size mismatch");
+static_assert(sizeof(TPacketGCSpecificEffect) == 133, "TPacketGCSpecificEffect size mismatch");
+
 // ------------------------------------------------------------------------------
 // Compile-Time Offset Checks (Guarantees no internal padding/misalignment)
 // ------------------------------------------------------------------------------

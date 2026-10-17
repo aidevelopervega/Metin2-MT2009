@@ -1556,7 +1556,7 @@ void CHARACTER::MainCharacterPacket()
 	{
 		sys_log(0, "bgm_info.play(%d, DEFAULT_BGM_NAME)", mapIndex);
 
-		TPacketGCMainCharacter pack;
+		TPacketGCMainCharacter pack{};
 		pack.header = HEADER_GC_MAIN_CHARACTER;
 		pack.dwVID = m_vid;
 		pack.wRaceNum = GetRaceNum();
@@ -1575,7 +1575,7 @@ void CHARACTER::PointsPacket()
 	if (!GetDesc())
 		return;
 
-	TPacketGCPoints pack;
+	TPacketGCPoints pack{};
 
 	pack.header	= HEADER_GC_CHARACTER_POINTS;
 

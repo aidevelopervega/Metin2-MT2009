@@ -960,7 +960,7 @@ void DESC::SendLoginSuccessPacket()
 {
 	TAccountTable & rTable = GetAccountTable();
 
-	TPacketGCLoginSuccess p;
+	TPacketGCLoginSuccess p{};
 
 	p.bHeader    = HEADER_GC_LOGIN_SUCCESS_NEWSLOT;
 

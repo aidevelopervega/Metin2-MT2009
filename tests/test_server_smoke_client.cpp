@@ -60,6 +60,72 @@ struct SmokePacketGCLoginFailure {
 	uint8_t  header;      // 7 (HEADER_GC_LOGIN_FAILURE)
 	char     szStatus[9]; // ACCOUNT_STATUS_MAX_LEN (8) + 1
 };
+
+struct SmokePacketCGPlayerSelect {
+	uint8_t  header;      // 6 (HEADER_CG_CHARACTER_SELECT)
+	uint8_t  index;       // slot index (0..3)
+};
+
+struct SmokePacketCGEnterGame {
+	uint8_t  header;      // 10 (HEADER_CG_ENTERGAME)
+};
+
+struct SmokePacketCGOnClick {
+	uint8_t  header;      // 26 (HEADER_CG_ON_CLICK)
+	uint32_t vid;
+};
+
+struct SmokePacketCGScriptAnswer {
+	uint8_t  header;      // 29 (HEADER_CG_SCRIPT_ANSWER)
+	uint8_t  answer;
+};
+
+struct SmokePacketCGQuestInputString {
+	uint8_t  header;      // 30 (HEADER_CG_QUEST_INPUT_STRING)
+	char     msg[65];     // 64 + 1
+};
+
+struct SmokePacketGCMainCharacter {
+	uint8_t  header;      // 113 (HEADER_GC_MAIN_CHARACTER)
+	uint32_t dwVID;
+	uint32_t wRaceNum;
+	char     szName[25];  // CHARACTER_NAME_MAX_LEN (24) + 1
+	int32_t  lx;
+	int32_t  ly;
+	int32_t  lz;
+	uint8_t  empire;
+	uint8_t  skill_group;
+};
+
+struct SmokePacketGCCharacterAdd {
+	uint8_t  header;      // 1 (HEADER_GC_CHARACTER_ADD)
+	uint32_t dwVID;
+	float    angle;
+	int32_t  x;
+	int32_t  y;
+	int32_t  z;
+	uint8_t  bType;
+	uint32_t wRaceNum;
+	uint8_t  bMovingSpeed;
+	uint8_t  bAttackSpeed;
+	uint8_t  bStateFlag;
+	uint32_t dwAffectFlag[2];
+};
+
+struct SmokePacketGCChat {
+	uint8_t  header;      // 4 (HEADER_GC_CHAT)
+	uint16_t size;
+	uint8_t  type;
+	uint32_t id;
+	uint8_t  bEmpire;
+};
+
+struct SmokePacketGCScript {
+	uint8_t  header;      // 45 (HEADER_GC_SCRIPT)
+	uint16_t size;
+	uint8_t  skin;
+	uint16_t src_size;
+};
 #pragma pack(pop)
 
 static_assert(sizeof(SmokePacketGCPhase) == 2, "SmokePacketGCPhase must be 2 bytes");
@@ -68,6 +134,15 @@ static_assert(sizeof(SmokePacketCGLogin2) == 52, "SmokePacketCGLogin2 must be 52
 static_assert(sizeof(SmokePacketCGLogin3) == 321, "SmokePacketCGLogin3 must be 321 bytes");
 static_assert(sizeof(SmokePacketGCAuthSuccess) == 6, "SmokePacketGCAuthSuccess must be 6 bytes");
 static_assert(sizeof(SmokePacketGCLoginFailure) == 10, "SmokePacketGCLoginFailure must be 10 bytes");
+static_assert(sizeof(SmokePacketCGPlayerSelect) == 2, "SmokePacketCGPlayerSelect must be 2 bytes");
+static_assert(sizeof(SmokePacketCGEnterGame) == 1, "SmokePacketCGEnterGame must be 1 byte");
+static_assert(sizeof(SmokePacketCGOnClick) == 5, "SmokePacketCGOnClick must be 5 bytes");
+static_assert(sizeof(SmokePacketCGScriptAnswer) == 2, "SmokePacketCGScriptAnswer must be 2 bytes");
+static_assert(sizeof(SmokePacketCGQuestInputString) == 66, "SmokePacketCGQuestInputString must be 66 bytes");
+static_assert(sizeof(SmokePacketGCMainCharacter) == 48, "SmokePacketGCMainCharacter must be 48 bytes");
+static_assert(sizeof(SmokePacketGCCharacterAdd) == 37, "SmokePacketGCCharacterAdd must be 37 bytes");
+static_assert(sizeof(SmokePacketGCChat) == 9, "SmokePacketGCChat must be 9 bytes");
+static_assert(sizeof(SmokePacketGCScript) == 6, "SmokePacketGCScript must be 6 bytes");
 
 // ==============================================================================
 // Metin2 32-Bit Wire TEA Cipher (matches server/src/libthecore/src/tea.c & desc.cpp)
@@ -446,6 +521,51 @@ static int run_hash_env_pass(const char* out_file) {
 	return 0;
 }
 
+// Builds the exact 265-byte LZO1X-1 block that lzo1x_decompress_safe decodes to 65536 (128*128*4) zero bytes (ATTR_NONE).
+static void build_lzo1x_zero_sectree_block(uint8_t out_block[265]) {
+	std::memset(out_block, 0, 265);
+	out_block[0] = 0x12u; // 1 initial literal byte (0x12 - 17 = 1)
+	out_block[1] = 0x00u; // literal 0x00 at out[0]
+	out_block[2] = 0x20u; // M3 match with extended length (256 zero bytes -> 256 * 255 = 65280)
+	// out_block[3..258] = 0x00
+	out_block[259] = 222u; // t = 65280 + 31 + 222 = 65533 -> copy 65533 + 2 = 65535 bytes from offset 1 -> total 65536 zero bytes
+	out_block[260] = 0x00u; // m_pos offset low byte (offset = 1)
+	out_block[261] = 0x00u; // m_pos offset high byte
+	out_block[262] = 0x11u; // LZO1X EOF marker
+	out_block[263] = 0x00u;
+	out_block[264] = 0x00u;
+}
+
+static int run_gen_server_attr(const char* out_file, int w_sectrees, int h_sectrees) {
+	if (w_sectrees <= 0 || h_sectrees <= 0 || w_sectrees > 64 || h_sectrees > 64) {
+		std::fprintf(stderr, "[gen-server-attr] FAIL: invalid sectree dimensions %dx%d\n", w_sectrees, h_sectrees);
+		return 1;
+	}
+	FILE* fp = std::fopen(out_file, "wb");
+	if (!fp) {
+		std::fprintf(stderr, "[gen-server-attr] FAIL: cannot open %s for writing\n", out_file);
+		return 1;
+	}
+	int32_t hdr[2] = { static_cast<int32_t>(w_sectrees), static_cast<int32_t>(h_sectrees) };
+	if (std::fwrite(hdr, sizeof(int32_t), 2, fp) != 2) {
+		std::fclose(fp);
+		return 1;
+	}
+	uint8_t lzoBlock[265]{};
+	build_lzo1x_zero_sectree_block(lzoBlock);
+	uint32_t blockSize = 265u;
+	int total = w_sectrees * h_sectrees;
+	for (int i = 0; i < total; ++i) {
+		if (std::fwrite(&blockSize, sizeof(uint32_t), 1, fp) != 1 ||
+		    std::fwrite(lzoBlock, 1, sizeof(lzoBlock), fp) != sizeof(lzoBlock)) {
+			std::fclose(fp);
+			return 1;
+		}
+	}
+	std::fclose(fp);
+	return 0;
+}
+
 // Known-answer vectors produced by legacy MySQL 4.1+/5.x/MariaDB PASSWORD() and stored
 // verbatim in existing MT2009 account.password rows. The game's mysql_hash_password()
 // must reproduce them byte-for-byte so old accounts keep authenticating on MySQL 8.4.
@@ -463,8 +583,14 @@ static int run_self_test_hash() {
 			++failures;
 		}
 	}
+	uint8_t lzoBlock[265]{};
+	build_lzo1x_zero_sectree_block(lzoBlock);
+	if (lzoBlock[0] != 0x12u || lzoBlock[2] != 0x20u || lzoBlock[259] != 222u || lzoBlock[262] != 0x11u) {
+		std::fprintf(stderr, "[self-test-hash] FAIL: LZO1X zero-sectree block invariant mismatch\n");
+		++failures;
+	}
 	if (failures == 0)
-		std::printf("  [PASS] [self-test-hash] %zu legacy MySQL PASSWORD() known-answer vectors reproduced byte-for-byte\n", sizeof(vectors) / sizeof(vectors[0]));
+		std::printf("  [PASS] [self-test-hash] %zu legacy MySQL PASSWORD() known-answer vectors + LZO1X sectree block verified\n", sizeof(vectors) / sizeof(vectors[0]));
 	return failures == 0 ? 0 : 1;
 }
 
@@ -557,8 +683,8 @@ static int run_auth_login(int port, const char* login_arg, const char* passwd_ar
 	SmokePacketGCAuthSuccess authOk{};
 	std::memcpy(&authOk, respDec, sizeof(authOk));
 	if (authOk.bHeader != 150 || authOk.bResult != 1 || authOk.dwLoginKey == 0) {
-		std::fprintf(stderr, "[auth-login] FAIL: unexpected auth response header=%u key=%u result=%u\n",
-			static_cast<unsigned>(authOk.bHeader), authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
+		std::fprintf(stderr, "[auth-login] FAIL: unexpected auth response header=%u key_non_zero=%d result=%u\n",
+			static_cast<unsigned>(authOk.bHeader), authOk.dwLoginKey != 0 ? 1 : 0, static_cast<unsigned>(authOk.bResult));
 		CLOSESOCK(s);
 		return 1;
 	}
@@ -568,10 +694,326 @@ static int run_auth_login(int port, const char* login_arg, const char* passwd_ar
 		std::fclose(fp);
 	}
 
-	std::printf("  [PASS] [auth-login] Real AUTH_SERVER authenticated ephemeral account -> HEADER_GC_AUTH_SUCCESS(150) dwLoginKey=%u bResult=%u\n",
-		authOk.dwLoginKey, static_cast<unsigned>(authOk.bResult));
+	std::printf("  [PASS] [auth-login] Real AUTH_SERVER authenticated ephemeral account -> HEADER_GC_AUTH_SUCCESS(150) dwLoginKey=***MASKED(non-zero)*** bResult=%u\n",
+		static_cast<unsigned>(authOk.bResult));
 	CLOSESOCK(s);
 	return 0;
+}
+
+static bool send_tea_packet(sock_t s, const void* payload, size_t payload_len, const uint32_t key[4], const char* tag) {
+	size_t aligned_len = (payload_len % 8 != 0) ? (payload_len + 8 - (payload_len % 8)) : payload_len;
+	if (aligned_len == 0 || aligned_len > 512)
+		return false;
+	uint8_t plainBuf[512]{};
+	uint8_t encBuf[512]{};
+	std::memcpy(plainBuf, payload, payload_len);
+	int encLen = smoke_tea_encrypt(
+		reinterpret_cast<uint32_t*>(encBuf),
+		reinterpret_cast<const uint32_t*>(plainBuf),
+		key,
+		static_cast<int>(payload_len));
+	if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen) {
+		std::fprintf(stderr, "[%s] FAIL: could not send TEA-encrypted packet (%d bytes)\n", tag, encLen);
+		return false;
+	}
+	return true;
+}
+
+// Returns the unpadded byte size of a Server->Client (GC) packet given its first decrypted 8-byte block.
+// Every DESC::Packet call on the server is padded to an 8-byte TEA block boundary: alignedSize = (pktSize + 7) & ~7.
+static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
+	uint8_t hdr = blk8[0];
+	switch (hdr) {
+		// Dynamic packets with uint16_t size at offset 1
+		case 4:   // HEADER_GC_CHAT
+		case 34:  // HEADER_GC_WHISPER
+		case 38:  // HEADER_GC_SHOP
+		case 40:  // HEADER_GC_DUEL_START
+		case 45:  // HEADER_GC_SCRIPT
+		case 63:  // HEADER_GC_TARGET
+		case 74:  // HEADER_GC_MESSENGER
+		case 75:  // HEADER_GC_GUILD
+		case 81:  // HEADER_GC_QUEST_INFO
+		case 100: // HEADER_GC_MARK_BLOCK
+		case 102: // HEADER_GC_MARK_IDXLIST
+		case 110: // HEADER_GC_DUNGEON
+		case 115: // HEADER_GC_NPC_POSITION
+		case 130: // HEADER_GC_LAND_LIST
+		case 133: // HEADER_GC_SYMBOL_DATA
+		case 152: // HEADER_GC_HYBRIDCRYPT_KEYS
+		case 153: // HEADER_GC_HYBRIDCRYPT_SDB
+		case 155: // HEADER_GC_FISHING_GAME
+		{
+			uint16_t wSize = 0;
+			std::memcpy(&wSize, blk8 + 1, sizeof(uint16_t));
+			return wSize >= 3 ? static_cast<size_t>(wSize) : 8u;
+		}
+		// Large dynamic packets with uint32_t (int) size at offset 1
+		case 67:  // HEADER_GC_CAPTCHA
+		case 116: // HEADER_GC_SPECIAL_SHOP
+		case 117: // HEADER_GC_NPC_INFO_BOARD
+		case 142: // HEADER_GC_ITEMSHOP
+		case 214: // HEADER_GC_NEW_OFFLINESHOP (ENABLE_LARGE_DYNAMIC_PACKETS)
+		{
+			uint32_t dwSize = 0;
+			std::memcpy(&dwSize, blk8 + 1, sizeof(uint32_t));
+			return dwSize >= 5 ? static_cast<size_t>(dwSize) : 8u;
+		}
+		// Static packets
+		case 1:   return 37;   // HEADER_GC_CHARACTER_ADD
+		case 2:   return 5;    // HEADER_GC_CHARACTER_DEL
+		case 3:   return 24;   // HEADER_GC_MOVE
+		case 6:   return 353;  // HEADER_GC_LOGIN_SUCCESS
+		case 32:  return 353;  // HEADER_GC_LOGIN_SUCCESS_NEWSLOT
+		case 7:   return 10;   // HEADER_GC_LOGIN_FAILURE
+		case 8:   return 69;   // HEADER_GC_CHARACTER_CREATE_SUCCESS
+		case 9:   return 2;    // HEADER_GC_CHARACTER_CREATE_FAILURE
+		case 10:  return 2;    // HEADER_GC_CHARACTER_DELETE_SUCCESS
+		case 11:  return 1;    // HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID
+		case 13:  return 5;    // HEADER_GC_STUN
+		case 14:  return 5;    // HEADER_GC_DEAD
+		case 16:  return 709;  // HEADER_GC_CHARACTER_POINTS
+		case 17:  return 17;   // HEADER_GC_CHARACTER_POINT_CHANGE
+		case 18:  return 7;    // HEADER_GC_CHANGE_SPEED
+		case 19:  return 44;   // HEADER_GC_CHARACTER_UPDATE
+		case 20:  return 36;   // HEADER_GC_ITEM_DEL (deprecated)
+		case 21:  return 54;   // HEADER_GC_ITEM_SET
+		case 22:  return 13;   // HEADER_GC_ITEM_USE
+		case 23:  return 4;    // HEADER_GC_ITEM_DROP
+		case 25:  return 41;   // HEADER_GC_ITEM_UPDATE
+		case 26:  return 26;   // HEADER_GC_ITEM_GROUND_ADD
+		case 27:  return 5;    // HEADER_GC_ITEM_GROUND_DEL
+		case 28:  return 6;    // HEADER_GC_QUICKSLOT_ADD
+		case 29:  return 2;    // HEADER_GC_QUICKSLOT_DEL
+		case 30:  return 3;    // HEADER_GC_QUICKSLOT_SWAP
+		case 31:  return 29;   // HEADER_GC_ITEM_OWNERSHIP
+		case 36:  return 11;   // HEADER_GC_MOTION
+		case 39:  return 38;   // HEADER_GC_SHOP_SIGN
+		case 41:  return 10;   // HEADER_GC_PVP
+		case 42:  return 42;   // HEADER_GC_EXCHANGE
+		case 43:  return 6;    // HEADER_GC_CHARACTER_POSITION
+		case 44:  return 1;    // HEADER_GC_PING
+		case 46:  return 74;   // HEADER_GC_QUEST_CONFIRM
+		case 61:  return 14;   // HEADER_GC_MOUNT
+		case 62:  return 9;    // HEADER_GC_OWNERSHIP
+		case 65:  return 15;   // HEADER_GC_WARP
+		case 66:  return 50;   // HEADER_GC_GAMEMASTER_TARGET
+		case 68:  return 2;    // HEADER_GC_REQUEST_INFO
+		case 69:  return 17;   // HEADER_GC_ADD_FLY_TARGETING
+		case 70:  return 10;   // HEADER_GC_CREATE_FLY
+		case 71:  return 17;   // HEADER_GC_FLY_TARGETING
+		case 76:  return 1591; // HEADER_GC_SKILL_LEVEL
+		case 87:  return 1;    // HEADER_GC_SAFEBOX_WRONG_PASSWORD
+		case 88:  return 2;    // HEADER_GC_SAFEBOX_SIZE
+		case 89:  return 7;    // HEADER_GC_FISHING
+		case 90:  return 2;    // HEADER_GC_EMPIRE
+		case 106: return 5;    // HEADER_GC_TIME
+		case 107: return 30;   // HEADER_GC_CHANGE_NAME
+		case 111: return 6;    // HEADER_GC_WALK_MODE
+		case 112: return 2;    // HEADER_GC_SKILL_GROUP
+		case 113: return 48;   // HEADER_GC_MAIN_CHARACTER
+		case 114: return 6;    // HEADER_GC_SEPCIAL_EFFECT
+		case 118: return 5;    // HEADER_GC_LOGIN_KEY
+		case 121: return 2;    // HEADER_GC_CHANNEL
+		case 122: return 2;    // HEADER_GC_MALL_OPEN
+		case 123: return 13;   // HEADER_GC_TARGET_UPDATE
+		case 124: return 5;    // HEADER_GC_TARGET_DELETE
+		case 125: return 43;   // HEADER_GC_TARGET_CREATE
+		case 126: return 26;   // HEADER_GC_AFFECT_ADD
+		case 127: return 6;    // HEADER_GC_AFFECT_REMOVE
+		case 131: return 27;   // HEADER_GC_LOVER_INFO
+		case 132: return 2;    // HEADER_GC_LOVE_POINT_UPDATE
+		case 134: return 10;   // HEADER_GC_DIG_MOTION
+		case 135: return 10;   // HEADER_GC_DAMAGE_INFO
+		case 136: return 62;   // HEADER_GC_CHAR_ADDITIONAL_INFO
+		case 137: return 73;   // HEADER_GC_MAIN_CHARACTER3_BGM
+		case 138: return 77;   // HEADER_GC_MAIN_CHARACTER4_BGM_VOL
+		case 139: return 9;    // HEADER_GC_SET_GOLD
+		case 140: return 9;    // HEADER_GC_UPDATE_GOLD
+		case 141: return 42;   // HEADER_GC_SPECIAL_FLAG
+		case 143: return 7;    // HEADER_GC_BUSY_ACTION
+		case 150: return 6;    // HEADER_GC_AUTH_SUCCESS
+		case 151: return 289;  // HEADER_GC_PANAMA_PACK
+		case 156: return 17;   // HEADER_GC_ADD_FLY_SHOOT_TARGETING
+		case 157: return 5;    // HEADER_GC_CLEAR_FLY_SHOOT_TARGETING
+		case 161: return 9;    // HEADER_GC_GUILD_TOKEN
+		case 208: return 133;  // HEADER_GC_SPECIFIC_EFFECT
+		case 209: return 5;    // HEADER_GC_DRAGON_SOUL_REFINE
+		case 252: return 1;    // HEADER_GC_TIME_SYNC
+		case 253: return 2;    // HEADER_GC_PHASE
+		case 255: return 13;   // HEADER_GC_HANDSHAKE
+		default:  return 8;
+	}
+}
+
+struct SmokeGameStreamState {
+	uint8_t  rxEnc[65536]{};
+	uint8_t  rxDec[65536]{};
+	size_t   rxTotal = 0;
+	size_t   decOff = 0;
+	size_t   parseOff = 0;
+
+	bool     sawEmpire = false;
+	uint8_t  empireId = 0;
+	bool     sawPhaseSelect = false;
+	bool     sawPhaseLoading = false;
+	bool     sawPhaseGame = false;
+	bool     sawLoginSuccess = false;
+	bool     sawLoginFailure = false;
+	uint32_t player0Id = 0;
+	char     player0Name[25]{};
+	uint8_t  player0Level = 0;
+
+	bool     sawMainCharacter = false;
+	uint32_t mainVid = 0;
+	uint32_t mainRaceNum = 0;
+	char     mainName[25]{};
+	int32_t  mainX = 0;
+	int32_t  mainY = 0;
+	bool     sawPoints = false;
+	bool     sawSkillLevel = false;
+
+	bool     sawPcCharAdd = false;
+	bool     sawNpcCharAdd = false;
+	uint32_t npcVid = 0;
+	int32_t  npcX = 0;
+	int32_t  npcY = 0;
+	bool     sawItemSet = false;
+	uint32_t item0Vnum = 0;
+	bool     sawQuestLoginChat = false;
+	std::string questLoginChatText;
+
+	int      scriptCount = 0;
+	std::string lastScriptText;
+	bool     sawScriptWait = false;
+	bool     sawScriptQuestion = false;
+	bool     sawScriptInput = false;
+	bool     sawNpcCoroutineChat = false;
+	std::string npcCoroutineChatText;
+};
+
+static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t serverEncKey[4], int wait_ms) {
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	FD_SET(s, &rfds);
+	struct timeval tv{ wait_ms / 1000, (wait_ms % 1000) * 1000 };
+	int sel = select(static_cast<int>(s + 1), &rfds, nullptr, nullptr, &tv);
+	if (sel > 0 && st.rxTotal < sizeof(st.rxEnc)) {
+		int n = recv(s, reinterpret_cast<char*>(st.rxEnc + st.rxTotal), static_cast<int>(sizeof(st.rxEnc) - st.rxTotal), 0);
+		if (n <= 0)
+			return false;
+		st.rxTotal += static_cast<size_t>(n);
+	}
+
+	size_t alignedTotal = (st.rxTotal / 8u) * 8u;
+	if (alignedTotal > st.decOff) {
+		size_t toDec = alignedTotal - st.decOff;
+		smoke_tea_decrypt(
+			reinterpret_cast<uint32_t*>(st.rxDec + st.decOff),
+			reinterpret_cast<const uint32_t*>(st.rxEnc + st.decOff),
+			serverEncKey,
+			static_cast<int>(toDec));
+		st.decOff = alignedTotal;
+	}
+
+	while (st.parseOff + 8u <= st.decOff) {
+		const uint8_t* pkt = st.rxDec + st.parseOff;
+		uint8_t hdr = pkt[0];
+		size_t pktSize = get_gc_packet_unpadded_size(pkt);
+		size_t alignedSize = (pktSize == 0) ? 8u : ((pktSize + 7u) & ~static_cast<size_t>(7u));
+		if (st.parseOff + alignedSize > st.decOff) {
+			// Wait for the rest of this multi-block packet to arrive from the socket
+			break;
+		}
+
+		if (hdr == 90 /* HEADER_GC_EMPIRE */) {
+			st.sawEmpire = true;
+			st.empireId = pkt[1];
+		} else if (hdr == 0xFD /* HEADER_GC_PHASE */) {
+			if (pkt[1] == 3 /* PHASE_SELECT */)
+				st.sawPhaseSelect = true;
+			else if (pkt[1] == 4 /* PHASE_LOADING */)
+				st.sawPhaseLoading = true;
+			else if (pkt[1] == 5 /* PHASE_GAME */)
+				st.sawPhaseGame = true;
+		} else if (hdr == 32 /* HEADER_GC_LOGIN_SUCCESS_NEWSLOT */ || hdr == 6 /* HEADER_GC_LOGIN_SUCCESS */) {
+			st.sawLoginSuccess = true;
+			std::memcpy(&st.player0Id, pkt + 1, sizeof(uint32_t));
+			std::memcpy(st.player0Name, pkt + 5, 24);
+			st.player0Name[24] = '\0';
+			st.player0Level = pkt[31];
+		} else if (hdr == 7 /* HEADER_GC_LOGIN_FAILURE */) {
+			st.sawLoginFailure = true;
+		} else if (hdr == 113 /* HEADER_GC_MAIN_CHARACTER */) {
+			SmokePacketGCMainCharacter mc{};
+			std::memcpy(&mc, pkt, sizeof(mc));
+			mc.szName[sizeof(mc.szName) - 1] = '\0';
+			st.sawMainCharacter = true;
+			st.mainVid = mc.dwVID;
+			st.mainRaceNum = mc.wRaceNum;
+			std::snprintf(st.mainName, sizeof(st.mainName), "%s", mc.szName);
+			st.mainX = mc.lx;
+			st.mainY = mc.ly;
+		} else if (hdr == 16 /* HEADER_GC_CHARACTER_POINTS */) {
+			st.sawPoints = true;
+		} else if (hdr == 76 /* HEADER_GC_SKILL_LEVEL */) {
+			st.sawSkillLevel = true;
+		} else if (hdr == 1 /* HEADER_GC_CHARACTER_ADD */) {
+			SmokePacketGCCharacterAdd ca{};
+			std::memcpy(&ca, pkt, sizeof(ca));
+			if (ca.dwVID == st.mainVid) {
+				st.sawPcCharAdd = true;
+			} else if (ca.wRaceNum == 20016u) {
+				st.sawNpcCharAdd = true;
+				st.npcVid = ca.dwVID;
+				st.npcX = ca.x;
+				st.npcY = ca.y;
+			}
+		} else if (hdr == 21 /* HEADER_GC_ITEM_SET */) {
+			uint32_t vnum = 0;
+			std::memcpy(&vnum, pkt + 4, sizeof(uint32_t));
+			if (vnum == 19u) {
+				st.sawItemSet = true;
+				st.item0Vnum = vnum;
+			}
+		} else if (hdr == 4 /* HEADER_GC_CHAT */ && pktSize >= sizeof(SmokePacketGCChat)) {
+			size_t msgLen = pktSize - sizeof(SmokePacketGCChat);
+			std::string msg(reinterpret_cast<const char*>(pkt + sizeof(SmokePacketGCChat)), msgLen);
+			while (!msg.empty() && (msg.back() == '\0' || msg.back() == '\r' || msg.back() == '\n'))
+				msg.pop_back();
+			if (msg.find("[SMOKE_QUEST_LOGIN_OK] db_seed=77 lv=15 item19=1 qlib=1") != std::string::npos) {
+				st.sawQuestLoginChat = true;
+				st.questLoginChatText = msg;
+			}
+			if (msg.find("[SMOKE_NPC_COROUTINE_OK] sel=1 input=SmokeInput55") != std::string::npos) {
+				st.sawNpcCoroutineChat = true;
+				st.npcCoroutineChatText = msg;
+			}
+		} else if (hdr == 45 /* HEADER_GC_SCRIPT */ && pktSize >= sizeof(SmokePacketGCScript)) {
+			SmokePacketGCScript sc{};
+			std::memcpy(&sc, pkt, sizeof(sc));
+			size_t srcLen = (sc.src_size <= pktSize - sizeof(SmokePacketGCScript))
+				? static_cast<size_t>(sc.src_size)
+				: (pktSize - sizeof(SmokePacketGCScript));
+			std::string scriptStr(reinterpret_cast<const char*>(pkt + sizeof(SmokePacketGCScript)), srcLen);
+			++st.scriptCount;
+			st.lastScriptText = scriptStr;
+			if (scriptStr.find("[NEXT]") != std::string::npos || scriptStr.find("[WAIT]") != std::string::npos)
+				st.sawScriptWait = true;
+			if (scriptStr.find("[QUESTION") != std::string::npos)
+				st.sawScriptQuestion = true;
+			if (scriptStr.find("[INPUT]") != std::string::npos)
+				st.sawScriptInput = true;
+		} else if (hdr == 44 /* HEADER_GC_PING */) {
+			// Reply with HEADER_CG_PONG (254) so ping timer remains satisfied
+			uint8_t pong = 0xFEu;
+			uint32_t clientKey[4] = { 0x11223344u, 0x55667788u, 0x99AABBCCu, 0xDDEEFF00u };
+			send_tea_packet(s, &pong, 1, clientKey, "game-pong");
+		}
+
+		st.parseOff += alignedSize;
+	}
+	return true;
 }
 
 static int run_game_login_key(int port, const char* login_arg, uint32_t login_key) {
@@ -601,91 +1043,176 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	pkt.adwClientKey[2] = 0x99AABBCCu;
 	pkt.adwClientKey[3] = 0xDDEEFF00u;
 
-	// Pad 52-byte TPacketCGLogin2 to 56 bytes (multiple of 8) and TEA-encrypt with initial key "9382ujfn8237gydb"
-	uint8_t plainBuf[56]{};
-	uint8_t encBuf[56]{};
-	std::memcpy(plainBuf, &pkt, sizeof(pkt));
-
 	uint32_t initKey[4]{};
 	get_initial_tea_key(initKey);
-	int encLen = smoke_tea_encrypt(
-		reinterpret_cast<uint32_t*>(encBuf),
-		reinterpret_cast<const uint32_t*>(plainBuf),
-		initKey,
-		static_cast<int>(sizeof(pkt)));
-
-	if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen) {
-		std::fprintf(stderr, "[game-login-key] FAIL: could not send TEA-encrypted TPacketCGLogin2 (%d bytes)\n", encLen);
+	if (!send_tea_packet(s, &pkt, sizeof(pkt), initKey, "game-login-key")) {
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	// CInputLogin::LoginByKey calls d->SetSecurityKey(pinfo->adwClientKey) before sending replies
+	// CInputLogin::LoginByKey calls d->SetSecurityKey(pinfo->adwClientKey) before sending replies:
+	// - Server->Client is encrypted with serverEncKey
+	// - Client->Server is decrypted with pkt.adwClientKey
 	uint32_t serverEncKey[4]{};
 	compute_security_tea_key(pkt.adwClientKey, serverEncKey);
 
-	// Read TEA-encrypted packets from GAME_SERVER (TPacketGCEmpire [8B] + TPacketGCPhase(PHASE_SELECT=3) [8B] + TPacketGCLoginSuccess)
-	uint8_t rxEnc[512]{};
-	size_t rxTotal = 0;
-	bool sawPhaseSelect = false;
-	bool sawEmpire = false;
-	bool sawLoginSuccess = false;
-	uint8_t empireId = 0;
-	uint32_t player0Id = 0;
-	char player0Name[25]{};
-	uint8_t player0Level = 0;
+	SmokeGameStreamState st{};
 
-	for (int iter = 0; iter < 50 && !(sawPhaseSelect && sawLoginSuccess && player0Id != 0); ++iter) {
-		fd_set rfds;
-		FD_ZERO(&rfds);
-		FD_SET(s, &rfds);
-		struct timeval tv{0, 100000}; // 100ms
-		int sel = select(static_cast<int>(s + 1), &rfds, nullptr, nullptr, &tv);
-		if (sel > 0 && rxTotal < sizeof(rxEnc)) {
-			int n = recv(s, reinterpret_cast<char*>(rxEnc + rxTotal), static_cast<int>(sizeof(rxEnc) - rxTotal), 0);
-			if (n <= 0)
-				break;
-			rxTotal += static_cast<size_t>(n);
-
-			// Decrypt all complete 8-byte blocks received so far
-			size_t alignedLen = (rxTotal / 8) * 8;
-			for (size_t off = 0; off < alignedLen; off += 8) {
-				uint8_t blk[8]{};
-				smoke_tea_decrypt(reinterpret_cast<uint32_t*>(blk), reinterpret_cast<const uint32_t*>(rxEnc + off), serverEncKey, 8);
-				if (blk[0] == 90 /* HEADER_GC_EMPIRE */) {
-					sawEmpire = true;
-					empireId = blk[1];
-				} else if (blk[0] == 0xFD /* HEADER_GC_PHASE */ && blk[1] == 3 /* PHASE_SELECT */) {
-					sawPhaseSelect = true;
-				} else if (blk[0] == 32 /* HEADER_GC_LOGIN_SUCCESS_NEWSLOT */ || blk[0] == 6 /* HEADER_GC_LOGIN_SUCCESS */) {
-					sawLoginSuccess = true;
-					if (off + 32 <= alignedLen) {
-						uint8_t dec32[32]{};
-						smoke_tea_decrypt(reinterpret_cast<uint32_t*>(dec32), reinterpret_cast<const uint32_t*>(rxEnc + off), serverEncKey, 32);
-						std::memcpy(&player0Id, dec32 + 1, sizeof(uint32_t));
-						std::memcpy(player0Name, dec32 + 5, 24);
-						player0Name[24] = '\0';
-						player0Level = dec32[31];
-					}
-				} else if (blk[0] == 7 /* HEADER_GC_LOGIN_FAILURE */) {
-					std::fprintf(stderr, "[game-login-key] FAIL: GAME_SERVER returned HEADER_GC_LOGIN_FAILURE\n");
-					CLOSESOCK(s);
-					return 1;
-				}
-			}
+	// Stage A: Wait for PHASE_SELECT + TPacketGCLoginSuccess(slot 0 = SmokeHero)
+	for (int iter = 0; iter < 60 && !(st.sawPhaseSelect && st.sawLoginSuccess); ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+		if (st.sawLoginFailure) {
+			std::fprintf(stderr, "[game-login-key] FAIL: GAME_SERVER returned HEADER_GC_LOGIN_FAILURE\n");
+			CLOSESOCK(s);
+			return 1;
 		}
 	}
 
-	if (!sawPhaseSelect || !sawLoginSuccess || player0Id != 90011u || std::strcmp(player0Name, "SmokeHero") != 0 || player0Level != 15u) {
+	if (!st.sawPhaseSelect || !st.sawLoginSuccess || st.player0Id != 90011u || std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level != 15u) {
 		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%u name='%s' level=%u)\n",
-			rxTotal, sawEmpire ? 1 : 0, sawPhaseSelect ? 1 : 0, sawLoginSuccess ? 1 : 0,
-			player0Id, player0Name, static_cast<unsigned>(player0Level));
+			st.rxTotal, st.sawEmpire ? 1 : 0, st.sawPhaseSelect ? 1 : 0, st.sawLoginSuccess ? 1 : 0,
+			st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=%u via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
-		login_key, static_cast<unsigned>(empireId), player0Id, player0Name, static_cast<unsigned>(player0Level), rxTotal);
+	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=***MASKED(non-zero)*** via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
+		static_cast<unsigned>(st.empireId), st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level), st.rxTotal);
+
+	// Stage B: Send HEADER_CG_CHARACTER_SELECT(6, index=0) and wait for PHASE_LOADING + TPacketGCMainCharacter + Points + SkillLevel
+	SmokePacketCGPlayerSelect selPkt{};
+	selPkt.header = 6; // HEADER_CG_CHARACTER_SELECT
+	selPkt.index = 0;
+	if (!send_tea_packet(s, &selPkt, sizeof(selPkt), pkt.adwClientKey, "game-char-select")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	for (int iter = 0; iter < 80 && !(st.sawPhaseLoading && st.sawMainCharacter && st.sawPoints && st.sawSkillLevel); ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+
+	if (!st.sawPhaseLoading || !st.sawMainCharacter || !st.sawPoints || !st.sawSkillLevel ||
+	    std::strcmp(st.mainName, "SmokeHero") != 0 || st.mainX != 469300 || st.mainY != 964200) {
+		std::fprintf(stderr, "[game-enter-world] FAIL: incomplete PHASE_LOADING response (sawPhaseLoading=%d sawMainChar=%d sawPoints=%d sawSkill=%d name='%s' pos=%dx%d vid=%u)\n",
+			st.sawPhaseLoading ? 1 : 0, st.sawMainCharacter ? 1 : 0, st.sawPoints ? 1 : 0, st.sawSkillLevel ? 1 : 0,
+			st.mainName, st.mainX, st.mainY, st.mainVid);
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// Stage C: Send HEADER_CG_ENTERGAME(10) and wait for PHASE_GAME + CharacterAdd(PC & NPC 20016) + ItemSet(vnum=19) + QuestLoginChat
+	SmokePacketCGEnterGame enterPkt{};
+	enterPkt.header = 10; // HEADER_CG_ENTERGAME
+	if (!send_tea_packet(s, &enterPkt, sizeof(enterPkt), pkt.adwClientKey, "game-entergame")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	for (int iter = 0; iter < 80 && !(st.sawPhaseGame && st.sawPcCharAdd && st.sawNpcCharAdd && st.sawItemSet && st.sawQuestLoginChat); ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+
+	if (!st.sawPhaseGame || !st.sawPcCharAdd || !st.sawNpcCharAdd || st.npcVid == 0 || !st.sawItemSet || !st.sawQuestLoginChat) {
+		std::fprintf(stderr, "[game-enter-world] FAIL: incomplete PHASE_GAME world entry (sawPhaseGame=%d sawPcAdd=%d sawNpcAdd=%d npcVid=%u sawItemSet=%d sawQuestLoginChat=%d rxTotal=%zu)\n",
+			st.sawPhaseGame ? 1 : 0, st.sawPcCharAdd ? 1 : 0, st.sawNpcCharAdd ? 1 : 0,
+			st.npcVid, st.sawItemSet ? 1 : 0, st.sawQuestLoginChat ? 1 : 0, st.rxTotal);
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	std::printf("  [PASS] [game-enter-world] SmokeHero entered PHASE_GAME: HEADER_CG_CHARACTER_SELECT(6) -> PHASE_LOADING(4) + HEADER_GC_MAIN_CHARACTER(113, vid=%u, pos=%dx%d) -> HEADER_CG_ENTERGAME(10) -> PHASE_GAME(5) + HEADER_GC_CHARACTER_ADD(PC vid=%u, NPC 20016 vid=%u at %dx%d) + HEADER_GC_ITEM_SET(vnum=%u)\n",
+		st.mainVid, st.mainX, st.mainY, st.mainVid, st.npcVid, st.npcX, st.npcY, st.item0Vnum);
+
+	// Stage D: Click NPC 20016 (HEADER_CG_ON_CLICK=26) and drive wait() -> select() -> input() coroutine suspension/resumption
+	SmokePacketCGOnClick clickPkt{};
+	clickPkt.header = 26; // HEADER_CG_ON_CLICK
+	clickPkt.vid = st.npcVid;
+	if (!send_tea_packet(s, &clickPkt, sizeof(clickPkt), pkt.adwClientKey, "game-npc-click")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// D.1: Wait for wait() script ("[WAIT]")
+	for (int iter = 0; iter < 50 && !st.sawScriptWait; ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+	if (!st.sawScriptWait) {
+		std::fprintf(stderr, "[game-quest-npc] FAIL: did not receive HEADER_GC_SCRIPT(45) [WAIT] after clicking NPC 20016 (vid=%u, scriptCount=%d)\n",
+			st.npcVid, st.scriptCount);
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// Resume wait() with HEADER_CG_SCRIPT_ANSWER(29, answer=254 [QUEST_NO_CONFIRM / NEXT])
+	SmokePacketCGScriptAnswer waitAns{};
+	waitAns.header = 29; // HEADER_CG_SCRIPT_ANSWER
+	waitAns.answer = 254;
+	if (!send_tea_packet(s, &waitAns, sizeof(waitAns), pkt.adwClientKey, "game-script-wait-ans")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// D.2: Wait for select() script ("[QUESTION")
+	for (int iter = 0; iter < 50 && !st.sawScriptQuestion; ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+	if (!st.sawScriptQuestion) {
+		std::fprintf(stderr, "[game-quest-npc] FAIL: did not receive HEADER_GC_SCRIPT(45) [QUESTION] after resuming wait() (lastScript='%s')\n",
+			st.lastScriptText.c_str());
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// Resume select() with HEADER_CG_SCRIPT_ANSWER(29, answer=0 -> Lua 1-based index 1)
+	SmokePacketCGScriptAnswer selAns{};
+	selAns.header = 29; // HEADER_CG_SCRIPT_ANSWER
+	selAns.answer = 0;
+	if (!send_tea_packet(s, &selAns, sizeof(selAns), pkt.adwClientKey, "game-script-select-ans")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// D.3: Wait for input() script ("[ENTER]")
+	for (int iter = 0; iter < 50 && !st.sawScriptInput; ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+	if (!st.sawScriptInput) {
+		std::fprintf(stderr, "[game-quest-npc] FAIL: did not receive HEADER_GC_SCRIPT(45) [ENTER] after resuming select() (lastScript='%s')\n",
+			st.lastScriptText.c_str());
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// Resume input() with HEADER_CG_QUEST_INPUT_STRING(30, msg="SmokeInput55")
+	SmokePacketCGQuestInputString inpPkt{};
+	inpPkt.header = 30; // HEADER_CG_QUEST_INPUT_STRING
+	std::snprintf(inpPkt.msg, sizeof(inpPkt.msg), "%s", "SmokeInput55");
+	if (!send_tea_packet(s, &inpPkt, sizeof(inpPkt), pkt.adwClientKey, "game-script-input-str")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	// D.4: Wait for final coroutine completion chat ("[SMOKE_NPC_COROUTINE_OK] sel=1 input=SmokeInput55")
+	for (int iter = 0; iter < 50 && !st.sawNpcCoroutineChat; ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100))
+			break;
+	}
+	if (!st.sawNpcCoroutineChat) {
+		std::fprintf(stderr, "[game-quest-npc] FAIL: did not receive [SMOKE_NPC_COROUTINE_OK] chat after resuming input()\n");
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	std::printf("  [PASS] [game-quest-npc] Real QuestLoad + NPC 20016 coroutine verified: login_chat='%s', wait()->select(1)->input('SmokeInput55') -> '%s' (%d script packets, %zu total wire bytes)\n",
+		st.questLoginChatText.c_str(), st.npcCoroutineChatText.c_str(), st.scriptCount, st.rxTotal);
+
 	CLOSESOCK(s);
 	return 0;
 }
@@ -715,6 +1242,8 @@ int main(int argc, char** argv) {
 		rc = run_probe_db(std::atoi(argv[2]));
 	} else if (argc >= 3 && std::strcmp(argv[1], "--hash-env-pass") == 0) {
 		rc = run_hash_env_pass(argv[2]);
+	} else if (argc >= 5 && std::strcmp(argv[1], "--gen-server-attr") == 0) {
+		rc = run_gen_server_attr(argv[2], std::atoi(argv[3]), std::atoi(argv[4]));
 	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-login") == 0) {
 		rc = run_auth_login(std::atoi(argv[2]), argv[3], argv[4], argv[5], argv[6]);
 	} else if (argc >= 7 && std::strcmp(argv[1], "--auth-expect-fail") == 0) {
@@ -729,11 +1258,12 @@ int main(int argc, char** argv) {
 			"  %s --probe-game <port>\n"
 			"  %s --probe-db <port>\n"
 			"  %s --hash-env-pass <out_file>\n"
+			"  %s --gen-server-attr <out_file> <w_sectrees> <h_sectrees>\n"
 			"  %s --self-test-hash\n"
 			"  %s --auth-login <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <key_out_file>\n"
 			"  %s --auth-expect-fail <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <expected_status>\n"
 			"  %s --game-login-key <port> <login|@ENV> <login_key>\n",
-			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
+			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();

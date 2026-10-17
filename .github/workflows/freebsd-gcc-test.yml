@@ -1,4 +1,4 @@
-# Rev 45: promote Lua 5.5.1 to default server engine (game_r41023 / qc), preserve Lua 5.0.3 rollback (game_r41023_lua50 / qc_lua50), and add permanent HEADER_DG_BOOT regression test (Scenario 10)
+# Rev 46: TEA packet boundary framing fix for LoginByKey + full PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME world entry & NPC 20016 wait/select/input coroutine smoke test
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
