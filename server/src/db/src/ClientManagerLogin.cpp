@@ -7,6 +7,7 @@
 #include "Config.h"
 #include "QID.h"
 #include "Cache.h"
+#include "../../libthecore/include/auth_security.h"
 
 extern std::string g_stLocale;
 extern bool CreatePlayerTableFromRes(MYSQL_RES * res, TPlayerTable * pkTab);
@@ -98,13 +99,30 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 	}
 #endif
 
+	if (!AuthSecurity::IsFieldNullTerminated(p->szLogin, sizeof(p->szLogin), 2, LOGIN_MAX_LEN) ||
+	    p->dwLoginKey == 0)
+	{
+		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
+		return;
+	}
+
 	CLoginData * pkLoginData = GetLoginData(p->dwLoginKey);
 	char szLogin[LOGIN_MAX_LEN + 1];
 	trim_and_lower(p->szLogin, szLogin, sizeof(szLogin));
 
 	if (!pkLoginData)
 	{
-		sys_log(0, "LOGIN_BY_KEY key not exist %s %lu", szLogin, p->dwLoginKey);
+		sys_log(0, "LOGIN_BY_KEY key not exist %s key ***MASKED***", szLogin);
+		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
+		return;
+	}
+
+	// Enforce 60-second LoginKey TTL
+	if (pkLoginData->GetLogonTime() > 0 &&
+	    (get_dword_time() - pkLoginData->GetLogonTime()) > AuthSecurity::kLoginKeyTTLMs)
+	{
+		sys_log(0, "LOGIN_BY_KEY expired %s key ***MASKED***", szLogin);
+		m_map_pkLoginData.erase(p->dwLoginKey);
 		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
 		return;
 	}
@@ -113,14 +131,14 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 
 	if (strcasecmp(r.login, szLogin)) // @fixme347 moved before FindLogonAccount
 	{
-		sys_log(0, "LOGIN_BY_KEY login differ %s %lu input %s", r.login, p->dwLoginKey, szLogin);
+		sys_log(0, "LOGIN_BY_KEY login differ %s input %s key ***MASKED***", r.login, szLogin);
 		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
 		return;
 	}
 
 	if (FindLogonAccount(r.login))
 	{
-		sys_log(0, "LOGIN_BY_KEY already login %s %lu", r.login, p->dwLoginKey);
+		sys_log(0, "LOGIN_BY_KEY already login %s key ***MASKED***", r.login);
 		TPacketDGLoginAlready ptog;
 		strlcpy(ptog.szLogin, szLogin, sizeof(ptog.szLogin));
 		pkPeer->EncodeHeader(HEADER_DG_LOGIN_ALREADY, dwHandle, sizeof(TPacketDGLoginAlready));
@@ -128,18 +146,16 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 		return;
 	}
 
-	if (memcmp(pkLoginData->GetClientKey(), p->adwClientKey, sizeof(DWORD) * 4))
+	if (!AuthSecurity::ConstantTimeEquals(pkLoginData->GetClientKey(), p->adwClientKey, sizeof(DWORD) * 4))
 	{
-		const DWORD * pdwClientKey = pkLoginData->GetClientKey();
-
-		sys_log(0, "LOGIN_BY_KEY client key differ %s %lu %lu %lu %lu, %lu %lu %lu %lu",
-				r.login,
-				p->adwClientKey[0], p->adwClientKey[1], p->adwClientKey[2], p->adwClientKey[3],
-				pdwClientKey[0], pdwClientKey[1], pdwClientKey[2], pdwClientKey[3]);
+		sys_log(0, "LOGIN_BY_KEY client key differ %s ***MASKED***", r.login);
 
 		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
 		return;
 	}
+
+	// Consume single-use LoginKey immediately after verification so replay attempts fail
+	m_map_pkLoginData.erase(p->dwLoginKey);
 
 	TAccountTable * pkTab = new TAccountTable;
 	memset(pkTab, 0, sizeof(TAccountTable));
@@ -164,7 +180,7 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 	info->pAccountTable = pkTab;
 	strlcpy(info->ip, p->szIP, sizeof(info->ip));
 
-	sys_log(0, "LOGIN_BY_KEY success %s %lu %s", r.login, p->dwLoginKey, info->ip);
+	sys_log(0, "LOGIN_BY_KEY success %s key ***MASKED*** %s", r.login, info->ip);
 	char szQuery[QUERY_MAX_LEN];
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
 	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, pid5, empire FROM player_index%s WHERE id=%u", GetTablePostfix(), r.id);
@@ -499,6 +515,10 @@ void CClientManager::QUERY_LOGOUT(CPeer * peer, DWORD dwHandle,const char * data
 
 	if (DeleteLogonAccount(packet->login, peer->GetHandle()))
 	{
+		if (pLoginData->GetLastPlayerID() == 0)
+		{
+			m_map_pkLoginData.erase(pLoginData->GetKey());
+		}
 		if (g_log)
 			sys_log(0, "LOGOUT %s ", packet->login);
 	}
@@ -506,9 +526,18 @@ void CClientManager::QUERY_LOGOUT(CPeer * peer, DWORD dwHandle,const char * data
 
 void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDChangeName * p)
 {
+	if (!AuthSecurity::IsFieldNullTerminated(p->name, sizeof(p->name), 2, CHARACTER_NAME_MAX_LEN))
+	{
+		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
+		return;
+	}
+
+	char szEscapedName[CHARACTER_NAME_MAX_LEN * 2 + 1] = {0};
+	CDBManager::instance().EscapeString(szEscapedName, p->name, strlen(p->name), SQL_PLAYER);
+
 	char queryStr[QUERY_MAX_LEN];
 	snprintf(queryStr, sizeof(queryStr),
-		"SELECT COUNT(*) as count FROM player%s WHERE name='%s' AND id <> %u", GetTablePostfix(), p->name, p->pid);
+		"SELECT COUNT(*) as count FROM player%s WHERE name='%s' AND id <> %u", GetTablePostfix(), szEscapedName, p->pid);
 
 	auto pMsg(CDBManager::instance().DirectQuery(queryStr, SQL_PLAYER));
 
@@ -535,7 +564,7 @@ void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDCh
 	}
 
 	snprintf(queryStr, sizeof(queryStr),
-			"UPDATE player%s SET name='%s',change_name=0 WHERE id=%u", GetTablePostfix(), p->name, p->pid);
+			"UPDATE player%s SET name='%s',change_name=0 WHERE id=%u", GetTablePostfix(), szEscapedName, p->pid);
 
 	auto pMsg0(CDBManager::instance().DirectQuery(queryStr, SQL_PLAYER));
 

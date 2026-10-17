@@ -14,6 +14,7 @@
 #endif
 
 #include "utils.h"
+#include "../../libthecore/include/auth_security.h"
 
 #include "../../common/PulseManager.h"
 
@@ -25,12 +26,13 @@ bool FN_IS_VALID_LOGIN_STRING(const char *str)
 	if (!str || !*str)
 		return false;
 
-	if (strlen(str) < 2)
+	size_t len = strlen(str);
+	if (len < 2 || len > LOGIN_MAX_LEN)
 		return false;
 
 	for (tmp = str; *tmp; ++tmp)
 	{
-		if (isdigit(*tmp) || isalpha(*tmp))
+		if (isdigit(static_cast<unsigned char>(*tmp)) || isalpha(static_cast<unsigned char>(*tmp)) || *tmp == '_')
 			continue;
 
 #ifdef ENABLE_ACCOUNT_W_SPECIALCHARS
@@ -71,11 +73,11 @@ CInputAuth::CInputAuth()
 {
 }
 
-std::string GetAuthLoginQuery(const char* c_pszLogin, const char* c_pszPasswordHash, const char* c_pszHardware)
+std::string GetAuthLoginQuery(const char* c_pszEscapedLogin, const char* c_pszEscapedHardware)
 {
 	char szQuery[1024];
 	const char* query = "SELECT "
-	    "'%s',ac.password,'%s',ac.social_id,ac.id,ac.status,hw.status,ac.availDt - NOW() > 0,"
+	    "ac.password,ac.social_id,ac.id,ac.status,hw.status,ac.availDt - NOW() > 0,"
 	    "UNIX_TIMESTAMP(ac.premium_expire),"
 	    "UNIX_TIMESTAMP(ac.silver_expire),"
 	    "UNIX_TIMESTAMP(ac.gold_expire),"
@@ -88,9 +90,9 @@ std::string GetAuthLoginQuery(const char* c_pszLogin, const char* c_pszPasswordH
 	    "UNIX_TIMESTAMP(ac.create_time) "
 	    "FROM account AS ac "
 	    "LEFT JOIN hardware_status AS hw ON hw.hwid='%s' "
-	    "WHERE login = '%s'";
+	    "WHERE ac.login = '%s'";
 
-	snprintf(szQuery, sizeof(szQuery), query, c_pszPasswordHash, c_pszHardware, c_pszHardware, c_pszLogin);
+	snprintf(szQuery, sizeof(szQuery), query, c_pszEscapedHardware, c_pszEscapedLogin);
 	return szQuery;
 }
 
@@ -119,13 +121,43 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		return;
 	}
 
+	// Strictly verify NUL termination within fixed packet buffers before string operations
+	if (!AuthSecurity::IsFieldNullTerminated(pinfo->login, sizeof(pinfo->login), 2, LOGIN_MAX_LEN) ||
+	    !AuthSecurity::IsFieldNullTerminated(pinfo->passwd, sizeof(pinfo->passwd), 1, PASSWD_MAX_LEN) ||
+	    !AuthSecurity::IsFieldNullTerminated(pinfo->hwid, sizeof(pinfo->hwid), 1, HWID_MAX_LEN))
+	{
+		AuthSecurity::AuthRateLimiter::Instance().RecordFailure(d->GetHostName(), "");
+		LoginFailure(d, "WRONGPWD");
+		return;
+	}
+
 	char login[LOGIN_MAX_LEN + 1];
 	trim_and_lower(pinfo->login, login, sizeof(login));
 
-	char passwd[PASSWD_MAX_LEN + 1];
-	strlcpy(passwd, pinfo->passwd, sizeof(passwd));
+	// Check login string format before rate limiter & SQL
+	if (false == FN_IS_VALID_LOGIN_STRING(login))
+	{
+		sys_log(0, "InputAuth::Login : IS_NOT_VALID_LOGIN_STRING desc %p", get_pointer(d));
+		AuthSecurity::AuthRateLimiter::Instance().RecordFailure(d->GetHostName(), "");
+		LoginFailure(d, "WRONGPWD");
+		return;
+	}
 
-	// hwid
+	// Enforce independent IP and Account rate limiting + temporary exponential backoff
+	const AuthSecurity::SRateLimitStatus rateStatus =
+		AuthSecurity::AuthRateLimiter::Instance().CheckAllowed(d->GetHostName(), login);
+	if (rateStatus.decision != AuthSecurity::ERateLimitDecision::Allowed)
+	{
+		sys_log(0, "InputAuth::Login : rate limited (%u) login(%s) ip(%s) retry_ms(%llu)",
+				static_cast<unsigned>(rateStatus.decision),
+				login,
+				d->GetHostName(),
+				static_cast<unsigned long long>(rateStatus.retry_after_ms));
+		LoginFailure(d, "FAILURE");
+		return;
+	}
+
+	// Decode HWID
 	char szHardware[HWID_MAX_LEN + 1];
 	std::string sDecodedHWID = CheckHardware::instance().DecodeHWID(pinfo->hwid);
 	if (!sDecodedHWID.size() || sDecodedHWID[0] == '\0')
@@ -133,31 +165,10 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		LoginFailure(d, "BLOCK");
 		return;
 	}
+	strlcpy(szHardware, sDecodedHWID.c_str(), sizeof(szHardware));
 
-	if (sDecodedHWID.size())
-		strlcpy(szHardware, sDecodedHWID.c_str(), sizeof(szHardware));
-	else
-		std::memset(szHardware, 0, sizeof(szHardware));
-	// end of hwid
-
-	sys_log(0, "InputAuth::Login : %s(%d) desc %p",
+	sys_log(0, "InputAuth::Login : %s(%zu) desc %p",
 			login, strlen(login), get_pointer(d));
-
-	// check login string
-	if (false == FN_IS_VALID_LOGIN_STRING(login))
-	{
-		sys_log(0, "InputAuth::Login : IS_NOT_VALID_LOGIN_STRING(%s) desc %p",
-				login, get_pointer(d));
-		LoginFailure(d, "NOID");
-		return;
-	}
-
-	if (!PulseManager::Instance().IncreaseClock(inet_addr(d->GetHostName()), ePulse::Login, std::chrono::milliseconds(500)))
-	{
-		LoginFailure(d, "FAILURE");
-		return;
-	}
-
 
 	if (g_bNoMoreClient)
 	{
@@ -176,36 +187,46 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		return;
 	}
 
+	if (!AuthSecurity::TryAcquireInFlightAuthSlot())
+	{
+		sys_err("InputAuth::Login : max in-flight auth queries (%u) reached, throttling %s",
+				AuthSecurity::kMaxInFlightAuthQueries, d->GetHostName());
+		LoginFailure(d, "FAILURE");
+		return;
+	}
+
 	DWORD dwKey = DESC_MANAGER::instance().CreateLoginKey(d);
 	DWORD dwPanamaKey = dwKey ^ pinfo->adwClientKey[0] ^ pinfo->adwClientKey[1] ^ pinfo->adwClientKey[2] ^ pinfo->adwClientKey[3];
 	d->SetPanamaKey(dwPanamaKey);
 
-	sys_log(0, "InputAuth::Login : key %u:0x%x login %s", dwKey, dwPanamaKey, login);
+	sys_log(0, "InputAuth::Login : login %s key ***MASKED***", login);
 
-	TPacketCGLogin3 * p = M2_NEW TPacketCGLogin3;
-	thecore_memcpy(p, pinfo, sizeof(TPacketCGLogin3));
+	SAuthLoginQueryInfo * pAuthInfo = M2_NEW SAuthLoginQueryInfo;
+	thecore_memcpy(&pAuthInfo->packet, pinfo, sizeof(TPacketCGLogin3));
+	strlcpy(pAuthInfo->szNormalizedLogin, login, sizeof(pAuthInfo->szNormalizedLogin));
+	strlcpy(pAuthInfo->szDecodedHWID, szHardware, sizeof(pAuthInfo->szDecodedHWID));
+	strlcpy(pAuthInfo->szHostIP, d->GetHostName(), sizeof(pAuthInfo->szHostIP));
+	pAuthInfo->bAcquiredInFlightSlot = true;
 
-	const std::string stPasswordHash = mysql_hash_password(passwd);
+	char szEscapedLogin[LOGIN_MAX_LEN * 2 + 1];
+	DBManager::instance().EscapeString(szEscapedLogin, sizeof(szEscapedLogin), login, strlen(login));
 
-	char szLogin[LOGIN_MAX_LEN * 2 + 1];
-	DBManager::instance().EscapeString(szLogin, sizeof(szLogin), login, strlen(login));
-
-	char szHWID[HWID_MAX_LEN * 2 + 1];
-	DBManager::instance().EscapeString(szHWID, sizeof(szHWID), szHardware, strlen(szHardware));
+	char szEscapedHWID[HWID_MAX_LEN * 2 + 1];
+	DBManager::instance().EscapeString(szEscapedHWID, sizeof(szEscapedHWID), szHardware, strlen(szHardware));
 
 	// CHANNEL_SERVICE_LOGIN
-	if (Login_IsInChannelService(szLogin))
+	if (Login_IsInChannelService(szEscapedLogin))
 	{
-		sys_log(0, "ChannelServiceLogin [%s]", szLogin);
+		sys_log(0, "ChannelServiceLogin [%s]", szEscapedLogin);
 
-		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, p,
-				GetAuthLoginQuery(szLogin, stPasswordHash.c_str(), szHWID).c_str());
+		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, pAuthInfo,
+				GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
 	}
 	// END_OF_CHANNEL_SERVICE_LOGIN
 	else
 	{
-		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, p,
-			GetAuthLoginQuery(szLogin, stPasswordHash.c_str(), szHWID).c_str());
+		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, pAuthInfo,
+			GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
 	}
 }
 

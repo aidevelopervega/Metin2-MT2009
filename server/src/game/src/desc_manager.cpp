@@ -15,6 +15,7 @@
 
 #include "EventFunctionHandler.hpp"
 #include "event.h"
+#include "../../libthecore/include/auth_security.h"
 
 struct valid_ip
 {
@@ -541,11 +542,17 @@ DWORD DESC_MANAGER::CreateLoginKey(LPDESC d)
 {
 	DWORD dwKey = 0;
 
+	if (d && d->m_pkLoginKey)
+	{
+		d->m_pkLoginKey->Expire();
+		d->m_pkLoginKey = NULL;
+	}
+
 	do
 	{
-		dwKey = number(1, INT_MAX);
+		dwKey = AuthSecurity::GenerateSecureLoginKey();
 
-		if (m_map_pkLoginKey.find(dwKey) != m_map_pkLoginKey.end())
+		if (dwKey == 0 || m_map_pkLoginKey.find(dwKey) != m_map_pkLoginKey.end())
 			continue;
 
 		CLoginKey * pkKey = M2_NEW CLoginKey(dwKey, d);
@@ -572,7 +579,7 @@ void DESC_MANAGER::ProcessExpiredLoginKey()
 		if (it2->second->m_dwExpireTime == 0)
 			continue;
 
-		if (dwCurrentTime - it2->second->m_dwExpireTime > 60000)
+		if (dwCurrentTime - it2->second->m_dwExpireTime > AuthSecurity::kLoginKeyTTLMs)
 		{
 			M2_DELETE(it2->second);
 			m_map_pkLoginKey.erase(it2);

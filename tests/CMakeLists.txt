@@ -138,6 +138,12 @@ add_test(NAME test_lua55_quest COMMAND test_lua55_quest)
 # 13. test_qc_compiler_lua55 (Real Metin2 quest compilation with promoted default Lua 5.5.1 qc)
 add_test(NAME test_qc_compiler_lua55 COMMAND qc "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
 
+# 14. test_auth_security (Argon2id PHC, Legacy *SHA1 migration, Rate Limiter, CSPRNG LoginKey)
+add_executable(test_auth_security test_auth_security.cpp)
+target_include_directories(test_auth_security PRIVATE ${TEST_COMMON_INCLUDES})
+target_link_libraries(test_auth_security PRIVATE thecore)
+add_test(NAME test_auth_security COMMAND test_auth_security)
+
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala
     add_custom_target(copy_test_dlls ALL

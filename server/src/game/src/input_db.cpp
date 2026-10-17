@@ -2097,7 +2097,7 @@ void CInputDB::AuthLogin(LPDESC d, const char * c_pData)
 	P2P_MANAGER::instance().Send(&pack, sizeof(pack));
 
 	d->Packet(&ptoc, sizeof(TPacketGCAuthSuccess));
-	sys_log(0, "AuthLogin result %u key %u", bResult, d->GetLoginKey());
+	sys_log(0, "AuthLogin result %u key ***MASKED***", bResult);
 }
 
 void CInputDB::ChangeEmpirePriv(const char* c_pData)

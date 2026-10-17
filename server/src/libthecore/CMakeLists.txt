@@ -21,11 +21,22 @@ set(THECORE_SOURCES
     src/xdirent.c
     src/xgetopt.c
     src/xmd5.c
+    src/auth_security.cpp
 )
 
-add_library(thecore STATIC ${THECORE_SOURCES})
+set(THECORE_ARGON2_C_SOURCES
+    src/argon2/argon2.c
+    src/argon2/core.c
+    src/argon2/encoding.c
+    src/argon2/opt.c
+    src/argon2/thread.c
+    src/argon2/blake2/blake2b.c
+)
+
+add_library(thecore STATIC ${THECORE_SOURCES} ${THECORE_ARGON2_C_SOURCES})
 
 set_source_files_properties(${THECORE_SOURCES} PROPERTIES LANGUAGE CXX)
+set_source_files_properties(${THECORE_ARGON2_C_SOURCES} PROPERTIES LANGUAGE C)
 
 target_include_directories(thecore PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -35,12 +46,12 @@ target_include_directories(thecore PUBLIC
 )
 
 target_compile_options(thecore PRIVATE
-    -fno-exceptions
-    -fno-rtti
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
 )
 
 if(WIN32)
-    target_link_libraries(thecore PUBLIC ws2_32)
+    target_link_libraries(thecore PUBLIC ws2_32 bcrypt)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     target_link_libraries(thecore PUBLIC pthread)
 endif()

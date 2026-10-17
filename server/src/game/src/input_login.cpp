@@ -31,6 +31,7 @@
 #include "maintenance.h"
 #include "../../common/CommonDefines.h"
 #include "../../common/PulseManager.h"
+#include "../../libthecore/include/auth_security.h"
 
 #ifdef ENABLE_WOLFMAN_CHARACTER
 
@@ -120,62 +121,42 @@ static bool FN_is_battle_zone(LPCHARACTER ch)
 
 void CInputLogin::Login(LPDESC d, const char * data)
 {
-	TPacketCGLogin * pinfo = (TPacketCGLogin *) data;
+	(void) data;
+	sys_log(0, "InputLogin::Login : rejected legacy direct login from %s", d->GetHostName());
 
-	char login[LOGIN_MAX_LEN + 1];
-	trim_and_lower(pinfo->login, login, sizeof(login));
-
-	sys_log(0, "InputLogin::Login : %s", login);
-
-	TPacketGCLoginFailure failurePacket;
-
-	if (!test_server)
-	{
-		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
-		strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
-		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
-		return;
-	}
-
-	if (g_bNoMoreClient)
-	{
-		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
-		strlcpy(failurePacket.szStatus, "SHUTDOWN", sizeof(failurePacket.szStatus));
-		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
-		return;
-	}
-
-	if (g_iUserLimit > 0)
-	{
-		int iTotal;
-		int * paiEmpireUserCount;
-		int iLocal;
-
-		DESC_MANAGER::instance().GetUserCount(iTotal, &paiEmpireUserCount, iLocal);
-
-		if (g_iUserLimit <= iTotal)
-		{
-			failurePacket.header = HEADER_GC_LOGIN_FAILURE;
-			strlcpy(failurePacket.szStatus, "FULL", sizeof(failurePacket.szStatus));
-			d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
-			return;
-		}
-	}
-
-	TLoginPacket login_packet;
-
-	strlcpy(login_packet.login, login, sizeof(login_packet.login));
-	strlcpy(login_packet.passwd, pinfo->passwd, sizeof(login_packet.passwd));
-
-	db_clientdesc->DBPacket(HEADER_GD_LOGIN, d->GetHandle(), &login_packet, sizeof(TLoginPacket));
+	TPacketGCLoginFailure failurePacket{};
+	failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+	strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
+	d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
 }
 
 void CInputLogin::LoginByKey(LPDESC d, const char * data)
 {
 	TPacketCGLogin2 * pinfo = (TPacketCGLogin2 *) data;
 
+	if (!AuthSecurity::IsFieldNullTerminated(pinfo->login, sizeof(pinfo->login), 2, LOGIN_MAX_LEN) ||
+	    pinfo->dwLoginKey == 0)
+	{
+		TPacketGCLoginFailure failurePacket{};
+		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+		strlcpy(failurePacket.szStatus, "WRONGPWD", sizeof(failurePacket.szStatus));
+		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+		d->DelayedDisconnect(3);
+		return;
+	}
+
 	char login[LOGIN_MAX_LEN + 1];
 	trim_and_lower(pinfo->login, login, sizeof(login));
+
+	if (!AuthSecurity::IsValidAccountLogin(login))
+	{
+		TPacketGCLoginFailure failurePacket{};
+		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+		strlcpy(failurePacket.szStatus, "WRONGPWD", sizeof(failurePacket.szStatus));
+		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+		d->DelayedDisconnect(3);
+		return;
+	}
 
 	if (g_bNoMoreClient)
 	{
@@ -207,7 +188,7 @@ void CInputLogin::LoginByKey(LPDESC d, const char * data)
 		}
 	}
 
-	sys_log(0, "LOGIN_BY_KEY: %s key %u", login, pinfo->dwLoginKey);
+	sys_log(0, "LOGIN_BY_KEY: %s key ***MASKED***", login);
 
 	d->SetLoginKey(pinfo->dwLoginKey);
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
@@ -611,7 +592,7 @@ void CInputLogin::CharacterDelete(LPDESC d, const char * data)
 		return;
 	}
 
-	sys_log(0, "PlayerDelete: login: %s index: %d, social_id %s", c_rAccountTable.login, pinfo->index, pinfo->private_code);
+	sys_log(0, "PlayerDelete: login: %s index: %d, social_id ***MASKED***", c_rAccountTable.login, pinfo->index);
 
 	if (pinfo->index >= PLAYER_PER_ACCOUNT)
 	{

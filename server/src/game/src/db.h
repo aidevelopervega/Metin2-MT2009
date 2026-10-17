@@ -33,6 +33,19 @@ typedef struct SUseTime
 	char        szIP[MAX_HOST_LENGTH+1];
 } TUseTime;
 
+#include "packet.h"
+
+struct SAuthLoginQueryInfo
+{
+	TPacketCGLogin3 packet{};
+	char            szNormalizedLogin[LOGIN_MAX_LEN + 1]{};
+	char            szDecodedHWID[HWID_MAX_LEN + 1]{};
+	char            szHostIP[MAX_HOST_LENGTH + 1]{};
+	bool            bAcquiredInFlightSlot = false;
+
+	~SAuthLoginQueryInfo();
+};
+
 class CQueryInfo
 {
 	public:

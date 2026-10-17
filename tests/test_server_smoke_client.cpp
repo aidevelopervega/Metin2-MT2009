@@ -1217,6 +1217,66 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	return 0;
 }
 
+static int run_game_login_key_expect_fail(int port, const char* login_arg, uint32_t login_key) {
+	const char* login = (std::strcmp(login_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_LOGIN") : login_arg;
+	if (!login || !*login) {
+		std::fprintf(stderr, "[game-login-key-expect-fail] FAIL: missing login environment variable\n");
+		return 1;
+	}
+
+	sock_t s = connect_with_retry(port, 60);
+	if (s == INVALID_SOCKET) {
+		std::fprintf(stderr, "[game-login-key-expect-fail] FAIL: could not connect to GAME_SERVER on 127.0.0.1:%d\n", port);
+		return 1;
+	}
+
+	if (!complete_wire_handshake(s, 2 /* PHASE_LOGIN */, "game-login-key-expect-fail")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	SmokePacketCGLogin2 pkt{};
+	pkt.header = 109; // HEADER_CG_LOGIN2
+	std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
+	pkt.dwLoginKey = login_key;
+	pkt.adwClientKey[0] = 0x11223344u;
+	pkt.adwClientKey[1] = 0x55667788u;
+	pkt.adwClientKey[2] = 0x99AABBCCu;
+	pkt.adwClientKey[3] = 0xDDEEFF00u;
+
+	uint32_t initKey[4]{};
+	get_initial_tea_key(initKey);
+	if (!send_tea_packet(s, &pkt, sizeof(pkt), initKey, "game-login-key-expect-fail")) {
+		CLOSESOCK(s);
+		return 1;
+	}
+
+	uint32_t serverEncKey[4]{};
+	compute_security_tea_key(pkt.adwClientKey, serverEncKey);
+	SmokeGameStreamState st{};
+
+	// Pump up to 2.5 seconds; server must either send HEADER_GC_LOGIN_FAILURE or close connection (PHASE_CLOSE) without entering PHASE_SELECT
+	bool disconnected = false;
+	for (int iter = 0; iter < 25; ++iter) {
+		if (!pump_gc_packets(s, st, serverEncKey, 100)) {
+			disconnected = true;
+			break;
+		}
+		if (st.sawLoginFailure || st.sawPhaseSelect || st.sawLoginSuccess)
+			break;
+	}
+	CLOSESOCK(s);
+
+	if (st.sawPhaseSelect || st.sawLoginSuccess) {
+		std::fprintf(stderr, "[game-login-key-expect-fail] FAIL: GAME_SERVER accepted a replayed/invalid dwLoginKey into PHASE_SELECT!\n");
+		return 1;
+	}
+
+	std::printf("  [PASS] [game-login-key-expect-fail] GAME_SERVER + db_r41023 rejected replayed/consumed dwLoginKey (sawLoginFailure=%d disconnected=%d sawPhaseSelect=0)\n",
+		st.sawLoginFailure ? 1 : 0, disconnected ? 1 : 0);
+	return 0;
+}
+
 static int run_probe_db(int port) {
 	sock_t s = connect_with_retry(port, 60);
 	if (s == INVALID_SOCKET) {
@@ -1252,6 +1312,8 @@ int main(int argc, char** argv) {
 		rc = run_self_test_hash();
 	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key") == 0) {
 		rc = run_game_login_key(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
+	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key-expect-fail") == 0) {
+		rc = run_game_login_key_expect_fail(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
 	} else {
 		std::fprintf(stderr, "Usage:\n"
 			"  %s --mock-db <port> <ready_file> <out_file>\n"
@@ -1262,8 +1324,9 @@ int main(int argc, char** argv) {
 			"  %s --self-test-hash\n"
 			"  %s --auth-login <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <key_out_file>\n"
 			"  %s --auth-expect-fail <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <expected_status>\n"
-			"  %s --game-login-key <port> <login|@ENV> <login_key>\n",
-			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
+			"  %s --game-login-key <port> <login|@ENV> <login_key>\n"
+			"  %s --game-login-key-expect-fail <port> <login|@ENV> <login_key>\n",
+			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();

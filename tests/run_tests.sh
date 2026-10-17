@@ -47,9 +47,15 @@ echo "[2/6] libthecore derleniyor ve test ediliyor..."
 CORE_DIR="$ROOT_DIR/server/src/libthecore"
 COMMON_DIR="$ROOT_DIR/server/src/common"
 
+CC=${CC:-gcc}
 for src in DES_table.c buffer.c des.c fdwatch.c gost.c hangul.c heart.c kstbl.c log.c main.c memcpy.c signal.c socket.c tea.c utils.c; do
     obj_name=$(basename "$src" .c)
     $CXX $FLAGS -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$CORE_DIR/src/$src" -o "$BUILD_DIR/core_${obj_name}.o"
+done
+$CXX $FLAGS -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$CORE_DIR/src/auth_security.cpp" -o "$BUILD_DIR/core_auth_security.o"
+for src in argon2/argon2.c argon2/core.c argon2/encoding.c argon2/opt.c argon2/thread.c argon2/blake2/blake2b.c; do
+    obj_name=$(basename "$src" .c)
+    $CC -std=c11 -Wall -Wextra -O2 -pipe -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$CORE_DIR/src/$src" -o "$BUILD_DIR/core_argon2_${obj_name}.o"
 done
 
 $AR cru "$BUILD_DIR/libthecore.a" "$BUILD_DIR"/core_*.o
@@ -57,6 +63,9 @@ $RANLIB "$BUILD_DIR/libthecore.a"
 
 $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libthecore.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libthecore"
 "$BUILD_DIR/test_libthecore"
+
+$CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_auth_security.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_auth_security"
+"$BUILD_DIR/test_auth_security"
 
 # 3. libgame (Gercek libthecore.a ile bagli)
 echo "[3/6] libgame derleniyor ve test ediliyor..."

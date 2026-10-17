@@ -999,7 +999,7 @@ void DESC::SetLoginKey(DWORD dwKey)
 void DESC::SetLoginKey(CLoginKey * pkKey)
 {
 	m_pkLoginKey = pkKey;
-	sys_log(0, "SetLoginKey %u", m_pkLoginKey->m_dwKey);
+	sys_log(0, "SetLoginKey ***MASKED***");
 }
 
 DWORD DESC::GetLoginKey()

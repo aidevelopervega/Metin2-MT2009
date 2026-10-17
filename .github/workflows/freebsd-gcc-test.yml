@@ -1,4 +1,4 @@
-# Rev 46: TEA packet boundary framing fix for LoginByKey + full PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME world entry & NPC 20016 wait/select/input coroutine smoke test
+# Rev 47: Hardened account & password security (Argon2id transparent upgrade, rate limiting, CSPRNG LoginKeys, single-use LoginByKey, SQLi & log sanitization)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -207,7 +207,7 @@ jobs:
               echo "HATA: Geri donus game_r41023_lua50 ikilisi Lua 5.0.3 motoru ile calismiyor!" >&2
               exit 1
             fi
-            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (13/13) ve --check-lua (11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3) doğrulaması başarıyla tamamlandı."
+            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (14/14) ve --check-lua (11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3) doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"

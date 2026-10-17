@@ -117,8 +117,8 @@ DROP TABLE IF EXISTS `account`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `account` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `login` varchar(16) NOT NULL DEFAULT '' COMMENT 'LOGIN_MAX_LEN=30',
-  `password` varchar(42) NOT NULL DEFAULT '' COMMENT 'PASSWD_MAX_LEN=16; default 45 size',
+  `login` varchar(30) NOT NULL DEFAULT '' COMMENT 'LOGIN_MAX_LEN=30',
+  `password` varchar(255) NOT NULL DEFAULT '' COMMENT 'PASSWD_MAX_LEN=16; Argon2id PHC / legacy *SHA1',
   `social_id` varchar(7) NOT NULL DEFAULT '',
   `email` varchar(100) NOT NULL DEFAULT '',
   `securitycode` varchar(192) NOT NULL DEFAULT '',
@@ -134,7 +134,7 @@ CREATE TABLE `account` (
   `fish_mind_expire` datetime NOT NULL DEFAULT current_timestamp(),
   `marriage_fast_expire` datetime NOT NULL DEFAULT current_timestamp(),
   `money_drop_rate_expire` datetime NOT NULL DEFAULT current_timestamp(),
-  `shop_expire` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `shop_expire` datetime NOT NULL DEFAULT current_timestamp(),
   `real_name` varchar(16) DEFAULT '',
   `question1` varchar(56) DEFAULT NULL,
   `answer1` varchar(56) DEFAULT NULL,

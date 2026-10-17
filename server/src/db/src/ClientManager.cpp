@@ -23,6 +23,7 @@
 #include "QID.h"
 #include "GuildManager.h"
 #include "PrivManager.h"
+#include "../../libthecore/include/auth_security.h"
 #include "MoneyLog.h"
 #include "ItemAwardManager.h"
 #include "Marriage.h"
@@ -1256,8 +1257,14 @@ void CClientManager::QUERY_MOVE_CHANNEL(CPeer* pkPeer, DWORD dwHandle, TMoveChan
 	TRespondMoveChannel t{};
 
 	auto pkLD = GetLoginDataByAID(data->dwAID);
-	TAccountTable& r = pkLD->GetAccountRef();
-	r.bDestChannel = data->bChannel;
+	if (pkLD)
+	{
+		TAccountTable& r = pkLD->GetAccountRef();
+		r.bDestChannel = data->bChannel;
+		pkLD->SetLogonTime();
+		if (pkLD->GetKey() != 0)
+			m_map_pkLoginData[pkLD->GetKey()] = pkLD;
+	}
 
 	if (it != m_peerList.end())
 	{
@@ -1592,11 +1599,11 @@ void CClientManager::QUERY_SETUP(CPeer * peer, DWORD dwHandle, const char * c_pD
 
 		if (InsertLogonAccount(pck->szLogin, peer->GetHandle(), pck->szHost))
 		{
-			sys_log(0, "SETUP: login %u %s login_key %u host %s", pck->dwID, pck->szLogin, pck->dwLoginKey, pck->szHost);
+			sys_log(0, "SETUP: login %u %s login_key ***MASKED*** host %s", pck->dwID, pck->szLogin, pck->szHost);
 			pkLD->SetPlay(true);
 		}
 		else
-			sys_log(0, "SETUP: login_fail %u %s login_key %u", pck->dwID, pck->szLogin, pck->dwLoginKey);
+			sys_log(0, "SETUP: login_fail %u %s login_key ***MASKED***", pck->dwID, pck->szLogin);
 	}
 
 	SendPartyOnSetup(peer);
@@ -2125,7 +2132,7 @@ void CClientManager::DeleteLoginData(CLoginData * pkLD)
 void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDAuthLogin * p)
 {
 	if (g_test_server)
-		sys_log(0, "QUERY_AUTH_LOGIN %d %d %s", p->dwID, p->dwLoginKey, p->szLogin);
+		sys_log(0, "QUERY_AUTH_LOGIN %u ***MASKED*** %s", p->dwID, p->szLogin);
 	CLoginData * pkLD = GetLoginDataByLogin(p->szLogin);
 
 	if (pkLD)
@@ -2135,9 +2142,9 @@ void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDA
 
 	BYTE bResult;
 
-	if (GetLoginData(p->dwLoginKey))
+	if (p->dwLoginKey == 0 || GetLoginData(p->dwLoginKey))
 	{
-		sys_err("LoginData already exist key %u login %s", p->dwLoginKey, p->szLogin);
+		sys_err("LoginData invalid or already exist key ***MASKED*** login %s", p->szLogin);
 		bResult = 0;
 
 		pkPeer->EncodeHeader(HEADER_DG_AUTH_LOGIN, dwHandle, sizeof(BYTE));
@@ -2152,6 +2159,7 @@ void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDA
 		pkLD->SetPremium(p->iPremiumTimes);
 		pkLD->SetPremiumSubscription(p->iPremium);
 		pkLD->SetHWID(p->szHwid);
+		pkLD->SetLogonTime();
 
 		TAccountTable & r = pkLD->GetAccountRef();
 
@@ -2161,10 +2169,8 @@ void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDA
 		strlcpy(r.passwd, "TEMP", sizeof(r.passwd));
 		r.iPremium = p->iPremium;
 
-		sys_log(0, "AUTH_LOGIN id(%u) login(%s) social_id(%s) login_key(%u), client_key(%u %u %u %u), hwid (%s)",
-				p->dwID, p->szLogin, p->szSocialID, p->dwLoginKey,
-				p->adwClientKey[0], p->adwClientKey[1], p->adwClientKey[2], p->adwClientKey[3],
-				p->szHwid);
+		sys_log(0, "AUTH_LOGIN id(%u) login(%s) social_id(***MASKED***) login_key(***MASKED***), client_key(***MASKED***), hwid (%s)",
+				p->dwID, p->szLogin, p->szHwid);
 
 		bResult = 1;
 
@@ -4610,6 +4616,7 @@ void CClientManager::ResetLastPlayerID(const TPacketNeedLoginLogInfo* data)
 	if (NULL != pkLD)
 	{
 		pkLD->SetLastPlayerID( 0 );
+		m_map_pkLoginData.erase(pkLD->GetKey());
 	}
 }
 

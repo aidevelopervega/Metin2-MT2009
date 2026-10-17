@@ -29,7 +29,7 @@ add_compile_options(
     -Wno-array-bounds
     -Wno-address
     -Wno-format-truncation
-    -Wno-deprecated-enum-enum-conversion
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-enum-conversion>
     -Wno-nonnull-compare
     -Wno-int-in-bool-context
     -Wno-stringop-truncation

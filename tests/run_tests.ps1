@@ -121,9 +121,20 @@ try {
         "utils.c",
         "xdirent.c",
         "xgetopt.c",
-        "xmd5.c"
+        "xmd5.c",
+        "auth_security.cpp"
     )
 
+    $Argon2Sources = @(
+        "argon2\argon2.c",
+        "argon2\core.c",
+        "argon2\encoding.c",
+        "argon2\opt.c",
+        "argon2\thread.c",
+        "argon2\blake2\blake2b.c"
+    )
+
+    $Gcc = Join-Path (Split-Path -Parent $Gxx) "gcc.exe"
     $CoreObjects = @()
     foreach ($src in $CoreSources) {
         $obj = "$BuildDir\core_$([System.IO.Path]::GetFileNameWithoutExtension($src)).o"
@@ -131,18 +142,32 @@ try {
         & $Gxx @CommonFlags @CoreIncludes -c "$CoreDir\src\$src" -o "$obj"
         if ($LASTEXITCODE -ne 0) { throw "libthecore derleme hatası: $src" }
     }
+    foreach ($src in $Argon2Sources) {
+        $obj = "$BuildDir\argon2_$([System.IO.Path]::GetFileNameWithoutExtension($src)).o"
+        $CoreObjects += $obj
+        & $Gcc -std=c11 -Wall -Wextra -O2 -pipe @CoreIncludes -c "$CoreDir\src\$src" -o "$obj"
+        if ($LASTEXITCODE -ne 0) { throw "libthecore argon2 derleme hatası: $src" }
+    }
 
     $CoreLib = "$BuildDir\libthecore.a"
     & $Ar cru "$CoreLib" $CoreObjects
     & $Ranlib "$CoreLib"
 
     $CoreTestExe = "$BuildDir\test_libthecore.exe"
-    & $Gxx @CommonFlags @CoreIncludes "$RootDir\tests\test_libthecore.cpp" "$CoreLib" -lws2_32 -o "$CoreTestExe"
+    & $Gxx @CommonFlags @CoreIncludes "$RootDir\tests\test_libthecore.cpp" "$CoreLib" -lws2_32 -lbcrypt -o "$CoreTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libthecore bağlama hatası" }
 
     Write-Host "--> test_libthecore.exe çalıştırılıyor..." -ForegroundColor Green
     & "$CoreTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libthecore testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
+
+    $AuthSecTestExe = "$BuildDir\test_auth_security.exe"
+    & $Gxx @CommonFlags @CoreIncludes "$RootDir\tests\test_auth_security.cpp" "$CoreLib" -lws2_32 -lbcrypt -o "$AuthSecTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_auth_security bağlama hatası" }
+
+    Write-Host "--> test_auth_security.exe çalıştırılıyor..." -ForegroundColor Green
+    & "$AuthSecTestExe"
+    if ($LASTEXITCODE -ne 0) { throw "test_auth_security testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
     # ------------------------------------------------------------------------------
     # 3. LIBGAME DERLEME VE TESTİ (Gerçek libthecore.a ile bağlı)
@@ -171,7 +196,7 @@ try {
     & $Ranlib "$GameLib"
 
     $GameTestExe = "$BuildDir\test_libgame.exe"
-    & $Gxx @CommonFlags @GameIncludes "$RootDir\tests\test_libgame.cpp" "$GameLib" "$CoreLib" -lws2_32 -o "$GameTestExe"
+    & $Gxx @CommonFlags @GameIncludes "$RootDir\tests\test_libgame.cpp" "$GameLib" "$CoreLib" -lws2_32 -lbcrypt -o "$GameTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libgame bağlama hatası" }
 
     Write-Host "--> test_libgame.exe çalıştırılıyor..." -ForegroundColor Green
@@ -205,7 +230,7 @@ try {
     & $Ranlib "$SqlLib"
 
     $SqlTestExe = "$BuildDir\test_libsql.exe"
-    & $Gxx @CommonFlags @SqlIncludes "$RootDir\tests\test_libsql.cpp" "$SqlLib" "$CoreLib" -lws2_32 -o "$SqlTestExe"
+    & $Gxx @CommonFlags @SqlIncludes "$RootDir\tests\test_libsql.cpp" "$SqlLib" "$CoreLib" -lws2_32 -lbcrypt -o "$SqlTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_libsql bağlama hatası" }
 
     Write-Host "--> test_libsql.exe çalıştırılıyor..." -ForegroundColor Green
@@ -223,7 +248,7 @@ try {
     ) + $ExternIncludes
 
     $DbCacheTestExe = "$BuildDir\test_db_cache.exe"
-    & $Gxx @CommonFlags @DbCacheIncludes "$RootDir\tests\test_db_cache.cpp" "$CoreLib" -lws2_32 -o "$DbCacheTestExe"
+    & $Gxx @CommonFlags @DbCacheIncludes "$RootDir\tests\test_db_cache.cpp" "$CoreLib" -lws2_32 -lbcrypt -o "$DbCacheTestExe"
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache bağlama hatası" }
 
     Write-Host "--> test_db_cache.exe çalıştırılıyor..." -ForegroundColor Green

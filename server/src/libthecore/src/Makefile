@@ -1,7 +1,8 @@
+CC ?= gcc
 CXX ?= g++
 BIN_DIR = ../lib
 BIN     = $(BIN_DIR)/libthecore.a
-INCLUDE = -I../include
+INCLUDE = -I../include -Iargon2 -Iargon2/blake2
 INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/include
 LBITS := $(shell getconf LONG_BIT)
 
@@ -9,12 +10,19 @@ CFLAGS  = -Wall -O2 -pipe -g $(INCLUDE)
 ifeq ($(LBITS),32)
 CFLAGS += -m32
 endif
-CFLAGS += -std=c++20 -Wno-invalid-source-encoding -Wno-deprecated
+CXXFLAGS = $(CFLAGS) -std=c++20 -Wno-invalid-source-encoding -Wno-deprecated
+CCFLAGS  = $(CFLAGS) -std=c11
 
 LIBS    =
 
-OBJFILES = socket.o fdwatch.o buffer.o signal.o log.o utils.o \
-	kstbl.o hangul.o heart.o main.o tea.o des.o gost.o memcpy.o DES_table.o
+CXX_OBJFILES = socket.o fdwatch.o buffer.o signal.o log.o utils.o \
+	kstbl.o hangul.o heart.o main.o tea.o des.o gost.o memcpy.o DES_table.o \
+	auth_security.o
+
+C_OBJFILES = argon2/argon2.o argon2/core.o argon2/encoding.o \
+	argon2/opt.o argon2/thread.o argon2/blake2/blake2b.o
+
+OBJFILES = $(CXX_OBJFILES) $(C_OBJFILES)
 
 default:
 	$(MAKE) $(BIN)
@@ -26,17 +34,23 @@ $(BIN): $(OBJFILES)
 	chmod 700 $(BIN)
 
 clean:
-	rm -f *.o
+	rm -f *.o argon2/*.o argon2/blake2/*.o
 	rm -f $(BIN)
 
 dep:
-	$(CXX) $(CFLAGS) -MM *.c > Depend
+	$(CXX) $(CXXFLAGS) -MM *.c *.cpp > Depend
 
-$(OBJFILES):
-	$(CXX) $(CFLAGS) -c $<
+$(CXX_OBJFILES):
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+argon2/%.o: argon2/%.c
+	$(CC) $(CCFLAGS) -c $< -o $@
+
+argon2/blake2/%.o: argon2/blake2/%.c
+	$(CC) $(CCFLAGS) -c $< -o $@
 
 memcpy: memcpy.o utils.o log.o
-	$(CXX) $(CFLAGS) -c -D__MAIN__ memcpy.c
-	$(CXX) $(CFLAGS) -o memcpy memcpy.o utils.o log.o
+	$(CXX) $(CXXFLAGS) -c -D__MAIN__ memcpy.c
+	$(CXX) $(CXXFLAGS) -o memcpy memcpy.o utils.o log.o
 
 sinclude Depend

@@ -17,6 +17,17 @@
 #include "locale_service.h"
 #include "spam.h"
 #include "shutdown_manager.h"
+#include "../../libthecore/include/auth_security.h"
+
+SAuthLoginQueryInfo::~SAuthLoginQueryInfo()
+{
+	AuthSecurity::SecureZeroMemoryBuffer(packet.passwd, sizeof(packet.passwd));
+	if (bAcquiredInFlightSlot)
+	{
+		AuthSecurity::ReleaseInFlightAuthSlot();
+		bAcquiredInFlightSlot = false;
+	}
+}
 
 DBManager::DBManager() : m_bIsConnect(false)
 {
@@ -226,7 +237,7 @@ void DBManager::SendAuthLogin(LPDESC d)
 	strlcpy(ptod.szHwid, pkLD->GetHWID(), sizeof(ptod.szHwid));
 
 	db_clientdesc->DBPacket(HEADER_GD_AUTH_LOGIN, d->GetHandle(), &ptod, sizeof(TPacketGDAuthLogin));
-	sys_log(0, "SendAuthLogin %s key %u", ptod.szLogin, ptod.dwID);
+	sys_log(0, "SendAuthLogin %s id %u key ***MASKED***", ptod.szLogin, ptod.dwID);
 
 	SendLoginPing(r.login);
 }
@@ -259,90 +270,106 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 	{
 		case QID_AUTH_LOGIN:
 			{
-				TPacketCGLogin3 * pinfo = (TPacketCGLogin3 *) qi->pvData;
+				SAuthLoginQueryInfo * pAuthInfo = static_cast<SAuthLoginQueryInfo *>(qi->pvData);
+				struct SAuthInfoScopeGuard
+				{
+					SAuthLoginQueryInfo * ptr;
+					~SAuthInfoScopeGuard()
+					{
+						if (ptr)
+							M2_DELETE(ptr);
+					}
+				} authInfoGuard{pAuthInfo};
+
+				if (!pAuthInfo)
+					break;
+
+				TPacketCGLogin3 * pinfo = &pAuthInfo->packet;
 				LPDESC d = DESC_MANAGER::instance().FindByLoginKey(qi->dwIdent);
 
 				if (!d)
-				{
-					M2_DELETE(pinfo);
 					break;
-				}
 
-				d->SetLogin(pinfo->login);
+				d->SetLogin(pAuthInfo->szNormalizedLogin);
 
-				sys_log(0, "QID_AUTH_LOGIN: START %u %p", qi->dwIdent, get_pointer(d));
+				sys_log(0, "QID_AUTH_LOGIN: START %p login %s", get_pointer(d), pAuthInfo->szNormalizedLogin);
 
-				if (pMsg->Get()->uiNumRows == 0)
+				if (!pMsg->Get() || !pMsg->Get()->pSQLResult || pMsg->Get()->uiNumRows == 0)
 				{
-					sys_log(0, "   NOID");
-					LoginFailure(d, "NOID");
-					M2_DELETE(pinfo);
+					if (AuthSecurity::TryAcquireArgon2Budget())
+					{
+						AuthSecurity::VerifyDummyPassword(pinfo->passwd);
+					}
+					AuthSecurity::AuthRateLimiter::Instance().RecordFailure(
+						pAuthInfo->szHostIP, pAuthInfo->szNormalizedLogin);
+					sys_log(0, "   WRONGPWD (account not found)");
+					LoginFailure(d, "WRONGPWD");
 				}
 				else
 				{
 					MYSQL_ROW row = mysql_fetch_row(pMsg->Get()->pSQLResult);
+					if (!row)
+					{
+						LoginFailure(d, "FAILURE");
+						break;
+					}
+
 					int col = 0;
 
-					// PASSWORD('%s'), password, securitycode, social_id, id, status
-					char szEncrytPassword[45 + 1] = {0, };
-					char szPassword[45 + 1] = {0, };
+					// ac.password, ac.social_id, ac.id, ac.status, hw.status, ac.availDt - NOW() > 0, ...
+					char szStoredPassword[AuthSecurity::kMaxStoredHashLength + 1] = {0, };
 					char szSocialID[SOCIAL_ID_MAX_LEN + 1] = {0, };
 					char szStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
-					char szHardware[HWID_MAX_LEN + 1] = { 0, };
 					char szHardwareStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
 					DWORD dwID = 0;
 					int iPremium = 0;
 
+					struct SStoredSecretGuard
+					{
+						char * pwd;
+						size_t pwdLen;
+						char * social;
+						size_t socialLen;
+						~SStoredSecretGuard()
+						{
+							AuthSecurity::SecureZeroMemoryBuffer(pwd, pwdLen);
+							AuthSecurity::SecureZeroMemoryBuffer(social, socialLen);
+						}
+					} secretGuard{szStoredPassword, sizeof(szStoredPassword), szSocialID, sizeof(szSocialID)};
+
 					if (!row[col])
 					{
 						sys_err("error column %d", col);
-						M2_DELETE(pinfo);
-					   	break;
-					}
-
-					strlcpy(szEncrytPassword, row[col++], sizeof(szEncrytPassword));
-
-					if (!row[col])
-					{
-					   	sys_err("error column %d", col);
-						M2_DELETE(pinfo);
-					   	break;
-				   	}
-
-					strlcpy(szPassword, row[col++], sizeof(szPassword));
-
-					if (!row[col]) // hwid
-					{
-						sys_err("error column %d", col);
-						M2_DELETE(pinfo);
+						LoginFailure(d, "WRONGPWD");
 						break;
 					}
-					strlcpy(szHardware, row[col++], sizeof(szHardware));
+
+					strlcpy(szStoredPassword, row[col++], sizeof(szStoredPassword));
 
 					if (!row[col])
-				   	{
+					{
 						sys_err("error column %d", col);
-						M2_DELETE(pinfo);
+						LoginFailure(d, "WRONGPWD");
 						break;
-				   	}
+					}
 
 					strlcpy(szSocialID, row[col++], sizeof(szSocialID));
 
 					if (!row[col])
-				   	{
-					   	sys_err("error column %d", col);
-						M2_DELETE(pinfo);
-					   	break;
-				   	}
+					{
+						sys_err("error column %d", col);
+						LoginFailure(d, "WRONGPWD");
+						break;
+					}
 
 					str_to_number(dwID, row[col++]);
 
 					if (!row[col])
 					{
-					   	sys_err("error column %d", col);
-						M2_DELETE(pinfo);
+						sys_err("error column %d", col);
+						LoginFailure(d, "WRONGPWD");
 						break;
-				   	}
+					}
 
 					strlcpy(szStatus, row[col++], sizeof(szStatus));
 
@@ -384,88 +411,156 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 							time_t create_time = retValue;
 							struct tm * tm1;
 							tm1 = localtime(&create_time);
-							strftime(szCreateDate, 255, "%Y%m%d", tm1);
+							if (tm1)
+								strftime(szCreateDate, 255, "%Y%m%d", tm1);
 
-							sys_log(0, "Create_Time %d %s", retValue, szCreateDate);
+							sys_log(0, "Create_Time %ld %s", retValue, szCreateDate);
 							sys_log(0, "Block Time %d ", strncmp(szCreateDate, g_stBlockDate.c_str(), 8));
 						}
 					}
 
-					int nPasswordDiff = strcmp(szEncrytPassword, szPassword);
-
-					if (nPasswordDiff)
+					if (!AuthSecurity::TryAcquireArgon2Budget())
 					{
+						sys_err("QID_AUTH_LOGIN: Argon2 CPU budget exhausted, throttling %s", pAuthInfo->szHostIP);
+						LoginFailure(d, "FAILURE");
+						break;
+					}
+
+					const AuthSecurity::SVerifyResult verifyRes =
+						AuthSecurity::VerifyPassword(pinfo->passwd, szStoredPassword);
+
+					if (!verifyRes.matched)
+					{
+						AuthSecurity::AuthRateLimiter::Instance().RecordFailure(
+							pAuthInfo->szHostIP, pAuthInfo->szNormalizedLogin);
 						LoginFailure(d, "WRONGPWD");
-						sys_log(0, "   WRONGPWD");
-						M2_DELETE(pinfo);
+						sys_log(0, "   WRONGPWD (fmt=%u, elapsed=%llu us)",
+								static_cast<unsigned>(verifyRes.format),
+								static_cast<unsigned long long>(verifyRes.elapsed_usec));
 					}
 					else if (bNotAvail)
 					{
 						LoginFailure(d, "NOTAVAIL");
 						sys_log(0, "   NOTAVAIL");
-						M2_DELETE(pinfo);
 					}
-					else if (DESC_MANAGER::instance().FindByLoginName(pinfo->login))
+					else if (DESC_MANAGER::instance().FindByLoginName(pAuthInfo->szNormalizedLogin))
 					{
 						LoginFailure(d, "ALREADY");
 						sys_log(0, "   ALREADY");
-						M2_DELETE(pinfo);
 					}
 					else if(!CShutdownManager::Instance().CheckCorrectSocialID(szSocialID) && !test_server)
 					{
 						LoginFailure(d, "BADSCLID");
 						sys_log(0, "   BADSCLID");
-						M2_DELETE(pinfo);
 					}
 					else if(CShutdownManager::Instance().CheckShutdownAge(szSocialID) && CShutdownManager::Instance().CheckShutdownTime())
 					{
 						LoginFailure(d, "AGELIMIT");
 						sys_log(0, "   AGELIMIT");
-						M2_DELETE(pinfo);
 					}
 					else if (strcmp(szStatus, "OK"))
 					{
 						LoginFailure(d, szStatus);
 						sys_log(0, "   STATUS: %s", szStatus);
-						M2_DELETE(pinfo);
 					}
 					else if (strcmp(szHardwareStatus, "OK"))
 					{
 						LoginFailure(d, szHardwareStatus);
 						sys_log(0, "   HARDWARE STATUS: %s", szHardwareStatus);
-						M2_DELETE(pinfo);
 					}
 					else
 					{
+						if (strncmp(szCreateDate, g_stBlockDate.c_str(), 8) >= 0)
 						{
-							if (strncmp(szCreateDate, g_stBlockDate.c_str(), 8) >= 0)
-							{
-								LoginFailure(d, "BLKLOGIN");
-								sys_log(0, "   BLKLOGIN");
-								M2_DELETE(pinfo);
-								break;
-							}
+							LoginFailure(d, "BLKLOGIN");
+							sys_log(0, "   BLKLOGIN");
+							break;
+						}
 
+						AuthSecurity::AuthRateLimiter::Instance().RecordSuccess(
+							pAuthInfo->szHostIP, pAuthInfo->szNormalizedLogin);
+
+						char szEscapedHWID[HWID_MAX_LEN * 2 + 1] = {0};
+						DBManager::instance().EscapeString(
+							szEscapedHWID,
+							sizeof(szEscapedHWID),
+							pAuthInfo->szDecodedHWID,
+							strlen(pAuthInfo->szDecodedHWID));
+
+						if (verifyRes.needs_upgrade)
+						{
+							uint64_t hashUsec = 0;
+							std::string newArgon2Hash = AuthSecurity::HashPasswordArgon2id(
+								pinfo->passwd,
+								AuthSecurity::kDefaultMemoryCostKiB,
+								AuthSecurity::kDefaultTimeCost,
+								AuthSecurity::kDefaultParallelism,
+								&hashUsec);
+
+							if (!newArgon2Hash.empty())
+							{
+								char szEscapedNewHash[AuthSecurity::kMaxStoredHashLength * 2 + 1] = {0};
+								char szEscapedOldHash[AuthSecurity::kMaxStoredHashLength * 2 + 1] = {0};
+								DBManager::instance().EscapeString(
+									szEscapedNewHash,
+									sizeof(szEscapedNewHash),
+									newArgon2Hash.c_str(),
+									newArgon2Hash.size());
+								DBManager::instance().EscapeString(
+									szEscapedOldHash,
+									sizeof(szEscapedOldHash),
+									szStoredPassword,
+									strlen(szStoredPassword));
+
+								char szUpgradeQuery[2048] = {0};
+								snprintf(
+									szUpgradeQuery,
+									sizeof(szUpgradeQuery),
+									"UPDATE account SET password='%s', last_play=NOW(), hwid='%s' WHERE id=%u AND password='%s'",
+									szEscapedNewHash,
+									szEscapedHWID,
+									dwID,
+									szEscapedOldHash);
+								DBManager::instance().Query("%s", szUpgradeQuery);
+
+								AuthSecurity::SecureZeroMemoryBuffer(newArgon2Hash.data(), newArgon2Hash.size());
+								AuthSecurity::SecureZeroMemoryBuffer(szEscapedNewHash, sizeof(szEscapedNewHash));
+								AuthSecurity::SecureZeroMemoryBuffer(szEscapedOldHash, sizeof(szEscapedOldHash));
+								AuthSecurity::SecureZeroMemoryBuffer(szUpgradeQuery, sizeof(szUpgradeQuery));
+
+								sys_log(0, "QID_AUTH_LOGIN: Upgraded account id %u to Argon2id (verify=%llu us, hash=%llu us)",
+										dwID,
+										static_cast<unsigned long long>(verifyRes.elapsed_usec),
+										static_cast<unsigned long long>(hashUsec));
+							}
+							else
+							{
+								char szQuery[1024];
+								snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+								DBManager::instance().Query("%s", szQuery);
+							}
+						}
+						else
+						{
 							char szQuery[1024];
-							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szHardware, dwID);
-							DBManager::instance().Query(szQuery);
+							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+							DBManager::instance().Query("%s", szQuery);
+							sys_log(0, "QID_AUTH_LOGIN: Argon2id verified account id %u (%llu us)",
+									dwID, static_cast<unsigned long long>(verifyRes.elapsed_usec));
 						}
 
 						TAccountTable & r = d->GetAccountTable();
 
 						r.id = dwID;
 						r.iPremium = iPremium;
-						trim_and_lower(pinfo->login, r.login, sizeof(r.login));
-						strlcpy(r.passwd, pinfo->passwd, sizeof(r.passwd));
+						strlcpy(r.login, pAuthInfo->szNormalizedLogin, sizeof(r.login));
+						strlcpy(r.passwd, "TEMP", sizeof(r.passwd));
 						strlcpy(r.social_id, szSocialID, sizeof(r.social_id));
 						DESC_MANAGER::instance().ConnectAccount(r.login, d);
 
-						LoginPrepare(d, pinfo->adwClientKey, szHardware, aiPremiumTimes);
-						//By SeMinZ
-						M2_DELETE(pinfo);
+						LoginPrepare(d, pinfo->adwClientKey, pAuthInfo->szDecodedHWID, aiPremiumTimes);
+						sys_log(0, "QID_AUTH_LOGIN: SUCCESS %s", pAuthInfo->szNormalizedLogin);
 						break;
-
-						sys_log(0, "QID_AUTH_LOGIN: SUCCESS %s", pinfo->login);
 					}
 				}
 			}

@@ -1170,16 +1170,29 @@ VALUES (9001, '$SMOKE_TEST_LOGIN', '$SMOKE_PASS_HASH', '1234567', 'OK', '$SMOKE_
 -- Legacy account: literal hash as stored by MySQL 5.x/MariaDB PASSWORD('password') in existing MT2009 databases
 INSERT INTO account (id, login, password, social_id, status, hwid)
 VALUES (9002, 'smklegacy', '*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
+-- Malformed hash account: must always fail closed with WRONGPWD
+INSERT INTO account (id, login, password, social_id, status, hwid)
+VALUES (9003, 'smkmalformed', 'corrupted_non_phc_hash_value', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
 INSERT INTO gmlist (mID, mAccount, mName, mContactIP, mServerIP, mAuthority)
 VALUES (1, '$SMOKE_TEST_LOGIN', 'SmokeHero', '127.0.0.1', 'ALL', 'IMPLEMENTOR');
 EOF
+
+# Execute non-destructive Rev 47 SQL migration script (widens account.password VARCHAR(45) -> VARCHAR(255) & creates account_rev47_backup)
+"$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$REPO_ROOT/sql/migrations/rev47_account_security_upgrade.sql"
+
+PASS_COL_LEN=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='$DB' AND TABLE_NAME='account' AND COLUMN_NAME='password';")
+BACKUP_ROWS=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM account_rev47_backup;")
+if [ "$PASS_COL_LEN" != "255" ] || [ "$BACKUP_ROWS" != "3" ]; then
+    echo "HATA: [1/6] rev47_account_security_upgrade.sql migration doğrulaması başarısız (password_len=$PASS_COL_LEN, backup_rows=$BACKUP_ROWS)!" >&2
+    exit 1
+fi
 
 HASH_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT IF(password = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('$SMOKE_TEST_PASS'))))), 1, 0) FROM account WHERE id=9001;")
 if [ "$HASH_MATCH" != "1" ]; then
     echo "HATA: [1/6] MT2009 C++ mysql_hash_password ile SQL SHA1(UNHEX(SHA1(...))) hesap hash formatı eşleşmedi!" >&2
     exit 1
 fi
-echo "  [PASS] [1/6] Strict SQL Mode şeması, geçici test hesabı (C++ mysql_hash_password == SQL SHA1(UNHEX(SHA1)) doğrulandı, PASSWORD() SQL fonksiyonu kullanılmadı) ve SmokeHero (id=90011, level=15, map=1 469300x964200) karakteri hazırlandı."
+echo "  [PASS] [1/6] Strict SQL Mode şeması, rev47_account_security_upgrade.sql migration (account.password VARCHAR(255) + account_rev47_backup=3 satır), geçici test hesapları ve SmokeHero (id=90011, level=15, map=1 469300x964200) karakteri hazırlandı."
 
 # ------------------------------------------------------------------------------
 # [2/6] Real db_r41023 Isolated Startup, SQL Table Load & TCP Listener Probe
@@ -1343,7 +1356,7 @@ run_real_db_auth_and_game_smoke() {
 
     echo "$STAGE_TAG $LABEL: Gerçek db_r41023 <-> HEADER_DG_BOOT + Gerçek AUTH_SERVER (HEADER_CG_LOGIN3) + Gerçek GAME_SERVER (LoginByKey -> PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME + Quest/NPC Coroutine) testi..."
 
-    # Reset quest flags and player position in SQL before restarting db_r41023 so each Lua engine run starts from identical state
+    # Reset quest flags, player position, and legacy test passwords in SQL before restarting db_r41023 so each Lua engine run starts from identical state
     stop_pid_bounded "$ACTIVE_DB_PID"
     ACTIVE_DB_PID=""
     "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<'EOF_RESET'
@@ -1353,7 +1366,10 @@ INSERT INTO quest (dwPID, szName, szState, lValue) VALUES
   (90011, 'smoke_world', '__status', 0),
   (90011, 'smoke_world', 'db_seed_val', 77);
 UPDATE `player` SET x=469300, y=964200, map_index=1, exit_x=469300, exit_y=964200, exit_map_index=1, hp=800, mp=300, stamina=800 WHERE id=90011;
+UPDATE account SET password='*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19' WHERE id=9002;
+UPDATE account SET password='corrupted_non_phc_hash_value' WHERE id=9003;
 EOF_RESET
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "UPDATE account SET password='$SMOKE_PASS_HASH' WHERE id=9001;"
 
     (
         cd "$DB_WORK"
@@ -1468,15 +1484,36 @@ EOF
     fi
     echo "  [PASS] $STAGE_TAG $LABEL canlı SQL veritabanına bootlog kaydını başarıyla yazdı (hostname=$HOSTNAME_TAG)."
 
-    # 3a. Negative check: wrong password must be rejected by the real AUTH_SERVER with WRONGPWD
-    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "@ENV" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+    # 3a. Anti-enumeration & malformed hash & wrong password checks (all must return uniform WRONGPWD, never NOID)
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smk_nonexistent" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER var olmayan hesabı WRONGPWD ile reddetmedi (hesap numaralandırma sızıntısı)!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 0.4 2>/dev/null || sleep 1
+
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smkmalformed" "password" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+        echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER bozuk hash kaydını WRONGPWD ile reddetmedi!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 0.4 2>/dev/null || sleep 1
+
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smklegacy" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
         echo "HATA: $STAGE_TAG $LABEL AUTH_SERVER yanlış şifreyi WRONGPWD ile reddetmedi!" >&2
         dump_stage_logs
         exit 1
     fi
-    sleep 1
+    sleep 0.4 2>/dev/null || sleep 1
 
-    # 3b. Legacy account compatibility: literal MySQL 5.x PASSWORD('password') hash must authenticate on every engine
+    # Verify wrong password did NOT modify the legacy hash in SQL
+    PRE_UPGRADE_HASH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT password FROM account WHERE id=9002;")
+    if [ "$PRE_UPGRADE_HASH" != "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19" ]; then
+        echo "HATA: $STAGE_TAG $LABEL yanlış şifre denemesinde eski hash değişti!" >&2
+        exit 1
+    fi
+
+    # 3b. Legacy account compatibility & transparent atomic upgrade to Argon2id on successful login
     LEGACY_KEY_FILE="$AUTH_WORK/legacy_login_key.txt"
     rm -f "$LEGACY_KEY_FILE"
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
@@ -1485,10 +1522,52 @@ EOF
         exit 1
     fi
     rm -f "$LEGACY_KEY_FILE"
-    echo "  [PASS] $STAGE_TAG $LABEL eski MT2009 hesap şifre biçimi (*SHA1(SHA1)) gerçek AUTH_SERVER üzerinde kabul edildi, yanlış şifre reddedildi."
-    sleep 1
+    sleep 0.4 2>/dev/null || sleep 1
 
-    # 3. Execute real AUTH_SERVER login (HEADER_CG_LOGIN3 -> QID_AUTH_LOGIN -> HEADER_GD_AUTH_LOGIN -> HEADER_GC_AUTH_SUCCESS)
+    # Verify account.password for id=9002 was atomically upgraded in-place to $argon2id$v=19$m=19456,t=2,p=1$...
+    UPGRADED_PREFIX=""
+    for _ in $(seq 1 10); do
+        UPGRADED_PREFIX=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT LEFT(password, 31) FROM account WHERE id=9002;")
+        if [ "$UPGRADED_PREFIX" = '$argon2id$v=19$m=19456,t=2,p=1$' ]; then
+            break
+        fi
+        sleep 0.3 2>/dev/null || sleep 1
+    done
+    if [ "$UPGRADED_PREFIX" != '$argon2id$v=19$m=19456,t=2,p=1$' ]; then
+        echo "HATA: $STAGE_TAG $LABEL eski *SHA1(SHA1) parolası başarılı giriş sonrası Argon2id PHC formatına yükseltilmedi (prefix=$UPGRADED_PREFIX)!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL eski *SHA1(SHA1) hesap (id=9002) doğrulandı ve canlı SQL üzerinde atomik olarak \$argon2id\$v=19\$m=19456,t=2,p=1\$ formatına yükseltildi."
+
+    # 3c. Post-upgrade verification: wrong password and old SHA1 hash string must fail; correct plaintext password must verify via Argon2id
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smklegacy" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+        echo "HATA: $STAGE_TAG $LABEL Argon2id yükseltmesi sonrası yanlış şifre reddedilmedi!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 0.4 2>/dev/null || sleep 1
+
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smklegacy" "*2470C0C06DEE42FD" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+        echo "HATA: $STAGE_TAG $LABEL Argon2id yükseltmesi sonrası eski SHA1 hash dizgesi reddedilmedi!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 0.4 2>/dev/null || sleep 1
+
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
+        echo "HATA: $STAGE_TAG $LABEL Argon2id yükseltmesi sonrası doğrudan Argon2id parola doğrulaması başarısız oldu!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    rm -f "$LEGACY_KEY_FILE"
+    sleep 0.4 2>/dev/null || sleep 1
+
+    ARGON2_UPGRADE_LOG=$(grep -m1 "QID_AUTH_LOGIN: Upgraded account id" "$AUTH_WORK/syslog" "$AUTH_WORK/auth_stdout.log" 2>/dev/null || true)
+    ARGON2_VERIFY_LOG=$(grep -m1 "QID_AUTH_LOGIN: Argon2id verified account id" "$AUTH_WORK/syslog" "$AUTH_WORK/auth_stdout.log" 2>/dev/null || true)
+    echo "  [PASS] $STAGE_TAG $LABEL doğrudan Argon2id doğrulaması ve SHA1 geri dönüş (fallback) engeli kanıtlandı (${ARGON2_UPGRADE_LOG} | ${ARGON2_VERIFY_LOG})."
+
+    # 3d. Execute primary test account AUTH_SERVER login (HEADER_CG_LOGIN3 -> QID_AUTH_LOGIN -> HEADER_GD_AUTH_LOGIN -> HEADER_GC_AUTH_SUCCESS)
     KEY_FILE="$AUTH_WORK/login_key.txt"
     rm -f "$KEY_FILE"
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "@ENV" "@ENV" "$SMOKE_HWID_HEX" "$KEY_FILE"; then
@@ -1507,6 +1586,13 @@ EOF
     # 4. Execute real GAME_SERVER LoginByKey -> PHASE_SELECT -> CharacterSelect -> PHASE_LOADING -> Entergame -> PHASE_GAME + Quest/NPC Coroutine
     if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key "$GAME_PORT" "@ENV" "$LOGIN_KEY"; then
         echo "HATA: $STAGE_TAG $LABEL gerçek GAME_SERVER (LoginByKey -> PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME + Quest/NPC Coroutine) akışı başarısız oldu!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+
+    # 4b. Replay the exact same consumed dwLoginKey against GAME_SERVER -> must be rejected (single-use LoginByKey enforcement)
+    if ! "$BUILD_DIR/test_server_smoke_client" --game-login-key-expect-fail "$GAME_PORT" "@ENV" "$LOGIN_KEY"; then
+        echo "HATA: $STAGE_TAG $LABEL tüketilmiş dwLoginKey tekrar kullanıldığında (replay) GAME_SERVER tarafından reddedilmedi!" >&2
         dump_stage_logs
         exit 1
     fi
@@ -1535,6 +1621,29 @@ EOF
     fi
     echo "  [PASS] $STAGE_TAG $LABEL PC::Save -> HEADER_GD_QUEST_SAVE ile quest bayrakları (login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
 
+    # 7. Brute-force rate-limit & temporary exponential backoff check on AUTH_SERVER (5 failures -> 6th throttled with FAILURE -> recovers after 2s backoff)
+    for _ in 1 2 3 4 5; do
+        if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smk_bruteforce" "WrongPass999" "$SMOKE_HWID_HEX" "WRONGPWD"; then
+            echo "HATA: $STAGE_TAG $LABEL brute-force eşik öncesi deneme WRONGPWD dönmedi!" >&2
+            dump_stage_logs
+            exit 1
+        fi
+        sleep 0.3 2>/dev/null || sleep 1
+    done
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-expect-fail "$AUTH_PORT" "smk_bruteforce" "WrongPass999" "$SMOKE_HWID_HEX" "FAILURE"; then
+        echo "HATA: $STAGE_TAG $LABEL 5 başarısız giriş sonrası 6. deneme AuthRateLimiter tarafından FAILURE ile engellenmedi!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 2.5 2>/dev/null || sleep 3
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
+        echo "HATA: $STAGE_TAG $LABEL geçici backoff süresi dolduktan sonra normal hesap girişi iyileşmedi (kalıcı kilitlenme / DoS)!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    rm -f "$LEGACY_KEY_FILE"
+    echo "  [PASS] $STAGE_TAG $LABEL AuthRateLimiter brute-force koruması (5 hata -> geçici 2sn backoff FAILURE) ve otomatik iyileşme (kalıcı kilitlenme yok) doğrulandı."
+
     stop_pid_bounded "$ACTIVE_GAME_PID"
     ACTIVE_GAME_PID=""
     stop_pid_bounded "$ACTIVE_AUTH_PID"
@@ -1553,7 +1662,7 @@ ACTIVE_DB_PID=""
 # Clean up temporary smoke test tables and test account in mt2_testdb
 "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" <<'EOF'
 DROP TABLE IF EXISTS
-  account, hardware_status, player_index,
+  account, account_rev47_backup, hardware_status, player_index,
   locale, exp_table, spam_db, bootlog, special_spawn, priv_settings, guild, guild_war_reservation,
   marriage, `player`, item, quest, affect, player_special_flag, safebox, messenger_list, messenger_block_list,
   ikashop_safebox, ikashop_notification, loginlog, loginlog2, char_log, quest_state_log,
@@ -1565,5 +1674,5 @@ DROP TABLE IF EXISTS
 EOF
 
 echo "=================================================="
-echo " [BASARILI] IZOLE DB + MOCK-DB + GERCEK DB BOOT + GERCEK AUTH/LOGIN + PHASE_GAME & QUEST/NPC COROUTINE (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
+echo " [BASARILI] IZOLE DB + MOCK-DB + GERCEK DB BOOT + GERCEK AUTH/ARGON2ID/RATE-LIMIT + PHASE_GAME & QUEST/NPC COROUTINE (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
 echo "=================================================="
