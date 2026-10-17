@@ -40,6 +40,9 @@ clean:
 dep:
 	$(CXX) $(CXXFLAGS) -MM *.c *.cpp > Depend
 
+auth_security.o: auth_security.cpp ../include/auth_security.h ../include/argon2.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(CXX_OBJFILES):
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

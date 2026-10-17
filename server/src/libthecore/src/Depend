@@ -88,3 +88,5 @@ xmd5.o: xmd5.c ../include/stdafx.h ../include/typedef.h \
   ../include/kstbl.h ../include/hangul.h ../include/buffer.h \
   ../include/signal.h ../include/log.h ../include/main.h \
   ../include/utils.h ../include/crypt.h ../include/memcpy.h
+auth_security.o: auth_security.cpp ../include/auth_security.h \
+  ../include/argon2.h

@@ -29,6 +29,29 @@ SAuthLoginQueryInfo::~SAuthLoginQueryInfo()
 	}
 }
 
+static uint32_t GetAccountPasswordColumnMaxLength()
+{
+	static uint32_t s_cachedMaxLen = 0;
+	if (s_cachedMaxLen >= 128U)
+		return s_cachedMaxLen;
+
+	std::unique_ptr<SQLMsg> pColMsg(DBManager::instance().DirectQuery(
+		"SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
+		"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account' AND COLUMN_NAME = 'password'"));
+	if (!pColMsg || pColMsg->uiSQLErrno != 0 || !pColMsg->Get() || pColMsg->Get()->uiNumRows == 0)
+		return 0;
+
+	MYSQL_ROW colRow = mysql_fetch_row(pColMsg->Get()->pSQLResult);
+	if (!colRow || !colRow[0])
+		return 0;
+
+	uint32_t maxLen = 0;
+	str_to_number(maxLen, colRow[0]);
+	if (maxLen >= 128U)
+		s_cachedMaxLen = maxLen;
+	return maxLen;
+}
+
 DBManager::DBManager() : m_bIsConnect(false)
 {
 }
@@ -489,6 +512,12 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 
 						if (verifyRes.needs_upgrade)
 						{
+							const uint32_t colMaxLen = GetAccountPasswordColumnMaxLength();
+							if (colMaxLen < 128U)
+							{
+								sys_err("QID_AUTH_LOGIN: skipping Argon2id password upgrade for account id %u because account.password column length (%u) is < 128; apply sql/migrations/rev47_account_security_upgrade.sql",
+										dwID, colMaxLen);
+							}
 							uint64_t hashUsec = 0;
 							std::string newArgon2Hash = AuthSecurity::HashPasswordArgon2id(
 								pinfo->passwd,
@@ -497,7 +526,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 								AuthSecurity::kDefaultParallelism,
 								&hashUsec);
 
-							if (!newArgon2Hash.empty())
+							if (colMaxLen >= 128U && !newArgon2Hash.empty() && newArgon2Hash.size() <= colMaxLen)
 							{
 								char szEscapedNewHash[AuthSecurity::kMaxStoredHashLength * 2 + 1] = {0};
 								char szEscapedOldHash[AuthSecurity::kMaxStoredHashLength * 2 + 1] = {0};
@@ -521,15 +550,23 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 									szEscapedHWID,
 									dwID,
 									szEscapedOldHash);
-								DBManager::instance().Query("%s", szUpgradeQuery);
+								std::unique_ptr<SQLMsg> pUpdMsg(DBManager::instance().DirectQuery("%s", szUpgradeQuery));
+								const bool bUpdOk = (pUpdMsg && pUpdMsg->uiSQLErrno == 0 && pUpdMsg->Get() != nullptr);
+								const uint32_t uiAffected = bUpdOk ? pUpdMsg->Get()->uiAffectedRows : 0U;
+								if (!bUpdOk || uiAffected == 0U)
+								{
+									char szQuery[1024];
+									snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+									DBManager::instance().Query("%s", szQuery);
+								}
 
 								AuthSecurity::SecureZeroMemoryBuffer(newArgon2Hash.data(), newArgon2Hash.size());
 								AuthSecurity::SecureZeroMemoryBuffer(szEscapedNewHash, sizeof(szEscapedNewHash));
 								AuthSecurity::SecureZeroMemoryBuffer(szEscapedOldHash, sizeof(szEscapedOldHash));
 								AuthSecurity::SecureZeroMemoryBuffer(szUpgradeQuery, sizeof(szUpgradeQuery));
 
-								sys_log(0, "QID_AUTH_LOGIN: Upgraded account id %u to Argon2id (verify=%llu us, hash=%llu us)",
-										dwID,
+								sys_log(0, "QID_AUTH_LOGIN: Upgraded account id %u to Argon2id (affected_rows=%u, col_len=%u, verify=%llu us, hash=%llu us)", dwID, uiAffected,
+										colMaxLen,
 										static_cast<unsigned long long>(verifyRes.elapsed_usec),
 										static_cast<unsigned long long>(hashUsec));
 							}

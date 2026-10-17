@@ -1513,9 +1513,30 @@ EOF
         exit 1
     fi
 
-    # 3b. Legacy account compatibility & transparent atomic upgrade to Argon2id on successful login
+    # 3b-pre. Schema precondition check: if account.password is still VARCHAR(45) (migration not applied), login must succeed WITHOUT corrupting the legacy hash
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "ALTER TABLE account MODIFY COLUMN password VARCHAR(45) NOT NULL DEFAULT '';"
     LEGACY_KEY_FILE="$AUTH_WORK/legacy_login_key.txt"
     rm -f "$LEGACY_KEY_FILE"
+    if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
+        echo "HATA: $STAGE_TAG $LABEL VARCHAR(45) şemasında eski hesap girişi başarısız oldu!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    rm -f "$LEGACY_KEY_FILE"
+    sleep 0.4 2>/dev/null || sleep 1
+
+    UNMIGRATED_HASH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT password FROM account WHERE id=9002;")
+    if [ "$UNMIGRATED_HASH" != "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19" ]; then
+        echo "HATA: $STAGE_TAG $LABEL VARCHAR(45) şemasında (migration uygulanmadan) eski hesap parolası bozuldu ($UNMIGRATED_HASH)!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    echo "  [PASS] $STAGE_TAG $LABEL migration ön koşulu doğrulandı: VARCHAR(45) (<128) sütununda eski hesap bozulmadan korundu ve giriş başarılı oldu."
+
+    # Apply rev47 migration to widen account.password to VARCHAR(255)
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$REPO_ROOT/sql/migrations/rev47_account_security_upgrade.sql"
+
+    # 3b. Legacy account compatibility & transparent atomic upgrade to Argon2id on successful login
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then
         echo "HATA: $STAGE_TAG $LABEL eski (MySQL 5.x PASSWORD) biçimli hesap AUTH_SERVER üzerinde doğrulanamadı!" >&2
         dump_stage_logs
@@ -1525,14 +1546,7 @@ EOF
     sleep 0.4 2>/dev/null || sleep 1
 
     # Verify account.password for id=9002 was atomically upgraded in-place to $argon2id$v=19$m=19456,t=2,p=1$...
-    UPGRADED_PREFIX=""
-    for _ in $(seq 1 10); do
-        UPGRADED_PREFIX=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT LEFT(password, 31) FROM account WHERE id=9002;")
-        if [ "$UPGRADED_PREFIX" = '$argon2id$v=19$m=19456,t=2,p=1$' ]; then
-            break
-        fi
-        sleep 0.3 2>/dev/null || sleep 1
-    done
+    UPGRADED_PREFIX=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT LEFT(password, 31) FROM account WHERE id=9002;")
     if [ "$UPGRADED_PREFIX" != '$argon2id$v=19$m=19456,t=2,p=1$' ]; then
         echo "HATA: $STAGE_TAG $LABEL eski *SHA1(SHA1) parolası başarılı giriş sonrası Argon2id PHC formatına yükseltilmedi (prefix=$UPGRADED_PREFIX)!" >&2
         dump_stage_logs
