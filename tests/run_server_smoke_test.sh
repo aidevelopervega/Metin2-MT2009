@@ -29,8 +29,8 @@ DB="${MT2_TEST_DB:-mt2_testdb}"
 ENGINE="${MT2_TEST_ENGINE:-FreeBSD SQL}"
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$ROOT_DIR/server/src/db/db_r41023}"
-GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
-GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua55}"
+GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua50}"
+GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
 
 # Deterministic AES-128-ECB("SMOKETEST_HWID1\x01", key="VBlk2yQRtiHA1oj7") hex string
 SMOKE_HWID_PLAIN="SMOKETEST_HWID1"
@@ -43,8 +43,8 @@ echo "=================================================="
 echo " METIN2 MT2009 - ISOLATED SERVER & AUTH/LOGIN SMOKE TEST"
 echo " Engine:         $ENGINE ($HOST:$PORT / $DB)"
 echo " DB Binary:      $DB_BIN"
-echo " Game 5.0 Bin:   $GAME50_BIN"
-echo " Game 5.5 Bin:   $GAME55_BIN"
+echo " Game 5.0 Bin:   $GAME50_BIN (Lua 5.0.3 Rollback)"
+echo " Game 5.5 Bin:   $GAME55_BIN (Lua 5.5.1 Default)"
 echo "=================================================="
 
 for bin in "$DB_BIN" "$GAME50_BIN" "$GAME55_BIN"; do
@@ -1122,9 +1122,9 @@ EOF
     ACTIVE_MOCK_PID=""
 }
 
-echo "[3/6] Mock-DB + 32-Bit TCP Wire Handshake (Lua 5.0.3 & Lua 5.5.1) testi..."
-run_mock_db_game_smoke "[3a/6] game_r41023 (Lua 5.0.3)" "$GAME50_BIN" "mock_lua50" 13011 14011 15011
-run_mock_db_game_smoke "[3b/6] game_r41023_lua55 (Lua 5.5.1)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
+echo "[3/6] Mock-DB + 32-Bit TCP Wire Handshake (Lua 5.0.3 Rollback & Lua 5.5.1 Default) testi..."
+run_mock_db_game_smoke "[3a/6] game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_BIN" "mock_lua50" 13011 14011 15011
+run_mock_db_game_smoke "[3b/6] game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
 
 # ------------------------------------------------------------------------------
 # [4/6] Real db_r41023 <-> Normal Game Server Full HEADER_DG_BOOT + Real Auth/Login
@@ -1304,11 +1304,11 @@ EOF
     ACTIVE_AUTH_PID=""
 }
 
-echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3) tam başlangıç ve hesap girişi testi..."
-run_real_db_auth_and_game_smoke "[4-5/6]" "game_r41023 (Lua 5.0.3)" "$GAME50_BIN" "real_lua50" 15012 15013 15020 15021
+echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3 Rollback) tam başlangıç ve hesap girişi testi..."
+run_real_db_auth_and_game_smoke "[4-5/6]" "game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_BIN" "real_lua50" 15012 15013 15020 15021
 
-echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1) tam başlangıç ve hesap girişi testi..."
-run_real_db_auth_and_game_smoke "[4-6/6]" "game_r41023_lua55 (Lua 5.5.1)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
+echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1 Default) tam başlangıç ve hesap girişi testi..."
+run_real_db_auth_and_game_smoke "[4-6/6]" "game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
 
 stop_pid_bounded "$ACTIVE_DB_PID"
 ACTIVE_DB_PID=""

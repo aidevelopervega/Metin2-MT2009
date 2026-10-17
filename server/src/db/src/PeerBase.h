@@ -57,6 +57,23 @@ class CPeerBase : public CNetBase
 
 	const char *	GetHost() { return m_host; }
 	WORD	GetPort() { return m_wPort; }
+	LPBUFFER	GetOutBuffer() { return m_outBuffer; }
+	void		InitTestOutBuffer(socket_t fd = 1)
+	{
+		if (!m_fdWatcher)
+			m_fdWatcher = fdwatch_new(32);
+		m_fd = fd;
+		if (!m_outBuffer)
+			m_outBuffer = buffer_new(DEFAULT_PACKET_BUFFER_SIZE);
+		else
+			buffer_reset(m_outBuffer);
+	}
+	void		DetachTestOutBuffer()
+	{
+		if (m_fdWatcher && m_fd != INVALID_SOCKET)
+			fdwatch_del_fd(m_fdWatcher, m_fd);
+		m_fd = INVALID_SOCKET;
+	}
 
     protected:
 	char		m_host[MAX_HOST_LENGTH + 1];

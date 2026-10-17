@@ -1,4 +1,4 @@
-# Rev 44: fix CClientManager::m_iSpecialShopTableSize uninitialized HEADER_DG_BOOT packet size mismatch + CInputDB::Boot prerequisites (group.txt, skill_proto szPointOn, NPC 9001, clean notarget/boot)
+# Rev 45: promote Lua 5.5.1 to default server engine (game_r41023 / qc), preserve Lua 5.0.3 rollback (game_r41023_lua50 / qc_lua50), and add permanent HEADER_DG_BOOT regression test (Scenario 10)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -178,28 +178,36 @@ jobs:
             chmod +x ./tests/run_db_integration_tests.sh
             ./tests/run_db_integration_tests.sh
 
-            # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023, game_r41023_lua55) ve CTest Doğrulaması
+            # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023 [Lua 5.5.1 Default], game_r41023_lua50 [Lua 5.0.3 Rollback]) ve CTest Doğrulaması
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
             GAME_DIR="server/src/game"
-            rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
+            rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
             cmake --preset freebsd-gcc14
             cmake --build --preset freebsd-gcc14 -- -j2
             ctest --preset freebsd-gcc14 --output-on-failure
-            ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
-            file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55"
-            readelf -h "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -E 'Class|Machine|Type' || true
-            readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -E 'NEEDED|RPATH|RUNPATH' || true
-            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua55" | grep -q "libc++.so"; then
+            ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
+            file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
+            readelf -h "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -E 'Class|Machine|Type' || true
+            readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -E 'NEEDED|RPATH|RUNPATH' || true
+            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -q "libc++.so"; then
               echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
               exit 1
             fi
-            echo "--> CMake ikilileri (db_r41023, game_r41023, game_r41023_lua55) ELF64 pure libstdc++ olarak basariyla dogrulandi."
+            echo "--> CMake ikilileri (db_r41023, game_r41023 [Lua 5.5.1 Default], game_r41023_lua50 [Lua 5.0.3 Rollback]) ELF64 pure libstdc++ olarak basariyla dogrulandi."
 
-            # 5.4 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua 11/11)
+            # 5.4 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua 11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3)
             echo "=== GAME SUNUCUSU LUA QUEST RUNTIME DOGRULAMASI (--check-lua) ==="
-            "$GAME_DIR/game_r41023" --check-lua
-            "$GAME_DIR/game_r41023_lua55" --check-lua
-            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (13/13) ve --check-lua (11/11) doğrulaması başarıyla tamamlandı."
+            "$GAME_DIR/game_r41023" --check-lua | tee /tmp/check_lua_default.log
+            if ! grep -q "Lua 5.5.1" /tmp/check_lua_default.log; then
+              echo "HATA: Varsayilan game_r41023 ikilisi Lua 5.5.1 motoru ile calismiyor!" >&2
+              exit 1
+            fi
+            "$GAME_DIR/game_r41023_lua50" --check-lua | tee /tmp/check_lua_rollback.log
+            if ! grep -q "Lua 5.0.3" /tmp/check_lua_rollback.log; then
+              echo "HATA: Geri donus game_r41023_lua50 ikilisi Lua 5.0.3 motoru ile calismiyor!" >&2
+              exit 1
+            fi
+            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (13/13) ve --check-lua (11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3) doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"

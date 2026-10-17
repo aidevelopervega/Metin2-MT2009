@@ -118,8 +118,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 endif()
 add_test(NAME test_lua52_quest COMMAND test_lua52_quest)
 
-# 10. test_qc_compiler_lua50 (Real Metin2 quest compilation with Lua 5.0 qc)
-add_test(NAME test_qc_compiler_lua50 COMMAND qc "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
+# 10. test_qc_compiler_lua50 (Real Metin2 quest compilation with Lua 5.0.3 rollback qc_lua50)
+add_test(NAME test_qc_compiler_lua50 COMMAND qc_lua50 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
 
 # 11. test_qc_compiler_lua52 (Real Metin2 quest compilation with Lua 5.2 qc_lua52)
 add_test(NAME test_qc_compiler_lua52 COMMAND qc_lua52 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
@@ -135,8 +135,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 endif()
 add_test(NAME test_lua55_quest COMMAND test_lua55_quest)
 
-# 13. test_qc_compiler_lua55 (Real Metin2 quest compilation with Lua 5.5 qc_lua55)
-add_test(NAME test_qc_compiler_lua55 COMMAND qc_lua55 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
+# 13. test_qc_compiler_lua55 (Real Metin2 quest compilation with promoted default Lua 5.5.1 qc)
+add_test(NAME test_qc_compiler_lua55 COMMAND qc "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
 
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala

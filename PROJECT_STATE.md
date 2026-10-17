@@ -17,7 +17,7 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 * **Altyapı:** martysama v5.x / GameCore tabanlı C++20 MT2009 kaynak kodları.
 * **Bileşenler:**
-  * Sunucu: `game`, `db`, `libthecore`, `libsql`, `libgame`, `libpoly`, `liblua` (5.0 aktif).
+  * Sunucu: `game`, `db`, `libthecore`, `libsql`, `libgame`, `libpoly`, `liblua` (5.5.1 varsayılan üretim motoru aktif, 5.0.3 geri dönüş hedefi korunuyor).
   * İstemci: `Source Client` (Visual Studio 2022 / v143 uyumlu C++20 istemci kaynak kodları).
   * Veritabanı: `sql/` temiz şema tabloları.
 
@@ -1172,19 +1172,56 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           3. `tests/run_server_smoke_test.sh`:
              - `CMobManager::Initialize` (`mob_manager.cpp:151-165`) tarafından zorunlu tutulan `locale/poland/group.txt` ve `locale/poland/group_group.txt` dosyaları `prepare_game_workdir` içinde oluşturuldu; `mob_proto` tablosuna `shop` (`npc_vnum=9001`) için `9001` (`WeaponSeller`) NPC kaydı eklendi.
              - `CSkillManager::Initialize` (`skill.cpp:96`, `FindPointType(t->szPointOn)`) içinde `'0'` değerinin geçersiz sayılarak `cannot initialize skill table` hatası üretmesini önlemek için `skill_proto.szPointOn` varsayılanı `'NONE'` yapıldı.
-             - `CQuestManager::Boot()` aşamasında dış dünya harita/NPC bağımlılığı olmadan deterministik coroutine çalışmasını doğrulamak üzere `locale/poland/quest/object/notarget/boot/smoke_boot.start` (`game.set_event_flag("smoke_boot_ok", 1)`) hazırlandı ve `gmlist` tablosuna `IMPLEMENTOR` kaydı eklendi.
+              - `CQuestManager::Boot()` aşamasında dış dünya harita/NPC bağımlılığı olmadan deterministik coroutine çalışmasını doğrulamak üzere `locale/poland/quest/object/notarget/boot/smoke_boot.start` (`game.set_event_flag("smoke_boot_ok", 1)`) hazırlandı ve `gmlist` tablosuna `IMPLEMENTOR` kaydı eklendi.
+      * **Aşama 19: FreeBSD CI Rev 44 (`39035737740`) 3/3 Matris `%100 SUCCESS` Kanıtı, Kalıcı `HEADER_DG_BOOT` Regresyon Testi (Senaryo 10: `140/140 PASS`) ve Lua 5.5.1 Varsayılan Sunucu Motoru Yükseltmesi (Rev 45):**
+        * **FreeBSD CI Rev 44 (Run `39035737740` / Commit `25040708270fc40fcdc49d5f887b9b51d15e4101`) Kesin Sonuçları — 3/3 MATRİS `%100 SUCCESS`:**
+          * **FreeBSD 15.1 - MariaDB 12.3 LTS (Job `117407893884`):** **`SUCCESS` (24 dk 18 sn)**
+          * **FreeBSD 15.1 - MySQL 8.4 LTS (Job `117407894022`):** **`SUCCESS` (24 dk 59 sn)**
+          * **FreeBSD 15.1 - MariaDB 11.4 LTS (Job `117407894044`):** **`SUCCESS` (25 dk 24 sn)**
+        * **Rev 44 6 Aşamalı Gerçek Sunucu, `HEADER_DG_BOOT` ve `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey`) Doğrulama Kanıtları (Üç Motorda Birebir PASS):**
+          1. **`[self-test-hash]` & `[1/6]` Strict SQL Mode Şema ve Hesap Hazırlığı:**
+             - 2 eski MySQL 4.1+/5.x `PASSWORD()` bilinen-cevap vektörü (`password` -> `*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19`, `root` -> `*81F5E21E35407D884A6CD4A731AEBFB6AF209E1B`) bayt-bayt doğrulandı (`PASS`).
+             - `PASSWORD()` SQL fonksiyonu kullanılmadan C++ `mysql_hash_password` == SQL `CONCAT('*', UPPER(SHA1(UNHEX(SHA1(...)))))` eşleşmesi, `smklegacy` eski hesabı ve `SmokeHero (id=90011, level=15)` karakteri hazırlandı (`PASS`).
+          2. **`[2/6]` Gerçek `db_r41023` İzole Başlangıç ve Çalışma Zamanı ABI Doğrulaması:**
+             - MySQL 8.4 LTS: `AsyncSQL client ABI OK: header=MySQL(MYSQL_VERSION_ID=80411) runtime_lib=8.4.11(client_version=80411)` (`PASS`)
+             - MariaDB 12.3 LTS: `AsyncSQL client ABI OK: header=MariaDB(MYSQL_VERSION_ID=120303) runtime_lib=3.4.10(client_version=30410)` (`PASS`)
+             - MariaDB 11.4 LTS: `AsyncSQL client ABI OK: header=MariaDB(MYSQL_VERSION_ID=110413) runtime_lib=3.4.10(client_version=30410)` (`PASS`)
+          3. **`[3a/6]` & `[3b/6]` Mock-DB + 32-Bit TCP Wire Handshake (`PHASE_HANDSHAKE` -> `PHASE_LOGIN`) + `InitializeLua()`:**
+             - Hem `game_r41023` (Lua 5.0.3) hem `game_r41023_lua55` (Lua 5.5.1) üzerinde `CONNECTED=1 BOOT=1 SETUP=1`, 15 bayt el sıkışma ve 0 Lua hatası ile tamamlandı (`PASS`).
+          4. **`[4/6]` Gerçek `db_r41023` <-> `game` Tam `HEADER_DG_BOOT` (`CInputDB::Boot` + `CQuestManager::Boot`) ve Canlı `bootlog` Kanıtı:**
+             - Hem Lua 5.0.3 hem Lua 5.5.1 oyun sunucuları gerçek `db_r41023` üzerinden `HEADER_DG_BOOT` paketini ~0.53 saniyede eksiksiz yükledi (`boot packet end check ok [ffff]==0xffff`), `CQuestManager::InitializeLua()` + `CQuestManager::Boot()` 0 Lua hatası ile tamamlandı ve canlı SQL veritabanına `bootlog` (`hostname=real_lua50` ve `hostname=real_lua55`) kayıtları yazıldı (`PASS`).
+          5. **`[5/6]` Lua 5.0.3 Gerçek `AUTH_SERVER` (`HEADER_CG_LOGIN3`) + Gerçek `GAME_SERVER` (`LoginByKey` -> `PHASE_SELECT`) Kanıtı:**
+             - Yanlış parola `HEADER_GC_LOGIN_FAILURE status='WRONGPWD'` ile reddedildi (`PASS`).
+             - Eski `smklegacy` hesabı `HEADER_GC_AUTH_SUCCESS(150)` ile kabul edildi (`dwLoginKey`: MySQL 8.4 `671687905`, MariaDB 12.3 `1060158686`, MariaDB 11.4 `1710857467`) (`PASS`).
+             - Geçici hesap `HEADER_CG_LOGIN3` ile doğrulandı (`dwLoginKey`: MySQL 8.4 `1872674180`, MariaDB 12.3 `770378322`, MariaDB 11.4 `1250508562`) ve gerçek `GAME_SERVER` üzerinde `HEADER_CG_LOGIN2` (`LoginByKey`) -> `HEADER_GC_EMPIRE(90, empire=1) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=90011, name='SmokeHero', level=15}) (376 wire bytes)` döndürdü (`PASS`).
+          6. **`[6/6]` Lua 5.5.1 Gerçek `AUTH_SERVER` (`HEADER_CG_LOGIN3`) + Gerçek `GAME_SERVER` (`LoginByKey` -> `PHASE_SELECT`) Kanıtı:**
+             - Yanlış parola `WRONGPWD` ile reddedildi (`PASS`).
+             - Eski `smklegacy` hesabı `HEADER_GC_AUTH_SUCCESS(150)` ile kabul edildi (`dwLoginKey`: MySQL 8.4 `1601293644`, MariaDB 12.3 `1556946006`, MariaDB 11.4 `848477986`) (`PASS`).
+             - Geçici hesap `HEADER_CG_LOGIN3` ile doğrulandı (`dwLoginKey`: MySQL 8.4 `1725457659`, MariaDB 12.3 `894492746`, MariaDB 11.4 `1301935996`) ve gerçek `GAME_SERVER` üzerinde `HEADER_CG_LOGIN2` (`LoginByKey`) -> `HEADER_GC_EMPIRE(90, empire=1) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=90011, name='SmokeHero', level=15}) (376 wire bytes)` döndürdü (`PASS`).
+        * **Rev 45 Kalıcı `HEADER_DG_BOOT` Regresyon Testi ve Lua 5.5.1 Varsayılan Sunucu Motoru Yükseltmesi:**
+          1. **Kalıcı `HEADER_DG_BOOT` Regresyon Testi (`tests/test_db_cache_integration.cpp` Senaryo 10, `PeerBase.h`, `ClientManager.h`):**
+             - `#define private public` hilesi kullanılmadan `CClientManager` ve `CPeerBase` üzerinde ABI-uyumlu test erişimcileri açıldı; `test_db_cache_integration.cpp` içerisindeki `CClientManager` örneği `0xAB` ile doldurulmuş kirli yığın belleği üzerinde `placement-new` ile oluşturuldu.
+             - **Senaryo 10A:** Kirli `0xAB` yığını üzerinde `CClientManager()` yapıcısının `m_iSpecialShopTableSize == 0` ve `m_pSpecialShopTable == nullptr` ilklendirmesi doğrulanır.
+             - **Senaryo 10B (Boş `shop_special` — 0 Satır):** `InitializeSpecialShopTable()` ve `QUERY_BOOT` çalıştırılarak `HEADER_DG_BOOT` başlık `dwSize` (`443` bayt), gerçek gönderilen gövde uzunluğu (`443` bayt), 24 tablonun eleman boyutları, `TSpecialShopTable` sayısı (`0`), `TSpecialShopMetaData` sayısı (`0`), son `0xffff` işaretçisi ve takip eden `HEADER_DG_NEW_OFFLINESHOP` çerçevesi birebir doğrulanır.
+             - **Senaryo 10C (Dolu `shop_special` — 2 Dükkan `#9001 -> {70001, 70002}`, `#9002 -> {70003}`):** `SetTestSpecialShopTable` ile 2 özel dükkan ve meta verisi yüklendikten sonra `QUERY_BOOT` çalıştırılır; `dwSize` değerinin tam `2 * (sizeof(TSpecialShopTable) + sizeof(DWORD) + sizeof(TSpecialShopMetaData))` (`360` bayt -> toplam `803` bayt) arttığı, çözümlenen dükkan vnum/eşya dizilerinin birebir eşleştiği ve paketin tam `803.` baytta `0xffff` ile bittiği doğrulanır.
+             - **Senaryo 10D (Dolu -> Boş Reload):** `InitializeSpecialShopTable()` 0 satırlı `shop_special` ile tekrar çağrıldığında `m_iSpecialShopTableSize == 0` ve `m_pSpecialShopTable == nullptr` sıfırlaması doğrulanır (`test_db_cache_integration`: **140/140 PASS**).
+          2. **Lua 5.5.1 Varsayılan Sunucu Motoru Yükseltmesi ve Lua 5.0.3 Geri Dönüş (Rollback) Korunumu:**
+             - `server/src/game/CMakeLists.txt`: `ENABLE_LUA_5_VERSION` önbellek değişkeninin varsayılan değeri `5` (Lua 5.5.1) yapıldı. Böylece varsayılan `game` hedefi (`server/src/game/game_r41023`) doğrudan **Lua 5.5.1** (`lua55_lib`, `ENABLE_LUA_5_VERSION=5`) ile derlenir ve bağlanır (`POST_BUILD` ile geriye dönük uyumluluk için `game_r41023_lua55` kopyası da senkronize edilir).
+             - **Lua 5.0.3 Rollback Seçeneği:** Aynı anda hem yan yana `game_lua50` (`server/src/game/game_r41023_lua50`, `ENABLE_LUA_5_VERSION=0`, `lua_lib`) ikilisi üretilir hem de CMake'e `-DENABLE_LUA_5_VERSION=0` (veya Makefile'a `gmake ENABLE_LUA_5_VERSION=0`) verilerek ana `game_r41023` hedefinin tek komutla Lua 5.0.3'e geri döndürülmesi desteklenir.
+             - `server/src/game/src/quest/CMakeLists.txt` & `tests/CMakeLists.txt`: Varsayılan `qc` hedefi **Lua 5.5.1** (`LUA_V=551`, `ENABLE_LUA_5_VERSION=5`, `lua55_lib`) olarak yükseltildi; açık geri dönüş derleyicisi olarak `qc_lua50` (`LUA_V=503`, `ENABLE_LUA_5_VERSION=0`, `lua_lib`) eklendi.
+             - `server/src/game/src/Makefile` & `server/src/game/src/quest/Makefile`: Klasik Makefile varsayılanı da `ENABLE_LUA_5_VERSION ?= 5` olarak CMake ile hizalandı (`ENABLE_LUA_5_VERSION=0` geri dönüş seçeneği korundu).
+             - `.github/workflows/freebsd-gcc-test.yml` & `tests/run_server_smoke_test.sh`: Hem yeni varsayılan `game_r41023` (Lua 5.5.1 Default) hem de geri dönüş ikilisi `game_r41023_lua50` (Lua 5.0.3 Rollback) için `--check-lua` sürüm doğrulaması ve 6 aşamalı gerçek sunucu/login duman testi yapılandırıldı.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 4.50s, 0 hata) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 43 (`94b38eac09a49a5150039451aea0ad48bcb5214d`) doğrulandı; Rev 44 push edilecek.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13 test paketi, `test_db_cache_integration` 140/140 assertion dahil, 0.42s, 0 hata) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 44 (`25040708270fc40fcdc49d5f887b9b51d15e4101`) 3/3 CI SUCCESS doğrulandı; Rev 45 push edilecek.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38627313843** (Rev 39 / Commit `a6333936b82819ecbc1c9d7e86832dd5a5ce13a7`): Hem `game_r41023 --check-lua` (Lua 5.0.3) hem `game_r41023_lua55 --check-lua` (Lua 5.5.1) **11/11 PASS (exit code 0)**, CMake + Ninja `[541/541]` hedef derlemesi ve `ctest --preset freebsd-gcc14` **13/13 PASS (0.09s)** kanıtlandı.
-  * CI Run ID **38634314243** (Rev 40 / Commit `81c2e219335fdcab6c6840ed0caf896ab13b608a`): MariaDB 12.3 ve 11.4 SUCCESS (`[1/4]..[4/4]`), MySQL 8.4 FAILURE (başlık gölgelemesi).
-  * CI Run ID **38647690114** (Rev 42 / Commit `76c2adea`) & **38650928440** (Rev 43 / Commit `94b38eac09a49a5150039451aea0ad48bcb5214d`): 3/3 motorda `[1/6]`, `[2/6]` (gerçek `db_r41023` + ABI doğrulaması), `[3a/6]` ve `[3b/6]` PASS; `[4-5/6]` aşamasında `CClientManager::m_iSpecialShopTableSize` ilklendirilmemiş yığın değeri nedeniyle `HEADER_DG_BOOT` paket boyutu uyuşmazlığı kanıtlandı ve Rev 44'te çözüldü.
+  * CI Run ID **39035737740** (Rev 44 / Commit `25040708270fc40fcdc49d5f887b9b51d15e4101`): **3/3 MATRİS İŞİ (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) %100 `SUCCESS`** — Gerçek `db_r41023` + `HEADER_DG_BOOT` (`CInputDB::Boot` + `CQuestManager::Boot` + `bootlog`) + gerçek `AUTH_SERVER` (`WRONGPWD` reddi, `smklegacy` eski hesap uyumluluğu, `HEADER_CG_LOGIN3` -> `dwLoginKey`) + gerçek `GAME_SERVER` (`LoginByKey` -> `PHASE_SELECT=3` + `SmokeHero` karakter listesi) hem Lua 5.0.3 hem Lua 5.5.1 için üç veritabanı motorunda eksiksiz kanıtlandı!
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1198,11 +1235,11 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 2. **CMake + Ninja Derleme Altyapısı Kurulumu:**
    * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır. (TAMAMLANDI)
 3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı, FreeBSD CI 38436002336, 38627313843 ve 38634314243 ile CMake `[541/541]` hedef ve CTest 13/13 doğrulandı)
+   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır. (Windows doğrulandı; FreeBSD CI 38436002336, 38627313843 ve 39035737740 ile CMake, CTest 13/13 ve 6 aşamalı gerçek sunucu/login duman testi 3/3 motorda doğrulandı — TAMAMLANDI)
 4. **Eski Makefile Eşdeğerlik Güvencesi:**
    * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir. (Eşdeğerlik kanıtlandı)
 5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu, Lua 5.5.1 upstream kararlı entegrasyonu, 343-quest matrix, 46-file loader chain, questlib.lua runtime compatibility, game_r41023 ve game_r41023_lua55 dual ELF64 pure libstdc++ derlemesi, BuildStateIndexToName 1054/1054 state hardening, RunState LUA_YIELD ayrımı ve FreeBSD `--check-lua` 11/11 doğrulaması TAMAMLANDI)
+   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt, OpenSSL, zlib vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir. (Crypto++ 8.9.0, fmt 12.2.0, RapidJSON modern master, DevIL 1.8.0, Boost 1.92.0, OpenSSL/zlib sistem entegrasyonu ve **Lua 5.5.1 varsayılan üretim motoru yükseltmesi** [Lua 5.0.3 geri dönüş hedefleriyle birlikte] TAMAMLANDI)
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
@@ -1210,9 +1247,6 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 44: Rev 43 CI `38650928440` `[DIAG]` çıktılarından kanıtlanan `CClientManager::m_iSpecialShopTableSize` ilklendirilmemiş yığın değeri (`HEADER_DG_BOOT` paket boyutu uyuşmazlığı: `3825` / `1487491141` vs `3357` bayt) ve `CInputDB::Boot` ön koşulları (`group.txt`, `group_group.txt`, NPC `9001`, `skill_proto.szPointOn = 'NONE'`, temiz `object/notarget/boot`) düzeltildi. Hedef: FreeBSD 15.1 üzerinde 3 DB motorunda (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) 6 aşamalı gerçek `db_r41023` + `HEADER_DG_BOOT` + `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey` -> `PHASE_SELECT`) duman testini Lua 5.0 ve Lua 5.5 için doğrulamak.
+* **Aktif Görev:** Rev 45: Rev 44 CI (`39035737740`) üzerinde 3/3 FreeBSD 15.1 veritabanı matrisi (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) `%100 SUCCESS` doğrulandıktan sonra, `HEADER_DG_BOOT` paket bütünlüğü doğrulaması kalıcı CTest regresyon testine (`tests/test_db_cache_integration.cpp` Senaryo 10, `140/140 PASS`) dönüştürüldü ve **Lua 5.5.1** varsayılan sunucu motoruna (`game_r41023` ve `qc`, `ENABLE_LUA_5_VERSION=5`) yükseltilerek **Lua 5.0.3** geri dönüş seçeneği (`game_r41023_lua50`, `qc_lua50` ve `-DENABLE_LUA_5_VERSION=0`) korundu.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 44 CI koşusunu tam SHA ile kontrol ederek 3/3 matris işinde `[1/6]..[6/6]` gerçek boot ve login duman testinin geçtiğini doğrulamak.
-   2. 3/3 matris işinde `[1/6]..[6/6]` duman testi %100 SUCCESS doğrulandıktan sonra Lua 5.5.1'i (`ENABLE_LUA_5_VERSION=5`) varsayılan üretim motoruna yükseltmek.
-
-
+   1. Rev 45 CI koşusunu kontrol ederek varsayılan `game_r41023` (Lua 5.5.1), geri dönüş `game_r41023_lua50` (Lua 5.0.3) ve Senaryo 10 (`140/140 PASS`) regresyon testinin 3/3 FreeBSD matrisinde geçtiğini doğrulamak.

@@ -5,7 +5,7 @@ INCLUDEDIR =
 LIBDIR =
 
 ## LIST OF CONSTANTS BEGIN
-ENABLE_LUA_5_VERSION = 0
+ENABLE_LUA_5_VERSION ?= 5
 ENABLE_STATIC = 1
 ## LIST OF CONSTANTS END
 
@@ -13,16 +13,23 @@ ifeq ($(ENABLE_STATIC), 1)
 CPPFLAGS+= -static
 endif
 
-ifeq ($(ENABLE_LUA_5_VERSION), 2)
+ifeq ($(ENABLE_LUA_5_VERSION), 5)
+CPPFLAGS += -DLUA_V=551 -DENABLE_LUA_5_VERSION=5
+INCLUDEDIR += -I../../../liblua/5.5/src
+INCLUDEDIR += -I../../../../../extern/common/include -I../../../../../extern/common/include/boost
+LIBS += ../../../liblua/5.5/src/liblua.a -lm
+else ifeq ($(ENABLE_LUA_5_VERSION), 2)
+CPPFLAGS += -DLUA_V=523 -DENABLE_LUA_5_VERSION=2
 INCLUDEDIR += -I../../../liblua/5.2/install/include
 INCLUDEDIR += -I../../../liblua/5.2/src/lib
-# LIBDIR += -L../../../liblua/5.2/install/lib
-LIBS += ../../../liblua/5.2/install/lib/liblua.a
+INCLUDEDIR += -I../../../../../extern/common/include -I../../../../../extern/common/include/boost
+LIBS += ../../../liblua/5.2/install/lib/liblua.a -lm
 else
+CPPFLAGS += -DLUA_V=503 -DENABLE_LUA_5_VERSION=0
 INCLUDEDIR += -I../../../liblua/5.0/include
 INCLUDEDIR += -I../../../liblua/5.0/src
-# LIBDIR += -L../../../liblua/5.0/lib
-LIBS += ../../../liblua/5.0/lib/liblua.a ../../../liblua/5.0/lib/liblualib.a
+INCLUDEDIR += -I../../../../../extern/common/include -I../../../../../extern/common/include/boost
+LIBS += ../../../liblua/5.0/lib/liblua.a ../../../liblua/5.0/lib/liblualib.a -lm
 endif
 
 all: qc create_conversion

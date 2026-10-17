@@ -7,7 +7,7 @@ list(APPEND GAME_SOURCES "src/minilzo.c")
 
 add_executable(game ${GAME_SOURCES})
 
-set(ENABLE_LUA_5_VERSION 0 CACHE STRING "Lua version for game server (0=5.0, 2=5.2, 5=5.5)")
+set(ENABLE_LUA_5_VERSION 5 CACHE STRING "Lua version for game server (5=5.5.1 default, 0=5.0.3 rollback, 2=5.2.3)")
 
 if(ENABLE_LUA_5_VERSION EQUAL 5)
     set(GAME_LUA_INC "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.5/src")
@@ -83,12 +83,21 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     )
 endif()
 
-# ==============================================================================
-# game_lua55: Staging Target with Lua 5.5 Upstream Engine
-# ==============================================================================
-add_executable(game_lua55 ${GAME_SOURCES})
+if(ENABLE_LUA_5_VERSION EQUAL 5)
+    add_custom_command(TARGET game POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:game>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/game_r${MT2_SERVER_REVISION}_lua55${CMAKE_EXECUTABLE_SUFFIX}"
+        COMMENT "Syncing default Lua 5.5.1 game_r${MT2_SERVER_REVISION} to game_r${MT2_SERVER_REVISION}_lua55..."
+    )
+endif()
 
-target_include_directories(game_lua55 PRIVATE
+# ==============================================================================
+# game_lua50: Explicit Rollback Target with Legacy Lua 5.0.3 Engine
+# ==============================================================================
+add_executable(game_lua50 ${GAME_SOURCES})
+
+target_include_directories(game_lua50 PRIVATE
     ${DB_CLIENT_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/../common"
@@ -97,43 +106,43 @@ target_include_directories(game_lua55 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../libsql"
     "${CMAKE_CURRENT_SOURCE_DIR}/../libpoly"
     "${CMAKE_CURRENT_SOURCE_DIR}/../libgame/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.5/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.0/include"
     "${CMAKE_SOURCE_DIR}/extern/common/include"
     "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
     "${CMAKE_SOURCE_DIR}/extern/server/include"
 )
 
-target_compile_definitions(game_lua55 PRIVATE
+target_compile_definitions(game_lua50 PRIVATE
     __USER__="metin2"
     __HOSTNAME__="mt2009"
     __PWD__=""
     __GAME_VERSION__="${MT2_SERVER_REVISION}"
-    ENABLE_LUA_5_VERSION=5
+    ENABLE_LUA_5_VERSION=0
 )
 
-target_compile_options(game_lua55 PRIVATE
+target_compile_options(game_lua50 PRIVATE
     -fexceptions
 )
 
-target_link_libraries(game_lua55 PRIVATE
+target_link_libraries(game_lua50 PRIVATE
     thecore
     sql_lib
     poly
     game_lib
-    lua55_lib
+    lua_lib
     CryptoPP::CryptoPP
     Database::Client
 )
 
-set_target_properties(game_lua55 PROPERTIES
-    OUTPUT_NAME "game_r${MT2_SERVER_REVISION}_lua55"
+set_target_properties(game_lua50 PROPERTIES
+    OUTPUT_NAME "game_r${MT2_SERVER_REVISION}_lua50"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 if(WIN32)
-    target_link_libraries(game_lua55 PRIVATE ws2_32)
+    target_link_libraries(game_lua50 PRIVATE ws2_32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    target_link_libraries(game_lua55 PRIVATE
+    target_link_libraries(game_lua50 PRIVATE
         DevIL::IL
         pthread
         m

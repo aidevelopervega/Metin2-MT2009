@@ -184,6 +184,29 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void		QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoadPacket * packet);
 	void		InsertLoginData(CLoginData * pkLD);
 	CLoginData *	GetLoginDataByAID(DWORD dwAID);
+	bool		InitializeSpecialShopTable();
+	void		QUERY_BOOT(CPeer * peer, TPacketGDBoot * p);
+	int		GetSpecialShopTableSize() const { return m_iSpecialShopTableSize; }
+	const TSpecialShopTable * GetSpecialShopTable() const { return m_pSpecialShopTable; }
+	size_t		GetSpecialShopMetaCount() const { return m_map_SpecialShopMetaData.size(); }
+	void		SetTestSpecialShopTable(const TSpecialShopTable * pTables, int iCount)
+	{
+		if (m_pSpecialShopTable)
+		{
+			delete [] m_pSpecialShopTable;
+			m_pSpecialShopTable = NULL;
+		}
+		m_iSpecialShopTableSize = 0;
+		m_map_SpecialShopMetaData.clear();
+		if (pTables && iCount > 0)
+		{
+			m_pSpecialShopTable = new TSpecialShopTable[iCount];
+			memcpy(m_pSpecialShopTable, pTables, sizeof(TSpecialShopTable) * iCount);
+			m_iSpecialShopTableSize = iCount;
+			for (int i = 0; i < iCount; ++i)
+				GetSpecialShopMetaCache(pTables[i].vnum);
+		}
+	}
 
     protected:
 	void	Destroy();
@@ -208,7 +231,6 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	bool		InitializeCraftingTable();
 	bool		InitializeQuestRewardTable();
 	bool		InitializeNameReservationTable();
-	bool		InitializeSpecialShopTable();
 	bool		InitializeSpecialShopItemTable();
 
 	bool		MirrorMobTableIntoDB();
@@ -250,8 +272,6 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void		GuildChangeMaster(TPacketChangeGuildMaster* p);
 
 	void		SetGuildWarEndTime(DWORD guild_id1, DWORD guild_id2, time_t tEndTime);
-
-	void		QUERY_BOOT(CPeer * peer, TPacketGDBoot * p);
 
 	void		QUERY_LOGIN(CPeer * peer, DWORD dwHandle, SLoginPacket* data);
 	void		QUERY_LOGOUT(CPeer * peer, DWORD dwHandle, const char *);

@@ -7,12 +7,14 @@
 #include "tables.h"
 #include "ItemIDRangeManager.h"
 #include "IkarusShopCache.h"
+#include "Monarch.h"
 #include <functional>
 #include <iostream>
 #include <vector>
 #include <memory>
 #include <cassert>
 #include <chrono>
+#include <new>
 
 // =============================================================================
 // METIN2 MT2009 - GERCEK DB CACHE / ACK ENTEGRASYON VE VERI GUVENLIGI TESTI
@@ -99,10 +101,13 @@ int main()
     std::cout << " METIN2 MT2009 - REAL DB CACHE/ACK INTEGRATION SUITE " << std::endl;
     std::cout << "==================================================" << std::endl;
 
-    // Gerçek tekil yöneticileri ilklendir
+    // Gerçek tekil yöneticileri ilklendir (CClientManager kirli 0xAB yığın belleği üzerinde oluşturulur)
     CDBManager dbManager;
-    CClientManager clientManager;
+    alignas(CClientManager) unsigned char dirtyCmBuf[sizeof(CClientManager)];
+    memset(dirtyCmBuf, 0xAB, sizeof(dirtyCmBuf));
+    CClientManager& clientManager = *(new (dirtyCmBuf) CClientManager());
     CItemIDRangeManager itemIDRangeManager;
+    CMonarch monarch;
 
     // CDBManager için kuyruk tabanlı gerçek CAsyncSQL slotu bağla
     auto testSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
@@ -755,9 +760,260 @@ int main()
         TEST_ASSERT(pkCache->GetVersion() == 1, "Senaryo 9F: Cache version remains intact without corruption");
     }
 
+    // =========================================================================
+    // SENARYO 10: HEADER_DG_BOOT Paket Bütünlüğü, Kirli Yığın (0xAB) ve Boş/Dolu shop_special
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo 10: HEADER_DG_BOOT paket butunlugu (dwSize, 24 tablo, 0xffff isaretcisi, bos/dolu shop_special)..." << std::endl;
+
+        // 10A: Kirli yığın (0xAB) üzerinde oluşturulan CClientManager yapıcısının m_iSpecialShopTableSize ve m_pSpecialShopTable sıfırlaması
+        TEST_ASSERT(clientManager.GetSpecialShopTableSize() == 0, "Senaryo 10A: CClientManager ctor initializes m_iSpecialShopTableSize to 0 on dirty 0xAB stack");
+        TEST_ASSERT(clientManager.GetSpecialShopTable() == nullptr, "Senaryo 10A: CClientManager ctor initializes m_pSpecialShopTable to nullptr on dirty 0xAB stack");
+
+        // SQL_WORLD ve SQL_COMMON için 0 satır döndüren DirectQuery işleyicileri bağla
+        auto testWorldDirectSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
+        CIntegrationAsyncSQL* testWorldDirectSql = testWorldDirectSqlPtr.get();
+        testWorldDirectSql->m_directQueryHandler = [](const char*) -> std::unique_ptr<SQLMsg> {
+            auto msg = std::make_unique<SQLMsg>();
+            msg->uiSQLErrno = 0;
+            auto pRes = new SQLResult();
+            pRes->uiNumRows = 0;
+            pRes->uiAffectedRows = 0;
+            msg->vec_pkResult.push_back(pRes);
+            return msg;
+        };
+        dbManager.SetDirectSQL(SQL_WORLD, std::unique_ptr<CAsyncSQL2>(testWorldDirectSqlPtr.release()));
+
+        auto testCommonDirectSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
+        CIntegrationAsyncSQL* testCommonDirectSql = testCommonDirectSqlPtr.get();
+        testCommonDirectSql->m_directQueryHandler = [](const char*) -> std::unique_ptr<SQLMsg> {
+            auto msg = std::make_unique<SQLMsg>();
+            msg->uiSQLErrno = 0;
+            auto pRes = new SQLResult();
+            pRes->uiNumRows = 0;
+            pRes->uiAffectedRows = 0;
+            msg->vec_pkResult.push_back(pRes);
+            return msg;
+        };
+        dbManager.SetDirectSQL(SQL_COMMON, std::unique_ptr<CAsyncSQL2>(testCommonDirectSqlPtr.release()));
+
+        // CInputDB::Boot (server/src/game/src/input_db.cpp) birebir paket çözücü doğrulayıcısı
+        auto verifyBootStream = [](const BYTE* raw, DWORD totalLen,
+                                   DWORD& outHeaderSize, DWORD& outActualPayload, DWORD& outEncodedSize,
+                                   WORD& outSpecialShopCount, WORD& outSpecialShopMetaCount,
+                                   WORD& outEndMarker, const TSpecialShopTable*& outSpecialShops) -> bool
+        {
+            auto readByte = [](const char* p) -> BYTE {
+                return static_cast<BYTE>(*p);
+            };
+            auto readWord = [](const char* p) -> WORD {
+                WORD v = 0;
+                memcpy(&v, p, sizeof(WORD));
+                return v;
+            };
+            auto readDword = [](const char* p) -> DWORD {
+                DWORD v = 0;
+                memcpy(&v, p, sizeof(DWORD));
+                return v;
+            };
+
+            if (totalLen < 9 + 7)
+                return false;
+            BYTE bHeader = raw[0];
+            if (bHeader != HEADER_DG_BOOT)
+                return false;
+            memcpy(&outHeaderSize, raw + 5, sizeof(DWORD));
+            outActualPayload = totalLen - 9;
+
+            const char* data = reinterpret_cast<const char*>(raw + 9);
+            const char* startData = data;
+
+            outEncodedSize = readDword(data);
+            data += 4;
+            BYTE bVersion = readByte(data);
+            data += 1;
+            if (bVersion != 6)
+                return false;
+
+            auto checkTable = [&](WORD expectedElemSize, WORD& countOut) -> bool {
+                WORD elemSize = readWord(data);
+                data += 2;
+                countOut = readWord(data);
+                data += 2;
+                if (elemSize != expectedElemSize)
+                    return false;
+                data += static_cast<size_t>(countOut) * elemSize;
+                return true;
+            };
+
+            WORD cnt = 0;
+            if (!checkTable(sizeof(TMobTable), cnt)) return false;
+            if (!checkTable(sizeof(TItemTable), cnt)) return false;
+            if (!checkTable(sizeof(TShopTable), cnt)) return false;
+            if (!checkTable(sizeof(TSkillTable), cnt)) return false;
+            if (!checkTable(sizeof(TRefineTable), cnt)) return false;
+            if (!checkTable(sizeof(TItemAttrTable), cnt)) return false;
+            if (!checkTable(sizeof(TItemAttrTable), cnt)) return false;
+            if (!checkTable(sizeof(TBanwordTable), cnt)) return false;
+            if (!checkTable(sizeof(TNameReservationTable), cnt)) return false;
+            if (!checkTable(sizeof(building::TLand), cnt)) return false;
+            if (!checkTable(sizeof(building::TObjectProto), cnt)) return false;
+            if (!checkTable(sizeof(building::TObject), cnt)) return false;
+            if (!checkTable(sizeof(TOfflineShopLimit), cnt)) return false;
+            if (!checkTable(sizeof(TItemShopItem), cnt)) return false;
+            if (!checkTable(sizeof(TCraftingItem), cnt)) return false;
+            if (!checkTable(sizeof(TSpecialShopItem), cnt)) return false;
+
+            // TSpecialShopTable bölümü
+            WORD specShopElemSize = readWord(data);
+            data += 2;
+            outSpecialShopCount = readWord(data);
+            data += 2;
+            if (specShopElemSize != sizeof(TSpecialShopTable))
+                return false;
+            outSpecialShops = reinterpret_cast<const TSpecialShopTable*>(data);
+            data += static_cast<size_t>(outSpecialShopCount) * sizeof(TSpecialShopTable);
+
+            // TSpecialShopMetaData bölümü (her kayıt: DWORD shop_vnum + TSpecialShopMetaData)
+            WORD metaElemSize = readWord(data);
+            data += 2;
+            outSpecialShopMetaCount = readWord(data);
+            data += 2;
+            if (metaElemSize != sizeof(TSpecialShopMetaData))
+                return false;
+            data += static_cast<size_t>(outSpecialShopMetaCount) * (sizeof(DWORD) + sizeof(TSpecialShopMetaData));
+
+            if (!checkTable(sizeof(TQuestRewardItem), cnt)) return false;
+
+            data += sizeof(time_t);
+
+            WORD rangeElemSize = readWord(data);
+            data += 2;
+            WORD rangeCnt = readWord(data);
+            data += 2;
+            if (rangeElemSize != sizeof(TItemIDRangeTable) || rangeCnt != 1)
+                return false;
+            data += static_cast<size_t>(rangeCnt) * sizeof(TItemIDRangeTable) * 2;
+
+            WORD hostChunk = readWord(data);
+            data += 2;
+            WORD hostCnt = readWord(data);
+            data += 2;
+            if (hostChunk != 16)
+                return false;
+            data += static_cast<size_t>(hostCnt) * hostChunk;
+
+            if (!checkTable(sizeof(tAdminInfo), cnt)) return false;
+            if (!checkTable(sizeof(TMonarchInfo), cnt)) return false;
+            if (!checkTable(sizeof(MonarchCandidacy), cnt)) return false;
+
+            data += sizeof(BOOL); // m_bMaintenance
+
+            outEndMarker = readWord(data);
+            data += 2;
+
+            DWORD decodedLen = static_cast<DWORD>(data - startData);
+            outActualPayload = decodedLen;
+
+            // ENABLE_IKASHOP_RENEWAL aktifken QUERY_BOOT, 0xffff işaretçisinden hemen sonra
+            // SendIkarusShopTable(peer) ile HEADER_DG_NEW_OFFLINESHOP paketini aynı tampona yazar.
+            DWORD remainingBytes = totalLen - (9 + decodedLen);
+            if (remainingBytes > 0)
+            {
+                if (remainingBytes < 9)
+                    return false;
+                const BYTE* ikaHdr = raw + 9 + decodedLen;
+                if (ikaHdr[0] != HEADER_DG_NEW_OFFLINESHOP)
+                    return false;
+                DWORD ikaPayloadSize = 0;
+                memcpy(&ikaPayloadSize, ikaHdr + 5, sizeof(DWORD));
+                if (9 + ikaPayloadSize != remainingBytes)
+                    return false;
+            }
+
+            return (decodedLen == outHeaderSize && outHeaderSize == outActualPayload && outHeaderSize == outEncodedSize);
+        };
+
+        // 10B: Boş shop_special (0 satır) durumunda InitializeSpecialShopTable() ve QUERY_BOOT
+        TEST_ASSERT(clientManager.InitializeSpecialShopTable() == true, "Senaryo 10B: InitializeSpecialShopTable succeeds on empty shop_special");
+        TEST_ASSERT(clientManager.GetSpecialShopTableSize() == 0, "Senaryo 10B: m_iSpecialShopTableSize is 0 on empty shop_special");
+        TEST_ASSERT(clientManager.GetSpecialShopTable() == nullptr, "Senaryo 10B: m_pSpecialShopTable is nullptr on empty shop_special");
+
+        CPeer peer;
+        peer.InitTestOutBuffer(1);
+
+        TPacketGDBoot bootReq{};
+        strlcpy(bootReq.szIP, "127.0.0.1", sizeof(bootReq.szIP));
+        clientManager.QUERY_BOOT(&peer, &bootReq);
+
+        DWORD totalEmptyBytes = static_cast<DWORD>(buffer_size(peer.GetOutBuffer()));
+        const BYTE* rawEmpty = reinterpret_cast<const BYTE*>(buffer_read_peek(peer.GetOutBuffer()));
+
+        DWORD hdrSizeEmpty = 0, actualPayloadEmpty = 0, encodedSizeEmpty = 0;
+        WORD specCountEmpty = 0xFFFF, metaCountEmpty = 0xFFFF, endMarkerEmpty = 0;
+        const TSpecialShopTable* decodedShopsEmpty = nullptr;
+
+        bool decodeOkEmpty = verifyBootStream(rawEmpty, totalEmptyBytes,
+                                              hdrSizeEmpty, actualPayloadEmpty, encodedSizeEmpty,
+                                              specCountEmpty, metaCountEmpty, endMarkerEmpty, decodedShopsEmpty);
+
+        TEST_ASSERT(decodeOkEmpty == true, "Senaryo 10B: Empty shop_special HEADER_DG_BOOT stream decodes cleanly");
+        TEST_ASSERT(hdrSizeEmpty == actualPayloadEmpty && hdrSizeEmpty == encodedSizeEmpty, "Senaryo 10B: Empty shop_special dwSize matches transmitted payload");
+        TEST_ASSERT(specCountEmpty == 0, "Senaryo 10B: Empty shop_special encodes 0 TSpecialShopTable rows");
+        TEST_ASSERT(metaCountEmpty == 0, "Senaryo 10B: Empty shop_special encodes 0 TSpecialShopMetaData rows");
+        TEST_ASSERT(endMarkerEmpty == 0xffff, "Senaryo 10B: Empty shop_special ends with exact 0xffff marker");
+
+        // 10C: Dolu shop_special (2 dükkan: #9001 -> {70001, 70002}, #9002 -> {70003}) durumunda QUERY_BOOT
+        TSpecialShopTable testShops[2]{};
+        testShops[0].vnum = 9001;
+        testShops[0].items[0] = 70001;
+        testShops[0].items[1] = 70002;
+        testShops[1].vnum = 9002;
+        testShops[1].items[0] = 70003;
+
+        clientManager.SetTestSpecialShopTable(testShops, 2);
+        TEST_ASSERT(clientManager.GetSpecialShopTableSize() == 2, "Senaryo 10C: Populated m_iSpecialShopTableSize is 2");
+        TEST_ASSERT(clientManager.GetSpecialShopTable() != nullptr, "Senaryo 10C: Populated m_pSpecialShopTable is non-null");
+        TEST_ASSERT(clientManager.GetSpecialShopMetaCount() == 2, "Senaryo 10C: Populated m_map_SpecialShopMetaData has 2 entries");
+
+        peer.InitTestOutBuffer(1);
+        clientManager.QUERY_BOOT(&peer, &bootReq);
+
+        DWORD totalPopBytes = static_cast<DWORD>(buffer_size(peer.GetOutBuffer()));
+        const BYTE* rawPop = reinterpret_cast<const BYTE*>(buffer_read_peek(peer.GetOutBuffer()));
+
+        DWORD hdrSizePop = 0, actualPayloadPop = 0, encodedSizePop = 0;
+        WORD specCountPop = 0, metaCountPop = 0, endMarkerPop = 0;
+        const TSpecialShopTable* decodedShopsPop = nullptr;
+
+        bool decodeOkPop = verifyBootStream(rawPop, totalPopBytes,
+                                            hdrSizePop, actualPayloadPop, encodedSizePop,
+                                            specCountPop, metaCountPop, endMarkerPop, decodedShopsPop);
+
+        DWORD expectedPopDelta = static_cast<DWORD>(2 * sizeof(TSpecialShopTable) + 2 * (sizeof(DWORD) + sizeof(TSpecialShopMetaData)));
+        TEST_ASSERT(decodeOkPop == true, "Senaryo 10C: Populated shop_special HEADER_DG_BOOT stream decodes cleanly");
+        TEST_ASSERT(hdrSizePop == hdrSizeEmpty + expectedPopDelta, "Senaryo 10C: Populated dwSize increases by exact 2*(TSpecialShopTable + MetaData)");
+        TEST_ASSERT(hdrSizePop == actualPayloadPop && hdrSizePop == encodedSizePop, "Senaryo 10C: Populated shop_special dwSize matches transmitted payload");
+        TEST_ASSERT(specCountPop == 2, "Senaryo 10C: Populated shop_special encodes 2 TSpecialShopTable rows");
+        TEST_ASSERT(metaCountPop == 2, "Senaryo 10C: Populated shop_special encodes 2 TSpecialShopMetaData rows");
+        TEST_ASSERT(decodedShopsPop != nullptr && decodedShopsPop[0].vnum == 9001 && decodedShopsPop[0].items[0] == 70001 && decodedShopsPop[0].items[1] == 70002,
+                    "Senaryo 10C: Decoded shop #9001 items match");
+        TEST_ASSERT(decodedShopsPop != nullptr && decodedShopsPop[1].vnum == 9002 && decodedShopsPop[1].items[0] == 70003 && decodedShopsPop[1].items[1] == 0,
+                    "Senaryo 10C: Decoded shop #9002 items match");
+        TEST_ASSERT(endMarkerPop == 0xffff, "Senaryo 10C: Populated shop_special ends with exact 0xffff marker");
+
+        // 10D: Dolu durumdan tekrar boş (0 satır) duruma geçişte (RELOAD) m_iSpecialShopTableSize=0 sıfırlanması
+        TEST_ASSERT(clientManager.InitializeSpecialShopTable() == true, "Senaryo 10D: Reload to empty shop_special succeeds");
+        TEST_ASSERT(clientManager.GetSpecialShopTableSize() == 0, "Senaryo 10D: Reload to empty resets m_iSpecialShopTableSize to 0");
+        TEST_ASSERT(clientManager.GetSpecialShopTable() == nullptr, "Senaryo 10D: Reload to empty resets m_pSpecialShopTable to nullptr");
+
+        peer.DetachTestOutBuffer();
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << " [SUCCESS] REAL DB CACHE INTEGRATION SUITE: " << g_passCount << "/" << g_testCount << " PASSED!" << std::endl;
     std::cout << "==================================================" << std::endl;
 
+    clientManager.~CClientManager();
     return 0;
 }
