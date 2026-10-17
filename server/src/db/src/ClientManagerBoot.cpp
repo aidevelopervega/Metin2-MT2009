@@ -528,17 +528,17 @@ bool CClientManager::InitializeSpecialShopTable()
 
 	SQLResult* pRes2 = pkMsg2->Get();
 
-	if (!pRes2->uiNumRows)
-		return true;
-
-	std::map<DWORD, TSpecialShopTable*> map_special_shop;
-
 	if (m_pSpecialShopTable)
 	{
 		delete[](m_pSpecialShopTable);
 		m_pSpecialShopTable = NULL;
-		m_iSpecialShopTableSize = 0;
 	}
+	m_iSpecialShopTableSize = 0;
+
+	if (!pRes2->uiNumRows)
+		return true;
+
+	std::map<DWORD, TSpecialShopTable*> map_special_shop;
 
 	TSpecialShopTable* shop_table = m_pSpecialShopTable;
 	int shopItemCount = 0;

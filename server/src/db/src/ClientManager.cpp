@@ -55,6 +55,8 @@ bool g_bMirror2DB = false;
 #endif
 
 CClientManager::CClientManager() :
+	m_looping(0),
+	m_fdAccept(INVALID_SOCKET),
 	m_pkAuthPeer(NULL),
 	m_iPlayerIDStart(0),
 	m_iPlayerDeleteLevelLimit(0),
@@ -64,8 +66,11 @@ CClientManager::CClientManager() :
 	m_pShopTable(NULL),
 	m_iRefineTableSize(0),
 	m_pRefineTable(NULL),
+	m_iSpecialShopTableSize(0),
+	m_pSpecialShopTable(nullptr),
 	m_bShutdowned(FALSE),
 	m_bMaintenance(TRUE),
+	m_bLastHeader(0),
 	m_iCacheFlushCount(0),
 	m_iCacheFlushCountLimit(200)
 {
@@ -78,7 +83,6 @@ CClientManager::CClientManager() :
 	bIsProtoReadFromDB = false;
 #endif
 
-	m_pSpecialShopTable = nullptr;
 	m_map_SpecialShopMetaData.clear();
 }
 
@@ -525,9 +529,9 @@ void CClientManager::QUERY_BOOT(CPeer* peer, TPacketGDBoot * p)
 	sys_log(0, "sizeof(TObject) = %d", sizeof(building::TObject));
 	sys_log(0, "sizeof(TOfflineShopLimit) = %d", sizeof(TOfflineShopLimit));
 	//ADMIN_MANAGER
-	sys_log(0, "sizeof(tAdminInfo) = %d * %d ", sizeof(tAdminInfo) * vAdmin.size());
+	sys_log(0, "sizeof(tAdminInfo) = %d * %d ", sizeof(tAdminInfo), vAdmin.size());
 	//END_ADMIN_MANAGER
-	sys_log(0, "sizeof(TMonarchInfo) = %d * %d", sizeof(TMonarchInfo));
+	sys_log(0, "sizeof(TMonarchInfo) = %d", sizeof(TMonarchInfo));
 
 	peer->EncodeWORD(sizeof(TMobTable));
 	peer->EncodeWORD(m_vec_mobTable.size());

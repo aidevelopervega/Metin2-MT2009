@@ -1,4 +1,4 @@
-# Rev 43: legacy-hash KAT + smklegacy/WRONGPWD auth, runtime ABI evidence, real-DB boot diagnostics (liveness/exit code/log tails), 900s smoke watchdog, 55 min job cap
+# Rev 44: fix CClientManager::m_iSpecialShopTableSize uninitialized HEADER_DG_BOOT packet size mismatch + CInputDB::Boot prerequisites (group.txt, skill_proto szPointOn, NPC 9001, clean notarget/boot)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 

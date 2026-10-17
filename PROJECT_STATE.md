@@ -1143,21 +1143,48 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
           2. Boot bekleme: 30 sn üst sınır, `GAME_SERVER` erken ölürse anında hata.
           3. Global 900 sn smoke watchdog (`SMOKE_TIMEOUT_SEC`) → SIGTERM → trap ile sınırlı süreç temizliği; Windows Git sh ile normal çıkış (0 sn ek gecikme) ve takılma (2 sn'de tetiklendi) senaryoları doğrulandı.
           4. `freebsd-gcc-test.yml`: iş başına `timeout-minutes` 45 → 55 (≈25 dk derleme + 15 dk smoke watchdog tanıların kesilmeden yazılmasına izin verir; CI yine sınırsız RUNNING kalamaz).
+      * **Aşama 18: FreeBSD CI Rev 43 (`38650928440`) Kanıtlanmış `HEADER_DG_BOOT` Kök Nedeni ve `CClientManager` / `CInputDB::Boot` Kalıcı Çözümü (Rev 44):**
+        * **FreeBSD CI Rev 43 (Run 38650928440 / Commit `94b38eac09a49a5150039451aea0ad48bcb5214d`) Sonuçları — 3/3 FAILURE (`[4-5/6]` aşamasında):**
+          * MySQL 8.4 LTS (`116149227159`), MariaDB 12.3 LTS (`116149226894`), MariaDB 11.4 LTS (`116149227210`):
+            - `[self-test-hash]` 2/2 eski MySQL `PASSWORD()` KAT vektörü: **PASS**
+            - `[1/6]` Strict SQL Mode şeması + hesaplar + `SmokeHero`: **PASS**
+            - `[2/6]` Gerçek `db_r41023` başlangıcı + çalışma zamanı ABI kontrolü (`AsyncSQL client ABI OK`): **PASS**
+            - `[3a/6]` Lua 5.0.3 Mock-DB + 32-bit TCP handshake + `InitializeLua()`: **PASS**
+            - `[3b/6]` Lua 5.5.1 Mock-DB + 32-bit TCP handshake + `InitializeLua()`: **PASS**
+            - `[4-5/6]` Gerçek `db_r41023` <-> `game_r41023` `HEADER_DG_BOOT`: **FAIL** (30 sn timeout).
+        * **Kanıtlanmış `HEADER_DG_BOOT` Kök Nedeni (`[DIAG]` günlüklerinden):**
+          * Her üç süreç de (`db_r41023`, `AUTH_SERVER`, `GAME_SERVER`) canlı (`ÇALIŞIYOR`).
+          * `GAME_SERVER`, `db_r41023` (`127.0.0.1:15010`) sürecine bağlanarak `HEADER_GD_BOOT` ve `HEADER_GD_SETUP` paketlerini gönderdi.
+          * `db_r41023`, `HEADER_GD_BOOT` paketini aldı ve `CClientManager::QUERY_BOOT` fonksiyonunu çalıştırdı; ancak `db/syslog` içinde:
+            - MySQL 8.4 işinde: `BOOT: PACKET: 3825`
+            - MariaDB 12.3 işinde: `BOOT: PACKET: 1487491141` (1.48 GB!)
+            yazıldı; `GAME_SERVER` ise `CInputDB::Boot` fonksiyonuna hiç girmedi (`game/syslog` içinde `BOOT: PACKET:` yok).
+          * **Birebir Kod Kanıtı:**
+            1. `server/src/db/src/Main.cpp:67` içinde `CClientManager ClientManager;` yığın (stack) üzerinde oluşturulmaktadır.
+            2. `CClientManager::CClientManager()` (`server/src/db/src/ClientManager.cpp:57-83`) yapıcısında `m_pSpecialShopTable = nullptr;` ilklendirildiği halde **`m_iSpecialShopTableSize` (ve `m_looping`, `m_fdAccept`, `m_bLastHeader`) HİÇ İLKLENDİRİLMEMİŞTİR**!
+            3. `CClientManager::InitializeSpecialShopTable()` (`server/src/db/src/ClientManagerBoot.cpp:531-532`) içinde `shop_special` tablosu 0 satır döndürdüğünde (`if (!pRes2->uiNumRows) return true;`), `m_iSpecialShopTableSize = 0` atanmadan çıkılmaktadır.
+            4. `CClientManager::QUERY_BOOT` (`server/src/db/src/ClientManager.cpp:493`) içinde `dwPacketSize` hesaplanırken `sizeof(TSpecialShopTable) * m_iSpecialShopTableSize` (yığın çöpü: MySQL 8.4'te `468` bayt, MariaDB 12.3'te `1487487784` bayt) gerçek `3357` baytlık paket boyutuna eklenmektedir (`HEADER_DG_BOOT` başlığında `dwSize = 3825` veya `1487491141` gönderilmektedir).
+            5. Buna karşılık 603. satırdaki `peer->Encode(m_pSpecialShopTable, sizeof(TSpecialShopTable) * m_iSpecialShopTableSize)` çağrısı, `CPeerBase::Encode` (`PeerBase.cpp:157`: `if (size == 0 || !data) return;`) içinde `m_pSpecialShopTable == nullptr` olduğu için **0 bayt** yazmaktadır!
+            6. Sonuç olarak `db_r41023` sokete gerçekte `3357` bayt gövde gönderirken paket başlığında `3825` (veya `1487491141`) bayt bildirmekte; `CInputDB::Process` (`input_db.cpp:3114`: `if (m_iBufferLeft - 9 < iSize) return true;`) eksik bayt bekleyerek `CInputDB::Boot` fonksiyonunu asla çağırmamaktadır!
+        * **Rev 44 Kök Neden Çözümleri ve `CInputDB::Boot` Tamamlama Düzeltmeleri:**
+          1. `server/src/db/src/ClientManager.cpp`: `CClientManager::CClientManager()` yapıcısında `m_iSpecialShopTableSize(0)`, `m_pSpecialShopTable(nullptr)`, `m_looping(0)`, `m_fdAccept(INVALID_SOCKET)` ve `m_bLastHeader(0)` açıkça ilklendirildi; `QUERY_BOOT` içindeki 2 adet eksik argümanlı `sys_log` (`sizeof(tAdminInfo)` ve `sizeof(TMonarchInfo)`) düzeltildi.
+          2. `server/src/db/src/ClientManagerBoot.cpp`: `InitializeSpecialShopTable()` içinde `if (!pRes2->uiNumRows) return true;` öncesinde `m_pSpecialShopTable` temizliği ve `m_iSpecialShopTableSize = 0` sıfırlaması zorunlu kılındı.
+          3. `tests/run_server_smoke_test.sh`:
+             - `CMobManager::Initialize` (`mob_manager.cpp:151-165`) tarafından zorunlu tutulan `locale/poland/group.txt` ve `locale/poland/group_group.txt` dosyaları `prepare_game_workdir` içinde oluşturuldu; `mob_proto` tablosuna `shop` (`npc_vnum=9001`) için `9001` (`WeaponSeller`) NPC kaydı eklendi.
+             - `CSkillManager::Initialize` (`skill.cpp:96`, `FindPointType(t->szPointOn)`) içinde `'0'` değerinin geçersiz sayılarak `cannot initialize skill table` hatası üretmesini önlemek için `skill_proto.szPointOn` varsayılanı `'NONE'` yapıldı.
+             - `CQuestManager::Boot()` aşamasında dış dünya harita/NPC bağımlılığı olmadan deterministik coroutine çalışmasını doğrulamak üzere `locale/poland/quest/object/notarget/boot/smoke_boot.start` (`game.set_event_flag("smoke_boot_ok", 1)`) hazırlandı ve `gmlist` tablosuna `IMPLEMENTOR` kaydı eklendi.
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
-* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 1.65s, 0 hata) ve `test_server_smoke_client.exe` (`-Wall -Wextra -Werror`) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 42 (`76c2adea`) push edildi; Rev 43 push edilecek.
+* **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, CMake/CTest (13/13, 4.50s, 0 hata) %100 PASS.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 43 (`94b38eac09a49a5150039451aea0ad48bcb5214d`) doğrulandı; Rev 44 push edilecek.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38627313843** (Rev 39 / Commit `a6333936b82819ecbc1c9d7e86832dd5a5ce13a7`): Hem `game_r41023 --check-lua` (Lua 5.0.3) hem `game_r41023_lua55 --check-lua` (Lua 5.5.1) **11/11 PASS (exit code 0)**, CMake + Ninja `[541/541]` hedef derlemesi ve `ctest --preset freebsd-gcc14` **13/13 PASS (0.09s)** kanıtlandı.
-  * CI Run ID **38634314243** (Rev 40 / Commit `81c2e219335fdcab6c6840ed0caf896ab13b608a`):
-    * **MariaDB 12.3 LTS (`116093447898`):** **SUCCESS** (`run_server_smoke_test.sh` `[1/4]..[4/4]` dahil tüm adımlar geçti).
-    * **MariaDB 11.4 LTS (`116093448516`):** **SUCCESS** (`run_server_smoke_test.sh` `[1/4]..[4/4]` dahil tüm adımlar geçti).
-    * **MySQL 8.4 LTS (`116093448281`):** **FAILURE** (başlık gölgelemesi).
-  * CI Run ID **38641852249** (Rev 41 / Commit `4fd19abc`): **3/3 FAILURE** — MySQL 8.4 (`116119050134`) başlık gölgelemesi sürdü; MariaDB 12.3 (`116119049627`) ve 11.4 (`116119049997`) `skill_proto.dwSplashRange` eksik sütunu. Rev 42 ile kök nedenlerinden düzeltildi (FreeBSD'de henüz doğrulanmadı).
+  * CI Run ID **38634314243** (Rev 40 / Commit `81c2e219335fdcab6c6840ed0caf896ab13b608a`): MariaDB 12.3 ve 11.4 SUCCESS (`[1/4]..[4/4]`), MySQL 8.4 FAILURE (başlık gölgelemesi).
+  * CI Run ID **38647690114** (Rev 42 / Commit `76c2adea`) & **38650928440** (Rev 43 / Commit `94b38eac09a49a5150039451aea0ad48bcb5214d`): 3/3 motorda `[1/6]`, `[2/6]` (gerçek `db_r41023` + ABI doğrulaması), `[3a/6]` ve `[3b/6]` PASS; `[4-5/6]` aşamasında `CClientManager::m_iSpecialShopTableSize` ilklendirilmemiş yığın değeri nedeniyle `HEADER_DG_BOOT` paket boyutu uyuşmazlığı kanıtlandı ve Rev 44'te çözüldü.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1183,8 +1210,9 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 43: Rev 42 CI 38647690114'te 3/3 motorda `[4-5/6] game_r41023 (Lua 5.0.3)` gerçek DB ile `HEADER_DG_BOOT` tamamlanmadı (syserr boş, kök neden kanıtlanmadı). Rev 43 tanı çıktıları (`[DIAG]`: GAME pid çıkış kodu/sinyal, BOOT ilerleme satırları, game/db syslog/syserr kuyrukları), 30 sn crash algılamalı boot beklemesi, 900 sn global watchdog ve 55 dk job sınırı eklendi. Hedef: kök nedeni bulup 6 aşamalı gerçek AUTH + GAME login testini Lua 5.0 ve Lua 5.5 için 3 DB matrisinde geçirmek.
+* **Aktif Görev:** Rev 44: Rev 43 CI `38650928440` `[DIAG]` çıktılarından kanıtlanan `CClientManager::m_iSpecialShopTableSize` ilklendirilmemiş yığın değeri (`HEADER_DG_BOOT` paket boyutu uyuşmazlığı: `3825` / `1487491141` vs `3357` bayt) ve `CInputDB::Boot` ön koşulları (`group.txt`, `group_group.txt`, NPC `9001`, `skill_proto.szPointOn = 'NONE'`, temiz `object/notarget/boot`) düzeltildi. Hedef: FreeBSD 15.1 üzerinde 3 DB motorunda (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) 6 aşamalı gerçek `db_r41023` + `HEADER_DG_BOOT` + `AUTH_SERVER` + `GAME_SERVER` (`LoginByKey` -> `PHASE_SELECT`) duman testini Lua 5.0 ve Lua 5.5 için doğrulamak.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 43 CI koşusunu tam SHA ile bir kez sorgulamak; `[DIAG]` bloklarından gerçek DB boot hatasının kök nedenini bulup düzeltmek.
+   1. Rev 44 CI koşusunu tam SHA ile kontrol ederek 3/3 matris işinde `[1/6]..[6/6]` gerçek boot ve login duman testinin geçtiğini doğrulamak.
    2. 3/3 matris işinde `[1/6]..[6/6]` duman testi %100 SUCCESS doğrulandıktan sonra Lua 5.5.1'i (`ENABLE_LUA_5_VERSION=5`) varsayılan üretim motoruna yükseltmek.
+
 

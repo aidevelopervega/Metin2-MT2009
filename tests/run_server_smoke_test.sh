@@ -221,6 +221,11 @@ prepare_game_workdir() {
         cp "$ROOT_DIR/tests/fixtures/locale.lua" "$WORK_DIR/locale/poland/quest/locale.lua"
     fi
 
+    # Provide a clean, deterministic notarget/boot quest object directory for CQuestManager::Boot()
+    rm -rf "$WORK_DIR/locale/poland/quest/object"
+    mkdir -p "$WORK_DIR/locale/poland/quest/object/notarget/boot"
+    printf 'game.set_event_flag("smoke_boot_ok", 1)\n' > "$WORK_DIR/locale/poland/quest/object/notarget/boot/smoke_boot.start"
+
     printf "20016\tblacksmith\n9001\tweapon_shop\n" > "$WORK_DIR/locale/poland/quest/questnpc.txt"
     : > "$WORK_DIR/locale/poland/forkedmapindex.txt"
     : > "$WORK_DIR/locale/poland/cube.txt"
@@ -228,6 +233,8 @@ prepare_game_workdir() {
     : > "$WORK_DIR/locale/poland/locale_string.txt"
     : > "$WORK_DIR/locale/poland/common_drop_item.txt"
     : > "$WORK_DIR/locale/poland/etc_drop_item.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/group.txt"
+    printf "# empty\n" > "$WORK_DIR/locale/poland/group_group.txt"
     printf "# empty\n" > "$WORK_DIR/locale/poland/drop_item_group.txt"
     printf "# empty\n" > "$WORK_DIR/locale/poland/special_item_group.txt"
     printf "# empty\n" > "$WORK_DIR/locale/poland/mob_drop_item.txt"
@@ -535,7 +542,9 @@ CREATE TABLE mob_proto (
   fraction TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-INSERT INTO mob_proto (vnum, name, locale_name, level, max_hp) VALUES (101, 'WildDog', 'Dziki Pies', 1, 100);
+INSERT INTO mob_proto (vnum, name, locale_name, type, level, max_hp) VALUES
+  (101, 'WildDog', 'Dziki Pies', 0, 1, 100),
+  (9001, 'WeaponSeller', 'Handlarz Bronia', 1, 1, 100);
 
 DROP TABLE IF EXISTS item_proto;
 CREATE TABLE item_proto (
@@ -603,7 +612,7 @@ CREATE TABLE skill_proto (
   bType TINYINT NOT NULL DEFAULT 0,
   bMaxLevel TINYINT NOT NULL DEFAULT 0,
   dwSplashRange INT UNSIGNED NOT NULL DEFAULT 0,
-  szPointOn VARCHAR(100) NOT NULL DEFAULT '0',
+  szPointOn VARCHAR(100) NOT NULL DEFAULT 'NONE',
   szPointPoly VARCHAR(100) NOT NULL DEFAULT '',
   szSPCostPoly VARCHAR(100) NOT NULL DEFAULT '',
   szDurationPoly VARCHAR(100) NOT NULL DEFAULT '',
@@ -959,6 +968,8 @@ VALUES (9001, '$SMOKE_TEST_LOGIN', '$SMOKE_PASS_HASH', '1234567', 'OK', '$SMOKE_
 -- Legacy account: literal hash as stored by MySQL 5.x/MariaDB PASSWORD('password') in existing MT2009 databases
 INSERT INTO account (id, login, password, social_id, status, hwid)
 VALUES (9002, 'smklegacy', '*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19', '1234567', 'OK', '$SMOKE_HWID_PLAIN');
+INSERT INTO gmlist (mID, mAccount, mName, mContactIP, mServerIP, mAuthority)
+VALUES (1, '$SMOKE_TEST_LOGIN', 'SmokeHero', '127.0.0.1', 'ALL', 'IMPLEMENTOR');
 EOF
 
 HASH_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT IF(password = CONCAT('*', UPPER(SHA1(UNHEX(SHA1('$SMOKE_TEST_PASS'))))), 1, 0) FROM account WHERE id=9001;")
