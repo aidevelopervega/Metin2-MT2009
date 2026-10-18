@@ -27,4 +27,3 @@ void luaS_freeall (lua_State *L);
 TString *luaS_newlstr (lua_State *L, const char *str, size_t l);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

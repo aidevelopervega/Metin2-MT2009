@@ -276,4 +276,3 @@ union luai_Cast { double l_d; LUA_INT32 l_p[2]; };
 #endif
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

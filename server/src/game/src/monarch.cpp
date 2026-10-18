@@ -272,4 +272,3 @@ bool IsMonarchWarpZone (int map_idx)
 	return (map_idx != 208 && map_idx != 216 && map_idx != 217);
 }
 
-// Files shared by GameCore.top

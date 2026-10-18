@@ -174,4 +174,3 @@ lua_State *luaE_newthread (lua_State *L);
 void luaE_freethread (lua_State *L, lua_State *L1);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

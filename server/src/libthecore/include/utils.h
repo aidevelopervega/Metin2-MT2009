@@ -134,4 +134,3 @@ extern void gettimeofday(struct timeval* t, struct timezone* dummy);
 #endif
 
 #endif	// __INC_UTILS_H__
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

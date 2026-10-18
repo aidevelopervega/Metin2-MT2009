@@ -1112,4 +1112,3 @@ bool CAsyncSQL::ResendQuery(SQLMsg * p)
 
 	return mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()) == 0;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

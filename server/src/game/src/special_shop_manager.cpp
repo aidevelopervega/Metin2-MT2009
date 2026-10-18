@@ -615,4 +615,3 @@ CSpecialShopManager::GUEST_SET& CSpecialShopManager::GetGuestSet(DWORD shop_vnum
 	return newIt->second;
 }
 
-// Files shared by GameCore.top

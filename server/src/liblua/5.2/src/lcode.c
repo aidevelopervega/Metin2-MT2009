@@ -878,4 +878,3 @@ void luaK_setlist (FuncState *fs, int base, int nelems, int tostore) {
     luaX_syntaxerror(fs->ls, "constructor too long");
   fs->freereg = base + 1;  /* free registers with list values */
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

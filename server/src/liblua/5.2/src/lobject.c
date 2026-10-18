@@ -284,4 +284,3 @@ void luaO_chunkid (char *out, const char *source, size_t bufflen) {
     memcpy(out, POS, (LL(POS) + 1) * sizeof(char));
   }
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

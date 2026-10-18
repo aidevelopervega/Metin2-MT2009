@@ -11,6 +11,7 @@ CLoginData::CLoginData()
 	memset(m_szIP, 0, sizeof(m_szIP));
 	m_bPlay = false;
 	m_bDeleted = false;
+	m_bWarpHandoffPending = false;
 	m_lastPlayTime = 0;
 	m_dwLastPlayerID = 0;
 	m_iPremium = 0;
@@ -127,6 +128,4 @@ void CLoginData::SetPremiumSubscription(int premium)
 {
 	m_iPremium = premium;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

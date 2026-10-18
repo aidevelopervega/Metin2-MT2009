@@ -48,6 +48,4 @@ private:
 #endif // __FreeBSD__
 
 #endif //FILEMONITOR_FREEBSD_INCLUDED
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

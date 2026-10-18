@@ -89,4 +89,3 @@ CEventFunctionHandler::SFunctionHandler* CEventFunctionHandler::GetHandlerByName
 	return (m_event.find(event_name)->second).get();
 }
 
-// Files shared by GameCore.top

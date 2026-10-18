@@ -71,4 +71,3 @@ private:
 	void GetPacketDataFromItem(struct TItemShopItemClient& pack, int& i, TItemShopItem item);
 };
 
-// Files shared by GameCore.top

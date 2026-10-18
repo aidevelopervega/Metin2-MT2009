@@ -38,8 +38,9 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 5. **Belge Kirliliğini Önleme:**
    * Projede yönetim ve hafıza amacıyla yalnızca `AGENTS.md` ve `PROJECT_STATE.md` kullanılacaktır.
    * Yeni MD, TXT, günlük (log), rapor veya tarihçe dosyaları oluşturulması yasaktır.
-6. **Güvenlik ve Gizlilik:**
+6. **Güvenlik, Gizlilik ve Arşiv Yönetimi:**
    * Şifreler, veritabanı bağlantı parolaları, tokenlar ve özel anahtarlar kesinlikle Git takibine alınamaz ve GitHub'a yüklenemez.
+   * Eski `mt2009 - FULL SOURCE/new_ftp.tar.gz` arşivi içindeki tüm oyun verilerinin (`share/data`, `share/locale/poland`, `share/package` — toplam `14,341` dosya) eksiksiz olarak temiz ve parolasız `server/serverfiles_share.tar.xz` arşivine aktarıldığı SHA256 düzeyinde doğrulandıktan sonra, kullanıcı kararıyla `mt2009 - FULL SOURCE/new_ftp.tar.gz` çalışma ağacından kalıcı olarak kaldırılmıştır; taşınabilir kurulumlar için tek resmî kaynak arşiv `server/serverfiles_share.tar.xz` dosyasıdır.
 7. **Kullanıcı Odaklı İletişim:**
    * Proje sahibi kodlama bilmemektedir. Tüm açıklamalar, raporlar ve bilgilendirmeler açık, sade ve Türkçe olacaktır.
 

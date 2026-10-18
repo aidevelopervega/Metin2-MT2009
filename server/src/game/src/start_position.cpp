@@ -48,6 +48,4 @@ DWORD g_create_position_canada[4][2] =
 	{ 45700, 166500 },
 	{ 966300, 288300 },
 };
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

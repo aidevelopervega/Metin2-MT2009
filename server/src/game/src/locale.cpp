@@ -209,6 +209,4 @@ void locale_init(const char *filename)
 
 	M2_DELETE_ARRAY(buf);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

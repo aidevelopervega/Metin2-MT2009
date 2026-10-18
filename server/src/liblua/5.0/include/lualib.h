@@ -48,4 +48,3 @@ LUALIB_API int luaopen_loadlib (lua_State *L);
 #define lua_dblibopen	luaopen_debug
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

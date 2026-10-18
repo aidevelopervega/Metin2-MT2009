@@ -154,15 +154,20 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 		return;
 	}
 
-	// Reject replay on the same game peer; allow cross-core handoff (ch11 <-> ch12..ch99) within TTL
+	// Reject replay on the same game peer; cross-core handoff is only possible when explicitly armed
 	if (pkLoginData->GetConnectedPeerHandle() != 0 &&
 	    pkLoginData->GetConnectedPeerHandle() == pkPeer->GetHandle())
 	{
 		sys_log(0, "LOGIN_BY_KEY replay rejected on same peer %s key ***MASKED***", r.login);
 		m_map_pkLoginData.erase(p->dwLoginKey);
+		pkLoginData->SetWarpHandoffPending(false);
 		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
 		return;
 	}
+
+	// Single-use consumption: erase key immediately so neither this peer nor any other peer can replay it
+	m_map_pkLoginData.erase(p->dwLoginKey);
+	pkLoginData->SetWarpHandoffPending(false);
 	pkLoginData->SetConnectedPeerHandle(pkPeer->GetHandle());
 	pkLoginData->SetLogonTime();
 
@@ -524,7 +529,15 @@ void CClientManager::QUERY_LOGOUT(CPeer * peer, DWORD dwHandle,const char * data
 
 	if (DeleteLogonAccount(packet->login, peer->GetHandle()))
 	{
-		pLoginData->SetLogonTime();
+		if (pLoginData->IsWarpHandoffPending())
+		{
+			pLoginData->SetWarpHandoffPending(false);
+			pLoginData->SetLogonTime();
+		}
+		else
+		{
+			m_map_pkLoginData.erase(pLoginData->GetKey());
+		}
 		if (g_log)
 			sys_log(0, "LOGOUT %s ", packet->login);
 	}
@@ -580,6 +593,4 @@ void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDCh
 	strlcpy(pdg.name, p->name, sizeof(pdg.name));
 	peer->Encode(&pdg, sizeof(TPacketDGChangeName));
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

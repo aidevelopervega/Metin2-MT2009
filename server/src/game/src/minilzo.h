@@ -98,6 +98,4 @@ lzo1x_decompress_safe   ( const lzo_bytep src, lzo_uint  src_len,
 #endif /* already included */
 
 /* vim:set ts=4 sw=4 et: */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

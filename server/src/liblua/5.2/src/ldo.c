@@ -677,4 +677,3 @@ int luaD_protectedparser (lua_State *L, ZIO *z, const char *name,
   L->nny--;
   return status;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

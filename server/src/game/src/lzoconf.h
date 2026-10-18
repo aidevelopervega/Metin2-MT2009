@@ -439,6 +439,4 @@ typedef union { lzo_bytep a; lzo_uint32_t b; } __lzo_pu32_u;
 #endif /* already included */
 
 /* vim:set ts=4 sw=4 et: */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

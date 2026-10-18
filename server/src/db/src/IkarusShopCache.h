@@ -225,4 +225,3 @@ namespace ikashop
 
 #endif
 #endif //__INCLUDE_HEADER_OFFLINESHOP_CACHE__
-// Files shared by GameCore.top

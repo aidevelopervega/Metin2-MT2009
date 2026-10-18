@@ -29,4 +29,3 @@ LUAI_FUNC l_noret luaG_runerror (lua_State *L, const char *fmt, ...);
 LUAI_FUNC l_noret luaG_errormsg (lua_State *L);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

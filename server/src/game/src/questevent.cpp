@@ -123,6 +123,4 @@ END_OF_TIMER_EVENT:
 		return event_create(quest_timer_event, info, ltime_cycle);
 	}
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

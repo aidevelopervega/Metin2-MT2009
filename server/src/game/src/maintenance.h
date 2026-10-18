@@ -23,4 +23,3 @@ class CMaintenance : public singleton<CMaintenance>
 };
 
 
-// Files shared by GameCore.top

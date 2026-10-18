@@ -27,4 +27,3 @@ LUAI_FUNC const char *luaF_getlocalname (const Proto *func, int local_number,
                                          int pc);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

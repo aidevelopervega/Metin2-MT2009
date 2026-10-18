@@ -26,4 +26,3 @@ int luaH_next (lua_State *L, Table *t, StkId key);
 Node *luaH_mainposition (const Table *t, const TObject *key);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

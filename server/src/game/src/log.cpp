@@ -507,6 +507,4 @@ void LogManager::AcceLog(DWORD dwPID, DWORD x, DWORD y, DWORD item_vnum, DWORD i
 	Query("INSERT INTO acce%s (pid, time, x, y, item_vnum, item_uid, item_count, item_abs_chance, success) VALUES(%u, NOW(), %u, %u, %u, %u, %d, %d, %d)", get_table_postfix(), dwPID, x, y, item_vnum, item_uid, item_count, abs_chance, success ? 1 : 0);
 }
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

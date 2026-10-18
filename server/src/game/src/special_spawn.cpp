@@ -217,4 +217,3 @@ void SpecialSpawn::OnSpawnedDestroy(LPCHARACTER ch)
 	}
 }
 
-// Files shared by GameCore.top

@@ -131,4 +131,3 @@ bool CMaintenance::IsMaintenanceScheduled()
 	return m_pkMaintenanceEvent != NULL || GetTimeUntilMaintenance() > 0;
 }
 
-// Files shared by GameCore.top

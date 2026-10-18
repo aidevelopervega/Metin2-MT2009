@@ -21,6 +21,4 @@ class COver9RefineManager : public singleton<COver9RefineManager>
 };
 
 #endif /* OVER_9_REFINE_MANAGER_H_ */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

@@ -56,4 +56,3 @@ int AIOnDamage(LPCHARACTER attacker, LPCHARACTER victim, int damage, BYTE damage
 	return damage;
 }
 
-// Files shared by GameCore.top

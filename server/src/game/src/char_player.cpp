@@ -324,4 +324,3 @@ void CHARACTER::CCharacterPlayerData::MarkHackerReleased(LPCHARACTER ch)
 	bMarkedHacker = false;
 }
 
-// Files shared by GameCore.top

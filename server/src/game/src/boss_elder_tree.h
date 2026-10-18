@@ -23,4 +23,3 @@ extern void BossElderTree_Spawn(LPCHARACTER);
 extern void BossElderTree_Dead(LPCHARACTER);
 extern const int ELDER_TREE_BOSS_VNUM;
 
-// Files shared by GameCore.top

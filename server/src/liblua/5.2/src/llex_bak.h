@@ -68,4 +68,3 @@ LUAI_FUNC l_noret luaX_syntaxerror (LexState *ls, const char *s);
 LUAI_FUNC const char *luaX_token2str (LexState *ls, int token);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

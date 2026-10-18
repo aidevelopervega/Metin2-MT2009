@@ -50,4 +50,3 @@ LUAI_FUNC const TValue *luaT_gettmbyobj (lua_State *L, const TValue *o,
 LUAI_FUNC void luaT_init (lua_State *L);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

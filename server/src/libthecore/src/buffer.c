@@ -278,4 +278,3 @@ void buffer_realloc(LPBUFFER& buffer, int length)
 	buffer_delete(buffer);
 	buffer = temp;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

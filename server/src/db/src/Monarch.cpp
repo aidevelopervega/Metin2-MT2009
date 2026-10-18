@@ -289,4 +289,3 @@ int CMonarch::GetCandidacyIndex(DWORD pid)
 	return -1;
 }
 
-// Files shared by GameCore.top

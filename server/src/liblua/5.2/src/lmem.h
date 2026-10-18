@@ -52,4 +52,3 @@ LUAI_FUNC void *luaM_growaux_ (lua_State *L, void *block, int *size,
                                const char *what);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -85,6 +85,4 @@ void RotateVector(VECTOR* vec, float rotationDegrees) {
 	vec->y = rotatedY;
 	// Z remains the same as we assume rotation is around the Z-axis in 2D plane
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

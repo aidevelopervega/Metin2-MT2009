@@ -663,4 +663,3 @@ LUAMOD_API int luaopen_io (lua_State *L) {
   createstdfile(L, stderr, NULL, "stderr");
   return 1;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -1622,6 +1622,24 @@ static int run_game_cross_core_warp(int ch11_port, int ch12_port, const char* lo
 	}
 	std::printf("  [PASS] [cross-core-step4] Completed cross-core WarpSet handoff ch12(%d) -> ch11(%d) into PHASE_GAME(5) on map_index=1 at %dx%d\n",
 		ch12_port, ch11_port, st3.mainX, st3.mainY);
+
+	// Step 5: Prove single-use LoginByKey security across peers: after normal disconnect (no WarpSet/MoveChannel handoff armed),
+	// replaying the consumed dwLoginKey on ANOTHER peer (ch12) or the SAME peer (ch11) must be rejected.
+#ifdef _WIN32
+	Sleep(200);
+#else
+	usleep(200000);
+#endif
+	if (run_game_login_key_expect_fail(ch12_port, login_arg, login_key) != 0) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: cross-peer (ch12) dwLoginKey replay was not rejected!\n");
+		return 1;
+	}
+	if (run_game_login_key_expect_fail(ch11_port, login_arg, login_key) != 0) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: same-peer (ch11) dwLoginKey replay was not rejected!\n");
+		return 1;
+	}
+	std::printf("  [PASS] [cross-core-step5] Verified single-use LoginByKey security: cross-peer (ch12:%d) and same-peer (ch11:%d) dwLoginKey replay rejected\n",
+		ch12_port, ch11_port);
 	return 0;
 }
 

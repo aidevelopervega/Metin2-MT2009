@@ -24,4 +24,3 @@ extern int	heart_idle(LPHEART ht);
 extern void	heart_beat(LPHEART ht, int pulses);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

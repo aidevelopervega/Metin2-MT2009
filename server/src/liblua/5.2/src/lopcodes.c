@@ -104,4 +104,3 @@ LUAI_DDEF const lu_byte luaP_opmodes[NUM_OPCODES] = {
  ,opmode(0, 1, OpArgU, OpArgN, iABC)		/* OP_VARARG */
  ,opmode(0, 0, OpArgU, OpArgU, iAx)		/* OP_EXTRAARG */
 };
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

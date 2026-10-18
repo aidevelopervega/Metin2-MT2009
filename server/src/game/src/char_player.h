@@ -126,4 +126,3 @@ public:
 	YANG GetTotalGoldSession() { return totalGoldSession; }
 	void AddTotalGoldSession(YANG val) { totalGoldSession += val; }
 };
-// Files shared by GameCore.top

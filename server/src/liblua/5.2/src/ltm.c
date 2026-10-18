@@ -74,4 +74,3 @@ const TValue *luaT_gettmbyobj (lua_State *L, const TValue *o, TMS event) {
   }
   return (mt ? luaH_getstr(mt, G(L)->tmname[event]) : luaO_nilobject);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

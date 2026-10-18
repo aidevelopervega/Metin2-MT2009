@@ -43,6 +43,8 @@ class CLoginData
 
 	DWORD		GetLastPlayerID() const { return m_dwLastPlayerID; }
 	void		SetLastPlayerID(DWORD id) { m_dwLastPlayerID = id; }
+	void		SetWarpHandoffPending(bool bPending) { m_bWarpHandoffPending = bPending; }
+	bool		IsWarpHandoffPending() const { return m_bWarpHandoffPending; }
 
     private:
 	DWORD           m_dwKey;
@@ -52,6 +54,7 @@ class CLoginData
 	char		m_szIP[MAX_HOST_LENGTH+1];
 	bool		m_bPlay;
 	bool		m_bDeleted;
+	bool		m_bWarpHandoffPending;
 	int			m_iPremium;
 
 	char		m_szHwid[HWID_MAX_LEN + 1];
@@ -66,6 +69,4 @@ class CLoginData
 };
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

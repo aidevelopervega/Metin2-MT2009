@@ -276,4 +276,3 @@ bool SpecialSpawnManager::LoadSpecialSpawn(const char* c_pszFileName)
 
 	return true;
 }
-// Files shared by GameCore.top

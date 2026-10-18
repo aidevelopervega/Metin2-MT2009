@@ -124,6 +124,4 @@ bool gm_is_login_implementor(const char* account)
 
 	return std::find(g_vector_ImplementorLoginList.begin(), g_vector_ImplementorLoginList.end(), account) != g_vector_ImplementorLoginList.end();
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

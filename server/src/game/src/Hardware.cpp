@@ -79,4 +79,3 @@ void CheckHardware::Unblock(std::string id)
 	DBManager::instance().DirectQuery("UPDATE hardware_status SET status='OK' WHERE hwid='%s'", id.c_str());
 }
 
-// Files shared by GameCore.top

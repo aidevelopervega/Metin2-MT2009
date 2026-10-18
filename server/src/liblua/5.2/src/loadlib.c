@@ -722,4 +722,3 @@ LUAMOD_API int luaopen_package (lua_State *L) {
   lua_pop(L, 1);  /* pop global table */
   return 1;  /* return 'package' table */
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

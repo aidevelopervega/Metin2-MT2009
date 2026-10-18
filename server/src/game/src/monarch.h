@@ -60,4 +60,3 @@ bool IsMonarchWarpZone (int map_idx);
 
 #endif
 
-// Files shared by GameCore.top

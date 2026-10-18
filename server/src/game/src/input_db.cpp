@@ -197,6 +197,28 @@ void CInputDB::LoginSuccess(DWORD dwHandle, const char *data)
 	}
 
 	bool bFound = GetServerLocation(*pTab, pTab->bEmpire);
+#ifdef ENABLE_MOVE_CHANNEL
+	if (db_clientdesc)
+	{
+		bool bHasCrossCoreChar = false;
+		for (int i = 0; i < PLAYER_PER_ACCOUNT; ++i)
+		{
+			if (pTab->players[i].dwID != 0 && pTab->players[i].wPort != 0 && pTab->players[i].wPort != mother_port)
+			{
+				bHasCrossCoreChar = true;
+				break;
+			}
+		}
+		if (bHasCrossCoreChar)
+		{
+			TMoveChannel t{};
+			t.dwAID = pTab->id;
+			t.bChannel = 0;
+			t.lMapIndex = 0;
+			db_clientdesc->DBPacket(HEADER_GD_MOVE_CHANNEL, d->GetHandle(), &t, sizeof(t));
+		}
+	}
+#endif
 
 	d->BindAccountTable(pTab);
 
@@ -3307,6 +3329,4 @@ void CInputDB::RecvUseCodeVoucher(TRequestUseCodeVoucherResponse* pcData)
 		CItemShopManager::instance().RecvUseCodeVoucher(ch, pcData->bResponse, pcData->szCode);
 	}
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

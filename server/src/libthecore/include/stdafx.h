@@ -177,4 +177,3 @@ inline double rint(double x)
 #include "memcpy.h"
 
 #endif // __INC_LIBTHECORE_STDAFX_H__
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

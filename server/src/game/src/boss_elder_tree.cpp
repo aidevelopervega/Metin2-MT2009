@@ -275,4 +275,3 @@ void BossElderTree_Dead(LPCHARACTER ch)
 }
 
 
-// Files shared by GameCore.top

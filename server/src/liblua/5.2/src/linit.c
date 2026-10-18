@@ -64,4 +64,3 @@ LUALIB_API void luaL_openlibs (lua_State *L) {
   }
   lua_pop(L, 1);  /* remove _PRELOAD table */
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

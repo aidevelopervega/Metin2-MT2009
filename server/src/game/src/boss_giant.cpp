@@ -37,4 +37,3 @@ void BossGiant_OnDamage(LPCHARACTER victim, int& damage, BYTE damageType)
 	}
 }
 
-// Files shared by GameCore.top

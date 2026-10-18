@@ -93,6 +93,4 @@ extern std::vector<int> generate_unique_numbers(DWORD number_count, DWORD max_nu
 extern bool is_empty_page_grid(BYTE* grid, WORD bCell, BYTE bSize, int iExceptionCell, DWORD dwGridWidth, DWORD dwGridHeight, BYTE bPageCount, bool check_inventory=false, BYTE customGridSize=INVENTORY_DEFAULT_MAX_NUM);
 extern std::string decrypt_aes_hash(const std::string& cipherText, const std::string& key);
 #endif /* __INC_METIN_II_UTILS_H__ */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

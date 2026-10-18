@@ -10,6 +10,4 @@ extern float	DotProduct(VECTOR* pV1, VECTOR* pV2);
 extern void	RotateVector(VECTOR* vec, float rotationDegrees);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

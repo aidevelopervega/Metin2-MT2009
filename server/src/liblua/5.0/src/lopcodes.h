@@ -214,4 +214,3 @@ extern const char *const luaP_opnames[];  /* opcode names */
 #define LFIELDS_PER_FLUSH	32
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

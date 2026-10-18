@@ -2220,4 +2220,3 @@ std::string CreateIkarusShopSelectAuctionsQuery()
 }
 
 #endif
-// Files shared by GameCore.top

@@ -31,6 +31,4 @@ ACMD(do_oxevent_get_attender)
 {
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Number of other participants : %d"), COXEventManager::instance().GetAttenderCount());
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

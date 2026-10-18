@@ -919,4 +919,3 @@ LUA_API const char *lua_setupvalue (lua_State *L, int funcindex, int n) {
   lua_unlock(L);
   return name;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

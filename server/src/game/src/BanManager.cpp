@@ -200,4 +200,3 @@ bool BanManager::CloseOfflineShop(DWORD pid)
 	}
 }
 
-// Files shared by GameCore.top

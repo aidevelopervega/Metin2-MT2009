@@ -171,4 +171,3 @@ int luaU_dump (lua_State* L, const Proto* f, lua_Writer w, void* data, int strip
  DumpFunction(f,&D);
  return D.status;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

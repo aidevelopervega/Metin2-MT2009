@@ -53,7 +53,6 @@ server/files/
 *.rar
 *.zip
 *.7z
-mt2009 - FULL SOURCE/new_ftp.tar.gz
 !server/serverfiles_share.tar.xz
 
 # --- İşletim Sistemi Geçici Dosyaları ---

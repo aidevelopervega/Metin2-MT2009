@@ -430,4 +430,3 @@ bool CHARACTER::CanOpenShop()
 	return GetLevel() >= 15 && GetSpecialFlag(PLAYER_STATS_MONSTER_FLAG) >= 800;
 }
 
-// Files shared by GameCore.top

@@ -69,4 +69,3 @@ public:
 
 	bool IsNotify() const { return notifyLevel > 0; }
 };
-// Files shared by GameCore.top

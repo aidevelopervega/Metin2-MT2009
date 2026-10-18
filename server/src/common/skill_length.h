@@ -160,4 +160,3 @@ enum ESkillIndexes
 	GUILD_SKILL_COUNT = GUILD_SKILL_END - GUILD_SKILL_START + 1,
 
 };
-// Files shared by GameCore.top

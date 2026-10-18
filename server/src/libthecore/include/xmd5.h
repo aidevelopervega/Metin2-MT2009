@@ -80,4 +80,3 @@ char* lutil_md5_data(const unsigned char *data, unsigned int len, char *buf);
 #endif /* MD5_H */
 
 #endif // #ifndef __FreeBSD__
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

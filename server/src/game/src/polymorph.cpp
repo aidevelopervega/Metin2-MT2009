@@ -151,6 +151,4 @@ bool CPolymorphUtils::BookUpgrade(LPCHARACTER pChar, LPITEM pItem)
 	pItem->SetSocket(2, pItem->GetSocket(2)+1);
 	return true;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

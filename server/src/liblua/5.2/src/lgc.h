@@ -144,4 +144,3 @@ LUAI_FUNC void luaC_checkupvalcolor (global_State *g, UpVal *uv);
 LUAI_FUNC void luaC_changemode (lua_State *L, int mode);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

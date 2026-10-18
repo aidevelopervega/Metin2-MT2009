@@ -3265,6 +3265,4 @@ LZO_COMPILE_TIME_ASSERT_HEADER(sizeof(lzo_int_fast64_t) == sizeof(lzo_uint_fast6
 #endif /* already included */
 
 /* vim:set ts=4 sw=4 et: */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

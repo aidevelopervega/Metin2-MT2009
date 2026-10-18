@@ -39,4 +39,3 @@ LUAI_FUNC TString *luaS_newlstr (lua_State *L, const char *str, size_t l);
 LUAI_FUNC TString *luaS_new (lua_State *L, const char *str);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

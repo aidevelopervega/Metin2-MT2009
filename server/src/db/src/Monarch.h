@@ -77,4 +77,3 @@ class CMonarch : public singleton<CMonarch>
 
 #endif
 
-// Files shared by GameCore.top

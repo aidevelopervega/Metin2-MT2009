@@ -350,4 +350,3 @@ void MD5Transform(uint32_t buf[4], uint32_t const in[16])
 }
 
 #endif // #ifndef __FreeBSD__
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

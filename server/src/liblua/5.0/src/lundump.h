@@ -32,4 +32,3 @@ void luaU_print (const Proto* Main);
 #define	TEST_NUMBER	((lua_Number)3.14159265358979323846E7)
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

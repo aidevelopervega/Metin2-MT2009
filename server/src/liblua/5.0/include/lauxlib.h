@@ -125,4 +125,3 @@ LUALIB_API int   lua_dobuffer (lua_State *L, const char *buff, size_t sz,
 #define luaL_opt_long	luaL_optlong
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

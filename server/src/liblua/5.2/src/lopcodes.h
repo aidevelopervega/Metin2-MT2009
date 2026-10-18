@@ -268,4 +268,3 @@ LUAI_DDEC const char *const luaP_opnames[NUM_OPCODES+1];  /* opcode names */
 #define LFIELDS_PER_FLUSH	50
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

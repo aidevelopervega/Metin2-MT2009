@@ -447,4 +447,3 @@ void log_file_set_dir(const char *dir)
     strcpy(log_dir, dir);
     log_file_delete_old(log_dir);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

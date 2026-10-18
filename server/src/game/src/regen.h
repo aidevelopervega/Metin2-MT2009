@@ -116,6 +116,4 @@ extern void	regen_free();
 
 extern bool	is_regen_exception(long x, long y);
 extern void	regen_reset(int x, int y);
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

@@ -84,6 +84,4 @@ void CMapLocation::Insert(long lIndex, const char *c_pszHost, WORD wPort)
 	sys_log(0, "MapLocation::Insert : %d %s %d", lIndex, c_pszHost, wPort);
 }
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

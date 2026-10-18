@@ -203,4 +203,3 @@ LUALIB_API int luaopen_loadlib (lua_State *L)
 * http://cvs.gnome.org/lxr/source/glib/gmodule/
 *
 */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -99,4 +99,3 @@ const lu_byte luaP_opmodes[NUM_OPCODES] = {
  ,opmode(0, 0, 0, 0, 0, 0, iABC)		/* OP_CLOSE */
  ,opmode(0, 0, 0, 0, 1, 0, iABx)		/* OP_CLOSURE */
 };
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

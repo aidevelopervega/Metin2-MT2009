@@ -76,4 +76,3 @@ LUAI_FUNC void luaK_posfix (FuncState *fs, BinOpr op, expdesc *v1,
 LUAI_FUNC void luaK_setlist (FuncState *fs, int base, int nelems, int tostore);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -127,6 +127,4 @@ void	SET_ATTACKED_TIME(LPCHARACTER ch, LPCHARACTER victim, DWORD current_time);
 bool	IS_SPEED_HACK(LPCHARACTER ch, LPCHARACTER victim, DWORD current_time, bool isBow = false, DWORD victimCount = 1, DWORD dwSkillVnum = 0);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

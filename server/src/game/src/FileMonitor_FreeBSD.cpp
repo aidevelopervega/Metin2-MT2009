@@ -138,6 +138,4 @@ void FileMonitorFreeBSD::AddWatch(const std::string& strFileName, PFN_FileChange
 	m_TriggeredEventLists.emplace_back(kTriggerEvent);
 	m_MonitoredEventLists.emplace_back(kMonitorEvent);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

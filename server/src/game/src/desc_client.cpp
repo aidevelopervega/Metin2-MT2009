@@ -325,6 +325,4 @@ void CLIENT_DESC::InitializeBuffers()
 	m_lpInputBuffer = buffer_new(1024 * 1024);
 	m_iMinInputBufferLen = 1024 * 1024;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

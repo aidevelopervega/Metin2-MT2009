@@ -452,4 +452,3 @@ DWORD get_dword_time()
     tv.tv_sec -= get_boot_sec();
     return (tv.tv_sec * 1000 + tv.tv_usec / 1000);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

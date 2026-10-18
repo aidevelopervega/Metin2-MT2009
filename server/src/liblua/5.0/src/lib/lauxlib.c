@@ -589,4 +589,3 @@ LUALIB_API int lua_dostring (lua_State *L, const char *str) {
 }
 
 /* }====================================================== */
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -715,4 +715,3 @@ int luaK_codeABx (FuncState *fs, OpCode o, int a, unsigned int bc) {
   lua_assert(getOpMode(o) == iABx || getOpMode(o) == iAsBx);
   return luaK_code(fs, CREATE_ABx(o, a, bc), fs->ls->lastline);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

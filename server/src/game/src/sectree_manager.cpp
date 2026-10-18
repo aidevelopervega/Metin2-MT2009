@@ -1572,6 +1572,4 @@ std::pair<long, long> SECTREE_MAP::CoordinateToGlobal(long x, long y)
 	auto ny = y * 100 + m_setting.iBaseY;
 	return { nx, ny };
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

@@ -582,4 +582,3 @@ void luaG_runerror (lua_State *L, const char *fmt, ...) {
   va_end(argp);
   luaG_errormsg(L);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

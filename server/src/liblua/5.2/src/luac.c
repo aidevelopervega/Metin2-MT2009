@@ -430,4 +430,3 @@ static void PrintFunction(const Proto* f, int full)
  if (full) PrintDebug(f);
  for (i=0; i<n; i++) PrintFunction(f->p[i],full);
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

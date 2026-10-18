@@ -72,4 +72,3 @@ void luaX_errorline (LexState *ls, const char *s, const char *token, int line);
 const char *luaX_token2str (LexState *ls, int token);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

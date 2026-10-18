@@ -86,6 +86,4 @@ extern event_info_data*	event_info(LPEVENT event);
 
 #define EVENT_CANCEL_EX(event) if (event) { event_cancel(&event); event = nullptr; }
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

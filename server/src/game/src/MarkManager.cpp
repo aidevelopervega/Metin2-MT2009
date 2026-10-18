@@ -386,6 +386,4 @@ void CGuildMarkManager::UploadSymbol(DWORD guildID, int iSize, const BYTE* pbyDa
 		rSymbol.crc = GetCRC32(reinterpret_cast<const char*>(pbyData), iSize);
 	}
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

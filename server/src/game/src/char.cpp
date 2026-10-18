@@ -5638,6 +5638,19 @@ bool CHARACTER::WarpSet(long x, long y, long lPrivateMapIndex)
 
 	sys_log(0, "WarpSet %s %d %d current map %d target map %d", GetName(), x, y, GetMapIndex(), lMapIndex);
 
+#ifdef ENABLE_MOVE_CHANNEL
+	if (GetDesc() && db_clientdesc)
+	{
+		TMoveChannel t{};
+		t.dwAID = GetDesc()->GetAccountTable().id;
+		t.bChannel = 0;
+		t.lDestX = x;
+		t.lDestY = y;
+		t.lMapIndex = (wPort == mother_port) ? -1 : lMapIndex;
+		db_clientdesc->DBPacket(HEADER_GD_MOVE_CHANNEL, GetDesc()->GetHandle(), &t, sizeof(t));
+	}
+#endif
+
 	TPacketGCWarp p;
 
 	p.bHeader	= HEADER_GC_WARP;
@@ -9635,6 +9648,4 @@ bool CHARACTER::IsHorseInventory(TItemPos cell) const
 	return cell.window_type == INVENTORY && cell.cell >= INVENTORY_DEFAULT_MAX_NUM <= INVENTORY_MAX_NUM;
 }
 
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

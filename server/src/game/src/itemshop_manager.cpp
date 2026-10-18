@@ -977,4 +977,3 @@ void CItemShopManager::AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationIn
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_BUY_VIP_INFO"));
 }
 
-// Files shared by GameCore.top

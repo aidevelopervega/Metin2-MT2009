@@ -38,4 +38,3 @@ LUAI_FUNC void luaV_arith (lua_State *L, StkId ra, const TValue *rb,
 LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

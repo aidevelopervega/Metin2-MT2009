@@ -455,4 +455,3 @@ LUAMOD_API int luaopen_base (lua_State *L) {
   lua_setfield(L, -2, "_VERSION");  /* set global _VERSION */
   return 1;
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

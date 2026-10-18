@@ -132,4 +132,3 @@
 
 #include <string.h>
 void *(*thecore_memcpy) (void * to, const void * from, size_t len) = memcpy;
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -38,4 +38,3 @@ void *luaM_growaux (lua_State *L, void *block, int *size, int size_elem,
                                     cast(lu_mem, n)*cast(lu_mem, sizeof(t)))))
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

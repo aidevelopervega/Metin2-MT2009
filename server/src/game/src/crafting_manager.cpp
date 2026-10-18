@@ -36,4 +36,3 @@ const TCraftingItem* CCraftingManager::GetCraftingRecipe(DWORD vnum)
 	return &it->second;
 }
 
-// Files shared by GameCore.top

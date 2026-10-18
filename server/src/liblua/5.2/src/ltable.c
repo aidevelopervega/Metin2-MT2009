@@ -586,4 +586,3 @@ Node *luaH_mainposition (const Table *t, const TValue *key) {
 int luaH_isdummy (Node *n) { return isdummy(n); }
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

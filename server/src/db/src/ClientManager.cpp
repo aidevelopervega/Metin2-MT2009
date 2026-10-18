@@ -1251,6 +1251,20 @@ void CClientManager::RESULT_SAFEBOX_CHANGE_PASSWORD_SECOND(CPeer * pkPeer, SQLMs
 
 void CClientManager::QUERY_MOVE_CHANNEL(CPeer* pkPeer, DWORD dwHandle, TMoveChannel* data)
 {
+	if (data->bChannel == 0)
+	{
+		auto pkLD = GetLoginDataByAID(data->dwAID);
+		if (pkLD && pkLD->GetConnectedPeerHandle() == pkPeer->GetHandle() && pkLD->GetKey() != 0)
+		{
+			if (data->lMapIndex == -1)
+				pkLD->SetConnectedPeerHandle(0);
+			pkLD->SetLogonTime();
+			pkLD->SetWarpHandoffPending(true);
+			m_map_pkLoginData[pkLD->GetKey()] = pkLD;
+		}
+		return;
+	}
+
 	auto it = std::find_if(m_peerList.begin(), m_peerList.end(), [pkPeer, data](CPeer* p) {
 		return (p != pkPeer && p->GetChannel() == data->bChannel);
 	});
@@ -1259,12 +1273,12 @@ void CClientManager::QUERY_MOVE_CHANNEL(CPeer* pkPeer, DWORD dwHandle, TMoveChan
 	if (it != m_peerList.end())
 	{
 		auto pkLD = GetLoginDataByAID(data->dwAID);
-		if (pkLD)
+		if (pkLD && pkLD->GetConnectedPeerHandle() == pkPeer->GetHandle())
 		{
 			TAccountTable& r = pkLD->GetAccountRef();
 			r.bDestChannel = data->bChannel;
-			pkLD->SetConnectedPeerHandle(0);
 			pkLD->SetLogonTime();
+			pkLD->SetWarpHandoffPending(true);
 			if (pkLD->GetKey() != 0)
 				m_map_pkLoginData[pkLD->GetKey()] = pkLD;
 		}
@@ -4730,9 +4744,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	peer->EncodeHeader(HEADER_DG_USE_CODE_VOUCHER, 0, sizeof(packRes));
 	peer->Encode(&packRes, sizeof(packRes));
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top
 
 void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
 {

@@ -63,6 +63,4 @@ inline void_binder<F> void_bind(const F& f, const Arg& arg)
 // This software is provided "as is" without express or implied warranty.
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top

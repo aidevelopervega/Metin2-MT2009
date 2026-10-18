@@ -64,4 +64,3 @@ typedef struct FuncState {
 Proto *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff);
 
 #endif
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

@@ -51,4 +51,3 @@ BYTE CNameReservationManager::CheckReservation(DWORD account_id, const char* c_p
 	return 2; // good to go
 }
 
-// Files shared by GameCore.top

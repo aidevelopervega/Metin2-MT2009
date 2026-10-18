@@ -256,4 +256,3 @@ void luaU_header (lu_byte* h)
  *h++=cast_byte(((lua_Number)0.5)==0);		/* is lua_Number integral? */
  memcpy(h,LUAC_TAIL,sizeof(LUAC_TAIL)-sizeof(char));
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

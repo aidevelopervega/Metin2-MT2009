@@ -732,6 +732,4 @@ void CGuild::ChangeLadderPoint(int iChange)
 	p.lChange = iChange;
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_CHANGE_LADDER_POINT, 0, &p, sizeof(p));
 }
-//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
-// Files shared by GameCore.top
