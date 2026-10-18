@@ -1113,10 +1113,26 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 		std::printf("  [PASS] [game-login-key] Fresh account entered PHASE_SELECT(3) with 0 characters (empire=%u, rxTotal=%zu wire bytes)\n",
 			static_cast<unsigned>(st.empireId), st.rxTotal);
 
+		st.sawEmpire = false;
+		st.sawLoginSuccess = false;
+		st.empireId = 0;
+
 		SmokePacketCGEmpire empPkt{};
 		empPkt.bHeader = 90; // HEADER_CG_EMPIRE
 		empPkt.bEmpire = 1;  // Shinsoo (Empire 1)
 		if (!send_tea_packet(s, &empPkt, sizeof(empPkt), pkt.adwClientKey, "game-empire-select")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+
+		for (int iter = 0; iter < 60 && (!st.sawEmpire || !st.sawLoginSuccess); ++iter) {
+			if (!pump_gc_packets(s, st, serverEncKey, 100))
+				break;
+		}
+
+		if (!st.sawEmpire || st.empireId != 1 || !st.sawLoginSuccess) {
+			std::fprintf(stderr, "[game-empire-select] FAIL: did not receive HEADER_GC_EMPIRE(90, empire=1) confirmation (sawEmpire=%d empire=%u sawLoginSuccess=%d)\n",
+				st.sawEmpire ? 1 : 0, static_cast<unsigned>(st.empireId), st.sawLoginSuccess ? 1 : 0);
 			CLOSESOCK(s);
 			return 1;
 		}

@@ -501,6 +501,13 @@ void CInputLogin::CharacterCreate(LPDESC d, const char * data)
 		return;
 	}
 
+	if (d->GetEmpire() <= 0 || d->GetEmpire() >= EMPIRE_MAX_NUM)
+	{
+		sys_err("CharacterCreate: invalid empire %u, login: %s", d->GetEmpire(), c_rAccountTable.login);
+		d->Packet(&packFailure, sizeof(packFailure));
+		return;
+	}
+
 	if (pinfo->index >= PLAYER_PER_ACCOUNT)	// @fixme190
 	{
 		sys_err("index overflow %d, login: %s", pinfo->index, pinfo->name);
@@ -886,7 +893,7 @@ void CInputLogin::Empire(LPDESC d, const char * c_pData)
 {
 	const TPacketCGEmpire* p = reinterpret_cast<const TPacketCGEmpire*>(c_pData);
 
-	if (EMPIRE_MAX_NUM <= p->bEmpire)
+	if (p->bEmpire == 0 || EMPIRE_MAX_NUM <= p->bEmpire)
 	{
 		d->SetPhase(PHASE_CLOSE);
 		return;

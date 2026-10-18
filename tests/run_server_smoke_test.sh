@@ -1113,6 +1113,12 @@ EOF_RESET
         exit 1
     fi
 
+    if [ -f "$GAME_WORK/syserr" ] && grep -qiE "GetServerLocation|cannot find sectree|PlayerLoad|LUA_ERROR|WriteRunningStateToSyserr" "$GAME_WORK/syserr"; then
+        echo "HATA: $STAGE_TAG $LABEL yeniden başlatma sonrası ikinci giriş sırasında syserr hatası oluştu!" >&2
+        cat "$GAME_WORK/syserr" >&2
+        exit 1
+    fi
+
     LOGIN_COUNT_AFTER="0"
     for _ in $(seq 1 10); do
         LOGIN_COUNT_AFTER=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT lValue FROM quest WHERE dwPID=$CREATED_PID AND szName='smoke_world' AND szState='login_count' LIMIT 1;")
