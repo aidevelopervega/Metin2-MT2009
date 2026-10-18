@@ -223,6 +223,9 @@ jobs:
             chmod 644 "$SSL_DIR"/*-cert.pem "$SSL_DIR"/*-req.pem
             chmod 640 "$SSL_DIR"/*-key.pem
 
+            TEST_DB_PASS=$(openssl rand -hex 12)
+            RUNTIME_DB_PASS=$(openssl rand -hex 12)
+
             # Motor Sürecini Başlatma
             SOCKET_PATH="/tmp/${ENGINE_ID}.sock"
             if [ "$ENGINE_ID" = "mariadb123" ]; then
@@ -249,29 +252,41 @@ jobs:
                 exit 1
               fi
 
-              mariadb --socket="$SOCKET_PATH" -u root -e "
+              mariadb --socket="$SOCKET_PATH" -u root <<EOSQL
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
                 CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS log CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS player CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS world CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
-                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
-                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'localhost';
+                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY '${TEST_DB_PASS}';
+                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY '${TEST_DB_PASS}';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'localhost';
+                CREATE USER IF NOT EXISTS 'mt2server'@'127.0.0.1' IDENTIFIED BY '${RUNTIME_DB_PASS}';
+                CREATE USER IF NOT EXISTS 'mt2server'@'localhost' IDENTIFIED BY '${RUNTIME_DB_PASS}';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'localhost';
                 FLUSH PRIVILEGES;
-              "
+EOSQL
             elif [ "$ENGINE_ID" = "mysql84" ]; then
               MYSQLD=$(which mysqld 2>/dev/null || ls /usr/local/libexec/mysqld 2>/dev/null || ls /usr/local/sbin/mysqld 2>/dev/null)
               echo "MySQL Daemon: $MYSQLD"
@@ -296,36 +311,50 @@ jobs:
                 exit 1
               fi
 
-              mysql --socket="$SOCKET_PATH" -u root -e "
+              mysql --socket="$SOCKET_PATH" -u root <<EOSQL
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
                 CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS log CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS player CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS world CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
-                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
-                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'localhost';
-                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'127.0.0.1';
-                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'localhost';
+                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY '${TEST_DB_PASS}';
+                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY '${TEST_DB_PASS}';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'localhost';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'127.0.0.1';
+                GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'localhost';
+                CREATE USER IF NOT EXISTS 'mt2server'@'127.0.0.1' IDENTIFIED BY '${RUNTIME_DB_PASS}';
+                CREATE USER IF NOT EXISTS 'mt2server'@'localhost' IDENTIFIED BY '${RUNTIME_DB_PASS}';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'localhost';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'localhost';
                 FLUSH PRIVILEGES;
-              "
+EOSQL
             fi
 
             # Canlı Testi Çalıştırma
             export MT2_TEST_HOST=127.0.0.1
             export MT2_TEST_PORT=$PORT_NUM
             export MT2_TEST_USER=mt2test
-            export MT2_TEST_PASSWORD=mt2pass
+            export MT2_TEST_PASSWORD="$TEST_DB_PASS"
+            export MT2_RUNTIME_USER=mt2server
+            export MT2_RUNTIME_PASSWORD="$RUNTIME_DB_PASS"
             export MT2_TEST_DB=mt2_testdb
             export MT2_TEST_ENGINE="FreeBSD $ENGINE_NAME"
             export MT2_TEST_SSL_CA="$SSL_DIR/ca-cert.pem"
@@ -337,7 +366,7 @@ jobs:
             chmod +x ./tests/run_server_smoke_test.sh
             ./tests/run_server_smoke_test.sh
 
-            # Rev 49: Gerçek FreeBSD 15.1 Serverfiles (/usr/home/mt2) 8 Servis (db, auth, ch11..ch01), 0 syserr, PHASE_GAME ve Restart Kalıcılık Doğrulaması
+            # Rev 50: Gerçek FreeBSD 15.1 Serverfiles (/usr/home/mt2) 8 Servis (db, auth, ch11..ch01), Least-Privilege SQL, chmod 600, Cross-Core Warp ve Log Rotation Doğrulaması
             chmod +x ./tests/run_freebsd_serverfiles_test.sh
             ENGINE_ID="$ENGINE_ID" ./tests/run_freebsd_serverfiles_test.sh
 

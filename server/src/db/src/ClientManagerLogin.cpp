@@ -154,8 +154,17 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 		return;
 	}
 
-	// Consume single-use LoginKey immediately after verification so replay attempts fail
-	m_map_pkLoginData.erase(p->dwLoginKey);
+	// Reject replay on the same game peer; allow cross-core handoff (ch11 <-> ch12..ch99) within TTL
+	if (pkLoginData->GetConnectedPeerHandle() != 0 &&
+	    pkLoginData->GetConnectedPeerHandle() == pkPeer->GetHandle())
+	{
+		sys_log(0, "LOGIN_BY_KEY replay rejected on same peer %s key ***MASKED***", r.login);
+		m_map_pkLoginData.erase(p->dwLoginKey);
+		pkPeer->EncodeReturn(HEADER_DG_LOGIN_NOT_EXIST, dwHandle);
+		return;
+	}
+	pkLoginData->SetConnectedPeerHandle(pkPeer->GetHandle());
+	pkLoginData->SetLogonTime();
 
 	TAccountTable * pkTab = new TAccountTable;
 	memset(pkTab, 0, sizeof(TAccountTable));
@@ -515,10 +524,7 @@ void CClientManager::QUERY_LOGOUT(CPeer * peer, DWORD dwHandle,const char * data
 
 	if (DeleteLogonAccount(packet->login, peer->GetHandle()))
 	{
-		if (pLoginData->GetLastPlayerID() == 0)
-		{
-			m_map_pkLoginData.erase(pLoginData->GetKey());
-		}
+		pLoginData->SetLogonTime();
 		if (g_log)
 			sys_log(0, "LOGOUT %s ", packet->login);
 	}

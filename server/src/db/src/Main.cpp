@@ -313,7 +313,9 @@ int main(int argc, char** argv)
 		}
 	}
 
-	return 1;
+	sys_log(0, "<shutdown> Metin2DBCacheServer Shutdown Complete.");
+	thecore_destroy();
+	return 0;
 }
 
 void emptybeat(LPHEART heart, int pulse)
@@ -662,6 +664,9 @@ int Start()
 		sys_err("SQL_WORLD not configured");
 		return false;
 	}
+
+	AuthSecurity::SecureZeroMemoryBuffer(szPassword, sizeof(szPassword));
+	AuthSecurity::SecureZeroMemoryBuffer(line, sizeof(line));
 
 	if (!CNetPoller::instance().Create())
 	{

@@ -1256,18 +1256,19 @@ void CClientManager::QUERY_MOVE_CHANNEL(CPeer* pkPeer, DWORD dwHandle, TMoveChan
 	});
 	TRespondMoveChannel t{};
 
-	auto pkLD = GetLoginDataByAID(data->dwAID);
-	if (pkLD)
-	{
-		TAccountTable& r = pkLD->GetAccountRef();
-		r.bDestChannel = data->bChannel;
-		pkLD->SetLogonTime();
-		if (pkLD->GetKey() != 0)
-			m_map_pkLoginData[pkLD->GetKey()] = pkLD;
-	}
-
 	if (it != m_peerList.end())
 	{
+		auto pkLD = GetLoginDataByAID(data->dwAID);
+		if (pkLD)
+		{
+			TAccountTable& r = pkLD->GetAccountRef();
+			r.bDestChannel = data->bChannel;
+			pkLD->SetConnectedPeerHandle(0);
+			pkLD->SetLogonTime();
+			if (pkLD->GetKey() != 0)
+				m_map_pkLoginData[pkLD->GetKey()] = pkLD;
+		}
+
 		t.bChannel = data->bChannel;
 		t.lDestX = data->lDestX;
 		t.lDestY = data->lDestY;

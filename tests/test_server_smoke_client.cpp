@@ -87,6 +87,16 @@ struct SmokePacketCGEnterGame {
 	uint8_t  header;      // 10 (HEADER_CG_ENTERGAME)
 };
 
+struct SmokePacketCGMove {
+	uint8_t  bHeader;     // 7 (HEADER_CG_MOVE)
+	uint8_t  bFunc;       // 0 = FUNC_WAIT, 1 = FUNC_MOVE
+	uint8_t  bArg;
+	uint8_t  bRot;
+	int32_t  lX;
+	int32_t  lY;
+	uint32_t dwTime;
+};
+
 struct SmokePacketCGOnClick {
 	uint8_t  header;      // 26 (HEADER_CG_ON_CLICK)
 	uint32_t vid;
@@ -155,6 +165,7 @@ static_assert(sizeof(SmokePacketCGEmpire) == 2, "SmokePacketCGEmpire must be 2 b
 static_assert(sizeof(SmokePacketCGPlayerCreate) == 34, "SmokePacketCGPlayerCreate must be 34 bytes");
 static_assert(sizeof(SmokePacketCGPlayerSelect) == 2, "SmokePacketCGPlayerSelect must be 2 bytes");
 static_assert(sizeof(SmokePacketCGEnterGame) == 1, "SmokePacketCGEnterGame must be 1 byte");
+static_assert(sizeof(SmokePacketCGMove) == 16, "SmokePacketCGMove must be 16 bytes");
 static_assert(sizeof(SmokePacketCGOnClick) == 5, "SmokePacketCGOnClick must be 5 bytes");
 static_assert(sizeof(SmokePacketCGScriptAnswer) == 2, "SmokePacketCGScriptAnswer must be 2 bytes");
 static_assert(sizeof(SmokePacketCGQuestInputString) == 66, "SmokePacketCGQuestInputString must be 66 bytes");
@@ -885,6 +896,16 @@ struct SmokeGameStreamState {
 	uint32_t player0Id = 0;
 	char     player0Name[25]{};
 	uint8_t  player0Level = 0;
+	int32_t  player0X = 0;
+	int32_t  player0Y = 0;
+	int32_t  player0Addr = 0;
+	uint16_t player0Port = 0;
+
+	bool     sawWarp = false;
+	int32_t  warpX = 0;
+	int32_t  warpY = 0;
+	int32_t  warpAddr = 0;
+	uint16_t warpPort = 0;
 
 	bool     sawMainCharacter = false;
 	uint32_t mainVid = 0;
@@ -964,6 +985,16 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			std::memcpy(st.player0Name, pkt + 5, 24);
 			st.player0Name[24] = '\0';
 			st.player0Level = pkt[31];
+			std::memcpy(&st.player0X, pkt + 53, sizeof(int32_t));
+			std::memcpy(&st.player0Y, pkt + 57, sizeof(int32_t));
+			std::memcpy(&st.player0Addr, pkt + 61, sizeof(int32_t));
+			std::memcpy(&st.player0Port, pkt + 65, sizeof(uint16_t));
+		} else if (hdr == 65 /* HEADER_GC_WARP */) {
+			st.sawWarp = true;
+			std::memcpy(&st.warpX, pkt + 1, sizeof(int32_t));
+			std::memcpy(&st.warpY, pkt + 5, sizeof(int32_t));
+			std::memcpy(&st.warpAddr, pkt + 9, sizeof(int32_t));
+			std::memcpy(&st.warpPort, pkt + 13, sizeof(uint16_t));
 		} else if (hdr == 8 /* HEADER_GC_CHARACTER_CREATE_SUCCESS */) {
 			st.sawCharCreateSuccess = true;
 			std::memcpy(&st.player0Id, pkt + 2, sizeof(uint32_t));
@@ -1400,6 +1431,200 @@ static int run_game_login_key_expect_fail(int port, const char* login_arg, uint3
 	return 0;
 }
 
+static int run_game_cross_core_warp(int ch11_port, int ch12_port, const char* login_arg, uint32_t login_key) {
+	const char* login = (std::strcmp(login_arg, "@ENV") == 0) ? std::getenv("SMOKE_TEST_LOGIN") : login_arg;
+	if (!login || !*login) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: missing login environment variable\n");
+		return 1;
+	}
+
+	uint32_t initKey[4]{};
+	get_initial_tea_key(initKey);
+	uint32_t clientKey[4] = { 0x11223344u, 0x55667788u, 0x99AABBCCu, 0xDDEEFF00u };
+	uint32_t serverEncKey[4]{};
+	compute_security_tea_key(clientKey, serverEncKey);
+
+	SmokePacketCGLogin2 loginPkt{};
+	loginPkt.header = 109; // HEADER_CG_LOGIN2
+	std::snprintf(loginPkt.login, sizeof(loginPkt.login), "%s", login);
+	loginPkt.dwLoginKey = login_key;
+	std::memcpy(loginPkt.adwClientKey, clientKey, sizeof(clientKey));
+
+	// Step 1: Connect to ch11 (28000) and verify CMapLocation resolves slot 0 (on map_index=3) to ch12_port (28001)
+	sock_t s1 = connect_with_retry(ch11_port, 60);
+	if (s1 == INVALID_SOCKET) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: could not connect to ch11 on port %d\n", ch11_port);
+		return 1;
+	}
+	if (!complete_wire_handshake(s1, 2 /* PHASE_LOGIN */, "cross-core-ch11-select") ||
+	    !send_tea_packet(s1, &loginPkt, sizeof(loginPkt), initKey, "cross-core-ch11-login2")) {
+		CLOSESOCK(s1);
+		return 1;
+	}
+
+	SmokeGameStreamState st1{};
+	for (int iter = 0; iter < 60 && !(st1.sawPhaseSelect && st1.sawLoginSuccess); ++iter) {
+		if (!pump_gc_packets(s1, st1, serverEncKey, 100))
+			break;
+	}
+	CLOSESOCK(s1);
+
+	if (!st1.sawPhaseSelect || !st1.sawLoginSuccess || st1.player0Id == 0 ||
+	    st1.player0Port != static_cast<uint16_t>(ch12_port)) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch11 PHASE_SELECT CMapLocation redirect mismatch (sawSelect=%d sawLogin=%d id=%u port=%u expectedPort=%d pos=%dx%d)\n",
+			st1.sawPhaseSelect ? 1 : 0, st1.sawLoginSuccess ? 1 : 0, st1.player0Id,
+			static_cast<unsigned>(st1.player0Port), ch12_port, st1.player0X, st1.player0Y);
+		return 1;
+	}
+	std::printf("  [PASS] [cross-core-step1] ch11 (port %d) CMapLocation resolved character '%s' (id=%u, pos=%dx%d) to secondary core ch12 port=%u\n",
+		ch11_port, st1.player0Name, st1.player0Id, st1.player0X, st1.player0Y, static_cast<unsigned>(st1.player0Port));
+
+	// Step 2: Connect to ch12 (28001) with the same dwLoginKey, enter PHASE_GAME on map_index=3, and trigger portal 10002 WarpSet
+	sock_t s2 = connect_with_retry(ch12_port, 60);
+	if (s2 == INVALID_SOCKET) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: could not connect to ch12 on port %d\n", ch12_port);
+		return 1;
+	}
+	if (!complete_wire_handshake(s2, 2 /* PHASE_LOGIN */, "cross-core-ch12-login") ||
+	    !send_tea_packet(s2, &loginPkt, sizeof(loginPkt), initKey, "cross-core-ch12-login2")) {
+		CLOSESOCK(s2);
+		return 1;
+	}
+
+	SmokeGameStreamState st2{};
+	for (int iter = 0; iter < 60 && !(st2.sawPhaseSelect && st2.sawLoginSuccess); ++iter) {
+		if (!pump_gc_packets(s2, st2, serverEncKey, 100))
+			break;
+	}
+	if (!st2.sawPhaseSelect || !st2.sawLoginSuccess || st2.player0Port != static_cast<uint16_t>(ch12_port)) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch12 LoginByKey handoff failed (sawSelect=%d sawLogin=%d port=%u)\n",
+			st2.sawPhaseSelect ? 1 : 0, st2.sawLoginSuccess ? 1 : 0, static_cast<unsigned>(st2.player0Port));
+		CLOSESOCK(s2);
+		return 1;
+	}
+
+	SmokePacketCGPlayerSelect selPkt{};
+	selPkt.header = 6; // HEADER_CG_CHARACTER_SELECT
+	selPkt.index = 0;
+	if (!send_tea_packet(s2, &selPkt, sizeof(selPkt), clientKey, "cross-core-ch12-select")) {
+		CLOSESOCK(s2);
+		return 1;
+	}
+	for (int iter = 0; iter < 80 && !(st2.sawPhaseLoading && st2.sawMainCharacter && st2.sawPoints && st2.sawSkillLevel); ++iter) {
+		if (!pump_gc_packets(s2, st2, serverEncKey, 100))
+			break;
+	}
+	if (!st2.sawPhaseLoading || !st2.sawMainCharacter) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch12 PHASE_LOADING failed\n");
+		CLOSESOCK(s2);
+		return 1;
+	}
+
+	SmokePacketCGEnterGame enterPkt{};
+	enterPkt.header = 10; // HEADER_CG_ENTERGAME
+	if (!send_tea_packet(s2, &enterPkt, sizeof(enterPkt), clientKey, "cross-core-ch12-enter")) {
+		CLOSESOCK(s2);
+		return 1;
+	}
+	for (int iter = 0; iter < 80 && !(st2.sawPhaseGame && st2.sawPcCharAdd); ++iter) {
+		if (!pump_gc_packets(s2, st2, serverEncKey, 100))
+			break;
+	}
+	if (!st2.sawPhaseGame || !st2.sawPcCharAdd) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch12 PHASE_GAME entry failed\n");
+		CLOSESOCK(s2);
+		return 1;
+	}
+	std::printf("  [PASS] [cross-core-step2] Entered PHASE_GAME(5) on secondary core ch12 (port %d, map_index=3, vid=%u, pos=%dx%d)\n",
+		ch12_port, st2.mainVid, st2.mainX, st2.mainY);
+
+	// Step onto portal 10002 at (402000, 899600) on metin2_map_a3 -> warps to (450300, 905000) on metin2_map_a1 (ch11)
+	if (!st2.sawWarp) {
+		SmokePacketCGMove mv1{};
+		mv1.bHeader = 7; // HEADER_CG_MOVE
+		mv1.bFunc = 1;   // FUNC_MOVE
+		mv1.lX = 402000;
+		mv1.lY = 899600;
+		mv1.dwTime = 1000;
+		send_tea_packet(s2, &mv1, sizeof(mv1), clientKey, "cross-core-ch12-move1");
+
+		SmokePacketCGMove mv2{};
+		mv2.bHeader = 7; // HEADER_CG_MOVE
+		mv2.bFunc = 0;   // FUNC_WAIT (commits position via ch->Move)
+		mv2.lX = 402000;
+		mv2.lY = 899600;
+		mv2.dwTime = 1050;
+		send_tea_packet(s2, &mv2, sizeof(mv2), clientKey, "cross-core-ch12-move2");
+	}
+
+	for (int iter = 0; iter < 60 && !st2.sawWarp; ++iter) {
+		if (!pump_gc_packets(s2, st2, serverEncKey, 100))
+			break;
+	}
+	CLOSESOCK(s2);
+
+	if (!st2.sawWarp || st2.warpPort != static_cast<uint16_t>(ch11_port) ||
+	    st2.warpX != 450300 || st2.warpY != 905000) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: did not receive expected HEADER_GC_WARP from portal 10002 on ch12 (sawWarp=%d warpPort=%u expectedPort=%d warpPos=%dx%d)\n",
+			st2.sawWarp ? 1 : 0, static_cast<unsigned>(st2.warpPort), ch11_port, st2.warpX, st2.warpY);
+		return 1;
+	}
+	std::printf("  [PASS] [cross-core-step3] Portal 10002 on ch12 triggered CHARACTER::WarpSet -> HEADER_GC_WARP(65, dest=%dx%d, target_port=%u)\n",
+		st2.warpX, st2.warpY, static_cast<unsigned>(st2.warpPort));
+
+	// Step 3: Reconnect to ch11 (28000) with the same dwLoginKey and verify arrival on map_index=1 at (450300, 905000)
+	sock_t s3 = connect_with_retry(ch11_port, 60);
+	if (s3 == INVALID_SOCKET) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: could not reconnect to ch11 on port %d after warp\n", ch11_port);
+		return 1;
+	}
+	if (!complete_wire_handshake(s3, 2 /* PHASE_LOGIN */, "cross-core-ch11-postwarp") ||
+	    !send_tea_packet(s3, &loginPkt, sizeof(loginPkt), initKey, "cross-core-ch11-postwarp-login2")) {
+		CLOSESOCK(s3);
+		return 1;
+	}
+
+	SmokeGameStreamState st3{};
+	for (int iter = 0; iter < 60 && !(st3.sawPhaseSelect && st3.sawLoginSuccess); ++iter) {
+		if (!pump_gc_packets(s3, st3, serverEncKey, 100))
+			break;
+	}
+	if (!st3.sawPhaseSelect || !st3.sawLoginSuccess || st3.player0Port != static_cast<uint16_t>(ch11_port)) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: post-warp ch11 PHASE_SELECT failed (sawSelect=%d sawLogin=%d port=%u)\n",
+			st3.sawPhaseSelect ? 1 : 0, st3.sawLoginSuccess ? 1 : 0, static_cast<unsigned>(st3.player0Port));
+		CLOSESOCK(s3);
+		return 1;
+	}
+	if (!send_tea_packet(s3, &selPkt, sizeof(selPkt), clientKey, "cross-core-ch11-postwarp-select")) {
+		CLOSESOCK(s3);
+		return 1;
+	}
+	for (int iter = 0; iter < 80 && !(st3.sawPhaseLoading && st3.sawMainCharacter && st3.sawPoints && st3.sawSkillLevel); ++iter) {
+		if (!pump_gc_packets(s3, st3, serverEncKey, 100))
+			break;
+	}
+	if (!st3.sawPhaseLoading || !st3.sawMainCharacter ||
+	    !send_tea_packet(s3, &enterPkt, sizeof(enterPkt), clientKey, "cross-core-ch11-postwarp-enter")) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: post-warp ch11 PHASE_LOADING failed\n");
+		CLOSESOCK(s3);
+		return 1;
+	}
+	for (int iter = 0; iter < 80 && !(st3.sawPhaseGame && st3.sawPcCharAdd); ++iter) {
+		if (!pump_gc_packets(s3, st3, serverEncKey, 100))
+			break;
+	}
+	CLOSESOCK(s3);
+
+	if (!st3.sawPhaseGame || !st3.sawPcCharAdd || st3.mainX != 450300 || st3.mainY != 905000) {
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: post-warp ch11 PHASE_GAME position mismatch (sawGame=%d sawPcAdd=%d pos=%dx%d expected=450300x905000)\n",
+			st3.sawPhaseGame ? 1 : 0, st3.sawPcCharAdd ? 1 : 0, st3.mainX, st3.mainY);
+		return 1;
+	}
+	std::printf("  [PASS] [cross-core-step4] Completed cross-core WarpSet handoff ch12(%d) -> ch11(%d) into PHASE_GAME(5) on map_index=1 at %dx%d\n",
+		ch12_port, ch11_port, st3.mainX, st3.mainY);
+	return 0;
+}
+
 static int run_probe_db(int port) {
 	sock_t s = connect_with_retry(port, 60);
 	if (s == INVALID_SOCKET) {
@@ -1437,6 +1662,8 @@ int main(int argc, char** argv) {
 		rc = run_game_login_key(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
 	} else if (argc >= 5 && std::strcmp(argv[1], "--game-login-key-expect-fail") == 0) {
 		rc = run_game_login_key_expect_fail(std::atoi(argv[2]), argv[3], static_cast<uint32_t>(std::strtoul(argv[4], nullptr, 10)));
+	} else if (argc >= 6 && std::strcmp(argv[1], "--game-cross-core-warp") == 0) {
+		rc = run_game_cross_core_warp(std::atoi(argv[2]), std::atoi(argv[3]), argv[4], static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10)));
 	} else {
 		std::fprintf(stderr, "Usage:\n"
 			"  %s --mock-db <port> <ready_file> <out_file>\n"
@@ -1448,8 +1675,9 @@ int main(int argc, char** argv) {
 			"  %s --auth-login <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <key_out_file>\n"
 			"  %s --auth-expect-fail <port> <login|@ENV> <passwd|@ENV> <hwid_hex> <expected_status>\n"
 			"  %s --game-login-key <port> <login|@ENV> <login_key>\n"
-			"  %s --game-login-key-expect-fail <port> <login|@ENV> <login_key>\n",
-			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
+			"  %s --game-login-key-expect-fail <port> <login|@ENV> <login_key>\n"
+			"  %s --game-cross-core-warp <ch11_port> <ch12_port> <login|@ENV> <login_key>\n",
+			argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]);
 	}
 #ifdef _WIN32
 	WSACleanup();

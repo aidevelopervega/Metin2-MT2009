@@ -511,12 +511,30 @@ int main(int argc, char **argv)
 	char_manager.Destroy();
 	sys_log(0, "<shutdown> Destroying ITEM_MANAGER...");
 	item_manager.Destroy();
+	if (db_clientdesc)
+	{
+		sys_log(0, "<shutdown> Flushing final db_clientdesc buffer...");
+		db_clientdesc->FlushOutput();
+	}
 	sys_log(0, "<shutdown> Destroying DESC_MANAGER...");
 	desc_manager.Destroy();
+	db_clientdesc = NULL;
 	sys_log(0, "<shutdown> Destroying quest::CQuestManager...");
 	quest_manager.Destroy();
 	sys_log(0, "<shutdown> Destroying building::CManager...");
 	building_manager.Destroy();
+
+	sys_log(0, "<shutdown> Draining DBManager queries...");
+	{
+		for (int iDrain = 0; iDrain < 50; ++iDrain)
+		{
+			DWORD dwCount = DBManager::instance().CountQuery();
+			if (dwCount == 0)
+				break;
+			sys_log(0, "<shutdown> Waiting for %u pending DBManager queries...", dwCount);
+			usleep(100000);
+		}
+	}
 
 #ifdef __NEW_EVENT_HANDLER__
 	sys_log(0, "<shutdown> Destroying CEventFunctionHandler...");

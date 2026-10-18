@@ -43,7 +43,7 @@ void CMapLocation::Insert(long lIndex, const char *c_pszHost, WORD wPort, BYTE c
 	loc.port = wPort;
 
 	auto key = std::make_pair(channel, lIndex);
-	m_map_address.emplace(key, loc);
+	m_map_address[key] = loc;
 	sys_log(0, "MapLocation::Insert: %d %d %s %d", channel, lIndex, c_pszHost, wPort);
 }
 
@@ -80,7 +80,7 @@ void CMapLocation::Insert(long lIndex, const char *c_pszHost, WORD wPort)
 	loc.addr = inet_addr(c_pszHost);
 	loc.port = wPort;
 
-	m_map_address.emplace(lIndex, loc);
+	m_map_address[lIndex] = loc;
 	sys_log(0, "MapLocation::Insert : %d %s %d", lIndex, c_pszHost, wPort);
 }
 #endif

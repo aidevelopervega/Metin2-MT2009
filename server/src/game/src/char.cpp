@@ -7304,7 +7304,7 @@ bool CHARACTER::IsHack(bool bSendMsg, bool bCheckShopOwner, int limittime)
 	if (test_server)
 		bSendMsg = true;
 
-	if (iPulse - GetSafeboxLoadTime() < PASSES_PER_SEC(limittime))
+	if (GetSafeboxLoadTime() > 0 && iPulse - GetSafeboxLoadTime() < PASSES_PER_SEC(limittime))
 	{
 		if (bSendMsg)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("After opening the Storeroom, you cannot go anywhere else for %d seconds."), limittime);
@@ -7336,7 +7336,7 @@ bool CHARACTER::IsHack(bool bSendMsg, bool bCheckShopOwner, int limittime)
 	}
 
 	//PREVENT_PORTAL_AFTER_EXCHANGE
-	if (iPulse - GetExchangeTime()  < PASSES_PER_SEC(limittime))
+	if (GetExchangeTime() > 0 && iPulse - GetExchangeTime()  < PASSES_PER_SEC(limittime))
 	{
 		if (bSendMsg)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("After trading you cannot go elsewhere for %d seconds."), limittime );
@@ -7345,14 +7345,14 @@ bool CHARACTER::IsHack(bool bSendMsg, bool bCheckShopOwner, int limittime)
 	//END_PREVENT_PORTAL_AFTER_EXCHANGE
 
 	//PREVENT_ITEM_COPY
-	if (iPulse - GetMyShopTime() < PASSES_PER_SEC(limittime))
+	if (GetMyShopTime() > 0 && iPulse - GetMyShopTime() < PASSES_PER_SEC(limittime))
 	{
 		if (bSendMsg)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("After trading you cannot go elsewhere for %d seconds."), limittime);
 		return true;
 	}
 
-	if (iPulse - GetRefineTime() < PASSES_PER_SEC(limittime))
+	if (GetRefineTime() > 0 && iPulse - GetRefineTime() < PASSES_PER_SEC(limittime))
 	{
 		if (bSendMsg)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("After a trade, you cannot use a scroll for another %d seconds."), limittime);
@@ -7919,19 +7919,19 @@ bool CHARACTER::CanWarp() const
 	const int iPulse = thecore_pulse();
 	const int limit_time = PASSES_PER_SEC(g_nPortalLimitTime);
 
-	if ((iPulse - GetSafeboxLoadTime()) < limit_time)
+	if (GetSafeboxLoadTime() > 0 && (iPulse - GetSafeboxLoadTime()) < limit_time)
 		return false;
 
-	if ((iPulse - GetExchangeTime()) < limit_time)
+	if (GetExchangeTime() > 0 && (iPulse - GetExchangeTime()) < limit_time)
 		return false;
 
-	if ((iPulse - GetMyShopTime()) < limit_time)
+	if (GetMyShopTime() > 0 && (iPulse - GetMyShopTime()) < limit_time)
 		return false;
 
-	if ((iPulse - GetRefineTime()) < limit_time)
+	if (GetRefineTime() > 0 && (iPulse - GetRefineTime()) < limit_time)
 		return false;
 #ifdef ENABLE_IKASHOP_RENEWAL
-	if (iPulse - GetIkarusShopUseTime() < limit_time)
+	if (GetIkarusShopUseTime() > 0 && iPulse - GetIkarusShopUseTime() < limit_time)
 		return false;
 
 	if (GetIkarusShopGuest() || GetIkarusAuctionGuest())
@@ -8861,6 +8861,12 @@ bool CHARACTER::ChangeChannel(const TRespondMoveChannel * respond)
 	if (!IsPC())
 		return false;
 
+	if (!respond || respond->bChannel == 0)
+	{
+		ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot change channel."));
+		return false;
+	}
+
 	if (IsDead())
 	{
 		ChatPacket(CHAT_TYPE_INFO, LC_TEXT("CANNOT_WHILE_DEAD"));
@@ -8913,7 +8919,7 @@ bool CHARACTER::ChangeChannel(const TRespondMoveChannel * respond)
 	}
 
 	long destX = respond->lDestX == 0 ? GetX() : respond->lDestX;
-	long destY = respond->lDestX == 0 ? GetY() : respond->lDestY;
+	long destY = respond->lDestY == 0 ? GetY() : respond->lDestY;
 	long destMapIndex = respond->lDestMapIndex == 0 ? GetMapIndex() : respond->lDestMapIndex;
 
 
@@ -8937,6 +8943,7 @@ bool CHARACTER::ChangeChannel(const TRespondMoveChannel * respond)
 		DESC_MANAGER::instance().SendClientPackageSDBToLoadMap(GetDesc(), rMapRgn->strMapName.c_str());
 	}
 
+	FlushDelayedSaveItem();
 	Stop();
 	Save();
 

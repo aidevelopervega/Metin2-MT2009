@@ -98,3 +98,8 @@ kurulum.py
 Packleri*
 packleri*
 push_to_github.bat
+.env
+*.env
+!*.env.example
+server/config/serverfiles.env
+

@@ -17,6 +17,7 @@
 #include "config.h"
 #include "db.h"
 #include "skill_power.h"
+#include "../../libthecore/include/auth_security.h"
 
 using std::string;
 
@@ -93,7 +94,7 @@ string g_stDefaultQuestObjectDir = "./quest/object";
 std::set<string> g_setQuestObjectDir;
 
 std::vector<std::string>	g_stAdminPageIP;
-std::string	g_stAdminPagePassword = "SHOWMETHEMONEY";
+std::string	g_stAdminPagePassword = "";
 
 string g_stBlockDate = "30000705";
 
@@ -215,7 +216,7 @@ static void FN_log_adminpage()
 		++iter;
 	}
 
-	sys_log(1, "ADMIN_PAGE_PASSWORD = %s", g_stAdminPagePassword.c_str());
+	sys_log(1, "ADMIN_PAGE_PASSWORD = %s", g_stAdminPagePassword.empty() ? "<unset>" : "<redacted>");
 }
 
 #define ENABLE_AUTODETECT_INTERNAL_IP
@@ -397,8 +398,6 @@ static bool __LoadConnectConfigFile(const char* configName)
 				exit(1);
 			}
 
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "PLAYER_SQL: %s %s %s %s %d", db_host[PLAYER_SQL_INDEX], db_user[PLAYER_SQL_INDEX], db_pwd[PLAYER_SQL_INDEX], db_db[PLAYER_SQL_INDEX], mysql_db_port[PLAYER_SQL_INDEX]);
 			isPlayerSQL = true;
 			if (g_bAuthServer)
 				isAccountSQL = true;
@@ -423,8 +422,6 @@ static bool __LoadConnectConfigFile(const char* configName)
 				exit(1);
 			}
 
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "COMMON_SQL: %s %s %s %s %d", db_host[COMMON_SQL_INDEX], db_user[COMMON_SQL_INDEX], db_pwd[COMMON_SQL_INDEX], db_db[COMMON_SQL_INDEX], mysql_db_port[COMMON_SQL_INDEX]);
 			isCommonSQL = true;
 			continue;
 		}
@@ -447,8 +444,6 @@ static bool __LoadConnectConfigFile(const char* configName)
 				exit(1);
 			}
 
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "ACCOUNT_SQL: %s %s %s %s %d", db_host[ACCOUNT_SQL_INDEX], db_user[ACCOUNT_SQL_INDEX], db_pwd[ACCOUNT_SQL_INDEX], db_db[ACCOUNT_SQL_INDEX], mysql_db_port[ACCOUNT_SQL_INDEX]);
 			isAccountSQL = true;
 			continue;
 		}
@@ -471,8 +466,6 @@ static bool __LoadConnectConfigFile(const char* configName)
 				exit(1);
 			}
 
-			char buf[1024];
-			snprintf(buf, sizeof(buf), "LOG_SQL: %s %s %s %s %d", log_host, log_user, log_pwd, log_db, log_port);
 			continue;
 		}
 	}
@@ -585,6 +578,11 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 		LogManager::instance().BootLog(g_stHostname.c_str(), g_bChannel);
 	}
+
+	AuthSecurity::SecureZeroMemoryBuffer(db_pwd, sizeof(db_pwd));
+	AuthSecurity::SecureZeroMemoryBuffer(log_pwd, sizeof(log_pwd));
+	AuthSecurity::SecureZeroMemoryBuffer(buf, sizeof(buf));
+	AuthSecurity::SecureZeroMemoryBuffer(value_string, sizeof(value_string));
 
 	// SKILL_POWER_BY_LEVEL
 

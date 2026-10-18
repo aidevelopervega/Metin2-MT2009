@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# PROVIDE: mt2server
+# REQUIRE: DAEMON NETWORKING mysql
+# KEYWORD: shutdown
+#
+# Add the following lines to /etc/rc.conf to enable mt2server:
+# mt2server_enable="YES"
+# mt2server_dir="/usr/home/mt2"
+# mt2server_user="root"
+
+. /etc/rc.subr
+
+name="mt2server"
+rcvar="mt2server_enable"
+
+load_rc_config $name
+
+: ${mt2server_enable:="NO"}
+: ${mt2server_dir:="/usr/home/mt2"}
+: ${mt2server_user:="root"}
+
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+status_cmd="${name}_status"
+extra_commands="status"
+
+mt2server_start()
+{
+    if [ ! -x "${mt2server_dir}/start.sh" ]; then
+        err 1 "${mt2server_dir}/start.sh not found or not executable"
+    fi
+    su -m "${mt2server_user}" -c "sh '${mt2server_dir}/start.sh'"
+}
+
+mt2server_stop()
+{
+    if [ ! -x "${mt2server_dir}/stop.sh" ]; then
+        err 1 "${mt2server_dir}/stop.sh not found or not executable"
+    fi
+    su -m "${mt2server_user}" -c "sh '${mt2server_dir}/stop.sh'"
+}
+
+mt2server_status()
+{
+    if [ ! -x "${mt2server_dir}/status.sh" ]; then
+        err 1 "${mt2server_dir}/status.sh not found or not executable"
+    fi
+    sh "${mt2server_dir}/status.sh"
+}
+
+run_rc_command "$1"
