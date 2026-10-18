@@ -70,7 +70,7 @@ CClientManager::CClientManager() :
 	m_iSpecialShopTableSize(0),
 	m_pSpecialShopTable(nullptr),
 	m_bShutdowned(FALSE),
-	m_bMaintenance(TRUE),
+	m_bMaintenance(FALSE),
 	m_bLastHeader(0),
 	m_iCacheFlushCount(0),
 	m_iCacheFlushCountLimit(200)

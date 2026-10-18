@@ -25,6 +25,7 @@ tests/build/
 build/
 scratch/
 object/
+artifacts/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü
 server/src/libthecore/src/tea.s
@@ -53,6 +54,7 @@ server/files/
 *.zip
 *.7z
 mt2009 - FULL SOURCE/new_ftp.tar.gz
+!server/serverfiles_share.tar.xz
 
 # --- İşletim Sistemi Geçici Dosyaları ---
 Thumbs.db

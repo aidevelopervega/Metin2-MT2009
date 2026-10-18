@@ -2,7 +2,26 @@
 #include "stdafx.h"
 
 #ifdef __WIN32__
-void signal_setup() {}
+static BOOL WINAPI win32_ctrl_handler(DWORD ctrl_type)
+{
+    switch (ctrl_type)
+    {
+        case CTRL_C_EVENT:
+        case CTRL_BREAK_EVENT:
+        case CTRL_CLOSE_EVENT:
+        case CTRL_SHUTDOWN_EVENT:
+            shutdowned = TRUE;
+            sys_log(0, "SIGHUP, SIGINT, SIGTERM signal has been received. shutting down.");
+            return TRUE;
+        default:
+            return FALSE;
+    }
+}
+
+void signal_setup()
+{
+    SetConsoleCtrlHandler(win32_ctrl_handler, TRUE);
+}
 void signal_timer_disable() {}
 void signal_timer_enable(int timeout_seconds) { (void)timeout_seconds; }
 #elif __FreeBSD__

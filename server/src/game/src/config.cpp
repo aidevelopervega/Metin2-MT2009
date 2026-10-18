@@ -75,7 +75,7 @@ bool		g_bEmpireWhisper = true;
 BYTE		g_bAuthServer = false;
 
 BYTE		g_bPremiumChannel = false;
-bool		g_bIsMaintenance = true;
+bool		g_bIsMaintenance = false;
 
 DWORD		g_dwClientVersion = 0;
 
@@ -429,30 +429,28 @@ static bool __LoadConnectConfigFile(const char* configName)
 			continue;
 		}
 
-		if (!g_bAuthServer) {
-			TOKEN("account_sql")
+		TOKEN("account_sql")
+		{
+			const char* line = two_arguments(value_string, db_host[ACCOUNT_SQL_INDEX], sizeof(db_host[ACCOUNT_SQL_INDEX]), db_user[ACCOUNT_SQL_INDEX], sizeof(db_user[ACCOUNT_SQL_INDEX]));
+			line = two_arguments(line, db_pwd[ACCOUNT_SQL_INDEX], sizeof(db_pwd[ACCOUNT_SQL_INDEX]), db_db[ACCOUNT_SQL_INDEX], sizeof(db_db[ACCOUNT_SQL_INDEX]));
+
+			if (line[0])
 			{
-				const char* line = two_arguments(value_string, db_host[ACCOUNT_SQL_INDEX], sizeof(db_host[ACCOUNT_SQL_INDEX]), db_user[ACCOUNT_SQL_INDEX], sizeof(db_user[ACCOUNT_SQL_INDEX]));
-				line = two_arguments(line, db_pwd[ACCOUNT_SQL_INDEX], sizeof(db_pwd[ACCOUNT_SQL_INDEX]), db_db[ACCOUNT_SQL_INDEX], sizeof(db_db[ACCOUNT_SQL_INDEX]));
-
-				if (line[0])
-				{
-					char buf[256];
-					one_argument(line, buf, sizeof(buf));
-					str_to_number(mysql_db_port[ACCOUNT_SQL_INDEX], buf);
-				}
-
-				if (!*db_host[ACCOUNT_SQL_INDEX] || !*db_user[ACCOUNT_SQL_INDEX] || !*db_pwd[ACCOUNT_SQL_INDEX] || !*db_db[ACCOUNT_SQL_INDEX])
-				{
-					fprintf(stderr, "COMMON_SQL syntax: logsql <host user password db>\n");
-					exit(1);
-				}
-
-				char buf[1024];
-				snprintf(buf, sizeof(buf), "COMMON_SQL: %s %s %s %s %d", db_host[ACCOUNT_SQL_INDEX], db_user[ACCOUNT_SQL_INDEX], db_pwd[ACCOUNT_SQL_INDEX], db_db[ACCOUNT_SQL_INDEX], mysql_db_port[ACCOUNT_SQL_INDEX]);
-				isAccountSQL = true;
-				continue;
+				char buf[256];
+				one_argument(line, buf, sizeof(buf));
+				str_to_number(mysql_db_port[ACCOUNT_SQL_INDEX], buf);
 			}
+
+			if (!*db_host[ACCOUNT_SQL_INDEX] || !*db_user[ACCOUNT_SQL_INDEX] || !*db_pwd[ACCOUNT_SQL_INDEX] || !*db_db[ACCOUNT_SQL_INDEX])
+			{
+				fprintf(stderr, "ACCOUNT_SQL syntax: logsql <host user password db>\n");
+				exit(1);
+			}
+
+			char buf[1024];
+			snprintf(buf, sizeof(buf), "ACCOUNT_SQL: %s %s %s %s %d", db_host[ACCOUNT_SQL_INDEX], db_user[ACCOUNT_SQL_INDEX], db_pwd[ACCOUNT_SQL_INDEX], db_db[ACCOUNT_SQL_INDEX], mysql_db_port[ACCOUNT_SQL_INDEX]);
+			isAccountSQL = true;
+			continue;
 		}
 
 		TOKEN("log_sql")
@@ -557,7 +555,10 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 	AccountDB::instance().ConnectAsync(db_host[COMMON_SQL_INDEX], mysql_db_port[COMMON_SQL_INDEX], db_user[COMMON_SQL_INDEX], db_pwd[COMMON_SQL_INDEX], db_db[COMMON_SQL_INDEX], g_stLocale.c_str());
 
-	DBManager::instance().Connect(db_host[PLAYER_SQL_INDEX], mysql_db_port[PLAYER_SQL_INDEX], db_user[PLAYER_SQL_INDEX], db_pwd[PLAYER_SQL_INDEX], db_db[PLAYER_SQL_INDEX]);
+	if (g_bAuthServer && *db_host[ACCOUNT_SQL_INDEX])
+		DBManager::instance().Connect(db_host[ACCOUNT_SQL_INDEX], mysql_db_port[ACCOUNT_SQL_INDEX], db_user[ACCOUNT_SQL_INDEX], db_pwd[ACCOUNT_SQL_INDEX], db_db[ACCOUNT_SQL_INDEX]);
+	else
+		DBManager::instance().Connect(db_host[PLAYER_SQL_INDEX], mysql_db_port[PLAYER_SQL_INDEX], db_user[PLAYER_SQL_INDEX], db_pwd[PLAYER_SQL_INDEX], db_db[PLAYER_SQL_INDEX]);
 
 	if (!g_bAuthServer)
 		DBManager::instance().ConnectAccount(db_host[ACCOUNT_SQL_INDEX], mysql_db_port[ACCOUNT_SQL_INDEX], db_user[ACCOUNT_SQL_INDEX], db_pwd[ACCOUNT_SQL_INDEX], db_db[ACCOUNT_SQL_INDEX]);

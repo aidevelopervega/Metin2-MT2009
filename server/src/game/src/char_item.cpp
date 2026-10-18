@@ -278,7 +278,7 @@ void CHARACTER::SetItem(TItemPos Cell, LPITEM pItem
 
 	WORD wCell = Cell.cell;
 	BYTE window_type = Cell.window_type;
-	if ((unsigned long)((CItem*)pItem) == 0xff || (unsigned long)((CItem*)pItem) == 0xffffffff)
+	if ((uintptr_t)((CItem*)pItem) == 0xff || (uintptr_t)((CItem*)pItem) == 0xffffffff)
 	{
 		sys_err("!!! FATAL ERROR !!! item == 0xff (char: %s cell: %u)", GetName(), wCell);
 		core_dump();

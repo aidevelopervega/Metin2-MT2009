@@ -279,8 +279,12 @@ LPFDWATCH fdwatch_new(int nfiles)
 
     CREATE(fdw->select_fds, socket_t, nfiles);
     CREATE(fdw->select_rfdidx, int, nfiles);
+    for (int i = 0; i < nfiles; ++i)
+    {
+        fdw->select_rfdidx[i] = -1;
+    }
 
-	fdw->nselect_fds = 0;
+    fdw->nselect_fds = 0;
 
     CREATE(fdw->fd_rw, int, nfiles);
     CREATE(fdw->fd_data, void*, nfiles);
@@ -346,6 +350,14 @@ void fdwatch_del_fd(LPFDWATCH fdw, socket_t fd)
 
 	--fdw->nselect_fds;
 
+	for (int k = 0; k < fdw->nfiles; ++k) {
+		if (fdw->select_rfdidx[k] == idx) {
+			fdw->select_rfdidx[k] = -1;
+		} else if (fdw->select_rfdidx[k] == fdw->nselect_fds) {
+			fdw->select_rfdidx[k] = idx;
+		}
+	}
+
 	fdw->select_fds[idx] = fdw->select_fds[fdw->nselect_fds];
     fdw->fd_data[idx] = fdw->fd_data[fdw->nselect_fds];
     fdw->fd_rw[idx] = fdw->fd_rw[fdw->nselect_fds];
@@ -396,7 +408,30 @@ int fdwatch_check_fd(LPFDWATCH fdw, socket_t fd)
 	}
 	int result = 0;
 	if ((fdw->fd_rw[idx] & FDW_READ) && FD_ISSET(fd, &fdw->working_rfd_set)) {
-		result |= FDW_READ;
+		if (fdw->fd_data[idx] != NULL) {
+			char peek_buf;
+			int peek_ret = recv(fd, &peek_buf, 1, MSG_PEEK);
+			if (peek_ret == 0) {
+				result |= FDW_EOF;
+			} else if (peek_ret < 0) {
+#ifdef __WIN32__
+				int wsa_err = WSAGetLastError();
+				if (wsa_err != WSAEWOULDBLOCK && wsa_err != WSAEINTR)
+					result |= FDW_EOF;
+				else
+					result |= FDW_READ;
+#else
+				if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+					result |= FDW_EOF;
+				else
+					result |= FDW_READ;
+#endif
+			} else {
+				result |= FDW_READ;
+			}
+		} else {
+			result |= FDW_READ;
+		}
 	}
 	if ((fdw->fd_rw[idx] & FDW_WRITE) && FD_ISSET(fd, &fdw->working_wfd_set)) {
 		result |= FDW_WRITE;
@@ -447,7 +482,9 @@ int fdwatch_check_event(LPFDWATCH fdw, socket_t fd, unsigned int event_idx)
 		return 0;
 	}
 	int result = fdwatch_check_fd(fdw, fd);
-	if (result & FDW_READ) {
+	if (result & FDW_EOF) {
+		return FDW_EOF;
+	} else if (result & FDW_READ) {
 		return FDW_READ;
 	} else if (result & FDW_WRITE) {
 		return FDW_WRITE;

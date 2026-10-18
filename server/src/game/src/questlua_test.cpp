@@ -8,6 +8,9 @@
 #include "questmanager.h"
 #include "questlua.h"
 #include "packet.h"
+#include "char.h"
+#include "char_manager.h"
+#include "arena.h"
 
 // ==============================================================================
 // METIN2 MT2009 - GAME SERVER LUA QUEST RUNTIME VERIFICATION
@@ -84,6 +87,12 @@ int RunGameQuestRuntimeTests()
 	RUNTIME_ASSERT(!staging_dir.empty(), "Mandatory tests/fixtures directory with questlib.lua must exist");
 	g_stQuestDir = staging_dir;
 	g_stServiceBasePath = staging_dir;
+
+	std::unique_ptr<CArenaManager> local_am;
+	if (CArenaManager::instance_ptr() == nullptr)
+	{
+		local_am = std::make_unique<CArenaManager>();
+	}
 
 	std::unique_ptr<quest::CQuestManager> local_qm;
 	if (quest::CQuestManager::instance_ptr() == nullptr)

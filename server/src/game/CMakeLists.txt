@@ -3,6 +3,9 @@
 # ==============================================================================
 
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    list(FILTER GAME_SOURCES EXCLUDE REGEX ".*FileMonitor_FreeBSD\\.cpp$")
+endif()
 list(APPEND GAME_SOURCES "src/minilzo.c")
 
 add_executable(game ${GAME_SOURCES})
@@ -59,6 +62,7 @@ target_link_libraries(game PRIVATE
     ${GAME_LUA_LIB}
     CryptoPP::CryptoPP
     Database::Client
+    DevIL::IL
 )
 
 set_target_properties(game PROPERTIES
@@ -67,10 +71,9 @@ set_target_properties(game PROPERTIES
 )
 
 if(WIN32)
-    target_link_libraries(game PRIVATE ws2_32)
+    target_link_libraries(game PRIVATE ws2_32 bcrypt)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     target_link_libraries(game PRIVATE
-        DevIL::IL
         pthread
         m
         md
@@ -132,6 +135,7 @@ target_link_libraries(game_lua50 PRIVATE
     lua_lib
     CryptoPP::CryptoPP
     Database::Client
+    DevIL::IL
 )
 
 set_target_properties(game_lua50 PROPERTIES
@@ -140,10 +144,9 @@ set_target_properties(game_lua50 PROPERTIES
 )
 
 if(WIN32)
-    target_link_libraries(game_lua50 PRIVATE ws2_32)
+    target_link_libraries(game_lua50 PRIVATE ws2_32 bcrypt)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     target_link_libraries(game_lua50 PRIVATE
-        DevIL::IL
         pthread
         m
         md

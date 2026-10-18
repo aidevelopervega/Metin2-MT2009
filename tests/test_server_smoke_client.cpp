@@ -975,7 +975,9 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			st.charCreateFailType = pkt[1];
 		} else if (hdr == 7 /* HEADER_GC_LOGIN_FAILURE */) {
 			st.sawLoginFailure = true;
-		} else if (hdr == 113 /* HEADER_GC_MAIN_CHARACTER */) {
+		} else if (hdr == 113 /* HEADER_GC_MAIN_CHARACTER */ ||
+		           hdr == 137 /* HEADER_GC_MAIN_CHARACTER3_BGM */ ||
+		           hdr == 138 /* HEADER_GC_MAIN_CHARACTER4_BGM_VOL */) {
 			SmokePacketGCMainCharacter mc{};
 			std::memcpy(&mc, pkt, sizeof(mc));
 			mc.szName[sizeof(mc.szName) - 1] = '\0';
@@ -983,8 +985,13 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			st.mainVid = mc.dwVID;
 			st.mainRaceNum = mc.wRaceNum;
 			std::snprintf(st.mainName, sizeof(st.mainName), "%s", mc.szName);
-			st.mainX = mc.lx;
-			st.mainY = mc.ly;
+			size_t posOff = 34u;
+			if (hdr == 137)
+				posOff = 59u;
+			else if (hdr == 138)
+				posOff = 63u;
+			std::memcpy(&st.mainX, pkt + posOff, sizeof(int32_t));
+			std::memcpy(&st.mainY, pkt + posOff + 4u, sizeof(int32_t));
 		} else if (hdr == 16 /* HEADER_GC_CHARACTER_POINTS */) {
 			st.sawPoints = true;
 		} else if (hdr == 76 /* HEADER_GC_SKILL_LEVEL */) {
@@ -1003,7 +1010,7 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 		} else if (hdr == 21 /* HEADER_GC_ITEM_SET */) {
 			uint32_t vnum = 0;
 			std::memcpy(&vnum, pkt + 4, sizeof(uint32_t));
-			if (vnum == 19u) {
+			if (vnum == 19u || (vnum != 0u && !st.sawItemSet)) {
 				st.sawItemSet = true;
 				st.item0Vnum = vnum;
 			}
@@ -1205,6 +1212,26 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	if (!send_tea_packet(s, &enterPkt, sizeof(enterPkt), pkt.adwClientKey, "game-entergame")) {
 		CLOSESOCK(s);
 		return 1;
+	}
+
+	const char* realSfEnv = std::getenv("SMOKE_REAL_SERVERFILES");
+	const bool isRealServerfiles = (realSfEnv && std::strcmp(realSfEnv, "1") == 0);
+
+	if (isRealServerfiles) {
+		for (int iter = 0; iter < 80 && !(st.sawPhaseGame && st.sawPcCharAdd && st.sawItemSet); ++iter) {
+			if (!pump_gc_packets(s, st, serverEncKey, 100))
+				break;
+		}
+		if (!st.sawPhaseGame || !st.sawPcCharAdd) {
+			std::fprintf(stderr, "[game-enter-world] FAIL: real serverfiles PHASE_GAME entry failed (sawPhaseGame=%d sawPcAdd=%d sawItemSet=%d rxTotal=%zu)\n",
+				st.sawPhaseGame ? 1 : 0, st.sawPcCharAdd ? 1 : 0, st.sawItemSet ? 1 : 0, st.rxTotal);
+			CLOSESOCK(s);
+			return 1;
+		}
+		std::printf("  [PASS] [game-enter-world] Real serverfiles: SmokeHero entered PHASE_GAME(5) on metin2_map_a1 (vid=%u, pos=%dx%d, sawItemSet=%d, item0Vnum=%u, rxTotal=%zu wire bytes)\n",
+			st.mainVid, st.mainX, st.mainY, st.sawItemSet ? 1 : 0, st.item0Vnum, st.rxTotal);
+		CLOSESOCK(s);
+		return 0;
 	}
 
 	for (int iter = 0; iter < 80 && !(st.sawPhaseGame && st.sawPcCharAdd && st.sawNpcCharAdd && st.sawItemSet && st.sawQuestLoginChat); ++iter) {

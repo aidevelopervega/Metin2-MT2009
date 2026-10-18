@@ -207,9 +207,7 @@ void sys_log(unsigned int bit, const char *format, ...)
 		fflush(log_file_sys->fp);
 	}
 
-#ifndef __WIN32__
 	if (log_level_bits > 1)
-#endif
 	{
 		fprintf(stdout, "%s", sys_log_header_string);
 

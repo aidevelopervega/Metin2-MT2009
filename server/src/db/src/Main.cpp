@@ -695,9 +695,20 @@ int Start()
 void SetTablePostfix(const char* c_pszTablePostfix)
 {
 	if (!c_pszTablePostfix || !*c_pszTablePostfix)
+	{
 		g_stTablePostfix = "";
-	else
-		g_stTablePostfix = c_pszTablePostfix;
+		return;
+	}
+
+	while (*c_pszTablePostfix == ' ' || *c_pszTablePostfix == '\t' || *c_pszTablePostfix == '\r' || *c_pszTablePostfix == '\n')
+		++c_pszTablePostfix;
+
+	g_stTablePostfix = c_pszTablePostfix;
+	while (!g_stTablePostfix.empty() &&
+	       (g_stTablePostfix.back() == ' ' || g_stTablePostfix.back() == '\t' || g_stTablePostfix.back() == '\r' || g_stTablePostfix.back() == '\n'))
+	{
+		g_stTablePostfix.pop_back();
+	}
 }
 
 const char * GetTablePostfix()

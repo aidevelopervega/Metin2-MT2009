@@ -32,6 +32,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     endif()
 elseif(WIN32)
     set(DEVIL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/extern/server/include")
-    # Windows üzerinde game binary derlemesi aşamasında incelenecektir
-    set(DevIL_FOUND TRUE)
+    find_file(DEVIL_LIB
+        NAMES libIL.a
+        PATHS
+            "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib"
+        NO_DEFAULT_PATH
+    )
+    if(DEVIL_LIB)
+        add_library(DevIL::IL UNKNOWN IMPORTED)
+        set_target_properties(DevIL::IL PROPERTIES
+            IMPORTED_LOCATION "${DEVIL_LIB}"
+            INTERFACE_INCLUDE_DIRECTORIES "${DEVIL_INCLUDE_DIR}"
+            INTERFACE_COMPILE_DEFINITIONS "IL_STATIC_LIB"
+        )
+        set(DevIL_FOUND TRUE)
+        message(STATUS "[DevIL] Windows x64 statik IL kütüphanesi bulundu: ${DEVIL_LIB}")
+    else()
+        message(WARNING "[DevIL] Windows x64 libIL.a bulunamadı!")
+    endif()
 endif()

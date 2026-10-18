@@ -16,6 +16,14 @@ int	bCheckpointCheck = 1;
 static int pid_init(void)
 {
 #ifdef __WIN32__
+	remove("./stop_signal");
+	FILE* fp;
+	if ((fp = fopen("pid", "w")))
+	{
+		fprintf(fp, "%d", (int)GetCurrentProcessId());
+		fclose(fp);
+		sys_log(0, "\nStart of pid: %d\n", (int)GetCurrentProcessId());
+	}
 	return true;
 #else
 	FILE*	fp;
@@ -38,7 +46,10 @@ static int pid_init(void)
 static void pid_deinit(void)
 {
 #ifdef __WIN32__
-    return;
+	remove("./pid");
+	remove("./stop_signal");
+	sys_log(0, "\nEnd of pid\n");
+	return;
 #else
     remove("./pid");
 	sys_log(0, "\nEnd of pid\n"); // @warme012
@@ -72,6 +83,20 @@ void thecore_shutdown()
 int thecore_idle(void)
 {
     thecore_tick();
+
+#ifdef __WIN32__
+    if (!shutdowned && (tics % 5) == 0)
+    {
+        FILE* fp_stop = fopen("stop_signal", "r");
+        if (fp_stop)
+        {
+            fclose(fp_stop);
+            remove("stop_signal");
+            shutdowned = TRUE;
+            sys_log(0, "SIGHUP, SIGINT, SIGTERM (stop_signal) has been received. shutting down.");
+        }
+    }
+#endif
 
     if (shutdowned)
 		return 0;

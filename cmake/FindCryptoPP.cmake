@@ -11,13 +11,22 @@ set(CRYPTOPP_INC_DIRS
 )
 
 # 1. Öncelik: GCC 14 ile derlenen yerel 64-bit CryptoPP statik kütüphanesi
-find_file(CRYPTOPP_STATIC_LIB
-    NAMES libcryptopp.a
-    PATHS
-        "${CMAKE_SOURCE_DIR}/extern/server/cryptopp"
-        "${CMAKE_SOURCE_DIR}/extern/server/lib"
-    NO_DEFAULT_PATH
-)
+if(WIN32)
+    find_file(CRYPTOPP_STATIC_LIB
+        NAMES libcryptopp.a
+        PATHS
+            "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib"
+        NO_DEFAULT_PATH
+    )
+else()
+    find_file(CRYPTOPP_STATIC_LIB
+        NAMES libcryptopp.a
+        PATHS
+            "${CMAKE_SOURCE_DIR}/extern/server/cryptopp"
+            "${CMAKE_SOURCE_DIR}/extern/server/lib"
+        NO_DEFAULT_PATH
+    )
+endif()
 
 if(NOT CRYPTOPP_STATIC_LIB AND CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND EXISTS "${CMAKE_SOURCE_DIR}/extern/server/cryptopp/GNUmakefile")
     message(STATUS "[CryptoPP] libcryptopp.a bulunamadı, GCC 14 ile derleniyor...")
@@ -43,6 +52,16 @@ if(CRYPTOPP_STATIC_LIB)
     )
     set(CryptoPP_FOUND TRUE)
     message(STATUS "[CryptoPP] GCC ile derlenmiş yerel CryptoPP bulundu: ${CRYPTOPP_STATIC_LIB} (Pure libstdc++)")
+elseif(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/extern/server/cryptopp/cryptlib.cpp")
+    file(GLOB CRYPTOPP_WIN_SRCS "${CMAKE_SOURCE_DIR}/extern/server/cryptopp/*.cpp")
+    list(FILTER CRYPTOPP_WIN_SRCS EXCLUDE REGEX ".*/(adhoc|test|bench[0-9]*|datatest|dlltest|fipsalgt|validat[0-9]*|regtest[0-9]*|pch|arm_.*|ppc_.*|neon_.*|sse_.*|.*_sse|.*_avx|.*_ppc|.*_simd)\\.cpp$")
+    add_library(cryptopp_bundled STATIC ${CRYPTOPP_WIN_SRCS})
+    target_include_directories(cryptopp_bundled PUBLIC "${CRYPTOPP_INC_DIRS}" "${CMAKE_SOURCE_DIR}/extern/server/cryptopp")
+    target_compile_definitions(cryptopp_bundled PUBLIC CRYPTOPP_DISABLE_ASM NDEBUG)
+    target_compile_options(cryptopp_bundled PRIVATE -O2 -w -fexceptions)
+    add_library(CryptoPP::CryptoPP ALIAS cryptopp_bundled)
+    set(CryptoPP_FOUND TRUE)
+    message(STATUS "[CryptoPP] Windows x64 kaynak tabanlı statik CryptoPP hedefi yapılandırıldı (cryptopp_bundled).")
 endif()
 
 if(NOT CryptoPP_FOUND)

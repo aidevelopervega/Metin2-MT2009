@@ -1,4 +1,4 @@
-# Rev 48: Zero-data fresh server bootstrap (clean SQL schemas, db_r41023 --create-account Argon2id CLI, empire/character creation, PHASE_GAME, restart persistence)
+# Rev 49: Real Windows x64 + FreeBSD 15.1 x64 serverfiles installation, zero-syserr startup/shutdown, PHASE_GAME & restart persistence
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -12,6 +12,9 @@ on:
       - 'CMakePresets.json'
       - 'cmake/**'
       - 'server/CMakeLists.txt'
+      - 'server/scripts/**'
+      - 'server/serverfiles_share.tar.xz'
+      - 'share/**'
       - 'tests/**'
       - 'server/src/libpoly/**'
       - 'server/src/libgame/**'
@@ -68,7 +71,7 @@ jobs:
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           release: "15.1"
-          copyback: false
+          copyback: true
           disable-cache: true
           token: ''
           prepare: |
@@ -253,10 +256,25 @@ jobs:
 
               mariadb --socket="$SOCKET_PATH" -u root -e "
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
+                CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS log CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS player CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS world CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
                 CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
                 GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
                 GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'localhost';
                 FLUSH PRIVILEGES;
               "
             elif [ "$ENGINE_ID" = "mysql84" ]; then
@@ -285,10 +303,25 @@ jobs:
 
               mysql --socket="$SOCKET_PATH" -u root -e "
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
+                CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS log CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS player CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+                CREATE DATABASE IF NOT EXISTS world CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY 'mt2pass';
                 CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY 'mt2pass';
                 GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
                 GRANT ALL PRIVILEGES ON mt2_testdb.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON account.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON common.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON log.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON player.* TO 'mt2test'@'localhost';
+                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'127.0.0.1';
+                GRANT ALL PRIVILEGES ON world.* TO 'mt2test'@'localhost';
                 FLUSH PRIVILEGES;
               "
             fi
@@ -309,7 +342,29 @@ jobs:
             chmod +x ./tests/run_server_smoke_test.sh
             ./tests/run_server_smoke_test.sh
 
-            # Sunucuyu Temiz Kapatma
+            # Rev 49: Gerçek FreeBSD 15.1 Serverfiles (/usr/home/mt2) 8 Servis (db, auth, ch11..ch01), 0 syserr, PHASE_GAME ve Restart Kalıcılık Doğrulaması
+            chmod +x ./tests/run_freebsd_serverfiles_test.sh
+            ENGINE_ID="$ENGINE_ID" ./tests/run_freebsd_serverfiles_test.sh
+
+            # Sunucuyu Temiz Kapatma ve copyback Öncesi Ağır Derleme Çıktılarını Temizleme
             kill $SERVER_PID || true
             wait $SERVER_PID 2>/dev/null || true
-            echo "--> $ENGINE_NAME sunucusu temiz şekilde kapatıldı."
+            rm -rf build tests/build \
+              server/src/db/db_r* server/src/db/src/.obj \
+              server/src/game/game_r* \
+              server/src/libthecore/lib server/src/libthecore/src/*.o \
+              server/src/libpoly/libpoly.a server/src/libpoly/*.o \
+              server/src/libsql/libsql.a server/src/libsql/*.o \
+              server/src/libgame/lib server/src/libgame/src/*.o \
+              server/src/liblua/5.0/lib server/src/liblua/5.0/src/*.o server/src/liblua/5.0/src/lib/*.o \
+              server/src/liblua/5.5/src/liblua.a server/src/liblua/5.5/src/*.o \
+              extern/server/cryptopp/libcryptopp.a extern/server/cryptopp/*.o
+            echo "--> $ENGINE_NAME sunucusu temiz şekilde kapatıldı ve serverfiles logları artifacts/ dizinine hazırlandı."
+
+      - name: Upload FreeBSD Serverfiles Logs (syserr, syslog, status)
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: freebsd-serverfiles-logs-${{ matrix.engine_id }}
+          path: artifacts/freebsd_serverfiles_logs_${{ matrix.engine_id }}/
+          if-no-files-found: warn
