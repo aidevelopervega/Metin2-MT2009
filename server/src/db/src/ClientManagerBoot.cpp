@@ -1713,9 +1713,9 @@ bool CClientManager::MirrorItemTableIntoDB()
 				"%u, %u, %u, \"%s\", \"%s\", %lld, %lld, %u, %u, " //11
 				"%u, %u, %u, %u, " //15
 				"%u, %d, %u, %u, %d, " //20
-				"%u, %ld, %u, %ld, " //24
-				"%u, %ld, %u, %ld, %u, %ld, " //30
-				"%ld, %ld, %ld, %ld, %ld, %ld )", //36
+				"%u, %d, %u, %d, " //24
+				"%u, %d, %u, %d, %u, %d, " //30
+				"%d, %d, %d, %d, %d, %d )", //36
 				GetTablePostfix(), g_stLocaleNameColumn.c_str(), //2
 				t.dwVnum, t.bType, t.bSubType, t.szName, t.szLocaleName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize, //11
 				t.dwFlags, t.dwWearFlags, t.dwAntiFlags, t.dwImmuneFlag, //15
@@ -1741,9 +1741,9 @@ bool CClientManager::MirrorItemTableIntoDB()
 				"%d, %d, %d, \"%s\", %lld, %lld, %d, %d, "
 				"%d, %d, %d, %d, "
 				"%d, %d, %d, %d, %d, "
-				"%d, %ld, %d, %ld, "
-				"%d, %ld, %d, %ld, %d, %ld, "
-				"%ld, %ld, %ld, %ld, %ld, %ld )",
+				"%d, %d, %d, %d, "
+				"%d, %d, %d, %d, %d, %d, "
+				"%d, %d, %d, %d, %d, %d )",
 				GetTablePostfix(),
 				t.dwVnum, t.bType, t.bSubType, t.szName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize,
 				t.dwFlags, t.dwWearFlags, t.dwAntiFlags, t.dwImmuneFlag,

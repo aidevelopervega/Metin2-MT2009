@@ -83,9 +83,9 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 			"y = %d, "
 			"z = %d, "
 			"map_index = %d, "
-			"exit_x = %ld, "
-			"exit_y = %ld, "
-			"exit_map_index = %ld, "
+			"exit_x = %d, "
+			"exit_y = %d, "
+			"exit_map_index = %d, "
 			"hp = %d, "
 			"mp = %d, "
 			"stamina = %d, "
@@ -112,7 +112,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 			#endif
 			"last_play = NOW(), "
 			"skill_group = %d, "
-			"alignment = %ld, "
+			"alignment = %d, "
 			"horse_level = %d, "
 			"horse_riding = %d, "
 			"horse_hp = %d, "
@@ -1348,7 +1348,7 @@ void CClientManager::QUERY_ADD_AFFECT(CPeer * peer, TPacketGDAddAffect * p)
 	   */
 	snprintf(queryStr, sizeof(queryStr),
 			"REPLACE INTO affect%s (dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum) "
-			"VALUES(%u, %u, %u, %ld, %u, %ld, %ld, %u)",
+			"VALUES(%u, %u, %u, %d, %u, %d, %d, %u)",
 			GetTablePostfix(),
 			p->dwPID,
 			p->elem.dwType,

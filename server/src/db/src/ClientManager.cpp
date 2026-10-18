@@ -730,14 +730,14 @@ void CClientManager::QUERY_QUEST_SAVE(CPeer * pkPeer, TQuestTable * pTable, DWOR
 		if (pTable->lValue == 0)
 		{
 			snprintf(szQuery, sizeof(szQuery),
-					"DELETE FROM quest%s WHERE dwPID=%d AND szName='%s' AND szState='%s'",
-					GetTablePostfix(), pTable->dwPID, pTable->szName, pTable->szState);
+					"DELETE FROM quest%s WHERE dwPID=%u AND szName='%s' AND szState='%s'",
+					GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), pTable->szName, pTable->szState);
 		}
 		else
 		{
 			snprintf(szQuery, sizeof(szQuery),
-					"REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%d, '%s', '%s', %ld)",
-					GetTablePostfix(), pTable->dwPID, pTable->szName, pTable->szState, pTable->lValue);
+					"REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%u, '%s', '%s', %d)",
+					GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), pTable->szName, pTable->szState, pTable->lValue);
 		}
 
 		CDBManager::instance().ReturnQuery(szQuery, QID_QUEST_SAVE, pkPeer->GetHandle(), NULL);
@@ -4631,23 +4631,23 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 	{
 		if (packet->lAmount >= 0)
 		{
-			sprintf(szQuery, "update account set `cash` = `cash` + %ld where id = %d limit 1", packet->lAmount, packet->dwAID);
+			sprintf(szQuery, "update account set `cash` = `cash` + %d where id = %u limit 1", packet->lAmount, static_cast<unsigned int>(packet->dwAID));
 		}
 		else
 		{
-			sprintf(szQuery, "update account set `cash` = `cash` + %ld, `cash_mark` = `cash_mark` + %d where id = %d limit 1", packet->lAmount, abs(packet->lSecondAmount), packet->dwAID);
+			sprintf(szQuery, "update account set `cash` = `cash` + %d, `cash_mark` = `cash_mark` + %d where id = %u limit 1", packet->lAmount, abs(packet->lSecondAmount), static_cast<unsigned int>(packet->dwAID));
 		}
 	}
 	else if (ERequestCharge_Marks == packet->eChargeType)
-		sprintf(szQuery, "update account set `cash_mark` = `cash_mark` + %ld where id = %d limit 1", packet->lAmount, packet->dwAID);
+		sprintf(szQuery, "update account set `cash_mark` = `cash_mark` + %d where id = %u limit 1", packet->lAmount, static_cast<unsigned int>(packet->dwAID));
 	else
 	{
-		sys_err("Invalid request charge type (type : %d, amount : %ld, aid : %d)", packet->eChargeType, packet->lAmount, packet->dwAID);
+		sys_err("Invalid request charge type (type : %d, amount : %d, aid : %u)", packet->eChargeType, packet->lAmount, static_cast<unsigned int>(packet->dwAID));
 		return;
 	}
 	
 	if (g_test_server)
-		sys_err("Request Charge (type : %d, amount : %ld, aid : %d)", packet->eChargeType, packet->lAmount, packet->dwAID);
+		sys_err("Request Charge (type : %d, amount : %d, aid : %u)", packet->eChargeType, packet->lAmount, static_cast<unsigned int>(packet->dwAID));
 	
 	CDBManager::Instance().AsyncQuery(szQuery, SQL_ACCOUNT);
 }
