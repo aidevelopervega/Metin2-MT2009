@@ -1,4 +1,4 @@
-# Rev 47: Hardened account & password security (Argon2id transparent upgrade, rate limiting, CSPRNG LoginKeys, single-use LoginByKey, DESC::SetLoginKey fix)
+# Rev 47: Hardened account & password security (Argon2id transparent upgrade, rate limiting, CSPRNG LoginKeys, single-use LoginByKey, ROOT_DIR fix)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 

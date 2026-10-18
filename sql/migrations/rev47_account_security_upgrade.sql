@@ -27,8 +27,10 @@ ALTER TABLE `account`
   MODIFY COLUMN `shop_expire` datetime NOT NULL DEFAULT current_timestamp();
 
 -- =============================================================================
--- ROLLBACK PROCEDURE (Manual Execution Only if Emergency Rollback Required):
---   UPDATE `account` a
---   INNER JOIN `account_rev47_backup` b ON a.`id` = b.`id`
---   SET a.`password` = b.`password`;
+-- ROLLBACK & PRODUCTION SAFETY POLICY:
+--   1. Never narrow `account`.`password` back to VARCHAR(45); preserve VARCHAR(255)
+--      so 97-character Argon2id PHC hashes are never truncated.
+--   2. Never run automatic or blind bulk UPDATE from `account_rev47_backup`
+--      (and never auto-restore legacy SHA-1 hashes based on `last_play`), as
+--      live accounts may have upgraded to Argon2id or changed passwords.
 -- =============================================================================

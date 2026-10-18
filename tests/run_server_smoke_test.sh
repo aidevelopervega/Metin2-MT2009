@@ -1178,7 +1178,7 @@ VALUES (1, '$SMOKE_TEST_LOGIN', 'SmokeHero', '127.0.0.1', 'ALL', 'IMPLEMENTOR');
 EOF
 
 # Execute non-destructive Rev 47 SQL migration script (widens account.password VARCHAR(45) -> VARCHAR(255) & creates account_rev47_backup)
-"$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$REPO_ROOT/sql/migrations/rev47_account_security_upgrade.sql"
+"$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$ROOT_DIR/sql/migrations/rev47_account_security_upgrade.sql"
 
 PASS_COL_LEN=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='$DB' AND TABLE_NAME='account' AND COLUMN_NAME='password';")
 BACKUP_ROWS=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM account_rev47_backup;")
@@ -1534,7 +1534,7 @@ EOF
     echo "  [PASS] $STAGE_TAG $LABEL migration ön koşulu doğrulandı: VARCHAR(45) (<128) sütununda eski hesap bozulmadan korundu ve giriş başarılı oldu."
 
     # Apply rev47 migration to widen account.password to VARCHAR(255)
-    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$REPO_ROOT/sql/migrations/rev47_account_security_upgrade.sql"
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" < "$ROOT_DIR/sql/migrations/rev47_account_security_upgrade.sql"
 
     # 3b. Legacy account compatibility & transparent atomic upgrade to Argon2id on successful login
     if ! "$BUILD_DIR/test_server_smoke_client" --auth-login "$AUTH_PORT" "smklegacy" "password" "$SMOKE_HWID_HEX" "$LEGACY_KEY_FILE"; then

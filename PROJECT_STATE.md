@@ -1307,6 +1307,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * CI Run ID **39056319440** (Rev 46 / Commit `3eb35d5d0954b544ad86806bd579204ee8959630`): **3/3 MATRİS İŞİ (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) %100 `SUCCESS`** — Hem `game_r41023` (Lua 5.5.1 Default) hem `game_r41023_lua50` (Lua 5.0.3 Rollback) ile gerçek `db_r41023`, `AUTH_SERVER`, `LoginByKey -> PHASE_SELECT -> PHASE_LOADING -> PHASE_GAME` ve NPC `20016` coroutine (`wait -> select -> input` + SQL quest kaydı) doğrulandı.
   * CI Run ID **39079851554** (Rev 47 / Commit `22110a970fd6d8e637d29671fabc703ff72d2e0f`): Üç FreeBSD 15.1 matris işinde de `test_auth_security` **410/410 PASS** ve gerçek FreeBSD Argon2id performansı (`m=19456 KiB, t=2, p=1`: `hash=32649 us [32.6 ms], verify=23594 us [23.6 ms], len=97`) doğrulandı.
   * CI Run ID **39080977681** (Rev 47 / Commit `4c14c94af7f7fb1f6bdd50eecaca334d12885094`): Üç FreeBSD 15.1 matris işinde de `tests/run_tests.sh` (`test_auth_security` **410/410 PASS**), klasik `gmake -C server/src/libthecore/src`, klasik `gmake -C server/src/db/src` (`db_r41023` derlemesi) ve `tests/run_db_integration_tests.sh` (**140/140 PASS**) tamamen başarılı geçti; CMake `[233/553]` adımındaki `desc_manager.cpp:545` `DESC::m_pkLoginKey` `protected` erişim hatası tespit edilip `DESC::SetLoginKey(CLoginKey*)` içine taşınarak düzeltildi.
+  * CI Run ID **39085489126** (Rev 47 / Commit `f8dfcb75dc25a5a875b16680eb03f17e77aa7d95`): `tests/run_tests.sh` (`test_auth_security` **410/410 PASS**), klasik `gmake` (`libthecore`, `db_r41023`), `tests/run_db_integration_tests.sh` (**140/140 PASS**), CMake + Ninja **`[553/553]` tam derleme** (`game_r41023`, `game_r41023_lua50`, `db_r41023`), `ctest --preset freebsd-gcc14` (**14/14 PASS**) ve `tests/run_live_db_tests.sh` (**113/113 PASS**) tamamen başarılı geçti; `tests/run_server_smoke_test.sh` içindeki tanımsız `$REPO_ROOT` değişkeni `$ROOT_DIR` olarak düzeltildi.
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — CI haricinde doğrudan erişilebilir kalıcı bir FreeBSD VM Git sunucusu mevcut değildir).
 
 ---
@@ -1332,7 +1333,7 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 47: CI `39080977681` üzerinde klasik `libthecore` ve `db_r41023` derlemesi + `140/140` DB entegrasyon testi doğrulandıktan sonra CMake `[233/553]` adımındaki `desc_manager.cpp:545` `DESC::m_pkLoginKey` `protected` erişim hatası `DESC::SetLoginKey(CLoginKey*)` içine taşınarak giderildi ve tüm 6 `server/src/game/src/*.cpp` dosyası `-fsyntax-only` ile doğrulandı.
+* **Aktif Görev:** Rev 47: CI `39085489126` üzerinde FreeBSD CMake `[553/553]` (`game_r41023`, `game_r41023_lua50`, `db_r41023`), `ctest 14/14`, `run_db_integration_tests.sh 140/140` ve `run_live_db_tests.sh 113/113` doğrulandıktan sonra `tests/run_server_smoke_test.sh` içindeki `$REPO_ROOT` -> `$ROOT_DIR` yolu ve `sql/migrations/rev47_account_security_upgrade.sql` güvenli rollback politikası düzeltildi.
 * **Sıradaki Güvenli Adım:**
    1. Yeni Rev 47 CI koşusunu kontrol ederek üç FreeBSD veritabanı matrisinde (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) tam `3/3 SUCCESS` sonucunu doğrulamak ve Rev 47'yi kapatmak.
 
