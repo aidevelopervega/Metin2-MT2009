@@ -542,11 +542,8 @@ DWORD DESC_MANAGER::CreateLoginKey(LPDESC d)
 {
 	DWORD dwKey = 0;
 
-	if (d && d->m_pkLoginKey)
-	{
-		d->m_pkLoginKey->Expire();
-		d->m_pkLoginKey = NULL;
-	}
+	if (!d)
+		return 0;
 
 	do
 	{

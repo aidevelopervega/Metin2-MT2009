@@ -998,6 +998,8 @@ void DESC::SetLoginKey(DWORD dwKey)
 
 void DESC::SetLoginKey(CLoginKey * pkKey)
 {
+	if (m_pkLoginKey)
+		m_pkLoginKey->Expire();
 	m_pkLoginKey = pkKey;
 	sys_log(0, "SetLoginKey ***MASKED***");
 }
