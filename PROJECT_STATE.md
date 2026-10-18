@@ -99,10 +99,10 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
     * `libsql`: **141/141 test başarılı**
     * **Toplam:** **290/290 test başarılı (%100)**.
   * **Gerçek Canlı Veritabanı Entegrasyon Testleri (Aşama 11.2 - tests/test_live_db.cpp):**
-    * **Hedef Motorlar ve Kararlı Sürümler:**
-      * **Oracle MySQL 8.4 LTS:** Sürüm 8.4.11 GA (Birincil MySQL hedefi).
-      * **MariaDB 12.3 LTS:** Sürüm 12.3.3 GA (Birincil MariaDB hedefi).
-      * **MariaDB 11.4 LTS:** Sürüm 11.4.13 GA (Geriye dönük uyumluluk hedefi).
+    * **Hedef Motorlar ve Kararlı Sürümler (Kalıcı Proje Standardı):**
+      * **MariaDB 12.3 LTS:** Sürüm 12.3.3 GA (**Ana veritabanı**).
+      * **Oracle MySQL 8.4 LTS:** Sürüm 8.4.11 GA (**Desteklenen alternatif**).
+      * *(Tarihsel Not: MariaDB 11.4.13 LTS Rev 16–Rev 49 arasında doğrulanmış olup, kalıcı proje kararıyla zorunlu destek ve CI test matrisinden çıkarılmıştır).*
     * **64-Bit Connector & MinGW Entegrasyonu:**
       * MariaDB Connector/C 3.4.10 64-bit DLL'den `gendef` + `dlltool` ile üretilen yerel `libmariadb.a` import kütüphanesi bağlandı.
       * Oracle MySQL C API 8.4.11 64-bit DLL'den `gendef` + `dlltool` ile üretilen yerel `libmysql.a` import kütüphanesi bağlandı.
@@ -164,8 +164,11 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme yapılacağı zaman karşılanması **zorunlu başarı ve kabul şartlarını** belirler:
 
-1. **Çift Motor Zorunluluğu:**
-   * Proje, mevcut en güncel kararlı **MySQL** ve **MariaDB** sürümlerinin **HER İKİSİNİ DE** gerçek anlamda ve eksiksiz desteklemelidir. Yalnızca birini desteklemek yeterli değildir.
+1. **Çift Motor Zorunluluğu (MariaDB 12.3 LTS & MySQL 8.4 LTS):**
+   * Proje yalnızca iki resmi hedef veritabanı motorunu zorunlu destek ve test matrisinde bulundurur:
+     1. **MariaDB 12.3 LTS** — Ana veritabanı.
+     2. **MySQL 8.4 LTS** — Desteklenen alternatif.
+   * **MariaDB 11.4 LTS** artık zorunlu destek ve test matrisinde yer almamaktadır.
 2. **Kapsam:**
    * `libsql` bağlantı katmanı ve tüm ilgili istemci kütüphaneleri.
    * `db` sunucusundaki veritabanı işlemleri ve sorgular.
@@ -174,7 +177,7 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
    * Gerekli diğer sunucu kaynak kodları, yapılandırmalar ve veri dönüşüm mekanizmaları.
 3. **Kesin Kabul Kriterleri ve Kurallar:**
    * **SQL Mode Dokunulmazlığı:** SQL mode (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`, `ONLY_FULL_GROUP_BY` vb.) devre dışı bırakılamaz veya uyumluluk sağlamak için gevşetilemez.
-   * **Hata Gizleme Yasağı:** `INSERT IGNORE`, `UPDATE IGNORE` ve benzeri hatayı gizleyen yaklaşımlar çözüm kabul edilmez. SQL hataları sessizce yok sayılamaz.
+   * **Hata Gizleme Yasağı:** `INSERT IGNORE`, `UPDATE IGNORE` ve benzeri hatayı gizleyen yaklaşımlar çözüm kabul edilemez. SQL hataları sessizce yok sayılamaz.
    * **Kök Neden Çözümü:** Uyumsuzlukların kök nedenleri kalıcı şekilde düzeltilmelidir. Uyarı veya hataları gizlemek için geçici hileler uygulanmamalıdır.
    * **Açık Uyumluluk Katmanı:** MySQL ve MariaDB arasındaki gerçek sözdizimi veya davranış farkları gerektiğinde açık ve test edilebilir uyumluluk katmanlarıyla çözülmelidir.
    * **Veri Tipi ve Şema Standartları:** Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`, `DEFAULT`, tarih/saat alanları, karakter setleri (`utf8mb4`), collation ve transaction davranışları titizlikle incelenmeli ve tam uyumlu hale getirilmelidir.
@@ -182,18 +185,13 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
    * **Çift Senaryo Doğrulaması:** Hem sıfırdan kurulum hem de mevcut veritabanını yükseltme (migration) test edilmelidir.
    * **Bütünsel Değerlendirme:** SQL dosyaları ile `libsql`, `db` ve `game` kaynak kodları birlikte değerlendirilmelidir.
    * **Platform Uyumluluğu:** Windows amd64 ve FreeBSD amd64 GCC uyumluluğu korunmalıdır.
-   * **Gerçek Test Doğrulaması:** İki veritabanında da (güncel MySQL ve güncel MariaDB) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
-   * **Resmî Hedef Sürümler (2026 Doğrulaması):**
-     * **Oracle MySQL:**
-       * **MySQL 8.4 LTS:** Nisan 2024 GA (Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032).
-       * **MySQL 9.7 LTS:** Nisan 2026 GA (2026 yılı güncel LTS sürümü).
-       * **MySQL 26.7 Innovation:** Temmuz 2026 GA (CalVer YY.M takvimli güncel kararlı üretim sürümü).
-       * (Not: Eski MySQL 8.0 desteği Nisan 2026'da sona ermiştir).
+   * **Gerçek Test Doğrulaması:** İki hedef veritabanında da (**MariaDB 12.3 LTS** ve **MySQL 8.4 LTS**) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
+   * **Resmî Hedef Sürümler (Kalıcı Proje Standardı):**
      * **MariaDB Foundation:**
-       * **MariaDB 11.4 LTS:** Mayıs 2024 GA (Destek: Mayıs 2029).
-       * **MariaDB 12.3 LTS:** Mayıs 2026 GA (Destek: Haziran 2029, güncel LTS kararlı sürüm 12.3.3).
-       * **MariaDB 13.0 Stable:** Eylül 2026 GA (Rolling kararlı sürüm 13.0.2).
-       * **MariaDB 10.11 LTS:** Geriye dönük desteklenen LTS sürümü (Destek: Şubat 2028).
+       * **MariaDB 12.3 LTS:** Ana veritabanı (Mayıs 2026 GA, Destek: Haziran 2029, kararlı sürüm 12.3.3).
+     * **Oracle MySQL:**
+       * **MySQL 8.4 LTS:** Desteklenen alternatif (Nisan 2024 GA, Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032, kararlı sürüm 8.4.11).
+     * *(Not: MariaDB 11.4 LTS artık zorunlu destek ve CI test matrisinde yer almamaktadır).*
    * **Körlemesine Dönüşüm Yasağı ve Veri Koruma Standartları:**
      * **Karakter Seti (Charset/Collation):** Tablolar körlemesine `utf8mb4`'e çevrilemez. Metin2 32-bit Windows istemcisi sabit uzunluklu ANSI codepage (`char name[24]` vb.) gönderdiğinden, sunucu `CONFIG` locale (`g_stLocale`: `latin1`, `cp1250`) yapısı korunmalıdır.
      * **Sıfır Tarihler (Zero-Date):** `account.shop_expire`, `player.change_empire.last_time`, `log.log_commands.date` ve `BanManager.cpp:34` sıfır tarihleri körlemesine `NULL` yapılmaz; `UNIX_TIMESTAMP`, `str_to_number` ve tablo kullanım anlamları korunarak katı moda (`NO_ZERO_DATE`) uyumlu hale getirilir.
@@ -1338,13 +1336,14 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
         * **4. Windows x64 (`D:\mt22009\server\files`) ve FreeBSD 15.1 x64 (`/usr/home/mt2`) Gerçek Serverfiles Doğrulaması:**
           * `server/scripts/windows/{start.ps1,stop.ps1,status.ps1}` ve `server/scripts/freebsd/{start.sh,stop.sh,status.sh}` yönetim betikleri ile `tests/run_freebsd_serverfiles_test.sh` oluşturuldu.
           * Windows x64 üzerinde 9 servis (`mysql :3306`, `db :18000`, `auth :17105`, `ch11 :28000`, `ch12 :28001`, `ch13 :28002`, `ch99 :13099`, `ch00 :13088`, `ch01 :13098`) **0 `syserr`** ile başlatıldı; `win64hero` Argon2id hesabı -> İmparatorluk 1 -> `SmokeHero` karakter oluşturma -> `PHASE_GAME` (`metin2_map_a1`, `give_basic_weapon.start` başlangıç silahı `vnum=10`) -> zarif `stop.ps1` (`0 syserr`) -> `start.ps1` (`0 syserr`) -> kalıcı `SmokeHero` ile yeniden `PHASE_GAME` girişi %100 doğrulandı.
+          * **Kalıcı Veritabanı Standardı ve CI Matris Düzenlemesi:** Kalıcı proje kararıyla desteklenen veritabanları **MariaDB 12.3 LTS** (ana veritabanı) ve **MySQL 8.4 LTS** (desteklenen alternatif) olarak sabitlendi; `MariaDB 11.4 LTS` `.github/workflows/freebsd-gcc-test.yml` CI matrisinden çıkarıldı (`social_id` varsayılanı `'1234567'`, SQL şemaları, Lua yapılandırması ve istemci dosyaları aynen korundu).
 
 ---
 
 ## 7. ÇOKLU ORTAM SENKRONİZASYON DURUMU (AGENTS.md Madde 9)
 
 * **1. Windows Yerel Geliştirme Ortamı (`D:\mt22009`):** Güncel, `cmake --build --preset windows-gcc-ucrt` (`db_r41023.exe`, `game_r41023.exe`, `game_r41023_lua50.exe`), `ctest --preset windows-gcc-ucrt` **14/14 PASS**, `tests/run_tests.ps1` (**423/423 assertion** dahil tüm birim/entegrasyon testleri) ve `D:\mt22009\server\files` gerçek 8-servis + MariaDB kurulumu (`0 syserr`, `PHASE_GAME` + restart persistence) %100 PASS.
-* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 48 (`4d9171b73b065b28f59e553aa57996322015cd3a`) CI `39120190223` `3/3 SUCCESS` doğrulandı; Rev 49 değişiklikleri commit ve push edilerek FreeBSD 15.1 CI üzerinde doğrulanacak.
+* **2. GitHub Uzak Depo (`origin/dev/windows-gcc-baseline` = `aidevelopervega/Metin2-MT2009`; AGENTS.md `x64bit-source` adını yazıyor, kullanıcı onayı olmadan değiştirilmedi):** Rev 48 (`4d9171b73b065b28f59e553aa57996322015cd3a`) CI `39120190223` `3/3 SUCCESS` doğrulandı; Rev 49 CI `39139434124` (`3d6780a58f1d823b83721e2019cca303041c712b`) üzerinde `MariaDB 12.3 LTS` (`117710614716`) tüm 6 aşamayı `0 syserr` ve 44 log dosyası (`freebsd-serverfiles-logs-mariadb123`) ile **SUCCESS** tamamladı; `CInputDB::QuestLoad` (`89435adcccd05acd3cb33a85d6702d5f357c88ac`) düzeltmesi CI `39141893962` üzerinde çalışmakta ve 2-motorlu (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) kalıcı CI matrisi aktif edildi.
 * **3. GitHub Actions FreeBSD 15.1 CI Ortamı:** Ephemeral (geçici temiz sanal makine checkout'u + `freebsd-serverfiles-logs-*` CI artifact kaydı).
   * CI Run ID **38436002336** (Rev 31): **3/3 MATRİS İŞİ %100 BAŞARIYLA TAMAMLANDI**.
   * CI Run ID **38627313843** (Rev 39 / Commit `a6333936b82819ecbc1c9d7e86832dd5a5ce13a7`): Hem `game_r41023 --check-lua` (Lua 5.0.3) hem `game_r41023_lua55 --check-lua` (Lua 5.5.1) **11/11 PASS (exit code 0)**, CMake + Ninja `[541/541]` hedef derlemesi ve `ctest --preset freebsd-gcc14` **13/13 PASS (0.09s)** kanıtlandı.
@@ -1352,6 +1351,8 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
   * CI Run ID **39056319440** (Rev 46 / Commit `3eb35d5d0954b544ad86806bd579204ee8959630`): **3/3 MATRİS İŞİ (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) %100 `SUCCESS`**.
   * CI Run ID **39086757830** (Rev 47 / Commit `be3b58b98d16d2dcee53af19623ca3875ab6ccfb`): **3/3 MATRİS İŞİ (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) %100 `SUCCESS`**.
   * CI Run ID **39120190223** (Rev 48 / Commit `4d9171b73b065b28f59e553aa57996322015cd3a`): **3/3 MATRİS İŞİ (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) %100 `SUCCESS`** — Boş SQL -> Argon2id hesap -> İmparatorluk/karakter oluşturma -> `PHASE_GAME` -> sunucu yeniden başlatma -> kalıcı karakterle tekrar giriş doğrulandı.
+  * CI Run ID **39139434124** (Rev 49 / Commit `3d6780a58f1d823b83721e2019cca303041c712b`): `FreeBSD 15.1 - MariaDB 12.3 LTS` (`117710614716`) ve `FreeBSD 15.1 - MariaDB 11.4 LTS` (`117710614928`) **SUCCESS** (6/6 aşama `0 syserr`, 44 log dosyası `freebsd-serverfiles-logs-*` artifact yüklendi).
+  * CI Run ID **39141893962** (Rev 49 / Commit `89435adcccd05acd3cb33a85d6702d5f357c88ac`): `CInputDB::QuestLoad` `dwCount == 0` düzeltmesiyle çalışıyor (`RUNNING` — iptal edilmedi).
 * **4. Kalıcı FreeBSD VM Git Deposu:** Bulunmamaktadır (Dürüst Durum: **UNKNOWN / EPHEMERAL** — Kullanıcı talimatıyla yerel VirtualBox/VM indirilmemiş, FreeBSD 15.1 serverfiles kurulum ve `syserr`/`syslog` doğrulaması GitHub Actions FreeBSD 15.1 CI ortamı ve CI artifact çıktıları üzerinden yürütülmektedir).
 
 ---
@@ -1377,6 +1378,6 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** Rev 49: Windows x64 ve FreeBSD 15.1 x64 üzerinde gerçek MT2009 serverfiles (`db`, `auth`, `ch11`, `ch12`, `ch13`, `ch99`, `ch00`, `ch01`) kurulumu, 0 `syserr` açılış/kapanış doğrulaması, uçtan uca `PHASE_GAME` + restart kalıcılığı ve CI log artifact yüklemesi.
+* **Aktif Görev:** Rev 49: Windows x64 ve FreeBSD 15.1 x64 üzerinde gerçek MT2009 serverfiles (`db`, `auth`, `ch11`, `ch12`, `ch13`, `ch99`, `ch00`, `ch01`) kurulumu, 0 `syserr` açılış/kapanış doğrulaması, uçtan uca `PHASE_GAME` + restart kalıcılığı, CI log artifact yüklemesi ve kalıcı 2-motorlu (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) CI matris standardı.
 * **Sıradaki Güvenli Adım:**
-   1. Rev 49 değişikliklerini `dev/windows-gcc-baseline` dalında commit ve push ederek üç FreeBSD veritabanı matrisinde (`MySQL 8.4 LTS`, `MariaDB 12.3 LTS`, `MariaDB 11.4 LTS`) gerçek serverfiles kurulumunu ve `0 syserr` sonuçlarını doğrulamak.
+   1. İki motorlu (`FreeBSD 15.1 - MariaDB 12.3 LTS` ve `FreeBSD 15.1 - MySQL 8.4 LTS`) FreeBSD 15.1 CI koşusunun tamamlanmasını doğrulayarak Rev 49'u kapatmak.

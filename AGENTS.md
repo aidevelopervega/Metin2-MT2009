@@ -69,8 +69,11 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 
 Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve `game` sunucuları ile SQL şemaları için **kesin ve değişmez standartları** belirler.
 
-1. **Çift Motor Zorunluluğu (MySQL & MariaDB):**
-   * Proje, mevcut en güncel kararlı **MySQL** ve **MariaDB** sürümlerinin **HER İKİSİNİ DE** gerçek anlamda ve eksiksiz destekleyecektir. Yalnızca birini desteklemek kesinlikle yeterli kabul edilmez.
+1. **Çift Motor Zorunluluğu (MariaDB 12.3 LTS & MySQL 8.4 LTS):**
+   * Proje yalnızca iki resmi hedef veritabanı motorunu zorunlu destek ve test matrisinde bulundurur:
+     1. **MariaDB 12.3 LTS** — Ana veritabanı.
+     2. **MySQL 8.4 LTS** — Desteklenen alternatif.
+   * **MariaDB 11.4 LTS** artık zorunlu destek ve CI test matrisinde yer almaz. Yalnızca tek motoru desteklemek kesinlikle yeterli kabul edilmez.
 2. **Kapsam:**
    * `libsql` bağlantı/soyutlama katmanı ve tüm ilgili istemci kütüphaneleri.
    * `db` sunucusundaki veritabanı işlemleri, sorgular ve önbellek mekanizmaları.
@@ -96,10 +99,10 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
    * SQL şema dosyaları ile `libsql`, `db` ve `game` C++ kaynak kodları birbirinden kopuk değil, birlikte ve tutarlı olarak geliştirilip değerlendirilecektir.
 10. **Çift Platform ve Çift Motor Test Zorunluluğu:**
     * Windows amd64 ve FreeBSD amd64 GCC derleme ve çalışma uyumluluğu korunacaktır.
-    * Her iki veritabanı motorunda da (en güncel kararlı MySQL ve en güncel kararlı MariaDB) gerçek fonksiyonel testler (%100 başarı) geçmeden ilgili aşama asla tamamlanmış sayılamaz.
+    * Her iki hedef veritabanı motorunda da (**MariaDB 12.3 LTS** ve **MySQL 8.4 LTS**) gerçek fonksiyonel testler (%100 başarı) geçmeden ilgili aşama asla tamamlanmış sayılamaz.
     * Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve kasıtlı hatalı sorgular, bağlantı kopması/yeniden bağlanma (reconnect) ve transaction izolasyon sorunları somut olarak doğrulanacaktır.
 11. **Resmî Hedef Sürümler:**
-    * Güncel MySQL ve MariaDB hedef sürümleri, ilgili geliştirme aşamasına gelindiğinde resmî kaynaklardan (Oracle MySQL ve MariaDB Foundation) tespit edilerek `PROJECT_STATE.md` içine işlenecektir.
+    * Kalıcı hedef veritabanı sürümleri **MariaDB 12.3 LTS** (ana veritabanı) ve **MySQL 8.4 LTS** (desteklenen alternatif) olarak sabitlenmiştir; **MariaDB 11.4 LTS** zorunlu destek ve test matrisinden çıkarılmıştır.
 
 ---
 
@@ -116,7 +119,7 @@ GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güv
 4. **Tam SHA Karşılaştırması:**
    * Özel depoda CI sorgularken `--commit` ile kısaltılmış SHA sorgusuna güvenilmeyecektir. Geliştirme dalındaki koşular listelenecek ve dönen tam `headSha` ile ilgili kaynak commit'i karşılaştırılacaktır.
 5. **Somut Doğrulama ve Detaylı Denetim:**
-   * Her doğrulamada Run ID, commit SHA, üç matris işinin gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
+   * Her doğrulamada Run ID, commit SHA, iki matris işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
 6. **Tahmin Yasağı ve UNKNOWN Durumu:**
    * GitHub API/CLI sonucu alınamadığında CI durumu asla tahmin edilemez; açıkça UNKNOWN olarak bildirilecektir.
 7. **Polling ve Döngü Yasağı:**
@@ -166,7 +169,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
    * GitHub CLI (`gh`) işlemleri Antigravity tarafından kendi terminali üzerinden yürütülecektir.
    * Mevcut yetkilendirilmiş `gh` oturumu kullanılacaktır.
    * Yeni push ile ilişkili CI Run ID değeri tam SHA üzerinden tespit edilecektir.
-   * CI tamamlanmışsa üç FreeBSD işinin (MySQL 8.4, MariaDB 12.3, MariaDB 11.4) gerçek durumu ayrı ayrı kontrol edilecektir.
+   * CI tamamlanmışsa iki FreeBSD işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek durumu ayrı ayrı kontrol edilecektir.
    * Başarısız işlerde gerçek derleme, link veya test hataları iş günlüklerinden detaylı incelenecek; genel `ssh exited with code 2` mesajı tek başına kök neden olarak sunulmayacaktır.
    * CI henüz çalışıyorsa durum `RUNNING` olarak bildirilecek ve durulacaktır.
    * Sürekli polling, sonsuz bekleme döngüsü veya otomatik tekrar çalıştırma kesinlikle yapılmayacaktır.
@@ -190,7 +193,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      * Çalıştırılan testler ve gerçek sonuçları
      * Commit ve push durumu
      * Yerel ve uzak SHA eşleşmesi
-     * CI Run ID ve üç FreeBSD işinin gerçek durumu
+     * CI Run ID ve iki FreeBSD işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek durumu
      * Devam eden veya çözülemeyen sorunlar
    * Başarı kanıtı bulunmayan hiçbir aşama tamamlandı ilan edilmeyecektir.
 

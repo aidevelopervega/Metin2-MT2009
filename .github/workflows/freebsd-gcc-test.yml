@@ -33,8 +33,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: freebsd-gcc-test-${{ github.ref }}
-  cancel-in-progress: true
+  group: freebsd-gcc-test-v2-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   freebsd-gcc14-matrix:
@@ -45,11 +45,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - engine_id: "mariadb114"
-            engine_name: "MariaDB 11.4 LTS"
-            server_pkg: "mariadb114-server"
-            port_name: "databases/mariadb114-server"
-            port: 3307
           - engine_id: "mariadb123"
             engine_name: "MariaDB 12.3 LTS"
             server_pkg: "mariadb123-server"
@@ -230,7 +225,7 @@ jobs:
 
             # Motor Sürecini Başlatma
             SOCKET_PATH="/tmp/${ENGINE_ID}.sock"
-            if [ "$ENGINE_ID" = "mariadb114" ] || [ "$ENGINE_ID" = "mariadb123" ]; then
+            if [ "$ENGINE_ID" = "mariadb123" ]; then
               mariadb-install-db --user=mysql --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/tmp/install_${ENGINE_ID}.log 2>&1 || true
               MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
               echo "MariaDB Daemon: $MARIADBD"
