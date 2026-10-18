@@ -273,16 +273,16 @@ if [ -z "$ACCOUNT_ID" ]; then
     exit 1
 fi
 
-AUTH_OUT=$("$BUILD_DIR/test_server_smoke_client" --auth-login 17105 "$SMOKE_TEST_LOGIN" "$SMOKE_HWID_HEX" 41 29 55 77)
-echo "$AUTH_OUT"
-LOGIN_KEY=$(printf '%s\n' "$AUTH_OUT" | sed -n 's/.*LOGIN_KEY=\([0-9][0-9]*\).*/\1/p')
+KEY_FILE="$ARTIFACT_DIR/login_key_1.txt"
+"$BUILD_DIR/test_server_smoke_client" --auth-login 17105 "@ENV" "@ENV" "$SMOKE_HWID_HEX" "$KEY_FILE"
+LOGIN_KEY=$(tr -d ' \r\n\t' < "$KEY_FILE")
+rm -f "$KEY_FILE"
 if [ -z "$LOGIN_KEY" ]; then
     echo "[ERROR] Failed to obtain LOGIN_KEY from AUTH server!" >&2
     exit 1
 fi
 
-SMOKE_REAL_SERVERFILES=1 SMOKE_CREATE_CHAR_NAME="BsdHero" \
-    "$BUILD_DIR/test_server_smoke_client" --game-login-key 28000 "$LOGIN_KEY" "$SMOKE_TEST_LOGIN" "$ACCOUNT_ID" 41 29 55 77
+SMOKE_REAL_SERVERFILES=1 "$BUILD_DIR/test_server_smoke_client" --game-login-key 28000 "@ENV" "$LOGIN_KEY"
 assert_zero_syserr "after_first_login_phase_game"
 
 echo "=== [5/6] Graceful Stop & Zero-syserr Shutdown Verification ==="
@@ -303,16 +303,17 @@ if grep -q "STOPPED" "$ARTIFACT_DIR/status_after_restart.txt"; then
     exit 1
 fi
 
-AUTH_OUT2=$("$BUILD_DIR/test_server_smoke_client" --auth-login 17105 "$SMOKE_TEST_LOGIN" "$SMOKE_HWID_HEX" 41 29 55 77)
-echo "$AUTH_OUT2"
-LOGIN_KEY2=$(printf '%s\n' "$AUTH_OUT2" | sed -n 's/.*LOGIN_KEY=\([0-9][0-9]*\).*/\1/p')
+KEY_FILE2="$ARTIFACT_DIR/login_key_2.txt"
+"$BUILD_DIR/test_server_smoke_client" --auth-login 17105 "@ENV" "@ENV" "$SMOKE_HWID_HEX" "$KEY_FILE2"
+LOGIN_KEY2=$(tr -d ' \r\n\t' < "$KEY_FILE2")
+rm -f "$KEY_FILE2"
 if [ -z "$LOGIN_KEY2" ]; then
     echo "[ERROR] Failed to obtain second LOGIN_KEY after restart!" >&2
     exit 1
 fi
 
-SMOKE_REAL_SERVERFILES=1 SMOKE_EXPECT_EXISTING_CHAR=1 SMOKE_CREATE_CHAR_NAME="BsdHero" \
-    "$BUILD_DIR/test_server_smoke_client" --game-login-key 28000 "$LOGIN_KEY2" "$SMOKE_TEST_LOGIN" "$ACCOUNT_ID" 41 29 55 77
+SMOKE_REAL_SERVERFILES=1 SMOKE_EXPECT_EXISTING_CHAR=1 \
+    "$BUILD_DIR/test_server_smoke_client" --game-login-key 28000 "@ENV" "$LOGIN_KEY2"
 
 "$SFROOT/stop.sh"
 "$SFROOT/status.sh" | tee "$ARTIFACT_DIR/status_final.txt"
