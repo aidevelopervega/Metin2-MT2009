@@ -1316,7 +1316,7 @@ void CInputDB::QuestLoad(LPDESC d, const char * c_pData)
 
 		if (!pkPC)
 		{
-			sys_err("null quest::PC with id %u", pQuestTable[0].dwPID);
+			sys_err("null quest::PC with id %u", ch->GetPlayerID());
 			return;
 		}
 
@@ -1339,8 +1339,8 @@ void CInputDB::QuestLoad(LPDESC d, const char * c_pData)
 
 		if (ch->GetDesc()->IsPhase(PHASE_GAME))
 		{
-			sys_log(0, "QUEST_LOAD: Login pc %d", pQuestTable[0].dwPID);
-			quest::CQuestManager::instance().Login(pQuestTable[0].dwPID);
+			sys_log(0, "QUEST_LOAD: Login pc %d", ch->GetPlayerID());
+			quest::CQuestManager::instance().Login(ch->GetPlayerID());
 		}
 		else
 		{
