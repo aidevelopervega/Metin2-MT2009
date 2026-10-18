@@ -13,7 +13,6 @@
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 
 --
@@ -30,7 +29,7 @@ CREATE TABLE `bright_protect_log` (
   `IP` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   `cheat` varchar(22) DEFAULT NULL,
   `value` int(9) NOT NULL DEFAULT 0
-) ENGINE=MyISAM DEFAULT CHARSET=big5 COLLATE=big5_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -81,10 +80,12 @@ DROP TABLE IF EXISTS `hack_log`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `hack_log` (
   `time` datetime DEFAULT NULL,
-  `name` varbinary(16) DEFAULT NULL,
+  `login` varchar(30) DEFAULT NULL,
+  `name` varbinary(24) DEFAULT NULL,
+  `ip` varchar(20) DEFAULT NULL,
   `server` varbinary(56) DEFAULT NULL,
   `why` varbinary(300) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -141,11 +142,12 @@ CREATE TABLE `log` (
   `who` int(11) unsigned DEFAULT NULL,
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
-  `what` bigint(11) unsigned DEFAULT NULL,
+  `what` bigint(20) DEFAULT NULL,
   `how` varbinary(50) DEFAULT NULL,
   `hint` varbinary(500) DEFAULT NULL,
+  `ip` varchar(20) DEFAULT NULL,
   `vnum` int(11) unsigned DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -172,7 +174,7 @@ CREATE TABLE `log_chat` (
   `type` enum('NORMAL','WHISPER','PARTY','GUILD','SHOUT','OFFLINE_WHISPER') NOT NULL,
   `msg` varbinary(512) NOT NULL,
   `when` datetime NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -196,13 +198,13 @@ DROP TABLE IF EXISTS `log_chat_priv`;
 CREATE TABLE `log_chat_priv` (
   `where` int(10) unsigned NOT NULL,
   `who_id` int(10) unsigned NOT NULL,
-  `who_name` varchar(25) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `who_name` varchar(25) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `whom_id` int(10) unsigned DEFAULT NULL,
-  `whom_name` varchar(25) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `whom_name` varchar(25) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `type` enum('NORMAL','WHISPER','PARTY','GUILD','SHOUT','OFFLINE_WHISPER') NOT NULL,
   `msg` varbinary(512) NOT NULL,
   `when` datetime NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -227,8 +229,8 @@ CREATE TABLE `log_commands` (
   `userid` int(11) DEFAULT NULL,
   `port` int(11) DEFAULT NULL,
   `command` varbinary(1024) DEFAULT NULL,
-  `date` datetime DEFAULT '0000-00-00 00:00:00'
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
+  `date` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -258,7 +260,7 @@ CREATE TABLE `log_dungeon` (
   `y` int(11) unsigned DEFAULT NULL,
   `how` varbinary(50) DEFAULT NULL,
   `id` int(11) unsigned DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -288,7 +290,7 @@ CREATE TABLE `log_level` (
   `pid` int(11) DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=big5 COLLATE=big5_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -317,7 +319,7 @@ CREATE TABLE `log_quest` (
   `5` int(11) DEFAULT NULL,
   `6` int(11) DEFAULT NULL,
   `7` time DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=big5 COLLATE=big5_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -352,7 +354,7 @@ CREATE TABLE `new_money_log` (
   `pgold_before_transaction` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   `pgold_after_transaction` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -422,9 +424,251 @@ set autocommit=0;
 /*!40000 ALTER TABLE `okay_event` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
+
+--
+-- Additional LogManager runtime tables (server/src/game/src/log.cpp)
+--
+
+DROP TABLE IF EXISTS `bootlog`;
+CREATE TABLE `bootlog` (
+  `time` datetime DEFAULT NULL,
+  `hostname` varchar(128) DEFAULT NULL,
+  `channel` tinyint(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `loginlog`;
+CREATE TABLE `loginlog` (
+  `type` varchar(20) DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `channel` tinyint(4) DEFAULT NULL,
+  `account_id` int(11) unsigned DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `mapIndex` int(11) DEFAULT NULL,
+  `x` int(11) DEFAULT NULL,
+  `y` int(11) DEFAULT NULL,
+  `playtime` int(11) DEFAULT NULL,
+  `ip` varchar(32) DEFAULT NULL,
+  `hwid` varchar(255) DEFAULT NULL,
+  `info` varchar(128) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `loginlog2`;
+CREATE TABLE `loginlog2` (
+  `id` int(11) unsigned NOT NULL DEFAULT 0,
+  `type` varchar(16) DEFAULT NULL,
+  `login_time` datetime DEFAULT NULL,
+  `logout_time` datetime DEFAULT NULL,
+  `playtime` time DEFAULT NULL,
+  `channel` tinyint(4) DEFAULT NULL,
+  `account_id` int(11) unsigned DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `ip` varchar(32) DEFAULT NULL,
+  `hwid` varchar(255) DEFAULT NULL,
+  KEY `idx_acc_pid` (`account_id`, `pid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `levellog`;
+CREATE TABLE `levellog` (
+  `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `level` int(11) unsigned NOT NULL DEFAULT 0,
+  `time` datetime DEFAULT NULL,
+  `account_id` int(11) unsigned DEFAULT NULL,
+  `playtime` int(11) DEFAULT NULL,
+  PRIMARY KEY (`pid`, `level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `quest_state_log`;
+CREATE TABLE `quest_state_log` (
+  `quest_name` varchar(64) DEFAULT NULL,
+  `quest_state` varchar(64) DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `quest_reward_log`;
+CREATE TABLE `quest_reward_log` (
+  `quest_name` varchar(64) DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `level` int(11) unsigned DEFAULT NULL,
+  `type` tinyint(4) unsigned DEFAULT NULL,
+  `value1` bigint(20) DEFAULT NULL,
+  `value2` int(11) DEFAULT NULL,
+  `time` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `gold_session_log`;
+CREATE TABLE `gold_session_log` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `total_gold` bigint(20) DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `duration` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `money_log`;
+CREATE TABLE `money_log` (
+  `time` datetime DEFAULT NULL,
+  `type` int(11) DEFAULT NULL,
+  `vnum` int(11) DEFAULT NULL,
+  `gold` bigint(20) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `item_meta_log`;
+CREATE TABLE `item_meta_log` (
+  `itemid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `who` int(11) unsigned DEFAULT NULL,
+  `what` varchar(64) DEFAULT NULL,
+  `value` varchar(128) DEFAULT NULL,
+  `vnum` int(11) unsigned DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `exchange_log`;
+CREATE TABLE `exchange_log` (
+  `type` varchar(32) DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `pid1` int(11) unsigned DEFAULT NULL,
+  `pid2` int(11) unsigned DEFAULT NULL,
+  `item_id` int(11) unsigned DEFAULT NULL,
+  `vnum` int(11) unsigned DEFAULT NULL,
+  `count` bigint(20) DEFAULT NULL,
+  `pos` varchar(64) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `request_info_log`;
+CREATE TABLE `request_info_log` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `type` tinyint(4) unsigned DEFAULT NULL,
+  `arg1` varchar(255) DEFAULT NULL,
+  `arg2` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `goldlog`;
+CREATE TABLE `goldlog` (
+  `date` date DEFAULT NULL,
+  `time` time DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `what` int(11) unsigned DEFAULT NULL,
+  `how` varchar(32) DEFAULT NULL,
+  `hint` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `cube`;
+CREATE TABLE `cube` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `x` int(11) unsigned DEFAULT NULL,
+  `y` int(11) unsigned DEFAULT NULL,
+  `item_vnum` int(11) unsigned DEFAULT NULL,
+  `item_uid` int(11) unsigned DEFAULT NULL,
+  `item_count` int(11) DEFAULT NULL,
+  `success` tinyint(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `speed_hack`;
+CREATE TABLE `speed_hack` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `x` int(11) unsigned DEFAULT NULL,
+  `y` int(11) unsigned DEFAULT NULL,
+  `hack_count` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `command_log`;
+CREATE TABLE `command_log` (
+  `userid` int(11) unsigned DEFAULT NULL,
+  `server` int(11) DEFAULT NULL,
+  `ip` varchar(32) DEFAULT NULL,
+  `port` int(11) unsigned DEFAULT NULL,
+  `username` varchar(32) DEFAULT NULL,
+  `command` varbinary(1024) DEFAULT NULL,
+  `date` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `refinelog`;
+CREATE TABLE `refinelog` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `item_name` varchar(64) DEFAULT NULL,
+  `item_id` int(11) unsigned DEFAULT NULL,
+  `step` int(11) DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `is_success` tinyint(4) DEFAULT NULL,
+  `setType` varchar(32) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `dragon_slay_log`;
+CREATE TABLE `dragon_slay_log` (
+  `guild_id` int(11) unsigned DEFAULT NULL,
+  `vnum` int(11) unsigned DEFAULT NULL,
+  `start_time` datetime DEFAULT NULL,
+  `end_time` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `chat_log`;
+CREATE TABLE `chat_log` (
+  `where` int(10) unsigned NOT NULL,
+  `who_id` int(10) unsigned NOT NULL,
+  `who_name` varchar(25) NOT NULL,
+  `whom_id` int(10) unsigned DEFAULT NULL,
+  `whom_name` varchar(25) DEFAULT NULL,
+  `type` varchar(32) NOT NULL,
+  `msg` varbinary(512) NOT NULL,
+  `when` datetime NOT NULL,
+  `ip` varchar(32) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `captcha_log`;
+CREATE TABLE `captcha_log` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `invoker_pid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `action` varchar(32) DEFAULT NULL,
+  `code` varchar(32) DEFAULT NULL,
+  `left_duration` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `voucher_code_log`;
+CREATE TABLE `voucher_code_log` (
+  `code` varchar(64) DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `account_id` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `report_player_log`;
+CREATE TABLE `report_player_log` (
+  `who_pid` int(11) unsigned DEFAULT NULL,
+  `target_pid` int(11) unsigned DEFAULT NULL,
+  `target_name` varchar(32) DEFAULT NULL,
+  `reason` varchar(32) DEFAULT NULL,
+  `time` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `fish_log`;
+CREATE TABLE `fish_log` (
+  `time` datetime DEFAULT NULL,
+  `pid` int(11) unsigned DEFAULT NULL,
+  `item_vnum` int(11) unsigned DEFAULT NULL,
+  `count` int(11) DEFAULT NULL,
+  `rod_level` int(11) DEFAULT NULL,
+  `bait_vnum` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `acce`;
+CREATE TABLE `acce` (
+  `pid` int(11) unsigned DEFAULT NULL,
+  `time` datetime DEFAULT NULL,
+  `x` int(11) unsigned DEFAULT NULL,
+  `y` int(11) unsigned DEFAULT NULL,
+  `item_vnum` int(11) unsigned DEFAULT NULL,
+  `item_uid` int(11) unsigned DEFAULT NULL,
+  `item_count` int(11) DEFAULT NULL,
+  `item_abs_chance` int(11) DEFAULT NULL,
+  `success` tinyint(4) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

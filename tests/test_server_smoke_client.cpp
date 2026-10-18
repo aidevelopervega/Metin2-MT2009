@@ -61,6 +61,23 @@ struct SmokePacketGCLoginFailure {
 	char     szStatus[9]; // ACCOUNT_STATUS_MAX_LEN (8) + 1
 };
 
+struct SmokePacketCGEmpire {
+	uint8_t  bHeader;     // 90 (HEADER_CG_EMPIRE)
+	uint8_t  bEmpire;     // 1..3
+};
+
+struct SmokePacketCGPlayerCreate {
+	uint8_t  header;      // 4 (HEADER_CG_CHARACTER_CREATE)
+	uint8_t  index;       // slot index (0..3)
+	char     name[25];    // CHARACTER_NAME_MAX_LEN (24) + 1
+	uint16_t job;         // 0 = Warrior M
+	uint8_t  shape;       // 0
+	uint8_t  Con;
+	uint8_t  Int;
+	uint8_t  Str;
+	uint8_t  Dex;
+};
+
 struct SmokePacketCGPlayerSelect {
 	uint8_t  header;      // 6 (HEADER_CG_CHARACTER_SELECT)
 	uint8_t  index;       // slot index (0..3)
@@ -134,6 +151,8 @@ static_assert(sizeof(SmokePacketCGLogin2) == 52, "SmokePacketCGLogin2 must be 52
 static_assert(sizeof(SmokePacketCGLogin3) == 321, "SmokePacketCGLogin3 must be 321 bytes");
 static_assert(sizeof(SmokePacketGCAuthSuccess) == 6, "SmokePacketGCAuthSuccess must be 6 bytes");
 static_assert(sizeof(SmokePacketGCLoginFailure) == 10, "SmokePacketGCLoginFailure must be 10 bytes");
+static_assert(sizeof(SmokePacketCGEmpire) == 2, "SmokePacketCGEmpire must be 2 bytes");
+static_assert(sizeof(SmokePacketCGPlayerCreate) == 34, "SmokePacketCGPlayerCreate must be 34 bytes");
 static_assert(sizeof(SmokePacketCGPlayerSelect) == 2, "SmokePacketCGPlayerSelect must be 2 bytes");
 static_assert(sizeof(SmokePacketCGEnterGame) == 1, "SmokePacketCGEnterGame must be 1 byte");
 static_assert(sizeof(SmokePacketCGOnClick) == 5, "SmokePacketCGOnClick must be 5 bytes");
@@ -860,6 +879,9 @@ struct SmokeGameStreamState {
 	bool     sawPhaseGame = false;
 	bool     sawLoginSuccess = false;
 	bool     sawLoginFailure = false;
+	bool     sawCharCreateSuccess = false;
+	bool     sawCharCreateFailure = false;
+	uint8_t  charCreateFailType = 0;
 	uint32_t player0Id = 0;
 	char     player0Name[25]{};
 	uint8_t  player0Level = 0;
@@ -942,6 +964,15 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			std::memcpy(st.player0Name, pkt + 5, 24);
 			st.player0Name[24] = '\0';
 			st.player0Level = pkt[31];
+		} else if (hdr == 8 /* HEADER_GC_CHARACTER_CREATE_SUCCESS */) {
+			st.sawCharCreateSuccess = true;
+			std::memcpy(&st.player0Id, pkt + 2, sizeof(uint32_t));
+			std::memcpy(st.player0Name, pkt + 6, 24);
+			st.player0Name[24] = '\0';
+			st.player0Level = pkt[32];
+		} else if (hdr == 9 /* HEADER_GC_CHARACTER_CREATE_FAILURE */) {
+			st.sawCharCreateFailure = true;
+			st.charCreateFailType = pkt[1];
 		} else if (hdr == 7 /* HEADER_GC_LOGIN_FAILURE */) {
 			st.sawLoginFailure = true;
 		} else if (hdr == 113 /* HEADER_GC_MAIN_CHARACTER */) {
@@ -981,7 +1012,8 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			std::string msg(reinterpret_cast<const char*>(pkt + sizeof(SmokePacketGCChat)), msgLen);
 			while (!msg.empty() && (msg.back() == '\0' || msg.back() == '\r' || msg.back() == '\n'))
 				msg.pop_back();
-			if (msg.find("[SMOKE_QUEST_LOGIN_OK] db_seed=77 lv=15 item19=1 qlib=1") != std::string::npos) {
+			if (msg.find("[SMOKE_QUEST_LOGIN_OK]") != std::string::npos &&
+			    msg.find("item19=1 qlib=1") != std::string::npos) {
 				st.sawQuestLoginChat = true;
 				st.questLoginChatText = msg;
 			}
@@ -1058,7 +1090,7 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 
 	SmokeGameStreamState st{};
 
-	// Stage A: Wait for PHASE_SELECT + TPacketGCLoginSuccess(slot 0 = SmokeHero)
+	// Stage A: Wait for PHASE_SELECT + TPacketGCLoginSuccess
 	for (int iter = 0; iter < 60 && !(st.sawPhaseSelect && st.sawLoginSuccess); ++iter) {
 		if (!pump_gc_packets(s, st, serverEncKey, 100))
 			break;
@@ -1069,16 +1101,63 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 		}
 	}
 
-	if (!st.sawPhaseSelect || !st.sawLoginSuccess || st.player0Id != 90011u || std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level != 15u) {
-		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%u name='%s' level=%u)\n",
-			st.rxTotal, st.sawEmpire ? 1 : 0, st.sawPhaseSelect ? 1 : 0, st.sawLoginSuccess ? 1 : 0,
-			st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+	if (!st.sawPhaseSelect || !st.sawLoginSuccess) {
+		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%u)\n",
+			st.rxTotal, st.sawEmpire ? 1 : 0, st.sawPhaseSelect ? 1 : 0, st.sawLoginSuccess ? 1 : 0, st.player0Id);
 		CLOSESOCK(s);
 		return 1;
 	}
 
-	std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=***MASKED(non-zero)*** via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
-		static_cast<unsigned>(st.empireId), st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level), st.rxTotal);
+	// Stage A.1: If the account is brand-new (0 characters in slot 0), select Empire 1 and create 'SmokeHero'
+	if (st.player0Id == 0) {
+		std::printf("  [PASS] [game-login-key] Fresh account entered PHASE_SELECT(3) with 0 characters (empire=%u, rxTotal=%zu wire bytes)\n",
+			static_cast<unsigned>(st.empireId), st.rxTotal);
+
+		SmokePacketCGEmpire empPkt{};
+		empPkt.bHeader = 90; // HEADER_CG_EMPIRE
+		empPkt.bEmpire = 1;  // Shinsoo (Empire 1)
+		if (!send_tea_packet(s, &empPkt, sizeof(empPkt), pkt.adwClientKey, "game-empire-select")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+
+		SmokePacketCGPlayerCreate createPkt{};
+		createPkt.header = 4; // HEADER_CG_CHARACTER_CREATE
+		createPkt.index = 0;
+		std::snprintf(createPkt.name, sizeof(createPkt.name), "%s", "SmokeHero");
+		createPkt.job = 0;   // Warrior Male
+		createPkt.shape = 0;
+		if (!send_tea_packet(s, &createPkt, sizeof(createPkt), pkt.adwClientKey, "game-char-create")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+
+		for (int iter = 0; iter < 60 && !st.sawCharCreateSuccess && !st.sawCharCreateFailure; ++iter) {
+			if (!pump_gc_packets(s, st, serverEncKey, 100))
+				break;
+		}
+
+		if (!st.sawCharCreateSuccess || st.player0Id == 0 || std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level != 1u) {
+			std::fprintf(stderr, "[game-char-create] FAIL: character creation failed (sawSuccess=%d sawFail=%d failType=%u player0Id=%u name='%s' level=%u)\n",
+				st.sawCharCreateSuccess ? 1 : 0, st.sawCharCreateFailure ? 1 : 0, static_cast<unsigned>(st.charCreateFailType),
+				st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+			CLOSESOCK(s);
+			return 1;
+		}
+
+		std::printf("  [PASS] [game-char-create] Created new character via HEADER_CG_EMPIRE(90, empire=1) + HEADER_CG_CHARACTER_CREATE(4) -> HEADER_GC_CHARACTER_CREATE_SUCCESS(8, slot=0, id=%u, name='%s', level=%u)\n",
+			st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+	} else {
+		if (std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level < 1u) {
+			std::fprintf(stderr, "[game-login-key] FAIL: unexpected persisted character in slot 0 (player0Id=%u name='%s' level=%u)\n",
+				st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+			CLOSESOCK(s);
+			return 1;
+		}
+
+		std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=***MASKED(non-zero)*** via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
+			static_cast<unsigned>(st.empireId), st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level), st.rxTotal);
+	}
 
 	// Stage B: Send HEADER_CG_CHARACTER_SELECT(6, index=0) and wait for PHASE_LOADING + TPacketGCMainCharacter + Points + SkillLevel
 	SmokePacketCGPlayerSelect selPkt{};
@@ -1095,7 +1174,8 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	}
 
 	if (!st.sawPhaseLoading || !st.sawMainCharacter || !st.sawPoints || !st.sawSkillLevel ||
-	    std::strcmp(st.mainName, "SmokeHero") != 0 || st.mainX != 469300 || st.mainY != 964200) {
+	    std::strcmp(st.mainName, "SmokeHero") != 0 ||
+	    st.mainX < 409600 || st.mainX >= 512000 || st.mainY < 896000 || st.mainY >= 1024000) {
 		std::fprintf(stderr, "[game-enter-world] FAIL: incomplete PHASE_LOADING response (sawPhaseLoading=%d sawMainChar=%d sawPoints=%d sawSkill=%d name='%s' pos=%dx%d vid=%u)\n",
 			st.sawPhaseLoading ? 1 : 0, st.sawMainCharacter ? 1 : 0, st.sawPoints ? 1 : 0, st.sawSkillLevel ? 1 : 0,
 			st.mainName, st.mainX, st.mainY, st.mainVid);

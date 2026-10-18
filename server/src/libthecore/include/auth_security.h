@@ -26,6 +26,8 @@ namespace AuthSecurity
 	inline constexpr size_t   kMaxPasswordLength    = 16;     // PASSWD_MAX_LEN in 32-bit wire protocol
 	inline constexpr size_t   kMaxLoginLength       = 30;     // LOGIN_MAX_LEN in 32-bit wire protocol
 	inline constexpr size_t   kMinLoginLength       = 2;
+	inline constexpr size_t   kMinSocialIdLength    = 7;
+	inline constexpr size_t   kMaxSocialIdLength    = 18;     // SOCIAL_ID_MAX_LEN in 32-bit wire protocol
 	inline constexpr size_t   kMaxStoredHashLength  = 255;    // account.password VARCHAR(255)
 
 	// Concurrency & CPU budget limits for AUTH_SERVER
@@ -100,6 +102,24 @@ namespace AuthSecurity
 	// Fixed-buffer NUL-termination and character safety checks for network packets
 	bool IsFieldNullTerminated(const char* field, size_t buf_capacity, size_t min_len, size_t max_len) noexcept;
 	bool IsValidAccountLogin(std::string_view login) noexcept;
+	bool IsValidPlaintextPassword(std::string_view password) noexcept;
+	bool IsValidSocialId(std::string_view social_id) noexcept;
+
+	struct SNewAccountCredentials
+	{
+		std::string login;
+		std::string argon2id_hash;
+		std::string social_id;
+	};
+
+	// Validate new account inputs (login 2..30 chars, password 1..16 chars, social_id 7..18 digits)
+	// and generate a fresh Argon2id PHC hash (never SHA-1).
+	bool PrepareNewAccountCredentials(
+		std::string_view login,
+		std::string_view password,
+		std::string_view social_id,
+		SNewAccountCredentials* out_creds,
+		std::string* out_error = nullptr);
 
 	// In-flight auth query slot and CPU budget guards
 	bool TryAcquireInFlightAuthSlot() noexcept;

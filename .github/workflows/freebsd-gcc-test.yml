@@ -1,4 +1,4 @@
-# Rev 47: Hardened account & password security (Argon2id transparent upgrade, rate limiting, CSPRNG LoginKeys, single-use LoginByKey, ROOT_DIR fix)
+# Rev 48: Zero-data fresh server bootstrap (clean SQL schemas, db_r41023 --create-account Argon2id CLI, empire/character creation, PHASE_GAME, restart persistence)
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 

@@ -325,6 +325,53 @@ static void TestScenario7_CsprngKeysAndInputBounds()
 	AuthSecurity::ResetArgon2BudgetForTesting();
 }
 
+static void TestScenario8_NewAccountCredentialPreparation()
+{
+	std::printf("[Scenario 8] Testing new account credential preparation (Argon2id only, 32-bit client limits)...\n");
+
+	AuthSecurity::SNewAccountCredentials creds;
+	std::string err;
+
+	TEST_ASSERT(
+		AuthSecurity::PrepareNewAccountCredentials("fresh_user_01", "FreshPass123", "1234567", &creds, &err),
+		"Valid new account credentials must succeed");
+	TEST_ASSERT(creds.login == "fresh_user_01", "Prepared login must match");
+	TEST_ASSERT(creds.social_id == "1234567", "Prepared social_id must match");
+	TEST_ASSERT(
+		AuthSecurity::IdentifyPasswordHashFormat(creds.argon2id_hash) == AuthSecurity::EHashFormat::Argon2id,
+		"New account hash must be Argon2id PHC format (never SHA-1)");
+	TEST_ASSERT(
+		AuthSecurity::VerifyPassword("FreshPass123", creds.argon2id_hash).matched,
+		"Generated Argon2id hash must verify original password");
+
+	// Default social_id when empty
+	TEST_ASSERT(
+		AuthSecurity::PrepareNewAccountCredentials("fresh_user_02", "Pass16CharsMax!!", "", &creds, &err) &&
+		creds.social_id == "1234567",
+		"Empty social_id must default to 1234567");
+
+	// Reject >16-char password (32-bit client PASSWD_MAX_LEN=16)
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "Password17Chars!!", "1234567", &creds, &err),
+		"17-char password must be rejected for 32-bit client compatibility");
+
+	// Reject empty or control-character password
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "", "1234567", &creds, &err),
+		"Empty password must be rejected");
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "Bad\nPass", "1234567", &creds, &err),
+		"Control characters in password must be rejected");
+
+	// Reject invalid social_id
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "ValidPass1", "123456", &creds, &err),
+		"6-digit social_id must be rejected");
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "ValidPass1", "123456A", &creds, &err),
+		"Non-digit social_id must be rejected");
+}
+
 int main()
 {
 	std::printf("==================================================\n");
@@ -338,6 +385,7 @@ int main()
 	TestScenario5_ConcurrentUpgradeRaceSafety();
 	TestScenario6_RateLimitingAndExponentialBackoff();
 	TestScenario7_CsprngKeysAndInputBounds();
+	TestScenario8_NewAccountCredentialPreparation();
 
 	std::printf("--------------------------------------------------\n");
 	std::printf(" Auth Security Assertions: %d passed, %d failed\n", g_passed, g_failed);

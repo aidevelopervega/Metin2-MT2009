@@ -11,10 +11,14 @@
 #include "Marriage.h"
 #include "Monarch.h"
 #include "ItemIDRangeManager.h"
+#include "../../libthecore/include/auth_security.h"
 #include <signal.h>
+
+#include "Main.h"
 
 void SetPlayerDBName(const char* c_pszPlayerDBName);
 void SetTablePostfix(const char* c_pszTablePostfix);
+const char * GetTablePostfix();
 int Start();
 
 std::string g_stTablePostfix;
@@ -53,8 +57,187 @@ void emergency_sig(int sig)
 		abort();
 }
 
-int main()
+static int RunCreateAccountCLI(int argc, char** argv)
 {
+	if (argc < 3 || argc > 5)
+	{
+		fprintf(stderr, "Usage: %s --create-account <login> [social_id] [hwid] < password_stdin\n", argv[0]);
+		return 2;
+	}
+
+	char szPlainPwd[128] = {0};
+	if (!fgets(szPlainPwd, sizeof(szPlainPwd), stdin))
+	{
+		AuthSecurity::SecureZeroMemoryBuffer(szPlainPwd, sizeof(szPlainPwd));
+		fprintf(stderr, "ERROR: Failed to read password from stdin.\n");
+		return 2;
+	}
+
+	size_t pwdLen = strlen(szPlainPwd);
+	while (pwdLen > 0 && (szPlainPwd[pwdLen - 1] == '\r' || szPlainPwd[pwdLen - 1] == '\n'))
+	{
+		szPlainPwd[--pwdLen] = '\0';
+	}
+
+	const char* loginArg = argv[2];
+	const char* socialIdArg = (argc >= 4) ? argv[3] : "1234567";
+	const char* hwidArg = (argc >= 5) ? argv[4] : "";
+
+	if (hwidArg[0] != '\0')
+	{
+		const size_t hwidLen = strlen(hwidArg);
+		if (hwidLen > 64)
+		{
+			AuthSecurity::SecureZeroMemoryBuffer(szPlainPwd, sizeof(szPlainPwd));
+			fprintf(stderr, "ERROR: invalid hwid length (max 64 chars).\n");
+			return 2;
+		}
+		for (size_t i = 0; i < hwidLen; ++i)
+		{
+			const unsigned char uc = static_cast<unsigned char>(hwidArg[i]);
+			if (uc <= 0x20 || uc >= 0x7F || uc == '\'' || uc == '"' || uc == '\\')
+			{
+				AuthSecurity::SecureZeroMemoryBuffer(szPlainPwd, sizeof(szPlainPwd));
+				fprintf(stderr, "ERROR: invalid character in hwid.\n");
+				return 2;
+			}
+		}
+	}
+
+	AuthSecurity::SNewAccountCredentials creds;
+	std::string prepError;
+	const bool prepOk = AuthSecurity::PrepareNewAccountCredentials(
+		loginArg,
+		std::string_view(szPlainPwd, pwdLen),
+		socialIdArg,
+		&creds,
+		&prepError);
+	AuthSecurity::SecureZeroMemoryBuffer(szPlainPwd, sizeof(szPlainPwd));
+
+	if (!prepOk)
+	{
+		fprintf(stderr, "ERROR: %s\n", prepError.c_str());
+		return 2;
+	}
+
+	CConfig Config;
+	if (!Config.LoadFile("conf.txt"))
+	{
+		fprintf(stderr, "ERROR: Loading conf.txt failed.\n");
+		return 1;
+	}
+
+	char szPostfix[256 + 1] = {0};
+	if (!Config.GetValue("TABLE_POSTFIX", szPostfix, 256))
+		szPostfix[0] = '\0';
+	SetTablePostfix(szPostfix);
+
+	char line[256 + 1] = {0};
+	if (!Config.GetValue("SQL_ACCOUNT", line, 256))
+	{
+		fprintf(stderr, "ERROR: SQL_ACCOUNT not configured in conf.txt.\n");
+		return 1;
+	}
+
+	char szAddr[64] = {0}, szDB[64] = {0}, szUser[64] = {0}, szPassword[64] = {0};
+	int iPort = 0;
+	if (sscanf(line, " %63s %63s %63s %63s %d ", szAddr, szDB, szUser, szPassword, &iPort) != 5)
+	{
+		AuthSecurity::SecureZeroMemoryBuffer(szPassword, sizeof(szPassword));
+		AuthSecurity::SecureZeroMemoryBuffer(line, sizeof(line));
+		fprintf(stderr, "ERROR: Invalid SQL_ACCOUNT configuration format.\n");
+		return 1;
+	}
+
+	CAsyncSQL sql;
+	const bool bConnected = sql.Setup(szAddr, szUser, szPassword, szDB, "utf8mb4", true, iPort);
+	AuthSecurity::SecureZeroMemoryBuffer(szPassword, sizeof(szPassword));
+	AuthSecurity::SecureZeroMemoryBuffer(line, sizeof(line));
+
+	if (!bConnected)
+	{
+		fprintf(stderr, "ERROR: Failed to connect to SQL_ACCOUNT database.\n");
+		return 1;
+	}
+
+	char szSchemaQuery[512];
+	snprintf(szSchemaQuery, sizeof(szSchemaQuery),
+		"SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+		"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account%s' AND COLUMN_NAME = 'password'",
+		GetTablePostfix());
+
+	std::unique_ptr<SQLMsg> pkSchemaMsg = sql.DirectQuery(szSchemaQuery);
+	unsigned long colMaxLen = 0;
+	if (pkSchemaMsg && pkSchemaMsg->uiSQLErrno == 0 && pkSchemaMsg->Get() && pkSchemaMsg->Get()->uiNumRows > 0)
+	{
+		MYSQL_ROW row = mysql_fetch_row(pkSchemaMsg->Get()->pSQLResult);
+		if (row && row[0])
+			colMaxLen = strtoul(row[0], nullptr, 10);
+	}
+
+	if (colMaxLen < creds.argon2id_hash.size())
+	{
+		fprintf(stderr,
+			"ERROR: account%s.password column capacity (%lu) is smaller than Argon2id hash length (%zu); VARCHAR(255) required.\n",
+			GetTablePostfix(), colMaxLen, creds.argon2id_hash.size());
+		return 1;
+	}
+
+	char szEscLogin[LOGIN_MAX_LEN * 2 + 1] = {0};
+	char szEscHash[AuthSecurity::kMaxStoredHashLength * 2 + 1] = {0};
+	char szEscSocialId[SOCIAL_ID_MAX_LEN * 2 + 1] = {0};
+
+	sql.EscapeString(szEscLogin, sizeof(szEscLogin), creds.login.c_str(), creds.login.size());
+	sql.EscapeString(szEscHash, sizeof(szEscHash), creds.argon2id_hash.c_str(), creds.argon2id_hash.size());
+	sql.EscapeString(szEscSocialId, sizeof(szEscSocialId), creds.social_id.c_str(), creds.social_id.size());
+
+	char szInsertQuery[1024];
+	snprintf(szInsertQuery, sizeof(szInsertQuery),
+		"INSERT INTO account%s (login, password, social_id, status, create_time) "
+		"VALUES ('%s', '%s', '%s', 'OK', NOW())",
+		GetTablePostfix(), szEscLogin, szEscHash, szEscSocialId);
+
+	std::unique_ptr<SQLMsg> pkInsertMsg = sql.DirectQuery(szInsertQuery);
+	AuthSecurity::SecureZeroMemoryBuffer(szInsertQuery, sizeof(szInsertQuery));
+	AuthSecurity::SecureZeroMemoryBuffer(szEscHash, sizeof(szEscHash));
+
+	if (!pkInsertMsg || pkInsertMsg->uiSQLErrno != 0 || !pkInsertMsg->Get() ||
+	    pkInsertMsg->Get()->uiAffectedRows != 1 || pkInsertMsg->Get()->uiInsertID == 0)
+	{
+		unsigned int errCode = pkInsertMsg ? pkInsertMsg->uiSQLErrno : 0;
+		fprintf(stderr, "ERROR: Failed to insert account '%s' (sql_errno=%u).\n", creds.login.c_str(), errCode);
+		return 1;
+	}
+
+	const uint32_t accountId = pkInsertMsg->Get()->uiInsertID;
+
+	if (hwidArg[0] != '\0')
+	{
+		char szEscHwid[128 + 1] = {0};
+		sql.EscapeString(szEscHwid, sizeof(szEscHwid), hwidArg, strlen(hwidArg));
+		char szHwidQuery[512];
+		snprintf(szHwidQuery, sizeof(szHwidQuery),
+			"INSERT INTO hardware_status (hwid, status) VALUES ('%s', 'OK') "
+			"ON DUPLICATE KEY UPDATE status = status",
+			szEscHwid);
+		std::unique_ptr<SQLMsg> pkHwidMsg = sql.DirectQuery(szHwidQuery);
+		if (!pkHwidMsg || pkHwidMsg->uiSQLErrno != 0)
+		{
+			fprintf(stderr, "ERROR: Failed to register hardware_status for account '%s'.\n", creds.login.c_str());
+			return 1;
+		}
+	}
+
+	printf("ACCOUNT_CREATED id=%u login=%s format=argon2id\n", accountId, creds.login.c_str());
+	fflush(stdout);
+	return 0;
+}
+
+int main(int argc, char** argv)
+{
+	if (argc >= 2 && strcmp(argv[1], "--create-account") == 0)
+		return RunCreateAccountCLI(argc, argv);
+
 	WriteVersion();
 
 #if defined(__FreeBSD__) && defined(__FreeBSD_version) && __FreeBSD_version<1000000

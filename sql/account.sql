@@ -13,7 +13,6 @@
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 
 --
@@ -24,7 +23,7 @@ DROP TABLE IF EXISTS `GameTime`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `GameTime` (
-  `UserID` varchar(16) NOT NULL DEFAULT '',
+  `UserID` varchar(30) NOT NULL DEFAULT '',
   `paymenttype` tinyint(2) NOT NULL DEFAULT 1,
   `LimitTime` int(11) unsigned DEFAULT 0,
   `LimitDt` datetime DEFAULT current_timestamp(),
@@ -86,7 +85,7 @@ DROP TABLE IF EXISTS `GameTimeLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `GameTimeLog` (
-  `login` varchar(16) DEFAULT NULL,
+  `login` varchar(30) DEFAULT NULL,
   `type` enum('IP_FREE','FREE','IP_TIME','IP_DAY','TIME','DAY') DEFAULT NULL,
   `logon_time` datetime NOT NULL DEFAULT current_timestamp(),
   `logout_time` datetime NOT NULL DEFAULT current_timestamp(),
@@ -119,7 +118,7 @@ CREATE TABLE `account` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `login` varchar(30) NOT NULL DEFAULT '' COMMENT 'LOGIN_MAX_LEN=30',
   `password` varchar(255) NOT NULL DEFAULT '' COMMENT 'PASSWD_MAX_LEN=16; Argon2id PHC / legacy *SHA1',
-  `social_id` varchar(7) NOT NULL DEFAULT '',
+  `social_id` varchar(18) NOT NULL DEFAULT '1234567' COMMENT 'SOCIAL_ID_MAX_LEN=18',
   `email` varchar(100) NOT NULL DEFAULT '',
   `securitycode` varchar(192) NOT NULL DEFAULT '',
   `status` varchar(8) NOT NULL DEFAULT 'OK',
@@ -198,7 +197,7 @@ DROP TABLE IF EXISTS `block_exception`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `block_exception` (
-  `login` varchar(16) NOT NULL DEFAULT ''
+  `login` varchar(30) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -289,7 +288,6 @@ UNLOCK TABLES;
 commit;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -31,7 +31,7 @@ bool BanManager::Block(DWORD aid, DWORD pid, DWORD duration, DWORD who, std::str
 	DBManager::instance().EscapeString(buf, sizeof(buf), szReason, std::strlen(szReason));
 
 	DBManager::instance().AccountQuery("INSERT INTO account_block VALUES (%d, %d, %d, %d, '%s', %u, %s)",
-		aid, duration, pid, who, buf, instant_block ? 1 : 0, instant_block ? "Now()" : "'0000-00-00 00:00'");
+		aid, duration, pid, who, buf, instant_block ? 1 : 0, instant_block ? "NOW()" : "NULL");
 
 	if (instant_block)
 	{

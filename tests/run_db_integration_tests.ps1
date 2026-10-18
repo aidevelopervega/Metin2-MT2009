@@ -120,7 +120,7 @@ try {
         "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib\libmariadb.a"
     }
 
-    & $Gxx @Flags $obj @objs $thecore $sql $poly $game $mariadb -lws2_32 -lsecur32 -lcrypt32 -lshlwapi -o $target
+    & $Gxx @Flags $obj @objs $thecore $sql $poly $game $mariadb -lws2_32 -lbcrypt -lsecur32 -lcrypt32 -lshlwapi -o $target
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache_integration.exe bağlama hatası" }
 
     Write-Host "Running test_db_cache_integration.exe..." -ForegroundColor Green

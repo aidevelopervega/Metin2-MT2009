@@ -611,6 +611,87 @@ bool IsValidAccountLogin(std::string_view login) noexcept
 	return true;
 }
 
+bool IsValidPlaintextPassword(std::string_view password) noexcept
+{
+	if (password.empty() || password.size() > kMaxPasswordLength)
+		return false;
+
+	for (char c : password)
+	{
+		const unsigned char uc = static_cast<unsigned char>(c);
+		if (uc < 0x20 || uc == 0x7F)
+			return false;
+	}
+	return true;
+}
+
+bool IsValidSocialId(std::string_view social_id) noexcept
+{
+	if (social_id.size() < kMinSocialIdLength || social_id.size() > kMaxSocialIdLength)
+		return false;
+
+	for (char c : social_id)
+	{
+		if (c < '0' || c > '9')
+			return false;
+	}
+	return true;
+}
+
+bool PrepareNewAccountCredentials(
+	std::string_view login,
+	std::string_view password,
+	std::string_view social_id,
+	SNewAccountCredentials* out_creds,
+	std::string* out_error)
+{
+	if (!out_creds)
+	{
+		if (out_error)
+			*out_error = "out_creds pointer is null";
+		return false;
+	}
+
+	out_creds->login.clear();
+	out_creds->argon2id_hash.clear();
+	out_creds->social_id.clear();
+
+	if (!IsValidAccountLogin(login))
+	{
+		if (out_error)
+			*out_error = "invalid login (must be 2..30 ASCII alphanumeric/underscore characters)";
+		return false;
+	}
+
+	if (!IsValidPlaintextPassword(password))
+	{
+		if (out_error)
+			*out_error = "invalid password length or characters (must be 1..16 printable characters for 32-bit client protocol)";
+		return false;
+	}
+
+	std::string_view effectiveSocialId = social_id.empty() ? std::string_view("1234567") : social_id;
+	if (!IsValidSocialId(effectiveSocialId))
+	{
+		if (out_error)
+			*out_error = "invalid social_id (must be 7..18 ASCII digits)";
+		return false;
+	}
+
+	std::string phc = HashPasswordArgon2id(password);
+	if (phc.empty() || IdentifyPasswordHashFormat(phc) != EHashFormat::Argon2id)
+	{
+		if (out_error)
+			*out_error = "failed to generate Argon2id PHC password hash";
+		return false;
+	}
+
+	out_creds->login.assign(login.data(), login.size());
+	out_creds->argon2id_hash = std::move(phc);
+	out_creds->social_id.assign(effectiveSocialId.data(), effectiveSocialId.size());
+	return true;
+}
+
 bool TryAcquireInFlightAuthSlot() noexcept
 {
 	uint32_t cur = g_inFlightAuthSlots.load(std::memory_order_relaxed);

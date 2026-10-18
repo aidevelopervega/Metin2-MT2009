@@ -331,7 +331,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 
 			// Affect
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost FROM affect%s WHERE dwPID=%d",
+					"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost,itemVnum FROM affect%s WHERE dwPID=%d",
 					GetTablePostfix(), pTab->id);
 			// @fixme402 ClientHandleInfo+pTab->id
 			CDBManager::instance().ReturnQuery(szQuery, QID_AFFECT, peer->GetHandle(), new ClientHandleInfo(dwHandle, pTab->id));
@@ -366,7 +366,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 					peer->GetHandle(),
 					new ClientHandleInfo(dwHandle, pTab->id));
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost FROM affect%s WHERE dwPID=%d",
+					"SELECT dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum FROM affect%s WHERE dwPID=%d",
 					GetTablePostfix(), pTab->id);
 
 			CDBManager::instance().ReturnQuery(szQuery,
@@ -907,6 +907,22 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 	int		queryLen;
 	int		player_id;
 
+	if (!packet || packet->account_index >= PLAYER_PER_ACCOUNT)
+	{
+		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
+		return;
+	}
+
+	char szEscapedName[CHARACTER_NAME_MAX_LEN * 2 + 1];
+	memset(szEscapedName, 0, sizeof(szEscapedName));
+	size_t rawNameLen = strnlen(packet->player_table.name, sizeof(packet->player_table.name));
+	if (rawNameLen == 0)
+	{
+		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
+		return;
+	}
+	CDBManager::instance().EscapeString(szEscapedName, packet->player_table.name, rawNameLen);
+
 	time_by_id_map_t::iterator it = s_createTimeByAccountID.find(packet->account_id);
 
 	if (it != s_createTimeByAccountID.end())
@@ -951,10 +967,10 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 	if (g_stLocale == "sjis")
 		snprintf(queryStr, sizeof(queryStr),
 			"SELECT COUNT(*) as count FROM player%s WHERE name='%s' collate sjis_japanese_ci",
-			GetTablePostfix(), packet->player_table.name);
+			GetTablePostfix(), szEscapedName);
 	else
-	snprintf(queryStr, sizeof(queryStr),
-			"SELECT COUNT(*) as count FROM player%s WHERE name='%s'", GetTablePostfix(), packet->player_table.name);
+		snprintf(queryStr, sizeof(queryStr),
+			"SELECT COUNT(*) as count FROM player%s WHERE name='%s'", GetTablePostfix(), szEscapedName);
 
 	auto pMsg1(CDBManager::instance().DirectQuery(queryStr));
 	if (pMsg1->Get()->uiNumRows)
@@ -982,7 +998,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 
 	queryLen = snprintf(queryStr, sizeof(queryStr),
 			"INSERT INTO player%s "
-			"(id, account_id, name, level, st, ht, dx, iq, "
+			"(account_id, name, level, st, ht, dx, iq, "
 			"job, voice, dir, x, y, z, "
 			"hp, mp, random_hp, random_sp, stat_point, stamina, "
 			"part_base, part_main, part_hair, "
@@ -991,7 +1007,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 			#endif
 			" gold, playtime, "
 			"skill_level, quickslot) "
-			"VALUES(0, %u, '%s', %d, %d, %d, %d, %d, "
+			"VALUES(%u, '%s', %d, %d, %d, %d, %d, "
 			"%d, %d, %d, %d, %d, %d, "
 			"%d, %d, %d, %d, %d, %d, "
 			"%d, %d, 0, "
@@ -1000,7 +1016,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 			#endif
 			"%lld, 0, ",
 			GetTablePostfix(),
-			packet->account_id, packet->player_table.name, packet->player_table.level, packet->player_table.st, packet->player_table.ht, packet->player_table.dx, packet->player_table.iq,
+			packet->account_id, szEscapedName, packet->player_table.level, packet->player_table.st, packet->player_table.ht, packet->player_table.dx, packet->player_table.iq,
 			packet->player_table.job, packet->player_table.voice, packet->player_table.dir, packet->player_table.x, packet->player_table.y, packet->player_table.z,
 			packet->player_table.hp, packet->player_table.sp, packet->player_table.sRandomHP, packet->player_table.sRandomSP, packet->player_table.stat_point, packet->player_table.stamina,
 			packet->player_table.part_base, packet->player_table.part_base, packet->player_table.gold);
