@@ -23,11 +23,13 @@ namespace AuthSecurity
 	inline constexpr uint32_t kMinAllowedParallelism = 1;
 	inline constexpr uint32_t kMaxAllowedParallelism = 4;
 
+	inline constexpr size_t   kMinPasswordLength    = 6;      // Reject weak 1..5 char passwords for new accounts
 	inline constexpr size_t   kMaxPasswordLength    = 16;     // PASSWD_MAX_LEN in 32-bit wire protocol
 	inline constexpr size_t   kMaxLoginLength       = 30;     // LOGIN_MAX_LEN in 32-bit wire protocol
 	inline constexpr size_t   kMinLoginLength       = 2;
 	inline constexpr size_t   kMinSocialIdLength    = 7;
 	inline constexpr size_t   kMaxSocialIdLength    = 18;     // SOCIAL_ID_MAX_LEN in 32-bit wire protocol
+	inline constexpr const char* kDefaultSocialId   = "1234567";
 	inline constexpr size_t   kMaxStoredHashLength  = 255;    // account.password VARCHAR(255)
 
 	// Concurrency & CPU budget limits for AUTH_SERVER

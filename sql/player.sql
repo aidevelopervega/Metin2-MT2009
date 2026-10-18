@@ -548,7 +548,7 @@ CREATE TABLE `item` (
   `attrvalue5` smallint(6) NOT NULL DEFAULT 0,
   `attrtype6` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `attrvalue6` smallint(6) NOT NULL DEFAULT 0,
-  `ikashop_data` tinytext DEFAULT '',
+  `ikashop_data` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `owner_id_idx` (`owner_id`) USING BTREE,
   KEY `item_vnum_index` (`vnum`) USING BTREE

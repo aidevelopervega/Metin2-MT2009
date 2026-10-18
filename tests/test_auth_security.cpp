@@ -355,10 +355,16 @@ static void TestScenario8_NewAccountCredentialPreparation()
 		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "Password17Chars!!", "1234567", &creds, &err),
 		"17-char password must be rejected for 32-bit client compatibility");
 
-	// Reject empty or control-character password
+	// Reject empty, 1-char, or <6-char weak passwords, and control-character passwords
 	TEST_ASSERT(
 		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "", "1234567", &creds, &err),
 		"Empty password must be rejected");
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "a", "1234567", &creds, &err),
+		"1-char weak password must be rejected");
+	TEST_ASSERT(
+		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "12345", "1234567", &creds, &err),
+		"5-char weak password must be rejected");
 	TEST_ASSERT(
 		!AuthSecurity::PrepareNewAccountCredentials("fresh_user_03", "Bad\nPass", "1234567", &creds, &err),
 		"Control characters in password must be rejected");

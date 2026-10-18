@@ -560,6 +560,13 @@ CREATE TABLE banword (
   PRIMARY KEY (word)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+DROP TABLE IF EXISTS name_reservation;
+CREATE TABLE name_reservation (
+  account_id INT UNSIGNED NOT NULL DEFAULT 0,
+  name VARCHAR(24) NOT NULL DEFAULT '',
+  PRIMARY KEY (account_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
 DROP TABLE IF EXISTS land;
 CREATE TABLE land (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -593,6 +600,16 @@ CREATE TABLE object_proto (
   dependent_group INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (vnum)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS offlineshop_limit;
+CREATE TABLE offlineshop_limit (
+  channel TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  map_index INT UNSIGNED NOT NULL DEFAULT 1,
+  shop_limit INT UNSIGNED NOT NULL DEFAULT 100,
+  premium_limit INT UNSIGNED NOT NULL DEFAULT 100,
+  PRIMARY KEY (channel, map_index)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO offlineshop_limit (channel, map_index, shop_limit, premium_limit) VALUES (1, 1, 100, 100);
 
 DROP TABLE IF EXISTS crafting_proto;
 CREATE TABLE crafting_proto (
@@ -681,13 +698,17 @@ SQL_LOG = "$HOST $DB $USER $PASS $PORT"
 SQL_WORLD = "$HOST $DB $USER $PASS $PORT"
 EOF
 
-# Verify that --create-account rejects >16-char passwords (32-bit client PASSWD_MAX_LEN=16)
+# Verify that --create-account rejects 1-char weak passwords and >16-char passwords (32-bit client PASSWD_MAX_LEN=16)
+if (cd "$DB_WORK" && printf '%s\n' "a" | "$DB_BIN" --create-account "bad_pwd_user" "1234567" >/dev/null 2>&1); then
+    echo "HATA: [1/6] db_r41023 --create-account 1 karakterli zayıf şifreyi reddetmedi!" >&2
+    exit 1
+fi
 if (cd "$DB_WORK" && printf '%s\n' "Password17Chars!!" | "$DB_BIN" --create-account "bad_pwd_user" "1234567" >/dev/null 2>&1); then
     echo "HATA: [1/6] db_r41023 --create-account 17 karakterli geçersiz şifreyi reddetmedi!" >&2
     exit 1
 fi
 
-# Create brand-new player account directly with Argon2id via stdin (never SHA-1, never password in argv)
+# Create brand-new player account directly with Argon2id via stdin (default social_id=1234567, never SHA-1, never password in argv)
 CREATE_OUT=$(cd "$DB_WORK" && printf '%s\n' "$SMOKE_TEST_PASS" | "$DB_BIN" --create-account "$SMOKE_TEST_LOGIN" "1234567" "$SMOKE_HWID_PLAIN")
 case "$CREATE_OUT" in
     *"ACCOUNT_CREATED id="*" login=$SMOKE_TEST_LOGIN format=argon2id"*) ;;
@@ -697,12 +718,12 @@ case "$CREATE_OUT" in
         ;;
 esac
 
-NEW_ACCT_PREFIX=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT LEFT(password, 31) FROM account WHERE login='$SMOKE_TEST_LOGIN';")
-if [ "$NEW_ACCT_PREFIX" != '$argon2id$v=19$m=19456,t=2,p=1$' ]; then
-    echo "HATA: [1/6] Yeni oluşturulan hesap Argon2id PHC formatında değil (prefix=$NEW_ACCT_PREFIX)!" >&2
+NEW_ACCT_ROW=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT CONCAT(LEFT(password, 31), '|', social_id) FROM account WHERE login='$SMOKE_TEST_LOGIN';")
+if [ "$NEW_ACCT_ROW" != '$argon2id$v=19$m=19456,t=2,p=1$|1234567' ]; then
+    echo "HATA: [1/6] Yeni oluşturulan hesap Argon2id PHC veya social_id=1234567 formatında değil (row=$NEW_ACCT_ROW)!" >&2
     exit 1
 fi
-echo "  [PASS] [1/6] Güvenli CLI (db_r41023 --create-account) ile yeni hesap doğrudan Argon2id PHC formatında oluşturuldu ($CREATE_OUT)."
+echo "  [PASS] [1/6] Güvenli CLI (db_r41023 --create-account) ile yeni hesap doğrudan Argon2id PHC formatında ve social_id=1234567 varsayılanıyla oluşturuldu ($CREATE_OUT)."
 
 # ------------------------------------------------------------------------------
 # [2/6] Real db_r41023 Isolated Startup, SQL Table Load & TCP Listener Probe

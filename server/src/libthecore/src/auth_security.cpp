@@ -613,7 +613,7 @@ bool IsValidAccountLogin(std::string_view login) noexcept
 
 bool IsValidPlaintextPassword(std::string_view password) noexcept
 {
-	if (password.empty() || password.size() > kMaxPasswordLength)
+	if (password.size() < kMinPasswordLength || password.size() > kMaxPasswordLength)
 		return false;
 
 	for (char c : password)
@@ -666,11 +666,11 @@ bool PrepareNewAccountCredentials(
 	if (!IsValidPlaintextPassword(password))
 	{
 		if (out_error)
-			*out_error = "invalid password length or characters (must be 1..16 printable characters for 32-bit client protocol)";
+			*out_error = "invalid password length or characters (must be 6..16 printable characters for 32-bit client protocol)";
 		return false;
 	}
 
-	std::string_view effectiveSocialId = social_id.empty() ? std::string_view("1234567") : social_id;
+	std::string_view effectiveSocialId = social_id.empty() ? std::string_view(kDefaultSocialId) : social_id;
 	if (!IsValidSocialId(effectiveSocialId))
 	{
 		if (out_error)
