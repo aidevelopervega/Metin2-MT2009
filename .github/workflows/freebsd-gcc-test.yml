@@ -7,28 +7,7 @@ on:
     branches:
       - dev/windows-gcc-baseline
     paths:
-      - '.github/workflows/freebsd-gcc-test.yml'
-      - 'CMakeLists.txt'
-      - 'CMakePresets.json'
-      - 'cmake/**'
-      - 'server/CMakeLists.txt'
-      - 'server/config/**'
-      - 'server/scripts/**'
-      - 'server/serverfiles_share.tar.xz'
-      - 'share/**'
-      - 'tests/**'
-      - 'server/src/libpoly/**'
-      - 'server/src/libgame/**'
-      - 'server/src/libthecore/**'
-      - 'server/src/libsql/**'
-      - 'server/src/common/**'
-      - 'server/src/liblua/**'
-      - 'server/src/db/**'
-      - 'server/src/game/**'
-      - 'sql/**'
-      - 'client/**'
-      - 'extern/**'
-  workflow_dispatch:
+      - 'ci/run-full-freebsd.txt'
 
 permissions:
   contents: read
@@ -63,6 +42,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache FreeBSD 15.1 GCC 14 ccache and Crypto++ Static Library
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.2.0
+        with:
+          path: |
+            .ccache-freebsd
+            extern/server/cryptopp/libcryptopp.a
+          key: freebsd151-gcc14-${{ matrix.engine_id }}-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'cmake/**', 'extern/server/cryptopp/**', 'server/src/**') }}
+          restore-keys: |
+            freebsd151-gcc14-${{ matrix.engine_id }}-
+            freebsd151-gcc14-
+
       - name: Run Metin2 Test Suite in FreeBSD 15.1 VM
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
@@ -71,7 +61,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 gmake cmake ninja boost-libs devil cryptopp || pkg install -y gcc14 gmake cmake ninja boost-libs
+            pkg install -y gcc14 ccache gmake cmake ninja boost-libs devil cryptopp || pkg install -y gcc14 ccache gmake cmake ninja boost-libs || pkg install -y gcc14 gmake cmake ninja boost-libs
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)
@@ -148,27 +138,44 @@ jobs:
             echo "--> $SERVER_PKG paketi başarıyla kuruldu!"
             pkg info | grep -E 'gcc14|mariadb|mysql' || true
 
-            # 5. FreeBSD amd64 Gerçek 64-Bit Sunucu Kütüphaneleri Derlemesi
+            # 5. FreeBSD amd64 Gerçek 64-Bit Sunucu Kütüphaneleri Derlemesi (ccache + libcryptopp.a önbellek destekli)
             echo "=== FREEBSD 15.1 amd64 GERCEK SUNUCU KUTUPHANELERI DERLEMESI ==="
-            gmake -C server/src/libthecore/src CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            gmake -C server/src/libpoly CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            export CCACHE_DIR="$PWD/.ccache-freebsd"
+            export CCACHE_MAXSIZE="512M"
+            export CCACHE_COMPRESS="true"
+            GMAKE_CXX="/usr/local/bin/g++14"
+            GMAKE_CC="/usr/local/bin/gcc14"
+            CMAKE_CCACHE_ARGS=""
+            if command -v ccache >/dev/null 2>&1; then
+              mkdir -p "$CCACHE_DIR"
+              ccache -z || true
+              GMAKE_CXX="ccache /usr/local/bin/g++14"
+              GMAKE_CC="ccache /usr/local/bin/gcc14"
+              CMAKE_CCACHE_ARGS="-DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache"
+            fi
+            gmake -C server/src/libthecore/src -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
+            gmake -C server/src/libpoly -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
             gmake -C server/src/libsql clean
-            gmake -C server/src/libsql CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
-            gmake -C server/src/libgame/src CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            gmake -C server/src/libsql -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
+            gmake -C server/src/libgame/src -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
             LUA_DIR="server/src/liblua/5.0"
-            gmake -C "$LUA_DIR" CC="/usr/local/bin/gcc14" AR="ar rcu" RANLIB="ranlib"
+            gmake -C "$LUA_DIR" CC="$GMAKE_CC" AR="ar rcu" RANLIB="ranlib"
             LUA55_DIR="server/src/liblua/5.5/src"
-            gmake -C "$LUA55_DIR" a CC="/usr/local/bin/gcc14" AR="ar rcu" RANLIB="ranlib"
+            gmake -C "$LUA55_DIR" a CC="$GMAKE_CC" AR="ar rcu" RANLIB="ranlib"
             echo "=== FREEBSD 15.1 amd64 GERCEK CRYPTOPP DERLEMESI ==="
             CRYPTOPP_DIR="extern/server/cryptopp"
-            gmake -C "$CRYPTOPP_DIR" -j4 static CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            if [ -f "$CRYPTOPP_DIR/libcryptopp.a" ] && file "$CRYPTOPP_DIR/libcryptopp.a" | grep -q "current ar archive"; then
+              echo "--> Önbellekten doğrulanan $CRYPTOPP_DIR/libcryptopp.a kullanılıyor."
+            else
+              gmake -C "$CRYPTOPP_DIR" -j4 static CXX="$GMAKE_CXX" CC="$GMAKE_CC"
+            fi
             ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
             file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
 
             # 5.1 FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
             DB_DIR="server/src/db"
-            gmake -C "$DB_DIR/src" CXX="/usr/local/bin/g++14" CC="/usr/local/bin/gcc14"
+            gmake -C "$DB_DIR/src" -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
             ls -lh "$DB_DIR"
             file "$DB_DIR"/db_r* || true
 
@@ -181,8 +188,11 @@ jobs:
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
             GAME_DIR="server/src/game"
             rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
-            cmake --preset freebsd-gcc14
+            cmake --preset freebsd-gcc14 $CMAKE_CCACHE_ARGS
             cmake --build --preset freebsd-gcc14 -- -j2
+            if command -v ccache >/dev/null 2>&1; then
+              ccache -s || true
+            fi
             ctest --preset freebsd-gcc14 --output-on-failure
             ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
             file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
@@ -383,7 +393,7 @@ jobs:
               server/src/libgame/lib server/src/libgame/src/*.o \
               server/src/liblua/5.0/lib server/src/liblua/5.0/src/*.o server/src/liblua/5.0/src/lib/*.o \
               server/src/liblua/5.5/src/liblua.a server/src/liblua/5.5/src/*.o \
-              extern/server/cryptopp/libcryptopp.a extern/server/cryptopp/*.o
+              extern/server/cryptopp/*.o
             echo "--> $ENGINE_NAME sunucusu temiz şekilde kapatıldı ve serverfiles logları artifacts/ dizinine hazırlandı."
 
       - name: Upload FreeBSD Serverfiles Logs (syserr, syslog, status)

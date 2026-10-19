@@ -148,13 +148,14 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
    * `main` dalına kesinlikle dokunulmayacak, doğrudan commit veya push yapılmayacaktır.
    * GitHub Desktop için ikinci bir klon veya ayrı çalışma deposu oluşturulmayacaktır.
 
-2. **Geliştirme ve Test Disiplini:**
-   * Yalnızca görevin gerektirdiği kaynak dosyaları değiştirilecektir; alakasız dosyalara dokunulmayacaktır.
-   * Önceden doğrulanmış test sonuçları gereksiz yere baştan çalıştırılmayacak veya tekrar üretilmeyecektir.
-   * Kod değişikliğine uygun hedefli regresyon ve derleme kontrolleri gerçekleştirilecektir.
-   * Gerçek binary derlemesi yalnızca nesne dosyalarının (`.o`) oluşmasıyla değil, tam bağlama (link) ile çalıştırılabilir dosyanın üretilmesi ve mimarisinin (PE/ELF64) doğrulanmasıyla geçerli sayılacaktır.
-   * Test edilmemiş aşamalar asla başarılı veya tamamlanmış gösterilmeyecektir.
-   * Gereksiz tam derleme, tekrarlanan denemeler ve ajan kredisi tüketiminden kaçınılacaktır.
+2. **Geliştirme Öncesi Hata Önleme ve 4 Kademeli Test Standardı (`A -> B -> C -> D`):**
+   * Her geliştirme öncesinde çalışan işlevlere olası etkiler, veri kaybı ve güvenlik riskleri (özellikle veritabanı yetkileri, ağ protokolü, tek kullanımlık `LoginByKey` oturum güvenliği ve dosya silme işlemleri) değerlendirilecek; gereksiz dosya değişiklikleri engellenecek; yapılan her işlemin izole ve geri alınabilir olması sağlanacaktır.
+   * Önceden doğrulanmış `PASS` kanıtları korunacak; yeni kanıt olmadan hiçbir senaryoya `PASS` yazılmayacak; FreeBSD'ye özgü davranışlar yalnızca Windows `PASS` sonucuna dayanarak `PASS` ilan edilmeyecektir.
+   * Tüm doğrulamalar aşağıdaki **4 kademeli sırayla** yürütülecek; `A`, `B` veya `C` kademesinde yakalanabilen hatalar için pahalı `D` kademesi asla gereksiz yere çalıştırılmayacaktır:
+     - **Kademe A (Statik ve Sözdizimi Kontrolü — Tüm Değişikliklerde Zorunlu):** Dosya, `git diff`, YAML (`actionlint`), PowerShell AST ve POSIX shell (`sh -n`) sözdizimi doğrulaması.
+     - **Kademe B (Windows x64 Derleme ve Birim Testleri — C++/CMake/Test Değişikliklerinde Zorunlu):** Yerel `cmake --build --preset windows-gcc-ucrt` (tam PE64 bağlama doğrulaması) ve `ctest --preset windows-gcc-ucrt` (`14/14 PASS`).
+     - **Kademe C (Yerel Canlı SQL ve Protokol Duman Testleri — DB/Auth/Game/SQL/Betik Değişikliklerinde Zorunlu):** Değişiklikle ilgili yerel MariaDB 12.3 LTS şema/sorgu testleri ve/veya Windows x64 `db_r41023.exe` + `game_r41023.exe` + `test_server_smoke_client.exe` protokol/oturum testleri.
+     - **Kademe D (Tam FreeBSD 15.1 amd64 GCC 14 CI Matrisi — Yalnızca Bilinçli Tetiklemeyle):** `Kademe A + B + C` yerel olarak %100 geçtikten ve aylık bütçe kontrol edildikten sonra, yalnızca revizyon kapanışı veya FreeBSD'ye özgü doğrulama gerektiğinde `ci/run-full-freebsd.txt` tetikleme dosyası güncellenerek iki motorlu (`MariaDB 12.3 LTS` ve `MySQL 8.4 LTS`) tam FreeBSD CI çalıştırılır.
 
 3. **Git ve GitHub Senkronizasyonu:**
    * Anlamlı ve doğrulanmış geliştirme aşaması tamamlandığında:
@@ -163,20 +164,18 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      3. Doğrudan `origin dev/windows-gcc-baseline` dalına push yapılacaktır.
      4. Yerel HEAD ile GitHub'daki uzak dalın commit SHA değerlerinin eşleştiği (`git rev-parse HEAD` vs uzak) doğrulanacaktır.
      5. Commit SHA bilgisi sonuç raporunda açıkça bildirilecektir.
-   * Tamamlanan işler yalnızca yerel bilgisayarda bırakılmayacaktır.
-   * Normal koşullarda kullanıcıdan manuel Git veya PowerShell işlemleri talep edilmeyecektir.
+   * Sıradan commit ve push işlemleri `ci/run-full-freebsd.txt` dosyasını değiştirmeyecek ve pahalı FreeBSD CI'ı otomatik başlatmayacaktır.
 
-4. **GitHub Actions ve FreeBSD CI Yönetimi:**
-   * GitHub CLI (`gh`) işlemleri Antigravity tarafından kendi terminali üzerinden yürütülecektir.
-   * Mevcut yetkilendirilmiş `gh` oturumu kullanılacaktır.
-   * Yeni push ile ilişkili CI Run ID değeri tam SHA üzerinden tespit edilecektir.
-   * CI tamamlanmışsa iki FreeBSD işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek durumu ayrı ayrı kontrol edilecektir.
-   * Başarısız işlerde gerçek derleme, link veya test hataları iş günlüklerinden detaylı incelenecek; genel `ssh exited with code 2` mesajı tek başına kök neden olarak sunulmayacaktır.
-   * CI henüz çalışıyorsa durum `RUNNING` olarak bildirilecek ve durulacaktır.
-   * Sürekli polling, sonsuz bekleme döngüsü veya otomatik tekrar çalıştırma kesinlikle yapılmayacaktır.
-   * Sonraki görevde ilgili Run ID üzerinden kontrole devam edilebilecek bilgiler `PROJECT_STATE.md` içinde ve raporda korunacaktır.
-   * Antigravity görevi sona erdikten sonra CI'yi kendiliğinden takip edebildiği varsayılmayacaktır.
-   * GitHub erişimi engellenirse token çıkarma, kimlik doğrulama güvenliğini aşma veya sonsuz deneme yapılmayacak; gerçek engel kullanıcıya tek seferde raporlanacaktır.
+4. **GitHub Actions Maliyet Kontrolü ve FreeBSD CI Yönetimi:**
+   * **Bilinçli Tetikleme (`ci/run-full-freebsd.txt`):** `.github/workflows/freebsd-gcc-test.yml` yalnızca `dev/windows-gcc-baseline` dalında `ci/run-full-freebsd.txt` dosyası değiştirildiğinde çalışır (`.github/workflows/` varsayılan `main` dalında bulunmadığından ve `main` dalına dokunulmadığından `workflow_dispatch` kullanılmaz). Tam CI başlatmak sıradan push'ların yan etkisi değil, ayrı ve bilinçli bir karardır.
+   * **Aylık Kota ve Bütçe Kuralı:**
+     - Aylık GitHub Actions ücretsiz kotası (GitHub Pro): **3.000 dakika** (hesap genelinde paylaşılır).
+     - Proje içi normal kullanım üst sınırı: **2.400 dakika**.
+     - Son doğrulamalar ve beklenmedik kritik hatalar için zorunlu rezerv: **600 dakika**.
+     - İki işli (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) tam FreeBSD koşusunun ölçülen maliyeti soğuk önbellekle **~50 Actions dakikası**, sıcak `ccache` + `libcryptopp.a` önbelleğiyle **~12–16 Actions dakikasıdır**.
+     - Her tam koşu öncesinde mevcut ayın depo bazlı koşu süreleri (`gh api "repos/.../actions/runs?created=>=YYYY-MM-01"`) ve tahmini maliyet kontrol edilir; hesap genelindeki harici kullanım verisine (`user` scope gerektiren billing API) erişilemiyorsa rakam uydurulmaz, hesap geneli kullanımın `UNKNOWN` olduğu açıkça belirtilir. Bütçe yetersizse GitHub-hosted CI başlatılmaz.
+   * **Hata Sonrası Tekrar Çalıştırma Yasağı:** Tam CI başarısız olduğunda kök neden yerel olarak belirlenip düzeltilmeden aynı test asla tekrar çalıştırılmaz.
+   * **Sonuç Sorgulama:** CI sonuçları `gh run list` ve `gh run view` ile tek seferde kontrol edilir; `gh run watch`, sürekli polling veya sonsuz bekleme döngüsü kesinlikle yapılmaz; çalışmakta olan işler `RUNNING` olarak bildirilir ve asla `SUCCESS` varsayılmaz.
 
 5. **Proje Hafızası ve Belge Disiplini:**
    * `AGENTS.md` kalıcı çalışma kurallarını, `PROJECT_STATE.md` ise doğrulanmış teknik ilerlemeyi içerecektir.
@@ -184,17 +183,16 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      * Son doğrulanmış commit SHA
      * Son CI Run ID ve doğrulanmış durumu
      * Başarılı ve başarısız test aşamaları
-     * Açık teknik sorunlar
+     * Açık teknik sorunlar ve CI bütçe/tetikleme durumu
      * Sonraki geliştirme adımı
-   * Belge güncellemeleri mümkün olduğunca ilgili geliştirme commit'ine dahil edilecektir. Sırf belge güncellemek için gereksiz CI döngüleri oluşturulmayacaktır.
+   * Belge güncellemeleri mümkün olduğunca ilgili geliştirme commit'ine dahil edilecektir.
 
 6. **Son Rapor Standardı:**
    * Her tamamlanan geliştirme görevinde kısa ve kanıta dayalı rapor sunulacaktır:
      * Yapılan değişiklik
-     * Çalıştırılan testler ve gerçek sonuçları
-     * Commit ve push durumu
-     * Yerel ve uzak SHA eşleşmesi
-     * CI Run ID ve iki FreeBSD işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek durumu
+     * Çalıştırılan yerel test kademeleri (`A`, `B`, `C`) ve gerçek sonuçları
+     * Commit ve push durumu, yerel ve uzak SHA eşleşmesi
+     * Gereksiz CI başlatılmadığının doğrulaması (veya bilinçli `D` kademesi tetiklenmişse CI Run ID ve iki FreeBSD işinin gerçek durumu)
      * Devam eden veya çözülemeyen sorunlar
    * Başarı kanıtı bulunmayan hiçbir aşama tamamlandı ilan edilmeyecektir.
 

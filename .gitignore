@@ -26,6 +26,7 @@ build/
 scratch/
 object/
 artifacts/
+.ccache-freebsd/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü
 server/src/libthecore/src/tea.s

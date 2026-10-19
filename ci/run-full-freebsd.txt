@@ -1,0 +1,22 @@
+# ==============================================================================
+# MT2009 — Explicit Trigger File for Full FreeBSD 15.1 amd64 GCC 14 CI Matrix
+# Workflow: .github/workflows/freebsd-gcc-test.yml
+# Branch:   dev/windows-gcc-baseline
+# ==============================================================================
+# IMPORTANT:
+# 1. Ordinary commits/pushes to dev/windows-gcc-baseline MUST NOT modify this
+#    file. The expensive 2-job FreeBSD 15.1 VM matrix (MariaDB 12.3 LTS +
+#    MySQL 8.4 LTS, ~50 Actions minutes cold / ~12-16 minutes cached) triggers
+#    ONLY when this file is modified in a push (without [skip ci]).
+# 2. Before modifying this file to trigger a full FreeBSD CI run, all three
+#    local verification tiers MUST pass on Windows x64:
+#      - Tier A: Static file, git diff, YAML (actionlint), PowerShell & sh syntax
+#      - Tier B: Windows x64 CMake + Ninja build & CTest (14/14 PASS)
+#      - Tier C: Relevant local MariaDB/SQL & server wire/protocol smoke tests
+# 3. Monthly GitHub Actions quota policy (3,000 min/month shared account limit):
+#      - Normal project cap: 2,400 minutes/month
+#      - Reserved buffer:      600 minutes/month
+# ==============================================================================
+TRIGGER_REVISION=rev50-pending-quota-reset
+TARGET_COMMIT=4d89181caea8bd6746505ddde6a85283812d3050
+STATUS=AWAITING_MONTHLY_QUOTA_RESET
