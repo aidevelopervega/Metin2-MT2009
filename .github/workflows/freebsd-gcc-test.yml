@@ -185,7 +185,7 @@ jobs:
             # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023 [Lua 5.5.1 Exclusive], qc [Lua 5.5.1 Exclusive]) ve CTest Doğrulaması
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
             GAME_DIR="server/src/game"
-            QC_BIN="build/freebsd-gcc/server/src/game/src/quest/qc"
+            QC_BIN="build/freebsd-gcc14/server/src/game/src/quest/qc"
             rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN"
             cmake --preset freebsd-gcc14 $CMAKE_CCACHE_ARGS
             cmake --build --preset freebsd-gcc14 -- -j2

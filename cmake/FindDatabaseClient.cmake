@@ -9,9 +9,15 @@ endif()
 if(WIN32)
     set(DB_CLIENT_INCLUDE_DIRS
         "${CMAKE_SOURCE_DIR}/extern/server/include/mysql"
-        "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-11.4.13-winx64/include"
-        "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-11.4.13-winx64/include/mysql"
     )
+    foreach(_opt_inc
+        "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-12.3.1-winx64/include"
+        "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-12.3.1-winx64/include/mysql"
+    )
+        if(EXISTS "${_opt_inc}")
+            list(APPEND DB_CLIENT_INCLUDE_DIRS "${_opt_inc}")
+        endif()
+    endforeach()
 
     find_file(DB_CLIENT_LIB
         NAMES libmariadb.a libmysqlclient.a

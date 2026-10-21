@@ -425,9 +425,6 @@ int luaO_utf8esc (char *buff, l_uint32 x) {
 ** its end.
 */
 static int tostringbuffFloat (lua_Number n, char *buff) {
-  lua_Integer i;
-  if (luaV_flttointeger(n, &i, F2Ieq))
-    return lua_integer2str(buff, LUA_N2SBUFFSZ, i);
   /* first conversion */
   int len = l_sprintf(buff, LUA_N2SBUFFSZ, LUA_NUMBER_FMT,
                             (LUAI_UACNUMBER)n);
@@ -437,6 +434,11 @@ static int tostringbuffFloat (lua_Number n, char *buff) {
     len = l_sprintf(buff, LUA_N2SBUFFSZ, LUA_NUMBER_FMT_N,
                           (LUAI_UACNUMBER)n);
   }
+  /*
+  ** Metin2 quest compatibility: omit the Lua 5.3+ trailing '.0' suffix on
+  ** integral-looking floats so OP_CONCAT ('..'), lua_tostring(), and %s
+  ** format exact float division results (e.g. 1200 / 60 -> "20", not "20.0").
+  */
   return len;
 }
 

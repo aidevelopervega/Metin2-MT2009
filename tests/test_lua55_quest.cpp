@@ -567,6 +567,34 @@ int main()
             "    table.foreachi = function(t, f) for i, v in ipairs(t) do local r = f(i, v) if r ~= nil then return r end end end\n"
             "end\n"
             "if not unpack then unpack = table.unpack end\n"
+            "do\n"
+            "    local raw_format = string.format\n"
+            "    local modf = math.modf\n"
+            "    local pack = table.pack\n"
+            "    local unpack = table.unpack\n"
+            "    string.format = function(fmt, ...)\n"
+            "        local ok, res = pcall(raw_format, fmt, ...)\n"
+            "        if ok then return res end\n"
+            "        local args = pack(...)\n"
+            "        for i = 1, args.n do\n"
+            "            if type(args[i]) == 'number' and math.type(args[i]) == 'float' then\n"
+            "                local int_part = modf(args[i])\n"
+            "                if int_part >= -9223372036854775808 and int_part < 9223372036854775808 then\n"
+            "                    args[i] = math.tointeger(int_part) or int_part\n"
+            "                end\n"
+            "            end\n"
+            "        end\n"
+            "        return raw_format(fmt, unpack(args, 1, args.n))\n"
+            "    end\n"
+            "    local raw_random = math.random\n"
+            "    math.random = function(a, b)\n"
+            "        if type(a) == 'number' and math.type(a) == 'float' then a = math.tointeger(modf(a)) or a end\n"
+            "        if type(b) == 'number' and math.type(b) == 'float' then b = math.tointeger(modf(b)) or b end\n"
+            "        if a == nil then return raw_random() end\n"
+            "        if b == nil then return raw_random(a) end\n"
+            "        return raw_random(a, b)\n"
+            "    end\n"
+            "end\n"
         );
 
         std::string settings_file = std::string(s_base_dir) + "/settings.lua";
@@ -841,9 +869,95 @@ int main()
         std::cout << "  [PASS] Test 10: Multi-State Quest Registration & Safe BuildStateIndexToName verified." << std::endl;
     }
 
+    // --------------------------------------------------------------------------
+    // Test 11: Lua 5.5.1 Number Semantics & Boundary Regression Suite
+    // --------------------------------------------------------------------------
+    std::cout << "[RUN] Test 11: Lua 5.5.1 Number Semantics & Boundary Regression Suite..." << std::endl;
+    {
+        // 1. Fractional & negative float truncation toward zero (C/Lua 5.0 parity in string.format & math.random)
+        //    while keeping standard Lua 5.5 F2Ieq semantics in the VM (e.g. bitwise ops reject non-integral floats)
+        const char* num_script =
+            "-- Fractional positive & negative float formatting with %d (truncation toward zero)\n"
+            "assert(string.format('%d', 31 - 45 / 60) == '30', 'positive fractional %d failed')\n"
+            "assert(string.format('%d', -1.9) == '-1', 'negative fractional %d must truncate toward zero (-1), not floor (-2)')\n"
+            "assert(math.random(1.9, 1.9) == 1, 'math.random fractional bound failed')\n"
+            "assert(math.random(-2.9, -2.1) == -2, 'math.random negative fractional bound failed')\n"
+            "-- Standard Lua 5.5 F2Ieq preserved in VM: non-integral float in bitwise op must raise error\n"
+            "local ok_bit = pcall(function() return 1.5 | 0 end)\n"
+            "assert(not ok_bit, 'Standard Lua 5.5 F2Ieq must reject non-integral float in bitwise op')\n"
+            "local ok_bit_int, res_bit_int = pcall(function() return 50.0 | 0 end)\n"
+            "assert(ok_bit_int and res_bit_int == 50, 'Integral float 50.0 must succeed in bitwise op')\n"
+            "-- Table indexing: integral float == integer key, fractional float stays distinct\n"
+            "local tbl = {}\n"
+            "tbl[50] = 'fifty'\n"
+            "assert(tbl[50.0] == 'fifty', 'tbl[50.0] must match tbl[50]')\n"
+            "tbl[100.0] = 'hundred'\n"
+            "assert(tbl[100] == 'hundred', 'tbl[100] must match tbl[100.0]')\n"
+            "tbl[1.5] = 'frac'\n"
+            "assert(tbl[1] == nil and tbl[1.5] == 'frac', 'fractional float key must not collide with integer key')\n"
+            "-- -0.0 sign preservation & table key equivalence\n"
+            "local neg_zero = -0.0\n"
+            "assert(math.type(neg_zero) == 'float', '-0.0 must remain float subtype')\n"
+            "assert(1.0 / neg_zero == -math.huge, '1.0 / -0.0 must be -inf')\n"
+            "assert(tostring(neg_zero) == '-0', 'tostring(-0.0) must preserve minus sign')\n"
+            "tbl[0] = 'zero_key'\n"
+            "assert(tbl[neg_zero] == 'zero_key', 'tbl[-0.0] must resolve to tbl[0]')\n"
+            "-- 64-bit integer boundaries (LUA_MAXINTEGER / LUA_MININTEGER / 2^53)\n"
+            "assert(math.maxinteger == 9223372036854775807, 'maxinteger mismatch')\n"
+            "assert(math.mininteger == -9223372036854775808, 'mininteger mismatch')\n"
+            "assert(tostring(math.maxinteger) == '9223372036854775807', 'maxinteger tostring failed')\n"
+            "assert(tostring(math.mininteger) == '-9223372036854775808', 'mininteger tostring failed')\n"
+            "-- NaN and Inf behavior\n"
+            "local nan = 0.0 / 0.0\n"
+            "local inf = 1.0 / 0.0\n"
+            "local ninf = -1.0 / 0.0\n"
+            "assert(nan ~= nan, 'NaN must not equal itself')\n"
+            "assert(inf == math.huge and ninf == -math.huge, 'Inf must equal math.huge')\n"
+            "local nan_s = string.lower(tostring(nan))\n"
+            "local inf_s = string.lower(tostring(inf))\n"
+            "assert(string.find(nan_s, 'nan', 1, true) ~= nil, 'NaN tostring failed: ' .. nan_s)\n"
+            "assert(string.find(inf_s, 'inf', 1, true) ~= nil, 'Inf tostring failed: ' .. inf_s)\n"
+            "local ok_nan_key = pcall(function() tbl[nan] = 1 end)\n"
+            "assert(not ok_nan_key, 'NaN table key must raise error')\n"
+            "-- Integral float string formatting (no trailing .0 in tostring / concat / %s)\n"
+            "assert(tostring(50.0) == '50', 'tostring(50.0) must be 50')\n"
+            "assert(tostring(1000000.0) == '1000000', 'tostring(1000000.0) must be 1000000')\n"
+            "assert(('Level ' .. (1200 / 60)) == 'Level 20', 'concat integral float failed')\n"
+            "assert(string.format('%s', 500000 / 10000) == '50', '%s integral float failed')\n"
+            "assert(tostring(1.5) == '1.5', 'tostring(1.5) must be 1.5')\n";
+
+        int num_err = luaL_dostring(L, num_script);
+        if (num_err != 0) {
+            std::cerr << "[FAIL] Test 11 Lua error: " << lua_tostring(L, -1) << std::endl;
+        }
+        assert(num_err == 0 && "Test 11 numeric semantics script must pass");
+
+        // C API lua_pushnumber checks: verify standard Lua 5.5 float subtype & C API lua_rawset/lua_rawget table key parity
+        lua_pushnumber(L, -0.0);
+        assert(lua_isinteger(L, -1) == 0 && "lua_pushnumber(-0.0) must remain float subtype");
+        lua_pop(L, 1);
+
+        lua_pushnumber(L, 1e18);
+        assert(lua_isinteger(L, -1) == 0 && "lua_pushnumber(1e18) must remain float subtype");
+        lua_pop(L, 1);
+
+        lua_newtable(L);
+        lua_pushinteger(L, 777);
+        lua_pushstring(L, "seven_seven_seven");
+        lua_rawset(L, -3);
+
+        lua_pushnumber(L, 777.0);
+        lua_rawget(L, -2);
+        assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "seven_seven_seven") == 0);
+        lua_pop(L, 2);
+
+        std::cout << "  --> Fractional/negative float truncation, table indexing, -0.0, 64-bit boundaries, NaN/Inf & string formatting verified" << std::endl;
+        std::cout << "  [PASS] Test 11: Lua 5.5.1 Number Semantics & Boundary Regression Suite passed." << std::endl;
+    }
+
     lua_close(L);
     std::cout << "==================================================" << std::endl;
-    std::cout << " [SUCCESS] ALL 10 LUA 5.5 QUEST TESTS PASSED!    " << std::endl;
+    std::cout << " [SUCCESS] ALL 11 LUA 5.5 QUEST TESTS PASSED!    " << std::endl;
     std::cout << "==================================================" << std::endl;
     return 0;
 }

@@ -117,12 +117,24 @@ add_test(NAME test_auth_security COMMAND test_auth_security)
 
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala
-    add_custom_target(copy_test_dlls ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-11.4.13-winx64/lib/libmariadb.dll"
-            "${CMAKE_CURRENT_BINARY_DIR}/libmariadb.dll"
-        COMMENT "Copying runtime test DLLs..."
+    find_file(MT2_TEST_MARIADB_DLL
+        NAMES libmariadb.dll
+        PATHS
+            "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/bin"
+            "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib"
+            "${CMAKE_SOURCE_DIR}/server/files/share/bin"
+            "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-12.3.1-winx64/lib"
+            "C:/Program Files/MariaDB 12.3/lib"
+        NO_DEFAULT_PATH
     )
-    add_dependencies(test_db_cache_integration copy_test_dlls)
-    add_dependencies(test_libsql copy_test_dlls)
+    if(MT2_TEST_MARIADB_DLL)
+        add_custom_target(copy_test_dlls ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${MT2_TEST_MARIADB_DLL}"
+                "${CMAKE_CURRENT_BINARY_DIR}/libmariadb.dll"
+            COMMENT "Copying runtime test DLLs..."
+        )
+        add_dependencies(test_db_cache_integration copy_test_dlls)
+        add_dependencies(test_libsql copy_test_dlls)
+    endif()
 endif()

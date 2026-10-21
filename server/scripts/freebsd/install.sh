@@ -51,8 +51,10 @@ fi
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$REPO_ROOT/server/src/db/db_r41023}"
 GAME_BIN="${MT2_SMOKE_GAME55_BIN:-$REPO_ROOT/server/src/game/game_r41023}"
-QC_BIN="${MT2_SMOKE_QC_BIN:-$REPO_ROOT/build/freebsd-gcc/server/src/game/src/quest/qc}"
-if [ ! -x "$QC_BIN" ] && [ -x "$REPO_ROOT/server/src/game/src/quest/qc" ]; then
+QC_BIN="${MT2_SMOKE_QC_BIN:-$REPO_ROOT/build/freebsd-gcc14/server/src/game/src/quest/qc}"
+if [ ! -x "$QC_BIN" ] && [ -x "$REPO_ROOT/build/freebsd-gcc/server/src/game/src/quest/qc" ]; then
+    QC_BIN="$REPO_ROOT/build/freebsd-gcc/server/src/game/src/quest/qc"
+elif [ ! -x "$QC_BIN" ] && [ -x "$REPO_ROOT/server/src/game/src/quest/qc" ]; then
     QC_BIN="$REPO_ROOT/server/src/game/src/quest/qc"
 fi
 SF_ARCHIVE="$REPO_ROOT/server/serverfiles_share.tar.xz"
@@ -83,7 +85,7 @@ fi
 echo "=== [2/4] Installing x64 ELF Binaries, Symlinks, and Management Scripts ==="
 cp -f "$DB_BIN" "$TARGET_DIR/share/bin/db"
 cp -f "$GAME_BIN" "$TARGET_DIR/share/bin/game"
-rm -f "$TARGET_DIR/share/bin/game_lua50"
+rm -f "$TARGET_DIR/share/bin/game_lua50" "$TARGET_DIR/share/locale/poland/quest/qc.exe"
 chmod 750 "$TARGET_DIR/share/bin/db" "$TARGET_DIR/share/bin/game"
 if [ -x "$QC_BIN" ]; then
     cp -f "$QC_BIN" "$TARGET_DIR/share/locale/poland/quest/qc"

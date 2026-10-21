@@ -109,9 +109,14 @@ def run_single_engine(engine_name, qc_exe, quest_file, work_dir, timeout_sec, qf
         }
 
 def main():
+    default_qc = (
+        "build/windows-gcc-ucrt/server/src/game/src/quest/qc.exe"
+        if os.name == "nt"
+        else "build/freebsd-gcc14/server/src/game/src/quest/qc"
+    )
     parser = argparse.ArgumentParser(description="Metin2 MT2009 Unified Lua 5.5.1 Quest Compiler Tester")
     parser.add_argument("--quest-dir", default="server/files/share/locale/poland/quest", help="Path to serverfiles quest directory")
-    parser.add_argument("--qc", default="build/windows-gcc-ucrt/server/src/game/src/quest/qc.exe", help="Lua 5.5.1 qc executable")
+    parser.add_argument("--qc", default=default_qc, help="Lua 5.5.1 qc executable")
     parser.add_argument("--state-file", default="scratch/quest_matrix_results.json", help="Persistent results cache")
     parser.add_argument("--timeout", type=float, default=5.0, help="Per-quest timeout in seconds")
     parser.add_argument("--force", action="store_true", help="Re-run tests ignoring cache")
@@ -123,6 +128,7 @@ def main():
         print(f"[FATAL] Quest directory does not exist: {quest_dir}")
         sys.exit(1)
 
+    sys.dont_write_bytecode = True
     sys.path.insert(0, str(quest_dir))
     try:
         import precompile

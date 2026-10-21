@@ -134,12 +134,24 @@ int RunGameQuestRuntimeTests()
 		"local count = 0\n"
 		"table.foreach(t, function(k, v) count = count + 1 end)\n"
 		"assert(count == 3, 'table.foreach failed')\n"
-		"assert(string.format('%d', 31 - 45 / 60) == '30', '%d non-integral float floor failed')\n"
+		"assert(string.format('%d', 31 - 45 / 60) == '30', '%d positive fractional float truncation failed')\n"
+		"assert(string.format('%d', -1.9) == '-1', '%d negative fractional float truncation toward zero failed')\n"
+		"assert(math.random(1.9, 1.9) == 1, 'math.random fractional float bound failed')\n"
+		"local ok_bit = pcall(function() return 1.5 | 0 end)\n"
+		"assert(not ok_bit, 'Standard Lua 5.5 F2Ieq must reject non-integral float in bitwise op')\n"
+		"local kt = {}\n"
+		"kt[50] = 'fifty'\n"
+		"assert(kt[50.0] == 'fifty', 'kt[50.0] must match kt[50]')\n"
+		"assert(tostring(-0.0) == '-0' and 1.0 / (-0.0) == -math.huge, '-0.0 sign preservation failed')\n"
+		"assert(tostring(math.maxinteger) == '9223372036854775807', '64-bit maxinteger failed')\n"
+		"assert(tostring(math.mininteger) == '-9223372036854775808', '64-bit mininteger failed')\n"
+		"local nan = 0.0 / 0.0\n"
+		"assert(nan ~= nan and not pcall(function() kt[nan] = 1 end), 'NaN semantics failed')\n"
 		"assert(string.format('%s', 500000 / 10000) == '50', '%s integral float formatting failed')\n"
 		"assert(tostring(1000000.0) == '1000000', 'integral float tostring failed')\n"
 	);
-	RUNTIME_ASSERT(shim_err == 0, "Compatibility shims execution must return 0");
-	std::cout << "  --> math.mod, math.pow, table.getn, table.foreach, %d float floor & %s integral float verified" << std::endl;
+	RUNTIME_ASSERT(shim_err == 0, "Compatibility shims & numeric boundary execution must return 0");
+	std::cout << "  --> Shims, fractional/negative float truncation, table indexing, -0.0, 64-bit limits, NaN/Inf & integral float formatting verified" << std::endl;
 	checks_passed++;
 
 	// 4. Global Namespace & Function Tables
@@ -285,10 +297,11 @@ int RunGameQuestRuntimeTests()
 				qm.BuildStateIndexToName(qname.c_str());
 				state_files_loaded++;
 			}
-			RUNTIME_ASSERT(state_files_loaded >= 200, "Must load all 201 object/state/* quest state tables");
+			RUNTIME_ASSERT(state_files_loaded >= 202, "Must load all 202 object/state/* quest state tables");
+			RUNTIME_ASSERT(lua_dostring(L, "assert(type(guild_building) == 'table' and type(guild_manage) == 'table' and guild_building ~= guild_manage, 'guild_building and guild_manage state tables must both exist and be distinct')") == 0, "guild_building and guild_manage state tables must be separate");
 		}
 
-		// 6.2.6 Syntax-check all 6,899 compiled files in quest/object/
+		// 6.2.6 Syntax-check all 6,900 compiled files in quest/object/
 		int obj_files_checked = 0;
 		if (fs::exists(obj_root) && fs::is_directory(obj_root)) {
 			for (const auto& entry : fs::recursive_directory_iterator(obj_root)) {
@@ -309,7 +322,7 @@ int RunGameQuestRuntimeTests()
 					obj_files_checked++;
 				}
 			}
-			RUNTIME_ASSERT(obj_files_checked >= 6800, "Must syntax-verify all ~6,899 compiled object/ files");
+			RUNTIME_ASSERT(obj_files_checked >= 6900, "Must syntax-verify all 6,900 compiled object/ files");
 		}
 
 		g_stServiceBasePath = prev_service_path;

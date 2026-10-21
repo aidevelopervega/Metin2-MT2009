@@ -23,8 +23,10 @@ ENGINE_ID="${ENGINE_ID:-freebsd_sql}"
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$ROOT_DIR/server/src/db/db_r41023}"
 GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
-QC_BIN="${MT2_SMOKE_QC_BIN:-$ROOT_DIR/build/freebsd-gcc/server/src/game/src/quest/qc}"
-if [ ! -x "$QC_BIN" ] && [ -x "$ROOT_DIR/server/src/game/src/quest/qc" ]; then
+QC_BIN="${MT2_SMOKE_QC_BIN:-$ROOT_DIR/build/freebsd-gcc14/server/src/game/src/quest/qc}"
+if [ ! -x "$QC_BIN" ] && [ -x "$ROOT_DIR/build/freebsd-gcc/server/src/game/src/quest/qc" ]; then
+    QC_BIN="$ROOT_DIR/build/freebsd-gcc/server/src/game/src/quest/qc"
+elif [ ! -x "$QC_BIN" ] && [ -x "$ROOT_DIR/server/src/game/src/quest/qc" ]; then
     QC_BIN="$ROOT_DIR/server/src/game/src/quest/qc"
 fi
 SF_ARCHIVE="$ROOT_DIR/server/serverfiles_share.tar.xz"
@@ -49,7 +51,7 @@ if [ -z "$PASS" ]; then
     exit 1
 fi
 
-for bin in "$DB_BIN" "$GAME55_BIN"; do
+for bin in "$DB_BIN" "$GAME55_BIN" "$QC_BIN"; do
     if [ ! -x "$bin" ]; then
         echo "[ERROR] Missing or non-executable binary: $bin" >&2
         exit 1
@@ -132,14 +134,16 @@ for cfg_file in "$SFROOT/db/conf.txt" "$SFROOT/auth/CONFIG" "$SFROOT/chs/ch11/CO
 done
 echo "  -> Verified chmod 600 permissions on db/conf.txt, auth/CONFIG, and chs/*/CONFIG"
 
-if [ -x "$QC_BIN" ] && command -v python3 >/dev/null 2>&1; then
-    echo "  -> Verifying all 202 active quests in $SFROOT/share/locale/poland/quest with 64-bit Lua 5.5.1 qc..."
-    python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
-        --quest-dir "$SFROOT/share/locale/poland/quest" \
-        --qc "$QC_BIN" \
-        --force \
-        --clean
+if [ ! -x "$SFROOT/share/locale/poland/quest/qc" ] || [ -e "$SFROOT/share/locale/poland/quest/qc.exe" ]; then
+    echo "[ERROR] Expected ELF64 qc (and no qc.exe) in $SFROOT/share/locale/poland/quest!" >&2
+    exit 1
 fi
+echo "  -> Verifying all 202 active quests in $SFROOT/share/locale/poland/quest with 64-bit Lua 5.5.1 qc..."
+python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
+    --quest-dir "$SFROOT/share/locale/poland/quest" \
+    --qc "$SFROOT/share/locale/poland/quest/qc" \
+    --force \
+    --clean
 
 assert_zero_syserr() {
     stage_label="$1"

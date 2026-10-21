@@ -520,14 +520,8 @@ LUA_API void lua_pushnil (lua_State *L) {
 
 
 LUA_API void lua_pushnumber (lua_State *L, lua_Number n) {
-  lua_Integer i;
   lua_lock(L);
-  if (luaV_flttointeger(n, &i, F2Ieq)) {
-    setivalue(s2v(L->top.p), i);
-  }
-  else {
-    setfltvalue(s2v(L->top.p), n);
-  }
+  setfltvalue(s2v(L->top.p), n);
   api_incr_top(L);
   lua_unlock(L);
 }
