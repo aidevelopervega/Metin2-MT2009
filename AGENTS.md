@@ -172,7 +172,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      - Aylık GitHub Actions ücretsiz kotası (GitHub Pro): **3.000 dakika** (hesap genelinde paylaşılır).
      - Proje içi normal kullanım üst sınırı: **2.400 dakika**.
      - Son doğrulamalar ve beklenmedik kritik hatalar için zorunlu rezerv: **600 dakika**.
-     - İki işli (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) tam FreeBSD koşusunun ölçülen maliyeti soğuk önbellekle **~50 Actions dakikası**, sıcak `ccache` + `libcryptopp.a` önbelleğiyle **~12–16 Actions dakikasıdır**.
+     - İki işli (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) tam FreeBSD koşusunun ölçülen maliyeti önbelleksiz **~49–51 Actions dakikasıdır** (`ccache` + `libcryptopp.a` önbelleklemesi `035e94bdedc103512348fd8917858336283c6e4c` ile eklenmiş olup FreeBSD CI üzerinde henüz çalıştırılıp doğrulanmamıştır; sıcak önbellek süre kazanımı doğrulanana kadar bütçe hesabında ölçülen ~50 dakika esas alınır).
      - Her tam koşu öncesinde mevcut ayın depo bazlı koşu süreleri (`gh api "repos/.../actions/runs?created=>=YYYY-MM-01"`) ve tahmini maliyet kontrol edilir; hesap genelindeki harici kullanım verisine (`user` scope gerektiren billing API) erişilemiyorsa rakam uydurulmaz, hesap geneli kullanımın `UNKNOWN` olduğu açıkça belirtilir. Bütçe yetersizse GitHub-hosted CI başlatılmaz.
    * **Hata Sonrası Tekrar Çalıştırma Yasağı:** Tam CI başarısız olduğunda kök neden yerel olarak belirlenip düzeltilmeden aynı test asla tekrar çalıştırılmaz.
    * **Sonuç Sorgulama:** CI sonuçları `gh run list` ve `gh run view` ile tek seferde kontrol edilir; `gh run watch`, sürekli polling veya sonsuz bekleme döngüsü kesinlikle yapılmaz; çalışmakta olan işler `RUNNING` olarak bildirilir ve asla `SUCCESS` varsayılmaz.
