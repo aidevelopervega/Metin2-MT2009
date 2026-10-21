@@ -644,17 +644,6 @@ namespace quest
 
 	bool CQuestManager::InitializeLua()
 	{
-#if LUA_V == 503
-		L = lua_open();
-
-		luaopen_base(L);
-		luaopen_table(L);
-		luaopen_string(L);
-		luaopen_math(L);
-		//TEMP
-		luaopen_io(L);
-		luaopen_debug(L);
-#elif LUA_V == 523 || LUA_V == 551
 		L = luaL_newstate();
 
 		luaL_openlibs(L);
@@ -690,9 +679,6 @@ namespace quest
 				"if not unpack then unpack = table.unpack end\n";
 			luaL_dostring(L, shims);
 		}
-#else
-	#error "lua version not found"
-#endif
 
 		RegisterAffectFunctionTable();
 		RegisterBuildingFunctionTable();
@@ -776,12 +762,10 @@ namespace quest
 			}
 		}
 
-#if LUA_V == 523 || LUA_V == 551
 		lua_dostring(L,
 			"select = function(...) local a = table.pack(...); return q.yield('select', a) end\n"
 			"debug = function(text, ...) if is_test_server and is_test_server() then syschat(string.format('[qDEBUG] '..text, ...)) end end\n"
 		);
-#endif
 
 #define ENABLE_TRANSLATE_LUA
 #ifdef ENABLE_TRANSLATE_LUA
@@ -882,6 +866,12 @@ namespace quest
 					RegisterQuest(pde->d_name, ++iQuestIdx);
 					int ret = lua_dofile(L, (stQuestObjectDir + "/state/" + pde->d_name).c_str());
 					sys_log(0, "QUEST: loading %s, returns %d", (stQuestObjectDir + "/state/" + pde->d_name).c_str(), ret);
+					if (ret != 0)
+					{
+						sys_err("QUEST: failed to load state %s: %s", (stQuestObjectDir + "/state/" + pde->d_name).c_str(), lua_tostring(L, -1));
+						closedir(pdir);
+						return false;
+					}
 
 					BuildStateIndexToName(pde->d_name);
 				}
@@ -890,9 +880,6 @@ namespace quest
 			}
 		}
 
-#if LUA_V == 503
-		lua_setgcthreshold(L, 0);
-#endif
 		lua_newtable(L);
 		lua_setglobal(L, "__codecache");
 		return true;
@@ -1057,7 +1044,6 @@ namespace quest
 		m_CurrentRunningState = &qs;
 		int ret = lua_resume(qs.co, qs.args);
 
-#if LUA_V == 523 || LUA_V == 551
 		if (ret == LUA_YIELD)
 		{
 			const char* cmd = lua_tostring(qs.co, 1);
@@ -1113,61 +1099,6 @@ namespace quest
 			GotoEndState(qs);
 			return false;
 		}
-#else
-		if (ret == 0)
-		{
-			if (lua_gettop(qs.co) == 0)
-			{
-				// end of quest
-				GotoEndState(qs);
-				return false;
-			}
-
-			const char* cmd = lua_tostring(qs.co, 1);
-			if (cmd)
-			{
-				if (!strcmp(cmd, "select"))
-				{
-					GotoSelectState(qs);
-					return true;
-				}
-
-				if (!strcmp(cmd, "wait"))
-				{
-					GotoPauseState(qs);
-					return true;
-				}
-
-				if (!strcmp(cmd, "input"))
-				{
-					GotoInputState(qs);
-					return true;
-				}
-
-				if (!strcmp(cmd, "confirm"))
-				{
-					GotoConfirmState(qs);
-					return true;
-				}
-
-				if (!strcmp(cmd, "select_item"))
-				{
-					GotoSelectItemState(qs);
-					return true;
-				}
-			}
-		}
-		else
-		{
-			sys_err("LUA_ERROR: %s", lua_tostring(qs.co, 1));
-		}
-
-		WriteRunningStateToSyserr();
-		SetError();
-
-		GotoEndState(qs);
-		return false;
-#endif
 	}
 
 	// * CloseState

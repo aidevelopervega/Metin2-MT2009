@@ -2,16 +2,13 @@
 # ==============================================================================
 # Metin2 MT2009 - Isolated FreeBSD Server Startup, Full DB Boot & Auth/Login Smoke Test
 # Stages (strictly separated and reported by category):
-#   [1/6] Strict SQL Mode schema & temporary test account preparation in mt2_testdb
-#   [2/6] Real db_r41023 isolated startup, SQL table load & TCP listener probe
-#   [3/6] Mock-DB + 32-bit TCP wire handshake (PHASE_HANDSHAKE -> PHASE_LOGIN)
-#         for game_r41023 (Lua 5.0.3) and game_r41023_lua55 (Lua 5.5.1)
-#   [4/6] Real db_r41023 <-> normal game_r41023 (Lua 5.0.3) & game_r41023_lua55 (Lua 5.5.1)
-#         full HEADER_DG_BOOT (CInputDB::Boot + CQuestManager::Boot) comparison
-#   [5/6] Real db_r41023 + Real AUTH_SERVER + Real GAME_SERVER (Lua 5.0.3)
-#         account authentication (HEADER_CG_LOGIN3 -> dwLoginKey) & LoginByKey (PHASE_SELECT)
-#   [6/6] Real db_r41023 + Real AUTH_SERVER + Real GAME_SERVER (Lua 5.5.1)
-#         account authentication (HEADER_CG_LOGIN3 -> dwLoginKey) & LoginByKey (PHASE_SELECT)
+#   [1/4] Strict SQL Mode schema & temporary test account preparation in mt2_testdb
+#   [2/4] Real db_r41023 isolated startup, SQL table load & TCP listener probe
+#   [3/4] Mock-DB + 32-bit TCP wire handshake (PHASE_HANDSHAKE -> PHASE_LOGIN)
+#         for game_r41023 (Exclusive Lua 5.5.1)
+#   [4/4] Real db_r41023 + Real AUTH_SERVER + Real GAME_SERVER (Exclusive Lua 5.5.1)
+#         full HEADER_DG_BOOT, Argon2id account authentication (HEADER_CG_LOGIN3 -> dwLoginKey),
+#         LoginByKey (PHASE_SELECT), character creation, PHASE_GAME, restart & re-login
 # ==============================================================================
 
 set -e
@@ -29,7 +26,6 @@ DB="${MT2_TEST_DB:-mt2_testdb}"
 ENGINE="${MT2_TEST_ENGINE:-FreeBSD SQL}"
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$ROOT_DIR/server/src/db/db_r41023}"
-GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua50}"
 GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
 
 # Deterministic AES-128-ECB("SMOKETEST_HWID1\x01", key="VBlk2yQRtiHA1oj7") hex string
@@ -43,11 +39,10 @@ echo "=================================================="
 echo " METIN2 MT2009 - ISOLATED SERVER & AUTH/LOGIN SMOKE TEST"
 echo " Engine:         $ENGINE ($HOST:$PORT / $DB)"
 echo " DB Binary:      $DB_BIN"
-echo " Game 5.0 Bin:   $GAME50_BIN (Lua 5.0.3 Rollback)"
-echo " Game 5.5 Bin:   $GAME55_BIN (Lua 5.5.1 Default)"
+echo " Game Binary:    $GAME55_BIN (Lua 5.5.1 Exclusive)"
 echo "=================================================="
 
-for bin in "$DB_BIN" "$GAME50_BIN" "$GAME55_BIN"; do
+for bin in "$DB_BIN" "$GAME55_BIN"; do
     if [ ! -x "$bin" ]; then
         echo "HATA: Sunucu ikilisi bulunamadı veya çalıştırılamaz: $bin" >&2
         exit 1
@@ -187,29 +182,32 @@ prepare_game_workdir() {
     WORK_DIR="$1"
     mkdir -p "$WORK_DIR/locale/poland/quest/object" "$WORK_DIR/locale/poland/map/metin2_map_a1" "$WORK_DIR/package" "$WORK_DIR/panama" "$WORK_DIR/mark"
 
-    FTP_TAR=""
-    for cand in "/tmp/new_ftp.tar.gz" "$ROOT_DIR/new_ftp.tar.gz"; do
-        if [ -f "$cand" ]; then
-            FTP_TAR="$cand"
-            break
-        fi
-    done
-
-    if [ -n "$FTP_TAR" ]; then
-        FTP_EXTRACT="$SMOKE_ROOT/ftp_extract"
+    if [ -f "$ROOT_DIR/server/files/share/locale/poland/quest/questlib.lua" ]; then
+        cp -f "$ROOT_DIR/server/files/share/locale/poland/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
+        cp -f "$ROOT_DIR/server/files/share/locale/poland/BlueDragon.lua" "$WORK_DIR/locale/poland/BlueDragon.lua" 2>/dev/null || true
+        cp -f "$ROOT_DIR/server/files/share/locale/poland/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
+        cp -R "$ROOT_DIR/server/files/share/locale/poland/quest/"* "$WORK_DIR/locale/poland/quest/" 2>/dev/null || true
+    elif [ -f "$ROOT_DIR/server/serverfiles_share.tar.xz" ]; then
+        FTP_EXTRACT="$SMOKE_ROOT/sf_extract"
         if [ ! -d "$FTP_EXTRACT" ]; then
             mkdir -p "$FTP_EXTRACT"
-            tar -xzf "$FTP_TAR" -C "$FTP_EXTRACT" \
-                "share/locale/poland/settings.lua" \
-                "share/locale/poland/translate.lua" \
-                "share/locale/poland/quest" 2>/dev/null || true
+            tar -xJf "$ROOT_DIR/server/serverfiles_share.tar.xz" --strip-components=3 -C "$FTP_EXTRACT" \
+                "usr/home/mt2/share/locale/poland/settings.lua" \
+                "usr/home/mt2/share/locale/poland/BlueDragon.lua" \
+                "usr/home/mt2/share/locale/poland/translate.lua" \
+                "usr/home/mt2/share/locale/poland/quest" 2>/dev/null || true
         fi
-    fi
-
-    if [ -n "$FTP_TAR" ] && [ -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/quest/questlib.lua" ]; then
-        cp -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
-        cp -f "$SMOKE_ROOT/ftp_extract/share/locale/poland/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
-        cp -R "$SMOKE_ROOT/ftp_extract/share/locale/poland/quest/"* "$WORK_DIR/locale/poland/quest/" 2>/dev/null || true
+        if [ -f "$FTP_EXTRACT/share/locale/poland/quest/questlib.lua" ]; then
+            cp -f "$FTP_EXTRACT/share/locale/poland/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
+            cp -f "$FTP_EXTRACT/share/locale/poland/BlueDragon.lua" "$WORK_DIR/locale/poland/BlueDragon.lua" 2>/dev/null || true
+            cp -f "$FTP_EXTRACT/share/locale/poland/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
+            cp -R "$FTP_EXTRACT/share/locale/poland/quest/"* "$WORK_DIR/locale/poland/quest/" 2>/dev/null || true
+        else
+            cp "$ROOT_DIR/tests/fixtures/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
+            cp "$ROOT_DIR/tests/fixtures/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
+            cp "$ROOT_DIR/tests/fixtures/questlib.lua" "$WORK_DIR/locale/poland/quest/questlib.lua"
+            cp "$ROOT_DIR/tests/fixtures/locale.lua" "$WORK_DIR/locale/poland/quest/locale.lua"
+        fi
     else
         cp "$ROOT_DIR/tests/fixtures/settings.lua" "$WORK_DIR/locale/poland/settings.lua"
         cp "$ROOT_DIR/tests/fixtures/translate.lua" "$WORK_DIR/locale/poland/translate.lua"
@@ -846,9 +844,8 @@ EOF
     ACTIVE_MOCK_PID=""
 }
 
-echo "[3/6] Mock-DB + 32-Bit TCP Wire Handshake (Lua 5.0.3 Rollback & Lua 5.5.1 Default) testi..."
-run_mock_db_game_smoke "[3a/6] game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_BIN" "mock_lua50" 13011 14011 15011
-run_mock_db_game_smoke "[3b/6] game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
+echo "[3/4] Mock-DB + 32-Bit TCP Wire Handshake (Lua 5.5.1 Exclusive) testi..."
+run_mock_db_game_smoke "[3/4] game_r41023 (Lua 5.5.1 Exclusive)" "$GAME55_BIN" "mock_lua55" 13012 14012 15012
 
 # ------------------------------------------------------------------------------
 # Helper: Start db_r41023 + AUTH_SERVER + GAME_SERVER and wait for HEADER_DG_BOOT
@@ -1165,11 +1162,8 @@ EOF_RESET
     ACTIVE_DB_PID=""
 }
 
-echo "[4/6] & [5/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.0.3 Rollback) sıfırdan kurulum, karakter oluşturma, PHASE_GAME ve yeniden başlatma testi..."
-run_real_db_auth_and_game_smoke "[4-5/6]" "game_r41023_lua50 (Lua 5.0.3 Rollback)" "$GAME50_BIN" "real_lua50" 15012 15013 15020 15021
-
-echo "[4/6] & [6/6] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1 Default) sıfırdan kurulum, karakter oluşturma, PHASE_GAME ve yeniden başlatma testi..."
-run_real_db_auth_and_game_smoke "[4-6/6]" "game_r41023 (Lua 5.5.1 Default)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
+echo "[4/4] Gerçek db_r41023 + AUTH_SERVER + GAME_SERVER (Lua 5.5.1 Exclusive) sıfırdan kurulum, karakter oluşturma, PHASE_GAME ve yeniden başlatma testi..."
+run_real_db_auth_and_game_smoke "[4/4]" "game_r41023 (Lua 5.5.1 Exclusive)" "$GAME55_BIN" "real_lua55" 15014 15015 15022 15023
 
 # Clean up all tables in mt2_testdb
 DROP_QUERY=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT CONCAT('DROP TABLE IF EXISTS \`', table_name, '\`;') FROM information_schema.tables WHERE table_schema = '$DB';")
@@ -1178,5 +1172,5 @@ if [ -n "$DROP_QUERY" ]; then
 fi
 
 echo "=================================================="
-echo " [BASARILI] SIFIRDAN SQL KURULUMU + ARGON2ID HESAP CLI + KARAKTER OLUSTURMA + PHASE_GAME + YENIDEN BASLATMA SONRASI GIRIS (LUA 5.0 & LUA 5.5.1) TESTLERI TAMAMLANDI!"
+echo " [BASARILI] SIFIRDAN SQL KURULUMU + ARGON2ID HESAP CLI + KARAKTER OLUSTURMA + PHASE_GAME + YENIDEN BASLATMA SONRASI GIRIS (LUA 5.5.1 EXCLUSIVE) TESTLERI TAMAMLANDI!"
 echo "=================================================="

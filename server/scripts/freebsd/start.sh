@@ -3,17 +3,12 @@ set -e
 
 SFROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CHANNELS="1"
-USE_LUA50="${USE_LUA50:-0}"
 ROTATE_LOGS="${ROTATE_LOGS:-0}"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --rotate-logs)
             ROTATE_LOGS=1
-            shift 1
-            ;;
-        --lua50)
-            USE_LUA50=1
             shift 1
             ;;
         *)
@@ -143,11 +138,7 @@ for ch in $ch_list; do
     ch_dir="$SFROOT/chs/$ch"
     if [ -f "$ch_dir/CONFIG" ]; then
         cd "$ch_dir"
-        if [ "$USE_LUA50" = "1" ] && [ -x "$SFROOT/share/bin/game_lua50" ]; then
-            "$SFROOT/share/bin/game_lua50" > stdout.log 2> stderr.log &
-        else
-            "./$ch" > stdout.log 2> stderr.log &
-        fi
+        "./$ch" > stdout.log 2> stderr.log &
         echo "  -> $ch launched"
         sleep 0.3
     fi
@@ -155,11 +146,7 @@ done
 
 echo "=== [3/3] Starting AUTH Server (127.0.0.1:17105) ==="
 cd "$SFROOT/auth"
-if [ "$USE_LUA50" = "1" ] && [ -x "$SFROOT/share/bin/game_lua50" ]; then
-    "$SFROOT/share/bin/game_lua50" > stdout.log 2> stderr.log &
-else
-    ./auth > stdout.log 2> stderr.log &
-fi
+./auth > stdout.log 2> stderr.log &
 echo "  -> auth launched"
 
 wait_for_port 17105 "auth"

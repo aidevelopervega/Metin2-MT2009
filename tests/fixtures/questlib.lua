@@ -29,12 +29,8 @@ function mob_name(vnum)
     return "[MOB value;"..vnum.."]"
 end
 
-if table.pack then
-    (loadstring or load)("function select(...) return q.yield('select', table.pack(...)) end")()
-else
-    function select(...)
-        return q.yield('select', arg)
-    end
+function select(...)
+    return q.yield('select', table.pack(...))
 end
 
 function select_table(tbl)

@@ -460,17 +460,25 @@ int main()
     std::cout << "[RUN] Test 9: Real FTP InitializeLua sequence & coroutine state machine..." << std::endl;
     {
         const char* prefixes[] = { "", "../", "../../", "../../../" };
+        const char* real_rel_paths[] = {
+            "server/files/share/locale/poland",
+            "share/locale/poland",
+            "scratch/ftp_quests/usr/home/mt2/share/locale/poland"
+        };
         static std::string s_base_dir_str = "";
         bool has_real_ftp = false;
-        for (const char* pfx : prefixes) {
-            std::string cand = std::string(pfx) + "scratch/ftp_quests/usr/home/mt2/share/locale/poland";
-            FILE* fp = fopen((cand + "/quest/questlib.lua").c_str(), "r");
-            if (fp) {
-                fclose(fp);
-                s_base_dir_str = cand;
-                has_real_ftp = true;
-                break;
+        for (const char* rel : real_rel_paths) {
+            for (const char* pfx : prefixes) {
+                std::string cand = std::string(pfx) + rel;
+                FILE* fp = fopen((cand + "/quest/questlib.lua").c_str(), "r");
+                if (fp) {
+                    fclose(fp);
+                    s_base_dir_str = cand;
+                    has_real_ftp = true;
+                    break;
+                }
             }
+            if (has_real_ftp) break;
         }
         if (!has_real_ftp) {
             for (const char* pfx : prefixes) {

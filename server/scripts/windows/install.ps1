@@ -77,18 +77,31 @@ if (!(Test-Path $questObjDir)) {
 
 Write-Host "=== [2/4] Packaging x64 Executables, Runtime DLLs, and Shared Assets ==="
 $dbExe = Join-Path $repoRoot "server\src\db\db_r41023.exe"
-$game55Exe = Join-Path $repoRoot "server\src\game\game_r41023.exe"
-$game50Exe = Join-Path $repoRoot "server\src\game\game_r41023_lua50.exe"
+$gameExe = Join-Path $repoRoot "server\src\game\game_r41023.exe"
 
-foreach ($bin in @($dbExe, $game55Exe, $game50Exe)) {
+foreach ($bin in @($dbExe, $gameExe)) {
     if (!(Test-Path $bin)) {
         throw "Required x64 binary not found: $bin (build with cmake --build --preset windows-gcc-ucrt first)"
     }
 }
 
 Copy-Item -Force $dbExe (Join-Path $TargetDir "share\bin\db_r41023.exe")
-Copy-Item -Force $game55Exe (Join-Path $TargetDir "share\bin\game_r41023.exe")
-Copy-Item -Force $game50Exe (Join-Path $TargetDir "share\bin\game_r41023_lua50.exe")
+Copy-Item -Force $gameExe (Join-Path $TargetDir "share\bin\game_r41023.exe")
+$staleLua50 = Join-Path $TargetDir "share\bin\game_r41023_lua50.exe"
+if (Test-Path $staleLua50) {
+    Remove-Item -Force $staleLua50
+}
+
+$qcCandidates = @(
+    (Join-Path $repoRoot "build\windows-gcc-ucrt\server\src\game\src\quest\qc.exe"),
+    (Join-Path $repoRoot "server\src\game\src\quest\qc.exe")
+)
+foreach ($qcBin in $qcCandidates) {
+    if (Test-Path $qcBin) {
+        Copy-Item -Force $qcBin (Join-Path $TargetDir "share\locale\poland\quest\qc.exe")
+        break
+    }
+}
 
 $dllCandidates = @(
     (Join-Path $repoRoot "server\src\db\libmariadb.dll"),

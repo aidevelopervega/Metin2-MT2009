@@ -5,27 +5,33 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include "questmanager.h"
 #include "questlua.h"
 #include "packet.h"
 #include "char.h"
 #include "char_manager.h"
 #include "arena.h"
+#include "BlueDragon_Binder.h"
 
 // ==============================================================================
-// METIN2 MT2009 - GAME SERVER LUA QUEST RUNTIME VERIFICATION
-// Executed via: ./game_r41023 --check-lua or ./game_r41023_lua55 --check-lua
+// METIN2 MT2009 - GAME SERVER LUA 5.5.1 QUEST RUNTIME VERIFICATION
+// Executed via: ./game_r41023 --check-lua
 // Tests:
 //   1. 32-Bit Client wire protocol packet_script struct size guarantee
-//   2. QuestManager & Lua State initialization
+//   2. QuestManager & Lua 5.5.1 State initialization
 //   3. Compatibility shims (math.mod, math.pow, string.gfind, table.getn, unpack)
 //   4. Metin2 Quest C API registration (pc, npc, item, q, say, select)
 //   5. select(...) nil-argument preservation & m2_lua_getn contract
-//   6. Real questlib.lua and locale.lua execution & variable verification
+//   6. Real questlib.lua, libs/*, settings.lua, BlueDragon.lua, translate.lua,
+//      locale.lua, oxquiz.lua, monkey_dungeon.lua & object/* verification
 //   7. Gameforge translation proxy & missing locale detection
 //   8. Interactive Coroutine Dialog State Machine (yield on select, resume with choice)
 //   9. __codecache 64-bit pointer key safety (no precision loss)
 //  10. Coroutine error isolation & crash prevention (fail-closed)
+//  11. Multi-State Quest Registration & Safe BuildStateIndexToName
 // ==============================================================================
 
 #define RUNTIME_ASSERT(cond, msg) \
@@ -39,18 +45,24 @@
 extern std::string g_stQuestDir;
 extern std::string g_stServiceBasePath;
 
+static int DummyAddOxQuiz(lua_State* L)
+{
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+static int DummyAddGotoNpcForMonkeyDungeon(lua_State* L)
+{
+	(void)L;
+	return 0;
+}
+
 int RunGameQuestRuntimeTests()
 {
 	std::cout << "==================================================" << std::endl;
 	std::cout << " METIN2 MT2009 - GAME SERVER QUEST RUNTIME SUITE" << std::endl;
 	std::cout << " Platform: 64-bit amd64" << std::endl;
-#if LUA_V == 551
-	std::cout << " Lua Engine: Lua 5.5.1 Upstream Stable (ENABLE_LUA_5_VERSION=5)" << std::endl;
-#elif LUA_V == 523
-	std::cout << " Lua Engine: Lua 5.2.3 Staging (ENABLE_LUA_5_VERSION=2)" << std::endl;
-#else
-	std::cout << " Lua Engine: Lua 5.0.3 Default Production (ENABLE_LUA_5_VERSION=0)" << std::endl;
-#endif
+	std::cout << " Lua Engine: Lua 5.5.1 Exclusive Production" << std::endl;
 	std::cout << "==================================================" << std::endl;
 
 	int checks_passed = 0;
@@ -72,7 +84,8 @@ int RunGameQuestRuntimeTests()
 	const char* candidate_dirs[] = {
 		"tests/fixtures",
 		"../tests/fixtures",
-		"../../tests/fixtures"
+		"../../tests/fixtures",
+		"../../../tests/fixtures"
 	};
 	std::string staging_dir = "";
 	for (const char* dir : candidate_dirs) {
@@ -111,8 +124,8 @@ int RunGameQuestRuntimeTests()
 	std::cout << "  --> Lua state initialized at: " << (void*)L << " from staging: " << staging_dir << std::endl;
 	checks_passed++;
 
-	// 3. Compatibility Shims
-	std::cout << "[RUN] Check 3: Standard compatibility shims..." << std::endl;
+	// 3. Compatibility Shims & Lua 5.5.1 Numeric/String Semantics
+	std::cout << "[RUN] Check 3: Standard compatibility shims & Lua 5.5.1 numeric semantics..." << std::endl;
 	int shim_err = lua_dostring(L,
 		"assert(math.mod(10, 3) == 1, 'math.mod failed')\n"
 		"assert(math.pow(2, 4) == 16, 'math.pow failed')\n"
@@ -121,9 +134,12 @@ int RunGameQuestRuntimeTests()
 		"local count = 0\n"
 		"table.foreach(t, function(k, v) count = count + 1 end)\n"
 		"assert(count == 3, 'table.foreach failed')\n"
+		"assert(string.format('%d', 31 - 45 / 60) == '30', '%d non-integral float floor failed')\n"
+		"assert(string.format('%s', 500000 / 10000) == '50', '%s integral float formatting failed')\n"
+		"assert(tostring(1000000.0) == '1000000', 'integral float tostring failed')\n"
 	);
 	RUNTIME_ASSERT(shim_err == 0, "Compatibility shims execution must return 0");
-	std::cout << "  --> math.mod, math.pow, table.getn, table.foreach verified" << std::endl;
+	std::cout << "  --> math.mod, math.pow, table.getn, table.foreach, %d float floor & %s integral float verified" << std::endl;
 	checks_passed++;
 
 	// 4. Global Namespace & Function Tables
@@ -154,7 +170,7 @@ int RunGameQuestRuntimeTests()
 
 	// 5. select(...) Nil-Argument Preservation & m2_lua_getn
 	std::cout << "[RUN] Check 5: select(...) nil-argument preservation & m2_lua_getn contract..." << std::endl;
-	int pack_err = lua_dostring(L, "test_packed = (table.pack and table.pack('A', nil, 'C')) or {n=3, [1]='A', [3]='C'}");
+	int pack_err = lua_dostring(L, "test_packed = table.pack('A', nil, 'C')");
 	RUNTIME_ASSERT(pack_err == 0, "table.pack code evaluation must succeed");
 	lua_getglobal(L, "test_packed");
 	RUNTIME_ASSERT(lua_istable(L, -1), "test_packed must be a table");
@@ -164,8 +180,8 @@ int RunGameQuestRuntimeTests()
 	std::cout << "  --> Packed table with nil argument preserved count n = 3" << std::endl;
 	checks_passed++;
 
-	// 6. Real questlib.lua and locale.lua execution
-	std::cout << "[RUN] Check 6: questlib.lua and locale.lua verification (Synthetic & Real FTP)..." << std::endl;
+	// 6. Real questlib.lua, libs/*, settings.lua, BlueDragon.lua, translate.lua, locale.lua, oxquiz.lua & object/* execution
+	std::cout << "[RUN] Check 6: questlib.lua, libs/*, locale.lua & object/* verification (Synthetic & Real Serverfiles)..." << std::endl;
 
 	// 6.1 Synthetic Fixture Verification (Loaded in InitializeLua)
 	lua_getglobal(L, "CONFIRM_YES");
@@ -180,14 +196,21 @@ int RunGameQuestRuntimeTests()
 	lua_pop(L, 2);
 	std::cout << "  --> [PASS] Synthetic fixtures (questlib.lua, locale.lua, settings.lua, translate.lua) verified" << std::endl;
 
-	// 6.2 Real FTP Archive Verification (if extracted on disk)
-	const char* real_ftp_dirs[] = {
+	// 6.2 Real Serverfiles Verification (when server/files/share/locale/poland is present)
+	const char* real_poland_dirs[] = {
+		"server/files/share/locale/poland",
+		"../server/files/share/locale/poland",
+		"../../server/files/share/locale/poland",
+		"../../../server/files/share/locale/poland",
+		"share/locale/poland",
+		"../share/locale/poland",
+		"../../share/locale/poland",
 		"scratch/ftp_quests/usr/home/mt2/share/locale/poland",
 		"../scratch/ftp_quests/usr/home/mt2/share/locale/poland",
 		"../../scratch/ftp_quests/usr/home/mt2/share/locale/poland"
 	};
 	std::string found_poland_dir = "";
-	for (const char* d : real_ftp_dirs) {
+	for (const char* d : real_poland_dirs) {
 		std::string ql_path = std::string(d) + "/quest/questlib.lua";
 		FILE* fp = fopen(ql_path.c_str(), "r");
 		if (fp) {
@@ -202,40 +225,99 @@ int RunGameQuestRuntimeTests()
 		g_stServiceBasePath = found_poland_dir;
 		g_stQuestDir = found_poland_dir + "/quest";
 
+		// 6.2.1 settings.lua & BlueDragon.lua (loaded via dofile inside settings.lua)
 		std::string settings_path = found_poland_dir + "/settings.lua";
-		FILE* fp_set = fopen(settings_path.c_str(), "r");
-		if (fp_set) {
-			fclose(fp_set);
-			RUNTIME_ASSERT(lua_dofile(L, settings_path.c_str()) == 0, "Real FTP settings.lua execution must succeed");
-		}
+		RUNTIME_ASSERT(lua_dofile(L, settings_path.c_str()) == 0, "Real serverfiles settings.lua + BlueDragon.lua execution must succeed");
 
+		int bd_err = lua_dostring(L, "assert(type(BlueDragonSetting) == 'table', 'BlueDragonSetting table missing')\n");
+		RUNTIME_ASSERT(bd_err == 0, "BlueDragonSetting table must be loaded by settings.lua");
+		RUNTIME_ASSERT(BlueDragon_GetSkillFactor(3, "Skill0", "period", "min") == 30, "BlueDragon_GetSkillFactor(Skill0.period.min) must return 30");
+		RUNTIME_ASSERT(BlueDragon_GetRangeFactor("hp_damage", 60) == 10, "BlueDragon_GetRangeFactor(hp_damage, 60) must return 10");
+		RUNTIME_ASSERT(BlueDragon_GetIndexFactor("DragonStone", 1, "effect_type") == 1, "BlueDragon_GetIndexFactor(DragonStone, 1, effect_type) must return 1");
+
+		// 6.2.2 questlib.lua + GFquestlib.lua + libModuleLoader.lua (36 active libs/* submodules)
 		std::string ql_path = found_poland_dir + "/quest/questlib.lua";
-		RUNTIME_ASSERT(lua_dofile(L, ql_path.c_str()) == 0, "Real FTP questlib.lua execution must succeed");
-#if LUA_V == 523 || LUA_V == 551
-		lua_dostring(L,
-			"select = function(...) local a = table.pack(...); return q.yield('select', a) end\n"
-			"debug = function(text, ...) if is_test_server and is_test_server() then syschat(string.format('[qDEBUG] '..text, ...)) end end\n"
-		);
-#endif
+		RUNTIME_ASSERT(lua_dofile(L, ql_path.c_str()) == 0, "Real serverfiles questlib.lua + libs/* execution must succeed");
+
+		// 6.2.3 translate.lua & quest/locale.lua
 		std::string trans_path = found_poland_dir + "/translate.lua";
-		FILE* fp_tr = fopen(trans_path.c_str(), "r");
-		if (fp_tr) {
-			fclose(fp_tr);
-			RUNTIME_ASSERT(lua_dofile(L, trans_path.c_str()) == 0, "Real FTP translate.lua execution must succeed");
-		}
+		RUNTIME_ASSERT(lua_dofile(L, trans_path.c_str()) == 0, "Real serverfiles translate.lua execution must succeed");
 
 		std::string loc_path = found_poland_dir + "/quest/locale.lua";
-		FILE* fp_loc = fopen(loc_path.c_str(), "r");
-		if (fp_loc) {
-			fclose(fp_loc);
-			RUNTIME_ASSERT(lua_dofile(L, loc_path.c_str()) == 0, "Real FTP locale.lua execution must succeed");
+		RUNTIME_ASSERT(lua_dofile(L, loc_path.c_str()) == 0, "Real serverfiles quest/locale.lua execution must succeed");
+
+		int helper_err = lua_dostring(L,
+			"assert(parse_number(1000000) == '1.000.000', 'parse_number(1000000) failed: ' .. tostring(parse_number(1000000)))\n"
+			"assert(parse_number(1000000.0) == '1.000.000', 'parse_number(1000000.0) failed')\n"
+			"assert(type(get_time_remaining(3665)) == 'string', 'get_time_remaining failed')\n"
+			"assert(type(busy_action) == 'table', 'busy_action module missing')\n"
+			"assert(type(crafting) == 'table', 'crafting module missing')\n"
+			"assert(type(fishing_manage) == 'table', 'fishing_manage module missing')\n"
+			"assert(type(itemshop) == 'table', 'itemshop module missing')\n"
+			"assert(type(quest_book) == 'table', 'quest_book module missing')\n"
+		);
+		RUNTIME_ASSERT(helper_err == 0, "questlib.lua & libs/* helper assertions must pass");
+
+		// 6.2.4 oxquiz.lua & monkey_dungeon.lua
+		lua_register(L, "add_ox_quiz", DummyAddOxQuiz);
+		std::string ox_path = found_poland_dir + "/oxquiz.lua";
+		RUNTIME_ASSERT(lua_dofile(L, ox_path.c_str()) == 0, "Real serverfiles oxquiz.lua execution must succeed");
+
+		lua_register(L, "add_goto_npc_for_monkey_dungeon", DummyAddGotoNpcForMonkeyDungeon);
+		std::string md_path = found_poland_dir + "/monkey_dungeon.lua";
+		FILE* fp_md = fopen(md_path.c_str(), "r");
+		if (fp_md) {
+			fclose(fp_md);
+			RUNTIME_ASSERT(lua_dofile(L, md_path.c_str()) == 0, "Real serverfiles monkey_dungeon.lua execution must succeed");
+		}
+
+		// 6.2.5 Load all object/state/* files and verify BuildStateIndexToName
+		namespace fs = std::filesystem;
+		fs::path obj_root = fs::path(found_poland_dir) / "quest" / "object";
+		fs::path state_root = obj_root / "state";
+		int state_files_loaded = 0;
+		if (fs::exists(state_root) && fs::is_directory(state_root)) {
+			for (const auto& entry : fs::directory_iterator(state_root)) {
+				if (!entry.is_regular_file()) continue;
+				std::string qname = entry.path().filename().string();
+				std::string spath = entry.path().string();
+				RUNTIME_ASSERT(lua_dofile(L, spath.c_str()) == 0, ("Failed to execute object/state/" + qname).c_str());
+				qm.BuildStateIndexToName(qname.c_str());
+				state_files_loaded++;
+			}
+			RUNTIME_ASSERT(state_files_loaded >= 200, "Must load all 201 object/state/* quest state tables");
+		}
+
+		// 6.2.6 Syntax-check all 6,899 compiled files in quest/object/
+		int obj_files_checked = 0;
+		if (fs::exists(obj_root) && fs::is_directory(obj_root)) {
+			for (const auto& entry : fs::recursive_directory_iterator(obj_root)) {
+				if (!entry.is_regular_file()) continue;
+				std::string fpath = entry.path().string();
+				std::string fname = entry.path().filename().string();
+				std::ifstream ifs(entry.path(), std::ios::binary);
+				std::ostringstream ss;
+				ss << ifs.rdbuf();
+				std::string content = ss.str();
+
+				if (entry.path().extension() == ".arg") {
+					obj_files_checked++;
+				} else {
+					int lerr = luaL_loadbuffer(L, content.c_str(), content.size(), fpath.c_str());
+					RUNTIME_ASSERT(lerr == 0, ("Syntax error in compiled object file: " + fpath).c_str());
+					lua_pop(L, 1);
+					obj_files_checked++;
+				}
+			}
+			RUNTIME_ASSERT(obj_files_checked >= 6800, "Must syntax-verify all ~6,899 compiled object/ files");
 		}
 
 		g_stServiceBasePath = prev_service_path;
 		g_stQuestDir = prev_quest_dir;
-		std::cout << "  --> [PASS] Real FTP locale/poland runtime scripts verified in InitializeLua order" << std::endl;
+		std::cout << "  --> [PASS] Real serverfiles locale/poland verified: settings.lua, BlueDragon.lua, questlib.lua + 36 libs/*, translate.lua, locale.lua, oxquiz.lua, "
+		          << state_files_loaded << " state tables, and " << obj_files_checked << " compiled object/ files (0 errors)" << std::endl;
 	} else {
-		std::cout << "  --> [INFO] Real FTP archive not unpacked on this host; mandatory synthetic fixtures verified" << std::endl;
+		std::cout << "  --> [INFO] Real serverfiles not unpacked in working path; mandatory synthetic fixtures verified" << std::endl;
 	}
 	checks_passed++;
 
@@ -301,11 +383,7 @@ int RunGameQuestRuntimeTests()
 
 	// 8. Interactive Coroutine Dialog State Machine (select, wait, input, confirm, select_item, normal completion)
 	std::cout << "[RUN] Check 8: Interactive Coroutine Dialog State Machine..." << std::endl;
-#if LUA_V == 551 || LUA_V == 523
 	const int EXPECT_YIELD = LUA_YIELD;
-#else
-	const int EXPECT_YIELD = 0;
-#endif
 
 	// 8.1 select (must compile with luaL_loadbuffer onto coroutine stack, then execute via lua_resume)
 	lua_State* co = lua_newthread(L);
@@ -434,11 +512,7 @@ int RunGameQuestRuntimeTests()
 	int err_load = luaL_loadbuffer(co_err, bad_script, strlen(bad_script), "bad_quest");
 	RUNTIME_ASSERT(err_load == 0, "Loading bad_quest buffer must succeed");
 	int err_res = lua_resume(co_err, 0);
-#if LUA_V == 551 || LUA_V == 523
 	RUNTIME_ASSERT(err_res != 0 && err_res != LUA_YIELD, "Deliberate error must return non-zero error status");
-#else
-	RUNTIME_ASSERT(err_res != 0, "Deliberate error must return non-zero error status");
-#endif
 	lua_pop(L, 1);
 	std::cout << "  --> Deliberate script errors trapped without crashing server process" << std::endl;
 	checks_passed++;

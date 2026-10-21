@@ -50,11 +50,14 @@ if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/CMakeLists.txt" ]; then
 fi
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$REPO_ROOT/server/src/db/db_r41023}"
-GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$REPO_ROOT/server/src/game/game_r41023}"
-GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$REPO_ROOT/server/src/game/game_r41023_lua50}"
+GAME_BIN="${MT2_SMOKE_GAME55_BIN:-$REPO_ROOT/server/src/game/game_r41023}"
+QC_BIN="${MT2_SMOKE_QC_BIN:-$REPO_ROOT/build/freebsd-gcc/server/src/game/src/quest/qc}"
+if [ ! -x "$QC_BIN" ] && [ -x "$REPO_ROOT/server/src/game/src/quest/qc" ]; then
+    QC_BIN="$REPO_ROOT/server/src/game/src/quest/qc"
+fi
 SF_ARCHIVE="$REPO_ROOT/server/serverfiles_share.tar.xz"
 
-for bin in "$DB_BIN" "$GAME55_BIN" "$GAME50_BIN"; do
+for bin in "$DB_BIN" "$GAME_BIN"; do
     if [ ! -x "$bin" ]; then
         echo "[ERROR] Missing or non-executable x64 binary: $bin" >&2
         exit 1
@@ -79,9 +82,13 @@ fi
 
 echo "=== [2/4] Installing x64 ELF Binaries, Symlinks, and Management Scripts ==="
 cp -f "$DB_BIN" "$TARGET_DIR/share/bin/db"
-cp -f "$GAME55_BIN" "$TARGET_DIR/share/bin/game"
-cp -f "$GAME50_BIN" "$TARGET_DIR/share/bin/game_lua50"
-chmod 750 "$TARGET_DIR/share/bin/db" "$TARGET_DIR/share/bin/game" "$TARGET_DIR/share/bin/game_lua50"
+cp -f "$GAME_BIN" "$TARGET_DIR/share/bin/game"
+rm -f "$TARGET_DIR/share/bin/game_lua50"
+chmod 750 "$TARGET_DIR/share/bin/db" "$TARGET_DIR/share/bin/game"
+if [ -x "$QC_BIN" ]; then
+    cp -f "$QC_BIN" "$TARGET_DIR/share/locale/poland/quest/qc"
+    chmod 750 "$TARGET_DIR/share/locale/poland/quest/qc"
+fi
 
 for s in start.sh stop.sh status.sh install.sh mt2server.rc; do
     if [ -f "$REPO_ROOT/server/scripts/freebsd/$s" ]; then

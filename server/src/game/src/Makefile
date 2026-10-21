@@ -14,21 +14,13 @@ BINDIR = ..
 
 ## LIST OF CONSTANTS BEGIN
 ENABLE_GOOGLE_TEST = 0
-ENABLE_LUA_5_VERSION ?= 5
+ENABLE_LUA_5_VERSION = 5
 ENABLE_GCC_AUTODEPEND = 1
 ENABLE_STATIC = 0
 ## LIST OF CONSTANTS END
 
-ifeq ($(ENABLE_LUA_5_VERSION), 5)
 OBJDIR = .obj_lua55
 MAIN_TARGET ?= $(BINDIR)/game_r$(GAME_VERSION)
-else ifeq ($(ENABLE_LUA_5_VERSION), 2)
-OBJDIR = .obj_lua52
-MAIN_TARGET ?= $(BINDIR)/game_r$(GAME_VERSION)_lua52
-else
-OBJDIR = .obj
-MAIN_TARGET ?= $(BINDIR)/game_r$(GAME_VERSION)_lua50
-endif
 
 $(shell if [ ! -d $(OBJDIR) ]; then mkdir $(OBJDIR); fi)
 
@@ -143,21 +135,11 @@ endif
 INCDIR += -I/usr/include
 LIBS += -lssl -lcrypto
 
-# Lua
+# Lua 5.5.1
 CFLAGS += -DENABLE_LUA_5_VERSION=$(ENABLE_LUA_5_VERSION)
-ifeq ($(ENABLE_LUA_5_VERSION), 5)
 INCDIR += -I../../liblua/5.5/src
 LIBDIR += -L../../liblua/5.5/src
 LIBS += ../../liblua/5.5/src/liblua.a
-else ifeq ($(ENABLE_LUA_5_VERSION), 2)
-INCDIR += -I../../liblua/5.2/install/include
-LIBDIR += -L../../liblua/5.2/install/lib
-LIBS += ../../liblua/5.2/install/lib/liblua.a
-else
-INCDIR += -I../../liblua/5.0/include
-LIBDIR += -L../../liblua/5.0/lib
-LIBS += ../../liblua/5.0/lib/liblua.a ../../liblua/5.0/lib/liblualib.a
-endif
 
 # Project Libraries
 INCDIR += -I/usr/local/include

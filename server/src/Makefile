@@ -13,7 +13,7 @@ default: liblua libsql libgame libpoly libthecore game db
 	@echo "--------------------------------------"
 
 quick: .
-	$(MAKE) -C liblua/5.0
+	$(MAKE) -C liblua/5.5
 	$(MAKE) -C libsql
 	$(MAKE) -C libgame/src
 	$(MAKE) -C libpoly
@@ -22,7 +22,7 @@ quick: .
 	touch db/src/Main.cpp && $(MAKE) -C db/src && $(MAKE) -C db/src symlink
 
 liblua: .
-	$(MAKE) -C $@/5.0 clean && $(MAKE) -C $@/5.0
+	$(MAKE) -C $@/5.5 clean && $(MAKE) -C $@/5.5
 
 libsql: .
 	touch $@/Depend && $(MAKE) -C $@ dep && $(MAKE) -C $@ clean && $(MAKE) -C $@
@@ -58,7 +58,7 @@ strip:
 	$(MAKE) -C db/src strip
 
 clean:
-	$(MAKE) -C liblua/5.0 clean
+	$(MAKE) -C liblua/5.5 clean
 	$(MAKE) -C libsql clean
 	$(MAKE) -C libgame/src clean
 	$(MAKE) -C libpoly clean
@@ -77,11 +77,7 @@ all:
 	@echo "Full Build Start"
 	@echo "--------------------------------------"
 
-	$(MAKE) -C liblua/5.0 clean && $(MAKE) -C liblua/5.0
-
-	# $(MAKE) -C liblua/5.2 clean
-	# $(MAKE) -C liblua/5.2 freebsd
-	# $(MAKE) -C liblua/5.2 local
+	$(MAKE) -C liblua/5.5 clean && $(MAKE) -C liblua/5.5
 
 	touch libsql/Depend && $(MAKE) -C libsql dep && $(MAKE) -C libsql clean && $(MAKE) -C libsql
 	touch libgame/src/Depend && $(MAKE) -C libgame/src dep && $(MAKE) -C libgame/src clean && $(MAKE) -C libgame/src

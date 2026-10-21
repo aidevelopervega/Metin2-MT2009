@@ -153,7 +153,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
    * Önceden doğrulanmış `PASS` kanıtları korunacak; yeni kanıt olmadan hiçbir senaryoya `PASS` yazılmayacak; FreeBSD'ye özgü davranışlar yalnızca Windows `PASS` sonucuna dayanarak `PASS` ilan edilmeyecektir.
    * Tüm doğrulamalar aşağıdaki **4 kademeli sırayla** yürütülecek; `A`, `B` veya `C` kademesinde yakalanabilen hatalar için pahalı `D` kademesi asla gereksiz yere çalıştırılmayacaktır:
      - **Kademe A (Statik ve Sözdizimi Kontrolü — Tüm Değişikliklerde Zorunlu):** Dosya, `git diff`, YAML (`actionlint`), PowerShell AST ve POSIX shell (`sh -n`) sözdizimi doğrulaması.
-     - **Kademe B (Windows x64 Derleme ve Birim Testleri — C++/CMake/Test Değişikliklerinde Zorunlu):** Yerel `cmake --build --preset windows-gcc-ucrt` (tam PE64 bağlama doğrulaması) ve `ctest --preset windows-gcc-ucrt` (`14/14 PASS`).
+     - **Kademe B (Windows x64 Derleme ve Birim Testleri — C++/CMake/Test Değişikliklerinde Zorunlu):** Yerel `cmake --build --preset windows-gcc-ucrt` (tam PE64 bağlama doğrulaması), `ctest --preset windows-gcc-ucrt` (`10/10 PASS`), `game_r41023.exe --check-lua` (`11/11 PASS`) ve `python tests/run_quest_matrix.py` (`202/202 PASS`).
      - **Kademe C (Yerel Canlı SQL ve Protokol Duman Testleri — DB/Auth/Game/SQL/Betik Değişikliklerinde Zorunlu):** Değişiklikle ilgili yerel MariaDB 12.3 LTS şema/sorgu testleri ve/veya Windows x64 `db_r41023.exe` + `game_r41023.exe` + `test_server_smoke_client.exe` protokol/oturum testleri.
      - **Kademe D (Tam FreeBSD 15.1 amd64 GCC 14 CI Matrisi — Yalnızca Bilinçli Tetiklemeyle):** `Kademe A + B + C` yerel olarak %100 geçtikten ve aylık bütçe kontrol edildikten sonra, yalnızca revizyon kapanışı veya FreeBSD'ye özgü doğrulama gerektiğinde `ci/run-full-freebsd.txt` tetikleme dosyası güncellenerek iki motorlu (`MariaDB 12.3 LTS` ve `MySQL 8.4 LTS`) tam FreeBSD CI çalıştırılır.
 
@@ -203,7 +203,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
 Server ve Common Extern bağımlılıklarının en güncel kararlı resmî sürümlerine yükseltilmesi projenin kalıcı ve zorunlu hedefidir.
 
 1. **Öncelikli Bileşenler:**
-   * Lua (5.0'dan güvenli yükseltme), Crypto++, Boost, DevIL (IL/ILU/ILUT), RapidJSON, fmt, zlib, OpenSSL, MySQL/MariaDB istemci kütüphaneleri ve Server'ın kullandığı diğer harici bileşenler.
+   * Lua (**yalnızca Lua 5.5.1 tek üretim ve derleme motorudur**; eski Lua 5.0.3 ve Lua 5.2.3 motorları ile `game_r41023_lua50` geri dönüş ikilisi Rev 51 ile kalıcı olarak kaldırılmıştır), Crypto++, Boost, DevIL (IL/ILU/ILUT), RapidJSON, fmt, zlib, OpenSSL, MySQL/MariaDB istemci kütüphaneleri ve Server'ın kullandığı diğer harici bileşenler.
 2. **Adım Adım Bağımlılık Yükseltme Protokolü:**
    * Tüm Extern aynı anda değiştirilemez; her bağımlılık tek tek ele alınır:
      1. Mevcut gerçek sürüm belirlenir.

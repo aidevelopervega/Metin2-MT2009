@@ -95,36 +95,7 @@ target_include_directories(test_packet_wire PRIVATE
 )
 add_test(NAME test_packet_wire COMMAND test_packet_wire)
 
-# 8. test_lua_quest (Lua 5.0 Default Engine)
-add_executable(test_lua_quest test_lua_quest.cpp)
-target_include_directories(test_lua_quest PRIVATE
-    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.0/include"
-    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.0/src"
-)
-target_link_libraries(test_lua_quest PRIVATE lua_lib)
-if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    target_link_libraries(test_lua_quest PRIVATE m)
-endif()
-add_test(NAME test_lua_quest COMMAND test_lua_quest)
-
-# 9. test_lua52_quest (Lua 5.2 Staged Migration Engine)
-add_executable(test_lua52_quest test_lua52_quest.cpp)
-target_include_directories(test_lua52_quest PRIVATE
-    "${CMAKE_SOURCE_DIR}/server/src/liblua/5.2/src"
-)
-target_link_libraries(test_lua52_quest PRIVATE lua52_lib)
-if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    target_link_libraries(test_lua52_quest PRIVATE m)
-endif()
-add_test(NAME test_lua52_quest COMMAND test_lua52_quest)
-
-# 10. test_qc_compiler_lua50 (Real Metin2 quest compilation with Lua 5.0.3 rollback qc_lua50)
-add_test(NAME test_qc_compiler_lua50 COMMAND qc_lua50 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
-
-# 11. test_qc_compiler_lua52 (Real Metin2 quest compilation with Lua 5.2 qc_lua52)
-add_test(NAME test_qc_compiler_lua52 COMMAND qc_lua52 "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
-
-# 12. test_lua55_quest (Lua 5.5 Upstream Stable Modern Engine)
+# 8. test_lua55_quest (Lua 5.5.1 Exclusive Production Engine)
 add_executable(test_lua55_quest test_lua55_quest.cpp)
 target_include_directories(test_lua55_quest PRIVATE
     "${CMAKE_SOURCE_DIR}/server/src/liblua/5.5/src"
@@ -135,10 +106,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 endif()
 add_test(NAME test_lua55_quest COMMAND test_lua55_quest)
 
-# 13. test_qc_compiler_lua55 (Real Metin2 quest compilation with promoted default Lua 5.5.1 qc)
+# 9. test_qc_compiler_lua55 (Real Metin2 quest compilation with Lua 5.5.1 qc)
 add_test(NAME test_qc_compiler_lua55 COMMAND qc "${CMAKE_SOURCE_DIR}/tests/fixtures/sample_biologist.quest")
 
-# 14. test_auth_security (Argon2id PHC, Legacy *SHA1 migration, Rate Limiter, CSPRNG LoginKey)
+# 10. test_auth_security (Argon2id PHC, Legacy *SHA1 migration, Rate Limiter, CSPRNG LoginKey)
 add_executable(test_auth_security test_auth_security.cpp)
 target_include_directories(test_auth_security PRIVATE ${TEST_COMMON_INCLUDES})
 target_link_libraries(test_auth_security PRIVATE thecore)

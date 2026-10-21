@@ -1,6 +1,7 @@
 #!/bin/sh
 # ==============================================================================
-# Metin2 MT2009 - Rev 50: Real FreeBSD 15.1 x64 Serverfiles Installation,
+# Metin2 MT2009 - Rev 51: Real FreeBSD 15.1 x64 Serverfiles Installation,
+# Exclusive Lua 5.5.1 Engine & 202 Active Quest Compilation Verification,
 # Least-Privilege SQL & chmod 600 Config Security, Full 8-Service Boot,
 # Cross-Core CMapLocation & Portal 10002 WarpSet (ch11 -> ch12 -> ch11),
 # 3-Phase Ordered Graceful Shutdown, Log Rotation & Zero-syserr Verification
@@ -21,8 +22,11 @@ ENGINE="${MT2_TEST_ENGINE:-FreeBSD SQL}"
 ENGINE_ID="${ENGINE_ID:-freebsd_sql}"
 
 DB_BIN="${MT2_SMOKE_DB_BIN:-$ROOT_DIR/server/src/db/db_r41023}"
-GAME50_BIN="${MT2_SMOKE_GAME50_BIN:-$ROOT_DIR/server/src/game/game_r41023_lua50}"
 GAME55_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
+QC_BIN="${MT2_SMOKE_QC_BIN:-$ROOT_DIR/build/freebsd-gcc/server/src/game/src/quest/qc}"
+if [ ! -x "$QC_BIN" ] && [ -x "$ROOT_DIR/server/src/game/src/quest/qc" ]; then
+    QC_BIN="$ROOT_DIR/server/src/game/src/quest/qc"
+fi
 SF_ARCHIVE="$ROOT_DIR/server/serverfiles_share.tar.xz"
 SFROOT="/usr/home/mt2"
 ARTIFACT_DIR="$ROOT_DIR/artifacts/freebsd_serverfiles_logs_${ENGINE_ID}"
@@ -34,7 +38,7 @@ SMOKE_TEST_PASS="Bsd64Hero!2026"
 export SMOKE_TEST_LOGIN SMOKE_TEST_PASS
 
 echo "=================================================================="
-echo " METIN2 MT2009 - REV 50 REAL FREEBSD 15.1 SERVERFILES VERIFICATION"
+echo " METIN2 MT2009 - REV 51 REAL FREEBSD 15.1 SERVERFILES VERIFICATION"
 echo " Engine:         $ENGINE ($HOST:$PORT)"
 echo " Target Root:    $SFROOT"
 echo " Artifact Dir:   $ARTIFACT_DIR"
@@ -45,7 +49,7 @@ if [ -z "$PASS" ]; then
     exit 1
 fi
 
-for bin in "$DB_BIN" "$GAME50_BIN" "$GAME55_BIN"; do
+for bin in "$DB_BIN" "$GAME55_BIN"; do
     if [ ! -x "$bin" ]; then
         echo "[ERROR] Missing or non-executable binary: $bin" >&2
         exit 1
@@ -128,6 +132,15 @@ for cfg_file in "$SFROOT/db/conf.txt" "$SFROOT/auth/CONFIG" "$SFROOT/chs/ch11/CO
 done
 echo "  -> Verified chmod 600 permissions on db/conf.txt, auth/CONFIG, and chs/*/CONFIG"
 
+if [ -x "$QC_BIN" ] && command -v python3 >/dev/null 2>&1; then
+    echo "  -> Verifying all 202 active quests in $SFROOT/share/locale/poland/quest with 64-bit Lua 5.5.1 qc..."
+    python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
+        --quest-dir "$SFROOT/share/locale/poland/quest" \
+        --qc "$QC_BIN" \
+        --force \
+        --clean
+fi
+
 assert_zero_syserr() {
     stage_label="$1"
     err_found=0
@@ -191,7 +204,7 @@ if [ "$ROTATED_COUNT" -lt 8 ]; then
     exit 1
 fi
 
-echo "=== [5/7] Placing Character on map_index=3 (ch12) & Restarting All 8 Services ==="
+echo "=== [5/7] Verifying SQL Quest Persistence & Placing Character on map_index=3 (ch12) ==="
 TEST_CNF="$SFROOT/.test_client.cnf"
 umask 077
 cat > "$TEST_CNF" <<EOF
@@ -202,6 +215,14 @@ user=$USER
 password="$PASS"
 EOF
 chmod 600 "$TEST_CNF"
+QUEST_ROW_COUNT=$("$DB_CLI" "--defaults-extra-file=$TEST_CNF" -N -s player \
+    -e "SELECT COUNT(*) FROM quest WHERE dwPID=(SELECT id FROM player WHERE name='SmokeHero' LIMIT 1);")
+echo "  -> Verified persisted quest rows in player.quest for SmokeHero: $QUEST_ROW_COUNT"
+if [ -z "$QUEST_ROW_COUNT" ] || [ "$QUEST_ROW_COUNT" -lt 1 ]; then
+    echo "[ERROR] Expected persisted quest rows in player.quest for SmokeHero, got $QUEST_ROW_COUNT" >&2
+    rm -f "$TEST_CNF"
+    exit 1
+fi
 "$DB_CLI" "--defaults-extra-file=$TEST_CNF" player \
     -e "UPDATE player SET map_index=3, x=401600, y=899600, exit_map_index=3, exit_x=401600, exit_y=899600 WHERE name='SmokeHero';"
 rm -f "$TEST_CNF"
@@ -240,6 +261,6 @@ fi
 echo "  -> Verified 0 secret leaks in collected logs and artifacts"
 
 echo "=================================================================="
-echo " [PASS] REV 50 FREEBSD 15.1 SERVERFILES (8 SERVICES, 0 SYSERR,"
-echo "        LEAST-PRIVILEGE SQL, CHMOD 600, CH11->CH12->CH11 WARP)"
+echo " [PASS] REV 51 FREEBSD 15.1 SERVERFILES (LUA 5.5.1 EXCLUSIVE, 202 QUESTS,"
+echo "        8 SERVICES, 0 SYSERR, LEAST-PRIVILEGE SQL, CH11->CH12->CH11 WARP)"
 echo "=================================================================="

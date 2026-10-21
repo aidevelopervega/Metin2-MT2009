@@ -1,6 +1,5 @@
 param(
     [int]$Channels = 1,
-    [switch]$UseLua50,
     [switch]$RotateLogs,
     [string]$ServerRoot = ""
 )
@@ -47,7 +46,7 @@ $dataDir = Get-ConfigValue $cfg "MT2_MYSQL_DATADIR" (Join-Path $SFROOT "mysql_da
 $logMaxBytes = [int64](Get-ConfigValue $cfg "MT2_LOG_MAX_BYTES" "10485760")
 $logMaxArchives = [int](Get-ConfigValue $cfg "MT2_LOG_MAX_ARCHIVES" "10")
 
-$gameBin = if ($UseLua50) { Join-Path $SFROOT "share\bin\game_r41023_lua50.exe" } else { Join-Path $SFROOT "share\bin\game_r41023.exe" }
+$gameBin = Join-Path $SFROOT "share\bin\game_r41023.exe"
 $dbBin = Join-Path $SFROOT "share\bin\db_r41023.exe"
 
 function Start-DetachedService([string]$CommandLine, [string]$WorkingDir, [string]$ExePath = "", [string[]]$ArgumentList = @(), [string]$StdOut = "", [string]$StdErr = "") {

@@ -158,8 +158,6 @@ jobs:
             gmake -C server/src/libsql clean
             gmake -C server/src/libsql -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
             gmake -C server/src/libgame/src -j4 CXX="$GMAKE_CXX" CC="$GMAKE_CC"
-            LUA_DIR="server/src/liblua/5.0"
-            gmake -C "$LUA_DIR" CC="$GMAKE_CC" AR="ar rcu" RANLIB="ranlib"
             LUA55_DIR="server/src/liblua/5.5/src"
             gmake -C "$LUA55_DIR" a CC="$GMAKE_CC" AR="ar rcu" RANLIB="ranlib"
             echo "=== FREEBSD 15.1 amd64 GERCEK CRYPTOPP DERLEMESI ==="
@@ -169,8 +167,8 @@ jobs:
             else
               gmake -C "$CRYPTOPP_DIR" -j4 static CXX="$GMAKE_CXX" CC="$GMAKE_CC"
             fi
-            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
-            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA_DIR"/lib/liblua*.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
+            ls -lh server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
+            file server/src/libthecore/lib/libthecore.a server/src/libpoly/libpoly.a server/src/libsql/libsql.a server/src/libgame/lib/libgame.a "$LUA55_DIR"/liblua.a "$CRYPTOPP_DIR"/libcryptopp.a
 
             # 5.1 FreeBSD amd64 Gerçek 64-Bit DB Sunucusu Derlemesi
             echo "=== FREEBSD 15.1 amd64 GERCEK DB SUNUCUSU DERLEMESI ==="
@@ -184,39 +182,35 @@ jobs:
             chmod +x ./tests/run_db_integration_tests.sh
             ./tests/run_db_integration_tests.sh
 
-            # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023 [Lua 5.5.1 Default], game_r41023_lua50 [Lua 5.0.3 Rollback]) ve CTest Doğrulaması
+            # 5.3 FreeBSD amd64 CMake + Ninja Derleme (db_r41023, game_r41023 [Lua 5.5.1 Exclusive], qc [Lua 5.5.1 Exclusive]) ve CTest Doğrulaması
             echo "=== FREEBSD 15.1 amd64 CMAKE + NINJA DERLEMESI VE CTEST ==="
             GAME_DIR="server/src/game"
-            rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
+            QC_BIN="build/freebsd-gcc/server/src/game/src/quest/qc"
+            rm -f "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN"
             cmake --preset freebsd-gcc14 $CMAKE_CCACHE_ARGS
             cmake --build --preset freebsd-gcc14 -- -j2
             if command -v ccache >/dev/null 2>&1; then
               ccache -s || true
             fi
             ctest --preset freebsd-gcc14 --output-on-failure
-            ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
-            file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" "$GAME_DIR/game_r41023_lua55"
-            readelf -h "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -E 'Class|Machine|Type' || true
-            readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -E 'NEEDED|RPATH|RUNPATH' || true
-            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$GAME_DIR/game_r41023_lua50" | grep -q "libc++.so"; then
+            ls -lh "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN"
+            file "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN"
+            readelf -h "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN" | grep -E 'Class|Machine|Type' || true
+            readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN" | grep -E 'NEEDED|RPATH|RUNPATH' || true
+            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" "$QC_BIN" | grep -q "libc++.so"; then
               echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
               exit 1
             fi
-            echo "--> CMake ikilileri (db_r41023, game_r41023 [Lua 5.5.1 Default], game_r41023_lua50 [Lua 5.0.3 Rollback]) ELF64 pure libstdc++ olarak basariyla dogrulandi."
+            echo "--> CMake ikilileri (db_r41023, game_r41023 [Lua 5.5.1 Exclusive], qc [Lua 5.5.1 Exclusive]) ELF64 pure libstdc++ olarak basariyla dogrulandi."
 
-            # 5.4 Game Sunucusu Lua Quest Runtime Doğrulaması (--check-lua 11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3)
-            echo "=== GAME SUNUCUSU LUA QUEST RUNTIME DOGRULAMASI (--check-lua) ==="
+            # 5.4 Game Sunucusu Lua 5.5.1 Quest Runtime Doğrulaması (--check-lua 11/11)
+            echo "=== GAME SUNUCUSU LUA 5.5.1 QUEST RUNTIME DOGRULAMASI (--check-lua) ==="
             "$GAME_DIR/game_r41023" --check-lua | tee /tmp/check_lua_default.log
             if ! grep -q "Lua 5.5.1" /tmp/check_lua_default.log; then
-              echo "HATA: Varsayilan game_r41023 ikilisi Lua 5.5.1 motoru ile calismiyor!" >&2
+              echo "HATA: game_r41023 ikilisi Lua 5.5.1 motoru ile calismiyor!" >&2
               exit 1
             fi
-            "$GAME_DIR/game_r41023_lua50" --check-lua | tee /tmp/check_lua_rollback.log
-            if ! grep -q "Lua 5.0.3" /tmp/check_lua_rollback.log; then
-              echo "HATA: Geri donus game_r41023_lua50 ikilisi Lua 5.0.3 motoru ile calismiyor!" >&2
-              exit 1
-            fi
-            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (14/14) ve --check-lua (11/11: Default Lua 5.5.1 & Rollback Lua 5.0.3) doğrulaması başarıyla tamamlandı."
+            echo "--> CMake + Ninja derleme, ELF64, pure libstdc++, CTest (10/10) ve --check-lua (11/11: Lua 5.5.1 Exclusive) doğrulaması başarıyla tamamlandı."
 
             DATA_DIR="/tmp/data_${ENGINE_ID}"
             SSL_DIR="/tmp/ssl_${ENGINE_ID}"
@@ -373,11 +367,11 @@ jobs:
 
             ./tests/run_live_tests.sh
 
-            # İzole Sunucu Başlatma (db_r41023 + game_r41023 + game_r41023_lua55) ve 32-Bit İstemci El Sıkışma Duman Testi
+            # İzole Sunucu Başlatma (db_r41023 + game_r41023 [Lua 5.5.1 Exclusive]) ve 32-Bit İstemci El Sıkışma Duman Testi
             chmod +x ./tests/run_server_smoke_test.sh
             ./tests/run_server_smoke_test.sh
 
-            # Rev 50: Gerçek FreeBSD 15.1 Serverfiles (/usr/home/mt2) 8 Servis (db, auth, ch11..ch01), Least-Privilege SQL, chmod 600, Cross-Core Warp ve Log Rotation Doğrulaması
+            # Rev 51: Gerçek FreeBSD 15.1 Serverfiles (/usr/home/mt2) Lua 5.5.1 Exclusive + 202 Quest, 8 Servis (db, auth, ch11..ch01), Least-Privilege SQL, chmod 600, Cross-Core Warp ve Log Rotation Doğrulaması
             chmod +x ./tests/run_freebsd_serverfiles_test.sh
             ENGINE_ID="$ENGINE_ID" ./tests/run_freebsd_serverfiles_test.sh
 
@@ -391,7 +385,6 @@ jobs:
               server/src/libpoly/libpoly.a server/src/libpoly/*.o \
               server/src/libsql/libsql.a server/src/libsql/*.o \
               server/src/libgame/lib server/src/libgame/src/*.o \
-              server/src/liblua/5.0/lib server/src/liblua/5.0/src/*.o server/src/liblua/5.0/src/lib/*.o \
               server/src/liblua/5.5/src/liblua.a server/src/liblua/5.5/src/*.o \
               extern/server/cryptopp/*.o
             echo "--> $ENGINE_NAME sunucusu temiz şekilde kapatıldı ve serverfiles logları artifacts/ dizinine hazırlandı."

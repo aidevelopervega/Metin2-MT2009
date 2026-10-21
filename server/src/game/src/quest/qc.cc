@@ -9,31 +9,26 @@ extern "C" {
 #include <llex.h>
 #include <lstring.h>
 
-#if LUA_VERSION_NUM >= 502
-	#define luaL_reg		luaL_Reg
-
-	#define lua_dobuffer	luaL_loadbuffer
-	#define lua_dofile		luaL_dofile
-	#define lua_dostring	luaL_dostring
-	#define luaL_getn		lua_rawlen
-	#if LUA_VERSION_NUM >= 504
-		#define lua_resume(a,b)	{ int nres = 0; lua_resume(a,0,b,&nres); }
-	#else
-		#define lua_resume(a,b)	lua_resume(a,0,b)
-	#endif
-	#define luaX_lex		llex
-
-	#define zname(z)		"quest"
-	#define luaZ_init(a,b,c,d)	luaZ_init(L,a,b,c)
-	#define luaX_setinput(a,b,c,d)	luaX_setinput(a,b,c,d,zgetc(c))
-
-	#define lua_ref(L,lock)	((lock) ? luaL_ref(L, LUA_REGISTRYINDEX) : \
-	  (lua_pushstring(L, "unlocked references are obsolete"), lua_error(L), 0))
-	#define lua_unref(L,ref)	luaL_unref(L, LUA_REGISTRYINDEX, (ref))
-#elif LUA_VERSION_NUM == 500
-#else
-	#error "lua version not found"
+#if LUA_VERSION_NUM != 505
+	#error "Only Lua 5.5.1 (LUA_VERSION_NUM == 505) is supported"
 #endif
+
+#define luaL_reg		luaL_Reg
+
+#define lua_dobuffer	luaL_loadbuffer
+#define lua_dofile		luaL_dofile
+#define lua_dostring	luaL_dostring
+#define luaL_getn		lua_rawlen
+#define lua_resume(a,b)	{ int nres = 0; lua_resume(a,0,b,&nres); }
+#define luaX_lex		llex
+
+#define zname(z)		"quest"
+#define luaZ_init(a,b,c,d)	luaZ_init(L,a,b,c)
+#define luaX_setinput(a,b,c,d)	luaX_setinput(a,b,c,d,zgetc(c))
+
+#define lua_ref(L,lock)	((lock) ? luaL_ref(L, LUA_REGISTRYINDEX) : \
+  (lua_pushstring(L, "unlocked references are obsolete"), lua_error(L), 0))
+#define lua_unref(L,ref)	luaL_unref(L, LUA_REGISTRYINDEX, (ref))
 
 #if !defined(_MSC_VER) && defined(__cplusplus)
 }
@@ -103,7 +98,6 @@ static const char *getF (lua_State *L, void *ud, size_t *size) {
 	return (*size > 0) ? lf->buff : nullptr;
 }
 
-#if LUA_VERSION_NUM >= 505
 static void next (LexState * ls)
 {
 	luaX_next(ls);
@@ -124,38 +118,6 @@ static void lookahead (LexState * ls)
 {
 	luaX_lookahead(ls);
 }
-#else
-static void next (LexState * ls)
-{
-	ls->lastline = ls->linenumber;
-
-	if (ls->lookahead.token != TK_EOS)
-	{
-		/* is there a look-ahead token? */
-		ls->t = ls->lookahead;  /* use this one */
-		ls->lookahead.token = TK_EOS;  /* and discharge it */
-	}
-	else
-		ls->t.token = luaX_lex(ls, &ls->t.seminfo);  /* read next token */
-}
-
-static bool testnext (LexState * ls, int c)
-{
-	if (ls->t.token == c)
-	{
-		next(ls);
-		return true;
-	}
-	else
-		return false;
-}
-
-static void lookahead (LexState * ls)
-{
-	lua_assert(ls->lookahead.token == TK_EOS);
-	ls->lookahead.token = luaX_lex(ls, &ls->lookahead.seminfo);
-}
-#endif
 
 enum parse_state
 {
@@ -206,20 +168,14 @@ ostream & operator << (ostream & ostr, const Token& tok)
 {
 	if (tok.token == TK_NAME)
 		ostr << getstr(tok.seminfo.ts);
-#if LUA_VERSION_NUM >= 503
 	else if (tok.token == TK_INT)
 		ostr << tok.seminfo.i;
 	else if (tok.token == TK_FLT)
 		ostr << tok.seminfo.r;
-#else
-	else if (tok.token == TK_NUMBER)
-		ostr << tok.seminfo.r;
-#endif
 	else if (tok.token == TK_STRING)
 		ostr << '"' << getstr(tok.seminfo.ts) <<'"';
 	else
 	{
-#if LUA_VERSION_NUM >= 502
 		if (tok.token < FIRST_RESERVED)
 			ostr << (char)tok.token;
 		else
@@ -231,9 +187,6 @@ ostream & operator << (ostream & ostr, const Token& tok)
 			else if (s)
 				ostr << s;
 		}
-#else
-		ostr << luaX_token2str(pls,tok.token);
-#endif
 	}
 	return ostr;
 }
@@ -347,9 +300,7 @@ void parse(char * filename)
 	luaZ_initbuffer(L,&b);
 	lexstate.buff = &b;
 	luaX_setinput(L, &lexstate, &z, luaS_new(L, zname(&z)));
-#if LUA_VERSION_NUM >= 505
 	luaX_init_standalone(&lexstate);
-#endif
 
 	parse_state ps = ST_START;
 
@@ -538,7 +489,6 @@ void parse(char * filename)
 			case ST_WHEN_NAME:
 				{
 					assert(nested==2);
-#if LUA_VERSION_NUM >= 503
 					if (t.token == TK_NAME || t.token == TK_STRING || t.token == TK_INT || t.token == TK_FLT)
 					{
 						if (t.token == TK_INT)
@@ -560,22 +510,6 @@ void parse(char * filename)
 							current_when_name = getstr(t.seminfo.ts);
 							lookahead(&lexstate);
 						}
-#else
-					if (t.token == TK_NAME || t.token == TK_STRING || t.token == TK_NUMBER)
-					{
-						if (t.token == TK_NUMBER)
-						{
-							ostringstream os;
-							os << (unsigned int)t.seminfo.r;
-							current_when_name = os.str();
-							lexstate.lookahead.token  = '.';
-						}
-						else
-						{
-							current_when_name = getstr(t.seminfo.ts);
-							lookahead(&lexstate);
-						}
-#endif
 						ps = ST_WHEN_WITH_OR_BEGIN;
 						current_when_argument = "";
 						if (lexstate.lookahead.token == '.')
@@ -1140,9 +1074,7 @@ void parse(char * filename)
 
 	CheckUsedFunction();
 	fclose(lf.f);
-#if LUA_VERSION_NUM >= 505
 	luaX_close_standalone(&lexstate);
-#endif
 }
 
 int main(int argc, char* argv[])
@@ -1151,13 +1083,7 @@ int main(int argc, char* argv[])
 	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #endif
 	mkdir(OUTPUT_FOLDER, 0700);
-#if LUA_VERSION_NUM >= 502
 	L = luaL_newstate();
-#elif LUA_VERSION_NUM == 500
-	L = lua_open();
-#else
-	#error "lua version not found"
-#endif
 	luaX_init(L);
 
 	if (argc > 1)
