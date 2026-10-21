@@ -1,4 +1,4 @@
-# Rev 50: Serverfiles credential hardening, portable installers, secondary channel/warp handoff, graceful shutdown & log rotation
+# Rev 51: Exclusive Lua 5.5.1 engine, 64-bit ELF64 qc, 202 active quests (202 state tables, 6,900 object files) & full FreeBSD 15.1 serverfiles verification
 name: FreeBSD 15.1 amd64 GCC 14 Verification
 
 
@@ -62,6 +62,7 @@ jobs:
           token: ''
           prepare: |
             pkg install -y gcc14 ccache gmake cmake ninja boost-libs devil cryptopp || pkg install -y gcc14 ccache gmake cmake ninja boost-libs || pkg install -y gcc14 gmake cmake ninja boost-libs
+            pkg install -y python3 || pkg install -y python311 || true
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması
             OS_NAME=$(uname -s)

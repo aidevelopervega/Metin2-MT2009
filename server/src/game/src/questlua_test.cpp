@@ -214,6 +214,7 @@ int RunGameQuestRuntimeTests()
 		"../server/files/share/locale/poland",
 		"../../server/files/share/locale/poland",
 		"../../../server/files/share/locale/poland",
+		"/usr/home/mt2/share/locale/poland",
 		"share/locale/poland",
 		"../share/locale/poland",
 		"../../share/locale/poland",

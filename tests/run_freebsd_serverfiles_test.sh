@@ -138,12 +138,47 @@ if [ ! -x "$SFROOT/share/locale/poland/quest/qc" ] || [ -e "$SFROOT/share/locale
     echo "[ERROR] Expected ELF64 qc (and no qc.exe) in $SFROOT/share/locale/poland/quest!" >&2
     exit 1
 fi
+STATE_COUNT=$(find "$SFROOT/share/locale/poland/quest/object/state" -type f | wc -l | tr -d ' ')
+OBJ_COUNT=$(find "$SFROOT/share/locale/poland/quest/object" -type f | wc -l | tr -d ' ')
+echo "  -> Unpacked quest object counts: state_tables=$STATE_COUNT, total_object_files=$OBJ_COUNT"
+if [ "$STATE_COUNT" -ne 202 ] || [ "$OBJ_COUNT" -ne 6900 ]; then
+    echo "[ERROR] Expected 202 state tables and 6900 object files, got state=$STATE_COUNT object=$OBJ_COUNT" >&2
+    exit 1
+fi
 echo "  -> Verifying all 202 active quests in $SFROOT/share/locale/poland/quest with 64-bit Lua 5.5.1 qc..."
-python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
-    --quest-dir "$SFROOT/share/locale/poland/quest" \
-    --qc "$SFROOT/share/locale/poland/quest/qc" \
-    --force \
-    --clean
+if command -v python3 >/dev/null 2>&1; then
+    python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
+        --quest-dir "$SFROOT/share/locale/poland/quest" \
+        --qc "$SFROOT/share/locale/poland/quest/qc" \
+        --force \
+        --clean
+else
+    QC_WORK="/tmp/mt2_qc_verify_$$"
+    rm -rf "$QC_WORK"
+    mkdir -p "$QC_WORK/object"
+    cp -f "$SFROOT/share/locale/poland/quest/quest_functions" "$QC_WORK/quest_functions"
+    PASS_Q=0
+    for qfile in $(find "$SFROOT/share/locale/poland/quest/quest" -type f \( -name "*.quest" -o -name "*.lua" \) | grep -v "/_unused/" | sort); do
+        qbase=$(basename "$qfile")
+        if [ -f "$SFROOT/share/locale/poland/quest/pre_qc/$qbase" ]; then
+            qtarget="$SFROOT/share/locale/poland/quest/pre_qc/$qbase"
+        else
+            qtarget="$qfile"
+        fi
+        (cd "$QC_WORK" && "$SFROOT/share/locale/poland/quest/qc" "$qtarget" >/dev/null)
+        PASS_Q=$((PASS_Q + 1))
+    done
+    REBUILT_STATES=$(find "$QC_WORK/object/state" -type f | wc -l | tr -d ' ')
+    REBUILT_OBJS=$(find "$QC_WORK/object" -type f | wc -l | tr -d ' ')
+    rm -rf "$QC_WORK"
+    echo "  -> POSIX sh 64-bit qc matrix result: PASS=$PASS_Q/202, rebuilt_states=$REBUILT_STATES, rebuilt_objects=$REBUILT_OBJS"
+    if [ "$PASS_Q" -ne 202 ] || [ "$REBUILT_STATES" -ne 202 ] || [ "$REBUILT_OBJS" -ne 6900 ]; then
+        echo "[ERROR] FreeBSD qc verification mismatch!" >&2
+        exit 1
+    fi
+fi
+echo "  -> Running game_r41023 --check-lua against unpacked /usr/home/mt2/share/locale/poland..."
+"$GAME55_BIN" --check-lua
 
 assert_zero_syserr() {
     stage_label="$1"
