@@ -34,9 +34,6 @@ LIBS = -lm -lmd
 
 # Project Flags
 CFLAGS  = -g -Wall -O2 -pipe -fexceptions -fno-strict-aliasing -pthread -D_THREAD_SAFE -DNDEBUG
-ifeq ($(LBITS),32)
-CFLAGS += -m32
-endif
 CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-array-bounds -Wno-address
 CFLAGS += -Wno-int-in-bool-context -Wno-format-truncation -Wno-stringop-truncation -Wno-sign-compare -Wno-deprecated-enum-enum-conversion
 
@@ -153,9 +150,6 @@ INCDIR += -I../../common
 INCDIR += -I../..
 INCDIR += -I.
 LIBDIR += -L/usr/local/lib
-ifeq ($(LBITS),32)
-LIBDIR += -L../../../../extern/server/lib
-endif
 
 LIBDIR += -L../../libthecore/lib -L../../libpoly -L../../libsql -L../../libgame/lib
 LIBS += -lthecore -lpoly -lsql -lgame
@@ -230,7 +224,7 @@ endif
 
 clean_all:
 	@echo cleaning all game objects and targets
-	@rm -rf .obj .obj_lua52 .obj_lua55
+	@rm -rf .obj .obj_lua55
 	@rm -f $(BINDIR)/game_r*
 
 dep:

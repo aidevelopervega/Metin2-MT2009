@@ -7,9 +7,6 @@ INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/inclu
 LBITS := $(shell getconf LONG_BIT)
 
 CFLAGS  = -Wall -O2 -pipe -g $(INCLUDE)
-ifeq ($(LBITS),32)
-CFLAGS += -m32
-endif
 CXXFLAGS = $(CFLAGS) -std=c++20 -Wno-invalid-source-encoding -Wno-deprecated
 CCFLAGS  = $(CFLAGS) -std=c11
 

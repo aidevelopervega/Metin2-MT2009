@@ -268,6 +268,8 @@ int RunGameQuestRuntimeTests()
 			"assert(type(fishing_manage) == 'table', 'fishing_manage module missing')\n"
 			"assert(type(itemshop) == 'table', 'itemshop module missing')\n"
 			"assert(type(quest_book) == 'table', 'quest_book module missing')\n"
+			"assert(type(affect) == 'table' and type(affect.add_hair) == 'function' and type(affect.remove_hair) == 'function', 'affect.add_hair/remove_hair missing')\n"
+			"assert(type(ay_reward) == 'function', 'ay_reward alias for pony_levelup.quest missing')\n"
 		);
 		RUNTIME_ASSERT(helper_err == 0, "questlib.lua & libs/* helper assertions must pass");
 
@@ -302,8 +304,9 @@ int RunGameQuestRuntimeTests()
 			RUNTIME_ASSERT(lua_dostring(L, "assert(type(guild_building) == 'table' and type(guild_manage) == 'table' and guild_building ~= guild_manage, 'guild_building and guild_manage state tables must both exist and be distinct')") == 0, "guild_building and guild_manage state tables must be separate");
 		}
 
-		// 6.2.6 Syntax-check all 6,900 compiled files in quest/object/
+		// 6.2.6 Syntax-check all 6,900 compiled files in quest/object/ and evaluate all chat/*.arg expressions
 		int obj_files_checked = 0;
+		int chat_args_evaluated = 0;
 		if (fs::exists(obj_root) && fs::is_directory(obj_root)) {
 			for (const auto& entry : fs::recursive_directory_iterator(obj_root)) {
 				if (!entry.is_regular_file()) continue;
@@ -315,6 +318,20 @@ int RunGameQuestRuntimeTests()
 				std::string content = ss.str();
 
 				if (entry.path().extension() == ".arg") {
+					if (entry.path().parent_path().filename() == "chat") {
+						std::string line = content;
+						while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+							line.pop_back();
+						std::string expr = "return " + line;
+						int top_before = lua_gettop(L);
+						int aerr = lua_dobuffer(L, expr.c_str(), expr.size(), fpath.c_str());
+						RUNTIME_ASSERT(aerr == 0, ("Failed to evaluate chat .arg expression: " + fpath).c_str());
+						RUNTIME_ASSERT(lua_isstring(L, -1), ("chat .arg expression did not evaluate to string: " + fpath).c_str());
+						const char* res_s = lua_tostring(L, -1);
+						RUNTIME_ASSERT(res_s != nullptr && strstr(res_s, "MISSING_LOCALE") == nullptr, ("Missing locale in chat .arg: " + fpath).c_str());
+						lua_settop(L, top_before);
+						chat_args_evaluated++;
+					}
 					obj_files_checked++;
 				} else {
 					int lerr = luaL_loadbuffer(L, content.c_str(), content.size(), fpath.c_str());
@@ -324,12 +341,13 @@ int RunGameQuestRuntimeTests()
 				}
 			}
 			RUNTIME_ASSERT(obj_files_checked >= 6900, "Must syntax-verify all 6,900 compiled object/ files");
+			RUNTIME_ASSERT(chat_args_evaluated >= 696, "Must evaluate all 696 chat/*.arg NPC dialog title expressions");
 		}
 
 		g_stServiceBasePath = prev_service_path;
 		g_stQuestDir = prev_quest_dir;
 		std::cout << "  --> [PASS] Real serverfiles locale/poland verified: settings.lua, BlueDragon.lua, questlib.lua + 36 libs/*, translate.lua, locale.lua, oxquiz.lua, "
-		          << state_files_loaded << " state tables, and " << obj_files_checked << " compiled object/ files (0 errors)" << std::endl;
+		          << state_files_loaded << " state tables, " << chat_args_evaluated << " chat/*.arg titles, and " << obj_files_checked << " compiled object/ files (0 errors)" << std::endl;
 	} else {
 		std::cout << "  --> [INFO] Real serverfiles not unpacked in working path; mandatory synthetic fixtures verified" << std::endl;
 	}

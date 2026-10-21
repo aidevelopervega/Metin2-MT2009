@@ -4,9 +4,6 @@ BIN = $(BIN_DIR)/libgame.a
 LBITS := $(shell getconf LONG_BIT)
 
 CFLAGS  = -Wall -O2 -pipe -fno-exceptions -I../include
-ifeq ($(LBITS),32)
-CFLAGS += -m32
-endif
 CFLAGS += -I../../libthecore/include -I../../common
 CFLAGS += -I../../../../extern/common/include -I../../../../extern/server/include
 CFLAGS += -std=c++20

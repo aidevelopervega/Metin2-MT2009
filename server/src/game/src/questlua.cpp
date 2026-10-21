@@ -797,6 +797,7 @@ namespace quest
 		lua_dostring(L,
 			"select = function(...) local a = table.pack(...); return q.yield('select', a) end\n"
 			"debug = function(text, ...) if is_test_server and is_test_server() then syschat(string.format('[qDEBUG] '..text, ...)) end end\n"
+			"if not ay_reward then ay_reward = function(...) if say_reward then return say_reward(...) elseif say then return say(...) end end end\n"
 		);
 
 #define ENABLE_TRANSLATE_LUA

@@ -248,6 +248,58 @@ namespace quest
 		return ch->IsLoadedAffect();
 	}
 
+	ALUA(affect_add_hair)
+	{
+		if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2) || !lua_isnumber(L, 3))
+		{
+			sys_err("invalid argument");
+			return 0;
+		}
+
+		CQuestManager & q = CQuestManager::instance();
+
+		BYTE applyOn = (BYTE) lua_tonumber(L, 1);
+
+		LPCHARACTER ch = q.GetCurrentCharacterPtr();
+		if (!ch)
+			return 0;
+
+		if (applyOn >= POINT_MAX_NUM || applyOn < 1)
+		{
+			sys_err("apply is out of range : %d", applyOn);
+			return 0;
+		}
+
+		long value = (long) lua_tonumber(L, 2);
+		long duration = (long) lua_tonumber(L, 3);
+
+		ch->AddAffect(AFFECT_HAIR, applyOn, value, 0, duration, 0, false);
+
+		return 0;
+	}
+
+	ALUA(affect_remove_hair)
+	{
+		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
+		if (!ch)
+			return 0;
+
+		CAffect* pkAff = ch->FindAffect(AFFECT_HAIR);
+
+		if (pkAff != NULL)
+		{
+			lua_pushnumber(L, pkAff->bApplyOn);
+			lua_pushnumber(L, pkAff->lApplyValue);
+			lua_pushnumber(L, pkAff->lDuration);
+
+			ch->RemoveAffect(pkAff);
+
+			return 3;
+		}
+
+		return 0;
+	}
+
 	void RegisterAffectFunctionTable()
 	{
 		luaL_reg affect_functions[] =
@@ -258,6 +310,8 @@ namespace quest
 			{ "remove_new",			affect_remove_new			},
 			{ "remove_bad",			affect_remove_bad			},
 			{ "remove_good",		affect_remove_good			},
+			{ "add_hair",			affect_add_hair				},
+			{ "remove_hair",		affect_remove_hair			},
 			{ "add_collect",		affect_add_collect			},
 			{ "remove_all_collect",	affect_remove_all_collect	},
 			{ "get_apply_on",		affect_get_apply_on			},
@@ -271,4 +325,5 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("affect", affect_functions);
 	}
 };
+
 

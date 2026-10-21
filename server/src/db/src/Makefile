@@ -67,9 +67,6 @@ INCDIR += -I../../libsql
 INCDIR += -I../../common
 INCDIR += -I../..
 INCDIR += -I.
-ifeq ($(LBITS),32)
-LIBDIR += -L../../../../extern/server/lib
-endif
 
 LIBDIR += -L../../libthecore/lib -L../../libsql -L../../libpoly -L../../libgame/lib
 LIBS += -lthecore -lsql -lpoly -lgame -lm

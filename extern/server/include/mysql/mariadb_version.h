@@ -29,7 +29,7 @@
 #define MARIADB_PACKAGE_VERSION "3.3.5"
 #define MARIADB_PACKAGE_VERSION_ID 30305
 #define MARIADB_SYSTEM_TYPE "FreeBSD"
-#define MARIADB_MACHINE_TYPE "i386"
+#define MARIADB_MACHINE_TYPE "x86_64"
 #define MARIADB_PLUGINDIR "/usr/local/lib/mysql/plugin"
 
 /* mysqld compile time options */

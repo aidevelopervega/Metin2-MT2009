@@ -278,10 +278,14 @@
   #define SIZEOF_SIZE_T  SIZEOF_LONG
 #else
 /* No indentation, to fetch the lines from verification scripts */
+#if defined(__LP64__) || defined(_LP64)
+#define SIZEOF_LONG   8
+#else
 #define SIZEOF_LONG   4
-#define SIZEOF_VOIDP  4
-#define SIZEOF_CHARP  4
-#define SIZEOF_SIZE_T 4
+#endif
+#define SIZEOF_VOIDP  8
+#define SIZEOF_CHARP  8
+#define SIZEOF_SIZE_T 8
 #endif
 
 #define HAVE_LONG 1
@@ -394,9 +398,9 @@
 
 #define STACK_DIRECTION -1
 
-#define SYSTEM_TYPE "FreeBSD13.1"
-#define MACHINE_TYPE "i386"
-#define DEFAULT_MACHINE "i386"
+#define SYSTEM_TYPE "FreeBSD"
+#define MACHINE_TYPE "x86_64"
+#define DEFAULT_MACHINE "x86_64"
 /* #undef HAVE_DTRACE */
 
 #define SIGNAL_WITH_VIO_CLOSE 1
@@ -548,7 +552,7 @@
 
 /* time_t related defines */
 
-#define SIZEOF_TIME_T 4
+#define SIZEOF_TIME_T 8
 /* #undef TIME_T_UNSIGNED */
 
 #ifndef EMBEDDED_LIBRARY
