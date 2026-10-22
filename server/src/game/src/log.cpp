@@ -29,6 +29,8 @@ bool LogManager::Connect(const char * host, const int port, const char * user, c
 void LogManager::Query(const char * c_pszFormat, ...)
 {
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MIN);
+	if (!m_bIsConnect)
+		return;
 
 	char szQuery[4096];
 	va_list args;

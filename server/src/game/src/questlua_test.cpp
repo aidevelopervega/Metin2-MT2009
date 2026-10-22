@@ -13,6 +13,9 @@
 #include "packet.h"
 #include "char.h"
 #include "char_manager.h"
+#include "item.h"
+#include "item_manager.h"
+#include "log.h"
 #include "affect.h"
 #include "arena.h"
 #include "BlueDragon_Binder.h"
@@ -108,6 +111,18 @@ int RunGameQuestRuntimeTests()
 		local_am = std::make_unique<CArenaManager>();
 	}
 
+	std::unique_ptr<ITEM_MANAGER> local_im;
+	if (ITEM_MANAGER::instance_ptr() == nullptr)
+	{
+		local_im = std::make_unique<ITEM_MANAGER>();
+	}
+
+	std::unique_ptr<LogManager> local_lm;
+	if (LogManager::instance_ptr() == nullptr)
+	{
+		local_lm = std::make_unique<LogManager>();
+	}
+
 	std::unique_ptr<quest::CQuestManager> local_qm;
 	if (quest::CQuestManager::instance_ptr() == nullptr)
 	{
@@ -181,12 +196,115 @@ int RunGameQuestRuntimeTests()
 
 	{
 		std::unique_ptr<CHARACTER> test_ch = std::make_unique<CHARACTER>(false);
+		test_ch->SetRealPoint(POINT_MAX_HP, 10000);
+		test_ch->SetMaxHP(10000);
+		test_ch->PointChange(POINT_MAX_HP, 0);
+		test_ch->SetRealPoint(POINT_MAX_SP, 5000);
+		test_ch->SetMaxSP(5000);
+		test_ch->PointChange(POINT_MAX_SP, 0);
+		RUNTIME_ASSERT(test_ch->GetMaxHP() == 10000 && test_ch->GetMaxSP() == 5000, "Baseline MaxHP/MaxSP must be 10000/5000");
+
 		qm.SetCurrentCharacterPtr(test_ch.get());
 
 		// Add unrelated affects to verify affect.remove_hair() never touches other affects
 		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_MOV_SPEED, POINT_MOV_SPEED, 20, 0, 3600, 0, false), "Baseline AFFECT_MOV_SPEED must be added");
 		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_COLLECT, POINT_ATTBONUS_HUMAN, 10, 0, INFINITE_AFFECT_DURATION, 0, false), "Baseline AFFECT_COLLECT must be added");
 		RUNTIME_ASSERT(test_ch->GetPoint(POINT_MOV_SPEED) == 20 && test_ch->GetPoint(POINT_ATTBONUS_HUMAN) == 10, "Baseline affect points must be active");
+
+		// Verify all 7 hair options on real CHARACTER (affect.add_hair + affect.get_apply_on(514) + affect.remove_hair + stat recalculation)
+		struct HairOptionCase {
+			long apply_code;
+			BYTE expected_point;
+			long value;
+		};
+		const HairOptionCase hair_cases[7] = {
+			{ 63, POINT_ATTBONUS_MONSTER,  10 },
+			{ 61, POINT_ATTBONUS_SURA,     10 },
+			{ 62, POINT_ATTBONUS_SHAMAN,   10 },
+			{ 59, POINT_ATTBONUS_WARRIOR,  10 },
+			{ 60, POINT_ATTBONUS_ASSASSIN, 10 },
+			{ 69, POINT_MAX_HP_PCT,        10 },
+			{ 70, POINT_MAX_SP_PCT,        10 },
+		};
+		for (int i = 0; i < 7; ++i) {
+			const auto& hc = hair_cases[i];
+			char script_buf[512];
+			snprintf(script_buf, sizeof(script_buf),
+				"affect.add_hair(%ld, %ld, 604800)\n"
+				"assert(affect.get_count(514) == 1, 'AFFECT_HAIR count must be 1')\n"
+				"assert(affect.get_apply_on(514) == %u, 'AFFECT_HAIR apply_on mismatch')\n"
+				"assert(affect.get_duration(514) == 604800, 'AFFECT_HAIR duration mismatch')\n",
+				hc.apply_code, hc.value, static_cast<unsigned>(hc.expected_point));
+			RUNTIME_ASSERT(lua_dostring(L, script_buf) == 0, "Hair option affect.add_hair must succeed");
+			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == hc.value, "CHARACTER point must equal hair bonus value while active");
+			if (hc.expected_point == POINT_MAX_HP_PCT) {
+				RUNTIME_ASSERT(test_ch->GetMaxHP() == 11000, "POINT_MAX_HP_PCT (+10%) must increase MaxHP from 10000 to 11000");
+			} else if (hc.expected_point == POINT_MAX_SP_PCT) {
+				RUNTIME_ASSERT(test_ch->GetMaxSP() == 5500, "POINT_MAX_SP_PCT (+10%) must increase MaxSP from 5000 to 5500");
+			}
+
+			// Remove and verify clean stat reversion
+			snprintf(script_buf, sizeof(script_buf),
+				"local ra, rv, rd = affect.remove_hair()\n"
+				"assert(ra == %u and rv == %ld and rd == 604800, 'remove_hair return tuple mismatch')\n"
+				"assert(affect.get_count(514) == 0 and affect.get_apply_on(514) == nil, 'AFFECT_HAIR must be removed')\n",
+				static_cast<unsigned>(hc.expected_point), hc.value);
+			RUNTIME_ASSERT(lua_dostring(L, script_buf) == 0, "Hair option affect.remove_hair must succeed");
+			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == 0, "CHARACTER point must revert to 0 after affect.remove_hair");
+			RUNTIME_ASSERT(test_ch->GetMaxHP() == 10000 && test_ch->GetMaxSP() == 5000, "MaxHP/MaxSP must revert to 10000/5000 after affect.remove_hair");
+		}
+
+		// Verify Halloween hair CItem (ITEM_COSTUME / COSTUME_HAIR) via item.set_value(0, option.apply, option.value) + ModifyPoints
+		TItemTable hair_proto{};
+		hair_proto.dwVnum = 74020;
+		hair_proto.bType = ITEM_COSTUME;
+		hair_proto.bSubType = COSTUME_HAIR;
+		hair_proto.bSize = 1;
+		ITEM_MANAGER::instance().SetMaxItemID({ 1, 1000000, 1 });
+		ITEM_MANAGER::instance().Initialize(&hair_proto, 1);
+		LPITEM hair_item = ITEM_MANAGER::instance().CreateItem(74020, 1, 0, false);
+		RUNTIME_ASSERT(hair_item != nullptr && hair_item->GetVID() != 0, "Halloween hair CItem must be created with valid VID");
+		hair_item->SetSkipSave(true);
+		hair_item->SetCell(test_ch.get(), 0);
+		qm.SetCurrentItem(hair_item);
+		RUNTIME_ASSERT(qm.GetCurrentItem() == hair_item, "CQuestManager::GetCurrentItem() must resolve hair_item via VID");
+
+		for (int i = 0; i < 7; ++i) {
+			const auto& hc = hair_cases[i];
+			hair_item->ClearAttribute();
+			char item_script[256];
+			snprintf(item_script, sizeof(item_script), "item.set_value(0, %ld, %ld)\n", hc.apply_code, hc.value);
+			RUNTIME_ASSERT(lua_dostring(L, item_script) == 0, "item.set_value on hair item must succeed");
+			RUNTIME_ASSERT(hair_item->GetAttributeType(0) == hc.expected_point && hair_item->GetAttributeValue(0) == hc.value,
+				"item.set_value on hair item must map questlib apply.* to EPointTypes");
+			hair_item->ModifyPoints(true);
+			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == hc.value, "Equipped hair item must apply EPointTypes bonus to CHARACTER");
+			if (hc.expected_point == POINT_MAX_HP_PCT) {
+				RUNTIME_ASSERT(test_ch->GetMaxHP() == 11000, "Equipped hair item POINT_MAX_HP_PCT (+10%) must increase MaxHP to 11000");
+			} else if (hc.expected_point == POINT_MAX_SP_PCT) {
+				RUNTIME_ASSERT(test_ch->GetMaxSP() == 5500, "Equipped hair item POINT_MAX_SP_PCT (+10%) must increase MaxSP to 5500");
+			}
+			hair_item->ModifyPoints(false);
+			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == 0 && test_ch->GetMaxHP() == 10000 && test_ch->GetMaxSP() == 5000,
+				"Unequipped hair item must revert EPointTypes bonus on CHARACTER");
+		}
+
+		// Verify invalid / colliding apply_type and out-of-bounds index are rejected on hair item
+		hair_item->ClearAttribute();
+		RUNTIME_ASSERT(lua_dostring(L,
+			"item.set_value(-1, 63, 10)\n"
+			"item.set_value(7, 63, 10)\n"
+			"item.set_value(0, 53, 10)\n"
+			"item.set_value(0, 54, 10)\n"
+			"item.set_value(0, 119, 10)\n"
+			"item.set_value(0, 15, 10)\n"
+			"item.set_value(0, 0, 10)\n"
+		) == 0, "Invalid item.set_value calls on hair item must not crash");
+		RUNTIME_ASSERT(hair_item->GetAttributeType(0) == POINT_NONE && hair_item->GetAttributeValue(0) == 0,
+			"Invalid/colliding apply_type on hair item must be rejected");
+		hair_item->SetCell(nullptr, 0);
+		qm.SetCurrentItem(nullptr);
+		M2_DESTROY_ITEM(hair_item);
 
 		int hair_behav_err = lua_dostring(L,
 			"assert(ay_reward == nil, 'temporary ay_reward C++ alias must not exist')\n"
@@ -237,7 +355,7 @@ int RunGameQuestRuntimeTests()
 		test_ch->ClearAffect();
 		qm.SetCurrentCharacterPtr(nullptr);
 	}
-	std::cout << "  --> pc, q, say, select & affect.add_hair/remove_hair runtime behavior confirmed" << std::endl;
+	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair & item.set_value (7 hair options + MaxHP/MaxSP recalculation) confirmed" << std::endl;
 	checks_passed++;
 
 	// 5. select(...) Nil-Argument Preservation & m2_lua_getn

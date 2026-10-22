@@ -309,7 +309,7 @@ namespace quest
 			return 0;
 		}
 
-		if (CAffect* pkOld = ch->FindAffect(AFFECT_HAIR))
+		while (CAffect* pkOld = ch->FindAffect(AFFECT_HAIR))
 			ch->RemoveAffect(pkOld);
 
 		ch->AddAffect(AFFECT_HAIR, applyOn, value, 0, duration, 0, false);

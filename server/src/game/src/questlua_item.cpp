@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <cmath>
 #include "questmanager.h"
 #include "char.h"
 #include "item.h"
@@ -243,6 +244,23 @@ namespace quest
 		return 1;
 	}
 
+	static BYTE ResolveHairItemApplyPoint(long rawApply)
+	{
+		switch (rawApply)
+		{
+			// Map the 7 questlib.lua apply.* indices used by hair quests (e.g. event_halloween_hair.quest:176) to EPointTypes.
+			case 59: return POINT_ATTBONUS_WARRIOR;  // apply.ATTBONUS_WARRIOR (59) -> 54
+			case 60: return POINT_ATTBONUS_ASSASSIN; // apply.ATTBONUS_ASSASSIN (60) -> 55
+			case 61: return POINT_ATTBONUS_SURA;     // apply.ATTBONUS_SURA (61) -> 56
+			case 62: return POINT_ATTBONUS_SHAMAN;   // apply.ATTBONUS_SHAMAN (62) -> 57
+			case 63: return POINT_ATTBONUS_MONSTER;  // apply.ATTBONUS_MONSTER (63) -> 53
+			case 69: return POINT_MAX_HP_PCT;        // apply.MAX_HP_PCT (69) -> 119
+			case 70: return POINT_MAX_SP_PCT;        // apply.MAX_SP_PCT (70) -> 120
+			default:
+				return POINT_NONE;
+		}
+	}
+
 	ALUA(item_set_value)
 	{
 		CQuestManager& q = CQuestManager::instance();
@@ -261,10 +279,53 @@ namespace quest
 			return 1;
 		}
 
+		const double dIndex = lua_tonumber(L, 1);
+		const double dApply = lua_tonumber(L, 2);
+		const double dValue = lua_tonumber(L, 3);
+
+		if (!std::isfinite(dIndex) || !std::isfinite(dApply) || !std::isfinite(dValue))
+		{
+			sys_err("item_set_value: non-finite argument");
+			lua_pushnumber(L, 0);
+			return 1;
+		}
+
+		const int index = static_cast<int>(dIndex);
+		if (index < 0 || index >= ITEM_ATTRIBUTE_MAX_NUM)
+		{
+			sys_err("index(%d) is out of range (0..%d)", index, ITEM_ATTRIBUTE_MAX_NUM);
+			lua_pushnumber(L, 0);
+			return 1;
+		}
+
+		const long rawApply = static_cast<long>(dApply);
+		BYTE applyOn = POINT_NONE;
+
+		if (item->GetType() == ITEM_HAIR || (item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR))
+		{
+			applyOn = ResolveHairItemApplyPoint(rawApply);
+			if (applyOn == POINT_NONE)
+			{
+				sys_err("hair item apply_type(%ld) is out of range", rawApply);
+				lua_pushnumber(L, 0);
+				return 1;
+			}
+		}
+		else
+		{
+			if (rawApply <= POINT_NONE || rawApply >= POINT_MAX_NUM)
+			{
+				sys_err("apply_type(%ld) is out of range (1..%d)", rawApply, POINT_MAX_NUM - 1);
+				lua_pushnumber(L, 0);
+				return 1;
+			}
+			applyOn = static_cast<BYTE>(rawApply);
+		}
+
 		item->SetForceAttribute(
-			lua_tonumber(L, 1),		// index
-			lua_tonumber(L, 2),		// apply type
-			lua_tonumber(L, 3)		// apply value
+			index,
+			applyOn,
+			static_cast<short>(dValue)
 		);
 
 		return 0;
