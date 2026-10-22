@@ -536,6 +536,9 @@ int main(int argc, char **argv)
 		}
 	}
 
+	sys_log(0, "<shutdown> Flushing and draining LogManager SQL queries...");
+	LogManager::instance().FlushAndShutdown(3000);
+
 #ifdef __NEW_EVENT_HANDLER__
 	sys_log(0, "<shutdown> Destroying CEventFunctionHandler...");
 	EventFunctionHandler.Destroy();

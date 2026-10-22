@@ -16,10 +16,35 @@ LogManager::LogManager() : m_bIsConnect(false)
 
 LogManager::~LogManager()
 {
+	FlushAndShutdown(1000);
+}
+
+void LogManager::ConfigureDurableSpool(const char * c_pszSpoolPath, size_t maxMemoryQueueCount, size_t maxSpoolBytes, DWORD dwReconnectIntervalMs)
+{
+	if (c_pszSpoolPath && *c_pszSpoolPath)
+		m_stSpoolPath = c_pszSpoolPath;
+	m_maxMemoryQueueCount = maxMemoryQueueCount > 0 ? maxMemoryQueueCount : 10000;
+	m_maxSpoolBytes = maxSpoolBytes > 0 ? maxSpoolBytes : (64 * 1024 * 1024);
+	m_dwReconnectIntervalMs = dwReconnectIntervalMs > 0 ? dwReconnectIntervalMs : 1000;
+	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
+}
+
+void LogManager::FlushAndShutdown(DWORD dwMaxWaitMs)
+{
+	if (m_bIsConnect || m_sql.IsDurableSpoolEnabled())
+	{
+		m_sql.FlushAndSpoolOnShutdown(dwMaxWaitMs);
+		m_bIsConnect = false;
+	}
 }
 
 bool LogManager::Connect(const char * host, const int port, const char * user, const char * pwd, const char * db)
 {
+	if (m_stSpoolPath.empty())
+		m_stSpoolPath = "sql_log_spool.dat";
+
+	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
+
 	if (m_sql.Setup(host, user, pwd, db, g_stLocale.c_str(), false, port))
 		m_bIsConnect = true;
 

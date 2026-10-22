@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include <cstdio>
+#include <fstream>
 #include <thread>
 #include <vector>
 #include <chrono>
@@ -897,6 +899,90 @@ int main()
 		TEST_ASSERT(drainedFailed == 3, "All 3 shutdown failed queries drained without loss");
 		TEST_ASSERT(sqlShutdown.CountResult() == 0, "Result queue completely drained after shutdown");
 		TEST_ASSERT(sqlShutdown.CountFailedQuery() == 0, "Failed queue completely drained after shutdown");
+	}
+
+	std::cout << "[RUN] Testing Durable SQL Log Spool, Offline EscapeString, Queue Overflow & Crash Recovery..." << std::endl;
+	{
+		const char * testSpoolFile = "test_libsql_spool.dat";
+		const char * testQuarantineFile = "test_libsql_spool.dat.quarantine";
+		std::remove(testSpoolFile);
+		std::remove(testQuarantineFile);
+
+		// 1. Offline EscapeString in durable mode preserves payload instead of blanking out
+		{
+			CAsyncSQL durableOffline;
+			TEST_ASSERT(durableOffline.EnableDurableSpool(testSpoolFile, 3, 64 * 1024, 100) == true, "EnableDurableSpool succeeded");
+			char esc[128] = {0};
+			const char * rawHint = "Item 'Sword+9' dropped by O'Connor";
+			size_t len = durableOffline.EscapeString(esc, sizeof(esc), rawHint, std::strlen(rawHint));
+			TEST_ASSERT(len > std::strlen(rawHint), "Offline EscapeString in durable mode escapes quotes instead of returning 0");
+			TEST_ASSERT(std::strstr(esc, "\\'Sword+9\\'") != nullptr, "Offline EscapeString properly escapes single quotes");
+
+			// Submit 4 queries while offline (with sensitive password literal in query 4 to verify disk sanitization)
+			durableOffline.AsyncQuery("INSERT INTO log VALUES (1, 'BOOT');");
+			durableOffline.AsyncQuery("INSERT INTO log VALUES (2, 'ITEM');");
+			durableOffline.AsyncQuery("INSERT INTO log VALUES (3, 'CHAR');");
+			durableOffline.AsyncQuery("INSERT INTO log VALUES (4, 'LOGIN', password='SuperSecretPlaintextPassword99');");
+
+			auto st = durableOffline.GetDurableSpoolStats();
+			TEST_ASSERT(st.ullSubmittedCount == 4, "4 queries submitted while offline");
+			TEST_ASSERT(st.ullSpooledCount == 4, "All 4 offline queries routed to durable spool");
+			TEST_ASSERT(st.ullPendingSpoolCount == 4, "4 queries pending in durable spool");
+			TEST_ASSERT(st.ullDroppedSpoolFullCount == 0, "0 queries dropped");
+
+			durableOffline.FlushAndSpoolOnShutdown(200);
+		}
+
+		// Verify raw disk spool file does NOT contain plaintext secret
+		{
+			std::ifstream ifs(testSpoolFile, std::ios::in | std::ios::binary);
+			std::string diskContent((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+			TEST_ASSERT(!diskContent.empty(), "Spool file persisted on disk");
+			TEST_ASSERT(diskContent.find("SuperSecretPlaintextPassword99") == std::string::npos, "Plaintext password never written to disk spool");
+			TEST_ASSERT(diskContent.find("password='***'") != std::string::npos, "Masked password sentinel written to disk spool");
+		}
+
+		// 2. Restart recovery + queue capacity overflow + poison query quarantine
+		{
+			CAsyncSQL durableRecovered;
+			TEST_ASSERT(durableRecovered.EnableDurableSpool(testSpoolFile, 2, 64 * 1024, 100) == true, "EnableDurableSpool loaded existing spool file");
+			auto stLoaded = durableRecovered.GetDurableSpoolStats();
+			TEST_ASSERT(stLoaded.ullPendingSpoolCount == 4, "All 4 pre-crash spool entries recovered from disk");
+
+			durableRecovered.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+			TEST_ASSERT(durableRecovered.Connect() == true, "Connected recovered durable instance");
+
+			// Replay all 4 recovered entries
+			TEST_ASSERT(durableRecovered.ReplayDurableSpoolNow() == true, "ReplayDurableSpoolNow succeeded");
+			auto stAfterReplay = durableRecovered.GetDurableSpoolStats();
+			TEST_ASSERT(stAfterReplay.ullReplayedCount == 4, "All 4 recovered entries replayed to DB");
+			TEST_ASSERT(stAfterReplay.ullCommittedCount == 4, "4 entries committed");
+			TEST_ASSERT(stAfterReplay.ullPendingSpoolCount == 0, "Spool emptied after replay");
+
+			// Queue capacity overflow (maxMemoryQueueCount = 2): push 5 queries before replay
+			durableRecovered.AsyncQuery("INSERT INTO log VALUES (5, 'Q5');");
+			durableRecovered.AsyncQuery("INSERT INTO log VALUES (6, 'Q6');");
+			durableRecovered.AsyncQuery("INSERT INTO log VALUES (7, 'Q7');");
+			durableRecovered.AsyncQuery("INSERT INTO log VALUES (8, 'Q8');");
+			durableRecovered.AsyncQuery("INSERT INTO log VALUES (9, 'Q9');");
+
+			auto stOverflow = durableRecovered.GetDurableSpoolStats();
+			TEST_ASSERT(stOverflow.ullPendingMemoryCount == 2, "Memory queue bounded at maxMemoryQueueCount=2");
+			TEST_ASSERT(stOverflow.ullPendingSpoolCount == 3, "3 overflowing queries routed to durable spool");
+
+			// Inject a permanent SQL syntax error on next execution to test poison-pill quarantine
+			s_mock_force_errno = 1064; // ER_PARSE_ERROR
+			durableRecovered.AsyncQuery("INVALID SQL SYNTAX FOR QUARANTINE;");
+			s_mock_force_errno = 0;
+
+			durableRecovered.FlushAndSpoolOnShutdown(200);
+			auto stFinal = durableRecovered.GetDurableSpoolStats();
+			TEST_ASSERT(stFinal.ullPendingMemoryCount == 0 && stFinal.ullPendingSpoolCount == 0, "All memory and spool queues drained on shutdown");
+			TEST_ASSERT(stFinal.ullCommittedCount == 10, "All valid queries committed without loss");
+		}
+
+		std::remove(testSpoolFile);
+		std::remove(testQuarantineFile);
 	}
 
 	// --------------------------------------------------------------------------

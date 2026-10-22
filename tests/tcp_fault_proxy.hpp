@@ -157,6 +157,17 @@ public:
 
 	int GetListenPort() const { return m_listenPort; }
 
+	void SetBlackhole(bool blackhole) {
+		m_blackhole.store(blackhole);
+	}
+
+	void SeverActiveConnections() {
+		proxy_socket_t c = m_clientSock.exchange(PROXY_INVALID_SOCKET);
+		proxy_socket_t s = m_serverSock.exchange(PROXY_INVALID_SOCKET);
+		if (c != PROXY_INVALID_SOCKET) SeverSocket(c);
+		if (s != PROXY_INVALID_SOCKET) SeverSocket(s);
+	}
+
 private:
 	static void SeverSocket(proxy_socket_t s) {
 		if (s != PROXY_INVALID_SOCKET) {
@@ -196,6 +207,11 @@ private:
 				continue;
 			}
 
+			if (m_blackhole.load()) {
+				SeverSocket(clientFd);
+				continue;
+			}
+
 			// Connect to target DB
 			proxy_socket_t serverFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (serverFd == PROXY_INVALID_SOCKET) {
@@ -232,6 +248,11 @@ private:
 		char buf[16384];
 
 		while (m_running) {
+			if (m_blackhole.load()) {
+				SeverSocket(clientFd);
+				SeverSocket(serverFd);
+				break;
+			}
 			fd_set rfds;
 			FD_ZERO(&rfds);
 			FD_SET(clientFd, &rfds);
@@ -344,6 +365,7 @@ private:
 	std::atomic<bool> m_waitingForResponse;
 	std::atomic<bool> m_droppedResponseCaptured;
 	std::atomic<bool> m_severMidQueryTriggered;
+	std::atomic<bool> m_blackhole{false};
 };
 
 #endif // __INC_METIN2_TCP_FAULT_PROXY_HPP__

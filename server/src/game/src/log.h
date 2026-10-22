@@ -93,12 +93,20 @@ class LogManager : public singleton<LogManager>
 #endif
 		void		Query(const char* c_pszFormat, ...);
 
-		size_t EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
+		size_t		EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
+
+		void		ConfigureDurableSpool(const char * c_pszSpoolPath, size_t maxMemoryQueueCount = 10000, size_t maxSpoolBytes = 64 * 1024 * 1024, DWORD dwReconnectIntervalMs = 1000);
+		void		FlushAndShutdown(DWORD dwMaxWaitMs = 3000);
+		CAsyncSQL::TDurableSpoolStats GetDurableSpoolStats() { return m_sql.GetDurableSpoolStats(); }
+
 	private:
 
 		CAsyncSQL	m_sql;
 		bool		m_bIsConnect;
+		std::string	m_stSpoolPath{"sql_log_spool.dat"};
+		size_t		m_maxMemoryQueueCount{10000};
+		size_t		m_maxSpoolBytes{64 * 1024 * 1024};
+		DWORD		m_dwReconnectIntervalMs{1000};
 };
 
 #endif
-

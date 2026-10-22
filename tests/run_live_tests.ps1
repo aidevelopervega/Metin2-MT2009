@@ -75,7 +75,7 @@ Write-Host "Derleniyor: $ExeName..." -ForegroundColor Yellow
 if ($LASTEXITCODE -ne 0) { throw "test_live_db derleme/bağlama hatası!" }
 
 Write-Host "Çalıştırılıyor: $ExeName..." -ForegroundColor Green
-$env:Path = "$RootDir\server\src\db;$RootDir\server\src\game;$env:Path"
+$env:Path = "$RootDir\build\windows-gcc-ucrt\tests;$RootDir\server\files\share\bin;$RootDir\server\src\db;$RootDir\server\src\game;$env:Path"
 $env:MT2_TEST_HOST = $HostName
 $env:MT2_TEST_PORT = "$Port"
 $env:MT2_TEST_USER = $User
@@ -83,8 +83,8 @@ $env:MT2_TEST_PASSWORD = $Password
 $env:MT2_TEST_DB = $Database
 $env:MT2_TEST_ENGINE = $Engine
 $env:RUN_LIVE_DB_TESTS = "1"
-$env:MT2_TEST_SSL_CA = "$RootDir\scratch\test_ssl\ca-cert.pem"
-$env:MT2_TEST_INVALID_SSL_CA = "$RootDir\scratch\test_ssl\invalid-ca-cert.pem"
+if (-not $env:MT2_TEST_SSL_CA) { $env:MT2_TEST_SSL_CA = "$RootDir\scratch\test_ssl\ca-cert.pem" }
+if (-not $env:MT2_TEST_INVALID_SSL_CA) { $env:MT2_TEST_INVALID_SSL_CA = "$RootDir\scratch\test_ssl\invalid-ca-cert.pem" }
 
 & "$ExeName"
 $res = $LASTEXITCODE

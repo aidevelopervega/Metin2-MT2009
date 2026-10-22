@@ -19,8 +19,10 @@
 
 #include <string>
 #include <queue>
+#include <deque>
 #include <vector>
 #include <map>
+#include <cstdint>
 #include <mysql.h>
 #include <errmsg.h>
 #include <mysqld_error.h>
@@ -63,7 +65,7 @@ typedef struct _SQLResult
 
 typedef struct _SQLMsg
 {
-	_SQLMsg() : m_pkSQL(NULL), iID(0), uiResultPos(0), pvUserData(NULL), bReturn(false), uiSQLErrno(0)
+	_SQLMsg() : m_pkSQL(NULL), iID(0), uiResultPos(0), pvUserData(NULL), bReturn(false), uiSQLErrno(0), ullSeqID(0)
 	{
 	}
 
@@ -169,11 +171,33 @@ typedef struct _SQLMsg
 	bool			bReturn;
 
 	unsigned int		uiSQLErrno;
+	uint64_t		ullSeqID;
 } SQLMsg;
 
 class CAsyncSQL
 {
 	public:
+		struct TDurableSpoolEntry
+		{
+			uint64_t ullSeqID{0};
+			std::string stQuery;
+		};
+
+		struct TDurableSpoolStats
+		{
+			uint64_t ullSubmittedCount{0};
+			uint64_t ullSpooledCount{0};
+			uint64_t ullPendingSpoolCount{0};
+			uint64_t ullPendingMemoryCount{0};
+			uint64_t ullReplayedCount{0};
+			uint64_t ullCommittedCount{0};
+			uint64_t ullQuarantinedCount{0};
+			uint64_t ullDroppedSpoolFullCount{0};
+			uint64_t ullReconnectAttempts{0};
+			uint64_t ullReconnectSuccessCount{0};
+			size_t   spoolBytes{0};
+		};
+
 		CAsyncSQL();
 		virtual ~CAsyncSQL();
 
@@ -215,6 +239,17 @@ class CAsyncSQL
 		size_t		GetFailedQueueBytes() const { return m_failedQueueBytes; }
 		size_t		GetQueryQueueBytes() const { return m_queryQueueBytes; }
 
+		bool		EnableDurableSpool(const char * c_pszSpoolPath, size_t maxMemoryQueueCount = 10000, size_t maxSpoolBytes = 64 * 1024 * 1024, DWORD dwReconnectIntervalMs = 1000);
+		bool		IsDurableSpoolEnabled() const { return m_bDurableSpoolEnabled; }
+		void		SetMaxQueryQueueCount(size_t maxCount);
+		void		SetMaxSpoolBytes(size_t maxBytes);
+		void		SetReconnectIntervalMs(DWORD dwIntervalMs);
+		TDurableSpoolStats GetDurableSpoolStats();
+		bool		FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs = 3000);
+		bool		ReplayDurableSpoolNow();
+		const std::string & GetSpoolFilePath() const { return m_stSpoolFilePath; }
+		static size_t	EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize);
+
 		void		ChildLoop();
 
 		MYSQL *		GetSQLHandle();
@@ -236,6 +271,17 @@ class CAsyncSQL
 		bool		PopQueryFromCopyQueue();
 
 		bool		ResendQuery(SQLMsg * p);
+
+		void		DurableChildLoop();
+		bool		LoadSpoolFromDiskLocked();
+		bool		SyncSpoolToDiskLocked();
+		bool		AppendQuarantineRecordLocked(uint64_t ullSeqID, unsigned int uiErrno, const std::string & stQuery);
+		void		DrainMemoryQueueToSpoolLocked();
+		bool		EnqueueToSpoolLocked(uint64_t ullSeqID, const std::string & stSanitizedQuery, bool bFront = false);
+		static bool	IsConnectionLossError(unsigned int uiErrno);
+		static uint32_t ComputeSpoolChecksum(uint64_t ullSeqID, const std::string & stPayload);
+		static std::string EscapeSpoolPayload(const std::string & stRaw);
+		static bool	UnescapeSpoolPayload(const std::string & stEscaped, std::string & stOut);
 
 	public:
 		int			GetCopiedQueryCount();
@@ -267,6 +313,25 @@ class CAsyncSQL
 		size_t m_failedQueueBytes{0};
 		size_t m_queryQueueBytes{0};
 		bool m_bFailedQueueOverflow{false};
+
+		bool		m_bDurableSpoolEnabled{false};
+		bool		m_bSpoolingActive{false};
+		std::string	m_stSpoolFilePath;
+		size_t		m_maxQueryQueueCount{100000};
+		size_t		m_maxSpoolBytes{64 * 1024 * 1024};
+		DWORD		m_dwReconnectIntervalMs{1000};
+		uint64_t	m_ullLastReconnectAttemptMs{0};
+		std::deque<TDurableSpoolEntry> m_dequeSpool;
+		size_t		m_spoolBytes{0};
+		uint64_t	m_ullSubmittedSeq{0};
+		uint64_t	m_ullSubmittedCount{0};
+		uint64_t	m_ullSpooledCount{0};
+		uint64_t	m_ullReplayedCount{0};
+		uint64_t	m_ullCommittedCount{0};
+		uint64_t	m_ullQuarantinedCount{0};
+		uint64_t	m_ullDroppedSpoolFullCount{0};
+		uint64_t	m_ullReconnectAttempts{0};
+		uint64_t	m_ullReconnectSuccessCount{0};
 
 		volatile bool m_bEnd;
 

@@ -122,7 +122,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache_integration.exe bağlama hatası" }
 
     Write-Host "Running test_db_cache_integration.exe..." -ForegroundColor Green
-    $env:Path = "$RootDir\server\src\db;$RootDir\server\src\game;$env:Path"
+    $env:Path = "$RootDir\build\windows-gcc-ucrt\tests;$RootDir\server\files\share\bin;$RootDir\server\src\db;$RootDir\server\src\game;$env:Path"
     & $target
     if ($LASTEXITCODE -ne 0) { throw "Entegrasyon testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 
