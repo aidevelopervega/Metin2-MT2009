@@ -17,6 +17,6 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=rev51-final-freebsd-verification
-TARGET_COMMIT=a5582ee813e0fd2ff2159e6f7c344f2a8df9009d
+TRIGGER_REVISION=rev51-final-freebsd-verification-v2
+TARGET_COMMIT=c186fed1a6374414a94c206a85a30128c0a4966d
 STATUS=TRIGGERED
