@@ -253,7 +253,9 @@ namespace quest
 	{
 		switch (rawApply)
 		{
-			// Map legacy questlib.lua apply.* indices used by event_halloween_hair.quest and hair.quest to EPointTypes
+			// Only accept the 7 questlib.lua apply.* indices used by hair quests (event_halloween_hair.quest, hair.quest).
+			// Do NOT fall back to raw EPointTypes because questlib.lua apply.* indices (1..86) collide with EPointTypes
+			// (e.g., 53 is apply.ATT_GRADE_BONUS vs POINT_ATTBONUS_MONSTER; 59 is apply.ATTBONUS_WARRIOR vs POINT_RESIST_WARRIOR).
 			case 59: return POINT_ATTBONUS_WARRIOR;  // apply.ATTBONUS_WARRIOR (59) -> 54
 			case 60: return POINT_ATTBONUS_ASSASSIN; // apply.ATTBONUS_ASSASSIN (60) -> 55
 			case 61: return POINT_ATTBONUS_SURA;     // apply.ATTBONUS_SURA (61) -> 56
@@ -262,13 +264,8 @@ namespace quest
 			case 69: return POINT_MAX_HP_PCT;        // apply.MAX_HP_PCT (69) -> 119
 			case 70: return POINT_MAX_SP_PCT;        // apply.MAX_SP_PCT (70) -> 120
 			default:
-				break;
+				return POINT_NONE;
 		}
-
-		if (rawApply < 1 || rawApply >= POINT_MAX_NUM)
-			return POINT_NONE;
-
-		return static_cast<BYTE>(rawApply);
 	}
 
 	ALUA(affect_add_hair)
