@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Metin2 MT2009 - Rev 47 Account & Password Security Schema Migration
--- Compatible with MySQL 8.4 LTS, MariaDB 11.4 LTS, and MariaDB 12.3 LTS
+-- Target database: MariaDB 12.3 LTS
 -- Strictly non-destructive: preserves all existing account rows and legacy
 -- *SHA1(SHA1(password)) hashes for transparent in-place Argon2id upgrade.
 -- =============================================================================

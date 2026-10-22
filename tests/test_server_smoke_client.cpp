@@ -598,7 +598,7 @@ static int run_gen_server_attr(const char* out_file, int w_sectrees, int h_sectr
 
 // Known-answer vectors produced by legacy MySQL 4.1+/5.x/MariaDB PASSWORD() and stored
 // verbatim in existing MT2009 account.password rows. The game's mysql_hash_password()
-// must reproduce them byte-for-byte so old accounts keep authenticating on MySQL 8.4.
+// must reproduce them byte-for-byte so old accounts keep authenticating on Target database: MariaDB 12.3 LTS.
 static int run_self_test_hash() {
 	struct { const char* pwd; const char* expected; } vectors[] = {
 		{ "password", "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19" },

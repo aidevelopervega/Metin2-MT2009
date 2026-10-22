@@ -18,7 +18,7 @@
 
 // ==============================================================================
 // METİN2 MT2009 - REAL LIVE DATABASE INTEGRATION & FUNCTIONAL TEST SUITE
-// Tests real Connector/C (MariaDB & MySQL) against real live database instances.
+// Target database: MariaDB 12.3 LTS (via MariaDB Connector/C / libmariadb).
 // ==============================================================================
 
 static int g_live_tests_passed = 0;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 
 	const char* run_flag = std::getenv("RUN_LIVE_DB_TESTS");
 	if ((!run_flag || std::strcmp(run_flag, "1") != 0) && argc <= 1) {
-		std::cout << "[SKIP] Real MySQL/MariaDB live integration tests: SKIPPED (RUN_LIVE_DB_TESTS!=1 and no CLI args)" << std::endl;
+		std::cout << "[SKIP] Real MariaDB 12.3 LTS live integration tests: SKIPPED (RUN_LIVE_DB_TESTS!=1 and no CLI args)" << std::endl;
 		return 0;
 	}
 

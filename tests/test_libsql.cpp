@@ -475,7 +475,7 @@ int main()
 	}
 
 	// --------------------------------------------------------------------------
-	// 6. ERROR & RECONNECT STRATEGY SUITE (MySQL 8.4 & MariaDB 12.3)
+	// 6. ERROR & RECONNECT STRATEGY SUITE (Target database: MariaDB 12.3 LTS)
 	// --------------------------------------------------------------------------
 	std::cout << "[RUN] Testing error code preservation and non-idempotent safety..." << std::endl;
 	{
@@ -511,9 +511,9 @@ int main()
 		sql.Quit();
 	}
 
-	std::cout << "[RUN] Testing MySQL 8.4 Reconnect contract (no deprecated auto-reconnect)..." << std::endl;
+	std::cout << "[RUN] Testing MariaDB 12.3 LTS Reconnect contract (no deprecated auto-reconnect)..." << std::endl;
 	{
-		// In MySQL 8.4, MYSQL_OPT_RECONNECT is deprecated and unsafe.
+		// Target database: MariaDB 12.3 LTS — automatic MYSQL_OPT_RECONNECT is disabled and unsafe.
 		// Explicit Reconnect() replaces automatic silent driver reconnection.
 		CAsyncSQL sql;
 		sql.Setup("127.0.0.1", "mt2", "secret", "player", "latin1", true, 3306);
@@ -988,7 +988,7 @@ int main()
 	// --------------------------------------------------------------------------
 	// 7. LIVE DATABASE INTEGRATION SUITE (CONDITIONAL / HONEST)
 	// --------------------------------------------------------------------------
-	std::cout << "[RUN] Checking Live MySQL / MariaDB Server Integration..." << std::endl;
+	std::cout << "[RUN] Checking Live MariaDB 12.3 LTS Server Integration..." << std::endl;
 	const char * run_live = std::getenv("RUN_LIVE_DB_TESTS");
 	if (run_live && std::strcmp(run_live, "1") == 0) {
 		std::cout << "--> RUN_LIVE_DB_TESTS enabled: Attempting live DB handshake..." << std::endl;
@@ -1000,7 +1000,7 @@ int main()
 			std::cout << "[WARN] Live database connection failed." << std::endl;
 		}
 	} else {
-		std::cout << "[SKIP] Live MySQL/MariaDB server integration test: SKIPPED (No local live DB service active, RUN_LIVE_DB_TESTS!=1)" << std::endl;
+		std::cout << "[SKIP] Live MariaDB 12.3 LTS server integration test: SKIPPED (No local live DB service active, RUN_LIVE_DB_TESTS!=1)" << std::endl;
 	}
 
 	std::cout << "\n==================================================" << std::endl;
