@@ -147,6 +147,8 @@ if [ "$STATE_COUNT" -ne 202 ] || [ "$OBJ_COUNT" -ne 6900 ]; then
 fi
 echo "  -> Verifying all 202 active quests in $SFROOT/share/locale/poland/quest with 64-bit Lua 5.5.1 qc..."
 if command -v python3 >/dev/null 2>&1; then
+    echo "  -> FreeBSD Python Runtime & Default Encoding:"
+    python3 -c 'import sys, locale; print("     Python:", sys.version.splitlines()[0], "| defaultencoding=" + sys.getdefaultencoding(), "| preferredencoding=" + locale.getpreferredencoding(False), "| filesystemencoding=" + sys.getfilesystemencoding())'
     python3 "$ROOT_DIR/tests/run_quest_matrix.py" \
         --quest-dir "$SFROOT/share/locale/poland/quest" \
         --qc "$SFROOT/share/locale/poland/quest/qc" \

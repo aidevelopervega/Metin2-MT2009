@@ -50,16 +50,10 @@ CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
 endif
 endif
 
-# Database client libraries (MySQL / MariaDB)
+# Database client libraries (MariaDB Connector/C)
 INCDIR += -I/usr/local/include/mysql -I/usr/local/include/mariadb -I/usr/local/include
 LIBDIR += -L/usr/local/lib/mysql -L/usr/local/lib/mariadb -L/usr/local/lib
-ifneq ($(wildcard /usr/local/lib/mariadb/libmariadb.so /usr/local/lib/libmariadb.so /usr/local/lib/mariadb/libmariadb.a /usr/local/lib/libmariadb.a),)
 LIBS += -lmariadb -lz
-else ifneq ($(wildcard /usr/local/lib/mysql/libmysqlclient.so /usr/local/lib/mysql/libmysqlclient.a /usr/local/lib/libmysqlclient.so /usr/local/lib/libmysqlclient.a),)
-LIBS += -lmysqlclient -lz
-else
-LIBS += -lmariadb -lz
-endif
 
 # Runtime library search paths (rpath)
 ifneq ($(wildcard /usr/local/lib/gcc14),)

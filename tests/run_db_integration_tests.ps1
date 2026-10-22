@@ -47,8 +47,6 @@ try {
         "-I$RootDir\extern\common\include",
         "-I$RootDir\extern\common\include\boost",
         "-I$RootDir\extern\server\include",
-        "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include",
-        "-I$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\include\mysql",
         "-I$RootDir\extern\server\include\mysql"
     )
 
@@ -117,14 +115,14 @@ try {
     } elseif (Test-Path "$RootDir\extern\platform\windows-x64\lib\libmariadb.a") {
         "$RootDir\extern\platform\windows-x64\lib\libmariadb.a"
     } else {
-        "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib\libmariadb.a"
+        throw "libmariadb.a bulunamadı!"
     }
 
     & $Gxx @Flags $obj @objs $thecore $sql $poly $game $mariadb -lws2_32 -lbcrypt -lsecur32 -lcrypt32 -lshlwapi -o $target
     if ($LASTEXITCODE -ne 0) { throw "test_db_cache_integration.exe bağlama hatası" }
 
     Write-Host "Running test_db_cache_integration.exe..." -ForegroundColor Green
-    $env:Path = "$RootDir\scratch\isolated_db\mariadb-11.4.13-winx64\lib;$env:Path"
+    $env:Path = "$RootDir\server\src\db;$RootDir\server\src\game;$env:Path"
     & $target
     if ($LASTEXITCODE -ne 0) { throw "Entegrasyon testi başarısız oldu (Çıkış kodu: $LASTEXITCODE)!" }
 

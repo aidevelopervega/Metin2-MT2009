@@ -96,6 +96,15 @@ jobs:
             echo "=== DERLEYICI DOGRULAMASI ==="
             echo "C++ Derleyicisi: $CXX"
             $CXX --version
+            if command -v python3 >/dev/null 2>&1; then
+              echo "=== PYTHON SURUMU VE VARSAYILAN KODLAMA DOGRULAMASI ==="
+              python3 --version
+              python3 -c 'import sys, locale; print("defaultencoding=" + sys.getdefaultencoding(), "preferredencoding=" + locale.getpreferredencoding(False), "filesystemencoding=" + sys.getfilesystemencoding())'
+            fi
+            if [ -d "extern/server/include/mysql/server" ]; then
+              echo "HATA: Temiz checkout icinde kullanilmayan extern/server/include/mysql/server dizini tespit edildi!" >&2
+              exit 1
+            fi
 
             # 3. Test Betiğinin Çalıştırılması (290 Modül Testi)
             chmod +x ./tests/run_tests.sh
@@ -197,7 +206,11 @@ jobs:
               echo "HATA: CMake ikililerinde istenmeyen libc++.so bagimliligi tespit edildi (cift C++ runtime tehlikesi)!" >&2
               exit 1
             fi
-            echo "--> CMake ikilileri (db_r41023, game_r41023 [Lua 5.5.1 Exclusive], qc [Lua 5.5.1 Exclusive]) ELF64 pure libstdc++ olarak basariyla dogrulandi."
+            if readelf -d "$DB_DIR/db_r41023" "$GAME_DIR/game_r41023" | grep -q "libmysqlclient"; then
+              echo "HATA: CMake ikililerinde istenmeyen libmysqlclient bagimliligi tespit edildi!" >&2
+              exit 1
+            fi
+            echo "--> CMake ikilileri (db_r41023, game_r41023 [Lua 5.5.1 Exclusive], qc [Lua 5.5.1 Exclusive]) ELF64 pure libstdc++ ve libmariadb olarak basariyla dogrulandi."
 
             # 5.4 Game Sunucusu Lua 5.5.1 Quest Runtime Doğrulaması (--check-lua 11/11)
             echo "=== GAME SUNUCUSU LUA 5.5.1 QUEST RUNTIME DOGRULAMASI (--check-lua) ==="

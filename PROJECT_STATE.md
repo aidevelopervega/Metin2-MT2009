@@ -156,38 +156,34 @@ Bu belge, projenin anlık teknik durumunu, doğrulanmış bulgularını ve bir s
 
 ---
 
-## 5. GELECEK AŞAMA KABUL KRİTERLERİ: KALICI MYSQL VE MARIADB ÇİFT MOTOR UYUMLULUĞU
+## 5. KALICI MARIADB 12.3 LTS TEK VERİTABANI STANDARDI VE KABUL KRİTERLERİ
 
-Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme yapılacağı zaman karşılanması **zorunlu başarı ve kabul şartlarını** belirler:
+Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde yürütülen tüm geliştirmelerde karşılanması **zorunlu başarı ve kabul şartlarını** belirler:
 
-1. **Çift Motor Zorunluluğu (MariaDB 12.3 LTS & MySQL 8.4 LTS):**
-   * Proje yalnızca iki resmi hedef veritabanı motorunu zorunlu destek ve test matrisinde bulundurur:
-     1. **MariaDB 12.3 LTS** — Ana veritabanı.
-     2. **MySQL 8.4 LTS** — Desteklenen alternatif.
-   * **MariaDB 11.4 LTS** artık zorunlu destek ve test matrisinde yer almamaktadır.
+1. **Tek Veritabanı Motoru Zorunluluğu (MariaDB 12.3 LTS):**
+   * Proje yalnızca **MariaDB 12.3 LTS** veritabanı motorunu zorunlu destek ve test matrisinde bulundurur.
+   * **MySQL 8.4 LTS** ve **MariaDB 11.4 LTS** destek ve CI test matrisinden kalıcı olarak çıkarılmıştır.
+   * MariaDB Connector/C (`libmariadb`) tarafından kullanılan MySQL uyumlu C API (`mysql.h`, `include/mysql`, `mysql_*` fonksiyonları, `MYSQL`/`MYSQL_RES` veri yapıları) eski MySQL sunucusu bağımlılığı sayılmaz ve MariaDB istemci uyumluluğu için korunur.
 2. **Kapsam:**
-   * `libsql` bağlantı katmanı ve tüm ilgili istemci kütüphaneleri.
-   * `db` sunucusundaki veritabanı işlemleri ve sorgular.
+   * `libsql` bağlantı katmanı ve MariaDB Connector/C (`libmariadb`) istemci kütüphanesi.
+   * `db` sunucusundaki veritabanı işlemleri, sorgular ve önbellek mekanizmaları.
    * `game` sunucusundaki veritabanı kullanan bütün sistemler.
-   * Mevcut tüm SQL dosyaları, tablo şemaları, indeksler ve başlangıç verileri.
+   * Mevcut tüm SQL dosyaları (`sql/*.sql`), tablo şemaları, indeksler ve başlangıç verileri.
    * Gerekli diğer sunucu kaynak kodları, yapılandırmalar ve veri dönüşüm mekanizmaları.
 3. **Kesin Kabul Kriterleri ve Kurallar:**
    * **SQL Mode Dokunulmazlığı:** SQL mode (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`, `ONLY_FULL_GROUP_BY` vb.) devre dışı bırakılamaz veya uyumluluk sağlamak için gevşetilemez.
    * **Hata Gizleme Yasağı:** `INSERT IGNORE`, `UPDATE IGNORE` ve benzeri hatayı gizleyen yaklaşımlar çözüm kabul edilemez. SQL hataları sessizce yok sayılamaz.
    * **Kök Neden Çözümü:** Uyumsuzlukların kök nedenleri kalıcı şekilde düzeltilmelidir. Uyarı veya hataları gizlemek için geçici hileler uygulanmamalıdır.
-   * **Açık Uyumluluk Katmanı:** MySQL ve MariaDB arasındaki gerçek sözdizimi veya davranış farkları gerektiğinde açık ve test edilebilir uyumluluk katmanlarıyla çözülmelidir.
+   * **Şeffaf Uyumluluk Katmanı:** MariaDB Connector/C ve MariaDB 12.3 LTS gereksinimleri açık ve test edilebilir katmanlarla yönetilmelidir.
    * **Veri Tipi ve Şema Standartları:** Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`, `DEFAULT`, tarih/saat alanları, karakter setleri (`utf8mb4`), collation ve transaction davranışları titizlikle incelenmeli ve tam uyumlu hale getirilmelidir.
    * **Veri Güvenliği ve Geri Dönüş Planı:** Mevcut tablolar ve kullanıcı verileri korunmalıdır. Veri kaybı doğurabilecek dönüşümler öncesinde doğrulanmış yedek ve geri dönüş planı olmalıdır.
    * **Çift Senaryo Doğrulaması:** Hem sıfırdan kurulum hem de mevcut veritabanını yükseltme (migration) test edilmelidir.
    * **Bütünsel Değerlendirme:** SQL dosyaları ile `libsql`, `db` ve `game` kaynak kodları birlikte değerlendirilmelidir.
    * **Platform Uyumluluğu:** Windows amd64 ve FreeBSD amd64 GCC uyumluluğu korunmalıdır.
-   * **Gerçek Test Doğrulaması:** İki hedef veritabanında da (**MariaDB 12.3 LTS** ve **MySQL 8.4 LTS**) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
-   * **Resmî Hedef Sürümler (Kalıcı Proje Standardı):**
-     * **MariaDB Foundation:**
-       * **MariaDB 12.3 LTS:** Ana veritabanı (Mayıs 2026 GA, Destek: Haziran 2029, kararlı sürüm 12.3.3).
-     * **Oracle MySQL:**
-       * **MySQL 8.4 LTS:** Desteklenen alternatif (Nisan 2024 GA, Premier Destek: Nisan 2029, Uzatılmış Destek: Nisan 2032, kararlı sürüm 8.4.11).
-     * *(Not: MariaDB 11.4 LTS artık zorunlu destek ve CI test matrisinde yer almamaktadır).*
+   * **Gerçek Test Doğrulaması:** Hedef veritabanında (**MariaDB 12.3 LTS**) gerçek testler geçmeden ilgili aşama tamamlanmış sayılmaz. Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve hatalı sorgular, bağlantı kopmaları ve transaction sorunları doğrulanmalıdır.
+   * **Resmî Hedef Sürüm (Kalıcı Proje Standardı):**
+     * **MariaDB Foundation — MariaDB 12.3 LTS:** Tek resmî üretim ve test veritabanı motoru (kararlı sürüm 12.3.3+).
+     * *(Not: Oracle MySQL 8.4 LTS ve MariaDB 11.4 LTS artık destek ve CI test matrisinde yer almamaktadır).*
    * **Körlemesine Dönüşüm Yasağı ve Veri Koruma Standartları:**
      * **Karakter Seti (Charset/Collation):** Tablolar körlemesine `utf8mb4`'e çevrilemez. Metin2 32-bit Windows istemcisi sabit uzunluklu ANSI codepage (`char name[24]` vb.) gönderdiğinden, sunucu `CONFIG` locale (`g_stLocale`: `latin1`, `cp1250`) yapısı korunmalıdır.
      * **Sıfır Tarihler (Zero-Date):** `account.shop_expire`, `player.change_empire.last_time`, `log.log_commands.date` ve `BanManager.cpp:34` sıfır tarihleri körlemesine `NULL` yapılmaz; `UNIX_TIMESTAMP`, `str_to_number` ve tablo kullanım anlamları korunarak katı moda (`NO_ZERO_DATE`) uyumlu hale getirilir.
@@ -1469,11 +1465,12 @@ Bu kriterler, `libsql`, `db`, `game` ve `sql/` şemaları üzerinde geliştirme 
                   - Normal üretim açılışında (`main.cpp`), oyun kanallarında `LogManager::instance().Connect(...)` başarısız olursa sunucu `config_init` aşamasında derhal kapanır (`return 0`). Çalışma zamanında (`m_bIsConnect == true` iken) SQL bağlantısı anlık koparsa `LogManager::m_bIsConnect` bayrağı sıfırlanmaz; yeniden bağlanma ve sorgu tamponlama `CAsyncSQL` (`libsql`) katmanında yürütülür. Ancak veritabanı uzun süre erişilemez kalır ve `CAsyncSQL` kuyruk sınırları aşılırsa veya sunucu yeniden bağlanamadan sonlanırsa asenkron SQL log kaybı oluşabilir.
               * `affect.remove_hair()`: Yalnızca `AFFECT_HAIR` (`514`) etkisini kaldırıp `(bApplyOn, lApplyValue, lDuration)` üçlüsünü döndürür; karakterin diğer aktif affect'lerine (`AFFECT_MOV_SPEED`, `AFFECT_COLLECT` vb.) dokunmaz.
             - `server/src/game/src/questlua_test.cpp` (`Check 4` & `Check 6.2`), `server/src/libthecore/src/main.c`, `server/src/game/src/char_affect.cpp`, `server/src/game/src/char_dragonsoul.cpp`: Canlı `CHARACTER` (`MaxHP=10000`, `MaxSP=5000`) ve canlı Cadılar Bayramı saç `CItem` (`vnum=74020`, `ITEM_COSTUME / COSTUME_HAIR`) nesneleri üzerinde 7 saç seçeneğinin tamamı (`63->53`, `61->56`, `62->57`, `59->54`, `60->55`, `69->119` ile `MaxHP: 10000 -> 11000 -> 10000`, `70->120` ile `MaxSP: 5000 -> 5500 -> 5000`), `affect.add_hair` / `affect.remove_hair` / `item.set_value` / `ModifyPoints(true/false)`, `ay_reward == nil` kontrolü ve tüm **`696` `chat/*.arg`** başlık ifadesinin değerlendirilmesi (`0` hata, `0` `MISSING_LOCALE`) otomatik teste bağlandı (`--check-lua` **11/11 PASS**).
-        * **7. Kalıcı MariaDB 12.3 LTS Tek Veritabanı Standardı, `precompile.py` UTF-8 Düzeltmesi ve Kaynak SHA Kapsam Analizi:**
-          * Kullanıcı kararıyla projede **MySQL 8.4 LTS** desteği kalıcı olarak sona erdirilmiş ve **MariaDB 12.3 LTS** tek desteklenen veritabanı motoru olarak sabitlenmiştir (`bdd99d76ab99d993f213d9ac78abc88290ec12f8`).
-          * `.github/workflows/freebsd-gcc-test.yml` içinden `mysql84` matris işi ve paket/servis kurulum dalları kaldırılarak gelecekteki FreeBSD 15.1 CI koşularının yalnızca **MariaDB 12.3 LTS** (`mariadb123`) üzerinde çalışması sağlandı.
-          * `cmake/FindDatabaseClient.cmake`, `tests/run_live_tests.sh`, `tests/run_db_integration_tests.sh` ve `server/config/serverfiles.env.example` dosyalarından `libmysqlclient` / MySQL 8.4 LTS arama ve bağlantı dalları temizlendi; MariaDB Connector/C (`libmariadb`) tarafından kullanılan MySQL uyumlu C API (`<mysql.h>`, `include/mysql`, `mysql_*` fonksiyonları) ve tüm SQL şemaları (`social_id DEFAULT '1234567'`, Argon2id, tek kullanımlık `LoginByKey`) eksiksiz korundu.
-          * `server/files/share/locale/poland/quest/precompile.py`, `Make.py`, `tests/run_quest_matrix.py` ve `server/serverfiles_share.tar.xz` içindeki dosya okuma/yazma ve `subprocess.run` çağrıları `encoding="latin1"` ile güncellenerek FreeBSD Python 3.11 UTF-8 ortamındaki `UnicodeDecodeError` (`0xb8`) kök nedeninden giderildi (`python -X utf8 tests/run_quest_matrix.py --force --clean` -> **`202/202 PASS`**).
+        * **7. Kalıcı MariaDB 12.3 LTS Tek Veritabanı Standardı, MySQL Extern Temizliği, `precompile.py` UTF-8 Düzeltmesi ve Kaynak SHA Kapsam Analizi:**
+          * Kullanıcı kararıyla projede **MySQL 8.4 LTS** desteği kalıcı olarak sona erdirilmiş ve **MariaDB 12.3 LTS** tek desteklenen veritabanı motoru olarak sabitlenmiştir (`bdd99d76ab99d76...`, `d70887e7...`).
+          * `extern/server/include/mysql/server/` altındaki hiç kullanılmayan **97** adet dahili sunucu/eklenti başlığı (`psi/*`, `service_*.h`, `mysql_embed.h`, `mysql_com_server.h`, `libmysqlclient`/`libmysqld` mükerrer `server/mysql.h` vb.) `git rm -r` ile çalışma ağacından ve Git indeksinden kaldırıldı; MariaDB Connector/C (`libmariadb`) tarafından kullanılan **22** adet istemci başlığı (`extern/server/include/mysql/*.h`, `mariadb/ma_io.h`, `mysql/client_plugin.h`, `mysql/plugin_auth*.h`) ve `extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libmariadb.a` eksiksiz korundu (İstemci ambargosu altındaki `extern/client/**` dosyalarına dokunulmadı).
+          * `.github/workflows/freebsd-gcc-test.yml` içinden `mysql84` matris işi kaldırıldı; ayrıca temiz checkout'ta `extern/server/include/mysql/server` bulunmadığını, FreeBSD Python 3.11 sürümü ile varsayılan kodlamasını (`sys.getdefaultencoding()`, `locale.getpreferredencoding()`) ve CMake ELF64 ikililerinde `libmysqlclient` bağımlılığı olmadığını doğrulayan fail-closed kontroller eklendi.
+          * `cmake/FindDatabaseClient.cmake`, `server/src/db/src/Makefile`, `server/src/game/src/Makefile`, `tests/run_live_tests.sh`, `tests/run_db_integration_tests.sh`, `tests/run_live_tests.ps1`, `tests/run_db_integration_tests.ps1`, `.gitignore` ve `server/config/serverfiles.env.example` dosyalarından `libmysqlclient` / `mysql-8.4.11` / `mariadb-11.4.13` / `mt2009 - FULL SOURCE` ölü arama ve bağlantı dalları temizlendi; MariaDB Connector/C (`libmariadb`) tarafından kullanılan MySQL uyumlu C API (`<mysql.h>`, `include/mysql`, `mysql_*` fonksiyonları) ve tüm SQL şemaları (`social_id DEFAULT '1234567'`, Argon2id, tek kullanımlık `LoginByKey`) eksiksiz korundu.
+          * `server/files/share/locale/poland/quest/precompile.py`, `Make.py`, `tests/run_quest_matrix.py` ve `server/serverfiles_share.tar.xz` içindeki dosya okuma/yazma ve `subprocess.run` çağrıları `encoding="latin1"` ile güncellenerek FreeBSD Python 3.11 UTF-8 ortamındaki `UnicodeDecodeError` (`0xb8`) kök nedeninden giderildi (`python -X utf8 tests/run_quest_matrix.py --force --clean` -> **`202/202 PASS`**; arşivdeki `precompile.py` [`19e9df1d...`] ve `Make.py` [`6d48185f...`] SHA256 özetleri disk ile birebir aynı).
 
 ---
 

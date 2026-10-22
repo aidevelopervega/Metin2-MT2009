@@ -20,7 +20,6 @@ OBJDIR/
 .obj/
 Debug/
 Release/
-!mt2009 - FULL SOURCE/Server Source/Extern/**
 tests/build/
 build/
 scratch/
@@ -30,7 +29,6 @@ artifacts/
 
 # libthecore içindeki gereksiz FreeBSD derleme dökümü
 server/src/libthecore/src/tea.s
-mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
 
 # --- Visual Studio & IDE Önbellek Dosyaları ---
 .vs/
@@ -44,7 +42,6 @@ mt2009 - FULL SOURCE/Server Source/Server/libthecore/src/tea.s
 *.ncb
 
 # --- Büyük Hazır İstemci (Binary Client) ---
-mt2009 - FULL SOURCE/Klient/
 Klient/
 client/files/
 server/files/
@@ -80,7 +77,6 @@ $RECYCLE.BIN/
 !*.sql
 !Makefile
 !*.lua
-!mt2009 - FULL SOURCE/Source/Extern/lib/*.lib
 !extern/client/lib/*.lib
 !extern/client/lib/*.a
 !extern/client/dll/*.dll
@@ -91,7 +87,6 @@ $RECYCLE.BIN/
 # ==========================================
 # GitHub 100 MB sınırını aşan dosya:
 extern/client/lib/cryptlib-Debug.lib
-mt2009 - FULL SOURCE/Source/Extern/lib/cryptlib-Debug.lib
 
 # Hassas Bilgi ve Parola İçeren Dosyalar (Yerel diskte korunur):
 kurulum.py
