@@ -72,6 +72,8 @@ def run_single_engine(engine_name, qc_exe, quest_file, work_dir, timeout_sec, qf
             cwd=str(engine_work),
             capture_output=True,
             text=True,
+            encoding="latin1",
+            errors="replace",
             timeout=timeout_sec
         )
         elapsed = time.perf_counter() - start_t
