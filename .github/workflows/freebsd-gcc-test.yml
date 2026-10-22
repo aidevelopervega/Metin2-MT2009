@@ -30,11 +30,6 @@ jobs:
             server_pkg: "mariadb123-server"
             port_name: "databases/mariadb123-server"
             port: 3307
-          - engine_id: "mysql84"
-            engine_name: "MySQL 8.4 LTS"
-            server_pkg: "mysql84-server"
-            port_name: "databases/mysql84-server"
-            port: 3308
 
     steps:
       - name: Check out complete repository tree
@@ -259,65 +254,6 @@ jobs:
               fi
 
               mariadb --socket="$SOCKET_PATH" -u root -e "
-                CREATE DATABASE IF NOT EXISTS mt2_testdb;
-                CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE DATABASE IF NOT EXISTS log CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE DATABASE IF NOT EXISTS player CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE DATABASE IF NOT EXISTS world CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-                CREATE USER IF NOT EXISTS 'mt2test'@'127.0.0.1' IDENTIFIED BY '${TEST_DB_PASS}';
-                CREATE USER IF NOT EXISTS 'mt2test'@'localhost' IDENTIFIED BY '${TEST_DB_PASS}';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2test'@'localhost';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2test'@'localhost';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2test'@'localhost';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2test'@'localhost';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2test'@'localhost';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'127.0.0.1';
-                GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'localhost';
-                CREATE USER IF NOT EXISTS 'mt2server'@'127.0.0.1' IDENTIFIED BY '${RUNTIME_DB_PASS}';
-                CREATE USER IF NOT EXISTS 'mt2server'@'localhost' IDENTIFIED BY '${RUNTIME_DB_PASS}';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'127.0.0.1';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'localhost';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'127.0.0.1';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'localhost';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'127.0.0.1';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2server'@'localhost';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'127.0.0.1';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'localhost';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'127.0.0.1';
-                GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'localhost';
-                FLUSH PRIVILEGES;
-              "
-            elif [ "$ENGINE_ID" = "mysql84" ]; then
-              MYSQLD=$(which mysqld 2>/dev/null || ls /usr/local/libexec/mysqld 2>/dev/null || ls /usr/local/sbin/mysqld 2>/dev/null)
-              echo "MySQL Daemon: $MYSQLD"
-              "$MYSQLD" --user=mysql --initialize-insecure --datadir="$DATA_DIR" --basedir=/usr/local >/tmp/install_${ENGINE_ID}.log 2>&1 || true
-              "$MYSQLD" --user=mysql --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 --mysqlx=OFF \
-                  --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
-              SERVER_PID=$!
-
-              echo "MySQL 8.4 sunucusunun hazır olması bekleniyor (Port $PORT_NUM)..."
-              for i in $(seq 1 30); do
-                if mysqladmin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
-                  echo "Sunucu $i saniyede hazır oldu."
-                  break
-                fi
-                sleep 1
-              done
-
-              if ! mysqladmin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
-                echo "HATA: MySQL 8.4 başlatılamadı! Kurulum ve sunucu log çıktısı:"
-                cat /tmp/install_${ENGINE_ID}.log || true
-                cat /tmp/server_${ENGINE_ID}.log || true
-                exit 1
-              fi
-
-              mysql --socket="$SOCKET_PATH" -u root -e "
                 CREATE DATABASE IF NOT EXISTS mt2_testdb;
                 CREATE DATABASE IF NOT EXISTS account CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
                 CREATE DATABASE IF NOT EXISTS common CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;

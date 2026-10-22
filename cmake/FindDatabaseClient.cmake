@@ -1,5 +1,5 @@
 # ==============================================================================
-# Metin2 MT2009 - Database Client Discovery (MySQL 8.4 / MariaDB 11.4 / MariaDB 12.3)
+# Metin2 MT2009 - Database Client Discovery (MariaDB 12.3 LTS Exclusive)
 # ==============================================================================
 
 if(TARGET Database::Client)
@@ -20,10 +20,9 @@ if(WIN32)
     endforeach()
 
     find_file(DB_CLIENT_LIB
-        NAMES libmariadb.a libmysqlclient.a
+        NAMES libmariadb.a
         PATHS
             "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib"
-            "${CMAKE_SOURCE_DIR}/scratch/isolated_db/mariadb-11.4.13-winx64/lib"
         NO_DEFAULT_PATH
     )
 
@@ -41,7 +40,7 @@ if(WIN32)
     endif()
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    # FreeBSD MariaDB ve MySQL arama yolları
+    # FreeBSD MariaDB 12.3 LTS Connector/C arama yolları (mysql.h başlığı ve libmariadb kütüphanesi)
     find_path(DB_INCLUDE_DIR
         NAMES mysql.h
         PATHS
@@ -61,7 +60,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     endif()
 
     find_library(DB_CLIENT_LIB
-        NAMES mariadb mysqlclient
+        NAMES mariadb
         PATHS
             /usr/local/lib/mariadb
             /usr/local/lib/mysql
@@ -70,7 +69,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     )
     if(NOT DB_CLIENT_LIB)
         find_library(DB_CLIENT_LIB
-            NAMES mariadb mysqlclient
+            NAMES mariadb
             PATHS
                 /usr/local/lib/mariadb
                 /usr/local/lib/mysql
@@ -84,7 +83,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         if(EXISTS "${DB_INCLUDE_DIR}/mariadb_version.h" OR NOT _is_mariadb_header EQUAL -1)
             set(DB_HEADER_FLAVOR "MARIADB")
         else()
-            set(DB_HEADER_FLAVOR "MYSQL")
+            set(DB_HEADER_FLAVOR "UNKNOWN")
         endif()
 
         get_filename_component(DB_CLIENT_LIB_REAL "${DB_CLIENT_LIB}" REALPATH)
@@ -92,11 +91,11 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         if(NOT _is_mariadb_lib EQUAL -1)
             set(DB_LIB_FLAVOR "MARIADB")
         else()
-            set(DB_LIB_FLAVOR "MYSQL")
+            set(DB_LIB_FLAVOR "UNKNOWN")
         endif()
 
-        if(NOT "${DB_HEADER_FLAVOR}" STREQUAL "${DB_LIB_FLAVOR}")
-            message(FATAL_ERROR "[Database::Client] FATAL ABI MISMATCH: Header '${DB_INCLUDE_DIR}/mysql.h' (${DB_HEADER_FLAVOR}) does not match library '${DB_CLIENT_LIB}' -> '${DB_CLIENT_LIB_REAL}' (${DB_LIB_FLAVOR})!")
+        if(NOT "${DB_HEADER_FLAVOR}" STREQUAL "MARIADB" OR NOT "${DB_LIB_FLAVOR}" STREQUAL "MARIADB")
+            message(FATAL_ERROR "[Database::Client] FATAL ABI MISMATCH: Header '${DB_INCLUDE_DIR}/mysql.h' (${DB_HEADER_FLAVOR}) and library '${DB_CLIENT_LIB}' -> '${DB_CLIENT_LIB_REAL}' (${DB_LIB_FLAVOR}) must both be MariaDB Connector/C!")
         endif()
 
         get_filename_component(DB_INCLUDE_PARENT "${DB_INCLUDE_DIR}" DIRECTORY)

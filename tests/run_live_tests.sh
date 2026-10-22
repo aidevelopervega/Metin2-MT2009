@@ -50,27 +50,17 @@ else
 fi
 
 LIB_EXTRA=""
-if echo "$ENGINE" | grep -qi "mysql"; then
-    if [ -f "/usr/local/lib/mysql/libmysqlclient.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib/mysql -lmysqlclient"
-    elif [ -f "/usr/local/lib/libmysqlclient.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib -lmysqlclient"
-    fi
-else
-    if [ -f "/usr/local/lib/mysql/libmariadb.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib/mysql -lmariadb"
-    elif [ -f "/usr/local/lib/libmariadb.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib -lmariadb"
-    elif [ -f "/usr/local/lib/mysql/libmysqlclient.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib/mysql -lmysqlclient"
-    elif [ -f "/usr/local/lib/libmysqlclient.so" ]; then
-        LIB_EXTRA="-L/usr/local/lib -lmysqlclient"
-    fi
+if [ -f "/usr/local/lib/mysql/libmariadb.so" ]; then
+    LIB_EXTRA="-L/usr/local/lib/mysql -lmariadb"
+elif [ -f "/usr/local/lib/mariadb/libmariadb.so" ]; then
+    LIB_EXTRA="-L/usr/local/lib/mariadb -lmariadb"
+elif [ -f "/usr/local/lib/libmariadb.so" ]; then
+    LIB_EXTRA="-L/usr/local/lib -lmariadb"
 fi
 
 if [ -z "$LIB_EXTRA" ]; then
-    echo "HATA: FreeBSD üzerinde geçerli 64-bit MariaDB veya MySQL istemci kütüphanesi bulunamadı!" >&2
-    echo "Lütfen pkg install -y mariadb114-server (veya mariadb123-server veya mysql84-server) çalıştırın." >&2
+    echo "HATA: FreeBSD üzerinde geçerli 64-bit MariaDB istemci kütüphanesi (libmariadb.so) bulunamadı!" >&2
+    echo "Lütfen pkg install -y mariadb123-server çalıştırın." >&2
     exit 1
 fi
 

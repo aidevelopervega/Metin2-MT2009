@@ -66,17 +66,16 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 
 ---
 
-## 4. KALICI VERİTABANI VE MYSQL / MARIADB UYUMLULUK ANAYASASI
+## 4. KALICI VERİTABANI VE MARIADB 12.3 LTS STANDART ANAYASASI
 
 Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve `game` sunucuları ile SQL şemaları için **kesin ve değişmez standartları** belirler.
 
-1. **Çift Motor Zorunluluğu (MariaDB 12.3 LTS & MySQL 8.4 LTS):**
-   * Proje yalnızca iki resmi hedef veritabanı motorunu zorunlu destek ve test matrisinde bulundurur:
-     1. **MariaDB 12.3 LTS** — Ana veritabanı.
-     2. **MySQL 8.4 LTS** — Desteklenen alternatif.
-   * **MariaDB 11.4 LTS** artık zorunlu destek ve CI test matrisinde yer almaz. Yalnızca tek motoru desteklemek kesinlikle yeterli kabul edilmez.
+1. **Tek Veritabanı Standardı (MariaDB 12.3 LTS):**
+   * Proje yalnızca **MariaDB 12.3 LTS** veritabanı motorunu zorunlu destek ve test standardı olarak kullanır.
+   * **MySQL 8.4 LTS** (ve **MariaDB 11.4 LTS**) desteği kalıcı olarak sona ermiştir; gelecekteki Windows ve FreeBSD CI testleri, paketleme, kurulum, veri migrasyonu ve regresyon testleri yalnızca **MariaDB 12.3 LTS** ile çalışır.
+   * MariaDB Connector/C (`libmariadb`) tarafından kullanılan MySQL uyumlu C API (`mysql.h`, `mysql_*` fonksiyonları, `include/mysql` başlık yolu veya C++ kodundaki legacy `libmysql` adlandırmaları) eski MySQL sunucusu bağımlılığı sayılmaz; MariaDB'nin çalışması için gerekli bu C API uyumluluk katmanları korunur.
 2. **Kapsam:**
-   * `libsql` bağlantı/soyutlama katmanı ve tüm ilgili istemci kütüphaneleri.
+   * `libsql` bağlantı/soyutlama katmanı ve MariaDB Connector/C (`libmariadb`) istemci kütüphanesi.
    * `db` sunucusundaki veritabanı işlemleri, sorgular ve önbellek mekanizmaları.
    * `game` sunucusundaki veritabanı kullanan bütün sistemler (karakter, envanter, lonca, pazar, log vb.).
    * Mevcut tüm SQL dosyaları, tablo şemaları (`sql/*.sql`), indeksler ve başlangıç verileri.
@@ -88,7 +87,7 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
    * SQL ve istemci kütüphanesi hataları sessizce yok sayılamaz (`catch-all` ile yutulamaz).
    * Uyumsuzlukların kök nedenleri kod ve şema seviyesinde kalıcı olarak çözülecektir; geçici hileler ve yamalar yasaktır.
 5. **Şeffaf Uyumluluk Katmanı:**
-   * MySQL ve MariaDB arasındaki gerçek sözdizimi, protokol veya davranış farkları gerektiğinde açık, temiz, belgelenmiş ve test edilebilir uyumluluk katmanlarıyla çözülecektir.
+   * MariaDB Connector/C ve MariaDB 12.3 LTS gereksinimleri açık, temiz, belgelenmiş ve test edilebilir katmanlarla yönetilecektir.
 6. **Veri Tipleri ve Bütünlük Standartları:**
    * Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`/`NOT NULL` kuralları, `DEFAULT` değerleri, tarih/saat alanları (`DATETIME`, `TIMESTAMP`), karakter setleri (`utf8mb4`), collation ve transaction (ACID) davranışları titizlikle incelenecek ve standartlaştırılacaktır.
 7. **Veri Güvenliği ve Geri Dönüş Güvencesi:**
@@ -98,12 +97,12 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
    * Hem sıfırdan temiz kurulum (yeni veritabanı oluşturma) hem de mevcut MT2009 veritabanını yükseltme (migration) senaryoları test edilecektir.
 9. **Bütünsel Mimari:**
    * SQL şema dosyaları ile `libsql`, `db` ve `game` C++ kaynak kodları birbirinden kopuk değil, birlikte ve tutarlı olarak geliştirilip değerlendirilecektir.
-10. **Çift Platform ve Çift Motor Test Zorunluluğu:**
+10. **Çift Platform ve MariaDB 12.3 LTS Test Zorunluluğu:**
     * Windows amd64 ve FreeBSD amd64 GCC derleme ve çalışma uyumluluğu korunacaktır.
-    * Her iki hedef veritabanı motorunda da (**MariaDB 12.3 LTS** ve **MySQL 8.4 LTS**) gerçek fonksiyonel testler (%100 başarı) geçmeden ilgili aşama asla tamamlanmış sayılamaz.
+    * Hedef veritabanı motorunda (**MariaDB 12.3 LTS**) gerçek fonksiyonel testler (%100 başarı) geçmeden ilgili aşama asla tamamlanmış sayılamaz.
     * Testlerde veri bütünlüğü, karakter/eşya kayıtları, normal ve kasıtlı hatalı sorgular, bağlantı kopması/yeniden bağlanma (reconnect) ve transaction izolasyon sorunları somut olarak doğrulanacaktır.
-11. **Resmî Hedef Sürümler:**
-    * Kalıcı hedef veritabanı sürümleri **MariaDB 12.3 LTS** (ana veritabanı) ve **MySQL 8.4 LTS** (desteklenen alternatif) olarak sabitlenmiştir; **MariaDB 11.4 LTS** zorunlu destek ve test matrisinden çıkarılmıştır.
+11. **Resmî Hedef Sürüm:**
+    * Kalıcı ve tek hedef veritabanı sürümü **MariaDB 12.3 LTS** olarak sabitlenmiştir; **MySQL 8.4 LTS** ve **MariaDB 11.4 LTS** destek ve test matrisinden kalıcı olarak çıkarılmıştır.
 
 ---
 
@@ -120,7 +119,7 @@ GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güv
 4. **Tam SHA Karşılaştırması:**
    * Özel depoda CI sorgularken `--commit` ile kısaltılmış SHA sorgusuna güvenilmeyecektir. Geliştirme dalındaki koşular listelenecek ve dönen tam `headSha` ile ilgili kaynak commit'i karşılaştırılacaktır.
 5. **Somut Doğrulama ve Detaylı Denetim:**
-   * Her doğrulamada Run ID, commit SHA, iki matris işinin (`MariaDB 12.3 LTS`, `MySQL 8.4 LTS`) gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
+   * Her doğrulamada Run ID, commit SHA, FreeBSD `MariaDB 12.3 LTS` işinin gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
 6. **Tahmin Yasağı ve UNKNOWN Durumu:**
    * GitHub API/CLI sonucu alınamadığında CI durumu asla tahmin edilemez; açıkça UNKNOWN olarak bildirilecektir.
 7. **Polling ve Döngü Yasağı:**
@@ -155,7 +154,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      - **Kademe A (Statik ve Sözdizimi Kontrolü — Tüm Değişikliklerde Zorunlu):** Dosya, `git diff`, YAML (`actionlint`), PowerShell AST ve POSIX shell (`sh -n`) sözdizimi doğrulaması.
      - **Kademe B (Windows x64 Derleme ve Birim Testleri — C++/CMake/Test Değişikliklerinde Zorunlu):** Yerel `cmake --build --preset windows-gcc-ucrt` (tam PE64 bağlama doğrulaması), `ctest --preset windows-gcc-ucrt` (`10/10 PASS`), `game_r41023.exe --check-lua` (`11/11 PASS`) ve `python tests/run_quest_matrix.py` (`202/202 PASS`).
      - **Kademe C (Yerel Canlı SQL ve Protokol Duman Testleri — DB/Auth/Game/SQL/Betik Değişikliklerinde Zorunlu):** Değişiklikle ilgili yerel MariaDB 12.3 LTS şema/sorgu testleri ve/veya Windows x64 `db_r41023.exe` + `game_r41023.exe` + `test_server_smoke_client.exe` protokol/oturum testleri.
-     - **Kademe D (Tam FreeBSD 15.1 amd64 GCC 14 CI Matrisi — Yalnızca Bilinçli Tetiklemeyle):** `Kademe A + B + C` yerel olarak %100 geçtikten ve aylık bütçe kontrol edildikten sonra, yalnızca revizyon kapanışı veya FreeBSD'ye özgü doğrulama gerektiğinde `ci/run-full-freebsd.txt` tetikleme dosyası güncellenerek iki motorlu (`MariaDB 12.3 LTS` ve `MySQL 8.4 LTS`) tam FreeBSD CI çalıştırılır.
+     - **Kademe D (Tam FreeBSD 15.1 amd64 GCC 14 CI — Yalnızca Bilinçli Tetiklemeyle):** `Kademe A + B + C` yerel olarak %100 geçtikten ve aylık bütçe kontrol edildikten sonra, yalnızca revizyon kapanışı veya FreeBSD'ye özgü doğrulama gerektiğinde `ci/run-full-freebsd.txt` tetikleme dosyası güncellenerek `MariaDB 12.3 LTS` üzerinde tam FreeBSD CI çalıştırılır.
 
 3. **Git ve GitHub Senkronizasyonu:**
    * Anlamlı ve doğrulanmış geliştirme aşaması tamamlandığında:
@@ -172,7 +171,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      - Aylık GitHub Actions ücretsiz kotası (GitHub Pro): **3.000 dakika** (hesap genelinde paylaşılır).
      - Proje içi normal kullanım üst sınırı: **2.400 dakika**.
      - Son doğrulamalar ve beklenmedik kritik hatalar için zorunlu rezerv: **600 dakika**.
-     - İki işli (`MariaDB 12.3 LTS` + `MySQL 8.4 LTS`) tam FreeBSD koşusunun ölçülen maliyeti önbelleksiz **~49–51 Actions dakikasıdır** (`ccache` + `libcryptopp.a` önbelleklemesi `035e94bdedc103512348fd8917858336283c6e4c` ile eklenmiş olup FreeBSD CI üzerinde henüz çalıştırılıp doğrulanmamıştır; sıcak önbellek süre kazanımı doğrulanana kadar bütçe hesabında ölçülen ~50 dakika esas alınır).
+     - Tek işli (`MariaDB 12.3 LTS`) tam FreeBSD koşusunun ölçülen maliyeti önbelleksiz **~22–25 Actions dakikasıdır** (`ccache` + `libcryptopp.a` önbelleklemesi aktiftir).
      - Her tam koşu öncesinde mevcut ayın depo bazlı koşu süreleri (`gh api "repos/.../actions/runs?created=>=YYYY-MM-01"`) ve tahmini maliyet kontrol edilir; hesap genelindeki harici kullanım verisine (`user` scope gerektiren billing API) erişilemiyorsa rakam uydurulmaz, hesap geneli kullanımın `UNKNOWN` olduğu açıkça belirtilir. Bütçe yetersizse GitHub-hosted CI başlatılmaz.
    * **Hata Sonrası Tekrar Çalıştırma Yasağı:** Tam CI başarısız olduğunda kök neden yerel olarak belirlenip düzeltilmeden aynı test asla tekrar çalıştırılmaz.
    * **Sonuç Sorgulama:** CI sonuçları `gh run list` ve `gh run view` ile tek seferde kontrol edilir; `gh run watch`, sürekli polling veya sonsuz bekleme döngüsü kesinlikle yapılmaz; çalışmakta olan işler `RUNNING` olarak bildirilir ve asla `SUCCESS` varsayılmaz.
@@ -192,7 +191,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      * Yapılan değişiklik
      * Çalıştırılan yerel test kademeleri (`A`, `B`, `C`) ve gerçek sonuçları
      * Commit ve push durumu, yerel ve uzak SHA eşleşmesi
-     * Gereksiz CI başlatılmadığının doğrulaması (veya bilinçli `D` kademesi tetiklenmişse CI Run ID ve iki FreeBSD işinin gerçek durumu)
+     * Gereksiz CI başlatılmadığının doğrulaması (veya bilinçli `D` kademesi tetiklenmişse CI Run ID ve FreeBSD `MariaDB 12.3 LTS` işinin gerçek durumu)
      * Devam eden veya çözülemeyen sorunlar
    * Başarı kanıtı bulunmayan hiçbir aşama tamamlandı ilan edilmeyecektir.
 
@@ -203,7 +202,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
 Server ve Common Extern bağımlılıklarının en güncel kararlı resmî sürümlerine yükseltilmesi projenin kalıcı ve zorunlu hedefidir.
 
 1. **Öncelikli Bileşenler:**
-   * Lua (**yalnızca Lua 5.5.1 tek üretim ve derleme motorudur**; eski Lua 5.0.3 ve Lua 5.2.3 motorları ile `game_r41023_lua50` geri dönüş ikilisi Rev 51 ile kalıcı olarak kaldırılmıştır), Crypto++, Boost, DevIL (IL/ILU/ILUT), RapidJSON, fmt, zlib, OpenSSL, MySQL/MariaDB istemci kütüphaneleri ve Server'ın kullandığı diğer harici bileşenler.
+   * Lua (**yalnızca Lua 5.5.1 tek üretim ve derleme motorudur**; eski Lua 5.0.3 ve Lua 5.2.3 motorları ile `game_r41023_lua50` geri dönüş ikilisi Rev 51 ile kalıcı olarak kaldırılmıştır), Crypto++, Boost, DevIL (IL/ILU/ILUT), RapidJSON, fmt, zlib, OpenSSL, MariaDB Connector/C (`libmariadb`) istemci kütüphanesi ve Server'ın kullandığı diğer harici bileşenler.
 2. **Adım Adım Bağımlılık Yükseltme Protokolü:**
    * Tüm Extern aynı anda değiştirilemez; her bağımlılık tek tek ele alınır:
      1. Mevcut gerçek sürüm belirlenir.

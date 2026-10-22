@@ -33,9 +33,6 @@ if [ -d "/usr/local/lib/mariadb" ]; then
 fi
 
 DB_CLIENT_LIB="-lmariadb"
-if [ -f "/usr/local/lib/mysql/libmysqlclient.so" ] || [ -f "/usr/local/lib/libmysqlclient.so" ] || [ -f "/usr/local/lib/mysql/libmysqlclient.a" ]; then
-    DB_CLIENT_LIB="-lmysqlclient"
-fi
 
 # Negatif Kontrol 1: Temiz derleme ortamı hazırlığı (eski kalıntıları temizle)
 rm -f "$BUILD_DIR/libdb_objs.a"
