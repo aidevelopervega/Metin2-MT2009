@@ -101,7 +101,8 @@ void CHARACTER::DragonSoul_CleanUp()
 {
 	for (int i = DRAGON_SOUL_EQUIP_SLOT_START; i < DRAGON_SOUL_EQUIP_SLOT_END; i++)
 	{
-		DSManager::instance().DeactivateDragonSoul(GetInventoryItem(i), true);
+		if (LPITEM pItem = GetInventoryItem(i))
+			DSManager::instance().DeactivateDragonSoul(pItem, true);
 	}
 }
 

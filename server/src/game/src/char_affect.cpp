@@ -170,7 +170,7 @@ bool CHARACTER::UpdateAffect()
 
 void CHARACTER::StartAffectEvent()
 {
-	if (m_pkAffectEvent)
+	if (m_pkAffectEvent || !thecore_heart)
 		return;
 
 	char_event_info* info = AllocEventInfo<char_event_info>();

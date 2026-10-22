@@ -13,6 +13,7 @@
 #include "packet.h"
 #include "char.h"
 #include "char_manager.h"
+#include "affect.h"
 #include "arena.h"
 #include "BlueDragon_Binder.h"
 
@@ -177,7 +178,61 @@ int RunGameQuestRuntimeTests()
 	lua_getglobal(L, "select");
 	RUNTIME_ASSERT(lua_isfunction(L, -1) || lua_iscfunction(L, -1), "select must be a valid registered function");
 	lua_pop(L, 1);
-	std::cout << "  --> pc, q, say, select tables and functions confirmed" << std::endl;
+
+	{
+		std::unique_ptr<CHARACTER> test_ch = std::make_unique<CHARACTER>(false);
+		qm.SetCurrentCharacterPtr(test_ch.get());
+
+		// Add unrelated affects to verify affect.remove_hair() never touches other affects
+		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_MOV_SPEED, POINT_MOV_SPEED, 20, 0, 3600, 0, false), "Baseline AFFECT_MOV_SPEED must be added");
+		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_COLLECT, POINT_ATTBONUS_HUMAN, 10, 0, INFINITE_AFFECT_DURATION, 0, false), "Baseline AFFECT_COLLECT must be added");
+		RUNTIME_ASSERT(test_ch->GetPoint(POINT_MOV_SPEED) == 20 && test_ch->GetPoint(POINT_ATTBONUS_HUMAN) == 10, "Baseline affect points must be active");
+
+		int hair_behav_err = lua_dostring(L,
+			"assert(ay_reward == nil, 'temporary ay_reward C++ alias must not exist')\n"
+			"assert(affect.get_count(514) == 0, 'initial AFFECT_HAIR count must be 0')\n"
+			"assert(affect.get_apply_on(514) == nil, 'initial AFFECT_HAIR apply_on must be nil')\n"
+			"local r0_a, r0_v, r0_d = affect.remove_hair()\n"
+			"assert(r0_a == nil and r0_v == nil and r0_d == nil, 'remove_hair with no active hair affect must return nil')\n"
+			"-- Add hair affect using questlib apply.ATTBONUS_MONSTER (63 -> POINT_ATTBONUS_MONSTER 53)\n"
+			"affect.add_hair(63, 10, 604800)\n"
+			"assert(affect.get_count(514) == 1, 'AFFECT_HAIR count must be 1 after add_hair')\n"
+			"assert(affect.get_apply_on(514) == 53, 'AFFECT_HAIR apply_on must map 63 -> 53 (POINT_ATTBONUS_MONSTER)')\n"
+			"assert(affect.get_duration(514) == 604800, 'AFFECT_HAIR duration must be 604800')\n"
+			"-- Replacing hair affect without remove_hair must not stack duplicate AFFECT_HAIR entries\n"
+			"affect.add_hair(59, 15, 86400)\n"
+			"assert(affect.get_count(514) == 1, 'AFFECT_HAIR count must remain 1 when replaced')\n"
+			"assert(affect.get_apply_on(514) == 54, 'AFFECT_HAIR apply_on must map 59 -> 54 (POINT_ATTBONUS_WARRIOR)')\n"
+			"assert(affect.get_duration(514) == 86400, 'AFFECT_HAIR duration must be 86400')\n"
+			"-- Remove hair affect and verify returned (applyOn, value, duration) tuple\n"
+			"local ra, rv, rd = affect.remove_hair()\n"
+			"assert(ra == 54 and rv == 15 and rd == 86400, 'remove_hair must return (54, 15, 86400)')\n"
+			"assert(affect.get_count(514) == 0 and affect.get_apply_on(514) == nil, 'AFFECT_HAIR must be removed')\n"
+			"-- Invalid types, out-of-range apply (0, negative, >= POINT_MAX_NUM, utility point), and <= 0 durations must be rejected\n"
+			"affect.add_hair()\n"
+			"affect.add_hair(nil, 10, 600)\n"
+			"affect.add_hair('invalid', 10, 600)\n"
+			"affect.add_hair({}, 10, 600)\n"
+			"affect.add_hair(0, 10, 600)\n"
+			"affect.add_hair(-5, 10, 600)\n"
+			"affect.add_hair(300, 10, 600)\n"
+			"affect.add_hair(1, 10, 600)\n"
+			"affect.add_hair(53, 10, 0)\n"
+			"affect.add_hair(53, 10, -604800)\n"
+			"affect.add_hair(0/0, 10, 600)\n"
+			"affect.add_hair(1/0, 10, 600)\n"
+			"assert(affect.get_count(514) == 0 and affect.get_apply_on(514) == nil, 'invalid add_hair calls must not add AFFECT_HAIR')\n"
+		);
+		RUNTIME_ASSERT(hair_behav_err == 0, "affect.add_hair & affect.remove_hair behavioral assertions must pass");
+		RUNTIME_ASSERT(test_ch->FindAffect(AFFECT_HAIR) == nullptr, "AFFECT_HAIR must not remain on test character");
+		RUNTIME_ASSERT(test_ch->GetPoint(POINT_ATTBONUS_MONSTER) == 0 && test_ch->GetPoint(POINT_ATTBONUS_WARRIOR) == 0, "Removed hair affect stat bonus must be reverted to 0");
+		RUNTIME_ASSERT(test_ch->FindAffect(AFFECT_MOV_SPEED) != nullptr && test_ch->GetPoint(POINT_MOV_SPEED) == 20, "Unrelated AFFECT_MOV_SPEED must remain untouched");
+		RUNTIME_ASSERT(test_ch->FindAffect(AFFECT_COLLECT) != nullptr && test_ch->GetPoint(POINT_ATTBONUS_HUMAN) == 10, "Unrelated AFFECT_COLLECT must remain untouched");
+
+		test_ch->ClearAffect();
+		qm.SetCurrentCharacterPtr(nullptr);
+	}
+	std::cout << "  --> pc, q, say, select & affect.add_hair/remove_hair runtime behavior confirmed" << std::endl;
 	checks_passed++;
 
 	// 5. select(...) Nil-Argument Preservation & m2_lua_getn
@@ -269,7 +324,7 @@ int RunGameQuestRuntimeTests()
 			"assert(type(itemshop) == 'table', 'itemshop module missing')\n"
 			"assert(type(quest_book) == 'table', 'quest_book module missing')\n"
 			"assert(type(affect) == 'table' and type(affect.add_hair) == 'function' and type(affect.remove_hair) == 'function', 'affect.add_hair/remove_hair missing')\n"
-			"assert(type(ay_reward) == 'function', 'ay_reward alias for pony_levelup.quest missing')\n"
+			"assert(ay_reward == nil, 'ay_reward alias must be removed after pony_levelup.quest source fix')\n"
 		);
 		RUNTIME_ASSERT(helper_err == 0, "questlib.lua & libs/* helper assertions must pass");
 
@@ -302,6 +357,24 @@ int RunGameQuestRuntimeTests()
 			}
 			RUNTIME_ASSERT(state_files_loaded >= 202, "Must load all 202 object/state/* quest state tables");
 			RUNTIME_ASSERT(lua_dostring(L, "assert(type(guild_building) == 'table' and type(guild_manage) == 'table' and guild_building ~= guild_manage, 'guild_building and guild_manage state tables must both exist and be distinct')") == 0, "guild_building and guild_manage state tables must be separate");
+
+			// Verify event_halloween_hair.get_hair_option(1..7) end-to-end with affect.add_hair / affect.remove_hair
+			std::unique_ptr<CHARACTER> hw_ch = std::make_unique<CHARACTER>(false);
+			qm.SetCurrentCharacterPtr(hw_ch.get());
+			int hw_err = lua_dostring(L,
+				"local expected_points = { [1]=53, [2]=56, [3]=57, [4]=54, [5]=55, [6]=119, [7]=120 }\n"
+				"for idx = 1, 7 do\n"
+				"    local opt = event_halloween_hair.get_hair_option(idx)\n"
+				"    assert(type(opt) == 'table', 'missing hair option ' .. idx)\n"
+				"    affect.remove_hair()\n"
+				"    affect.add_hair(opt.apply, opt.value, opt.duration)\n"
+				"    assert(affect.get_apply_on(514) == expected_points[idx], 'mismatch for option ' .. idx)\n"
+				"    local ra, rv, rd = affect.remove_hair()\n"
+				"    assert(ra == expected_points[idx] and rv == opt.value and rd == opt.duration, 'remove_hair mismatch for option ' .. idx)\n"
+				"end\n"
+			);
+			qm.SetCurrentCharacterPtr(nullptr);
+			RUNTIME_ASSERT(hw_err == 0, "event_halloween_hair.get_hair_option(1..7) must map and apply/remove AFFECT_HAIR accurately");
 		}
 
 		// 6.2.6 Syntax-check all 6,900 compiled files in quest/object/ and evaluate all chat/*.arg expressions

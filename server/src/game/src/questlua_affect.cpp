@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <cmath>
 #include "config.h"
 #include "questmanager.h"
 #include "sectree_manager.h"
@@ -248,6 +249,28 @@ namespace quest
 		return ch->IsLoadedAffect();
 	}
 
+	static BYTE ResolveHairApplyPoint(long rawApply)
+	{
+		switch (rawApply)
+		{
+			// Map legacy questlib.lua apply.* indices used by event_halloween_hair.quest and hair.quest to EPointTypes
+			case 59: return POINT_ATTBONUS_WARRIOR;  // apply.ATTBONUS_WARRIOR (59) -> 54
+			case 60: return POINT_ATTBONUS_ASSASSIN; // apply.ATTBONUS_ASSASSIN (60) -> 55
+			case 61: return POINT_ATTBONUS_SURA;     // apply.ATTBONUS_SURA (61) -> 56
+			case 62: return POINT_ATTBONUS_SHAMAN;   // apply.ATTBONUS_SHAMAN (62) -> 57
+			case 63: return POINT_ATTBONUS_MONSTER;  // apply.ATTBONUS_MONSTER (63) -> 53
+			case 69: return POINT_MAX_HP_PCT;        // apply.MAX_HP_PCT (69) -> 119
+			case 70: return POINT_MAX_SP_PCT;        // apply.MAX_SP_PCT (70) -> 120
+			default:
+				break;
+		}
+
+		if (rawApply < 1 || rawApply >= POINT_MAX_NUM)
+			return POINT_NONE;
+
+		return static_cast<BYTE>(rawApply);
+	}
+
 	ALUA(affect_add_hair)
 	{
 		if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2) || !lua_isnumber(L, 3))
@@ -256,22 +279,41 @@ namespace quest
 			return 0;
 		}
 
+		const double dApply = lua_tonumber(L, 1);
+		const double dValue = lua_tonumber(L, 2);
+		const double dDuration = lua_tonumber(L, 3);
+
+		if (!std::isfinite(dApply) || !std::isfinite(dValue) || !std::isfinite(dDuration))
+		{
+			sys_err("invalid non-finite argument");
+			return 0;
+		}
+
 		CQuestManager & q = CQuestManager::instance();
-
-		BYTE applyOn = (BYTE) lua_tonumber(L, 1);
-
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 		if (!ch)
 			return 0;
 
-		if (applyOn >= POINT_MAX_NUM || applyOn < 1)
+		const long rawApply = static_cast<long>(dApply);
+		const BYTE applyOn = ResolveHairApplyPoint(rawApply);
+
+		if (applyOn == POINT_NONE || applyOn >= POINT_MAX_NUM)
 		{
-			sys_err("apply is out of range : %d", applyOn);
+			sys_err("apply is out of range : %ld", rawApply);
 			return 0;
 		}
 
-		long value = (long) lua_tonumber(L, 2);
-		long duration = (long) lua_tonumber(L, 3);
+		const long value = static_cast<long>(dValue);
+		const long duration = static_cast<long>(dDuration);
+
+		if (duration <= 0 || duration > INFINITE_AFFECT_DURATION)
+		{
+			sys_err("hair affect duration is out of range : %ld", duration);
+			return 0;
+		}
+
+		if (CAffect* pkOld = ch->FindAffect(AFFECT_HAIR))
+			ch->RemoveAffect(pkOld);
 
 		ch->AddAffect(AFFECT_HAIR, applyOn, value, 0, duration, 0, false);
 

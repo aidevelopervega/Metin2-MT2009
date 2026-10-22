@@ -178,6 +178,7 @@ namespace quest
 			bool		CanEndQuestAtState(const string& quest_name, const string& state_name);
 
 			LPCHARACTER		GetCurrentCharacterPtr() { return m_pCurrentCharacter; }
+			void			SetCurrentCharacterPtr(LPCHARACTER ch) { m_pCurrentCharacter = ch; }
 			LPCHARACTER		GetCurrentPartyMember() { return m_pCurrentPartyMember; }
 			PC *		GetCurrentPC() { return m_pCurrentPC; }
 
