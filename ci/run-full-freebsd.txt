@@ -5,8 +5,8 @@
 # ==============================================================================
 # IMPORTANT:
 # 1. Ordinary commits/pushes to dev/windows-gcc-baseline MUST NOT modify this
-#    file. The expensive 2-job FreeBSD 15.1 VM matrix (MariaDB 12.3 LTS +
-#    MySQL 8.4 LTS, ~50 Actions minutes cold / ~12-16 minutes cached) triggers
+#    file. The single-job FreeBSD 15.1 VM workflow (MariaDB 12.3 LTS,
+#    ~22-25 Actions minutes cold / ~12-16 minutes cached) triggers
 #    ONLY when this file is modified in a push (without [skip ci]).
 # 2. Before modifying this file to trigger a full FreeBSD CI run, all three
 #    local verification tiers MUST pass on Windows x64:
@@ -17,6 +17,6 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=rev51-final-freebsd-verification-v2
-TARGET_COMMIT=c186fed1a6374414a94c206a85a30128c0a4966d
+TRIGGER_REVISION=rev51-mariadb123-exclusive-freebsd-verification
+TARGET_COMMIT=da1f6775f86cfbe15e43f493d772b498a2a97a08
 STATUS=TRIGGERED
