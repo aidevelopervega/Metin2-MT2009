@@ -50,20 +50,22 @@ namespace
 #endif
 	}
 
-	void SyncFileDescriptor(FILE * fp)
+	bool SyncFileDescriptor(FILE * fp)
 	{
 		if (!fp)
-			return;
-		std::fflush(fp);
+			return false;
+		if (std::fflush(fp) != 0)
+			return false;
 #ifndef __WIN32__
 		int fd = ::fileno(fp);
-		if (fd >= 0)
-			::fsync(fd);
+		if (fd >= 0 && ::fsync(fd) != 0)
+			return false;
 #else
 		int fd = ::_fileno(fp);
-		if (fd >= 0)
-			::_commit(fd);
+		if (fd >= 0 && ::_commit(fd) != 0)
+			return false;
 #endif
+		return true;
 	}
 }
 
@@ -1528,11 +1530,13 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (!m_bDurableSpoolEnabled || m_stSpoolFilePath.empty())
 		return false;
 
+	std::string tmpPath = m_stSpoolFilePath + ".tmp";
+
 #ifndef __WIN32__
-	int fd = ::open(m_stSpoolFilePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0)
 	{
-		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open spool file %s", m_stSpoolFilePath.c_str());
+		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
 	::fchmod(fd, S_IRUSR | S_IWUSR);
@@ -1540,16 +1544,17 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (!fp)
 	{
 		::close(fd);
+		std::remove(tmpPath.c_str());
 		return false;
 	}
 #else
-	FILE * fp = std::fopen(m_stSpoolFilePath.c_str(), "wb");
+	FILE * fp = std::fopen(tmpPath.c_str(), "wb");
 	if (!fp)
 	{
-		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open spool file %s", m_stSpoolFilePath.c_str());
+		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
-	EnforceSpoolFilePermissions(m_stSpoolFilePath);
+	EnforceSpoolFilePermissions(tmpPath);
 #endif
 
 	bool bWriteOk = true;
@@ -1563,22 +1568,44 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 								   static_cast<unsigned long long>(entry.ullSeqID),
 								   crc,
 								   escaped.c_str());
-		if (written <= 0)
+		if (written <= 0 || std::ferror(fp))
 		{
 			bWriteOk = false;
 			break;
 		}
 	}
 
-	SyncFileDescriptor(fp);
-	std::fclose(fp);
-	EnforceSpoolFilePermissions(m_stSpoolFilePath);
+	if (bWriteOk && !SyncFileDescriptor(fp))
+		bWriteOk = false;
+
+	if (std::fclose(fp) != 0)
+		bWriteOk = false;
 
 	if (!bWriteOk)
 	{
-		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: disk write error on %s!", m_stSpoolFilePath.c_str());
+		std::remove(tmpPath.c_str());
+		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: disk write/fsync error on %s; existing spool file preserved!", tmpPath.c_str());
+		return false;
 	}
-	return bWriteOk;
+
+#ifndef __WIN32__
+	if (::rename(tmpPath.c_str(), m_stSpoolFilePath.c_str()) != 0)
+	{
+		std::remove(tmpPath.c_str());
+		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: atomic rename failed for %s!", m_stSpoolFilePath.c_str());
+		return false;
+	}
+#else
+	if (!::MoveFileExA(tmpPath.c_str(), m_stSpoolFilePath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+	{
+		std::remove(tmpPath.c_str());
+		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: MoveFileExA failed for %s!", m_stSpoolFilePath.c_str());
+		return false;
+	}
+#endif
+
+	EnforceSpoolFilePermissions(m_stSpoolFilePath);
+	return true;
 }
 
 bool CAsyncSQL::AppendQuarantineRecordLocked(uint64_t ullSeqID, unsigned int uiErrno, const std::string & stQuery)

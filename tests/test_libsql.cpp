@@ -981,6 +981,35 @@ int main()
 			TEST_ASSERT(stFinal.ullCommittedCount == 10, "All valid queries committed without loss");
 		}
 
+		// 3. Spool disk byte limit (maxSpoolBytes) & corrupted CRC line isolation
+		{
+			CAsyncSQL durableBounded;
+			TEST_ASSERT(durableBounded.EnableDurableSpool(testSpoolFile, 2, 1024, 100) == true, "EnableDurableSpool with 1024B cap succeeded");
+			durableBounded.SetMaxSpoolBytes(80); // Fits 2 short queries (~34B each), rejects 3rd
+
+			durableBounded.AsyncQuery("INSERT INTO log VALUES (1, 'A');");
+			durableBounded.AsyncQuery("INSERT INTO log VALUES (2, 'B');");
+			durableBounded.AsyncQuery("INSERT INTO log VALUES (3, 'C_EXCEEDS_80_BYTE_SPOOL_CAP');");
+
+			auto stCap = durableBounded.GetDurableSpoolStats();
+			TEST_ASSERT(stCap.ullPendingSpoolCount == 2, "Exactly 2 queries retained within 80-byte spool cap");
+			TEST_ASSERT(stCap.ullDroppedSpoolFullCount == 1, "3rd query exceeding maxSpoolBytes accounted in ullDroppedSpoolFullCount");
+			TEST_ASSERT(durableBounded.HasFailedQueryOverflow() == true, "Overflow alert flag set when maxSpoolBytes exceeded");
+			durableBounded.FlushAndSpoolOnShutdown(100);
+
+			// Inject a corrupted CRC line between the 2 valid lines on disk and verify LoadSpoolFromDiskLocked isolates it
+			{
+				std::ofstream ofs(testSpoolFile, std::ios::out | std::ios::app | std::ios::binary);
+				ofs << "SPOOL1|99|deadbeef|INSERT INTO log VALUES (99, 'CORRUPTED_CRC');\n";
+			}
+
+			CAsyncSQL durableCrcCheck;
+			TEST_ASSERT(durableCrcCheck.EnableDurableSpool(testSpoolFile, 4, 64 * 1024, 100) == true, "EnableDurableSpool loaded file with 1 corrupted CRC line");
+			auto stCrc = durableCrcCheck.GetDurableSpoolStats();
+			TEST_ASSERT(stCrc.ullPendingSpoolCount == 2, "2 valid lines recovered despite corrupted CRC line");
+			TEST_ASSERT(stCrc.ullQuarantinedCount == 1, "Corrupted CRC line quarantined during LoadSpoolFromDiskLocked");
+		}
+
 		std::remove(testSpoolFile);
 		std::remove(testQuarantineFile);
 	}
