@@ -289,37 +289,41 @@ int RunGameQuestRuntimeTests()
 				"Unequipped hair item must revert EPointTypes bonus on CHARACTER");
 
 			// Simulate DB-migrated Halloween hair item load -> equip -> unequip -> save -> reload round-trip
+			// using the exact event_halloween_hair.quest values (value=1, duration=21600/86400 for MAX_HP_PCT/MAX_SP_PCT; value=10, duration=604800 for 59..63)
+			const short migrated_val = (hc.expected_point == POINT_MAX_HP_PCT || hc.expected_point == POINT_MAX_SP_PCT) ? 1 : static_cast<short>(hc.value);
+			const int32_t migrated_dur = (hc.expected_point == POINT_MAX_HP_PCT) ? 21600
+				: ((hc.expected_point == POINT_MAX_SP_PCT) ? 86400 : 604800);
 			TPlayerItemAttribute migrated_attrs[ITEM_ATTRIBUTE_MAX_NUM]{};
 			migrated_attrs[0].bType = hc.expected_point;
-			migrated_attrs[0].sValue = static_cast<short>(hc.value);
+			migrated_attrs[0].sValue = migrated_val;
 			migrated_attrs[1].bType = POINT_STEAL_SP;
 			migrated_attrs[1].sValue = 5;
-			int32_t migrated_sockets[ITEM_SOCKET_MAX_NUM] = { 604800, 1, 0 };
+			int32_t migrated_sockets[ITEM_SOCKET_MAX_NUM] = { migrated_dur, 0, 0 };
 
 			hair_item->SetAttributes(migrated_attrs);
 			hair_item->SetSockets(migrated_sockets);
-			RUNTIME_ASSERT(hair_item->GetAttributeType(0) == hc.expected_point && hair_item->GetAttributeValue(0) == hc.value,
-				"DB-loaded migrated hair item must preserve attrtype0 and attrvalue0");
+			RUNTIME_ASSERT(hair_item->GetAttributeType(0) == hc.expected_point && hair_item->GetAttributeValue(0) == migrated_val,
+				"DB-loaded migrated hair item must preserve exact quest attrtype0 and attrvalue0");
 			RUNTIME_ASSERT(hair_item->GetAttributeType(1) == POINT_STEAL_SP && hair_item->GetAttributeValue(1) == 5,
 				"DB-loaded hair item must preserve secondary attrtype1..6 untouched");
 			for (int a = 2; a < ITEM_ATTRIBUTE_MAX_NUM; ++a) {
 				RUNTIME_ASSERT(hair_item->GetAttributeType(a) == 0 && hair_item->GetAttributeValue(a) == 0,
 					"DB-loaded hair item unused attrtype2..6 must remain 0");
 			}
-			RUNTIME_ASSERT(hair_item->GetSocket(0) == 604800 && hair_item->GetSocket(1) == 1 && hair_item->GetSocket(2) == 0,
-				"DB-loaded hair item must preserve sockets 0..2 untouched");
+			RUNTIME_ASSERT(hair_item->GetSocket(0) == migrated_dur && hair_item->GetSocket(1) == 0 && hair_item->GetSocket(2) == 0,
+				"DB-loaded hair item must preserve exact quest sockets 0..2 untouched");
 
 			hair_item->ModifyPoints(true);
-			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == hc.value,
+			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == migrated_val,
 				"Equipped migrated hair item must apply exact single bonus without double-application");
 			RUNTIME_ASSERT(test_ch->GetPoint(POINT_STEAL_SP) == 5,
 				"Equipped migrated hair item must apply secondary attrtype1 (+5 POINT_STEAL_SP) accurately");
 			if (hc.expected_point == POINT_MAX_HP_PCT) {
-				RUNTIME_ASSERT(test_ch->GetMaxHP() == 11000,
-					"Equipped migrated hair item with POINT_MAX_HP_PCT must compute exact MaxHP 11000");
+				RUNTIME_ASSERT(test_ch->GetMaxHP() == 10100,
+					"Equipped migrated hair item with POINT_MAX_HP_PCT (+1%) must compute exact MaxHP 10100");
 			} else if (hc.expected_point == POINT_MAX_SP_PCT) {
-				RUNTIME_ASSERT(test_ch->GetMaxSP() == 5500,
-					"Equipped migrated hair item with POINT_MAX_SP_PCT must compute exact MaxSP 5500");
+				RUNTIME_ASSERT(test_ch->GetMaxSP() == 5050,
+					"Equipped migrated hair item with POINT_MAX_SP_PCT (+1%) must compute exact MaxSP 5050");
 			}
 			hair_item->ModifyPoints(false);
 			RUNTIME_ASSERT(test_ch->GetPoint(hc.expected_point) == 0 && test_ch->GetPoint(POINT_STEAL_SP) == 0 &&

@@ -42,6 +42,15 @@
 --   This migration MUST be executed while `game_r41023` and `db_r41023` are
 --   cleanly stopped (offline maintenance window) so that `db` cache flushed
 --   all dirty items before SQL update and loads the migrated values on start.
+--   Because `player.item` has no provenance column recording whether an item
+--   was granted by `event_halloween_hair.quest` or created by a GM who manually
+--   set a raw `EPointTypes` value (59..63, 69, 70) with the exact same
+--   `(vnum, socket0..2, attrvalue0=10/1, attrtype1..6=0)` fingerprint,
+--   UNATTENDED AUTOMATIC PRODUCTION MIGRATION IS NOT SAFE.
+--   Therefore, Step 2a stages candidate rows into `player_item_halloween_rev51_backup`
+--   with `approved_for_migration = 0` (modifying 0 rows in `player.item`).
+--   Step 2b ONLY converts rows where a human operator has verified provenance
+--   and explicitly set `approved_for_migration = 1`.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -73,7 +82,7 @@ SELECT
                 ))
                 OR (i.`socket1` >= 1 AND i.`socket0` > 604800)
             )
-        ) THEN 'ELIGIBLE_LEGACY_QUEST_HALLOWEEN'
+        ) THEN 'CANDIDATE_REQUIRES_HUMAN_APPROVAL'
         WHEN (
             (
                 (i.`attrtype0` IN (53, 54, 55, 56, 57) AND i.`attrvalue0` = 10)
@@ -96,7 +105,7 @@ GROUP BY i.`vnum`, i.`attrtype0`, i.`attrvalue0`, `audit_classification`
 ORDER BY i.`vnum`, `audit_classification`, i.`attrtype0`;
 
 -- -----------------------------------------------------------------------------
--- STEP 2: BACKUP TABLE & IDEMPOTENT TRANSACTIONAL MIGRATION
+-- STEP 2: BACKUP TABLE & HUMAN-APPROVED OPT-IN TRANSACTIONAL MIGRATION
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `player_item_halloween_rev51_backup` (
     `item_id` int(11) unsigned NOT NULL,
@@ -123,13 +132,14 @@ CREATE TABLE IF NOT EXISTS `player_item_halloween_rev51_backup` (
     `attrvalue5` smallint(6) NOT NULL,
     `attrtype6` tinyint(3) unsigned NOT NULL,
     `attrvalue6` smallint(6) NOT NULL,
+    `approved_for_migration` tinyint(1) unsigned NOT NULL DEFAULT 0,
     `migrated_at` datetime NOT NULL DEFAULT current_timestamp(),
     PRIMARY KEY (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 START TRANSACTION;
 
--- 2a. Record exact pre-migration state for eligible rows not yet backed up
+-- 2a. Stage candidate rows into backup table with approved_for_migration = 0 (no item rows modified yet)
 INSERT INTO `player_item_halloween_rev51_backup` (
     `item_id`, `vnum`, `window`, `pos`, `count`,
     `socket0`, `socket1`, `socket2`,
@@ -141,6 +151,7 @@ INSERT INTO `player_item_halloween_rev51_backup` (
     `attrtype4`, `attrvalue4`,
     `attrtype5`, `attrvalue5`,
     `attrtype6`, `attrvalue6`,
+    `approved_for_migration`,
     `migrated_at`
 )
 SELECT
@@ -163,6 +174,7 @@ SELECT
     i.`attrtype4`, i.`attrvalue4`,
     i.`attrtype5`, i.`attrvalue5`,
     i.`attrtype6`, i.`attrvalue6`,
+    0 AS `approved_for_migration`,
     NOW()
 FROM `item` i
 LEFT JOIN `player_item_halloween_rev51_backup` b ON b.`item_id` = i.`id`
@@ -189,11 +201,21 @@ WHERE b.`item_id` IS NULL
       OR (i.`socket1` >= 1 AND i.`socket0` > 604800)
   );
 
--- 2b. Update ONLY rows backed up in `player_item_halloween_rev51_backup` that still carry old_attrtype0
+-- HUMAN OPERATOR APPROVAL GATE:
+-- After inspecting `SELECT * FROM player_item_halloween_rev51_backup WHERE approved_for_migration = 0;`
+-- and cross-checking against GM/item logs to exclude any GM-crafted EPointTypes item,
+-- explicitly approve verified quest-generated item_ids:
+--   UPDATE `player_item_halloween_rev51_backup`
+--      SET `approved_for_migration` = 1
+--    WHERE `item_id` IN (/* verified quest-generated item_id list */);
+
+-- 2b. Update ONLY rows backed up in `player_item_halloween_rev51_backup` with `approved_for_migration = 1`
 UPDATE `item` i
 INNER JOIN `player_item_halloween_rev51_backup` b ON b.`item_id` = i.`id`
-SET i.`attrtype0` = b.`new_attrtype0`
-WHERE i.`vnum` = b.`vnum`
+SET i.`attrtype0` = b.`new_attrtype0`,
+    b.`migrated_at` = NOW()
+WHERE b.`approved_for_migration` = 1
+  AND i.`vnum` = b.`vnum`
   AND i.`attrtype0` = b.`old_attrtype0`
   AND i.`attrvalue0` = b.`old_attrvalue0`
   AND i.`attrtype1` = 0 AND i.`attrvalue1` = 0
@@ -210,6 +232,7 @@ COMMIT;
 -- -----------------------------------------------------------------------------
 SELECT
     COUNT(*) AS `total_backed_up`,
+    SUM(CASE WHEN b.`approved_for_migration` = 1 THEN 1 ELSE 0 END) AS `human_approved_count`,
     SUM(CASE WHEN i.`attrtype0` = b.`new_attrtype0` AND i.`attrvalue0` = b.`new_attrvalue0` THEN 1 ELSE 0 END) AS `verified_converted_count`,
     SUM(CASE WHEN i.`attrtype0` = b.`old_attrtype0` THEN 1 ELSE 0 END) AS `unconverted_remaining_count`
 FROM `player_item_halloween_rev51_backup` b

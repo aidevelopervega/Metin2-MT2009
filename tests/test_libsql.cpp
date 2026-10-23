@@ -981,9 +981,16 @@ int main()
 			TEST_ASSERT(stFinal.ullCommittedCount == 10, "All valid queries committed without loss");
 		}
 
-		// 3. Spool disk byte limit (maxSpoolBytes) & corrupted CRC line isolation
+		// 3. Spool disk byte limit (maxSpoolBytes), operational overflow callback/fail-stop policy & corrupted CRC line isolation
 		{
+			static bool s_overflowCallbackFired = false;
+			static uint64_t s_overflowDroppedCount = 0;
 			CAsyncSQL durableBounded;
+			durableBounded.SetSpoolOverflowCallback([](uint64_t, size_t, size_t, uint64_t droppedCount) {
+				s_overflowCallbackFired = true;
+				s_overflowDroppedCount = droppedCount;
+			});
+			durableBounded.SetSpoolOverflowPolicy(CAsyncSQL::SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN);
 			TEST_ASSERT(durableBounded.EnableDurableSpool(testSpoolFile, 2, 1024, 100) == true, "EnableDurableSpool with 1024B cap succeeded");
 			durableBounded.SetMaxSpoolBytes(80); // Fits 2 short queries (~34B each), rejects 3rd
 
@@ -995,6 +1002,8 @@ int main()
 			TEST_ASSERT(stCap.ullPendingSpoolCount == 2, "Exactly 2 queries retained within 80-byte spool cap");
 			TEST_ASSERT(stCap.ullDroppedSpoolFullCount == 1, "3rd query exceeding maxSpoolBytes accounted in ullDroppedSpoolFullCount");
 			TEST_ASSERT(durableBounded.HasFailedQueryOverflow() == true, "Overflow alert flag set when maxSpoolBytes exceeded");
+			TEST_ASSERT(s_overflowCallbackFired == true && s_overflowDroppedCount == 1, "Operational spool overflow callback invoked on maxSpoolBytes breach");
+			TEST_ASSERT(durableBounded.IsEnd() == true, "Fail-stop policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN set m_bEnd=true on overflow");
 			durableBounded.FlushAndSpoolOnShutdown(100);
 
 			// Inject a corrupted CRC line between the 2 valid lines on disk and verify LoadSpoolFromDiskLocked isolates it
@@ -1008,6 +1017,60 @@ int main()
 			auto stCrc = durableCrcCheck.GetDurableSpoolStats();
 			TEST_ASSERT(stCrc.ullPendingSpoolCount == 2, "2 valid lines recovered despite corrupted CRC line");
 			TEST_ASSERT(stCrc.ullQuarantinedCount == 1, "Corrupted CRC line quarantined during LoadSpoolFromDiskLocked");
+		}
+
+		// 4. SQL-literal-aware SanitizeQueryForLog (never crosses outer column quote boundaries), NO_BACKSLASH_ESCAPES offline escaping, CR_SERVER_LOST retry tracking & disk sync failure counter
+		{
+			// 4a. Cross-column quote boundary test: unclosed inner '"' inside first single-quoted column must NEVER eat "', '" into the second column
+			std::string qCrossCol = "INSERT INTO chat_log VALUES ('password=\"hello', 'world\"');";
+			std::string sCrossCol = CAsyncSQL::SanitizeQueryForLog(qCrossCol);
+			TEST_ASSERT(sCrossCol == "INSERT INTO chat_log VALUES ('password=\"***', 'world\"');",
+				"SanitizeQueryForLog bounds unclosed inner quote strictly within outer SQL column literal");
+
+			// 4b. Trailing 'password=' at end of first column must NEVER treat the closing column quote as an opening value quote
+			std::string qTrailingEq = "INSERT INTO chat_log VALUES ('password=', 'next_column');";
+			std::string sTrailingEq = CAsyncSQL::SanitizeQueryForLog(qTrailingEq);
+			TEST_ASSERT(sTrailingEq == qTrailingEq,
+				"SanitizeQueryForLog never consumes closing SQL column quote after password=");
+
+			// 4c. Escaped single quotes inside outer single-quoted column literal
+			std::string qEscInner = "INSERT INTO command_log VALUES (1, 'gm password=\\'TopSecretGM99\\' ok');";
+			std::string sEscInner = CAsyncSQL::SanitizeQueryForLog(qEscInner);
+			TEST_ASSERT(sEscInner == "INSERT INTO command_log VALUES (1, 'gm password=\\'***\\' ok');",
+				"SanitizeQueryForLog masks backslash-escaped inner quote while preserving valid SQL syntax");
+
+			// 4d. NO_BACKSLASH_ESCAPES offline EscapeString mode doubles single quotes (' -> '')
+			char escNoBackslash[128] = {0};
+			const char * rawNoBs = "Player's \"Special\" \\Item";
+			size_t lenNoBs = CAsyncSQL::EscapeStringOfflineSafe(escNoBackslash, sizeof(escNoBackslash), rawNoBs, std::strlen(rawNoBs), true);
+			TEST_ASSERT(lenNoBs > 0 && std::strcmp(escNoBackslash, "Player''s \"Special\" \\Item") == 0,
+				"EscapeStringOfflineSafe with NO_BACKSLASH_ESCAPES doubles single quotes without backslash escaping");
+
+			// 4e. CR_SERVER_LOST mid-flight retry increments ullUncertainInFlightRetries and re-spools at head
+			std::remove(testSpoolFile);
+			CAsyncSQL durableMidFlight;
+			durableMidFlight.EnableDurableSpool(testSpoolFile, 10, 64 * 1024, 100);
+			durableMidFlight.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+			durableMidFlight.Connect();
+			durableMidFlight.AsyncQuery("INSERT INTO log VALUES (101, 'MID_FLIGHT_LOST');");
+			s_mock_force_errno = CR_SERVER_LOST;
+			TEST_ASSERT(durableMidFlight.ReplayDurableSpoolNow() == false, "Mid-flight CR_SERVER_LOST aborts replay and re-spools");
+			s_mock_force_errno = 0;
+			auto stMid = durableMidFlight.GetDurableSpoolStats();
+			TEST_ASSERT(stMid.ullUncertainInFlightRetries == 1 && stMid.ullPendingSpoolCount == 1,
+				"Mid-flight CR_SERVER_LOST tracked in ullUncertainInFlightRetries and retained at spool head");
+			durableMidFlight.Connect();
+			TEST_ASSERT(durableMidFlight.ReplayDurableSpoolNow() == true, "Reconnected replay commits re-spooled mid-flight query");
+
+			// 4f. Disk sync failure (unwritable path) increments ullDiskSyncFailureCount while keeping query in RAM spool
+			CAsyncSQL durableDiskFail;
+			durableDiskFail.EnableDurableSpool("nonexistent_dir_mt2_test_999/cannot_write_spool.dat", 4, 64 * 1024, 100);
+			durableDiskFail.AsyncQuery("INSERT INTO log VALUES (202, 'RAM_SURVIVES_DISK_SYNC_FAIL');");
+			auto stDiskFail = durableDiskFail.GetDurableSpoolStats();
+			TEST_ASSERT(stDiskFail.ullDiskSyncFailureCount >= 1 && durableDiskFail.HasFailedQueryOverflow() == true,
+				"Unwritable spool path increments ullDiskSyncFailureCount and sets overflow alert");
+			TEST_ASSERT(stDiskFail.ullPendingSpoolCount == 1,
+				"Query remains in RAM m_dequeSpool even when disk sync fails");
 		}
 
 		std::remove(testSpoolFile);

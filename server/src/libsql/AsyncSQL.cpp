@@ -67,6 +67,35 @@ namespace
 #endif
 		return true;
 	}
+	char GetOuterSqlQuoteAt(const std::string & s, size_t targetPos)
+	{
+		char outerQuote = 0;
+		size_t limit = std::min(targetPos, s.size());
+		for (size_t i = 0; i < limit; ++i)
+		{
+			char c = s[i];
+			if (outerQuote == 0)
+			{
+				if (c == '\'' || c == '"')
+					outerQuote = c;
+			}
+			else
+			{
+				if (c == '\\' && i + 1 < s.size())
+				{
+					++i;
+				}
+				else if (c == outerQuote)
+				{
+					if (i + 1 < s.size() && s[i + 1] == outerQuote)
+						++i;
+					else
+						outerQuote = 0;
+				}
+			}
+		}
+		return outerQuote;
+	}
 }
 
 std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
@@ -97,7 +126,9 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 				while (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == ' ' || lowerQuery[searchPos] == '\t'))
 					++searchPos;
 
-				if (lowerQuery.substr(searchPos, 9) == "password(")
+				char outerQuote = GetOuterSqlQuoteAt(result, searchPos);
+
+				if (outerQuote == 0 && lowerQuery.substr(searchPos, 9) == "password(")
 				{
 					size_t openParen = searchPos + 8;
 					size_t closeParen = lowerQuery.find(')', openParen);
@@ -109,24 +140,22 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 						continue;
 					}
 				}
-				else if (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == '\'' || lowerQuery[searchPos] == '"'))
+				else if (outerQuote == 0 && searchPos < lowerQuery.size() && (lowerQuery[searchPos] == '\'' || lowerQuery[searchPos] == '"'))
 				{
 					char quoteChar = lowerQuery[searchPos];
 					size_t startQuote = searchPos;
-					if (startQuote + 2 < lowerQuery.size() &&
-						lowerQuery[startQuote + 1] == quoteChar &&
-						(std::isalnum(static_cast<unsigned char>(lowerQuery[startQuote + 2])) ||
-						 lowerQuery[startQuote + 2] == '*'))
-					{
-						++startQuote;
-					}
 					size_t endQuote = startQuote + 1;
 					while (endQuote < lowerQuery.size())
 					{
-						if (lowerQuery[endQuote] == '\\')
+						if (lowerQuery[endQuote] == '\\' && endQuote + 1 < lowerQuery.size())
 							endQuote += 2;
 						else if (lowerQuery[endQuote] == quoteChar)
-							break;
+						{
+							if (endQuote + 1 < lowerQuery.size() && lowerQuery[endQuote + 1] == quoteChar)
+								endQuote += 2;
+							else
+								break;
+						}
 						else
 							++endQuote;
 					}
@@ -136,6 +165,134 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 						lowerQuery.replace(startQuote + 1, endQuote - startQuote - 1, "***");
 						pos = startQuote + 5;
 						continue;
+					}
+				}
+				else if (outerQuote != 0 && searchPos < lowerQuery.size())
+				{
+					// Inside an outer SQL string literal delimited by outerQuote:
+					// Never cross the closing unescaped outerQuote of this SQL column!
+					if (lowerQuery[searchPos] == '\\' && searchPos + 1 < lowerQuery.size() &&
+						(lowerQuery[searchPos + 1] == '\'' || lowerQuery[searchPos + 1] == '"'))
+					{
+						char escQuote = lowerQuery[searchPos + 1];
+						size_t valStart = searchPos + 2;
+						size_t cur = valStart;
+						size_t valEnd = std::string::npos;
+						while (cur < lowerQuery.size())
+						{
+							if (lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
+							{
+								if (lowerQuery[cur + 1] == escQuote)
+								{
+									valEnd = cur;
+									break;
+								}
+								cur += 2;
+							}
+							else if (lowerQuery[cur] == outerQuote)
+							{
+								if (cur + 1 < lowerQuery.size() && lowerQuery[cur + 1] == outerQuote)
+									cur += 2;
+								else
+									break;
+							}
+							else
+							{
+								++cur;
+							}
+						}
+						if (valEnd != std::string::npos)
+						{
+							result.replace(valStart, valEnd - valStart, "***");
+							lowerQuery.replace(valStart, valEnd - valStart, "***");
+							pos = valStart + 5;
+							continue;
+						}
+					}
+					else if (lowerQuery[searchPos] == outerQuote)
+					{
+						// Only mask if it is a doubled inner quote (e.g. ''secret'' inside '...');
+						// a single outerQuote at searchPos is the end of the SQL column literal itself!
+						if (searchPos + 1 < lowerQuery.size() && lowerQuery[searchPos + 1] == outerQuote)
+						{
+							size_t valStart = searchPos + 2;
+							size_t cur = valStart;
+							size_t valEnd = std::string::npos;
+							while (cur < lowerQuery.size())
+							{
+								if (lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
+								{
+									cur += 2;
+								}
+								else if (lowerQuery[cur] == outerQuote)
+								{
+									if (cur + 1 < lowerQuery.size() && lowerQuery[cur + 1] == outerQuote)
+									{
+										valEnd = cur;
+										break;
+									}
+									else
+									{
+										break;
+									}
+								}
+								else
+								{
+									++cur;
+								}
+							}
+							if (valEnd != std::string::npos)
+							{
+								result.replace(valStart, valEnd - valStart, "***");
+								lowerQuery.replace(valStart, valEnd - valStart, "***");
+								pos = valStart + 5;
+								continue;
+							}
+						}
+					}
+					else if (lowerQuery[searchPos] == '\'' || lowerQuery[searchPos] == '"')
+					{
+						// Opposite quote character inside outerQuote (e.g. "secret" inside '...')
+						char innerQuote = lowerQuery[searchPos];
+						size_t valStart = searchPos + 1;
+						size_t cur = valStart;
+						size_t valEnd = std::string::npos;
+						while (cur < lowerQuery.size())
+						{
+							if (lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
+							{
+								cur += 2;
+							}
+							else if (lowerQuery[cur] == outerQuote)
+							{
+								if (cur + 1 < lowerQuery.size() && lowerQuery[cur + 1] == outerQuote)
+								{
+									cur += 2;
+								}
+								else
+								{
+									// Hit closing outerQuote before closing innerQuote: bound strictly inside column!
+									valEnd = cur;
+									break;
+								}
+							}
+							else if (lowerQuery[cur] == innerQuote)
+							{
+								valEnd = cur;
+								break;
+							}
+							else
+							{
+								++cur;
+							}
+						}
+						if (valEnd != std::string::npos && valEnd > valStart)
+						{
+							result.replace(valStart, valEnd - valStart, "***");
+							lowerQuery.replace(valStart, valEnd - valStart, "***");
+							pos = valStart + 3;
+							continue;
+						}
 					}
 				}
 			}
@@ -341,6 +498,10 @@ bool CAsyncSQL::QueryLocaleSet()
 		return false;
 	}
 
+#ifdef SERVER_STATUS_NO_BACKSLASH_ESCAPES
+	m_bNoBackslashEscapes = (m_hDB.server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES) != 0;
+#endif
+
 	sys_log(0, "\t--mysql_set_character_set(%s)", m_stLocale.c_str());
 
 	return true;
@@ -402,6 +563,10 @@ bool CAsyncSQL::Connect()
 	fprintf(stdout, "AsyncSQL: connected to %s (reconnect %d) [MARIADB]\n", m_stHost.c_str(), actual_reconnect_val);
 #else
 	fprintf(stdout, "AsyncSQL: connected to %s [MYSQL]\n", m_stHost.c_str());
+#endif
+
+#ifdef SERVER_STATUS_NO_BACKSLASH_ESCAPES
+	m_bNoBackslashEscapes = (m_hDB.server_status & SERVER_STATUS_NO_BACKSLASH_ESCAPES) != 0;
 #endif
 
 	m_ulThreadID = mysql_thread_id(&m_hDB);
@@ -701,14 +866,12 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 		p->ullSeqID = seqId;
 		++m_ullSubmittedCount;
 
-		std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery);
-		p->stQuery = sanitizedQuery;
-
 		bool bQueueFull = (m_queue_query.size() >= m_maxQueryQueueCount) ||
 						  ((m_queryQueueBytes + queryBytes) > MAX_ASYNC_QUERY_QUEUE_BYTES);
 
 		if (!m_bConnected)
 		{
+			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery);
 			DrainMemoryQueueToSpoolLocked();
 			EnqueueToSpoolLocked(seqId, sanitizedQuery, false);
 			SyncSpoolToDiskLocked();
@@ -720,6 +883,7 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 
 		if (bQueueFull || !m_dequeSpool.empty())
 		{
+			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery);
 			EnqueueToSpoolLocked(seqId, sanitizedQuery, false);
 			SyncSpoolToDiskLocked();
 			delete p;
@@ -1163,7 +1327,7 @@ MYSQL * CAsyncSQL::GetSQLHandle()
 	return &m_hDB;
 }
 
-size_t CAsyncSQL::EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize)
+size_t CAsyncSQL::EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize, bool bNoBackslashEscapes)
 {
 	if (!dst || dstSize == 0)
 		return 0;
@@ -1181,6 +1345,31 @@ size_t CAsyncSQL::EscapeStringOfflineSafe(char * dst, size_t dstSize, const char
 	}
 
 	size_t outPos = 0;
+	if (bNoBackslashEscapes)
+	{
+		// When SQL_MODE includes NO_BACKSLASH_ESCAPES, backslash is a literal character
+		// and single quotes MUST be escaped by doubling (' -> '').
+		for (size_t i = 0; i < srcSize; ++i)
+		{
+			unsigned char ch = static_cast<unsigned char>(src[i]);
+			if (ch == '\'')
+			{
+				dst[outPos++] = '\'';
+				dst[outPos++] = '\'';
+			}
+			else if (ch == '\0' || ch == '\x1a')
+			{
+				dst[outPos++] = ' ';
+			}
+			else
+			{
+				dst[outPos++] = static_cast<char>(ch);
+			}
+		}
+		dst[outPos] = '\0';
+		return outPos;
+	}
+
 	for (size_t i = 0; i < srcSize; ++i)
 	{
 		unsigned char ch = static_cast<unsigned char>(src[i]);
@@ -1239,7 +1428,7 @@ size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_
 	if (!IsConnected() || !GetSQLHandle())
 	{
 		if (m_bDurableSpoolEnabled)
-			return EscapeStringOfflineSafe(dst, dstSize, src, srcSize);
+			return EscapeStringOfflineSafe(dst, dstSize, src, srcSize, m_bNoBackslashEscapes);
 
 		dst[0] = '\0';
 		return 0;
@@ -1255,7 +1444,7 @@ size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_
 	if (res == static_cast<unsigned long>(-1))
 	{
 		if (m_bDurableSpoolEnabled)
-			return EscapeStringOfflineSafe(dst, dstSize, src, srcSize);
+			return EscapeStringOfflineSafe(dst, dstSize, src, srcSize, m_bNoBackslashEscapes);
 
 		sys_err("AsyncSQL::EscapeString: MySQL escape function returned error (%s)",
 				mysql_error(GetSQLHandle()));
@@ -1431,6 +1620,8 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	stats.ullCommittedCount = m_ullCommittedCount;
 	stats.ullQuarantinedCount = m_ullQuarantinedCount;
 	stats.ullDroppedSpoolFullCount = m_ullDroppedSpoolFullCount;
+	stats.ullDiskSyncFailureCount = m_ullDiskSyncFailureCount;
+	stats.ullUncertainInFlightRetries = m_ullUncertainInFlightRetries;
 	stats.ullReconnectAttempts = m_ullReconnectAttempts;
 	stats.ullReconnectSuccessCount = m_ullReconnectSuccessCount;
 	stats.spoolBytes = m_spoolBytes;
@@ -1513,6 +1704,13 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 					m_spoolBytes + sanitized.size(), m_maxSpoolBytes, lineNo);
 			++m_ullDroppedSpoolFullCount;
 			m_bFailedQueueOverflow = true;
+			if (m_pfnSpoolOverflowCallback)
+				m_pfnSpoolOverflowCallback(seqId, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
+			if (m_eSpoolOverflowPolicy == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+			{
+				m_bEnd = true;
+				sys_err("CRITICAL FAIL-STOP: AsyncSQL durable spool overflow policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN triggered during disk load!");
+			}
 			continue;
 		}
 
@@ -1536,6 +1734,8 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0)
 	{
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
@@ -1545,12 +1745,16 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	{
 		::close(fd);
 		std::remove(tmpPath.c_str());
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		return false;
 	}
 #else
 	FILE * fp = std::fopen(tmpPath.c_str(), "wb");
 	if (!fp)
 	{
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
@@ -1584,6 +1788,8 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (!bWriteOk)
 	{
 		std::remove(tmpPath.c_str());
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: disk write/fsync error on %s; existing spool file preserved!", tmpPath.c_str());
 		return false;
 	}
@@ -1592,6 +1798,8 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (::rename(tmpPath.c_str(), m_stSpoolFilePath.c_str()) != 0)
 	{
 		std::remove(tmpPath.c_str());
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: atomic rename failed for %s!", m_stSpoolFilePath.c_str());
 		return false;
 	}
@@ -1599,6 +1807,8 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (!::MoveFileExA(tmpPath.c_str(), m_stSpoolFilePath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
 	{
 		std::remove(tmpPath.c_str());
+		++m_ullDiskSyncFailureCount;
+		m_bFailedQueueOverflow = true;
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: MoveFileExA failed for %s!", m_stSpoolFilePath.c_str());
 		return false;
 	}
@@ -1639,6 +1849,14 @@ bool CAsyncSQL::EnqueueToSpoolLocked(uint64_t ullSeqID, const std::string & stSa
 		++m_ullDroppedSpoolFullCount;
 		sys_err("CRITICAL ALERT: AsyncSQL durable spool capacity reached (%zu + %zu > %zu bytes)! Query seq=%llu cannot be spooled.",
 				m_spoolBytes, stSanitizedQuery.size(), m_maxSpoolBytes, static_cast<unsigned long long>(ullSeqID));
+		if (m_pfnSpoolOverflowCallback)
+			m_pfnSpoolOverflowCallback(ullSeqID, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
+		if (m_eSpoolOverflowPolicy == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+		{
+			m_bEnd = true;
+			sys_err("CRITICAL FAIL-STOP: AsyncSQL durable spool overflow policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN triggered (seq=%llu)!",
+					static_cast<unsigned long long>(ullSeqID));
+		}
 		return false;
 	}
 
@@ -1765,6 +1983,12 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				{
 					m_bConnected = false;
 					MUTEX_LOCK(m_mtxQuery.get());
+					if (p->uiSQLErrno == CR_SERVER_LOST || p->uiSQLErrno == 1053 || p->uiSQLErrno == 1927)
+					{
+						++m_ullUncertainInFlightRetries;
+						sys_err("AsyncSQL: mid-flight disconnect (errno=%u) on seq=%llu; re-spooling for at-least-once delivery (potential duplicate if server committed before ACK loss).",
+								p->uiSQLErrno, static_cast<unsigned long long>(p->ullSeqID));
+					}
 					EnqueueToSpoolLocked(p->ullSeqID, SanitizeQueryForLog(p->stQuery), true);
 					DrainMemoryQueueToSpoolLocked();
 					SyncSpoolToDiskLocked();
@@ -1823,6 +2047,12 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				{
 					m_bConnected = false;
 					MUTEX_LOCK(m_mtxQuery.get());
+					if (err == CR_SERVER_LOST || err == 1053 || err == 1927)
+					{
+						++m_ullUncertainInFlightRetries;
+						sys_err("AsyncSQL: mid-flight disconnect (errno=%u) during spool replay on seq=%llu; retaining at spool head for at-least-once delivery.",
+								err, static_cast<unsigned long long>(entry.ullSeqID));
+					}
 					DrainMemoryQueueToSpoolLocked();
 					SyncSpoolToDiskLocked();
 					MUTEX_UNLOCK(m_mtxQuery.get());

@@ -183,6 +183,14 @@ class CAsyncSQL
 			std::string stQuery;
 		};
 
+		enum ESpoolOverflowPolicy
+		{
+			SPOOL_OVERFLOW_ALERT_AND_DROP_NEW = 0,
+			SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN = 1,
+		};
+
+		typedef void (*TSpoolOverflowCallback)(uint64_t ullSeqID, size_t currentSpoolBytes, size_t maxSpoolBytes, uint64_t ullDroppedSpoolFullCount);
+
 		struct TDurableSpoolStats
 		{
 			uint64_t ullSubmittedCount{0};
@@ -193,6 +201,8 @@ class CAsyncSQL
 			uint64_t ullCommittedCount{0};
 			uint64_t ullQuarantinedCount{0};
 			uint64_t ullDroppedSpoolFullCount{0};
+			uint64_t ullDiskSyncFailureCount{0};
+			uint64_t ullUncertainInFlightRetries{0};
 			uint64_t ullReconnectAttempts{0};
 			uint64_t ullReconnectSuccessCount{0};
 			size_t   spoolBytes{0};
@@ -244,11 +254,16 @@ class CAsyncSQL
 		void		SetMaxQueryQueueCount(size_t maxCount);
 		void		SetMaxSpoolBytes(size_t maxBytes);
 		void		SetReconnectIntervalMs(DWORD dwIntervalMs);
+		void		SetSpoolOverflowPolicy(ESpoolOverflowPolicy ePolicy) { m_eSpoolOverflowPolicy = ePolicy; }
+		ESpoolOverflowPolicy GetSpoolOverflowPolicy() const { return m_eSpoolOverflowPolicy; }
+		void		SetSpoolOverflowCallback(TSpoolOverflowCallback pfn) { m_pfnSpoolOverflowCallback = pfn; }
+		void		SetNoBackslashEscapes(bool bEnable) { m_bNoBackslashEscapes = bEnable; }
+		bool		IsNoBackslashEscapes() const { return m_bNoBackslashEscapes; }
 		TDurableSpoolStats GetDurableSpoolStats();
 		bool		FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs = 3000);
 		bool		ReplayDurableSpoolNow();
 		const std::string & GetSpoolFilePath() const { return m_stSpoolFilePath; }
-		static size_t	EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize);
+		static size_t	EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize, bool bNoBackslashEscapes = false);
 
 		void		ChildLoop();
 
@@ -330,8 +345,13 @@ class CAsyncSQL
 		uint64_t	m_ullCommittedCount{0};
 		uint64_t	m_ullQuarantinedCount{0};
 		uint64_t	m_ullDroppedSpoolFullCount{0};
+		uint64_t	m_ullDiskSyncFailureCount{0};
+		uint64_t	m_ullUncertainInFlightRetries{0};
 		uint64_t	m_ullReconnectAttempts{0};
 		uint64_t	m_ullReconnectSuccessCount{0};
+		ESpoolOverflowPolicy m_eSpoolOverflowPolicy{SPOOL_OVERFLOW_ALERT_AND_DROP_NEW};
+		TSpoolOverflowCallback m_pfnSpoolOverflowCallback{nullptr};
+		bool		m_bNoBackslashEscapes{false};
 
 		volatile bool m_bEnd;
 

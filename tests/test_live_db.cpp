@@ -776,7 +776,7 @@ int main(int argc, char* argv[])
 
 		const char * seedItemsSQL =
 			"INSERT INTO `item` (id, owner_id, window, pos, count, vnum, socket0, socket1, socket2, attrtype0, attrvalue0, attrtype1, attrvalue1) VALUES "
-			// Category A: 8 Eligible legacy quest rows (IDs 1..8)
+			// Category A: 8 Eligible legacy quest rows (IDs 1..8) + 1 Same-fingerprint GM-crafted POINT_RESIST_WARRIOR=59 row (ID 9, protected by human approval gate)
 			"(1, 1001, 'INVENTORY', 0, 1, 74020, 604800, 0, 0, 59, 10, 0, 0),"
 			"(2, 1001, 'EQUIPMENT', 19, 1, 74270, 1729990000, 1, 0, 60, 10, 0, 0),"
 			"(3, 1002, 'INVENTORY', 1, 1, 74520, 604800, 0, 0, 61, 10, 0, 0),"
@@ -785,6 +785,7 @@ int main(int argc, char* argv[])
 			"(6, 1003, 'EQUIPMENT', 19, 1, 75220, 1729998000, 1, 0, 69, 1, 0, 0),"
 			"(7, 1004, 'INVENTORY', 4, 1, 75420, 86400, 0, 0, 70, 1, 0, 0),"
 			"(8, 1004, 'MALL',      5, 1, 75620, 1729999000, 1, 0, 63, 10, 0, 0),"
+			"(9, 1010, 'INVENTORY', 0, 1, 74020, 604800, 0, 0, 59, 10, 0, 0),"
 			// Category B: 7 Already-valid EPointTypes rows (IDs 11..17)
 			"(11, 1005, 'INVENTORY', 0, 1, 74020, 604800, 0, 0, 54, 10, 0, 0),"
 			"(12, 1005, 'INVENTORY', 1, 1, 74270, 604800, 0, 0, 55, 10, 0, 0),"
@@ -809,8 +810,8 @@ int main(int argc, char* argv[])
 			"(51, 1009, 'INVENTORY', 0, 1, 75020, 604800, 0, 0, 0, 0, 0, 0),"
 			"(52, 1009, 'INVENTORY', 1, 1, 75220, 604800, 0, 0, 15, 10, 0, 0);";
 		auto seedRes = sql.DirectQuery(seedItemsSQL);
-		LIVE_ASSERT(seedRes != nullptr && !seedRes->IsError() && seedRes->Get()->ullAffectedRows == 26,
-			"Seeded 26 test item rows across all 10 Halloween/non-Halloween categories");
+		LIVE_ASSERT(seedRes != nullptr && !seedRes->IsError() && seedRes->Get()->ullAffectedRows == 27,
+			"Seeded 27 test item rows across all Halloween/non-Halloween/same-fingerprint-GM categories");
 
 		// Step 1: Dry-Run Audit Classification Query (read-only)
 		const char * dryRunSQL =
@@ -822,7 +823,7 @@ int main(int argc, char* argv[])
 			"    AND attrtype5 = 0 AND attrvalue5 = 0 AND attrtype6 = 0 AND attrvalue6 = 0 "
 			"    AND ((socket1 = 0 AND ((attrtype0 IN (59, 60, 61, 62, 63) AND socket0 = 604800) OR (attrtype0 = 69 AND socket0 = 21600) OR (attrtype0 = 70 AND socket0 = 86400))) OR (socket1 >= 1 AND socket0 > 604800)) "
 			"    AND socket2 = 0"
-			"  ) THEN 1 ELSE 0 END) AS eligible_count, "
+			"  ) THEN 1 ELSE 0 END) AS candidate_count, "
 			"  SUM(CASE WHEN ("
 			"    (attrtype0 IN (53, 54, 55, 56, 57) AND attrvalue0 = 10) OR (attrtype0 IN (119, 120) AND attrvalue0 = 1)"
 			"  ) THEN 1 ELSE 0 END) AS valid_count, "
@@ -842,12 +843,12 @@ int main(int argc, char* argv[])
 		LIVE_ASSERT(dryRes != nullptr && !dryRes->IsError() && dryRes->Get() && dryRes->Get()->ullNumRows == 1, "Dry-run classification query succeeded");
 		MYSQL_ROW dryRow = mysql_fetch_row(dryRes->Get()->pSQLResult);
 		LIVE_ASSERT(dryRow != nullptr, "Dry-run row fetched");
-		LIVE_ASSERT(std::atoi(dryRow[0]) == 8, "Dry-run identified exactly 8 ELIGIBLE_LEGACY_QUEST_HALLOWEEN rows");
+		LIVE_ASSERT(std::atoi(dryRow[0]) == 9, "Dry-run identified 9 CANDIDATE_REQUIRES_HUMAN_APPROVAL rows (8 quest + 1 same-fingerprint GM item)");
 		LIVE_ASSERT(std::atoi(dryRow[1]) == 7, "Dry-run identified 7 ALREADY_VALID_POINT rows");
 		LIVE_ASSERT(std::atoi(dryRow[2]) == 4, "Dry-run identified 4 AMBIGUOUS_DO_NOT_CONVERT rows");
 		LIVE_ASSERT(std::atoi(dryRow[3]) == 2, "Dry-run identified 2 OTHER_OR_UNSET rows");
 
-		// Step 2: Create Backup Table and Populate Eligible Rows
+		// Step 2: Create Backup Table (with approved_for_migration = 0 default) and Stage Candidate Rows
 		const char * createBackupSQL =
 			"CREATE TABLE IF NOT EXISTS `player_item_halloween_rev51_backup` ("
 			"  `id` int(11) unsigned NOT NULL,"
@@ -874,11 +875,12 @@ int main(int argc, char* argv[])
 			"  `attrvalue5` smallint(6) NOT NULL,"
 			"  `attrtype6` tinyint(4) NOT NULL,"
 			"  `attrvalue6` smallint(6) NOT NULL,"
+			"  `approved_for_migration` tinyint(1) unsigned NOT NULL DEFAULT 0,"
 			"  `backed_up_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 			"  PRIMARY KEY (`id`)"
 			") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 		auto bkCreate = sql.DirectQuery(createBackupSQL);
-		LIVE_ASSERT(bkCreate != nullptr && !bkCreate->IsError(), "Created player_item_halloween_rev51_backup table");
+		LIVE_ASSERT(bkCreate != nullptr && !bkCreate->IsError(), "Created player_item_halloween_rev51_backup table with approved_for_migration=0 default");
 
 		const char * insertBackupSQL =
 			"INSERT INTO `player_item_halloween_rev51_backup` ("
@@ -887,7 +889,8 @@ int main(int argc, char* argv[])
 			"  `old_attrtype0`, `old_attrvalue0`, `new_attrtype0`, "
 			"  `attrtype1`, `attrvalue1`, `attrtype2`, `attrvalue2`, "
 			"  `attrtype3`, `attrvalue3`, `attrtype4`, `attrvalue4`, "
-			"  `attrtype5`, `attrvalue5`, `attrtype6`, `attrvalue6`"
+			"  `attrtype5`, `attrvalue5`, `attrtype6`, `attrvalue6`, "
+			"  `approved_for_migration`"
 			") "
 			"SELECT "
 			"  i.id, i.owner_id, i.window, i.pos, i.count, i.vnum, "
@@ -899,7 +902,8 @@ int main(int argc, char* argv[])
 			"  END AS new_attrtype0, "
 			"  i.attrtype1, i.attrvalue1, i.attrtype2, i.attrvalue2, "
 			"  i.attrtype3, i.attrvalue3, i.attrtype4, i.attrvalue4, "
-			"  i.attrtype5, i.attrvalue5, i.attrtype6, i.attrvalue6 "
+			"  i.attrtype5, i.attrvalue5, i.attrtype6, i.attrvalue6, "
+			"  0 AS approved_for_migration "
 			"FROM `item` i "
 			"LEFT JOIN `player_item_halloween_rev51_backup` b ON b.id = i.id "
 			"WHERE b.id IS NULL "
@@ -911,15 +915,16 @@ int main(int argc, char* argv[])
 			"  AND ((i.socket1 = 0 AND ((i.attrtype0 IN (59, 60, 61, 62, 63) AND i.socket0 = 604800) OR (i.attrtype0 = 69 AND i.socket0 = 21600) OR (i.attrtype0 = 70 AND i.socket0 = 86400))) OR (i.socket1 >= 1 AND i.socket0 > 604800)) "
 			"  AND i.socket2 = 0;";
 		auto bkIns = sql.DirectQuery(insertBackupSQL);
-		LIVE_ASSERT(bkIns != nullptr && !bkIns->IsError() && bkIns->Get()->ullAffectedRows == 8,
-			"Backed up exactly 8 eligible Halloween hair rows into player_item_halloween_rev51_backup");
+		LIVE_ASSERT(bkIns != nullptr && !bkIns->IsError() && bkIns->Get()->ullAffectedRows == 9,
+			"Staged 9 candidate Halloween hair rows into player_item_halloween_rev51_backup with approved_for_migration=0");
 
-		// Step 3: Execute Transactional Migration
+		// Step 3: Verify Unattended Migration Modifies 0 Rows Until Human Approval (`approved_for_migration = 1`)
 		const char * migrateSQL =
 			"UPDATE `item` i "
 			"INNER JOIN `player_item_halloween_rev51_backup` b ON b.id = i.id "
 			"SET i.attrtype0 = b.new_attrtype0 "
-			"WHERE i.vnum IN (74020, 74270, 74520, 74770, 75020, 75220, 75420, 75620) "
+			"WHERE b.approved_for_migration = 1 "
+			"  AND i.vnum IN (74020, 74270, 74520, 74770, 75020, 75220, 75420, 75620) "
 			"  AND i.attrtype0 = b.old_attrtype0 "
 			"  AND i.attrvalue0 = b.old_attrvalue0 "
 			"  AND i.attrtype1 = 0 AND i.attrvalue1 = 0 AND i.attrtype2 = 0 AND i.attrvalue2 = 0 "
@@ -927,11 +932,20 @@ int main(int argc, char* argv[])
 			"  AND i.attrtype5 = 0 AND i.attrvalue5 = 0 AND i.attrtype6 = 0 AND i.attrvalue6 = 0 "
 			"  AND ((i.socket1 = 0 AND ((i.attrtype0 IN (59, 60, 61, 62, 63) AND i.socket0 = 604800) OR (i.attrtype0 = 69 AND i.socket0 = 21600) OR (i.attrtype0 = 70 AND i.socket0 = 86400))) OR (i.socket1 >= 1 AND i.socket0 > 604800)) "
 			"  AND i.socket2 = 0;";
+		auto migUnapproved = sql.DirectQuery(migrateSQL);
+		LIVE_ASSERT(migUnapproved != nullptr && !migUnapproved->IsError() && migUnapproved->Get()->ullAffectedRows == 0,
+			"Unattended execution before human approval modifies 0 rows in player.item");
+
+		// Human operator reviews candidate table against GM logs: approves quest-generated IDs 1..8 and leaves GM-crafted same-fingerprint ID 9 unapproved (0)
+		auto approveRes = sql.DirectQuery("UPDATE `player_item_halloween_rev51_backup` SET `approved_for_migration` = 1 WHERE `id` BETWEEN 1 AND 8;");
+		LIVE_ASSERT(approveRes != nullptr && !approveRes->IsError() && approveRes->Get()->ullAffectedRows == 8,
+			"Human operator approved verified quest-generated item IDs 1..8 (excluding GM-crafted ID 9)");
+
 		sql.DirectQuery("START TRANSACTION;");
 		auto migRes = sql.DirectQuery(migrateSQL);
 		sql.DirectQuery("COMMIT;");
 		LIVE_ASSERT(migRes != nullptr && !migRes->IsError() && migRes->Get()->ullAffectedRows == 8,
-			"Migration converted all 8 eligible legacy Halloween hair rows in transaction");
+			"Migration converted ONLY the 8 human-approved legacy Halloween hair rows in transaction");
 
 		// Verify all 8 converted rows have exact EPointTypes (54, 55, 56, 57, 53, 119, 120, 53)
 		auto verifyConv = sql.DirectQuery("SELECT id, attrtype0, attrvalue0 FROM `item` WHERE id BETWEEN 1 AND 8 ORDER BY id ASC;");
@@ -944,9 +958,10 @@ int main(int argc, char* argv[])
 				("Migrated row id=" + std::to_string(i + 1) + " matches exact EPointTypes target").c_str());
 		}
 
-		// Verify all non-eligible rows (already-valid, normal hair, non-Halloween armor/shield, ambiguous GM items, unset) were untouched!
+		// Verify all 11 non-approved rows (including ID 9 same-fingerprint GM-crafted item, normal hair, non-Halloween armor/shield, ambiguous GM items, unset) were untouched!
 		auto verifyUntouched = sql.DirectQuery(
 			"SELECT COUNT(*) FROM `item` WHERE "
+			"(id = 9 AND attrtype0 = 59 AND attrvalue0 = 10) OR "
 			"(id = 22 AND attrtype0 = 59) OR "
 			"(id = 31 AND attrtype0 = 59 AND attrtype1 = 1 AND attrvalue1 = 2000) OR "
 			"(id = 32 AND attrtype0 = 63) OR "
@@ -957,10 +972,10 @@ int main(int argc, char* argv[])
 			"(id = 44 AND attrtype0 = 69 AND socket2 = 99) OR "
 			"(id = 51 AND attrtype0 = 0) OR "
 			"(id = 52 AND attrtype0 = 15);");
-		LIVE_ASSERT(verifyUntouched != nullptr && verifyUntouched->Get(), "Verified non-eligible rows");
+		LIVE_ASSERT(verifyUntouched != nullptr && verifyUntouched->Get(), "Verified non-approved & non-eligible rows");
 		MYSQL_ROW untRow = mysql_fetch_row(verifyUntouched->Get()->pSQLResult);
-		LIVE_ASSERT(untRow != nullptr && std::atoi(untRow[0]) == 10,
-			"All 10 non-Halloween, normal-hair, ambiguous GM, and invalid rows remained 100% untouched");
+		LIVE_ASSERT(untRow != nullptr && std::atoi(untRow[0]) == 11,
+			"All 11 non-approved (including same-fingerprint GM ID 9), non-Halloween, normal-hair, ambiguous GM, and invalid rows remained 100% untouched");
 
 		// Step 4: Idempotency Verification (re-running backup + migration changes 0 rows)
 		auto bkIns2 = sql.DirectQuery(insertBackupSQL);
@@ -975,12 +990,12 @@ int main(int argc, char* argv[])
 			"UPDATE `item` i "
 			"INNER JOIN `player_item_halloween_rev51_backup` b ON b.id = i.id "
 			"SET i.attrtype0 = b.old_attrtype0, i.attrvalue0 = b.old_attrvalue0 "
-			"WHERE i.vnum = b.vnum AND i.attrtype0 = b.new_attrtype0 AND i.attrvalue0 = b.old_attrvalue0;";
+			"WHERE b.approved_for_migration = 1 AND i.vnum = b.vnum AND i.attrtype0 = b.new_attrtype0 AND i.attrvalue0 = b.old_attrvalue0;";
 		sql.DirectQuery("START TRANSACTION;");
 		auto rbRes = sql.DirectQuery(rollbackSQL);
 		sql.DirectQuery("COMMIT;");
 		LIVE_ASSERT(rbRes != nullptr && !rbRes->IsError() && rbRes->Get()->ullAffectedRows == 8,
-			"Rollback restored all 8 rows from backup table");
+			"Rollback restored all 8 approved rows from backup table");
 
 		auto verifyRb = sql.DirectQuery("SELECT id, attrtype0 FROM `item` WHERE id BETWEEN 1 AND 8 ORDER BY id ASC;");
 		const int expectedOldTypes[8] = { 59, 60, 61, 62, 63, 69, 70, 63 };
@@ -990,14 +1005,14 @@ int main(int argc, char* argv[])
 				("Rolled-back row id=" + std::to_string(i + 1) + " matches original pre-migration attrtype0").c_str());
 		}
 
-		// Re-apply migration after rollback and verify 0 eligible rows remain
+		// Re-apply migration after rollback and verify only the 1 unapproved GM row (id=9) remains in candidate state and 15 valid EPointTypes rows exist
 		auto migRes3 = sql.DirectQuery(migrateSQL);
 		LIVE_ASSERT(migRes3 != nullptr && !migRes3->IsError() && migRes3->Get()->ullAffectedRows == 8,
-			"Re-applying migration after rollback cleanly re-converted all 8 rows");
+			"Re-applying migration after rollback cleanly re-converted all 8 approved rows");
 		auto dryResAfter = sql.DirectQuery(dryRunSQL);
 		MYSQL_ROW dryRowAfter = mysql_fetch_row(dryResAfter->Get()->pSQLResult);
-		LIVE_ASSERT(dryRowAfter != nullptr && std::atoi(dryRowAfter[0]) == 0 && std::atoi(dryRowAfter[1]) == 15,
-			"Post-migration dry-run confirms 0 eligible legacy rows remaining and 15 valid EPointTypes rows");
+		LIVE_ASSERT(dryRowAfter != nullptr && std::atoi(dryRowAfter[0]) == 1 && std::atoi(dryRowAfter[1]) == 15,
+			"Post-migration dry-run confirms 1 unapproved GM row (id=9) preserved untouched and 15 valid EPointTypes rows");
 
 		sql.DirectQuery("DROP TABLE IF EXISTS player_item_halloween_rev51_backup;");
 		sql.DirectQuery("DROP TABLE IF EXISTS item;");

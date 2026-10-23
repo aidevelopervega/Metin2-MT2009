@@ -10,8 +10,21 @@
 
 static char	__escape_hint[1024];
 
+namespace
+{
+	void OnLogManagerSpoolOverflow(uint64_t ullSeqID, size_t currentSpoolBytes, size_t maxSpoolBytes, uint64_t ullDroppedSpoolFullCount)
+	{
+		sys_err("OPERATIONAL ALARM [LogManager]: SQL log spool capacity exceeded (seq=%llu, spoolBytes=%zu/%zu, droppedCount=%llu)!",
+				static_cast<unsigned long long>(ullSeqID),
+				currentSpoolBytes,
+				maxSpoolBytes,
+				static_cast<unsigned long long>(ullDroppedSpoolFullCount));
+	}
+}
+
 LogManager::LogManager() : m_bIsConnect(false)
 {
+	m_sql.SetSpoolOverflowCallback(&OnLogManagerSpoolOverflow);
 }
 
 LogManager::~LogManager()
@@ -26,7 +39,15 @@ void LogManager::ConfigureDurableSpool(const char * c_pszSpoolPath, size_t maxMe
 	m_maxMemoryQueueCount = maxMemoryQueueCount > 0 ? maxMemoryQueueCount : 10000;
 	m_maxSpoolBytes = maxSpoolBytes > 0 ? maxSpoolBytes : (64 * 1024 * 1024);
 	m_dwReconnectIntervalMs = dwReconnectIntervalMs > 0 ? dwReconnectIntervalMs : 1000;
+	m_sql.SetSpoolOverflowCallback(&OnLogManagerSpoolOverflow);
 	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
+}
+
+void LogManager::SetFailStopOnSpoolOverflow(bool bEnable)
+{
+	m_sql.SetSpoolOverflowPolicy(bEnable
+		? CAsyncSQL::SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN
+		: CAsyncSQL::SPOOL_OVERFLOW_ALERT_AND_DROP_NEW);
 }
 
 void LogManager::FlushAndShutdown(DWORD dwMaxWaitMs)
@@ -43,6 +64,7 @@ bool LogManager::Connect(const char * host, const int port, const char * user, c
 	if (m_stSpoolPath.empty())
 		m_stSpoolPath = "sql_log_spool.dat";
 
+	m_sql.SetSpoolOverflowCallback(&OnLogManagerSpoolOverflow);
 	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
 
 	if (m_sql.Setup(host, user, pwd, db, g_stLocale.c_str(), false, port))

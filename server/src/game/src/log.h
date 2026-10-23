@@ -96,6 +96,9 @@ class LogManager : public singleton<LogManager>
 		size_t		EscapeString(char* dst, size_t dstSize, const char *src, size_t srcSize);
 
 		void		ConfigureDurableSpool(const char * c_pszSpoolPath, size_t maxMemoryQueueCount = 10000, size_t maxSpoolBytes = 64 * 1024 * 1024, DWORD dwReconnectIntervalMs = 1000);
+		void		SetFailStopOnSpoolOverflow(bool bEnable);
+		bool		IsFailStopOnSpoolOverflow() const { return m_sql.GetSpoolOverflowPolicy() == CAsyncSQL::SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN; }
+		bool		HasSpoolOverflowAlert() const { return m_sql.HasFailedQueryOverflow(); }
 		void		FlushAndShutdown(DWORD dwMaxWaitMs = 3000);
 		CAsyncSQL::TDurableSpoolStats GetDurableSpoolStats() { return m_sql.GetDurableSpoolStats(); }
 
