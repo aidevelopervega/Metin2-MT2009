@@ -141,9 +141,10 @@ emit_backup_alert() {
 }
 
 if [ "$INSTALL_CRON" -eq 1 ]; then
+    target_cron="${CRON_FILE:-/usr/local/etc/cron.d/mt2_backup}"
     umask 077
-    mkdir -p "$(dirname "$CRON_FILE")"
-    cat > "$CRON_FILE" <<EOF
+    mkdir -p "$(dirname "$target_cron")"
+    cat > "$target_cron" <<EOF
 # Metin2 MT2009 — Automated Audit Guard & Encrypted MariaDB 12.3 LTS Backup Schedule
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
@@ -154,8 +155,8 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 # Every 6 hours: take authenticated encrypted MariaDB 12.3 LTS backup via least-privilege mt2backup user
 0 */6 * * * root "$SCRIPT_DIR/backup_mariadb.sh" --backup --env-file "$ENV_FILE"
 EOF
-    chmod 600 "$CRON_FILE"
-    echo "[OK] Installed cron schedule template at $CRON_FILE"
+    chmod 600 "$target_cron"
+    echo "[OK] Installed cron schedule template at $target_cron"
     exit 0
 fi
 
@@ -204,9 +205,13 @@ compute_backup_hmac_v2() {
 
 TMP_CNF=""
 TMP_PASS=""
+TMP_GZ=""
+TMP_SQL=""
 cleanup() {
     [ -n "$TMP_CNF" ] && rm -f "$TMP_CNF"
     [ -n "$TMP_PASS" ] && rm -f "$TMP_PASS"
+    [ -n "$TMP_GZ" ] && rm -f "$TMP_GZ"
+    [ -n "$TMP_SQL" ] && rm -f "$TMP_SQL"
 }
 trap cleanup EXIT INT TERM
 
@@ -267,6 +272,8 @@ EOF
     STAMP=$(date -u +"%Y%m%d_%H%M%SZ")
     OUT_ENC="$BACKUP_DIR/mt2_backup_${STAMP}.sql.gz.enc"
     OUT_SHA="${OUT_ENC}.sha256"
+    TMP_SQL="$BACKUP_DIR/.dump_$$.sql"
+    TMP_GZ="$BACKUP_DIR/.dump_$$.sql.gz"
 
     if [ -f "$SFROOT/db/pid" ] && kill -0 "$(cat "$SFROOT/db/pid" 2>/dev/null)" 2>/dev/null; then
         echo "[INFO] Mode: ONLINE HOT BACKUP (db_r41023 running). InnoDB SQL snapshot is atomic; application cross-table cache state is bounded by RPO_hot <= T_backup_interval + 600s (HASH_PLAYER_LIFE_SEC)."
@@ -276,16 +283,34 @@ EOF
 
     set -- $DATABASES
     if [ "$#" -eq 1 ]; then
-        "$DUMP_CLI" "--defaults-extra-file=$TMP_CNF" \
+        if ! "$DUMP_CLI" "--defaults-extra-file=$TMP_CNF" \
             --single-transaction --quick --hex-blob --triggers --routines --events \
-            "$1" | gzip -c | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
-            -pass "file:$TMP_PASS" -out "$OUT_ENC"
+            "$1" > "$TMP_SQL"; then
+            emit_backup_alert "[MT2_BACKUP_ALERT][DUMP_FAILED]" "mariadb-dump failed for schema '$1'."
+            exit 1
+        fi
     else
-        "$DUMP_CLI" "--defaults-extra-file=$TMP_CNF" \
+        if ! "$DUMP_CLI" "--defaults-extra-file=$TMP_CNF" \
             --single-transaction --quick --hex-blob --triggers --routines --events \
-            --databases "$@" | gzip -c | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
-            -pass "file:$TMP_PASS" -out "$OUT_ENC"
+            --databases "$@" > "$TMP_SQL"; then
+            emit_backup_alert "[MT2_BACKUP_ALERT][DUMP_FAILED]" "mariadb-dump failed for schemas '$*'."
+            exit 1
+        fi
     fi
+
+    if [ ! -s "$TMP_SQL" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][DUMP_EMPTY]" "mariadb-dump produced an empty SQL file."
+        exit 1
+    fi
+
+    gzip -c "$TMP_SQL" > "$TMP_GZ"
+    rm -f "$TMP_SQL"
+    if ! openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+        -pass "file:$TMP_PASS" -in "$TMP_GZ" -out "$OUT_ENC"; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][ENCRYPT_FAILED]" "OpenSSL AES-256-CBC encryption failed."
+        exit 1
+    fi
+    rm -f "$TMP_GZ"
 
     chmod 600 "$OUT_ENC"
     HASH_VAL=$(compute_sha256 "$OUT_ENC")
@@ -352,6 +377,23 @@ if [ "$ACTION" = "restore" ]; then
         exit 1
     fi
 
+    TMP_GZ="$BACKUP_DIR/.restore_$$.sql.gz"
+    TMP_SQL="$BACKUP_DIR/.restore_$$.sql"
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass "file:$TMP_PASS" -in "$RESTORE_ARCHIVE" -out "$TMP_GZ" 2>/dev/null; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][DECRYPT_FAILED]" "AES-256-CBC decryption failed on $RESTORE_ARCHIVE (wrong passphrase or corrupted ciphertext)."
+        exit 1
+    fi
+    if ! gzip -t "$TMP_GZ" 2>/dev/null; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][DECOMPRESS_FAILED]" "Decompressed payload is not valid gzip data on $RESTORE_ARCHIVE."
+        exit 1
+    fi
+    gzip -dc "$TMP_GZ" | sed 's/\/\*!50017 DEFINER=`[^`]*`@`[^`]*`\*\///g' > "$TMP_SQL"
+    rm -f "$TMP_GZ"
+    if [ ! -s "$TMP_SQL" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][RESTORE_EMPTY]" "Decrypted SQL payload is empty on $RESTORE_ARCHIVE."
+        exit 1
+    fi
+
     TMP_CNF="$BACKUP_DIR/.restore_client_$$.cnf"
     cat > "$TMP_CNF" <<EOF
 [client]
@@ -366,19 +408,14 @@ EOF
     if [ -n "$RESTORE_TARGET_DB" ]; then
         "$DB_CLI" "--defaults-extra-file=$TMP_CNF" --default-character-set=utf8mb4 \
             -e "CREATE DATABASE IF NOT EXISTS \`${RESTORE_TARGET_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-        openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass "file:$TMP_PASS" -in "$RESTORE_ARCHIVE" \
-            | gzip -dc \
-            | sed 's/\/\*!50017 DEFINER=`[^`]*`@`[^`]*`\*\///g' \
-            | "$DB_CLI" "--defaults-extra-file=$TMP_CNF" --default-character-set=utf8mb4 "$RESTORE_TARGET_DB" \
-                --init-command="SET SESSION sql_mode='$STRICT_MODE';"
+        "$DB_CLI" "--defaults-extra-file=$TMP_CNF" --default-character-set=utf8mb4 "$RESTORE_TARGET_DB" \
+            --init-command="SET SESSION sql_mode='$STRICT_MODE';" < "$TMP_SQL"
         echo "[OK] Restored $RESTORE_ARCHIVE into isolated target database '$RESTORE_TARGET_DB'"
     else
-        openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass "file:$TMP_PASS" -in "$RESTORE_ARCHIVE" \
-            | gzip -dc \
-            | sed 's/\/\*!50017 DEFINER=`[^`]*`@`[^`]*`\*\///g' \
-            | "$DB_CLI" "--defaults-extra-file=$TMP_CNF" --default-character-set=utf8mb4 \
-                --init-command="SET SESSION sql_mode='$STRICT_MODE';"
+        "$DB_CLI" "--defaults-extra-file=$TMP_CNF" --default-character-set=utf8mb4 \
+            --init-command="SET SESSION sql_mode='$STRICT_MODE';" < "$TMP_SQL"
         echo "[OK] Restored $RESTORE_ARCHIVE into MariaDB instance"
     fi
+    rm -f "$TMP_SQL"
     exit 0
 fi

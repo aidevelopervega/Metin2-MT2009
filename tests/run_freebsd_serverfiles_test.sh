@@ -304,12 +304,320 @@ fi
 echo "  -> Verified 0 secret leaks in collected logs and artifacts"
 
 if [ -n "${MT2_BACKUP_DB_USER:-}" ] && [ -n "${MT2_BACKUP_DB_PASS:-}" ]; then
-    echo "=== [Bonus] Verifying FreeBSD backup_mariadb.sh v2 (Keyed HMAC-SHA256(v2) & Forged Manifest Rejection) + audit_guard.sh v2 ==="
+    echo "=== [Bonus 4.A] Verifying FreeBSD MariaDB Socket Isolation (sockstat 127.0.0.1:$PORT, 0 external 3306) ==="
+    if command -v sockstat >/dev/null 2>&1; then
+        SOCK_OUT=$(sockstat -4 -6 -l | grep -E "mariadbd|mysqld|:$PORT|:3306" || true)
+        echo "$SOCK_OUT"
+        if printf '%s\n' "$SOCK_OUT" | grep -E "\*:$PORT|0\.0\.0\.0:$PORT|::$PORT|\*:3306|0\.0\.0\.0:3306" >/dev/null 2>&1; then
+            echo "[ERROR] MariaDB or unexpected service is bound to wildcard/external interface!" >&2
+            exit 1
+        fi
+        if ! printf '%s\n' "$SOCK_OUT" | grep -F "127.0.0.1:$PORT" >/dev/null 2>&1; then
+            echo "[ERROR] Expected mariadbd listening on 127.0.0.1:$PORT in sockstat output!" >&2
+            exit 1
+        fi
+        echo "  -> Verified via FreeBSD sockstat: mariadbd bound strictly to 127.0.0.1:$PORT (0 external 3306 listeners)"
+    fi
+
+    if [ -n "${MT2_AUDIT_LOG_FILE:-}" ] && [ -f "$MT2_AUDIT_LOG_FILE" ]; then
+        echo "=== [Bonus 4.C] Verifying Real FreeBSD MariaDB server_audit Log (CONNECT, DDL, DCL, DML_NO_SELECT, Masking & Rotation) ==="
+        AUDIT_LINES=$(wc -l < "$MT2_AUDIT_LOG_FILE" | tr -d ' \t\r\n')
+        AUDIT_BYTES=$(wc -c < "$MT2_AUDIT_LOG_FILE" | tr -d ' \t\r\n')
+        echo "  -> Live FreeBSD mariadb_audit.log stats: lines=$AUDIT_LINES, bytes=$AUDIT_BYTES"
+        grep -q "ransom_attacker_unauth,.*FAILED_CONNECT,.*,1045" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'CREATE USER .* IDENTIFIED BY \*\*\*\*\*',1227" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'CREATE DATABASE z_ransom_note_test',1044" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'DROP DATABASE mt2_testdb',1044" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'DROP TABLE test_player_live',1142" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'UPDATE test_player_live SET gold = 56000 WHERE id = 99901',0" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'DELETE FROM test_player_live WHERE id = 99901',0" "$MT2_AUDIT_LOG_FILE"
+        grep -Eq "mt2server,.*QUERY,mt2_testdb,'DELETE FROM log\.test_log_isolation WHERE id = 1',(1142|1044)" "$MT2_AUDIT_LOG_FILE"
+        grep -q "mt2server,.*QUERY,mt2_testdb,'UPDATE world\.test_world_proto SET name = .*Hacked.* WHERE vnum = 10',1142" "$MT2_AUDIT_LOG_FILE"
+        if grep -q "SELECT id, name, gold FROM test_player_live" "$MT2_AUDIT_LOG_FILE"; then
+            echo "[ERROR] SELECT query was unexpectedly logged in mariadb_audit.log under QUERY_DML_NO_SELECT!" >&2
+            exit 1
+        fi
+        if [ -n "${MT2_MYSQL_SOCKET:-}" ] && [ -S "${MT2_MYSQL_SOCKET:-}" ]; then
+            "$DB_CLI" --socket="$MT2_MYSQL_SOCKET" -u root -e "SET GLOBAL server_audit_file_rotate_now = ON;"
+        fi
+        "$SFROOT/audit_guard.sh" --enforce-perms --audit-log "$MT2_AUDIT_LOG_FILE" --archive-dir "/tmp/mt2_live_audit_arch_$$" --alert-file "/tmp/mt2_live_audit_alert_$$.log"
+        LIVE_AUDIT_DIR_MODE=$(stat -f "%Lp" "$(dirname "$MT2_AUDIT_LOG_FILE")")
+        LIVE_AUDIT_FILE_MODE=$(stat -f "%Lp" "$MT2_AUDIT_LOG_FILE")
+        if [ "$LIVE_AUDIT_DIR_MODE" != "750" ] || [ "$LIVE_AUDIT_FILE_MODE" != "640" ]; then
+            echo "[ERROR] Expected dir mode 750 and file mode 640 on live audit log, got dir=$LIVE_AUDIT_DIR_MODE file=$LIVE_AUDIT_FILE_MODE" >&2
+            exit 1
+        fi
+        chflags -R nosappnd "/tmp/mt2_live_audit_arch_$$" 2>/dev/null || true
+        rm -rf "/tmp/mt2_live_audit_arch_$$" "/tmp/mt2_live_audit_alert_$$.log"
+        echo "  -> Verified real FreeBSD mariadb_audit.log events, password masking (*****), 0 SELECT noise, rotation & 0750/0640 permissions"
+    fi
+
+    echo "=== [Bonus 4.D & 5] Verifying FreeBSD audit_guard.sh v2 (Redaction, Alarms, Rotation Drain, Holdback, TLS+ACK, Offset Safety & Cron) ==="
+    FB_AG_DIR="/tmp/mt2_fb_audit_guard_$$"
+    rm -rf "$FB_AG_DIR"
+    mkdir -p "$FB_AG_DIR/data" "$FB_AG_DIR/archive" "$FB_AG_DIR/sf/chs/ch11"
+    AG_LOG="$FB_AG_DIR/data/mariadb_audit.log"
+    AG_ALERT="$FB_AG_DIR/alerts.log"
+
+    cat > "$AG_LOG" <<'EOF'
+20261024 12:00:01,mt2,ransom_attacker_unauth,127.0.0.1,1,0,FAILED_CONNECT,,,1045
+20261024 12:00:02,mt2,mt2server,127.0.0.1,2,1,QUERY,mt2_testdb,'DROP TABLE test_player_live',1142
+20261024 12:00:03,mt2,mt2server,127.0.0.1,2,2,QUERY,account,'UPDATE account SET password=''$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$aGFzaA'', social_id=''1234567'', email=''secret@example.com'', hwid=''HWID_SECRET_99'', old_pw=''*AABBCCDDEEFF00112233445566778899AABBCCDD'' WHERE id=1',0
+20261024 12:00:04,mt2,mt2server,127.0.0.1,2,3,QUERY,mt2_testdb,'DELETE FROM test_player_live WHERE id = 99901',0
+20261024 12:00:05,mt2,mt2server,127.0.0.1,2,4,QUERY,mt2_testdb,'DELETE FROM log.test_log_isolation WHERE id = 1',1142
+EOF
+    cat > "${AG_LOG}.001" <<'EOF'
+20261024 11:59:00,mt2,mt2server,127.0.0.1,1,1,QUERY,account,'INSERT INTO account (login,password,social_id,email,hwid) VALUES (''u1'',''$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$b2xk'',''7654321'',''old@example.com'',''OLD_HWID_77'')',0
+EOF
+
+    "$SFROOT/audit_guard.sh" --enforce-perms --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT"
+    ARCH_ROT=$(ls -1 "$FB_AG_DIR/archive"/mariadb_audit.log.001.* | head -n 1)
+    ARCH_MODE=$(stat -f "%Lp" "$ARCH_ROT")
+    if [ "$ARCH_MODE" != "400" ]; then
+        echo "[ERROR] Expected mode 400 on archived rotated audit log, got $ARCH_MODE" >&2
+        exit 1
+    fi
+    if grep -Eq "c2FsdA|7654321|old@example\.com|OLD_HWID_77" "$ARCH_ROT" || ! grep -q '\$argon2id\$\[REDACTED\]' "$ARCH_ROT"; then
+        echo "[ERROR] Sensitive fields were not redacted in archived rotated audit log!" >&2
+        exit 1
+    fi
+
+    # Capacity alarm (exit 2) & Free disk alarm (exit 2)
+    set +e
+    "$SFROOT/audit_guard.sh" --check-capacity --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT" --max-bytes 100 --warn-pct 50 >/dev/null 2>&1
+    CAP_RC=$?
+    "$SFROOT/audit_guard.sh" --check-capacity --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT" --max-bytes 999999999 --min-free-mb 999999999 >/dev/null 2>&1
+    DISK_RC=$?
+    set -e
+    if [ "$CAP_RC" -ne 2 ] || [ "$DISK_RC" -ne 2 ] || ! grep -q "\[MT2_AUDIT_ALERT\]\[CAPACITY_HIGH\]" "$AG_ALERT" || ! grep -q "\[MT2_AUDIT_ALERT\]\[DISK_FREE_LOW\]" "$AG_ALERT"; then
+        echo "[ERROR] audit_guard.sh capacity ($CAP_RC) or disk free ($DISK_RC) alarm check failed!" >&2
+        exit 1
+    fi
+
+    # Spool overflow & quarantine alarms (exit 4)
+    echo "SYSERR: Oct 24 12:10:00 :: OnLogManagerSpoolOverflow: CRITICAL: LogManager SQL durable spool overflow" > "$FB_AG_DIR/sf/chs/ch11/syserr"
+    echo "-- quarantined record" > "$FB_AG_DIR/sf/chs/ch11/sql_log_spool.dat.quarantine"
+    set +e
+    "$SFROOT/audit_guard.sh" --check-spool-syserr --serverfiles-dir "$FB_AG_DIR/sf" --alert-file "$AG_ALERT" >/dev/null 2>&1
+    SPOOL_RC=$?
+    set -e
+    if [ "$SPOOL_RC" -ne 4 ] || ! grep -q "\[MT2_SPOOL_ALERT\]\[OVERFLOW_DETECTED\]" "$AG_ALERT" || ! grep -q "\[MT2_SPOOL_ALERT\]\[QUARANTINE_DETECTED\]" "$AG_ALERT"; then
+        echo "[ERROR] audit_guard.sh spool overflow/quarantine check ($SPOOL_RC) failed!" >&2
+        exit 1
+    fi
+
+    # Test incomplete trailing line holdback, rotation tail drain (.1), TCP+ACK, TLS+ACK, and offset safety on send failure
+    python3 - "$SFROOT/audit_guard.sh" "$AG_LOG" "$FB_AG_DIR/archive" "$AG_ALERT" "${MT2_SSL_DIR:-}" <<'PYEOF'
+import os, socket, ssl, subprocess, sys, threading
+
+guard_sh, ag_log, arch_dir, alert_file, ssl_dir = sys.argv[1:6]
+
+# Append incomplete 6th line (no trailing newline)
+with open(ag_log, "ab") as f:
+    f.write(b"20261024 12:00:06,mt2,mt2server,127.0.0.1,2,5,QUERY,player,'UPDATE player SET gold=123'")
+
+received_batch1 = []
+srv1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv1.bind(("127.0.0.1", 0))
+srv1.listen(1)
+port1 = srv1.getsockname()[1]
+
+def accept_plain():
+    conn, _ = srv1.accept()
+    with conn:
+        data = b""
+        while True:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+        received_batch1.extend([l for l in data.decode("utf-8").splitlines() if l.strip()])
+
+t1 = threading.Thread(target=accept_plain, daemon=True)
+t1.start()
+rc1 = subprocess.run([guard_sh, "--forward-once", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port1)], check=False).returncode
+t1.join(timeout=5)
+srv1.close()
+assert rc1 == 0 and len(received_batch1) == 5, f"Expected 5 complete lines in batch1, got rc={rc1}, len={len(received_batch1)}"
+joined1 = "\n".join(received_batch1)
+assert "$argon2id$[REDACTED]" in joined1 and "*[REDACTED_SHA1]" in joined1, "Missing redaction markers in batch1"
+for secret in ("c2FsdA", "1234567", "secret@example.com", "HWID_SECRET_99", "AABBCCDDEEFF00112233445566778899AABBCCDD"):
+    assert secret not in joined1, f"Unredacted secret {secret} leaked in batch1"
+
+# Complete 6th line, rotate ag_log -> ag_log.1, write 7th line to new ag_log, and test --require-ack
+with open(ag_log, "ab") as f:
+    f.write(b",0\n")
+os.replace(ag_log, ag_log + ".1")
+with open(ag_log, "wb") as f:
+    f.write(b"20261024 12:00:07,mt2,mt2server,127.0.0.1,2,6,QUERY,player,'UPDATE player SET gold=456',0\n")
+
+received_batch2 = []
+srv2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv2.bind(("127.0.0.1", 0))
+srv2.listen(1)
+port2 = srv2.getsockname()[1]
+
+def accept_ack():
+    conn, _ = srv2.accept()
+    with conn:
+        sf = conn.makefile("rwb")
+        for _ in range(2):
+            line = sf.readline()
+            if not line:
+                break
+            received_batch2.append(line.decode("utf-8").strip())
+            sf.write(b"ACK\n")
+            sf.flush()
+
+t2 = threading.Thread(target=accept_ack, daemon=True)
+t2.start()
+rc2 = subprocess.run([guard_sh, "--forward-once", "--require-ack", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port2)], check=False).returncode
+t2.join(timeout=5)
+srv2.close()
+assert rc2 == 0 and len(received_batch2) == 2, f"Expected 2 lines across rotation, got rc={rc2}, len={len(received_batch2)}"
+assert "gold=123" in received_batch2[0] and "gold=456" in received_batch2[1], f"Wrong rotation ordering: {received_batch2}"
+
+# Test TLS + ACK transport if ssl_dir is available
+if ssl_dir and os.path.isfile(os.path.join(ssl_dir, "ca-cert.pem")):
+    with open(ag_log, "ab") as f:
+        f.write(b"20261024 12:00:08,mt2,mt2server,127.0.0.1,2,7,QUERY,player,'UPDATE player SET gold=789',0\n")
+    received_tls = []
+    srv_tls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv_tls.bind(("127.0.0.1", 0))
+    srv_tls.listen(1)
+    port_tls = srv_tls.getsockname()[1]
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(certfile=os.path.join(ssl_dir, "server-cert.pem"), keyfile=os.path.join(ssl_dir, "server-key.pem"))
+
+    def accept_tls():
+        raw_c, _ = srv_tls.accept()
+        with ctx.wrap_socket(raw_c, server_side=True) as tls_c:
+            sf = tls_c.makefile("rwb")
+            line = sf.readline()
+            if line:
+                received_tls.append(line.decode("utf-8").strip())
+                sf.write(b"ACK\n")
+                sf.flush()
+
+    t_tls = threading.Thread(target=accept_tls, daemon=True)
+    t_tls.start()
+    rc_tls = subprocess.run([guard_sh, "--forward-once", "--tls", "--tls-ca-file", os.path.join(ssl_dir, "ca-cert.pem"), "--require-ack", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port_tls)], check=False).returncode
+    t_tls.join(timeout=5)
+    srv_tls.close()
+    assert rc_tls == 0 and len(received_tls) == 1 and "gold=789" in received_tls[0], f"TLS+ACK forward failed: rc={rc_tls}, received={received_tls}"
+
+# Test send failure does NOT advance offset
+offset_file = ag_log + ".forward.offset"
+before_offset = open(offset_file, "r", encoding="ascii").read().strip()
+with open(ag_log, "ab") as f:
+    f.write(b"20261024 12:00:09,mt2,mt2server,127.0.0.1,2,8,QUERY,player,'UPDATE player SET gold=999',0\n")
+rc_fail = subprocess.run([guard_sh, "--forward-once", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port2)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode
+after_offset = open(offset_file, "r", encoding="ascii").read().strip()
+assert rc_fail == 3 and before_offset == after_offset, f"Expected rc=3 and unchanged offset ({before_offset} vs {after_offset}), got rc={rc_fail}"
+print("  -> [PASS] Python TCP/TLS/ACK receiver verified: holdback, redaction, .1 rotation ordering, TLS+ACK & offset safety")
+PYEOF
+
+    # Test --install-cron in isolated directory
+    "$SFROOT/audit_guard.sh" --install-cron --cron-file "$FB_AG_DIR/cron_audit" --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT"
+    "$SFROOT/backup_mariadb.sh" --install-cron --cron-file "$FB_AG_DIR/cron_backup" --backup-dir "$FB_AG_DIR/archive"
+    if [ "$(stat -f "%Lp" "$FB_AG_DIR/cron_audit")" != "600" ] || [ "$(stat -f "%Lp" "$FB_AG_DIR/cron_backup")" != "600" ]; then
+        echo "[ERROR] Expected mode 600 on generated cron files!" >&2
+        exit 1
+    fi
+    chflags -R nosappnd "$FB_AG_DIR" 2>/dev/null || true
+    rm -rf "$FB_AG_DIR"
+    echo "  -> Verified FreeBSD audit_guard.sh v2 & isolated --install-cron (0 persistent runner cron files left)"
+
+    echo "=== [Bonus 4.E] Verifying FreeBSD backup_mariadb.sh v2 (123 InnoDB, HMAC-SHA256(v2), Tamper/v1/Passphrase/Disk Rejection & 8-Table + Trigger Restore) ==="
     FB_BK_DIR="/tmp/mt2_fb_backup_test_$$"
     rm -rf "$FB_BK_DIR"
     mkdir -p "$FB_BK_DIR"
     FB_PASS_KEY="$(openssl rand -hex 24)"
     FB_HMAC_KEY="$(openssl rand -hex 32)"
+
+    ADMIN_CNF="$FB_BK_DIR/.admin_client.cnf"
+    umask 077
+    cat > "$ADMIN_CNF" <<EOF
+[client]
+host=$HOST
+port=$PORT
+user=${MT2_TEST_USER:-$USER}
+password="${MT2_TEST_PASSWORD:-$PASS}"
+EOF
+    chmod 600 "$ADMIN_CNF"
+
+    # 1. Verify 123/123 InnoDB tables across 5 schemas
+    TOTAL_INNODB=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s \
+        -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('account','common','log','player','world') AND TABLE_TYPE='BASE TABLE' AND ENGINE='InnoDB';" | tr -d ' \t\r\n')
+    NON_INNODB=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s \
+        -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('account','common','log','player','world') AND TABLE_TYPE='BASE TABLE' AND ENGINE<>'InnoDB';" | tr -d ' \t\r\n')
+    echo "  -> FreeBSD 5-Schema Storage Engine Check: InnoDB=$TOTAL_INNODB/123, Non-InnoDB=$NON_INNODB"
+    if [ "$TOTAL_INNODB" != "123" ] || [ "$NON_INNODB" != "0" ]; then
+        echo "[ERROR] Expected 123 InnoDB tables and 0 non-InnoDB tables, got InnoDB=$TOTAL_INNODB Non-InnoDB=$NON_INNODB" >&2
+        exit 1
+    fi
+
+    # 2. Verify [MT2_BACKUP_WARN][NON_INNODB_ENGINE] warning when a temporary MEMORY table exists
+    "$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" player -e "CREATE TABLE tmp_non_innodb_check (id INT PRIMARY KEY) ENGINE=MEMORY;"
+    WARN_OUT=$(MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_BACKUP_DB_USER="$MT2_BACKUP_DB_USER" MT2_BACKUP_DB_PASS="$MT2_BACKUP_DB_PASS" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --backup --backup-dir "$FB_BK_DIR" --databases "player" 2>&1)
+    "$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" player -e "DROP TABLE tmp_non_innodb_check;"
+    rm -f "$FB_BK_DIR"/mt2_backup_*
+    if ! printf '%s\n' "$WARN_OUT" | grep -q "\[MT2_BACKUP_WARN\]\[NON_INNODB_ENGINE\]"; then
+        echo "[ERROR] backup_mariadb.sh did not emit [MT2_BACKUP_WARN][NON_INNODB_ENGINE] for MEMORY table!" >&2
+        exit 1
+    fi
+    echo "  -> Verified [MT2_BACKUP_WARN][NON_INNODB_ENGINE] warning detection"
+
+    # 3. Populate 8-table relational dataset + trigger in player
+    "$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" --default-character-set=utf8mb4 player <<'EOSQL'
+DELETE FROM guild_member WHERE guild_id = 301;
+DELETE FROM guild WHERE id = 301;
+DELETE FROM safebox WHERE account_id = 501;
+DELETE FROM affect WHERE dwPID IN (1001, 1002);
+DELETE FROM quest WHERE dwPID IN (1001, 1002);
+DELETE FROM item WHERE id BETWEEN 2000101 AND 2000104;
+DELETE FROM player WHERE id IN (1001, 1002);
+DELETE FROM player_index WHERE id = 501;
+DROP TRIGGER IF EXISTS trg_player_backup_audit;
+
+INSERT INTO player_index (id, pid1, pid2, pid3, pid4, empire) VALUES (501, 1001, 1002, 0, 0, 1);
+INSERT INTO player (id, account_id, name, job, level, exp, gold, x, y, map_index, exit_x, exit_y, exit_map_index, hp, mp, stamina, random_hp, random_sp, playtime, last_play, horse_hp_droptime) VALUES
+(1001, 501, 'RelHeroA', 0, 99, 12345678, 85000000, 469300, 964200, 1, 469300, 964200, 1, 18500, 4200, 800, 4000, 2000, 1250, '2026-10-24 12:00:00', 0),
+(1002, 501, 'RelHeroB', 2, 75, 4500000,  19500000, 401600, 899600, 3, 401600, 899600, 3, 14200, 6800, 750, 3000, 3500, 640,  '2026-10-24 12:05:00', 0);
+
+INSERT INTO item (id, owner_id, `window`, pos, count, vnum, socket0, socket1, socket2, attrtype0, attrvalue0, attrtype1, attrvalue1) VALUES
+(2000101, 1001, 'EQUIPMENT', 4,  1, 189,   1, 0, 0, 72, 45, 15, 10),
+(2000102, 1001, 'EQUIPMENT', 19, 1, 74020, 604800, 1, 0, 54, 10, 0, 0),
+(2000103, 1002, 'INVENTORY', 0,  200, 27003, 0, 0, 0, 0, 0, 0, 0),
+(2000104, 501,  'SAFEBOX',   0,  1, 70038, 0, 0, 0, 0, 0, 0, 0);
+
+INSERT INTO quest (dwPID, szName, szState, lValue) VALUES
+(1001, 'main_quest_lv1', '__COMPLETE__', 1),
+(1001, 'event_halloween_hair', 'start', 1),
+(1002, 'main_quest_lv1', 'hunting', 5);
+
+INSERT INTO affect (dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost) VALUES
+(1001, 514, 54, 10, 0, 604800, 0),
+(1002, 200, 16, 20, 0, 3600, 0);
+
+INSERT INTO safebox (account_id, size, password, gold) VALUES
+(501, 3, '000000', 5000000);
+
+INSERT INTO guild (id, name, sp, master, level, exp, skill_point, skill, win, draw, loss, ladder_point, gold) VALUES
+(301, 'RelGuild_PL', 1000, 1001, 20, 999999, 19, X'0102030405060708090A0B0C', 15, 2, 1, 1800, 25000000);
+
+INSERT INTO guild_member (pid, guild_id, grade, is_general, offer) VALUES
+(1001, 301, 1, 1, 500000),
+(1002, 301, 2, 0, 120000);
+
+CREATE TRIGGER trg_player_backup_audit AFTER UPDATE ON safebox FOR EACH ROW BEGIN END;
+EOSQL
+
+    FP_SQL="SELECT CONCAT(COUNT(DISTINCT p.id),'|',SUM(p.gold),'|',(SELECT COUNT(*) FROM item WHERE id BETWEEN 2000101 AND 2000104),'|',(SELECT SUM(attrvalue0) FROM item WHERE id BETWEEN 2000101 AND 2000104),'|',(SELECT COUNT(*) FROM quest WHERE dwPID IN (1001,1002)),'|',(SELECT COUNT(*) FROM affect WHERE dwPID IN (1001,1002)),'|',(SELECT gold FROM safebox WHERE account_id=501),'|',(SELECT CONCAT(g.name,':',COUNT(gm.pid),':',SUM(gm.offer)) FROM guild g JOIN guild_member gm ON g.id=gm.guild_id WHERE g.id=301)) FROM player p JOIN player_index pi ON p.account_id=pi.id WHERE p.id IN (1001,1002);"
+    PRE_FP=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s player -e "$FP_SQL" | tr -d '\r\n')
+    echo "  -> Pre-backup 8-table relational fingerprint: $PRE_FP"
+
+    # 4. Run authenticated encrypted backup via mt2backup
     MT2_DB_HOST="$HOST" \
     MT2_DB_PORT="$PORT" \
     MT2_BACKUP_DB_USER="$MT2_BACKUP_DB_USER" \
@@ -323,25 +631,79 @@ if [ -n "${MT2_BACKUP_DB_USER:-}" ] && [ -n "${MT2_BACKUP_DB_PASS:-}" ]; then
     FB_ENC_FILE=$(ls -1 "$FB_BK_DIR"/mt2_backup_*.sql.gz.enc | head -n 1)
     if ! grep -q "^HMAC-SHA256(v2)=" "${FB_ENC_FILE}.sha256"; then
         echo "[ERROR] FreeBSD backup manifest missing HMAC-SHA256(v2)!" >&2
-        rm -rf "$FB_BK_DIR"
         exit 1
     fi
 
-    # Test forged archive + recomputed SHA-256 rejection
+    # 5. Test forged archive + recomputed SHA-256 rejection
     FB_FORGED="$FB_BK_DIR/forged.sql.gz.enc"
     cp "$FB_ENC_FILE" "$FB_FORGED"
     printf '\x00' >> "$FB_FORGED"
     FORGED_SHA=$(sha256 -q "$FB_FORGED" 2>/dev/null || sha256sum "$FB_FORGED" | awk '{print $1}')
     ORIG_HMAC=$(grep "^HMAC-SHA256(v2)=" "${FB_ENC_FILE}.sha256")
     printf '%s  forged.sql.gz.enc\n%s\n' "$FORGED_SHA" "$ORIG_HMAC" > "${FB_FORGED}.sha256"
-    if MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --restore "$FB_FORGED" --backup-dir "$FB_BK_DIR" --target-db "player_forged_fb" >/dev/null 2>&1; then
+    if MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --restore "$FB_FORGED" --backup-dir "$FB_BK_DIR" --target-db "player_restore_verify" >/dev/null 2>&1; then
         echo "[ERROR] Forged archive + recomputed SHA-256 was NOT rejected by backup_mariadb.sh!" >&2
-        rm -rf "$FB_BK_DIR"
         exit 1
     fi
     rm -f "$FB_FORGED" "${FB_FORGED}.sha256"
+
+    # 6. Test legacy v1 manifest default rejection
+    FB_V1="$FB_BK_DIR/legacy_v1.sql.gz.enc"
+    cp "$FB_ENC_FILE" "$FB_V1"
+    V1_SHA=$(sha256 -q "$FB_V1" 2>/dev/null || sha256sum "$FB_V1" | awk '{print $1}')
+    printf '%s  legacy_v1.sql.gz.enc\n' "$V1_SHA" > "${FB_V1}.sha256"
+    if MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --restore "$FB_V1" --backup-dir "$FB_BK_DIR" --target-db "player_restore_verify" >/dev/null 2>&1; then
+        echo "[ERROR] Legacy v1 manifest without HMAC was NOT rejected by default!" >&2
+        exit 1
+    fi
+    rm -f "$FB_V1" "${FB_V1}.sha256"
+
+    # 7. Test wrong passphrase rejection & low disk space rejection
+    if MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" MT2_BACKUP_PASSPHRASE="WrongPassphraseValue999" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --restore "$FB_ENC_FILE" --backup-dir "$FB_BK_DIR" --target-db "player_restore_verify" >/dev/null 2>&1; then
+        echo "[ERROR] Restore with wrong passphrase was NOT rejected by backup_mariadb.sh!" >&2
+        exit 1
+    fi
+    set +e
+    MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_BACKUP_DB_USER="$MT2_BACKUP_DB_USER" MT2_BACKUP_DB_PASS="$MT2_BACKUP_DB_PASS" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" MT2_MIN_FREE_DISK_MB=999999999 "$SFROOT/backup_mariadb.sh" --backup --backup-dir "$FB_BK_DIR" --databases "player" >/dev/null 2>&1
+    LOW_DISK_RC=$?
+    set -e
+    if [ "$LOW_DISK_RC" -ne 2 ]; then
+        echo "[ERROR] Expected exit code 2 on low disk space backup check, got $LOW_DISK_RC" >&2
+        exit 1
+    fi
+
+    # 8. Simulate destructive DML in player, then restore into isolated player_restore_verify and verify 8-table + trigger integrity
+    "$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" player -e "DELETE FROM item WHERE id BETWEEN 2000101 AND 2000104; UPDATE player SET gold=0, level=1 WHERE id IN (1001,1002); UPDATE safebox SET gold=0 WHERE account_id=501;"
+    MT2_DB_HOST="$HOST" \
+    MT2_DB_PORT="$PORT" \
+    MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" \
+    MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" \
+    MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" \
+    MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
+    "$SFROOT/backup_mariadb.sh" --restore "$FB_ENC_FILE" --backup-dir "$FB_BK_DIR" --target-db "player_restore_verify"
+
+    POST_FP=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s player_restore_verify -e "$FP_SQL" | tr -d '\r\n')
+    TRIG_CNT=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s -e "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='player_restore_verify' AND TRIGGER_NAME='trg_player_backup_audit';" | tr -d ' \t\r\n')
+    echo "  -> Restored 8-table relational fingerprint:   $POST_FP | TriggerCount=$TRIG_CNT"
+    if [ "$PRE_FP" != "$POST_FP" ] || [ "$TRIG_CNT" != "1" ]; then
+        echo "[ERROR] Multi-table relational or trigger restore mismatch! Expected='$PRE_FP' (trig=1), Actual='$POST_FP' (trig=$TRIG_CNT)" >&2
+        exit 1
+    fi
+
+    "$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" player <<'EOSQL'
+DROP TRIGGER IF EXISTS trg_player_backup_audit;
+DELETE FROM guild_member WHERE guild_id = 301;
+DELETE FROM guild WHERE id = 301;
+DELETE FROM safebox WHERE account_id = 501;
+DELETE FROM affect WHERE dwPID IN (1001, 1002);
+DELETE FROM quest WHERE dwPID IN (1001, 1002);
+DELETE FROM item WHERE id BETWEEN 2000101 AND 2000104;
+DELETE FROM player WHERE id IN (1001, 1002);
+DELETE FROM player_index WHERE id = 501;
+DROP DATABASE IF EXISTS player_restore_verify;
+EOSQL
     rm -rf "$FB_BK_DIR"
-    echo "  -> Verified FreeBSD backup_mariadb.sh v2 Keyed HMAC-SHA256(v2) & forged manifest rejection"
+    echo "  -> Verified FreeBSD backup_mariadb.sh v2: 123 InnoDB, HMAC-SHA256(v2), forged/v1/passphrase/disk rejection & 8-table + trigger restore"
 fi
 
 echo "=================================================================="
