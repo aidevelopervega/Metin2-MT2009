@@ -250,25 +250,11 @@ jobs:
               MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
               echo "MariaDB Daemon: $MARIADBD"
               AUDIT_ARGS=""
-              AUDIT_CNF_LINES=""
+              printf '[mysqld]\nbind-address=127.0.0.1\nlocal-infile=0\nsymbolic-links=0\n' > "$DATA_DIR/server_security.cnf"
               if [ -f "/usr/local/lib/mysql/plugin/server_audit.so" ] || [ -f "/usr/local/lib/mariadb/plugin/server_audit.so" ]; then
                 AUDIT_ARGS="--plugin-load-add=server_audit.so --server-audit=FORCE_PLUS_PERMANENT --server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT --server-audit-output-type=FILE --server-audit-file-path=$DATA_DIR/mariadb_audit.log --server-audit-file-rotate-size=104857600 --server-audit-file-rotations=90 --server-audit-logging=ON"
-                AUDIT_CNF_LINES="plugin-load-add=server_audit.so
-server-audit=FORCE_PLUS_PERMANENT
-server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT
-server-audit-output-type=FILE
-server-audit-file-path=$DATA_DIR/mariadb_audit.log
-server-audit-file-rotate-size=104857600
-server-audit-file-rotations=90
-server-audit-logging=ON"
+                printf 'plugin-load-add=server_audit.so\nserver-audit=FORCE_PLUS_PERMANENT\nserver-audit-events=CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT\nserver-audit-output-type=FILE\nserver-audit-file-path=%s/mariadb_audit.log\nserver-audit-file-rotate-size=104857600\nserver-audit-file-rotations=90\nserver-audit-logging=ON\n' "$DATA_DIR" >> "$DATA_DIR/server_security.cnf"
               fi
-              cat > "$DATA_DIR/server_security.cnf" <<EOF
-[mysqld]
-bind-address=127.0.0.1
-local-infile=0
-symbolic-links=0
-$AUDIT_CNF_LINES
-EOF
               chown mysql:mysql "$DATA_DIR/server_security.cnf"
               chmod 640 "$DATA_DIR/server_security.cnf"
 
