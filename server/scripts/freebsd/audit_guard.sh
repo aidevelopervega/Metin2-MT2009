@@ -166,13 +166,26 @@ dest_path = os.path.join(arch_dir, f"{base_name}.{sha12}")
 
 if not os.path.exists(dest_path):
     text = raw.decode("utf-8", errors="replace")
-    # Redact Argon2id hashes, legacy MySQL SHA1 hashes, password/token/social_id/email/hwid literals in DML queries
+    # Redact Argon2id hashes, legacy MySQL SHA1 hashes, and password/token/social_id/email/hwid literals in UPDATE & positional INSERT/REPLACE queries
     text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
+    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
+    sens_cols = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
+    def _redact_insert_vals(m):
+        prefix, cols_str, vals_str, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
+        cols = [c.strip().strip("`'\"").lower() for c in cols_str.split(",")]
+        vals = re.findall(r"(?:''(?:[^']|'(?!'))*''|\\'(?:[^'\\]|\\.)*\\'|'(?:[^'\\]|\\.)*'|[^,()]+)", vals_str)
+        vals = [v.strip() for v in vals if v.strip()]
+        if len(cols) == len(vals):
+            for idx, col in enumerate(cols):
+                if col in sens_cols and "$argon2id$[REDACTED]" not in vals[idx] and "*[REDACTED_SHA1]" not in vals[idx]:
+                    vals[idx] = "''[REDACTED]''"
+            return f"{prefix}{','.join(vals)}{suffix}"
+        return m.group(0)
+    text = re.sub(r"(?i)\b((?:INSERT|REPLACE)\s+(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*\()(.+?)(\))", _redact_insert_vals, text)
     text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
-    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid)\s*=\s*(?:''|\\'|')+[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)\s*=\s*(?:''|\\'|')+(?!\*\[REDACTED_SHA1\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
     text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
     text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
-    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
     with open(dest_path, "wb") as out_f:
         out_f.write(text.encode("utf-8"))
 print(dest_path)
@@ -270,15 +283,29 @@ log_path, offset_path, host, port_str, use_tls_str, ca_file, req_ack_str = sys.a
 port = int(port_str)
 use_tls = (use_tls_str == "1")
 req_ack = (req_ack_str == "1")
+sens_cols = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
+
+def _redact_insert_vals(m):
+    prefix, cols_str, vals_str, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
+    cols = [c.strip().strip("`'\"").lower() for c in cols_str.split(",")]
+    vals = re.findall(r"(?:''(?:[^']|'(?!'))*''|\\'(?:[^'\\]|\\.)*\\'|'(?:[^'\\]|\\.)*'|[^,()]+)", vals_str)
+    vals = [v.strip() for v in vals if v.strip()]
+    if len(cols) == len(vals):
+        for idx, col in enumerate(cols):
+            if col in sens_cols and "$argon2id$[REDACTED]" not in vals[idx] and "*[REDACTED_SHA1]" not in vals[idx]:
+                vals[idx] = "''[REDACTED]''"
+        return f"{prefix}{','.join(vals)}{suffix}"
+    return m.group(0)
 
 def redact_line(raw_bytes):
     text = raw_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
     text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
+    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
+    text = re.sub(r"(?i)\b((?:INSERT|REPLACE)\s+(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*\()(.+?)(\))", _redact_insert_vals, text)
     text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
-    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid)\s*=\s*(?:''|\\'|')+[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)\s*=\s*(?:''|\\'|')+(?!\*\[REDACTED_SHA1\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
     text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
     text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
-    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
     return text.encode("utf-8")
 
 def first_line_sig(path):
