@@ -192,11 +192,11 @@ if (-not (Test-PortListening $dbPort)) {
         $mArgs += @(
             "--plugin-load-add=server_audit.dll",
             "--server-audit=FORCE_PLUS_PERMANENT",
-            "--server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL",
+            "--server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT",
             "--server-audit-output-type=FILE",
             "--server-audit-file-path=$auditLogPath",
-            "--server-audit-file-rotate-size=10485760",
-            "--server-audit-file-rotations=10",
+            "--server-audit-file-rotate-size=104857600",
+            "--server-audit-file-rotations=90",
             "--server-audit-logging=ON"
         )
     }

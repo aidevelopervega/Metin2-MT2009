@@ -1512,6 +1512,35 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(dmlDelete != nullptr && !dmlDelete->IsError(),
 				"Security Suite [B5.6]: Runtime account DELETE succeeds");
 
+			// Section 1 Narrowed Privileges: Verify mt2server has 0 access to log.* and SELECT-only on world.*
+			adminSql.DirectQuery("CREATE TABLE IF NOT EXISTS world.test_world_proto (vnum INT PRIMARY KEY, name VARCHAR(32));");
+			adminSql.DirectQuery("REPLACE INTO world.test_world_proto VALUES (10, 'Sword+0');");
+			adminSql.DirectQuery("CREATE TABLE IF NOT EXISTS log.test_log_isolation (id INT PRIMARY KEY, msg VARCHAR(64));");
+			adminSql.DirectQuery("REPLACE INTO log.test_log_isolation VALUES (1, 'boot');");
+
+			auto rtSelectLog = rtSql.DirectQuery("SELECT * FROM log.test_log_isolation LIMIT 1;");
+			LIVE_ASSERT(rtSelectLog != nullptr && rtSelectLog->IsError() && (rtSelectLog->uiSQLErrno == 1142 || rtSelectLog->uiSQLErrno == 1044),
+				"Security Suite [Sec1]: Runtime account (mt2server) has 0 SELECT access to log.* (errno 1142/1044)");
+
+			auto rtDeleteLog = rtSql.DirectQuery("DELETE FROM log.test_log_isolation WHERE id = 1;");
+			LIVE_ASSERT(rtDeleteLog != nullptr && rtDeleteLog->IsError() && (rtDeleteLog->uiSQLErrno == 1142 || rtDeleteLog->uiSQLErrno == 1044),
+				"Security Suite [Sec1]: Runtime account (mt2server) cannot DELETE/erase forensic records in log.* (errno 1142/1044)");
+
+			auto rtSelectWorld = rtSql.DirectQuery("SELECT vnum, name FROM world.test_world_proto WHERE vnum = 10;");
+			LIVE_ASSERT(rtSelectWorld != nullptr && !rtSelectWorld->IsError() && rtSelectWorld->Get() && rtSelectWorld->Get()->uiNumRows == 1,
+				"Security Suite [Sec1]: Runtime account (mt2server) SELECT on world.* succeeds (PROTO_FROM_DB=1)");
+
+			auto rtUpdateWorld = rtSql.DirectQuery("UPDATE world.test_world_proto SET name = 'Hacked' WHERE vnum = 10;");
+			LIVE_ASSERT(rtUpdateWorld != nullptr && rtUpdateWorld->IsError() && rtUpdateWorld->uiSQLErrno == 1142,
+				"Security Suite [Sec1]: Runtime account (mt2server) is strictly denied UPDATE on world.* (errno 1142)");
+
+			auto rtDeleteWorld = rtSql.DirectQuery("DELETE FROM world.test_world_proto WHERE vnum = 10;");
+			LIVE_ASSERT(rtDeleteWorld != nullptr && rtDeleteWorld->IsError() && rtDeleteWorld->uiSQLErrno == 1142,
+				"Security Suite [Sec1]: Runtime account (mt2server) is strictly denied DELETE on world.* (errno 1142)");
+
+			adminSql.DirectQuery("DROP TABLE IF EXISTS world.test_world_proto;");
+			adminSql.DirectQuery("DROP TABLE IF EXISTS log.test_log_isolation;");
+
 			rtSql.Quit();
 		}
 
@@ -1532,7 +1561,33 @@ int main(int argc, char* argv[])
 			logRoleSql.Quit();
 		}
 
-		// B4 & B5.7: Check server_audit plugin status if loaded on this MariaDB 12.3 instance
+		const char * envBackupUser = std::getenv("MT2_BACKUP_DB_USER");
+		const char * envBackupPass = std::getenv("MT2_BACKUP_DB_PASS");
+		if (envBackupUser && *envBackupUser && envBackupPass && *envBackupPass) {
+			CAsyncSQL bkSql;
+			LIVE_ASSERT(bkSql.Setup(host.c_str(), envBackupUser, envBackupPass, dbname.c_str(), "utf8mb4", true, port) == true,
+				"Security Suite [Sec4]: Dedicated read-only backup account (mt2backup) connected via 127.0.0.1");
+
+			auto bkSelect = bkSql.DirectQuery("SELECT id, name, gold FROM test_player_live LIMIT 1;");
+			LIVE_ASSERT(bkSelect != nullptr && !bkSelect->IsError(),
+				"Security Suite [Sec4]: Read-only backup account (mt2backup) SELECT succeeds");
+
+			auto bkUpdate = bkSql.DirectQuery("UPDATE test_player_live SET gold = 0;");
+			LIVE_ASSERT(bkUpdate != nullptr && bkUpdate->IsError() && bkUpdate->uiSQLErrno == 1142,
+				"Security Suite [Sec4]: Read-only backup account (mt2backup) is strictly denied UPDATE (errno 1142)");
+
+			auto bkDelete = bkSql.DirectQuery("DELETE FROM test_player_live;");
+			LIVE_ASSERT(bkDelete != nullptr && bkDelete->IsError() && bkDelete->uiSQLErrno == 1142,
+				"Security Suite [Sec4]: Read-only backup account (mt2backup) is strictly denied DELETE (errno 1142)");
+
+			auto bkDrop = bkSql.DirectQuery("DROP TABLE test_player_live;");
+			LIVE_ASSERT(bkDrop != nullptr && bkDrop->IsError() && bkDrop->uiSQLErrno == 1142,
+				"Security Suite [Sec4]: Read-only backup account (mt2backup) is strictly denied DROP TABLE (errno 1142)");
+
+			bkSql.Quit();
+		}
+
+		// B4, B5.7 & Sec2/Sec3: Check server_audit plugin status, QUERY_DML_NO_SELECT scope, and 100MBx90 retention
 		auto auditVarMsg = adminSql.DirectQuery("SHOW GLOBAL VARIABLES LIKE 'server_audit_logging';");
 		if (auditVarMsg && !auditVarMsg->IsError() && auditVarMsg->Get() && auditVarMsg->Get()->uiNumRows == 1) {
 			MYSQL_ROW aRow = mysql_fetch_row(auditVarMsg->Get()->pSQLResult);
@@ -1540,14 +1595,20 @@ int main(int argc, char* argv[])
 			LIVE_ASSERT(auditLogging == "ON",
 				"Security Suite [B4/B5.7]: MariaDB server_audit plugin is active with server_audit_logging=ON");
 
-			auto auditEventsMsg = adminSql.DirectQuery("SELECT @@GLOBAL.server_audit_events;");
+			auto auditEventsMsg = adminSql.DirectQuery(
+				"SELECT @@GLOBAL.server_audit_events, @@GLOBAL.server_audit_file_rotate_size, @@GLOBAL.server_audit_file_rotations;");
 			if (auditEventsMsg && !auditEventsMsg->IsError() && auditEventsMsg->Get() && auditEventsMsg->Get()->uiNumRows == 1) {
 				MYSQL_ROW eRow = mysql_fetch_row(auditEventsMsg->Get()->pSQLResult);
 				std::string evs = (eRow && eRow[0]) ? eRow[0] : "";
+				long long rotSize = (eRow && eRow[1]) ? std::strtoll(eRow[1], nullptr, 10) : 0;
+				int rotCount = (eRow && eRow[2]) ? std::atoi(eRow[2]) : 0;
 				LIVE_ASSERT(evs.find("CONNECT") != std::string::npos &&
 							evs.find("QUERY_DDL") != std::string::npos &&
-							evs.find("QUERY_DCL") != std::string::npos,
-					"Security Suite [B4/B5.7]: server_audit_events tracks CONNECT, QUERY_DDL, and QUERY_DCL");
+							evs.find("QUERY_DCL") != std::string::npos &&
+							evs.find("QUERY_DML_NO_SELECT") != std::string::npos,
+					"Security Suite [Sec2]: server_audit_events tracks CONNECT, QUERY_DDL, QUERY_DCL, and QUERY_DML_NO_SELECT");
+				LIVE_ASSERT(rotSize >= 104857600LL && rotCount >= 90,
+					"Security Suite [Sec3]: server_audit rotation configured for >= 100 MB x 90 files (~9 GB retention)");
 			}
 
 			// Verify FORCE_PLUS_PERMANENT prevents unloading server_audit at runtime

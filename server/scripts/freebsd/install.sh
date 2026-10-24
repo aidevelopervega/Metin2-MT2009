@@ -92,7 +92,7 @@ if [ -x "$QC_BIN" ]; then
     chmod 750 "$TARGET_DIR/share/locale/poland/quest/qc"
 fi
 
-for s in start.sh stop.sh status.sh install.sh mt2server.rc; do
+for s in start.sh stop.sh status.sh install.sh mt2server.rc audit_guard.sh backup_mariadb.sh; do
     if [ -f "$REPO_ROOT/server/scripts/freebsd/$s" ]; then
         cp -f "$REPO_ROOT/server/scripts/freebsd/$s" "$TARGET_DIR/$s"
         chmod 750 "$TARGET_DIR/$s"

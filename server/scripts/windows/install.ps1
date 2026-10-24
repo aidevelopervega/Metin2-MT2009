@@ -115,7 +115,7 @@ foreach ($dll in $dllCandidates) {
     }
 }
 
-foreach ($s in @("start.ps1", "stop.ps1", "status.ps1", "install.ps1")) {
+foreach ($s in @("start.ps1", "stop.ps1", "status.ps1", "install.ps1", "backup_mariadb.ps1")) {
     $srcScript = Join-Path $scriptDir $s
     if (Test-Path $srcScript) {
         Copy-Item -Force $srcScript (Join-Path $TargetDir $s)
