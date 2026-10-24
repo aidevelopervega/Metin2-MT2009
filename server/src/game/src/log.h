@@ -100,6 +100,7 @@ class LogManager : public singleton<LogManager>
 		bool		IsFailStopOnSpoolOverflow() const { return m_sql.GetSpoolOverflowPolicy() == CAsyncSQL::SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN; }
 		bool		HasSpoolOverflowAlert() const { return m_sql.HasFailedQueryOverflow(); }
 		void		FlushAndShutdown(DWORD dwMaxWaitMs = 3000);
+		const std::string & GetSpoolFilePath() const { return m_sql.GetSpoolFilePath(); }
 		CAsyncSQL::TDurableSpoolStats GetDurableSpoolStats() { return m_sql.GetDurableSpoolStats(); }
 
 	private:

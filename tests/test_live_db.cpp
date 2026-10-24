@@ -1245,6 +1245,86 @@ int main(int argc, char* argv[])
 				"Scenario 10: All 10 outage logs preserved exact single-quoted item names in MariaDB");
 		}
 
+		// Scenario 12: Live MariaDB replay of SanitizeQueryForLog (backslashes, UTF-8, NO_BACKSLASH_ESCAPES) & same-directory multi-instance spool lock isolation
+		{
+			const char * slot1File = "test_live_sql_log_spool.1.dat";
+			std::remove(spoolFile);
+			std::remove(slot1File);
+
+			logProxy.SetBlackhole(true);
+			logProxy.SeverActiveConnections();
+
+			CAsyncSQL instA;
+			CAsyncSQL instB;
+			LIVE_ASSERT(instA.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
+				"Scenario 12: Instance A acquired primary spool lock in working directory");
+			LIVE_ASSERT(instB.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
+				"Scenario 12: Instance B automatically isolated to secondary spool slot in same working directory");
+			LIVE_ASSERT(instA.GetSpoolFilePath() == spoolFile && instB.GetSpoolFilePath() == slot1File,
+				"Scenario 12: Concurrent instances in same directory isolated to .dat and .1.dat");
+
+			// Instance A: standard backslash-escape mode with path backslashes, escaped quotes, UTF-8, and redacted password
+			instA.AsyncQuery(
+				"INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES "
+				"(41, 'S12_INST_A_STD', 'Path=C:\\\\mt2\\\\logs\\\\ item=\\'Sword\\' UTF8_Şğüıöç password=\\'LiveSecret999\\' ok');");
+
+			// Instance B: NO_BACKSLASH_ESCAPES mode where trailing backslash before quote is literal and inner quotes are doubled
+			instB.SetNoBackslashEscapes(true);
+			instB.AsyncQuery(
+				"INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES "
+				"(42, 'S12_INST_B_NOBS', 'Dir=C:\\ token=''LiveToken888'' UTF8_İÖÜ');");
+
+			LIVE_ASSERT(instA.FlushAndSpoolOnShutdown(300) == true && instB.FlushAndSpoolOnShutdown(300) == true,
+				"Scenario 12: Both concurrent instances flushed to isolated disk spool files on shutdown");
+
+			logProxy.SetBlackhole(false);
+
+			CAsyncSQL replayA;
+			CAsyncSQL replayB;
+			LIVE_ASSERT(replayA.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
+				"Scenario 12: Replay instance A loaded slot 0 spool file");
+			replayB.SetNoBackslashEscapes(true);
+			LIVE_ASSERT(replayB.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
+				"Scenario 12: Replay instance B loaded slot 1 spool file while slot 0 is locked");
+
+			LIVE_ASSERT(replayA.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
+				"Scenario 12: Replay instance A connected to live MariaDB");
+			LIVE_ASSERT(replayB.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
+				"Scenario 12: Replay instance B connected to live MariaDB");
+			replayB.DirectQuery("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',NO_BACKSLASH_ESCAPES');");
+			replayB.SetNoBackslashEscapes(true);
+
+			LIVE_ASSERT(replayA.ReplayDurableSpoolNow() == true && replayA.GetDurableSpoolStats().ullQuarantinedCount == 0,
+				"Scenario 12: Instance A replayed sanitized query into MariaDB with 0 SQL syntax errors");
+			LIVE_ASSERT(replayB.ReplayDurableSpoolNow() == true && replayB.GetDurableSpoolStats().ullQuarantinedCount == 0,
+				"Scenario 12: Instance B replayed NO_BACKSLASH_ESCAPES sanitized query into MariaDB with 0 SQL syntax errors");
+
+			replayA.FlushAndSpoolOnShutdown(200);
+			replayB.FlushAndSpoolOnShutdown(200);
+
+			auto verifyS12 = verifyConn.DirectQuery(
+				"SELECT seq_no, scenario, hint FROM test_sql_log_durability WHERE seq_no IN (41, 42) ORDER BY seq_no ASC;");
+			LIVE_ASSERT(verifyS12 != nullptr && !verifyS12->IsError() && verifyS12->Get() && verifyS12->Get()->ullNumRows == 2,
+				"Scenario 12: Both isolated spool records (seq 41 and 42) committed to MariaDB");
+
+			MYSQL_ROW r41 = mysql_fetch_row(verifyS12->Get()->pSQLResult);
+			MYSQL_ROW r42 = mysql_fetch_row(verifyS12->Get()->pSQLResult);
+			std::string hint41 = (r41 && r41[2]) ? r41[2] : "";
+			std::string hint42 = (r42 && r42[2]) ? r42[2] : "";
+			LIVE_ASSERT(hint41.find("password='***'") != std::string::npos &&
+						hint41.find("LiveSecret999") == std::string::npos &&
+						hint41.find("item='Sword'") != std::string::npos,
+				"Scenario 12: Replayed row 41 preserved valid SQL syntax, backslashes, quotes, and redacted password='***'");
+			LIVE_ASSERT(hint42.find("Dir=C:\\") != std::string::npos &&
+						hint42.find("token='***'") != std::string::npos &&
+						hint42.find("LiveToken888") == std::string::npos,
+				"Scenario 12: Replayed row 42 preserved valid SQL syntax and redacted token under NO_BACKSLASH_ESCAPES");
+
+			std::remove(slot1File);
+			std::remove("test_live_sql_log_spool.dat.lock");
+			std::remove("test_live_sql_log_spool.1.dat.lock");
+		}
+
 		logProxy.Stop();
 		verifyConn.DirectQuery("DROP TABLE IF EXISTS test_sql_log_durability;");
 		verifyConn.Quit();

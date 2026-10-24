@@ -77,7 +77,7 @@ int thecore_init(int fps, HEARTFUNC heartbeat_func)
 
 void thecore_shutdown()
 {
-    shutdowned = TRUE;
+    __atomic_store_n(&shutdowned, TRUE, __ATOMIC_SEQ_CST);
 }
 
 int thecore_idle(void)
@@ -85,20 +85,20 @@ int thecore_idle(void)
     thecore_tick();
 
 #ifdef __WIN32__
-    if (!shutdowned && (tics % 5) == 0)
+    if (!__atomic_load_n(&shutdowned, __ATOMIC_SEQ_CST) && (tics % 5) == 0)
     {
         FILE* fp_stop = fopen("stop_signal", "r");
         if (fp_stop)
         {
             fclose(fp_stop);
             remove("stop_signal");
-            shutdowned = TRUE;
+            __atomic_store_n(&shutdowned, TRUE, __ATOMIC_SEQ_CST);
             sys_log(0, "SIGHUP, SIGINT, SIGTERM (stop_signal) has been received. shutting down.");
         }
     }
 #endif
 
-    if (shutdowned)
+    if (__atomic_load_n(&shutdowned, __ATOMIC_SEQ_CST))
 		return 0;
 
 	int pulses;
@@ -137,7 +137,7 @@ float thecore_time(void)
 
 int thecore_is_shutdowned(void)
 {
-	return shutdowned;
+	return __atomic_load_n(&shutdowned, __ATOMIC_SEQ_CST);
 }
 
 void thecore_tick(void)

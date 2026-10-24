@@ -983,12 +983,22 @@ int main()
 
 		// 3. Spool disk byte limit (maxSpoolBytes), operational overflow callback/fail-stop policy & corrupted CRC line isolation
 		{
+			static CAsyncSQL * s_pBoundedRef = nullptr;
 			static bool s_overflowCallbackFired = false;
 			static uint64_t s_overflowDroppedCount = 0;
+			static uint64_t s_reentrantDroppedSeen = 0;
 			CAsyncSQL durableBounded;
+			s_pBoundedRef = &durableBounded;
 			durableBounded.SetSpoolOverflowCallback([](uint64_t, size_t, size_t, uint64_t droppedCount) {
 				s_overflowCallbackFired = true;
 				s_overflowDroppedCount = droppedCount;
+				if (s_pBoundedRef)
+				{
+					// Must not deadlock even though m_mtxQuery is already held by the caller!
+					auto st = s_pBoundedRef->GetDurableSpoolStats();
+					s_reentrantDroppedSeen = st.ullDroppedSpoolFullCount;
+				}
+				thecore_shutdown();
 			});
 			durableBounded.SetSpoolOverflowPolicy(CAsyncSQL::SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN);
 			TEST_ASSERT(durableBounded.EnableDurableSpool(testSpoolFile, 2, 1024, 100) == true, "EnableDurableSpool with 1024B cap succeeded");
@@ -1002,8 +1012,11 @@ int main()
 			TEST_ASSERT(stCap.ullPendingSpoolCount == 2, "Exactly 2 queries retained within 80-byte spool cap");
 			TEST_ASSERT(stCap.ullDroppedSpoolFullCount == 1, "3rd query exceeding maxSpoolBytes accounted in ullDroppedSpoolFullCount");
 			TEST_ASSERT(durableBounded.HasFailedQueryOverflow() == true, "Overflow alert flag set when maxSpoolBytes exceeded");
-			TEST_ASSERT(s_overflowCallbackFired == true && s_overflowDroppedCount == 1, "Operational spool overflow callback invoked on maxSpoolBytes breach");
+			TEST_ASSERT(s_overflowCallbackFired == true && s_overflowDroppedCount == 1 && s_reentrantDroppedSeen == 1,
+				"Operational spool overflow callback invoked re-entrant GetDurableSpoolStats() without deadlock");
+			TEST_ASSERT(thecore_is_shutdowned() != 0, "thecore_shutdown() safely signaled from overflow callback");
 			TEST_ASSERT(durableBounded.IsEnd() == true, "Fail-stop policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN set m_bEnd=true on overflow");
+			s_pBoundedRef = nullptr;
 			durableBounded.FlushAndSpoolOnShutdown(100);
 
 			// Inject a corrupted CRC line between the 2 valid lines on disk and verify LoadSpoolFromDiskLocked isolates it
@@ -1017,6 +1030,7 @@ int main()
 			auto stCrc = durableCrcCheck.GetDurableSpoolStats();
 			TEST_ASSERT(stCrc.ullPendingSpoolCount == 2, "2 valid lines recovered despite corrupted CRC line");
 			TEST_ASSERT(stCrc.ullQuarantinedCount == 1, "Corrupted CRC line quarantined during LoadSpoolFromDiskLocked");
+			durableCrcCheck.FlushAndSpoolOnShutdown(100);
 		}
 
 		// 4. SQL-literal-aware SanitizeQueryForLog (never crosses outer column quote boundaries), NO_BACKSLASH_ESCAPES offline escaping, CR_SERVER_LOST retry tracking & disk sync failure counter
@@ -1039,14 +1053,20 @@ int main()
 			TEST_ASSERT(sEscInner == "INSERT INTO command_log VALUES (1, 'gm password=\\'***\\' ok');",
 				"SanitizeQueryForLog masks backslash-escaped inner quote while preserving valid SQL syntax");
 
-			// 4d. NO_BACKSLASH_ESCAPES offline EscapeString mode doubles single quotes (' -> '')
+			// 4d. NO_BACKSLASH_ESCAPES mode in SanitizeQueryForLog: trailing literal backslash in 'C:\dir\' must NOT escape the closing single quote
+			std::string qNoBsLiteral = "INSERT INTO command_log VALUES ('C:\\dir\\', 'user token=''TokSecret77'' UTF8_Şğüıöç');";
+			std::string sNoBsLiteral = CAsyncSQL::SanitizeQueryForLog(qNoBsLiteral, true);
+			TEST_ASSERT(sNoBsLiteral == "INSERT INTO command_log VALUES ('C:\\dir\\', 'user token=''***'' UTF8_Şğüıöç');",
+				"SanitizeQueryForLog with bNoBackslashEscapes=true treats trailing backslash as literal and masks doubled-quote secret");
+
+			// 4e. NO_BACKSLASH_ESCAPES offline EscapeString mode doubles single quotes (' -> '')
 			char escNoBackslash[128] = {0};
 			const char * rawNoBs = "Player's \"Special\" \\Item";
 			size_t lenNoBs = CAsyncSQL::EscapeStringOfflineSafe(escNoBackslash, sizeof(escNoBackslash), rawNoBs, std::strlen(rawNoBs), true);
 			TEST_ASSERT(lenNoBs > 0 && std::strcmp(escNoBackslash, "Player''s \"Special\" \\Item") == 0,
 				"EscapeStringOfflineSafe with NO_BACKSLASH_ESCAPES doubles single quotes without backslash escaping");
 
-			// 4e. CR_SERVER_LOST mid-flight retry increments ullUncertainInFlightRetries and re-spools at head
+			// 4f. CR_SERVER_LOST mid-flight retry increments ullUncertainInFlightRetries and re-spools at head
 			std::remove(testSpoolFile);
 			CAsyncSQL durableMidFlight;
 			durableMidFlight.EnableDurableSpool(testSpoolFile, 10, 64 * 1024, 100);
@@ -1061,8 +1081,9 @@ int main()
 				"Mid-flight CR_SERVER_LOST tracked in ullUncertainInFlightRetries and retained at spool head");
 			durableMidFlight.Connect();
 			TEST_ASSERT(durableMidFlight.ReplayDurableSpoolNow() == true, "Reconnected replay commits re-spooled mid-flight query");
+			durableMidFlight.FlushAndSpoolOnShutdown(100);
 
-			// 4f. Disk sync failure (unwritable path) increments ullDiskSyncFailureCount while keeping query in RAM spool
+			// 4g. Disk sync failure (unwritable path) increments ullDiskSyncFailureCount while keeping query in RAM spool
 			CAsyncSQL durableDiskFail;
 			durableDiskFail.EnableDurableSpool("nonexistent_dir_mt2_test_999/cannot_write_spool.dat", 4, 64 * 1024, 100);
 			durableDiskFail.AsyncQuery("INSERT INTO log VALUES (202, 'RAM_SURVIVES_DISK_SYNC_FAIL');");
@@ -1071,6 +1092,54 @@ int main()
 				"Unwritable spool path increments ullDiskSyncFailureCount and sets overflow alert");
 			TEST_ASSERT(stDiskFail.ullPendingSpoolCount == 1,
 				"Query remains in RAM m_dequeSpool even when disk sync fails");
+			durableDiskFail.FlushAndSpoolOnShutdown(100);
+		}
+
+		// 5. Same-directory multi-process / multi-instance exclusive lock-slot isolation (prevents .tmp race & overwrite)
+		{
+			const char * slot0File = "test_durable_spool_unit.dat";
+			const char * slot1File = "test_durable_spool_unit.1.dat";
+			std::remove(slot0File);
+			std::remove(slot1File);
+
+			CAsyncSQL procA;
+			CAsyncSQL procB;
+			TEST_ASSERT(procA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "First instance acquired primary spool path");
+			TEST_ASSERT(procB.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Second concurrent instance in same directory isolated to secondary slot");
+			TEST_ASSERT(procA.GetSpoolFilePath() == slot0File, "First instance uses slot 0 (test_durable_spool_unit.dat)");
+			TEST_ASSERT(procB.GetSpoolFilePath() == slot1File, "Second instance automatically isolated to slot 1 (test_durable_spool_unit.1.dat)");
+
+			// Both instances spool offline queries concurrently in the same directory without overwriting each other
+			procA.AsyncQuery("INSERT INTO log VALUES (1001, 'PROC_A_RECORD_1');");
+			procA.AsyncQuery("INSERT INTO log VALUES (1002, 'PROC_A_RECORD_2');");
+			procB.AsyncQuery("INSERT INTO log VALUES (2001, 'PROC_B_RECORD_1');");
+			procB.AsyncQuery("INSERT INTO log VALUES (2002, 'PROC_B_RECORD_2');");
+			procB.AsyncQuery("INSERT INTO log VALUES (2003, 'PROC_B_RECORD_3');");
+
+			procA.FlushAndSpoolOnShutdown(100);
+			procB.FlushAndSpoolOnShutdown(100);
+
+			// Restart both instances and verify 0 record loss and 0 cross-instance corruption
+			CAsyncSQL recA;
+			CAsyncSQL recB;
+			TEST_ASSERT(recA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Restarted instance A loaded slot 0 spool");
+			TEST_ASSERT(recB.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Restarted instance B loaded slot 1 spool while A holds slot 0");
+			TEST_ASSERT(recA.GetDurableSpoolStats().ullPendingSpoolCount == 2, "Slot 0 preserved all 2 records from instance A");
+			TEST_ASSERT(recB.GetDurableSpoolStats().ullPendingSpoolCount == 3, "Slot 1 preserved all 3 records from instance B");
+
+			recA.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+			recB.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+			recA.Connect();
+			recB.Connect();
+			TEST_ASSERT(recA.ReplayDurableSpoolNow() == true && recA.GetDurableSpoolStats().ullCommittedCount == 2, "Instance A replayed 2/2 records");
+			TEST_ASSERT(recB.ReplayDurableSpoolNow() == true && recB.GetDurableSpoolStats().ullCommittedCount == 3, "Instance B replayed 3/3 records");
+			recA.FlushAndSpoolOnShutdown(100);
+			recB.FlushAndSpoolOnShutdown(100);
+
+			std::remove(slot0File);
+			std::remove(slot1File);
+			std::remove("test_durable_spool_unit.dat.lock");
+			std::remove("test_durable_spool_unit.1.dat.lock");
 		}
 
 		std::remove(testSpoolFile);

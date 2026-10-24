@@ -19,6 +19,12 @@ namespace
 				currentSpoolBytes,
 				maxSpoolBytes,
 				static_cast<unsigned long long>(ullDroppedSpoolFullCount));
+		if (LogManager::instance().IsFailStopOnSpoolOverflow())
+		{
+			sys_err("CRITICAL FAIL-STOP [LogManager]: Fail-stop policy active on SQL log spool overflow (seq=%llu); initiating controlled server shutdown via thecore_shutdown()!",
+					static_cast<unsigned long long>(ullSeqID));
+			thecore_shutdown();
+		}
 	}
 }
 
@@ -41,6 +47,7 @@ void LogManager::ConfigureDurableSpool(const char * c_pszSpoolPath, size_t maxMe
 	m_dwReconnectIntervalMs = dwReconnectIntervalMs > 0 ? dwReconnectIntervalMs : 1000;
 	m_sql.SetSpoolOverflowCallback(&OnLogManagerSpoolOverflow);
 	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
+	m_stSpoolPath = m_sql.GetSpoolFilePath();
 }
 
 void LogManager::SetFailStopOnSpoolOverflow(bool bEnable)
@@ -66,6 +73,7 @@ bool LogManager::Connect(const char * host, const int port, const char * user, c
 
 	m_sql.SetSpoolOverflowCallback(&OnLogManagerSpoolOverflow);
 	m_sql.EnableDurableSpool(m_stSpoolPath.c_str(), m_maxMemoryQueueCount, m_maxSpoolBytes, m_dwReconnectIntervalMs);
+	m_stSpoolPath = m_sql.GetSpoolFilePath();
 
 	if (m_sql.Setup(host, user, pwd, db, g_stLocale.c_str(), false, port))
 		m_bIsConnect = true;

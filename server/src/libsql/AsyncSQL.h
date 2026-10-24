@@ -23,6 +23,8 @@
 #include <vector>
 #include <map>
 #include <cstdint>
+#include <atomic>
+#include <thread>
 #include <mysql.h>
 #include <errmsg.h>
 #include <mysqld_error.h>
@@ -242,10 +244,11 @@ class CAsyncSQL
 		void		SetFailedQueryCallback(TFailedQueryCallback pfn) { m_pfnFailedQueryCallback = pfn; }
 
 		static std::string SanitizeQueryForLog(const std::string & query);
+		static std::string SanitizeQueryForLog(const std::string & query, bool bNoBackslashEscapes);
 
-		bool		HasFailedQueryOverflow() const { return m_bFailedQueueOverflow; }
-		void		ResetFailedQueueOverflow() { m_bFailedQueueOverflow = false; }
-		void		ResetFailedQueryOverflow() { m_bFailedQueueOverflow = false; }
+		bool		HasFailedQueryOverflow() const { return m_bFailedQueueOverflow.load(std::memory_order_relaxed); }
+		void		ResetFailedQueueOverflow() { m_bFailedQueueOverflow.store(false, std::memory_order_relaxed); }
+		void		ResetFailedQueryOverflow() { m_bFailedQueueOverflow.store(false, std::memory_order_relaxed); }
 		size_t		GetFailedQueueBytes() const { return m_failedQueueBytes; }
 		size_t		GetQueryQueueBytes() const { return m_queryQueueBytes; }
 
@@ -254,11 +257,11 @@ class CAsyncSQL
 		void		SetMaxQueryQueueCount(size_t maxCount);
 		void		SetMaxSpoolBytes(size_t maxBytes);
 		void		SetReconnectIntervalMs(DWORD dwIntervalMs);
-		void		SetSpoolOverflowPolicy(ESpoolOverflowPolicy ePolicy) { m_eSpoolOverflowPolicy = ePolicy; }
-		ESpoolOverflowPolicy GetSpoolOverflowPolicy() const { return m_eSpoolOverflowPolicy; }
-		void		SetSpoolOverflowCallback(TSpoolOverflowCallback pfn) { m_pfnSpoolOverflowCallback = pfn; }
-		void		SetNoBackslashEscapes(bool bEnable) { m_bNoBackslashEscapes = bEnable; }
-		bool		IsNoBackslashEscapes() const { return m_bNoBackslashEscapes; }
+		void		SetSpoolOverflowPolicy(ESpoolOverflowPolicy ePolicy) { m_eSpoolOverflowPolicy.store(ePolicy, std::memory_order_relaxed); }
+		ESpoolOverflowPolicy GetSpoolOverflowPolicy() const { return m_eSpoolOverflowPolicy.load(std::memory_order_relaxed); }
+		void		SetSpoolOverflowCallback(TSpoolOverflowCallback pfn) { m_pfnSpoolOverflowCallback.store(pfn, std::memory_order_relaxed); }
+		void		SetNoBackslashEscapes(bool bEnable) { m_bNoBackslashEscapes.store(bEnable, std::memory_order_relaxed); }
+		bool		IsNoBackslashEscapes() const { return m_bNoBackslashEscapes.load(std::memory_order_relaxed); }
 		TDurableSpoolStats GetDurableSpoolStats();
 		bool		FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs = 3000);
 		bool		ReplayDurableSpoolNow();
@@ -288,6 +291,8 @@ class CAsyncSQL
 		bool		ResendQuery(SQLMsg * p);
 
 		void		DurableChildLoop();
+		bool		AcquireSpoolLockLocked(const std::string & requestedPath);
+		void		ReleaseSpoolLockLocked(bool bRemoveLockFile = false);
 		bool		LoadSpoolFromDiskLocked();
 		bool		SyncSpoolToDiskLocked();
 		bool		AppendQuarantineRecordLocked(uint64_t ullSeqID, unsigned int uiErrno, const std::string & stQuery);
@@ -327,11 +332,17 @@ class CAsyncSQL
 		TFailedQueryCallback m_pfnFailedQueryCallback{nullptr};
 		size_t m_failedQueueBytes{0};
 		size_t m_queryQueueBytes{0};
-		bool m_bFailedQueueOverflow{false};
+		std::atomic<bool> m_bFailedQueueOverflow{false};
 
 		bool		m_bDurableSpoolEnabled{false};
 		bool		m_bSpoolingActive{false};
 		std::string	m_stSpoolFilePath;
+		std::string	m_stSpoolLockPath;
+#ifndef __WIN32__
+		int			m_iSpoolLockFd{-1};
+#else
+		HANDLE		m_hSpoolLockFile{INVALID_HANDLE_VALUE};
+#endif
 		size_t		m_maxQueryQueueCount{100000};
 		size_t		m_maxSpoolBytes{64 * 1024 * 1024};
 		DWORD		m_dwReconnectIntervalMs{1000};
@@ -349,11 +360,12 @@ class CAsyncSQL
 		uint64_t	m_ullUncertainInFlightRetries{0};
 		uint64_t	m_ullReconnectAttempts{0};
 		uint64_t	m_ullReconnectSuccessCount{0};
-		ESpoolOverflowPolicy m_eSpoolOverflowPolicy{SPOOL_OVERFLOW_ALERT_AND_DROP_NEW};
-		TSpoolOverflowCallback m_pfnSpoolOverflowCallback{nullptr};
-		bool		m_bNoBackslashEscapes{false};
+		std::atomic<ESpoolOverflowPolicy> m_eSpoolOverflowPolicy{SPOOL_OVERFLOW_ALERT_AND_DROP_NEW};
+		std::atomic<TSpoolOverflowCallback> m_pfnSpoolOverflowCallback{nullptr};
+		std::atomic<bool> m_bNoBackslashEscapes{false};
+		std::atomic<std::thread::id> m_mtxQueryOwner{};
 
-		volatile bool m_bEnd;
+		std::atomic<bool> m_bEnd{false};
 
 #ifndef __WIN32__
 		pthread_t m_hThread;

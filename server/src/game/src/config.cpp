@@ -861,6 +861,14 @@ static bool __LoadGeneralConfigFile(const char* configName)
 			continue;
 		}
 
+		TOKEN("log_spool_fail_stop")
+		{
+			int flag = 0;
+			str_to_number(flag, value_string);
+			LogManager::instance().SetFailStopOnSpoolOverflow(flag != 0);
+			continue;
+		}
+
 		TOKEN("passes_per_sec")
 		{
 			str_to_number(passes_per_sec, value_string);

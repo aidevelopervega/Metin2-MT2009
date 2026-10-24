@@ -1,6 +1,7 @@
 #ifndef __WIN32__
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <fcntl.h>
 #include <unistd.h>
 #else
@@ -67,7 +68,22 @@ namespace
 #endif
 		return true;
 	}
-	char GetOuterSqlQuoteAt(const std::string & s, size_t targetPos)
+
+	std::string FormatSpoolCandidatePath(const std::string & basePath, size_t slotIndex)
+	{
+		if (slotIndex == 0)
+			return basePath;
+
+		const size_t slashPos = basePath.find_last_of("/\\");
+		const size_t dotPos = basePath.find_last_of('.');
+		if (dotPos != std::string::npos && (slashPos == std::string::npos || dotPos > slashPos))
+		{
+			return basePath.substr(0, dotPos) + "." + std::to_string(slotIndex) + basePath.substr(dotPos);
+		}
+		return basePath + "." + std::to_string(slotIndex);
+	}
+
+	char GetOuterSqlQuoteAt(const std::string & s, size_t targetPos, bool bNoBackslashEscapes)
 	{
 		char outerQuote = 0;
 		size_t limit = std::min(targetPos, s.size());
@@ -81,7 +97,7 @@ namespace
 			}
 			else
 			{
-				if (c == '\\' && i + 1 < s.size())
+				if (!bNoBackslashEscapes && c == '\\' && i + 1 < s.size())
 				{
 					++i;
 				}
@@ -99,6 +115,11 @@ namespace
 }
 
 std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
+{
+	return SanitizeQueryForLog(query, false);
+}
+
+std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query, bool bNoBackslashEscapes)
 {
 	if (query.empty())
 		return query;
@@ -126,7 +147,7 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 				while (searchPos < lowerQuery.size() && (lowerQuery[searchPos] == ' ' || lowerQuery[searchPos] == '\t'))
 					++searchPos;
 
-				char outerQuote = GetOuterSqlQuoteAt(result, searchPos);
+				char outerQuote = GetOuterSqlQuoteAt(result, searchPos, bNoBackslashEscapes);
 
 				if (outerQuote == 0 && lowerQuery.substr(searchPos, 9) == "password(")
 				{
@@ -147,7 +168,7 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 					size_t endQuote = startQuote + 1;
 					while (endQuote < lowerQuery.size())
 					{
-						if (lowerQuery[endQuote] == '\\' && endQuote + 1 < lowerQuery.size())
+						if (!bNoBackslashEscapes && lowerQuery[endQuote] == '\\' && endQuote + 1 < lowerQuery.size())
 							endQuote += 2;
 						else if (lowerQuery[endQuote] == quoteChar)
 						{
@@ -171,7 +192,7 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 				{
 					// Inside an outer SQL string literal delimited by outerQuote:
 					// Never cross the closing unescaped outerQuote of this SQL column!
-					if (lowerQuery[searchPos] == '\\' && searchPos + 1 < lowerQuery.size() &&
+					if (!bNoBackslashEscapes && lowerQuery[searchPos] == '\\' && searchPos + 1 < lowerQuery.size() &&
 						(lowerQuery[searchPos + 1] == '\'' || lowerQuery[searchPos + 1] == '"'))
 					{
 						char escQuote = lowerQuery[searchPos + 1];
@@ -220,7 +241,7 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 							size_t valEnd = std::string::npos;
 							while (cur < lowerQuery.size())
 							{
-								if (lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
+								if (!bNoBackslashEscapes && lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
 								{
 									cur += 2;
 								}
@@ -259,7 +280,7 @@ std::string CAsyncSQL::SanitizeQueryForLog(const std::string & query)
 						size_t valEnd = std::string::npos;
 						while (cur < lowerQuery.size())
 						{
-							if (lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
+							if (!bNoBackslashEscapes && lowerQuery[cur] == '\\' && cur + 1 < lowerQuery.size())
 							{
 								cur += 2;
 							}
@@ -383,6 +404,7 @@ void CAsyncSQL::Destroy()
 			DrainMemoryQueueToSpoolLocked();
 			SyncSpoolToDiskLocked();
 		}
+		ReleaseSpoolLockLocked(m_dequeSpool.empty());
 		while (!m_queue_query.empty())
 		{
 			delete m_queue_query.front();
@@ -399,6 +421,7 @@ void CAsyncSQL::Destroy()
 	}
 	else
 	{
+		ReleaseSpoolLockLocked(m_dequeSpool.empty());
 		while (!m_queue_query.empty())
 		{
 			delete m_queue_query.front();
@@ -871,7 +894,7 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 
 		if (!m_bConnected)
 		{
-			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery);
+			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery, m_bNoBackslashEscapes.load(std::memory_order_relaxed));
 			DrainMemoryQueueToSpoolLocked();
 			EnqueueToSpoolLocked(seqId, sanitizedQuery, false);
 			SyncSpoolToDiskLocked();
@@ -883,7 +906,7 @@ void CAsyncSQL::PushQuery(SQLMsg * p)
 
 		if (bQueueFull || !m_dequeSpool.empty())
 		{
-			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery);
+			std::string sanitizedQuery = SanitizeQueryForLog(p->stQuery, m_bNoBackslashEscapes.load(std::memory_order_relaxed));
 			EnqueueToSpoolLocked(seqId, sanitizedQuery, false);
 			SyncSpoolToDiskLocked();
 			delete p;
@@ -1552,6 +1575,106 @@ bool CAsyncSQL::UnescapeSpoolPayload(const std::string & stEscaped, std::string 
 	return true;
 }
 
+void CAsyncSQL::ReleaseSpoolLockLocked(bool bRemoveLockFile)
+{
+#ifndef __WIN32__
+	if (m_iSpoolLockFd >= 0)
+	{
+		::flock(m_iSpoolLockFd, LOCK_UN);
+		::close(m_iSpoolLockFd);
+		m_iSpoolLockFd = -1;
+	}
+#else
+	if (m_hSpoolLockFile != INVALID_HANDLE_VALUE && m_hSpoolLockFile != NULL)
+	{
+		::CloseHandle(m_hSpoolLockFile);
+		m_hSpoolLockFile = INVALID_HANDLE_VALUE;
+	}
+#endif
+	if (bRemoveLockFile && !m_stSpoolLockPath.empty())
+	{
+		std::remove(m_stSpoolLockPath.c_str());
+	}
+	m_stSpoolLockPath.clear();
+}
+
+bool CAsyncSQL::AcquireSpoolLockLocked(const std::string & requestedPath)
+{
+	ReleaseSpoolLockLocked(false);
+
+	constexpr size_t MAX_SPOOL_LOCK_SLOTS = 64;
+	for (size_t slot = 0; slot < MAX_SPOOL_LOCK_SLOTS; ++slot)
+	{
+		const std::string candidatePath = FormatSpoolCandidatePath(requestedPath, slot);
+		const std::string lockPath = candidatePath + ".lock";
+
+#ifndef __WIN32__
+		int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+		if (fd >= 0)
+		{
+			if (::flock(fd, LOCK_EX | LOCK_NB) == 0)
+			{
+				::fchmod(fd, S_IRUSR | S_IWUSR);
+				char pidBuf[64];
+				int len = std::snprintf(pidBuf, sizeof(pidBuf), "%ld\n", static_cast<long>(::getpid()));
+				if (len > 0)
+				{
+					(void)::ftruncate(fd, 0);
+					(void)::lseek(fd, 0, SEEK_SET);
+					(void)::write(fd, pidBuf, static_cast<size_t>(len));
+				}
+				m_iSpoolLockFd = fd;
+				m_stSpoolLockPath = lockPath;
+				m_stSpoolFilePath = candidatePath;
+				if (slot > 0)
+				{
+					sys_err("OPERATIONAL WARNING: AsyncSQL::EnableDurableSpool: spool path '%s' is locked by another active instance/process; isolated to '%s' (slot %zu) to prevent multi-process data race.",
+							requestedPath.c_str(), candidatePath.c_str(), slot);
+				}
+				return true;
+			}
+			::close(fd);
+		}
+#else
+		HANDLE hLock = ::CreateFileA(
+			lockPath.c_str(),
+			GENERIC_READ | GENERIC_WRITE,
+			0, // Exclusive lock: disallow any concurrent handle in same or different process
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL);
+		if (hLock != INVALID_HANDLE_VALUE && hLock != NULL)
+		{
+			EnforceSpoolFilePermissions(lockPath);
+			char pidBuf[64];
+			int len = std::snprintf(pidBuf, sizeof(pidBuf), "%lu\n", static_cast<unsigned long>(::GetCurrentProcessId()));
+			if (len > 0)
+			{
+				DWORD written = 0;
+				::SetFilePointer(hLock, 0, NULL, FILE_BEGIN);
+				::WriteFile(hLock, pidBuf, static_cast<DWORD>(len), &written, NULL);
+				::SetEndOfFile(hLock);
+			}
+			m_hSpoolLockFile = hLock;
+			m_stSpoolLockPath = lockPath;
+			m_stSpoolFilePath = candidatePath;
+			if (slot > 0)
+			{
+				sys_err("OPERATIONAL WARNING: AsyncSQL::EnableDurableSpool: spool path '%s' is locked by another active instance/process; isolated to '%s' (slot %zu) to prevent multi-process data race.",
+						requestedPath.c_str(), candidatePath.c_str(), slot);
+			}
+			return true;
+		}
+#endif
+	}
+
+	m_stSpoolFilePath = requestedPath;
+	sys_err("CRITICAL ALERT: AsyncSQL::AcquireSpoolLockLocked: failed to acquire exclusive spool lock for '%s' across %zu slots!",
+			requestedPath.c_str(), MAX_SPOOL_LOCK_SLOTS);
+	return false;
+}
+
 bool CAsyncSQL::EnableDurableSpool(const char * c_pszSpoolPath, size_t maxMemoryQueueCount, size_t maxSpoolBytes, DWORD dwReconnectIntervalMs)
 {
 	if (!m_mtxQuery)
@@ -1559,10 +1682,12 @@ bool CAsyncSQL::EnableDurableSpool(const char * c_pszSpoolPath, size_t maxMemory
 
 	MUTEX_LOCK(m_mtxQuery.get());
 	m_bDurableSpoolEnabled = true;
-	m_stSpoolFilePath = (c_pszSpoolPath && *c_pszSpoolPath) ? c_pszSpoolPath : "sql_log_spool.dat";
+	const std::string requestedPath = (c_pszSpoolPath && *c_pszSpoolPath) ? c_pszSpoolPath : "sql_log_spool.dat";
 	m_maxQueryQueueCount = maxMemoryQueueCount > 0 ? maxMemoryQueueCount : 10000;
 	m_maxSpoolBytes = maxSpoolBytes > 0 ? maxSpoolBytes : (64 * 1024 * 1024);
 	m_dwReconnectIntervalMs = dwReconnectIntervalMs > 0 ? dwReconnectIntervalMs : 1000;
+
+	AcquireSpoolLockLocked(requestedPath);
 
 	bool bLoaded = LoadSpoolFromDiskLocked();
 	if (m_dequeSpool.empty())
@@ -1611,7 +1736,11 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	if (!m_mtxQuery)
 		return stats;
 
-	MUTEX_LOCK(m_mtxQuery.get());
+	const bool bAlreadyLockedByThisThread =
+		(m_mtxQueryOwner.load(std::memory_order_relaxed) == std::this_thread::get_id());
+	if (!bAlreadyLockedByThisThread)
+		MUTEX_LOCK(m_mtxQuery.get());
+
 	stats.ullSubmittedCount = m_ullSubmittedCount;
 	stats.ullSpooledCount = m_ullSpooledCount;
 	stats.ullPendingSpoolCount = static_cast<uint64_t>(m_dequeSpool.size());
@@ -1625,7 +1754,9 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	stats.ullReconnectAttempts = m_ullReconnectAttempts;
 	stats.ullReconnectSuccessCount = m_ullReconnectSuccessCount;
 	stats.spoolBytes = m_spoolBytes;
-	MUTEX_UNLOCK(m_mtxQuery.get());
+
+	if (!bAlreadyLockedByThisThread)
+		MUTEX_UNLOCK(m_mtxQuery.get());
 	return stats;
 }
 
@@ -1641,6 +1772,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 	if (!ifs.is_open())
 		return true;
 
+	const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
 	std::string line;
 	size_t lineNo = 0;
 	while (std::getline(ifs, line))
@@ -1689,7 +1821,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 			continue;
 		}
 
-		std::string sanitized = SanitizeQueryForLog(unescaped);
+		std::string sanitized = SanitizeQueryForLog(unescaped, bNoBackslash);
 		uint32_t actualCrc = ComputeSpoolChecksum(seqId, unescaped);
 		if (actualCrc != expectedCrc)
 		{
@@ -1703,12 +1835,17 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 			sys_err("CRITICAL ALERT: AsyncSQL::LoadSpoolFromDisk: spool file exceeds maxSpoolBytes (%zu > %zu) at line %zu!",
 					m_spoolBytes + sanitized.size(), m_maxSpoolBytes, lineNo);
 			++m_ullDroppedSpoolFullCount;
-			m_bFailedQueueOverflow = true;
-			if (m_pfnSpoolOverflowCallback)
-				m_pfnSpoolOverflowCallback(seqId, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
-			if (m_eSpoolOverflowPolicy == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+			m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
+			TSpoolOverflowCallback pfn = m_pfnSpoolOverflowCallback.load(std::memory_order_relaxed);
+			if (pfn)
 			{
-				m_bEnd = true;
+				m_mtxQueryOwner.store(std::this_thread::get_id(), std::memory_order_relaxed);
+				pfn(seqId, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
+				m_mtxQueryOwner.store(std::thread::id{}, std::memory_order_relaxed);
+			}
+			if (m_eSpoolOverflowPolicy.load(std::memory_order_relaxed) == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+			{
+				m_bEnd.store(true, std::memory_order_relaxed);
 				sys_err("CRITICAL FAIL-STOP: AsyncSQL durable spool overflow policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN triggered during disk load!");
 			}
 			continue;
@@ -1735,7 +1872,7 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (fd < 0)
 	{
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
@@ -1746,7 +1883,7 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 		::close(fd);
 		std::remove(tmpPath.c_str());
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		return false;
 	}
 #else
@@ -1754,17 +1891,18 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	if (!fp)
 	{
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: failed to open temp spool file %s", tmpPath.c_str());
 		return false;
 	}
 	EnforceSpoolFilePermissions(tmpPath);
 #endif
 
+	const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
 	bool bWriteOk = true;
 	for (const auto & entry : m_dequeSpool)
 	{
-		std::string sanitized = SanitizeQueryForLog(entry.stQuery);
+		std::string sanitized = SanitizeQueryForLog(entry.stQuery, bNoBackslash);
 		uint32_t crc = ComputeSpoolChecksum(entry.ullSeqID, sanitized);
 		std::string escaped = EscapeSpoolPayload(sanitized);
 
@@ -1789,7 +1927,7 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	{
 		std::remove(tmpPath.c_str());
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: disk write/fsync error on %s; existing spool file preserved!", tmpPath.c_str());
 		return false;
 	}
@@ -1799,7 +1937,7 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	{
 		std::remove(tmpPath.c_str());
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: atomic rename failed for %s!", m_stSpoolFilePath.c_str());
 		return false;
 	}
@@ -1808,7 +1946,7 @@ bool CAsyncSQL::SyncSpoolToDiskLocked()
 	{
 		std::remove(tmpPath.c_str());
 		++m_ullDiskSyncFailureCount;
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		sys_err("CRITICAL ALERT: AsyncSQL::SyncSpoolToDiskLocked: MoveFileExA failed for %s!", m_stSpoolFilePath.c_str());
 		return false;
 	}
@@ -1829,7 +1967,7 @@ bool CAsyncSQL::AppendQuarantineRecordLocked(uint64_t ullSeqID, unsigned int uiE
 		return false;
 
 	EnforceSpoolFilePermissions(qPath);
-	std::string sanitized = SanitizeQueryForLog(stQuery);
+	std::string sanitized = SanitizeQueryForLog(stQuery, m_bNoBackslashEscapes.load(std::memory_order_relaxed));
 	std::string escaped = EscapeSpoolPayload(sanitized);
 	std::fprintf(fp, "QUARANTINE1|%llu|%u|%s\n",
 				 static_cast<unsigned long long>(ullSeqID),
@@ -1845,15 +1983,20 @@ bool CAsyncSQL::EnqueueToSpoolLocked(uint64_t ullSeqID, const std::string & stSa
 {
 	if (m_spoolBytes + stSanitizedQuery.size() > m_maxSpoolBytes)
 	{
-		m_bFailedQueueOverflow = true;
+		m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 		++m_ullDroppedSpoolFullCount;
 		sys_err("CRITICAL ALERT: AsyncSQL durable spool capacity reached (%zu + %zu > %zu bytes)! Query seq=%llu cannot be spooled.",
 				m_spoolBytes, stSanitizedQuery.size(), m_maxSpoolBytes, static_cast<unsigned long long>(ullSeqID));
-		if (m_pfnSpoolOverflowCallback)
-			m_pfnSpoolOverflowCallback(ullSeqID, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
-		if (m_eSpoolOverflowPolicy == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+		TSpoolOverflowCallback pfn = m_pfnSpoolOverflowCallback.load(std::memory_order_relaxed);
+		if (pfn)
 		{
-			m_bEnd = true;
+			m_mtxQueryOwner.store(std::this_thread::get_id(), std::memory_order_relaxed);
+			pfn(ullSeqID, m_spoolBytes, m_maxSpoolBytes, m_ullDroppedSpoolFullCount);
+			m_mtxQueryOwner.store(std::thread::id{}, std::memory_order_relaxed);
+		}
+		if (m_eSpoolOverflowPolicy.load(std::memory_order_relaxed) == SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN)
+		{
+			m_bEnd.store(true, std::memory_order_relaxed);
 			sys_err("CRITICAL FAIL-STOP: AsyncSQL durable spool overflow policy SPOOL_OVERFLOW_FAIL_STOP_SHUTDOWN triggered (seq=%llu)!",
 					static_cast<unsigned long long>(ullSeqID));
 		}
@@ -1885,6 +2028,7 @@ bool CAsyncSQL::EnqueueToSpoolLocked(uint64_t ullSeqID, const std::string & stSa
 
 void CAsyncSQL::DrainMemoryQueueToSpoolLocked()
 {
+	const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
 	while (!m_queue_query_copy.empty())
 	{
 		SQLMsg * p = m_queue_query_copy.front();
@@ -1892,7 +2036,7 @@ void CAsyncSQL::DrainMemoryQueueToSpoolLocked()
 		if (p)
 		{
 			uint64_t seqId = p->ullSeqID != 0 ? p->ullSeqID : ++m_ullSubmittedSeq;
-			EnqueueToSpoolLocked(seqId, SanitizeQueryForLog(p->stQuery), false);
+			EnqueueToSpoolLocked(seqId, SanitizeQueryForLog(p->stQuery, bNoBackslash), false);
 			delete p;
 		}
 	}
@@ -1904,7 +2048,7 @@ void CAsyncSQL::DrainMemoryQueueToSpoolLocked()
 		if (p)
 		{
 			uint64_t seqId = p->ullSeqID != 0 ? p->ullSeqID : ++m_ullSubmittedSeq;
-			EnqueueToSpoolLocked(seqId, SanitizeQueryForLog(p->stQuery), false);
+			EnqueueToSpoolLocked(seqId, SanitizeQueryForLog(p->stQuery, bNoBackslash), false);
 			delete p;
 		}
 	}
@@ -1976,8 +2120,9 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 			if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
 			{
 				p->uiSQLErrno = mysql_errno(&m_hDB);
+				const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
 				sys_err("AsyncSQL: durable query failed: %s (query: %s errno: %u)",
-						mysql_error(&m_hDB), SanitizeQueryForLog(p->stQuery).c_str(), p->uiSQLErrno);
+						mysql_error(&m_hDB), SanitizeQueryForLog(p->stQuery, bNoBackslash).c_str(), p->uiSQLErrno);
 
 				if (IsConnectionLossError(p->uiSQLErrno))
 				{
@@ -1989,7 +2134,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 						sys_err("AsyncSQL: mid-flight disconnect (errno=%u) on seq=%llu; re-spooling for at-least-once delivery (potential duplicate if server committed before ACK loss).",
 								p->uiSQLErrno, static_cast<unsigned long long>(p->ullSeqID));
 					}
-					EnqueueToSpoolLocked(p->ullSeqID, SanitizeQueryForLog(p->stQuery), true);
+					EnqueueToSpoolLocked(p->ullSeqID, SanitizeQueryForLog(p->stQuery, bNoBackslash), true);
 					DrainMemoryQueueToSpoolLocked();
 					SyncSpoolToDiskLocked();
 					MUTEX_UNLOCK(m_mtxQuery.get());
@@ -2039,9 +2184,10 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 			if (mysql_real_query(&m_hDB, entry.stQuery.c_str(), entry.stQuery.length()))
 			{
 				unsigned int err = mysql_errno(&m_hDB);
+				const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
 				sys_err("AsyncSQL: spool replay query failed: %s (seq: %llu query: %s errno: %u)",
 						mysql_error(&m_hDB), static_cast<unsigned long long>(entry.ullSeqID),
-						SanitizeQueryForLog(entry.stQuery).c_str(), err);
+						SanitizeQueryForLog(entry.stQuery, bNoBackslash).c_str(), err);
 
 				if (IsConnectionLossError(err))
 				{
@@ -2235,6 +2381,7 @@ bool CAsyncSQL::FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs)
 		if (!m_queue_query.empty() || !m_queue_query_copy.empty())
 			DrainMemoryQueueToSpoolLocked();
 		SyncSpoolToDiskLocked();
+		ReleaseSpoolLockLocked(m_dequeSpool.empty());
 		MUTEX_UNLOCK(m_mtxQuery.get());
 	}
 
