@@ -19,5 +19,5 @@
 # ==============================================================================
 TRIGGER_REVISION=rev51-post-security-hardening-freebsd-verification
 BASELINE_SOURCE_COMMIT=5c2b1af307d7c364d8310367d63824882b986bc6
-TARGET_COMMIT=684c7010ca4bb5c62da2a55f9aa27a7e734f65d4
+TARGET_COMMIT=c7d0f5ed0c87a30855617c7a19b53131792d3c97
 STATUS=TRIGGERED
