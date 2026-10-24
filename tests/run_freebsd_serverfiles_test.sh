@@ -95,11 +95,14 @@ collect_logs() {
 }
 
 cleanup() {
+    rc=$?
+    set +e
     rm -f "$SFROOT/.test_client.cnf"
     if [ -x "$SFROOT/stop.sh" ]; then
         "$SFROOT/stop.sh" >/dev/null 2>&1 || true
     fi
     collect_logs
+    exit "$rc"
 }
 trap cleanup EXIT INT TERM
 
@@ -368,6 +371,9 @@ if [ -n "${MT2_BACKUP_DB_USER:-}" ] && [ -n "${MT2_BACKUP_DB_PASS:-}" ]; then
 EOF
     cat > "${AG_LOG}.001" <<'EOF'
 20261024 11:59:00,mt2,mt2server,127.0.0.1,1,1,QUERY,account,'INSERT INTO account (login,password,social_id,email,hwid) VALUES (''u1'',''$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$b2xk'',''7654321'',''old@example.com'',''OLD_HWID_77'')',0
+20261024 11:59:01,mt2,mt2server,127.0.0.1,1,2,QUERY,account,'INSERT IGNORE INTO account (hwid,login,email,password,social_id) VALUES (''REORD_HWID_11'',''u2'',''reord@example.org'',''PlainPass_22'',''6543210''),(''MULTI_HWID_33'',''u3'',''row2@example.org'',''*11223344556677889900AABBCCDDEEFF00112233'',''5432109'')',0
+20261024 11:59:02,mt2,mt2server,127.0.0.1,1,3,QUERY,account,'REPLACE INTO `account`.`account` (`token`,`secret`,`login`,`hwid`,`password`) VALUES (''TOK_SEC_44'','''' ,''u4'',''O''''Reilly_HWID_55'',''pa\''ss(word),66'')',0
+20261024 11:59:03,mt2,mt2server,127.0.0.1,1,4,QUERY,account,'UPDATE account SET password=''şifre_ğüşıöç_UTF8'', hwid=''HWID_UTF8_ıİ_88'', token="DBL_QUOTE_TOK_99" WHERE login=''u5''',0
 EOF
 
     "$SFROOT/audit_guard.sh" --enforce-perms --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT"
@@ -377,7 +383,7 @@ EOF
         echo "[ERROR] Expected mode 400 on archived rotated audit log, got $ARCH_MODE" >&2
         exit 1
     fi
-    if grep -Eq "c2FsdA|7654321|old@example\.com|OLD_HWID_77" "$ARCH_ROT" || ! grep -q '\$argon2id\$\[REDACTED\]' "$ARCH_ROT"; then
+    if grep -Eq "c2FsdA|7654321|old@example\.com|OLD_HWID_77|REORD_HWID_11|PlainPass_22|6543210|MULTI_HWID_33|11223344556677889900|TOK_SEC_44|Reilly_HWID_55|word\),66|şifre_ğüşıöç_UTF8|HWID_UTF8_ıİ_88|DBL_QUOTE_TOK_99" "$ARCH_ROT" || ! grep -q '\$argon2id\$\[REDACTED\]' "$ARCH_ROT" || ! grep -q '\*\[REDACTED_SHA1\]' "$ARCH_ROT"; then
         echo "[ERROR] Sensitive fields were not redacted in archived rotated audit log!" >&2
         exit 1
     fi
@@ -418,6 +424,7 @@ with open(ag_log, "ab") as f:
 
 received_batch1 = []
 srv1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv1.settimeout(5.0)
 srv1.bind(("127.0.0.1", 0))
 srv1.listen(1)
 port1 = srv1.getsockname()[1]
@@ -453,6 +460,7 @@ with open(ag_log, "wb") as f:
 
 received_batch2 = []
 srv2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv2.settimeout(5.0)
 srv2.bind(("127.0.0.1", 0))
 srv2.listen(1)
 port2 = srv2.getsockname()[1]
@@ -483,6 +491,7 @@ if ssl_dir and os.path.isfile(os.path.join(ssl_dir, "ca-cert.pem")):
         f.write(b"20261024 12:00:08,mt2,mt2server,127.0.0.1,2,7,QUERY,player,'UPDATE player SET gold=789',0\n")
     received_tls = []
     srv_tls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv_tls.settimeout(5.0)
     srv_tls.bind(("127.0.0.1", 0))
     srv_tls.listen(1)
     port_tls = srv_tls.getsockname()[1]

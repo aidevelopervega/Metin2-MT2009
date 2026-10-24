@@ -131,9 +131,12 @@ emit_backup_alert() {
     line="$ts $tag $msg"
     echo "$line" >&2
     if [ -n "$AUDIT_ALERT_FILE" ]; then
-        mkdir -p "$(dirname "$AUDIT_ALERT_FILE")" 2>/dev/null || true
-        umask 077
-        echo "$line" >> "$AUDIT_ALERT_FILE" 2>/dev/null || true
+        alert_dir=$(dirname "$AUDIT_ALERT_FILE")
+        mkdir -p "$alert_dir" 2>/dev/null || true
+        if [ -d "$alert_dir" ]; then
+            umask 077
+            { echo "$line" >> "$AUDIT_ALERT_FILE"; } 2>/dev/null || true
+        fi
     fi
     if command -v logger >/dev/null 2>&1; then
         logger -p security.crit -t mt2_backup "$tag $msg" 2>/dev/null || true
@@ -208,10 +211,13 @@ TMP_PASS=""
 TMP_GZ=""
 TMP_SQL=""
 cleanup() {
+    rc=$?
+    set +e
     [ -n "$TMP_CNF" ] && rm -f "$TMP_CNF"
     [ -n "$TMP_PASS" ] && rm -f "$TMP_PASS"
     [ -n "$TMP_GZ" ] && rm -f "$TMP_GZ"
     [ -n "$TMP_SQL" ] && rm -f "$TMP_SQL"
+    exit "$rc"
 }
 trap cleanup EXIT INT TERM
 
@@ -232,7 +238,7 @@ if [ "$ACTION" = "backup" ]; then
 
     # Check available free disk space on BACKUP_DIR filesystem (in MiB)
     if command -v df >/dev/null 2>&1; then
-        free_mb=$(df -Pm "$BACKUP_DIR" 2>/dev/null | awk 'NR==2 {print $4}' | tr -d ' \t\r\n')
+        free_mb=$(df -Pk "$BACKUP_DIR" 2>/dev/null | awk 'NR==2 {print int($4 / 1024)}' | tr -d ' \t\r\n')
         case "$free_mb" in
             ''|*[!0-9]*) ;;
             *)
@@ -387,7 +393,7 @@ if [ "$ACTION" = "restore" ]; then
         emit_backup_alert "[MT2_BACKUP_ALERT][DECOMPRESS_FAILED]" "Decompressed payload is not valid gzip data on $RESTORE_ARCHIVE."
         exit 1
     fi
-    gzip -dc "$TMP_GZ" | sed 's/\/\*!50017 DEFINER=`[^`]*`@`[^`]*`\*\///g' > "$TMP_SQL"
+    gzip -dc "$TMP_GZ" | sed 's/\/\*![0-9][0-9][0-9][0-9][0-9] DEFINER=`[^`]*`@`[^`]*`\*\///g; s/DEFINER=`[^`]*`@`[^`]*` //g' > "$TMP_SQL"
     rm -f "$TMP_GZ"
     if [ ! -s "$TMP_SQL" ]; then
         emit_backup_alert "[MT2_BACKUP_ALERT][RESTORE_EMPTY]" "Decrypted SQL payload is empty on $RESTORE_ARCHIVE."

@@ -229,7 +229,7 @@ jobs:
             echo "--> Test TLS CA ve Sunucu Sertifikaları Üretiliyor..."
             openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/ca-key.pem" -out "$SSL_DIR/ca-cert.pem" -days 365 -subj "/CN=Metin2 Test CA"
             openssl req -newkey rsa:2048 -nodes -keyout "$SSL_DIR/server-key.pem" -out "$SSL_DIR/server-req.pem" -subj "/CN=127.0.0.1"
-            printf "subjectAltName=IP:127.0.0.1,DNS:localhost\n" > "$SSL_DIR/san.cnf"
+            printf "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n" > "$SSL_DIR/san.cnf"
             openssl x509 -req -in "$SSL_DIR/server-req.pem" -CA "$SSL_DIR/ca-cert.pem" -CAkey "$SSL_DIR/ca-key.pem" -CAcreateserial -extfile "$SSL_DIR/san.cnf" -out "$SSL_DIR/server-cert.pem" -days 365
             openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/invalid-ca-key.pem" -out "$SSL_DIR/invalid-ca-cert.pem" -days 365 -subj "/CN=Untrusted Fake CA"
             # FreeBSD üzerinde veritabanı servisleri 'mysql' kullanıcısı ile çalışır
@@ -368,7 +368,7 @@ jobs:
 
             # 4.A: MariaDB Yeniden Başlatma Sonrası Güvenlik ve Audit Ayarlarının Kalıcılık Doğrulaması
             echo "=== [4.A] Verifying MariaDB Restart Persistence of bind-address=127.0.0.1, local_infile=0 & server_audit ==="
-            kill $SERVER_PID || true
+            mariadb-admin --socket="$SOCKET_PATH" -u root shutdown 2>/dev/null || kill $SERVER_PID || true
             wait $SERVER_PID 2>/dev/null || true
             "$MARIADBD" --defaults-extra-file="$DATA_DIR/server_security.cnf" \
                 --user=mysql --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM \
@@ -381,6 +381,11 @@ jobs:
               fi
               sleep 1
             done
+            if ! mariadb-admin --socket="$SOCKET_PATH" ping --silent 2>/dev/null; then
+              echo "[ERROR] MariaDB failed to restart in [4.A]!" >&2
+              cat /tmp/server_restart_${ENGINE_ID}.log || true
+              exit 1
+            fi
             RESTART_VARS=$(mariadb --socket="$SOCKET_PATH" -u root -N -s -e "SELECT CONCAT(@@GLOBAL.bind_address,'|',@@GLOBAL.local_infile,'|',@@GLOBAL.server_audit_logging,'|',@@GLOBAL.server_audit_events);")
             echo "  -> Post-restart MariaDB security variables: $RESTART_VARS"
             if [ "$RESTART_VARS" != "127.0.0.1|0|ON|CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT" ]; then
@@ -389,7 +394,7 @@ jobs:
             fi
 
             # Sunucuyu Temiz Kapatma ve copyback Öncesi Ağır Derleme Çıktılarını Temizleme
-            kill $SERVER_PID || true
+            mariadb-admin --socket="$SOCKET_PATH" -u root shutdown 2>/dev/null || kill $SERVER_PID || true
             wait $SERVER_PID 2>/dev/null || true
             rm -rf build tests/build \
               server/src/db/db_r* server/src/db/src/.obj \

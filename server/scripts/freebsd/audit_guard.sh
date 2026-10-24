@@ -14,8 +14,8 @@ AUDIT_ALERT_FILE="${MT2_AUDIT_ALERT_FILE:-/var/log/mt2_security_alerts.log}"
 AUDIT_MAX_BYTES="${MT2_AUDIT_MAX_BYTES:-9437184000}" # 90 x 100 MB (~9 GB)
 AUDIT_WARN_PCT="${MT2_AUDIT_WARN_PCT:-80}"
 MIN_FREE_DISK_MB="${MT2_MIN_FREE_DISK_MB:-1024}"
-AUDIT_REMOTE_HOST="${MT2_AUDIT_REMOTE_HOST:-}"
-AUDIT_REMOTE_PORT="${MT2_AUDIT_REMOTE_PORT:-514}"
+AUDIT_REMOTE_HOST="${MT2_AUDIT_REMOTE_HOST:-${MT2_AUDIT_SYSLOG_HOST:-}}"
+AUDIT_REMOTE_PORT="${MT2_AUDIT_REMOTE_PORT:-${MT2_AUDIT_SYSLOG_PORT:-514}}"
 AUDIT_USE_TLS="${MT2_AUDIT_USE_TLS:-0}"
 AUDIT_TLS_CA_FILE="${MT2_AUDIT_TLS_CA_FILE:-}"
 AUDIT_REQUIRE_ACK="${MT2_AUDIT_REQUIRE_ACK:-0}"
@@ -117,8 +117,10 @@ emit_alert() {
     if [ -n "$AUDIT_ALERT_FILE" ]; then
         alert_dir=$(dirname "$AUDIT_ALERT_FILE")
         mkdir -p "$alert_dir" 2>/dev/null || true
-        umask 077
-        echo "$line" >> "$AUDIT_ALERT_FILE"
+        if [ -d "$alert_dir" ]; then
+            umask 077
+            { echo "$line" >> "$AUDIT_ALERT_FILE"; } 2>/dev/null || true
+        fi
     fi
     if command -v logger >/dev/null 2>&1; then
         logger -p security.crit -t mt2_audit_guard "$alert_tag $alert_msg" 2>/dev/null || true
@@ -164,28 +166,179 @@ sha12 = hashlib.sha256(raw).hexdigest()[:12]
 base_name = os.path.basename(rot_path)
 dest_path = os.path.join(arch_dir, f"{base_name}.{sha12}")
 
-if not os.path.exists(dest_path):
-    text = raw.decode("utf-8", errors="replace")
-    # Redact Argon2id hashes, legacy MySQL SHA1 hashes, and password/token/social_id/email/hwid literals in UPDATE & positional INSERT/REPLACE queries
+SENS_COLS = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
+
+def _scan_quoted_sql_token(s, pos):
+    n = len(s)
+    if pos >= n:
+        return None
+    if s.startswith("''", pos):
+        i = pos + 2
+        while i < n:
+            if s[i] == "\\" and i + 1 < n:
+                i += 2
+            elif s.startswith("''''", i):
+                after4 = i + 4
+                if after4 == n or s[after4] in ",); \t\r\n" or (s[after4] == "'" and (after4 + 1 == n or s[after4 + 1] != "'")):
+                    return after4
+                i += 4
+            elif s.startswith("''", i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s.startswith("\\'", pos):
+        i = pos + 2
+        while i < n:
+            if s.startswith("\\\\", i):
+                i += 2
+            elif s.startswith("\\'", i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s.startswith('\\"', pos):
+        i = pos + 2
+        while i < n:
+            if s.startswith("\\\\", i):
+                i += 2
+            elif s.startswith('\\"', i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s[pos] in ("'", '"'):
+        q = s[pos]
+        qq = q + q
+        i = pos + 1
+        while i < n:
+            if s[i] == "\\" and i + 1 < n:
+                i += 2
+            elif s.startswith(qq, i):
+                i += 2
+            elif s[i] == q:
+                return i + 1
+            else:
+                i += 1
+        return n
+    return None
+
+def _parse_tuple_tokens(s, open_paren_pos):
+    n = len(s)
+    i = open_paren_pos + 1
+    tokens = []
+    tok_start = i
+    depth = 0
+    while i < n:
+        q_end = _scan_quoted_sql_token(s, i)
+        if q_end is not None:
+            i = q_end
+            continue
+        ch = s[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                tokens.append(s[tok_start:i].strip())
+                return tokens, i + 1
+            depth -= 1
+        elif ch == "," and depth == 0:
+            tokens.append(s[tok_start:i].strip())
+            tok_start = i + 1
+        i += 1
+    return None, n
+
+def redact_sql_text(text):
     text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
     text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
-    sens_cols = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
-    def _redact_insert_vals(m):
-        prefix, cols_str, vals_str, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
-        cols = [c.strip().strip("`'\"").lower() for c in cols_str.split(",")]
-        vals = re.findall(r"(?:''(?:[^']|'(?!'))*''|\\'(?:[^'\\]|\\.)*\\'|'(?:[^'\\]|\\.)*'|[^,()]+)", vals_str)
-        vals = [v.strip() for v in vals if v.strip()]
-        if len(cols) == len(vals):
-            for idx, col in enumerate(cols):
-                if col in sens_cols and "$argon2id$[REDACTED]" not in vals[idx] and "*[REDACTED_SHA1]" not in vals[idx]:
-                    vals[idx] = "''[REDACTED]''"
-            return f"{prefix}{','.join(vals)}{suffix}"
-        return m.group(0)
-    text = re.sub(r"(?i)\b((?:INSERT|REPLACE)\s+(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*\()(.+?)(\))", _redact_insert_vals, text)
-    text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
-    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)\s*=\s*(?:''|\\'|')+(?!\*\[REDACTED_SHA1\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    ins_pat = re.compile(
+        r"(?i)\b((?:INSERT|REPLACE)\s+(?:(?:LOW_PRIORITY|DELAYED|HIGH_PRIORITY|IGNORE)\s+)*(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*)"
+    )
+    out = []
+    last_idx = 0
+    pos = 0
+    n = len(text)
+    while pos < n:
+        m = ins_pat.search(text, pos)
+        if not m:
+            break
+        out.append(text[last_idx:m.end()])
+        cols = [c.strip().strip("`'\"").lower() for c in m.group(2).split(",")]
+        cur = m.end()
+        while cur < n:
+            ws_start = cur
+            while cur < n and text[cur] in " \t\r\n":
+                cur += 1
+            if cur >= n or text[cur] != "(":
+                cur = ws_start
+                break
+            out.append(text[ws_start:cur])
+            tokens, next_cur = _parse_tuple_tokens(text, cur)
+            if tokens is None:
+                out.append(text[cur:next_cur])
+                cur = next_cur
+                break
+            if len(tokens) == len(cols):
+                for idx, col in enumerate(cols):
+                    if col in SENS_COLS:
+                        t_val = tokens[idx].strip()
+                        if t_val.upper() != "NULL" and "$argon2id$[REDACTED]" not in t_val and "*[REDACTED_SHA1]" not in t_val:
+                            tokens[idx] = "''[REDACTED]''"
+            out.append("(" + ",".join(tokens) + ")")
+            cur = next_cur
+            comma_scan = cur
+            while comma_scan < n and text[comma_scan] in " \t\r\n":
+                comma_scan += 1
+            if comma_scan < n and text[comma_scan] == ",":
+                after_comma = comma_scan + 1
+                while after_comma < n and text[after_comma] in " \t\r\n":
+                    after_comma += 1
+                if after_comma < n and text[after_comma] == "(":
+                    out.append(text[cur:comma_scan + 1])
+                    cur = comma_scan + 1
+                    continue
+            break
+        last_idx = cur
+        pos = cur
+    out.append(text[last_idx:])
+    text = "".join(out)
+
+    upd_pat = re.compile(
+        r"(?i)\b(`?(?:password|passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)`?\s*=\s*)"
+    )
+    out2 = []
+    last_idx = 0
+    pos = 0
+    n = len(text)
+    while pos < n:
+        m = upd_pat.search(text, pos)
+        if not m:
+            break
+        val_start = m.end()
+        q_end = _scan_quoted_sql_token(text, val_start)
+        if q_end is not None:
+            lit = text[val_start:q_end]
+            out2.append(text[last_idx:val_start])
+            if "$argon2id$[REDACTED]" in lit:
+                out2.append("''$argon2id$[REDACTED]''")
+            elif "*[REDACTED_SHA1]" in lit:
+                out2.append("''*[REDACTED_SHA1]''")
+            else:
+                out2.append("'***'")
+            last_idx = q_end
+            pos = q_end
+        else:
+            pos = val_start
+    out2.append(text[last_idx:])
+    text = "".join(out2)
+
     text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
     text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
+    return text
+
+if not os.path.exists(dest_path):
+    text = raw.decode("utf-8", errors="replace")
+    text = redact_sql_text(text)
     with open(dest_path, "wb") as out_f:
         out_f.write(text.encode("utf-8"))
 print(dest_path)
@@ -247,7 +400,7 @@ PYEOF
         fi
         audit_dir=$(dirname "$AUDIT_LOG_PATH")
         if [ -d "$audit_dir" ] && command -v df >/dev/null 2>&1; then
-            free_mb=$(df -Pm "$audit_dir" 2>/dev/null | awk 'NR==2 {print $4}' | tr -d ' \t\r\n')
+            free_mb=$(df -Pk "$audit_dir" 2>/dev/null | awk 'NR==2 {print int($4 / 1024)}' | tr -d ' \t\r\n')
             case "$free_mb" in
                 ''|*[!0-9]*) ;;
                 *)
@@ -283,30 +436,179 @@ log_path, offset_path, host, port_str, use_tls_str, ca_file, req_ack_str = sys.a
 port = int(port_str)
 use_tls = (use_tls_str == "1")
 req_ack = (req_ack_str == "1")
-sens_cols = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
+SENS_COLS = {"password", "passwd", "pwd", "token", "secret", "social_id", "email", "hwid", "old_pw", "new_pw"}
 
-def _redact_insert_vals(m):
-    prefix, cols_str, vals_str, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
-    cols = [c.strip().strip("`'\"").lower() for c in cols_str.split(",")]
-    vals = re.findall(r"(?:''(?:[^']|'(?!'))*''|\\'(?:[^'\\]|\\.)*\\'|'(?:[^'\\]|\\.)*'|[^,()]+)", vals_str)
-    vals = [v.strip() for v in vals if v.strip()]
-    if len(cols) == len(vals):
-        for idx, col in enumerate(cols):
-            if col in sens_cols and "$argon2id$[REDACTED]" not in vals[idx] and "*[REDACTED_SHA1]" not in vals[idx]:
-                vals[idx] = "''[REDACTED]''"
-        return f"{prefix}{','.join(vals)}{suffix}"
-    return m.group(0)
+def _scan_quoted_sql_token(s, pos):
+    n = len(s)
+    if pos >= n:
+        return None
+    if s.startswith("''", pos):
+        i = pos + 2
+        while i < n:
+            if s[i] == "\\" and i + 1 < n:
+                i += 2
+            elif s.startswith("''''", i):
+                after4 = i + 4
+                if after4 == n or s[after4] in ",); \t\r\n" or (s[after4] == "'" and (after4 + 1 == n or s[after4 + 1] != "'")):
+                    return after4
+                i += 4
+            elif s.startswith("''", i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s.startswith("\\'", pos):
+        i = pos + 2
+        while i < n:
+            if s.startswith("\\\\", i):
+                i += 2
+            elif s.startswith("\\'", i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s.startswith('\\"', pos):
+        i = pos + 2
+        while i < n:
+            if s.startswith("\\\\", i):
+                i += 2
+            elif s.startswith('\\"', i):
+                return i + 2
+            else:
+                i += 1
+        return n
+    if s[pos] in ("'", '"'):
+        q = s[pos]
+        qq = q + q
+        i = pos + 1
+        while i < n:
+            if s[i] == "\\" and i + 1 < n:
+                i += 2
+            elif s.startswith(qq, i):
+                i += 2
+            elif s[i] == q:
+                return i + 1
+            else:
+                i += 1
+        return n
+    return None
+
+def _parse_tuple_tokens(s, open_paren_pos):
+    n = len(s)
+    i = open_paren_pos + 1
+    tokens = []
+    tok_start = i
+    depth = 0
+    while i < n:
+        q_end = _scan_quoted_sql_token(s, i)
+        if q_end is not None:
+            i = q_end
+            continue
+        ch = s[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                tokens.append(s[tok_start:i].strip())
+                return tokens, i + 1
+            depth -= 1
+        elif ch == "," and depth == 0:
+            tokens.append(s[tok_start:i].strip())
+            tok_start = i + 1
+        i += 1
+    return None, n
+
+def redact_sql_text(text):
+    text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
+    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
+    ins_pat = re.compile(
+        r"(?i)\b((?:INSERT|REPLACE)\s+(?:(?:LOW_PRIORITY|DELAYED|HIGH_PRIORITY|IGNORE)\s+)*(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*)"
+    )
+    out = []
+    last_idx = 0
+    pos = 0
+    n = len(text)
+    while pos < n:
+        m = ins_pat.search(text, pos)
+        if not m:
+            break
+        out.append(text[last_idx:m.end()])
+        cols = [c.strip().strip("`'\"").lower() for c in m.group(2).split(",")]
+        cur = m.end()
+        while cur < n:
+            ws_start = cur
+            while cur < n and text[cur] in " \t\r\n":
+                cur += 1
+            if cur >= n or text[cur] != "(":
+                cur = ws_start
+                break
+            out.append(text[ws_start:cur])
+            tokens, next_cur = _parse_tuple_tokens(text, cur)
+            if tokens is None:
+                out.append(text[cur:next_cur])
+                cur = next_cur
+                break
+            if len(tokens) == len(cols):
+                for idx, col in enumerate(cols):
+                    if col in SENS_COLS:
+                        t_val = tokens[idx].strip()
+                        if t_val.upper() != "NULL" and "$argon2id$[REDACTED]" not in t_val and "*[REDACTED_SHA1]" not in t_val:
+                            tokens[idx] = "''[REDACTED]''"
+            out.append("(" + ",".join(tokens) + ")")
+            cur = next_cur
+            comma_scan = cur
+            while comma_scan < n and text[comma_scan] in " \t\r\n":
+                comma_scan += 1
+            if comma_scan < n and text[comma_scan] == ",":
+                after_comma = comma_scan + 1
+                while after_comma < n and text[after_comma] in " \t\r\n":
+                    after_comma += 1
+                if after_comma < n and text[after_comma] == "(":
+                    out.append(text[cur:comma_scan + 1])
+                    cur = comma_scan + 1
+                    continue
+            break
+        last_idx = cur
+        pos = cur
+    out.append(text[last_idx:])
+    text = "".join(out)
+
+    upd_pat = re.compile(
+        r"(?i)\b(`?(?:password|passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)`?\s*=\s*)"
+    )
+    out2 = []
+    last_idx = 0
+    pos = 0
+    n = len(text)
+    while pos < n:
+        m = upd_pat.search(text, pos)
+        if not m:
+            break
+        val_start = m.end()
+        q_end = _scan_quoted_sql_token(text, val_start)
+        if q_end is not None:
+            lit = text[val_start:q_end]
+            out2.append(text[last_idx:val_start])
+            if "$argon2id$[REDACTED]" in lit:
+                out2.append("''$argon2id$[REDACTED]''")
+            elif "*[REDACTED_SHA1]" in lit:
+                out2.append("''*[REDACTED_SHA1]''")
+            else:
+                out2.append("'***'")
+            last_idx = q_end
+            pos = q_end
+        else:
+            pos = val_start
+    out2.append(text[last_idx:])
+    text = "".join(out2)
+
+    text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
+    text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
+    return text
 
 def redact_line(raw_bytes):
     text = raw_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-    text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
-    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
-    text = re.sub(r"(?i)\b((?:INSERT|REPLACE)\s+(?:INTO\s+)?[A-Za-z0-9_.`]+\s*\(([^()]+)\)\s*VALUES\s*\()(.+?)(\))", _redact_insert_vals, text)
-    text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
-    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid|old_pw|new_pw)\s*=\s*(?:''|\\'|')+(?!\*\[REDACTED_SHA1\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
-    text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
-    text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
-    return text.encode("utf-8")
+    return redact_sql_text(text).encode("utf-8")
 
 def first_line_sig(path):
     if not os.path.exists(path):
@@ -383,6 +685,8 @@ try:
     raw_sock = socket.create_connection((host, port), timeout=3.0)
     if use_tls:
         ctx = ssl.create_default_context(cafile=ca_file if ca_file else None)
+        if ca_file and hasattr(ssl, "VERIFY_X509_STRICT"):
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
         conn = ctx.wrap_socket(raw_sock, server_hostname=host)
     else:
         conn = raw_sock
