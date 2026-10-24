@@ -207,6 +207,7 @@ class CAsyncSQL
 			uint64_t ullUncertainInFlightRetries{0};
 			uint64_t ullReconnectAttempts{0};
 			uint64_t ullReconnectSuccessCount{0};
+			uint64_t ullAdoptedOrphanCount{0};
 			size_t   spoolBytes{0};
 		};
 
@@ -266,6 +267,7 @@ class CAsyncSQL
 		bool		FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs = 3000);
 		bool		ReplayDurableSpoolNow();
 		const std::string & GetSpoolFilePath() const { return m_stSpoolFilePath; }
+		size_t		GetSpoolLockSlot() const { return m_uSpoolLockSlot; }
 		static size_t	EscapeStringOfflineSafe(char * dst, size_t dstSize, const char * src, size_t srcSize, bool bNoBackslashEscapes = false);
 
 		void		ChildLoop();
@@ -294,6 +296,8 @@ class CAsyncSQL
 		bool		AcquireSpoolLockLocked(const std::string & requestedPath);
 		void		ReleaseSpoolLockLocked(bool bRemoveLockFile = false);
 		bool		LoadSpoolFromDiskLocked();
+		bool		LoadSpoolFileIntoDequeLocked(const std::string & filePath, bool bRemapSeqToMonotonic, bool & bOutOverflowed);
+		size_t		AdoptOrphanSpoolSlotsLocked();
 		bool		SyncSpoolToDiskLocked();
 		bool		AppendQuarantineRecordLocked(uint64_t ullSeqID, unsigned int uiErrno, const std::string & stQuery);
 		void		DrainMemoryQueueToSpoolLocked();
@@ -336,8 +340,10 @@ class CAsyncSQL
 
 		bool		m_bDurableSpoolEnabled{false};
 		bool		m_bSpoolingActive{false};
+		std::string	m_stSpoolRequestedPath;
 		std::string	m_stSpoolFilePath;
 		std::string	m_stSpoolLockPath;
+		size_t		m_uSpoolLockSlot{0};
 #ifndef __WIN32__
 		int			m_iSpoolLockFd{-1};
 #else
@@ -360,6 +366,7 @@ class CAsyncSQL
 		uint64_t	m_ullUncertainInFlightRetries{0};
 		uint64_t	m_ullReconnectAttempts{0};
 		uint64_t	m_ullReconnectSuccessCount{0};
+		uint64_t	m_ullAdoptedOrphanCount{0};
 		std::atomic<ESpoolOverflowPolicy> m_eSpoolOverflowPolicy{SPOOL_OVERFLOW_ALERT_AND_DROP_NEW};
 		std::atomic<TSpoolOverflowCallback> m_pfnSpoolOverflowCallback{nullptr};
 		std::atomic<bool> m_bNoBackslashEscapes{false};

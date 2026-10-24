@@ -239,6 +239,7 @@ jobs:
 
             TEST_DB_PASS=$(openssl rand -hex 12)
             RUNTIME_DB_PASS=$(openssl rand -hex 12)
+            LOG_DB_PASS=$(openssl rand -hex 12)
 
             # Motor Sürecini Başlatma
             SOCKET_PATH="/tmp/${ENGINE_ID}.sock"
@@ -246,7 +247,12 @@ jobs:
               mariadb-install-db --user=mysql --datadir="$DATA_DIR" --basedir=/usr/local --auth-root-authentication-method=normal >/tmp/install_${ENGINE_ID}.log 2>&1 || true
               MARIADBD=$(which mariadbd 2>/dev/null || ls /usr/local/libexec/mariadbd 2>/dev/null || ls /usr/local/sbin/mariadbd 2>/dev/null)
               echo "MariaDB Daemon: $MARIADBD"
+              AUDIT_ARGS=""
+              if [ -f "/usr/local/lib/mysql/plugin/server_audit.so" ]; then
+                AUDIT_ARGS="--plugin-load-add=server_audit.so --server-audit=FORCE_PLUS_PERMANENT --server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL --server-audit-output-type=FILE --server-audit-file-path=$DATA_DIR/mariadb_audit.log --server-audit-file-rotate-size=10485760 --server-audit-file-rotations=10 --server-audit-logging=ON"
+              fi
               "$MARIADBD" --user=mysql --datadir="$DATA_DIR" --socket="$SOCKET_PATH" --port=$PORT_NUM --bind-address=127.0.0.1 \
+                  --local-infile=0 --symbolic-links=0 $AUDIT_ARGS \
                   --ssl-ca="$SSL_DIR/ca-cert.pem" --ssl-cert="$SSL_DIR/server-cert.pem" --ssl-key="$SSL_DIR/server-key.pem" >/tmp/server_${ENGINE_ID}.log 2>&1 &
               SERVER_PID=$!
 
@@ -289,6 +295,8 @@ jobs:
                 GRANT CREATE, ALTER, DROP, INDEX, LOCK TABLES, SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2test'@'localhost';
                 CREATE USER IF NOT EXISTS 'mt2server'@'127.0.0.1' IDENTIFIED BY '${RUNTIME_DB_PASS}';
                 CREATE USER IF NOT EXISTS 'mt2server'@'localhost' IDENTIFIED BY '${RUNTIME_DB_PASS}';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2server'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON mt2_testdb.* TO 'mt2server'@'localhost';
                 GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'127.0.0.1';
                 GRANT SELECT, INSERT, UPDATE, DELETE ON account.* TO 'mt2server'@'localhost';
                 GRANT SELECT, INSERT, UPDATE, DELETE ON common.* TO 'mt2server'@'127.0.0.1';
@@ -299,6 +307,10 @@ jobs:
                 GRANT SELECT, INSERT, UPDATE, DELETE ON player.* TO 'mt2server'@'localhost';
                 GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'127.0.0.1';
                 GRANT SELECT, INSERT, UPDATE, DELETE ON world.* TO 'mt2server'@'localhost';
+                CREATE USER IF NOT EXISTS 'mt2log'@'127.0.0.1' IDENTIFIED BY '${LOG_DB_PASS}';
+                CREATE USER IF NOT EXISTS 'mt2log'@'localhost' IDENTIFIED BY '${LOG_DB_PASS}';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2log'@'127.0.0.1';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2log'@'localhost';
                 FLUSH PRIVILEGES;
               "
             fi
@@ -310,6 +322,8 @@ jobs:
             export MT2_TEST_PASSWORD="$TEST_DB_PASS"
             export MT2_RUNTIME_USER=mt2server
             export MT2_RUNTIME_PASSWORD="$RUNTIME_DB_PASS"
+            export MT2_LOG_DB_USER=mt2log
+            export MT2_LOG_DB_PASS="$LOG_DB_PASS"
             export MT2_TEST_DB=mt2_testdb
             export MT2_TEST_ENGINE="FreeBSD $ENGINE_NAME"
             export MT2_TEST_SSL_CA="$SSL_DIR/ca-cert.pem"

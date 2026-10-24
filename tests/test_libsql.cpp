@@ -1095,51 +1095,103 @@ int main()
 			durableDiskFail.FlushAndSpoolOnShutdown(100);
 		}
 
-		// 5. Same-directory multi-process / multi-instance exclusive lock-slot isolation (prevents .tmp race & overwrite)
+		// 5. Same-directory multi-process / multi-instance exclusive lock-slot isolation & orphan crash-recovery
 		{
 			const char * slot0File = "test_durable_spool_unit.dat";
 			const char * slot1File = "test_durable_spool_unit.1.dat";
+			const char * slot2File = "test_durable_spool_unit.2.dat";
 			std::remove(slot0File);
 			std::remove(slot1File);
-
-			CAsyncSQL procA;
-			CAsyncSQL procB;
-			TEST_ASSERT(procA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "First instance acquired primary spool path");
-			TEST_ASSERT(procB.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Second concurrent instance in same directory isolated to secondary slot");
-			TEST_ASSERT(procA.GetSpoolFilePath() == slot0File, "First instance uses slot 0 (test_durable_spool_unit.dat)");
-			TEST_ASSERT(procB.GetSpoolFilePath() == slot1File, "Second instance automatically isolated to slot 1 (test_durable_spool_unit.1.dat)");
-
-			// Both instances spool offline queries concurrently in the same directory without overwriting each other
-			procA.AsyncQuery("INSERT INTO log VALUES (1001, 'PROC_A_RECORD_1');");
-			procA.AsyncQuery("INSERT INTO log VALUES (1002, 'PROC_A_RECORD_2');");
-			procB.AsyncQuery("INSERT INTO log VALUES (2001, 'PROC_B_RECORD_1');");
-			procB.AsyncQuery("INSERT INTO log VALUES (2002, 'PROC_B_RECORD_2');");
-			procB.AsyncQuery("INSERT INTO log VALUES (2003, 'PROC_B_RECORD_3');");
-
-			procA.FlushAndSpoolOnShutdown(100);
-			procB.FlushAndSpoolOnShutdown(100);
-
-			// Restart both instances and verify 0 record loss and 0 cross-instance corruption
-			CAsyncSQL recA;
-			CAsyncSQL recB;
-			TEST_ASSERT(recA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Restarted instance A loaded slot 0 spool");
-			TEST_ASSERT(recB.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Restarted instance B loaded slot 1 spool while A holds slot 0");
-			TEST_ASSERT(recA.GetDurableSpoolStats().ullPendingSpoolCount == 2, "Slot 0 preserved all 2 records from instance A");
-			TEST_ASSERT(recB.GetDurableSpoolStats().ullPendingSpoolCount == 3, "Slot 1 preserved all 3 records from instance B");
-
-			recA.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
-			recB.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
-			recA.Connect();
-			recB.Connect();
-			TEST_ASSERT(recA.ReplayDurableSpoolNow() == true && recA.GetDurableSpoolStats().ullCommittedCount == 2, "Instance A replayed 2/2 records");
-			TEST_ASSERT(recB.ReplayDurableSpoolNow() == true && recB.GetDurableSpoolStats().ullCommittedCount == 3, "Instance B replayed 3/3 records");
-			recA.FlushAndSpoolOnShutdown(100);
-			recB.FlushAndSpoolOnShutdown(100);
-
-			std::remove(slot0File);
-			std::remove(slot1File);
+			std::remove(slot2File);
 			std::remove("test_durable_spool_unit.dat.lock");
 			std::remove("test_durable_spool_unit.1.dat.lock");
+			std::remove("test_durable_spool_unit.2.dat.lock");
+
+			// 5a. Concurrent active instances in same directory isolate to slot 0 and slot 1 without touching locked slot
+			{
+				CAsyncSQL procA;
+				CAsyncSQL procB;
+				TEST_ASSERT(procA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "First instance acquired primary spool path");
+				TEST_ASSERT(procB.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Second concurrent instance in same directory isolated to secondary slot");
+				TEST_ASSERT(procA.GetSpoolFilePath() == slot0File && procA.GetSpoolLockSlot() == 0, "First instance uses slot 0 (test_durable_spool_unit.dat)");
+				TEST_ASSERT(procB.GetSpoolFilePath() == slot1File && procB.GetSpoolLockSlot() == 1, "Second instance automatically isolated to slot 1 (test_durable_spool_unit.1.dat)");
+
+				procA.AsyncQuery("INSERT INTO log VALUES (1001, 'PROC_A_RECORD_1');");
+				procA.AsyncQuery("INSERT INTO log VALUES (1002, 'PROC_A_RECORD_2');");
+				procB.AsyncQuery("INSERT INTO log VALUES (2001, 'PROC_B_RECORD_1');");
+				procB.AsyncQuery("INSERT INTO log VALUES (2002, 'PROC_B_RECORD_2');");
+				procB.AsyncQuery("INSERT INTO log VALUES (2003, 'PROC_B_RECORD_3');");
+
+				// procA shuts down and restarts while procB is STILL alive and holding slot 1 lock
+				procA.FlushAndSpoolOnShutdown(100);
+
+				CAsyncSQL recA;
+				TEST_ASSERT(recA.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Restarted instance A loaded slot 0 spool while B holds slot 1");
+				TEST_ASSERT(recA.GetDurableSpoolStats().ullAdoptedOrphanCount == 0 && recA.GetDurableSpoolStats().ullPendingSpoolCount == 2,
+					"Active locked slot 1 is NOT hijacked by restarted slot 0 while instance B is running");
+				TEST_ASSERT(procB.GetDurableSpoolStats().ullPendingSpoolCount == 3, "Running instance B retains all 3 records in slot 1");
+
+				recA.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+				procB.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+				recA.Connect();
+				procB.Connect();
+				TEST_ASSERT(recA.ReplayDurableSpoolNow() == true && recA.GetDurableSpoolStats().ullCommittedCount == 2, "Instance A replayed 2/2 records");
+				TEST_ASSERT(procB.ReplayDurableSpoolNow() == true && procB.GetDurableSpoolStats().ullCommittedCount == 3, "Instance B replayed 3/3 records");
+				recA.FlushAndSpoolOnShutdown(100);
+				procB.FlushAndSpoolOnShutdown(100);
+			}
+
+			// 5b. Multi-slot crash/shutdown followed by SINGLE-instance restart: slot 0 automatically adopts orphaned slot 1 and slot 2
+			{
+				CAsyncSQL p0;
+				CAsyncSQL p1;
+				CAsyncSQL p2;
+				TEST_ASSERT(p0.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true && p0.GetSpoolLockSlot() == 0, "Crash test p0 acquired slot 0");
+				TEST_ASSERT(p1.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true && p1.GetSpoolLockSlot() == 1, "Crash test p1 acquired slot 1");
+				TEST_ASSERT(p2.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true && p2.GetSpoolLockSlot() == 2, "Crash test p2 acquired slot 2");
+
+				p0.AsyncQuery("INSERT INTO log VALUES (3001, 'SLOT0_REC_1');");
+				p0.AsyncQuery("INSERT INTO log VALUES (3002, 'SLOT0_REC_2');");
+				p1.AsyncQuery("INSERT INTO log VALUES (3003, 'SLOT1_REC_1');");
+				p1.AsyncQuery("INSERT INTO log VALUES (3004, 'SLOT1_REC_2');");
+				p1.AsyncQuery("INSERT INTO log VALUES (3005, 'SLOT1_REC_3');");
+				p2.AsyncQuery("INSERT INTO log VALUES (3006, 'SLOT2_REC_1');");
+				p2.AsyncQuery("INSERT INTO log VALUES (3007, 'SLOT2_REC_2');");
+
+				// All 3 instances stop/crash while DB is offline
+				p0.FlushAndSpoolOnShutdown(100);
+				p1.FlushAndSpoolOnShutdown(100);
+				p2.FlushAndSpoolOnShutdown(100);
+			}
+
+			// Now ONLY ONE instance restarts in that directory
+			{
+				CAsyncSQL singleRecovery;
+				TEST_ASSERT(singleRecovery.EnableDurableSpool(slot0File, 10, 64 * 1024, 100) == true, "Single restarted instance acquired slot 0");
+				auto stAdopted = singleRecovery.GetDurableSpoolStats();
+				TEST_ASSERT(stAdopted.ullAdoptedOrphanCount == 5 && stAdopted.ullPendingSpoolCount == 7,
+					"Single restarted instance automatically adopted 5 orphaned records from slots 1 and 2 (total pending = 7)");
+
+				std::ifstream checkSlot1(slot1File, std::ios::in | std::ios::binary);
+				std::ifstream checkSlot2(slot2File, std::ios::in | std::ios::binary);
+				TEST_ASSERT(!checkSlot1.is_open() && !checkSlot2.is_open(),
+					"Adopted orphan spool files (.1.dat and .2.dat) cleaned up after atomic sync into slot 0");
+
+				singleRecovery.Setup("127.0.0.1", "mt2", "secret", "log", "latin1", true, 3306);
+				singleRecovery.Connect();
+				TEST_ASSERT(singleRecovery.ReplayDurableSpoolNow() == true, "Single restarted instance replayed all 7 records");
+				auto stFinal = singleRecovery.GetDurableSpoolStats();
+				TEST_ASSERT(stFinal.ullReplayedCount == 7 && stFinal.ullCommittedCount == 7 && stFinal.ullPendingSpoolCount == 0 && stFinal.ullQuarantinedCount == 0,
+					"All 7 records across slot 0 + orphan slots 1 & 2 committed once with 0 loss and 0 corruption");
+				singleRecovery.FlushAndSpoolOnShutdown(100);
+			}
+
+			std::remove(slot0File);
+			std::remove(slot1File);
+			std::remove(slot2File);
+			std::remove("test_durable_spool_unit.dat.lock");
+			std::remove("test_durable_spool_unit.1.dat.lock");
+			std::remove("test_durable_spool_unit.2.dat.lock");
 		}
 
 		std::remove(testSpoolFile);

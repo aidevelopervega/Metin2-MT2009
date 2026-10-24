@@ -182,6 +182,18 @@ $dbHost = Get-ConfigValue $cfg "MT2_DB_HOST" "127.0.0.1"
 $dbPort = Get-ConfigValue $cfg "MT2_DB_PORT" "3306"
 $dbUser = Get-ConfigValue $cfg "MT2_DB_USER" "mt2server"
 $dbPass = Get-ConfigValue $cfg "MT2_DB_PASS" ""
+$logDbUser = Get-ConfigValue $cfg "MT2_LOG_DB_USER" $dbUser
+$logDbPass = Get-ConfigValue $cfg "MT2_LOG_DB_PASS" $dbPass
+if ([string]::IsNullOrWhiteSpace($logDbPass) -or $logDbPass.StartsWith("__CHANGE_ME_")) {
+    $logDbUser = $dbUser
+    $logDbPass = $dbPass
+}
+$initDbUser = Get-ConfigValue $cfg "MT2_INIT_DB_USER" $dbUser
+$initDbPass = Get-ConfigValue $cfg "MT2_INIT_DB_PASS" $dbPass
+if ([string]::IsNullOrWhiteSpace($initDbPass) -or $initDbPass.StartsWith("__CHANGE_ME_")) {
+    $initDbUser = $dbUser
+    $initDbPass = $dbPass
+}
 $bindIp = Get-ConfigValue $cfg "MT2_BIND_IP" "127.0.0.1"
 $dbAddr = Get-ConfigValue $cfg "MT2_DB_ADDR" "127.0.0.1"
 $dbListenPort = Get-ConfigValue $cfg "MT2_DB_LISTEN_PORT" "18000"
@@ -210,7 +222,7 @@ SQL_ACCOUNT = "$dbHost account $dbUser $dbPass $dbPort"
 SQL_HOTBACKUP = "$dbHost player $dbUser $dbPass $dbPort"
 SQL_PLAYER = "$dbHost player $dbUser $dbPass $dbPort"
 SQL_COMMON = "$dbHost common $dbUser $dbPass $dbPort"
-SQL_LOG = "$dbHost log $dbUser $dbPass $dbPort"
+SQL_LOG = "$dbHost log $logDbUser $logDbPass $dbPort"
 SQL_WORLD = "$dbHost world $dbUser $dbPass $dbPort"
 TABLE_POSTFIX = ""
 BIND_PORT = $dbListenPort
@@ -245,7 +257,7 @@ ITEM_ID_RANGE: 000000001 000000002
 AUTH_SERVER: master
 ACCOUNT_SQL: $dbHost $dbUser $dbPass account $dbPort
 COMMON_SQL: $dbHost $dbUser $dbPass common $dbPort
-LOG_SQL: $dbHost $dbUser $dbPass log $dbPort
+LOG_SQL: $dbHost $logDbUser $logDbPass log $dbPort
 SQL_HOTBACKUP: $dbHost $dbUser $dbPass player $dbPort
 PLAYER_SQL: $dbHost $dbUser $dbPass player $dbPort
 SQL_WORLD: $dbHost $dbUser $dbPass world $dbPort
@@ -279,7 +291,7 @@ SAVE_EVENT_SECOND_CYCLE: 180
 PING_EVENT_SECOND_CYCLE: 180
 ACCOUNT_SQL: $dbHost $dbUser $dbPass account $dbPort
 COMMON_SQL: $dbHost $dbUser $dbPass common $dbPort
-LOG_SQL: $dbHost $dbUser $dbPass log $dbPort
+LOG_SQL: $dbHost $logDbUser $logDbPass log $dbPort
 SQL_HOTBACKUP: $dbHost $dbUser $dbPass player $dbPort
 PLAYER_SQL: $dbHost $dbUser $dbPass player $dbPort
 SQL_WORLD: $dbHost $dbUser $dbPass world $dbPort
@@ -327,7 +339,7 @@ if ($InitSql) {
     $tmpCnf = Join-Path $TargetDir ".sql_init_client.cnf"
     $prevEap = $ErrorActionPreference
     try {
-        $cnfContent = "[client]`r`nhost=$dbHost`r`nport=$dbPort`r`nuser=$dbUser`r`npassword=`"$dbPass`"`r`n"
+        $cnfContent = "[client]`r`nhost=$dbHost`r`nport=$dbPort`r`nuser=$initDbUser`r`npassword=`"$initDbPass`"`r`n"
         [System.IO.File]::WriteAllText($tmpCnf, $cnfContent, [System.Text.Encoding]::ASCII)
         Protect-SensitiveFile $tmpCnf
         $ErrorActionPreference = "Continue"

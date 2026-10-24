@@ -176,8 +176,31 @@ if (-not (Test-PortListening $dbPort)) {
     if (!$mariaDaemon -or !(Test-Path $dataDir)) {
         throw "SQL server is not listening on port $dbPort, and no local daemon/datadir (MT2_DB_BIN_DIR / MT2_MYSQL_DATADIR) is configured."
     }
-    $mArgs = @("--datadir=$dataDir", "--port=$dbPort", "--bind-address=127.0.0.1", "--sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION", "--max-allowed-packet=64M")
-    $mCmd = "`"$mariaDaemon`" --datadir=`"$dataDir`" --port=$dbPort --bind-address=127.0.0.1 --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION --max-allowed-packet=64M"
+    $dbBindAddr = Get-ConfigValue $cfg "MT2_DB_BIND_ADDRESS" "127.0.0.1"
+    $mArgs = @(
+        "--datadir=$dataDir",
+        "--port=$dbPort",
+        "--bind-address=$dbBindAddr",
+        "--local-infile=0",
+        "--symbolic-links=0",
+        "--sql-mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+        "--max-allowed-packet=64M"
+    )
+    $pluginDir = Join-Path (Split-Path -Parent (Split-Path -Parent $mariaDaemon)) "lib\plugin"
+    if (Test-Path (Join-Path $pluginDir "server_audit.dll")) {
+        $auditLogPath = Join-Path $dataDir "mariadb_audit.log"
+        $mArgs += @(
+            "--plugin-load-add=server_audit.dll",
+            "--server-audit=FORCE_PLUS_PERMANENT",
+            "--server-audit-events=CONNECT,QUERY_DDL,QUERY_DCL",
+            "--server-audit-output-type=FILE",
+            "--server-audit-file-path=$auditLogPath",
+            "--server-audit-file-rotate-size=10485760",
+            "--server-audit-file-rotations=10",
+            "--server-audit-logging=ON"
+        )
+    }
+    $mCmd = "`"$mariaDaemon`" " + (($mArgs | ForEach-Object { "`"$_`"" }) -join " ")
     $mPid = Start-DetachedService -CommandLine $mCmd -WorkingDir $SFROOT -ExePath $mariaDaemon -ArgumentList $mArgs
     Set-Content -Path (Join-Path $dataDir "mariadbd.pid") -Value $mPid -Encoding ASCII
     for ($i = 0; $i -lt 40; $i++) {

@@ -1601,6 +1601,8 @@ void CAsyncSQL::ReleaseSpoolLockLocked(bool bRemoveLockFile)
 bool CAsyncSQL::AcquireSpoolLockLocked(const std::string & requestedPath)
 {
 	ReleaseSpoolLockLocked(false);
+	m_stSpoolRequestedPath = requestedPath;
+	m_uSpoolLockSlot = 0;
 
 	constexpr size_t MAX_SPOOL_LOCK_SLOTS = 64;
 	for (size_t slot = 0; slot < MAX_SPOOL_LOCK_SLOTS; ++slot)
@@ -1626,6 +1628,7 @@ bool CAsyncSQL::AcquireSpoolLockLocked(const std::string & requestedPath)
 				m_iSpoolLockFd = fd;
 				m_stSpoolLockPath = lockPath;
 				m_stSpoolFilePath = candidatePath;
+				m_uSpoolLockSlot = slot;
 				if (slot > 0)
 				{
 					sys_err("OPERATIONAL WARNING: AsyncSQL::EnableDurableSpool: spool path '%s' is locked by another active instance/process; isolated to '%s' (slot %zu) to prevent multi-process data race.",
@@ -1659,6 +1662,7 @@ bool CAsyncSQL::AcquireSpoolLockLocked(const std::string & requestedPath)
 			m_hSpoolLockFile = hLock;
 			m_stSpoolLockPath = lockPath;
 			m_stSpoolFilePath = candidatePath;
+			m_uSpoolLockSlot = slot;
 			if (slot > 0)
 			{
 				sys_err("OPERATIONAL WARNING: AsyncSQL::EnableDurableSpool: spool path '%s' is locked by another active instance/process; isolated to '%s' (slot %zu) to prevent multi-process data race.",
@@ -1753,6 +1757,7 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	stats.ullUncertainInFlightRetries = m_ullUncertainInFlightRetries;
 	stats.ullReconnectAttempts = m_ullReconnectAttempts;
 	stats.ullReconnectSuccessCount = m_ullReconnectSuccessCount;
+	stats.ullAdoptedOrphanCount = m_ullAdoptedOrphanCount;
 	stats.spoolBytes = m_spoolBytes;
 
 	if (!bAlreadyLockedByThisThread)
@@ -1760,15 +1765,13 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	return stats;
 }
 
-bool CAsyncSQL::LoadSpoolFromDiskLocked()
+bool CAsyncSQL::LoadSpoolFileIntoDequeLocked(const std::string & filePath, bool bRemapSeqToMonotonic, bool & bOutOverflowed)
 {
-	m_dequeSpool.clear();
-	m_spoolBytes = 0;
-
-	if (m_stSpoolFilePath.empty())
+	bOutOverflowed = false;
+	if (filePath.empty())
 		return false;
 
-	std::ifstream ifs(m_stSpoolFilePath, std::ios::in | std::ios::binary);
+	std::ifstream ifs(filePath, std::ios::in | std::ios::binary);
 	if (!ifs.is_open())
 		return true;
 
@@ -1788,7 +1791,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 		size_t p3 = (p2 != std::string::npos) ? line.find('|', p2 + 1) : std::string::npos;
 		if (p1 == std::string::npos || p2 == std::string::npos || p3 == std::string::npos || line.compare(0, p1, "SPOOL1") != 0)
 		{
-			sys_err("AsyncSQL::LoadSpoolFromDisk: malformed header at line %zu in %s; quarantining record.", lineNo, m_stSpoolFilePath.c_str());
+			sys_err("AsyncSQL::LoadSpoolFromDisk: malformed header at line %zu in %s; quarantining record.", lineNo, filePath.c_str());
 			++m_ullQuarantinedCount;
 			continue;
 		}
@@ -1797,7 +1800,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 		std::string crcStr = line.substr(p2 + 1, p3 - p2 - 1);
 		if (seqStr.empty() || crcStr.empty())
 		{
-			sys_err("AsyncSQL::LoadSpoolFromDisk: empty seq/crc at line %zu in %s; quarantining record.", lineNo, m_stSpoolFilePath.c_str());
+			sys_err("AsyncSQL::LoadSpoolFromDisk: empty seq/crc at line %zu in %s; quarantining record.", lineNo, filePath.c_str());
 			++m_ullQuarantinedCount;
 			continue;
 		}
@@ -1808,7 +1811,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 		uint32_t expectedCrc = static_cast<uint32_t>(strtoul(crcStr.c_str(), &endCrc, 16));
 		if (!endSeq || *endSeq != '\0' || !endCrc || *endCrc != '\0')
 		{
-			sys_err("AsyncSQL::LoadSpoolFromDisk: invalid seq/crc at line %zu in %s; quarantining record.", lineNo, m_stSpoolFilePath.c_str());
+			sys_err("AsyncSQL::LoadSpoolFromDisk: invalid seq/crc at line %zu in %s; quarantining record.", lineNo, filePath.c_str());
 			++m_ullQuarantinedCount;
 			continue;
 		}
@@ -1816,7 +1819,7 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 		std::string unescaped;
 		if (!UnescapeSpoolPayload(line.substr(p3 + 1), unescaped))
 		{
-			sys_err("AsyncSQL::LoadSpoolFromDisk: corrupt payload escape at line %zu in %s; quarantining record.", lineNo, m_stSpoolFilePath.c_str());
+			sys_err("AsyncSQL::LoadSpoolFromDisk: corrupt payload escape at line %zu in %s; quarantining record.", lineNo, filePath.c_str());
 			++m_ullQuarantinedCount;
 			continue;
 		}
@@ -1825,15 +1828,16 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 		uint32_t actualCrc = ComputeSpoolChecksum(seqId, unescaped);
 		if (actualCrc != expectedCrc)
 		{
-			sys_err("AsyncSQL::LoadSpoolFromDisk: checksum mismatch at line %zu in %s; quarantining record.", lineNo, m_stSpoolFilePath.c_str());
+			sys_err("AsyncSQL::LoadSpoolFromDisk: checksum mismatch at line %zu in %s; quarantining record.", lineNo, filePath.c_str());
 			++m_ullQuarantinedCount;
 			continue;
 		}
 
 		if (m_spoolBytes + sanitized.size() > m_maxSpoolBytes)
 		{
-			sys_err("CRITICAL ALERT: AsyncSQL::LoadSpoolFromDisk: spool file exceeds maxSpoolBytes (%zu > %zu) at line %zu!",
-					m_spoolBytes + sanitized.size(), m_maxSpoolBytes, lineNo);
+			bOutOverflowed = true;
+			sys_err("CRITICAL ALERT: AsyncSQL::LoadSpoolFromDisk: spool file '%s' exceeds maxSpoolBytes (%zu > %zu) at line %zu!",
+					filePath.c_str(), m_spoolBytes + sanitized.size(), m_maxSpoolBytes, lineNo);
 			++m_ullDroppedSpoolFullCount;
 			m_bFailedQueueOverflow.store(true, std::memory_order_relaxed);
 			TSpoolOverflowCallback pfn = m_pfnSpoolOverflowCallback.load(std::memory_order_relaxed);
@@ -1851,13 +1855,168 @@ bool CAsyncSQL::LoadSpoolFromDiskLocked()
 			continue;
 		}
 
+		if (bRemapSeqToMonotonic)
+		{
+			if (seqId <= m_ullSubmittedSeq)
+				seqId = ++m_ullSubmittedSeq;
+			else
+				m_ullSubmittedSeq = seqId;
+		}
+		else
+		{
+			if (seqId > m_ullSubmittedSeq)
+				m_ullSubmittedSeq = seqId;
+		}
+
 		m_dequeSpool.push_back(TDurableSpoolEntry{seqId, sanitized});
 		m_spoolBytes += sanitized.size();
-		if (seqId > m_ullSubmittedSeq)
-			m_ullSubmittedSeq = seqId;
 	}
 
 	return true;
+}
+
+size_t CAsyncSQL::AdoptOrphanSpoolSlotsLocked()
+{
+	if (!m_bDurableSpoolEnabled || m_uSpoolLockSlot != 0 || m_stSpoolRequestedPath.empty())
+		return 0;
+
+	constexpr size_t MAX_SPOOL_LOCK_SLOTS = 64;
+	size_t totalAdopted = 0;
+
+	for (size_t slot = 1; slot < MAX_SPOOL_LOCK_SLOTS; ++slot)
+	{
+		const std::string candidatePath = FormatSpoolCandidatePath(m_stSpoolRequestedPath, slot);
+		const std::string candidateQuarantine = candidatePath + ".quarantine";
+		const std::string lockPath = candidatePath + ".lock";
+
+		bool bHasSpoolFile = false;
+		{
+			std::ifstream probe(candidatePath, std::ios::in | std::ios::binary);
+			bHasSpoolFile = probe.is_open();
+		}
+		bool bHasQuarantineFile = false;
+		{
+			std::ifstream qprobe(candidateQuarantine, std::ios::in | std::ios::binary);
+			bHasQuarantineFile = qprobe.is_open();
+		}
+		if (!bHasSpoolFile && !bHasQuarantineFile)
+			continue;
+
+#ifndef __WIN32__
+		int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+		if (fd < 0)
+			continue;
+		if (::flock(fd, LOCK_EX | LOCK_NB) != 0)
+		{
+			::close(fd);
+			continue;
+		}
+#else
+		HANDLE hLock = ::CreateFileA(
+			lockPath.c_str(),
+			GENERIC_READ | GENERIC_WRITE,
+			0,
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL);
+		if (hLock == INVALID_HANDLE_VALUE || hLock == NULL)
+			continue;
+#endif
+
+		const size_t countBefore = m_dequeSpool.size();
+		bool bSlotOverflowed = false;
+		if (bHasSpoolFile)
+		{
+			LoadSpoolFileIntoDequeLocked(candidatePath, true, bSlotOverflowed);
+		}
+
+		const size_t adoptedFromSlot = m_dequeSpool.size() - countBefore;
+		if (adoptedFromSlot > 0)
+		{
+			m_ullAdoptedOrphanCount += adoptedFromSlot;
+			m_ullSpooledCount += adoptedFromSlot;
+			totalAdopted += adoptedFromSlot;
+		}
+
+		if (bHasQuarantineFile && !m_stSpoolFilePath.empty())
+		{
+			std::ifstream qIn(candidateQuarantine, std::ios::in | std::ios::binary);
+			if (qIn.is_open())
+			{
+				const std::string primaryQPath = m_stSpoolFilePath + ".quarantine";
+				FILE * qOut = std::fopen(primaryQPath.c_str(), "ab");
+				if (qOut)
+				{
+					EnforceSpoolFilePermissions(primaryQPath);
+					std::string qLine;
+					while (std::getline(qIn, qLine))
+					{
+						if (!qLine.empty() && qLine.back() == '\r')
+							qLine.pop_back();
+						if (!qLine.empty())
+							std::fprintf(qOut, "%s\n", qLine.c_str());
+					}
+					SyncFileDescriptor(qOut);
+					std::fclose(qOut);
+					qIn.close();
+					std::remove(candidateQuarantine.c_str());
+				}
+			}
+		}
+
+		bool bCanRemoveOrphanSlot = !bSlotOverflowed;
+		if (bCanRemoveOrphanSlot && adoptedFromSlot > 0)
+		{
+			bCanRemoveOrphanSlot = SyncSpoolToDiskLocked();
+		}
+
+		if (bCanRemoveOrphanSlot)
+		{
+			if (bHasSpoolFile)
+				std::remove(candidatePath.c_str());
+#ifndef __WIN32__
+			(void)::flock(fd, LOCK_UN);
+			::close(fd);
+#else
+			::CloseHandle(hLock);
+#endif
+			std::remove(lockPath.c_str());
+			if (adoptedFromSlot > 0)
+			{
+				sys_log(0, "AsyncSQL::AdoptOrphanSpoolSlotsLocked: recovered %zu orphaned spool records from '%s' (slot %zu) into '%s'.",
+						adoptedFromSlot, candidatePath.c_str(), slot, m_stSpoolFilePath.c_str());
+			}
+		}
+		else
+		{
+#ifndef __WIN32__
+			(void)::flock(fd, LOCK_UN);
+			::close(fd);
+#else
+			::CloseHandle(hLock);
+#endif
+		}
+	}
+
+	return totalAdopted;
+}
+
+bool CAsyncSQL::LoadSpoolFromDiskLocked()
+{
+	m_dequeSpool.clear();
+	m_spoolBytes = 0;
+
+	if (m_stSpoolFilePath.empty())
+		return false;
+
+	bool bOverflowed = false;
+	bool bLoaded = LoadSpoolFileIntoDequeLocked(m_stSpoolFilePath, false, bOverflowed);
+	if (m_uSpoolLockSlot == 0)
+	{
+		AdoptOrphanSpoolSlotsLocked();
+	}
+	return bLoaded;
 }
 
 bool CAsyncSQL::SyncSpoolToDiskLocked()
@@ -2080,6 +2239,12 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 		bool hasSpool = !m_dequeSpool.empty();
 		if (!hasMemory && !hasSpool)
 		{
+			if (m_uSpoolLockSlot == 0 && AdoptOrphanSpoolSlotsLocked() > 0)
+			{
+				m_bSpoolingActive = true;
+				MUTEX_UNLOCK(m_mtxQuery.get());
+				continue;
+			}
 			m_bSpoolingActive = false;
 			MUTEX_UNLOCK(m_mtxQuery.get());
 			return true;

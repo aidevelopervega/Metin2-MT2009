@@ -501,6 +501,7 @@ int main(int argc, char* argv[])
 			std::cout << "    -> Captured In-Flight Disconnect Error: " << resA->uiSQLErrno << " (" << (resA->uiSQLErrno == 2013 ? "CR_SERVER_LOST" : "CR_SERVER_GONE_ERROR") << ")" << std::endl;
 
 			sqlProxyA.Destroy();
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 			// Verify server health via direct connection
 			CAsyncSQL sqlCheckA;
@@ -551,6 +552,7 @@ int main(int argc, char* argv[])
 					  << " | Transaction Status: UNKNOWN (client saw socket drop after commit)" << std::endl;
 
 			sqlProxyB.Destroy();
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 			// Verify in database via separate direct connection that the UPDATE was actually applied!
 			uint64_t actualGold = 0;
@@ -1245,11 +1247,13 @@ int main(int argc, char* argv[])
 				"Scenario 10: All 10 outage logs preserved exact single-quoted item names in MariaDB");
 		}
 
-		// Scenario 12: Live MariaDB replay of SanitizeQueryForLog (backslashes, UTF-8, NO_BACKSLASH_ESCAPES) & same-directory multi-instance spool lock isolation
+		// Scenario 12: Live MariaDB replay of SanitizeQueryForLog (backslashes, UTF-8, NO_BACKSLASH_ESCAPES) & active multi-instance spool lock isolation
 		{
 			const char * slot1File = "test_live_sql_log_spool.1.dat";
 			std::remove(spoolFile);
 			std::remove(slot1File);
+			std::remove("test_live_sql_log_spool.dat.lock");
+			std::remove("test_live_sql_log_spool.1.dat.lock");
 
 			logProxy.SetBlackhole(true);
 			logProxy.SeverActiveConnections();
@@ -1274,33 +1278,32 @@ int main(int argc, char* argv[])
 				"INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES "
 				"(42, 'S12_INST_B_NOBS', 'Dir=C:\\ token=''LiveToken888'' UTF8_İÖÜ');");
 
-			LIVE_ASSERT(instA.FlushAndSpoolOnShutdown(300) == true && instB.FlushAndSpoolOnShutdown(300) == true,
-				"Scenario 12: Both concurrent instances flushed to isolated disk spool files on shutdown");
+			// instA shuts down and restarts as replayA while instB remains active holding slot 1 lock
+			LIVE_ASSERT(instA.FlushAndSpoolOnShutdown(300) == true,
+				"Scenario 12: Instance A flushed to slot 0 disk spool on shutdown");
 
 			logProxy.SetBlackhole(false);
 
 			CAsyncSQL replayA;
-			CAsyncSQL replayB;
 			LIVE_ASSERT(replayA.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
-				"Scenario 12: Replay instance A loaded slot 0 spool file");
-			replayB.SetNoBackslashEscapes(true);
-			LIVE_ASSERT(replayB.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
-				"Scenario 12: Replay instance B loaded slot 1 spool file while slot 0 is locked");
+				"Scenario 12: Replay instance A loaded slot 0 spool file while instB holds slot 1 lock");
+			LIVE_ASSERT(replayA.GetDurableSpoolStats().ullAdoptedOrphanCount == 0,
+				"Scenario 12: Active locked slot 1 is preserved for instB and not hijacked by replayA");
 
 			LIVE_ASSERT(replayA.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
 				"Scenario 12: Replay instance A connected to live MariaDB");
-			LIVE_ASSERT(replayB.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
-				"Scenario 12: Replay instance B connected to live MariaDB");
-			replayB.DirectQuery("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',NO_BACKSLASH_ESCAPES');");
-			replayB.SetNoBackslashEscapes(true);
+			LIVE_ASSERT(instB.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
+				"Scenario 12: Instance B connected to live MariaDB");
+			instB.DirectQuery("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',NO_BACKSLASH_ESCAPES');");
+			instB.SetNoBackslashEscapes(true);
 
 			LIVE_ASSERT(replayA.ReplayDurableSpoolNow() == true && replayA.GetDurableSpoolStats().ullQuarantinedCount == 0,
 				"Scenario 12: Instance A replayed sanitized query into MariaDB with 0 SQL syntax errors");
-			LIVE_ASSERT(replayB.ReplayDurableSpoolNow() == true && replayB.GetDurableSpoolStats().ullQuarantinedCount == 0,
+			LIVE_ASSERT(instB.ReplayDurableSpoolNow() == true && instB.GetDurableSpoolStats().ullQuarantinedCount == 0,
 				"Scenario 12: Instance B replayed NO_BACKSLASH_ESCAPES sanitized query into MariaDB with 0 SQL syntax errors");
 
 			replayA.FlushAndSpoolOnShutdown(200);
-			replayB.FlushAndSpoolOnShutdown(200);
+			instB.FlushAndSpoolOnShutdown(200);
 
 			auto verifyS12 = verifyConn.DirectQuery(
 				"SELECT seq_no, scenario, hint FROM test_sql_log_durability WHERE seq_no IN (41, 42) ORDER BY seq_no ASC;");
@@ -1325,6 +1328,77 @@ int main(int argc, char* argv[])
 			std::remove("test_live_sql_log_spool.1.dat.lock");
 		}
 
+		// Scenario 13: Multi-slot crash/shutdown (.dat, .1.dat, .2.dat) followed by SINGLE-instance restart & live MariaDB replay
+		{
+			const char * slot1File = "test_live_sql_log_spool.1.dat";
+			const char * slot2File = "test_live_sql_log_spool.2.dat";
+			std::remove(spoolFile);
+			std::remove(slot1File);
+			std::remove(slot2File);
+			std::remove("test_live_sql_log_spool.dat.lock");
+			std::remove("test_live_sql_log_spool.1.dat.lock");
+			std::remove("test_live_sql_log_spool.2.dat.lock");
+
+			{
+				CAsyncSQL p0;
+				CAsyncSQL p1;
+				CAsyncSQL p2;
+				LIVE_ASSERT(p0.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true && p0.GetSpoolLockSlot() == 0,
+					"Scenario 13: Process 0 acquired slot 0 (.dat)");
+				LIVE_ASSERT(p1.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true && p1.GetSpoolLockSlot() == 1,
+					"Scenario 13: Process 1 acquired slot 1 (.1.dat)");
+				LIVE_ASSERT(p2.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true && p2.GetSpoolLockSlot() == 2,
+					"Scenario 13: Process 2 acquired slot 2 (.2.dat)");
+
+				p0.AsyncQuery("INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES (43, 'S13_SLOT0', 'Slot0_Rec1');");
+				p0.AsyncQuery("INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES (44, 'S13_SLOT0', 'Slot0_Rec2');");
+				p1.AsyncQuery("INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES (45, 'S13_SLOT1', 'Slot1_Rec1');");
+				p1.AsyncQuery("INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES (46, 'S13_SLOT1', 'Slot1_Rec2');");
+				p2.AsyncQuery("INSERT INTO test_sql_log_durability (seq_no, scenario, hint) VALUES (47, 'S13_SLOT2', 'Slot2_Rec1');");
+
+				LIVE_ASSERT(p0.FlushAndSpoolOnShutdown(300) == true &&
+							p1.FlushAndSpoolOnShutdown(300) == true &&
+							p2.FlushAndSpoolOnShutdown(300) == true,
+					"Scenario 13: All 3 processes flushed offline spool files (.dat, .1.dat, .2.dat) and exited");
+			}
+
+			// Now ONLY ONE instance restarts in the working directory
+			CAsyncSQL singleSurvivor;
+			LIVE_ASSERT(singleSurvivor.EnableDurableSpool(spoolFile, 10, 64 * 1024 * 1024, 150) == true,
+				"Scenario 13: Single survivor process restarted on slot 0");
+			auto stAdopted = singleSurvivor.GetDurableSpoolStats();
+			LIVE_ASSERT(stAdopted.ullAdoptedOrphanCount == 3 && stAdopted.ullPendingSpoolCount == 5,
+				"Scenario 13: Single survivor automatically adopted 3 orphaned records from .1.dat and .2.dat (total pending=5)");
+
+			LIVE_ASSERT(singleSurvivor.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
+				"Scenario 13: Single survivor connected to live MariaDB");
+			LIVE_ASSERT(singleSurvivor.ReplayDurableSpoolNow() == true,
+				"Scenario 13: Single survivor replayed all 5 records (slot 0 + orphan slots 1 & 2) into MariaDB");
+			singleSurvivor.FlushAndSpoolOnShutdown(200);
+
+			auto verifyS13 = verifyConn.DirectQuery(
+				"SELECT seq_no, scenario, hint FROM test_sql_log_durability WHERE seq_no BETWEEN 43 AND 47 ORDER BY row_id ASC;");
+			LIVE_ASSERT(verifyS13 != nullptr && !verifyS13->IsError() && verifyS13->Get() && verifyS13->Get()->ullNumRows == 5,
+				"Scenario 13: All 5 rows (seq 43..47) across slot 0, slot 1, and slot 2 committed to MariaDB with 0 loss and 0 duplicates");
+
+			int expectedSeq = 43;
+			bool orderMatch = true;
+			for (uint64_t i = 0; i < 5; ++i) {
+				MYSQL_ROW r = mysql_fetch_row(verifyS13->Get()->pSQLResult);
+				if (!r || std::atoi(r[0]) != expectedSeq++) {
+					orderMatch = false;
+				}
+			}
+			LIVE_ASSERT(orderMatch == true,
+				"Scenario 13: Replayed rows from slot 0 (.dat), slot 1 (.1.dat), and slot 2 (.2.dat) preserved exact sequence order 43..47");
+
+			std::remove(slot1File);
+			std::remove(slot2File);
+			std::remove("test_live_sql_log_spool.dat.lock");
+			std::remove("test_live_sql_log_spool.1.dat.lock");
+			std::remove("test_live_sql_log_spool.2.dat.lock");
+		}
+
 		logProxy.Stop();
 		verifyConn.DirectQuery("DROP TABLE IF EXISTS test_sql_log_durability;");
 		verifyConn.Quit();
@@ -1333,9 +1407,162 @@ int main(int argc, char* argv[])
 	}
 
 	// --------------------------------------------------------------------------
-	// 15. CLEANUP OF TEST SCHEMA
+	// 15. MARIADB 12.3 LTS LOOPBACK BIND, LEAST-PRIVILEGE & SERVER AUDIT SUITE
 	// --------------------------------------------------------------------------
-	std::cout << "\n[15/15] Clean Teardown of Test Schema..." << std::endl;
+	std::cout << "\n[15/16] Testing MariaDB 12.3 LTS Loopback Bind, Least-Privilege Runtime/Log Accounts & Server Audit..." << std::endl;
+	{
+		CAsyncSQL adminSql;
+		LIVE_ASSERT(adminSql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port) == true,
+			"Security Suite: Connected to MariaDB 12.3 LTS for security posture inspection");
+
+		// 1. Verify bind_address == 127.0.0.1 and local_infile == 0
+		auto bindMsg = adminSql.DirectQuery("SELECT @@GLOBAL.bind_address, @@GLOBAL.local_infile;");
+		LIVE_ASSERT(bindMsg != nullptr && !bindMsg->IsError() && bindMsg->Get() && bindMsg->Get()->uiNumRows == 1,
+			"Security Suite: Queried @@GLOBAL.bind_address and @@GLOBAL.local_infile");
+		if (bindMsg && !bindMsg->IsError() && bindMsg->Get() && bindMsg->Get()->uiNumRows == 1) {
+			MYSQL_ROW bRow = mysql_fetch_row(bindMsg->Get()->pSQLResult);
+			std::string bindAddr = (bRow && bRow[0]) ? bRow[0] : "";
+			int localInfile = (bRow && bRow[1]) ? std::atoi(bRow[1]) : -1;
+			LIVE_ASSERT(bindAddr == "127.0.0.1",
+				"Security Suite [B2/B5.10]: @@GLOBAL.bind_address is strictly locked to 127.0.0.1 (not 0.0.0.0 or *)");
+			LIVE_ASSERT(localInfile == 0,
+				"Security Suite [B2]: @@GLOBAL.local_infile is disabled (0)");
+		}
+
+		// 2. Verify unauthorized user / wrong password connection is rejected (ER_ACCESS_DENIED_ERROR = 1045)
+		{
+			CAsyncSQL unauthSql;
+			bool unauthOk = unauthSql.Setup(host.c_str(), "ransom_attacker_unauth", "WrongPass!999", dbname.c_str(), "utf8mb4", true, port);
+			LIVE_ASSERT(unauthOk == false,
+				"Security Suite [B5.2]: Unauthorized database user connection is strictly rejected (ER_ACCESS_DENIED_ERROR)");
+			unauthSql.Quit();
+		}
+
+		// 3. Verify least-privilege runtime account (mt2server) and dedicated log account (mt2log) if configured
+		const char * envRuntimeUser = std::getenv("MT2_RUNTIME_USER");
+		const char * envRuntimePass = std::getenv("MT2_RUNTIME_PASSWORD");
+		const char * envLogUser = std::getenv("MT2_LOG_DB_USER");
+		const char * envLogPass = std::getenv("MT2_LOG_DB_PASS");
+
+		if (envRuntimeUser && *envRuntimeUser && envRuntimePass && *envRuntimePass) {
+			CAsyncSQL rtSql;
+			LIVE_ASSERT(rtSql.Setup(host.c_str(), envRuntimeUser, envRuntimePass, dbname.c_str(), "utf8mb4", true, port) == true,
+				"Security Suite [B5.1]: Least-privilege runtime account (mt2server) connected via 127.0.0.1");
+
+			// B5.3 & B5.4: Verify mt2server has NO global admin privileges (no SUPER, FILE, CREATE USER, GRANT OPTION, SHUTDOWN, PROCESS, RELOAD)
+			auto privMsg = rtSql.DirectQuery(
+				"SELECT COUNT(*) FROM information_schema.USER_PRIVILEGES "
+				"WHERE PRIVILEGE_TYPE IN ('SUPER','FILE','CREATE USER','SHUTDOWN','PROCESS','RELOAD','ALL PRIVILEGES') "
+				"OR IS_GRANTABLE = 'YES';");
+			LIVE_ASSERT(privMsg != nullptr && !privMsg->IsError() && privMsg->Get() && privMsg->Get()->uiNumRows == 1,
+				"Security Suite [B5.3]: Queried information_schema.USER_PRIVILEGES for runtime account");
+			if (privMsg && !privMsg->IsError() && privMsg->Get() && privMsg->Get()->uiNumRows == 1) {
+				MYSQL_ROW pRow = mysql_fetch_row(privMsg->Get()->pSQLResult);
+				int adminPrivCount = (pRow && pRow[0]) ? std::atoi(pRow[0]) : -1;
+				LIVE_ASSERT(adminPrivCount == 0,
+					"Security Suite [B5.3/B5.4]: Runtime account possesses 0 global admin/super/file/create-user/grant privileges");
+			}
+
+			// B5.4: Attempt DCL / admin commands as runtime account -> must be denied
+			auto dclCreateUser = rtSql.DirectQuery("CREATE USER 'ransom_backdoor'@'%' IDENTIFIED BY 'Pwned!123';");
+			LIVE_ASSERT(dclCreateUser != nullptr && dclCreateUser->IsError() && dclCreateUser->uiSQLErrno != 0,
+				"Security Suite [B5.4]: Runtime account cannot execute CREATE USER (rejected by MariaDB)");
+
+			auto dclGrant = rtSql.DirectQuery("GRANT ALL PRIVILEGES ON *.* TO 'mt2server'@'127.0.0.1';");
+			LIVE_ASSERT(dclGrant != nullptr && dclGrant->IsError() && dclGrant->uiSQLErrno != 0,
+				"Security Suite [B5.4]: Runtime account cannot escalate privileges via GRANT");
+
+			// B5.5: Attempt destructive DDL (CREATE DATABASE, DROP DATABASE, DROP TABLE, ALTER TABLE) as runtime account -> must be denied
+			auto ddlCreateDb = rtSql.DirectQuery("CREATE DATABASE z_ransom_note_test;");
+			LIVE_ASSERT(ddlCreateDb != nullptr && ddlCreateDb->IsError() && (ddlCreateDb->uiSQLErrno == 1044 || ddlCreateDb->uiSQLErrno == 1227),
+				"Security Suite [B5.5]: Runtime account cannot execute CREATE DATABASE (errno 1044)");
+
+			auto ddlDropDb = rtSql.DirectQuery("DROP DATABASE mt2_testdb;");
+			LIVE_ASSERT(ddlDropDb != nullptr && ddlDropDb->IsError() && (ddlDropDb->uiSQLErrno == 1044 || ddlDropDb->uiSQLErrno == 1142),
+				"Security Suite [B5.5]: Runtime account cannot execute DROP DATABASE (errno 1044)");
+
+			auto ddlDropTbl = rtSql.DirectQuery("DROP TABLE test_player_live;");
+			LIVE_ASSERT(ddlDropTbl != nullptr && ddlDropTbl->IsError() && ddlDropTbl->uiSQLErrno == 1142,
+				"Security Suite [B5.5]: Runtime account cannot execute DROP TABLE (errno 1142)");
+
+			auto ddlAlterTbl = rtSql.DirectQuery("ALTER TABLE test_player_live ADD COLUMN ransom_col INT DEFAULT 0;");
+			LIVE_ASSERT(ddlAlterTbl != nullptr && ddlAlterTbl->IsError() && ddlAlterTbl->uiSQLErrno == 1142,
+				"Security Suite [B5.5]: Runtime account cannot execute ALTER TABLE (errno 1142)");
+
+			// B5.6: Verify legitimate GAME/DB runtime queries (SELECT, INSERT, UPDATE, REPLACE, DELETE, SHOW CREATE TABLE) succeed
+			auto dmlSelect = rtSql.DirectQuery("SELECT id, name, gold FROM test_player_live LIMIT 1;");
+			LIVE_ASSERT(dmlSelect != nullptr && !dmlSelect->IsError(),
+				"Security Suite [B5.6]: Runtime account SELECT on player table succeeds");
+
+			auto dmlShowCreate = rtSql.DirectQuery("SHOW CREATE TABLE test_player_live;");
+			LIVE_ASSERT(dmlShowCreate != nullptr && !dmlShowCreate->IsError(),
+				"Security Suite [B5.6]: Runtime account SHOW CREATE TABLE (used by PlayerHB::Initialize) succeeds");
+
+			auto dmlReplace = rtSql.DirectQuery(
+				"REPLACE INTO test_player_live (id, name, gold, created_date) "
+				"VALUES (99901, 'RtLeastPriv', 10000, '2026-10-24 12:00:00');");
+			LIVE_ASSERT(dmlReplace != nullptr && !dmlReplace->IsError(),
+				"Security Suite [B5.6]: Runtime account REPLACE INTO (INSERT+DELETE) succeeds");
+
+			auto dmlUpdate = rtSql.DirectQuery("UPDATE test_player_live SET gold = 56000 WHERE id = 99901;");
+			LIVE_ASSERT(dmlUpdate != nullptr && !dmlUpdate->IsError(),
+				"Security Suite [B5.6]: Runtime account UPDATE succeeds");
+
+			auto dmlDelete = rtSql.DirectQuery("DELETE FROM test_player_live WHERE id = 99901;");
+			LIVE_ASSERT(dmlDelete != nullptr && !dmlDelete->IsError(),
+				"Security Suite [B5.6]: Runtime account DELETE succeeds");
+
+			rtSql.Quit();
+		}
+
+		if (envLogUser && *envLogUser && envLogPass && *envLogPass) {
+			CAsyncSQL logRoleSql;
+			LIVE_ASSERT(logRoleSql.Setup(host.c_str(), envLogUser, envLogPass, "log", "utf8mb4", true, port) == true,
+				"Security Suite [B3]: Dedicated SQL Log account (mt2log) connected to 'log' database");
+
+			// Verify mt2log CANNOT read or modify player/test tables in mt2_testdb or account
+			auto logReadPlayer = logRoleSql.DirectQuery("SELECT * FROM mt2_testdb.test_player_live LIMIT 1;");
+			LIVE_ASSERT(logReadPlayer != nullptr && logReadPlayer->IsError() && (logReadPlayer->uiSQLErrno == 1142 || logReadPlayer->uiSQLErrno == 1044),
+				"Security Suite [B3]: Dedicated SQL Log account (mt2log) is strictly denied SELECT access to non-log schemas (errno 1142/1044)");
+
+			auto logDropTable = logRoleSql.DirectQuery("DROP TABLE mt2_testdb.test_player_live;");
+			LIVE_ASSERT(logDropTable != nullptr && logDropTable->IsError() && (logDropTable->uiSQLErrno == 1142 || logDropTable->uiSQLErrno == 1044),
+				"Security Suite [B3]: Dedicated SQL Log account (mt2log) is strictly denied DDL across schemas");
+
+			logRoleSql.Quit();
+		}
+
+		// B4 & B5.7: Check server_audit plugin status if loaded on this MariaDB 12.3 instance
+		auto auditVarMsg = adminSql.DirectQuery("SHOW GLOBAL VARIABLES LIKE 'server_audit_logging';");
+		if (auditVarMsg && !auditVarMsg->IsError() && auditVarMsg->Get() && auditVarMsg->Get()->uiNumRows == 1) {
+			MYSQL_ROW aRow = mysql_fetch_row(auditVarMsg->Get()->pSQLResult);
+			std::string auditLogging = (aRow && aRow[1]) ? aRow[1] : "";
+			LIVE_ASSERT(auditLogging == "ON",
+				"Security Suite [B4/B5.7]: MariaDB server_audit plugin is active with server_audit_logging=ON");
+
+			auto auditEventsMsg = adminSql.DirectQuery("SELECT @@GLOBAL.server_audit_events;");
+			if (auditEventsMsg && !auditEventsMsg->IsError() && auditEventsMsg->Get() && auditEventsMsg->Get()->uiNumRows == 1) {
+				MYSQL_ROW eRow = mysql_fetch_row(auditEventsMsg->Get()->pSQLResult);
+				std::string evs = (eRow && eRow[0]) ? eRow[0] : "";
+				LIVE_ASSERT(evs.find("CONNECT") != std::string::npos &&
+							evs.find("QUERY_DDL") != std::string::npos &&
+							evs.find("QUERY_DCL") != std::string::npos,
+					"Security Suite [B4/B5.7]: server_audit_events tracks CONNECT, QUERY_DDL, and QUERY_DCL");
+			}
+
+			// Verify FORCE_PLUS_PERMANENT prevents unloading server_audit at runtime
+			auto uninstallAudit = adminSql.DirectQuery("UNINSTALL PLUGIN server_audit;");
+			LIVE_ASSERT(uninstallAudit != nullptr && uninstallAudit->IsError() && uninstallAudit->uiSQLErrno != 0,
+				"Security Suite [B4]: server_audit is protected by FORCE_PLUS_PERMANENT and cannot be uninstalled at runtime");
+		}
+
+		adminSql.Quit();
+	}
+
+	// --------------------------------------------------------------------------
+	// 16. CLEANUP OF TEST SCHEMA
+	// --------------------------------------------------------------------------
+	std::cout << "\n[16/16] Clean Teardown of Test Schema..." << std::endl;
 	{
 		CAsyncSQL sql;
 		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);
