@@ -1,29 +1,24 @@
 #!/bin/sh
 # ==============================================================================
-# Metin2 MT2009 — FreeBSD MariaDB Audit Guard, Syslog Forwarder & Spool Monitor
+# Metin2 MT2009 — FreeBSD MariaDB Audit Guard, Sensitive-DML Redactor,
+# Rotation-Safe Syslog/TLS Forwarder & Spool/Disk Capacity Monitor (v2)
 # Target Database: MariaDB 12.3 LTS
-#
-# Responsibilities:
-#   1. Enforce 0750/0640 permissions on MariaDB server_audit logs and archive
-#      rotated logs with FreeBSD `chflags sappnd` (system append-only protection).
-#   2. Check audit log storage capacity (--check-capacity) and emit
-#      [MT2_AUDIT_ALERT][CAPACITY_HIGH] when usage exceeds threshold.
-#   3. Forward new audit log records to a remote TCP/UDP syslog collector
-#      (--forward-once) with stateful byte-offset tracking, and emit
-#      [MT2_AUDIT_ALERT][FORWARD_FAILURE] without advancing offset on failure.
-#   4. Monitor game server syserr and durable SQL spool files (--check-spool-syserr)
-#      for LogManager 64 MB spool overflow, disk sync failure, or poison quarantine.
 # ==============================================================================
 
 set -eu
 
 AUDIT_LOG_PATH="${MT2_AUDIT_LOG_PATH:-/var/db/mysql/mariadb_audit.log}"
 AUDIT_ARCHIVE_DIR="${MT2_AUDIT_ARCHIVE_DIR:-/var/log/mt2_audit_archive}"
+AUDIT_ARCHIVE_MAX_FILES="${MT2_AUDIT_ARCHIVE_MAX_FILES:-30}"
 AUDIT_ALERT_FILE="${MT2_AUDIT_ALERT_FILE:-/var/log/mt2_security_alerts.log}"
 AUDIT_MAX_BYTES="${MT2_AUDIT_MAX_BYTES:-9437184000}" # 90 x 100 MB (~9 GB)
 AUDIT_WARN_PCT="${MT2_AUDIT_WARN_PCT:-80}"
+MIN_FREE_DISK_MB="${MT2_MIN_FREE_DISK_MB:-1024}"
 AUDIT_REMOTE_HOST="${MT2_AUDIT_REMOTE_HOST:-}"
 AUDIT_REMOTE_PORT="${MT2_AUDIT_REMOTE_PORT:-514}"
+AUDIT_USE_TLS="${MT2_AUDIT_USE_TLS:-0}"
+AUDIT_TLS_CA_FILE="${MT2_AUDIT_TLS_CA_FILE:-}"
+AUDIT_REQUIRE_ACK="${MT2_AUDIT_REQUIRE_ACK:-0}"
 SERVERFILES_DIR="${MT2_SERVERFILES_DIR:-/usr/home/mt2}"
 
 ACTION=""
@@ -46,12 +41,24 @@ while [ "$#" -gt 0 ]; do
             ACTION="check_spool_syserr"
             shift
             ;;
+        --install-cron)
+            ACTION="install_cron"
+            shift
+            ;;
+        --cron-file)
+            CRON_FILE="$2"
+            shift 2
+            ;;
         --audit-log)
             AUDIT_LOG_PATH="$2"
             shift 2
             ;;
         --archive-dir)
             AUDIT_ARCHIVE_DIR="$2"
+            shift 2
+            ;;
+        --archive-max-files)
+            AUDIT_ARCHIVE_MAX_FILES="$2"
             shift 2
             ;;
         --alert-file)
@@ -66,6 +73,10 @@ while [ "$#" -gt 0 ]; do
             AUDIT_WARN_PCT="$2"
             shift 2
             ;;
+        --min-free-mb)
+            MIN_FREE_DISK_MB="$2"
+            shift 2
+            ;;
         --remote-host)
             AUDIT_REMOTE_HOST="$2"
             shift 2
@@ -73,6 +84,18 @@ while [ "$#" -gt 0 ]; do
         --remote-port)
             AUDIT_REMOTE_PORT="$2"
             shift 2
+            ;;
+        --tls)
+            AUDIT_USE_TLS=1
+            shift
+            ;;
+        --tls-ca-file)
+            AUDIT_TLS_CA_FILE="$2"
+            shift 2
+            ;;
+        --require-ack)
+            AUDIT_REQUIRE_ACK=1
+            shift
             ;;
         --serverfiles-dir)
             SERVERFILES_DIR="$2"
@@ -102,6 +125,16 @@ emit_alert() {
     fi
 }
 
+find_python() {
+    if python3 -c "import sys" >/dev/null 2>&1; then
+        echo "python3"
+    elif python -c "import sys" >/dev/null 2>&1; then
+        echo "python"
+    else
+        echo ""
+    fi
+}
+
 case "$ACTION" in
     enforce_perms)
         audit_dir=$(dirname "$AUDIT_LOG_PATH")
@@ -116,12 +149,43 @@ case "$ACTION" in
         if [ -n "$AUDIT_ARCHIVE_DIR" ]; then
             mkdir -p "$AUDIT_ARCHIVE_DIR"
             chmod 0700 "$AUDIT_ARCHIVE_DIR" 2>/dev/null || true
+            PY_CMD=$(find_python)
             for rot in "$AUDIT_LOG_PATH".[0-9]*; do
                 if [ -f "$rot" ]; then
-                    base_rot=$(basename "$rot")
-                    dest_rot="$AUDIT_ARCHIVE_DIR/$base_rot"
-                    if [ ! -f "$dest_rot" ]; then
-                        cp -p "$rot" "$dest_rot"
+                    if [ -n "$PY_CMD" ]; then
+                        dest_rot=$("$PY_CMD" - "$rot" "$AUDIT_ARCHIVE_DIR" <<'PYEOF'
+import hashlib, os, re, sys
+
+rot_path, arch_dir = sys.argv[1:3]
+with open(rot_path, "rb") as f:
+    raw = f.read()
+
+sha12 = hashlib.sha256(raw).hexdigest()[:12]
+base_name = os.path.basename(rot_path)
+dest_path = os.path.join(arch_dir, f"{base_name}.{sha12}")
+
+if not os.path.exists(dest_path):
+    text = raw.decode("utf-8", errors="replace")
+    # Redact Argon2id hashes, legacy MySQL SHA1 hashes, password/token/social_id/email/hwid literals in DML queries
+    text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
+    text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid)\s*=\s*(?:''|\\'|')+[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
+    text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
+    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
+    with open(dest_path, "wb") as out_f:
+        out_f.write(text.encode("utf-8"))
+print(dest_path)
+PYEOF
+                        )
+                    else
+                        base_rot=$(basename "$rot")
+                        dest_rot="$AUDIT_ARCHIVE_DIR/$base_rot"
+                        if [ ! -f "$dest_rot" ]; then
+                            cp -p "$rot" "$dest_rot"
+                        fi
+                    fi
+                    if [ -n "$dest_rot" ] && [ -f "$dest_rot" ]; then
                         chmod 0400 "$dest_rot" 2>/dev/null || true
                         if [ "$(uname -s 2>/dev/null || true)" = "FreeBSD" ] && [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
                             chflags sappnd "$dest_rot" 2>/dev/null || true
@@ -129,8 +193,22 @@ case "$ACTION" in
                     fi
                 fi
             done
+            # Enforce archive retention cap (oldest pruned when exceeding AUDIT_ARCHIVE_MAX_FILES)
+            arch_count=0
+            for af in $(ls -1t "$AUDIT_ARCHIVE_DIR"/* 2>/dev/null || true); do
+                if [ -f "$af" ]; then
+                    arch_count=$((arch_count + 1))
+                    if [ "$arch_count" -gt "$AUDIT_ARCHIVE_MAX_FILES" ]; then
+                        if [ "$(uname -s 2>/dev/null || true)" = "FreeBSD" ] && [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+                            chflags nosappnd "$af" 2>/dev/null || true
+                        fi
+                        chmod 0600 "$af" 2>/dev/null || true
+                        rm -f "$af" 2>/dev/null || true
+                    fi
+                fi
+            done
         fi
-        echo "[OK] Audit permissions and archive protections enforced."
+        echo "[OK] Audit permissions, sensitive-DML archive redaction, and archive retention enforced."
         ;;
 
     check_capacity)
@@ -141,12 +219,33 @@ case "$ACTION" in
                 total_bytes=$((total_bytes + fsize))
             fi
         done
+        if [ -d "$AUDIT_ARCHIVE_DIR" ]; then
+            for af in "$AUDIT_ARCHIVE_DIR"/*; do
+                if [ -f "$af" ]; then
+                    afsize=$(wc -c < "$af" | tr -d ' \t\r\n')
+                    total_bytes=$((total_bytes + afsize))
+                fi
+            done
+        fi
         threshold_bytes=$((AUDIT_MAX_BYTES * AUDIT_WARN_PCT / 100))
         if [ "$total_bytes" -ge "$threshold_bytes" ]; then
-            emit_alert "[MT2_AUDIT_ALERT][CAPACITY_HIGH]" "Audit log usage ${total_bytes}B reached/exceeded threshold ${threshold_bytes}B (${AUDIT_WARN_PCT}% of ${AUDIT_MAX_BYTES}B)"
+            emit_alert "[MT2_AUDIT_ALERT][CAPACITY_HIGH]" "Audit log + archive usage ${total_bytes}B reached/exceeded threshold ${threshold_bytes}B (${AUDIT_WARN_PCT}% of ${AUDIT_MAX_BYTES}B)"
             exit 2
         fi
-        echo "[OK] Audit capacity within safe bounds (${total_bytes}B < ${threshold_bytes}B)."
+        audit_dir=$(dirname "$AUDIT_LOG_PATH")
+        if [ -d "$audit_dir" ] && command -v df >/dev/null 2>&1; then
+            free_mb=$(df -Pm "$audit_dir" 2>/dev/null | awk 'NR==2 {print $4}' | tr -d ' \t\r\n')
+            case "$free_mb" in
+                ''|*[!0-9]*) ;;
+                *)
+                    if [ "$free_mb" -lt "$MIN_FREE_DISK_MB" ]; then
+                        emit_alert "[MT2_AUDIT_ALERT][DISK_FREE_LOW]" "Available filesystem space ${free_mb}MB on $audit_dir is below minimum ${MIN_FREE_DISK_MB}MB"
+                        exit 2
+                    fi
+                    ;;
+            esac
+        fi
+        echo "[OK] Audit capacity and filesystem free space within safe bounds (${total_bytes}B < ${threshold_bytes}B)."
         ;;
 
     forward_once)
@@ -158,54 +257,136 @@ case "$ACTION" in
             emit_alert "[MT2_AUDIT_ALERT][FORWARD_FAILURE]" "MT2_AUDIT_REMOTE_HOST is not configured"
             exit 3
         fi
-        offset_file="${AUDIT_LOG_PATH}.forward.offset"
-        last_offset=0
-        if [ -f "$offset_file" ]; then
-            last_offset=$(cat "$offset_file" | tr -d ' \t\r\n')
-        fi
-        cur_size=$(wc -c < "$AUDIT_LOG_PATH" | tr -d ' \t\r\n')
-        if [ "$cur_size" -lt "$last_offset" ]; then
-            last_offset=0
-        fi
-        if [ "$cur_size" -eq "$last_offset" ]; then
-            echo "[OK] No new audit bytes to forward (offset=$last_offset)."
-            exit 0
-        fi
-        if python3 -c "import sys" >/dev/null 2>&1; then
-            PY_CMD="python3"
-        elif python -c "import sys" >/dev/null 2>&1; then
-            PY_CMD="python"
-        else
-            emit_alert "[MT2_AUDIT_ALERT][FORWARD_FAILURE]" "Neither python3 nor python found for TCP syslog transport"
+        PY_CMD=$(find_python)
+        if [ -z "$PY_CMD" ]; then
+            emit_alert "[MT2_AUDIT_ALERT][FORWARD_FAILURE]" "Neither python3 nor python found for TCP/TLS syslog transport"
             exit 3
         fi
-        if ! "$PY_CMD" - "$AUDIT_LOG_PATH" "$last_offset" "$AUDIT_REMOTE_HOST" "$AUDIT_REMOTE_PORT" "$offset_file" <<'PYEOF'
-import socket, sys
+        offset_file="${AUDIT_LOG_PATH}.forward.offset"
+        if ! "$PY_CMD" - "$AUDIT_LOG_PATH" "$offset_file" "$AUDIT_REMOTE_HOST" "$AUDIT_REMOTE_PORT" "$AUDIT_USE_TLS" "$AUDIT_TLS_CA_FILE" "$AUDIT_REQUIRE_ACK" <<'PYEOF'
+import hashlib, os, re, socket, ssl, sys
 
-log_path, offset_str, host, port_str, offset_path = sys.argv[1:6]
-offset = int(offset_str)
+log_path, offset_path, host, port_str, use_tls_str, ca_file, req_ack_str = sys.argv[1:8]
 port = int(port_str)
+use_tls = (use_tls_str == "1")
+req_ack = (req_ack_str == "1")
 
-with open(log_path, "rb") as f:
-    f.seek(offset)
-    payload = f.read()
-    new_offset = f.tell()
+def redact_line(raw_bytes):
+    text = raw_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+    text = re.sub(r"\$argon2id\$[^'\"\\]+", "$argon2id$[REDACTED]", text)
+    text = re.sub(r"(?i)(password)\s*=\s*(?:''|\\'|')+(?!\$argon2id\$\[REDACTED\])[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?i)(passwd|pwd|token|secret|social_id|email|hwid)\s*=\s*(?:''|\\'|')+[^'\r\n]*(?:''|\\'|')+", r"\1='***'", text)
+    text = re.sub(r"(?:''|\\'|')[0-9]{7}(?:''|\\'|')", "''[REDACTED_SOCIAL_ID]''", text)
+    text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED_EMAIL]", text)
+    text = re.sub(r"\*[0-9A-Fa-f]{40}", "*[REDACTED_SHA1]", text)
+    return text.encode("utf-8")
 
-if payload:
-    with socket.create_connection((host, port), timeout=3.0) as s:
-        for raw_line in payload.splitlines():
-            if raw_line.strip():
-                msg = b"<38>1 mt2-mariadb-audit: " + raw_line + b"\n"
-                s.sendall(msg)
+def first_line_sig(path):
+    if not os.path.exists(path):
+        return ""
+    with open(path, "rb") as f:
+        first = f.readline()
+    if not first.endswith(b"\n"):
+        return ""
+    return hashlib.sha256(first).hexdigest()[:16]
 
-with open(offset_path, "w", encoding="ascii") as out_f:
-    out_f.write(str(new_offset))
+saved_sig = ""
+saved_offset = 0
+if os.path.exists(offset_path):
+    raw_state = open(offset_path, "r", encoding="ascii", errors="ignore").read().strip()
+    if "|" in raw_state:
+        parts = raw_state.split("|", 1)
+        saved_sig = parts[0]
+        saved_offset = int(parts[1] or "0")
+    elif raw_state.isdigit():
+        saved_offset = int(raw_state)
+
+cur_sig = first_line_sig(log_path)
+cur_size = os.path.getsize(log_path)
+
+# Check if log_path rotated since last run; if so, drain remaining tail of rotated .1 / .001 first
+rotated_candidates = [f"{log_path}.1", f"{log_path}.001"]
+segments = [] # list of (file_path, file_sig, start_offset, update_state_on_commit)
+
+if saved_sig and cur_sig and saved_sig != cur_sig:
+    for rot_cand in rotated_candidates:
+        if os.path.exists(rot_cand) and first_line_sig(rot_cand) == saved_sig:
+            rot_size = os.path.getsize(rot_cand)
+            if rot_size > saved_offset:
+                segments.append((rot_cand, saved_sig, saved_offset, False))
+            break
+    segments.append((log_path, cur_sig, 0, True))
+elif cur_size < saved_offset:
+    segments.append((log_path, cur_sig, 0, True))
+else:
+    segments.append((log_path, cur_sig or saved_sig, saved_offset, True))
+
+# Count total complete newline-terminated lines to send
+work_items = []
+for seg_path, seg_sig, seg_start, is_active in segments:
+    with open(seg_path, "rb") as f:
+        f.seek(seg_start)
+        pos = seg_start
+        while True:
+            line = f.readline()
+            if not line:
+                break
+            if not line.endswith(b"\n"):
+                # Incomplete trailing line; do not send or advance past it yet
+                break
+            next_pos = pos + len(line)
+            work_items.append((seg_path, seg_sig, pos, next_pos, line, is_active))
+            pos = next_pos
+
+if not work_items:
+    print(f"[OK] No new complete audit lines to forward (offset={saved_offset}).")
+    sys.exit(0)
+
+committed_sig = saved_sig
+committed_offset = saved_offset
+sent_count = 0
+
+def save_progress(sig, off):
+    tmp_p = offset_path + ".tmp"
+    with open(tmp_p, "w", encoding="ascii") as out_f:
+        out_f.write(f"{sig}|{off}\n")
+    os.replace(tmp_p, offset_path)
+
+try:
+    raw_sock = socket.create_connection((host, port), timeout=3.0)
+    if use_tls:
+        ctx = ssl.create_default_context(cafile=ca_file if ca_file else None)
+        conn = ctx.wrap_socket(raw_sock, server_hostname=host)
+    else:
+        conn = raw_sock
+
+    with conn:
+        sock_file = conn.makefile("rb") if req_ack else None
+        for seg_path, seg_sig, line_start, line_end, raw_line, is_active in work_items:
+            redacted = redact_line(raw_line)
+            msg = f"<38>1 mt2-mariadb-audit {seg_sig}:{line_start} ".encode("ascii") + redacted + b"\n"
+            conn.sendall(msg)
+            if req_ack:
+                ack_line = sock_file.readline()
+                if not ack_line or not (ack_line.startswith(b"ACK") or ack_line.startswith(b"OK")):
+                    raise RuntimeError(f"Missing application ACK at offset {line_start}")
+            committed_sig = seg_sig
+            committed_offset = line_end
+            sent_count += 1
+        if not work_items[-1][5] and cur_sig:
+            committed_sig = cur_sig
+            committed_offset = 0
+finally:
+    if sent_count > 0:
+        save_progress(committed_sig, committed_offset)
+
+mode_note = "TLS+ACK" if (use_tls and req_ack) else ("TCP+ACK" if req_ack else "TCP socket handoff (no remote disk ACK)")
+print(f"[OK] Forwarded {sent_count} redacted audit records to {host}:{port} [{mode_note}] (new_offset={committed_offset}).")
 PYEOF
         then
-            emit_alert "[MT2_AUDIT_ALERT][FORWARD_FAILURE]" "Failed forwarding audit records from $AUDIT_LOG_PATH (offset=$last_offset) to ${AUDIT_REMOTE_HOST}:${AUDIT_REMOTE_PORT}"
+            emit_alert "[MT2_AUDIT_ALERT][FORWARD_FAILURE]" "Failed or interrupted forwarding audit records from $AUDIT_LOG_PATH to ${AUDIT_REMOTE_HOST}:${AUDIT_REMOTE_PORT}"
             exit 3
         fi
-        echo "[OK] Forwarded audit records to ${AUDIT_REMOTE_HOST}:${AUDIT_REMOTE_PORT} (new_offset=$cur_size)."
         ;;
 
     check_spool_syserr)
@@ -234,8 +415,23 @@ PYEOF
         echo "[OK] No SQL log spool overflow or quarantine alerts detected."
         ;;
 
+    install_cron)
+        target_cron="${CRON_FILE:-/usr/local/etc/cron.d/mt2_audit_guard}"
+        cron_dir=$(dirname "$target_cron")
+        mkdir -p "$cron_dir" 2>/dev/null || true
+        umask 077
+        cat > "$target_cron" <<EOF
+# MT2009 MariaDB 12.3 LTS Audit Guard & Spool Monitor Schedule (every 5 minutes)
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --enforce-perms --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-capacity --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-spool-syserr --serverfiles-dir "$SERVERFILES_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
+EOF
+        chmod 0600 "$target_cron" 2>/dev/null || true
+        echo "[OK] Generated audit_guard cron schedule at $target_cron"
+        ;;
+
     *)
-        echo "Usage: $0 [--enforce-perms | --check-capacity | --forward-once | --check-spool-syserr] [options]" >&2
+        echo "Usage: $0 [--enforce-perms | --check-capacity | --forward-once | --check-spool-syserr | --install-cron] [options]" >&2
         exit 1
         ;;
 esac

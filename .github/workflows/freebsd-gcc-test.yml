@@ -312,18 +312,18 @@ jobs:
                 GRANT SELECT, INSERT, UPDATE, DELETE ON log.* TO 'mt2log'@'localhost';
                 CREATE USER IF NOT EXISTS 'mt2backup'@'127.0.0.1' IDENTIFIED BY '${BACKUP_DB_PASS}';
                 CREATE USER IF NOT EXISTS 'mt2backup'@'localhost' IDENTIFIED BY '${BACKUP_DB_PASS}';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON mt2_testdb.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON mt2_testdb.* TO 'mt2backup'@'localhost';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON account.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON account.* TO 'mt2backup'@'localhost';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON common.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON common.* TO 'mt2backup'@'localhost';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON log.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON log.* TO 'mt2backup'@'localhost';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON player.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON player.* TO 'mt2backup'@'localhost';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON world.* TO 'mt2backup'@'127.0.0.1';
-                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES ON world.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON mt2_testdb.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON mt2_testdb.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON account.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON account.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON common.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON common.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON log.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON log.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON player.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON player.* TO 'mt2backup'@'localhost';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON world.* TO 'mt2backup'@'127.0.0.1';
+                GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON world.* TO 'mt2backup'@'localhost';
                 FLUSH PRIVILEGES;
               "
             fi

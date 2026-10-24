@@ -352,8 +352,9 @@ if ($InitSql) {
             $tblCount = ($tblOut | Out-String).Trim()
             if ($tblCount -eq "0") {
                 $sqlPath = Join-Path $repoRoot "sql\$dbName.sql"
+                $sqlSrcPath = $sqlPath.Replace('\', '/')
                 Write-Host "  -> Loading $sqlPath into empty database '$dbName'..."
-                Get-Content -Raw $sqlPath | & $mysqlCli "--defaults-extra-file=$tmpCnf" $dbName --init-command="SET SESSION sql_mode='$strictMode';"
+                & $mysqlCli "--defaults-extra-file=$tmpCnf" --default-character-set=utf8mb4 $dbName -e "SET SESSION sql_mode='$strictMode'; SOURCE $sqlSrcPath;"
                 if ($LASTEXITCODE -ne 0) {
                     throw "Failed loading $sqlPath into '$dbName'"
                 }

@@ -303,6 +303,47 @@ if grep -rnF "$PASS" "$ARTIFACT_DIR" >/dev/null 2>&1 || grep -rnF "$RUNTIME_ADMI
 fi
 echo "  -> Verified 0 secret leaks in collected logs and artifacts"
 
+if [ -n "${MT2_BACKUP_DB_USER:-}" ] && [ -n "${MT2_BACKUP_DB_PASS:-}" ]; then
+    echo "=== [Bonus] Verifying FreeBSD backup_mariadb.sh v2 (Keyed HMAC-SHA256(v2) & Forged Manifest Rejection) + audit_guard.sh v2 ==="
+    FB_BK_DIR="/tmp/mt2_fb_backup_test_$$"
+    rm -rf "$FB_BK_DIR"
+    mkdir -p "$FB_BK_DIR"
+    FB_PASS_KEY="$(openssl rand -hex 24)"
+    FB_HMAC_KEY="$(openssl rand -hex 32)"
+    MT2_DB_HOST="$HOST" \
+    MT2_DB_PORT="$PORT" \
+    MT2_BACKUP_DB_USER="$MT2_BACKUP_DB_USER" \
+    MT2_BACKUP_DB_PASS="$MT2_BACKUP_DB_PASS" \
+    MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" \
+    MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" \
+    MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" \
+    MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
+    "$SFROOT/backup_mariadb.sh" --backup --backup-dir "$FB_BK_DIR" --databases "player"
+
+    FB_ENC_FILE=$(ls -1 "$FB_BK_DIR"/mt2_backup_*.sql.gz.enc | head -n 1)
+    if ! grep -q "^HMAC-SHA256(v2)=" "${FB_ENC_FILE}.sha256"; then
+        echo "[ERROR] FreeBSD backup manifest missing HMAC-SHA256(v2)!" >&2
+        rm -rf "$FB_BK_DIR"
+        exit 1
+    fi
+
+    # Test forged archive + recomputed SHA-256 rejection
+    FB_FORGED="$FB_BK_DIR/forged.sql.gz.enc"
+    cp "$FB_ENC_FILE" "$FB_FORGED"
+    printf '\x00' >> "$FB_FORGED"
+    FORGED_SHA=$(sha256 -q "$FB_FORGED" 2>/dev/null || sha256sum "$FB_FORGED" | awk '{print $1}')
+    ORIG_HMAC=$(grep "^HMAC-SHA256(v2)=" "${FB_ENC_FILE}.sha256")
+    printf '%s  forged.sql.gz.enc\n%s\n' "$FORGED_SHA" "$ORIG_HMAC" > "${FB_FORGED}.sha256"
+    if MT2_DB_HOST="$HOST" MT2_DB_PORT="$PORT" MT2_INIT_DB_USER="${MT2_TEST_USER:-$USER}" MT2_INIT_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" "$SFROOT/backup_mariadb.sh" --restore "$FB_FORGED" --backup-dir "$FB_BK_DIR" --target-db "player_forged_fb" >/dev/null 2>&1; then
+        echo "[ERROR] Forged archive + recomputed SHA-256 was NOT rejected by backup_mariadb.sh!" >&2
+        rm -rf "$FB_BK_DIR"
+        exit 1
+    fi
+    rm -f "$FB_FORGED" "${FB_FORGED}.sha256"
+    rm -rf "$FB_BK_DIR"
+    echo "  -> Verified FreeBSD backup_mariadb.sh v2 Keyed HMAC-SHA256(v2) & forged manifest rejection"
+fi
+
 echo "=================================================================="
 echo " [PASS] REV 51 FREEBSD 15.1 SERVERFILES (LUA 5.5.1 EXCLUSIVE, 202 QUESTS,"
 echo "        8 SERVICES, 0 SYSERR, LEAST-PRIVILEGE SQL, CH11->CH12->CH11 WARP)"
