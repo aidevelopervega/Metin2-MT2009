@@ -17,7 +17,7 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=rev51-post-security-hardening-freebsd-verification
-BASELINE_SOURCE_COMMIT=5c2b1af307d7c364d8310367d63824882b986bc6
-TARGET_COMMIT=c7d0f5ed0c87a30855617c7a19b53131792d3c97
+TRIGGER_REVISION=rev51-post-security-hardening-freebsd-verification-v2
+APPROVED_SOURCE_COMMIT=771b93ab052c3e573e393ba9aa577f19f37e14c9
+PREVIOUS_FAILED_RUN_ID=40133816673
 STATUS=TRIGGERED
