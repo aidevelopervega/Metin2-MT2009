@@ -82,7 +82,7 @@ class CWarMap
 		void	UpdateScore(DWORD g1, int score1, DWORD g2, int score2);
 		bool	CheckScore();
 
-		int	GetRewardGold(BYTE bWinnerIdx);
+		YANG	GetRewardGold(BYTE bWinnerIdx);
 
 		bool	GetGuildIndex(DWORD dwGuild, int& iIndex);
 
@@ -116,7 +116,7 @@ class CWarMap
 			DWORD	dwID;
 			CGuild * pkGuild;
 			int		iMemberCount;
-			int		iUsePotionPrice;
+			YANG		iUsePotionPrice;
 			int		iScore;
 			LPCHARACTER pkChrFlag;
 			LPCHARACTER pkChrFlagBase;

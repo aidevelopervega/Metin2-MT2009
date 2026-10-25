@@ -564,7 +564,7 @@ void DESC::Packet(const void * c_pvData, int iSize)
 void DESC::LargePacket(const void * c_pvData, int iSize)
 {
 	buffer_adjust_size(m_lpOutputBuffer, iSize);
-	sys_log(0, "LargePacket Size %d", iSize, buffer_size(m_lpOutputBuffer));
+	sys_log(0, "LargePacket Size %d (buf %d)", iSize, buffer_size(m_lpOutputBuffer));
 
 	Packet(c_pvData, iSize);
 }
@@ -713,7 +713,7 @@ bool DESC::HandshakeProcess(DWORD dwTime, long lDelta, bool bInfiniteRetry)
 		if (GetCharacter())
 			sys_log(0, "Handshake: client_time %u server_time %u name: %s", m_dwClientTime, dwCurTime, GetCharacter()->GetName());
 		else
-			sys_log(0, "Handshake: client_time %u server_time %u", m_dwClientTime, dwCurTime, lDelta);
+			sys_log(0, "Handshake: client_time %u server_time %u delta %ld", m_dwClientTime, dwCurTime, lDelta);
 
 		m_dwClientTime = dwCurTime;
 		m_bHandshaking = false;

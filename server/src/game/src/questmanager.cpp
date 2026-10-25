@@ -1002,7 +1002,7 @@ namespace quest
 			TargetInfo * pInfo = CTargetManager::instance().GetTargetInfo(pc, TARGET_TYPE_VID, pkChrTarget->GetVID());
 			if (test_server)
 			{
-				sys_log(0, "CQuestManager::Click(pid=%d, npc_name=%s) - target_info(%x)", pc, pkChrTarget->GetName(), pInfo);
+				sys_log(0, "CQuestManager::Click(pid=%u, npc_name=%s) - target_info(%p)", pc, pkChrTarget->GetName(), static_cast<const void*>(pInfo));
 			}
 
 			if (pInfo)

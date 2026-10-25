@@ -2853,7 +2853,7 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 
 			if(pAttacker)
 			{
-				pAttacker->ChatPacket(CHAT_TYPE_INFO, "-> %s, DAM %d HP %d(%d%%) %s%s",
+				pAttacker->ChatPacket(CHAT_TYPE_INFO, "-> %s, DAM %d HP %d(%d%%) %s%s%s",
 						GetName(),
 						dam,
 						GetHP(),
@@ -2863,8 +2863,8 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 						IsDeathBlow ? "deathblow " : "");
 			}
 
-			ChatPacket(CHAT_TYPE_PARTY, "<- %s, DAM %d HP %d(%d%%) %s%s",
-					pAttacker ? pAttacker->GetName() : 0,
+			ChatPacket(CHAT_TYPE_PARTY, "<- %s, DAM %d HP %d(%d%%) %s%s%s",
+					pAttacker ? pAttacker->GetName() : "NONE",
 					dam,
 					GetHP(),
 					iTmpPercent,
@@ -2873,7 +2873,7 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 					IsDeathBlow ? "deathblow " : "");
 		}
 
-		if (m_bDetailLog)
+		if (m_bDetailLog && pAttacker)
 		{
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s[%d]s Attack Position: %d %d"), pAttacker->GetName(), (DWORD) pAttacker->GetVID(), pAttacker->GetX(), pAttacker->GetY());
 		}

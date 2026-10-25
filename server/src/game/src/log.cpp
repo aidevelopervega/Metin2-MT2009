@@ -518,9 +518,9 @@ void LogManager::GoldSessionLog(LPCHARACTER ch)
 
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MIN);
 
-	Query("INSERT INTO gold_session_log%s VALUES(%d, %lld, NOW(), %d)",
+	Query("INSERT INTO gold_session_log%s VALUES(%u, %lld, NOW(), %lld)",
 		get_table_postfix(),
-		ch->GetPlayerID(), ch->playerData->GetTotalGoldSession(), get_global_time() - ch->playerData->startGoldSessionTimeStamp);
+		static_cast<unsigned int>(ch->GetPlayerID()), ch->playerData->GetTotalGoldSession(), static_cast<long long>(get_global_time() - ch->playerData->startGoldSessionTimeStamp));
 }
 
 void LogManager::ReportPlayerLog(LPCHARACTER who, LPCHARACTER target, BYTE reason)

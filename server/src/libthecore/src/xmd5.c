@@ -51,7 +51,7 @@
 
 #include "xmd5.h"
 
-#if __BYTE_ORDER == 1234
+#if (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || (defined(__BYTE_ORDER) && (__BYTE_ORDER == 1234)) || defined(__WIN32__)
 #define byteReverse(buf, len)   /* Nothing */
 #else
 void byteReverse(unsigned char *buf, unsigned longs);

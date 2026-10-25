@@ -224,7 +224,7 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 	// sql errors handlings
 	if (msg->uiSQLErrno != 0 || !msg->Get())
 	{
-		sys_err("CANNOT LOAD offlineshop_auctions TABLE , errorcode %d ", msg->uiSQLErrno, msg->Get());
+		sys_err("CANNOT LOAD offlineshop_auctions TABLE , errorcode %d ", msg->uiSQLErrno);
 		return false;
 	}
 

@@ -1071,7 +1071,7 @@ void CInputDB::Boot(const char* data)
 	for (int n = 1; n < 4; ++n)
 	{
 		if (*p.name[n])
-			sys_log(0, "[MONARCH] Empire %d Pid %d Money %d %s", n, p.pid[n], p.money[n], p.name[n]);
+			sys_log(0, "[MONARCH] Empire %d Pid %u Money %lld %s", n, p.pid[n], p.money[n], p.name[n]);
 	}
 
 	int CandidacySize = decode_2bytes(data);
@@ -1290,7 +1290,7 @@ EVENTFUNC(quest_login_event)
 	}
 	else
 	{
-		sys_err(0, "input_db.cpp:quest_login_event INVALID PHASE pid %d", ch->GetPlayerID());
+		sys_err("input_db.cpp:quest_login_event INVALID PHASE pid %u", ch->GetPlayerID());
 		return 0;
 	}
 }

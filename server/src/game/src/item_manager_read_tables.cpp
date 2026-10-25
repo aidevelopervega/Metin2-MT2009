@@ -33,7 +33,7 @@ bool ITEM_MANAGER::ReadCommonDropItemFile(const char * c_pszFileName)
 
 	char buf[1024];
 
-	[[maybe_unused]] int lines = 0;
+	int lines = 0;
 
 	while (fgets(buf, 1024, fp))
 	{
@@ -475,11 +475,8 @@ bool ITEM_MANAGER::ReadEtcDropItemFile(const char * c_pszFileName)
 
 	char buf[512];
 
-	[[maybe_unused]] int lines = 0;
-
 	while (fgets(buf, 512, fp))
 	{
-		++lines;
 
 		if (!*buf || *buf == '\n')
 			continue;
@@ -629,7 +626,7 @@ bool ITEM_MANAGER::ReadMonsterDropItemGroup(const char * c_pszFileName)
 
 					if (iPartPct == 0)
 					{
-						sys_err("ReadMonsterDropItemGroup : there is no drop percent for item %s : node %s : vnum %d, count %d, pct %d", name.c_str(), stName.c_str(), iPartPct);
+						sys_err("ReadMonsterDropItemGroup : there is no drop percent for item %s : node %s : vnum %u, count %d, pct %d", name.c_str(), stName.c_str(), dwVnum, iCount, iPartPct);
 						return false;
 					}
 

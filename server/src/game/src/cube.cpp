@@ -474,7 +474,7 @@ static bool FN_update_cube_status(LPCHARACTER ch)
 		return false;
 	}
 
-	ch->ChatPacket(CHAT_TYPE_COMMAND, "cube info %d %d %d", cube->gold, 0, 0);
+	ch->ChatPacket(CHAT_TYPE_COMMAND, "cube info %lld %d %d", cube->gold, 0, 0);
 	return true;
 }
 

@@ -885,7 +885,7 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 			continue;
 
 		int iPercent = (c_rInfo.m_iPercent * iDeltaPercent) / 100;
-		sys_log(3, "CreateDropItem %d ~ %d %d(%d)", c_rInfo.m_iLevelStart, c_rInfo.m_iLevelEnd, c_rInfo.m_dwVnum, iPercent, c_rInfo.m_iPercent);
+		sys_log(3, "CreateDropItem %d ~ %d %u(%d, %d)", c_rInfo.m_iLevelStart, c_rInfo.m_iLevelEnd, c_rInfo.m_dwVnum, iPercent, c_rInfo.m_iPercent);
 
 		if (iPercent >= number(1, iRandRange))
 		{

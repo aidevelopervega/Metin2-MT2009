@@ -184,11 +184,13 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 				return false;
 
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().DirectQuery("SELECT buy_count FROM itemshop_time_auction WHERE item_index=%d", item.dwIndex));
-			if (pkMsg->Get()->uiNumRows < 1)
+			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows < 1)
 				return false;
 
 			DWORD buy_count = 0;
 			MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
+			if (!row || !row[0])
+				return false;
 			str_to_number(buy_count, row[0]);
 
 			if (buy_count >= item.timeAuction.dwMaxBuyAmount)
@@ -196,6 +198,8 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 
 			const uint64_t item_count_u64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
 			if (item.dwCount == 0 || item_count_u64 == 0 || item_count_u64 > static_cast<uint64_t>(INT32_MAX))
+				return false;
+			if (static_cast<uint64_t>(buy_count) + item_count_u64 > static_cast<uint64_t>(item.timeAuction.dwMaxBuyAmount))
 				return false;
 			const DWORD item_count = static_cast<DWORD>(item_count_u64);
 
@@ -559,7 +563,7 @@ CItemShopManager::PlayerAccountBalance CItemShopManager::GetPlayerAccountBalance
 
 	DWORD account_id = ch->GetDesc()->GetAccountTable().id;
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("SELECT cash, cash_mark FROM account WHERE id=%d", account_id));
-	if (pkMsg->Get()->uiNumRows < 1)
+	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows < 1)
 		return balance;
 
 	if (pkMsg->Get()->uiNumRows > 1)
@@ -569,8 +573,18 @@ CItemShopManager::PlayerAccountBalance CItemShopManager::GetPlayerAccountBalance
 	}
 
 	MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
-	str_to_number(balance.dwDragonCoins, row[0]);
-	str_to_number(balance.dwDragonMarks, row[1]);
+	if (!row)
+		return balance;
+	long long rawCoins = 0;
+	long long rawMarks = 0;
+	str_to_number(rawCoins, row[0]);
+	str_to_number(rawMarks, row[1]);
+	if (rawCoins < 0) rawCoins = 0;
+	if (rawCoins > INT32_MAX) rawCoins = INT32_MAX;
+	if (rawMarks < 0) rawMarks = 0;
+	if (rawMarks > INT32_MAX) rawMarks = INT32_MAX;
+	balance.dwDragonCoins = static_cast<DWORD>(rawCoins);
+	balance.dwDragonMarks = static_cast<DWORD>(rawMarks);
 
 	return balance;
 }
@@ -905,8 +919,21 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	}
 
 
+	if (NULL == ch->GetDesc() || NULL == db_clientdesc)
+		return false;
+
 	if (!CheckBalance(ch, chargeType, -llPrice, balance))
 		return false;
+
+	int64_t dragonMarkAmount = 0;
+	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
+	{
+		dragonMarkAmount = llPrice - static_cast<int64_t>(itemTable->alValues[0]);
+		if (dragonMarkAmount < 0)
+			dragonMarkAmount = 0;
+		else if (dragonMarkAmount > llPrice)
+			dragonMarkAmount = llPrice;
+	}
 
 	if (IsItemTimeAuction(item) && !CheckIfCanBuyTimeAuctionAndUpdate(item, ch, quantity))
 	{
@@ -917,11 +944,6 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	ch->ChatDebug("Buy item index %d (quantity %d) with price %lld", itemIndex, quantity, static_cast<long long>(llPrice));
 
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN) {
-
-		int64_t dragonMarkAmount = llPrice - static_cast<int64_t>(itemTable->alValues[0]);
-		if (dragonMarkAmount < 0)
-			dragonMarkAmount = 0;
-
 		balance.dwDragonMarks -= static_cast<DWORD>(llPrice);
 		balance.dwDragonMarks += static_cast<DWORD>(dragonMarkAmount);
 		if (!AddCash(ch, chargeType, -llPrice, false, dragonMarkAmount))

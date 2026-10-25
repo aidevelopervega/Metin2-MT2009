@@ -56,7 +56,7 @@ void BanManager::BlockAccountQuery(DWORD aid, DWORD duration)
 	}
 	else // temp ban
 	{
-		DBManager::instance().AccountQuery("UPDATE account SET availDt=FROM_UNIXTIME(%d) WHERE id=%d", get_global_time() + duration, aid);
+		DBManager::instance().AccountQuery("UPDATE account SET availDt=FROM_UNIXTIME(%lld) WHERE id=%u", static_cast<long long>(get_global_time() + duration), static_cast<unsigned int>(aid));
 	}
 }
 

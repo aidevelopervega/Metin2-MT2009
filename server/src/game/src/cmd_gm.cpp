@@ -5147,7 +5147,7 @@ ACMD(do_map_spawn_delay)
 
 	if (!*arg1 || !*arg2 || !*arg3)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "Usage: map_spawn_delay <type ('boss' or 'normal')> <map index> <0-100 in % (0 to off)>");
+		ch->ChatPacket(CHAT_TYPE_INFO, "Usage: map_spawn_delay <type ('boss' or 'normal')> <map index> <0-100 in %% (0 to off)>");
 		return;
 	}
 

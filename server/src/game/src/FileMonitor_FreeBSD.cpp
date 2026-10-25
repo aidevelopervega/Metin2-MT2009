@@ -40,7 +40,10 @@ void FileMonitorFreeBSD::Update([[maybe_unused]] DWORD dwPulses)
 	if( m_KernelEventQueue == INVALID_KERNEL_EVENT || m_FileLists.size() == 0 )
 		return;
 
-	int nEvent = kevent(m_KernelEventQueue, &m_TriggeredEventLists[0], (int)m_TriggeredEventLists.size(), &m_MonitoredEventLists[0], (int)m_MonitoredEventLists.size(), NULL );
+	struct timespec ts{0, 0};
+	const struct kevent* pTriggerEvents = m_TriggeredEventLists.empty() ? NULL : &m_TriggeredEventLists[0];
+	struct kevent* pMonitorEvents = m_MonitoredEventLists.empty() ? NULL : &m_MonitoredEventLists[0];
+	int nEvent = kevent(m_KernelEventQueue, pTriggerEvents, (int)m_TriggeredEventLists.size(), pMonitorEvents, (int)m_MonitoredEventLists.size(), &ts);
 	if( nEvent == INVALID_KERNEL_EVENT )
 	{
 		return;
@@ -130,7 +133,7 @@ void FileMonitorFreeBSD::AddWatch(const std::string& strFileName, PFN_FileChange
 	m_FileLists[strFileName] = context;
 
 	//set events
-	struct kevent kTriggerEvent, kMonitorEvent;
+	struct kevent kTriggerEvent{}, kMonitorEvent{};
 
    	EV_SET(&kTriggerEvent, iFileHandle, EVFILT_VNODE,
 										EV_ADD | EV_ENABLE | EV_ONESHOT,

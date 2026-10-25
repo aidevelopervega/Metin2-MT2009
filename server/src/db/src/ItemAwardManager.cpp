@@ -152,7 +152,7 @@ void ItemAwardManager::Taken(DWORD dwAwardID, DWORD dwItemID)
 
 	if (it == m_map_award.end())
 	{
-		sys_log(0, "ITEM_AWARD: Taken ID not exist %lu", dwAwardID);
+		sys_log(0, "ITEM_AWARD: Taken ID not exist %u", dwAwardID);
 		return;
 	}
 

@@ -1390,7 +1390,7 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 
 		if (pRes->uiNumRows)
 		{
-			sys_log(0, "EMPIRE %lu", pRes->uiNumRows);
+			sys_log(0, "EMPIRE %u", pRes->uiNumRows);
 
 			MYSQL_ROW row = mysql_fetch_row(pRes->pSQLResult);
 			DWORD pids[PLAYER_PER_ACCOUNT]{}; // @fixme310
@@ -1921,7 +1921,7 @@ void CClientManager::UpdateItemCache()
 		if (c->CheckFlushTimeout())
 		{
 			if (g_test_server)
-				sys_log(0, "UpdateItemCache ==> Flush() vnum %d id owner %d", c->Get()->vnum, c->Get()->id, c->Get()->owner);
+				sys_log(0, "UpdateItemCache ==> Flush() vnum %u id %u owner %u", c->Get()->vnum, c->Get()->id, c->Get()->owner);
 
 			c->Flush();
 
@@ -3324,7 +3324,7 @@ int CClientManager::Process()
 			}
 			else
 			{
-				pt_log("[%9d] return %d/%d/%d/%d async %d/%d/%d%/%d",
+				pt_log("[%9d] return %d/%d/%d/%d async %d/%d/%d/%d",
 						thecore_heart->pulse,
 						CDBManager::instance().CountReturnQuery(SQL_PLAYER),
 						CDBManager::instance().CountReturnResult(SQL_PLAYER),

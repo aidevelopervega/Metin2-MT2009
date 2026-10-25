@@ -19,7 +19,7 @@ class CLoginSim
 		void AddPlayer(DWORD dwID)
 		{
 			vecID.emplace_back(dwID);
-			sys_log(0, "AddPlayer %lu", dwID);
+			sys_log(0, "AddPlayer %u", dwID);
 		}
 
 		bool IsCheck()

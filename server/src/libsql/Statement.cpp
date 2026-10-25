@@ -132,7 +132,7 @@ int CStmt::Execute()
 		if (bind->buffer_type == MYSQL_TYPE_STRING)
 		{
 			*(m_puiParamLen + i) = strlen((const char *) bind->buffer);
-			sys_log(0, "param %u len %lu buf %s", i, *(m_puiParamLen + i), (const char *) bind->buffer);
+			sys_log(0, "param %u len %u buf %s", i, static_cast<unsigned int>(*(m_puiParamLen + i)), (const char *) bind->buffer);
 		}
 	}
 

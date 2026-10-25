@@ -44,7 +44,7 @@ namespace marriage
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 
 		SQLResult * pRes = pmsg->Get();
-		sys_log(0, "MarriageList(size=%lu)", pRes->uiNumRows);
+		sys_log(0, "MarriageList(size=%u)", pRes->uiNumRows);
 
 		if (pRes->uiNumRows > 0)
 		{
@@ -65,7 +65,7 @@ namespace marriage
 				m_MarriageByPID.emplace(pid1, pMarriage);
 				m_MarriageByPID.emplace(pid2, pMarriage);
 
-				sys_log(0, "Marriage %lu: LP:%d TM:%u ST:%d %10lu:%16s %10lu:%16s ", uiRow, love_point, time, is_married, pid1, name1, pid2, name2);
+				sys_log(0, "Marriage %u: LP:%d TM:%u ST:%d %10u:%16s %10u:%16s ", uiRow, love_point, time, is_married, pid1, name1, pid2, name2);
 			}
 		}
 		return true;

@@ -700,7 +700,7 @@ void CGuild::GuildWarEntryAsk(DWORD dwOppGID)
 		}
 		else
 		{
-			sys_err("GuildWar.GuildWarEntryAsk.SendLetterToMember.QUEST_ERROR pid(%d), quest_name('guild_war_join.quest')",
+			sys_err("GuildWar.GuildWarEntryAsk.SendLetterToMember.QUEST_ERROR pid(%u), quest_name('guild_war_join.quest') idx(%d)",
 					ch->GetPlayerID(), questIndex);
 			break;
 		}

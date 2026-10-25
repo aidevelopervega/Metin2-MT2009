@@ -50,7 +50,7 @@ bool CClientManager::DeleteLogonAccount(const char * c_pszLogin, DWORD dwHandle)
 
 	if (pkLD->GetConnectedPeerHandle() != dwHandle)
 	{
-		sys_err("%s tried to logout in other peer handle %lu, current handle %lu", szLogin, dwHandle, pkLD->GetConnectedPeerHandle());
+		sys_err("%s tried to logout in other peer handle %u, current handle %u", szLogin, dwHandle, pkLD->GetConnectedPeerHandle());
 		return false;
 	}
 
@@ -405,7 +405,7 @@ void CreateAccountPlayerDataFromRes(MYSQL_RES * pRes, TAccountTable * pkTab)
 					str_to_number(pkTab->players[j].bChangeName, row[col++]);
 				}
 
-				sys_log(0, "%s %lu %lu hair %u",
+				sys_log(0, "%s %d %d hair %u",
 						pkTab->players[j].szName, pkTab->players[j].x, pkTab->players[j].y, pkTab->players[j].wHairPart);
 				break;
 			}
@@ -474,7 +474,7 @@ void CClientManager::RESULT_LOGIN(CPeer * peer, SQLMsg * msg)
 		}
 		else
 		{
-			sys_log(0, "RESULT_LOGIN: login success %s rows: %lu", info->pAccountTable->login, msg->Get()->uiNumRows);
+			sys_log(0, "RESULT_LOGIN: login success %s rows: %u", info->pAccountTable->login, msg->Get()->uiNumRows);
 
 			if (msg->Get()->uiNumRows > 0)
 				CreateAccountPlayerDataFromRes(msg->Get()->pSQLResult, info->pAccountTable);

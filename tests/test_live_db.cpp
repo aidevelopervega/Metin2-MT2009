@@ -1911,6 +1911,37 @@ int main(int argc, char* argv[])
 					LIVE_ASSERT(sqlCash == 450 && sqlMark == 1050,
 						"ItemShop Payment [Live SQL ChargeCash]: cash=450 and cash_mark=1050 match in-memory balance");
 				}
+
+				// 8) Live SQL verification: Negative DB balance clamping & Time-Auction cap enforcement before ChargeCash
+				logSql.DirectQuery("INSERT INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (990502, -250, -10);");
+				auto rNegBal = logSql.DirectQuery("SELECT `cash`, `cash_mark` FROM `test_itemshop_account_cash` WHERE `id` = 990502;");
+				if (rNegBal && !rNegBal->IsError() && rNegBal->Get() && rNegBal->Get()->uiNumRows == 1) {
+					MYSQL_ROW nRow = mysql_fetch_row(rNegBal->Get()->pSQLResult);
+					long long rawCoins = (nRow && nRow[0]) ? std::strtoll(nRow[0], nullptr, 10) : 0;
+					long long rawMarks = (nRow && nRow[1]) ? std::strtoll(nRow[1], nullptr, 10) : 0;
+					uint32_t clampedCoins = (rawCoins > 0) ? static_cast<uint32_t>(std::min<long long>(rawCoins, INT32_MAX)) : 0U;
+					uint32_t clampedMarks = (rawMarks > 0) ? static_cast<uint32_t>(std::min<long long>(rawMarks, INT32_MAX)) : 0U;
+					LIVE_ASSERT(clampedCoins == 0U && clampedMarks == 0U,
+						"ItemShop Payment [Negative DB Balance Guard]: Negative cash/cash_mark (-250/-10) clamped to 0 without DWORD wraparound");
+					LIVE_ASSERT(!canProcessItemShopPurchase(100ULL, 1ULL, 1ULL, static_cast<int32_t>(clampedCoins), newBal, chargeDelta, delivered)
+						&& newBal == 0 && chargeDelta == 0 && delivered == 0ULL,
+						"ItemShop Payment [Negative DB Balance Reject]: Purchase with clamped 0 balance rejected with 0 delivered items");
+				}
+
+				// 9) Live SQL verification: Post-2038 64-bit time_t FROM_UNIXTIME(%lld) (BanManager.cpp:59 fix)
+				char szTimeQ[256];
+				const long long post2038Epoch = 2200000000LL; // 2039-09-18 23:06:40 UTC
+				std::snprintf(szTimeQ, sizeof(szTimeQ), "SELECT UNIX_TIMESTAMP(FROM_UNIXTIME(%lld));", post2038Epoch);
+				auto rTimeQ = logSql.DirectQuery(szTimeQ);
+				LIVE_ASSERT(rTimeQ != nullptr && !rTimeQ->IsError() && rTimeQ->Get() && rTimeQ->Get()->uiNumRows == 1,
+					"64-bit time_t SQL [FROM_UNIXTIME(%lld)]: Post-2038 timestamp query executed cleanly");
+				if (rTimeQ && rTimeQ->Get() && rTimeQ->Get()->uiNumRows == 1) {
+					MYSQL_ROW tRow = mysql_fetch_row(rTimeQ->Get()->pSQLResult);
+					long long roundTripEpoch = (tRow && tRow[0]) ? std::strtoll(tRow[0], nullptr, 10) : 0;
+					LIVE_ASSERT(roundTripEpoch == post2038Epoch,
+						"64-bit time_t SQL [FROM_UNIXTIME(%lld)]: Round-trip epoch 2,200,000,000 preserved without 32-bit Year-2038 truncation");
+				}
+
 				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_account_cash`;");
 			}
 

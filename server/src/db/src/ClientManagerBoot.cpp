@@ -247,7 +247,7 @@ bool CClientManager::InitializeRefineTable()
 			}
 		}
 
-		sys_log(0, "REFINE: id %ld cost %d prob %d mat1 %lu cnt1 %d", prt->id, prt->cost, prt->prob, prt->materials[0].vnum, prt->materials[0].count);
+		sys_log(0, "REFINE: id %u cost %d prob %d mat1 %u cnt1 %d", prt->id, prt->cost, prt->prob, prt->materials[0].vnum, prt->materials[0].count);
 
 		prt++;
 	}
@@ -813,7 +813,7 @@ bool CClientManager::InitializeItemTable() // TXT -- UNUSED!!!
 	{
 		TItemTable * item_table = &(*(it++));
 
-		sys_log(1, "ITEM: #%-5lu %-24s %-24s VAL: %ld %ld %ld %ld %ld %ld WEAR %lu ANTI %lu IMMUNE %lu REFINE %lu REFINE_SET %u MAGIC_PCT %u",
+		sys_log(1, "ITEM: #%-5u %-24s %-24s VAL: %d %d %d %d %d %d WEAR %u ANTI %u IMMUNE %u REFINE %u REFINE_SET %u MAGIC_PCT %u",
 				item_table->dwVnum,
 				item_table->szName,
 				item_table->szLocaleName,
@@ -1030,7 +1030,7 @@ bool CClientManager::InitializeItemAttrTable()
 		str_to_number(t.bMaxLevelBySet[ATTRIBUTE_SET_GLOVE], data[col++]);
 #endif
 
-		sys_log(0, "ITEM_ATTR: %-20s %4lu { %3d %3d %3d %3d %3d } { %d %d %d %d %d %d %d"
+		sys_log(0, "ITEM_ATTR: %-20s %4u { %3d %3d %3d %3d %3d } { %d %d %d %d %d %d %d %d"
 					#ifdef ENABLE_ITEM_ATTR_COSTUME
 					" %d %d"
 					#if defined(ENABLE_ITEM_ATTR_COSTUME) && defined(ENABLE_WEAPON_COSTUME_SYSTEM)
@@ -1155,7 +1155,7 @@ bool CClientManager::InitializeItemRareTable()
 		str_to_number(t.bMaxLevelBySet[ATTRIBUTE_SET_GLOVE], data[col++]);
 		#endif
 
-		sys_log(0, "ITEM_RARE: %-20s %4lu { %3d %3d %3d %3d %3d } { %d %d %d %d %d %d %d"
+		sys_log(0, "ITEM_RARE: %-20s %4u { %3d %3d %3d %3d %3d } { %d %d %d %d %d %d %d %d"
 					#ifdef ENABLE_ITEM_ATTR_COSTUME
 					" %d %d"
 					#if defined(ENABLE_ITEM_ATTR_COSTUME) && defined(ENABLE_WEAPON_COSTUME_SYSTEM)
@@ -1258,7 +1258,7 @@ bool CClientManager::InitializeLandTable()
 			str_to_number(t.bGuildLevelLimit, data[col++]);
 			str_to_number(t.dwPrice, data[col++]);
 
-			sys_log(0, "LAND: %lu map %-4ld %7ldx%-7ld w %-4ld h %-4ld", t.dwID, t.lMapIndex, t.x, t.y, t.width, t.height);
+			sys_log(0, "LAND: %u map %-4d %7dx%-7d w %-4d h %-4d", t.dwID, t.lMapIndex, t.x, t.y, t.width, t.height);
 
 			m_vec_kLandTable.emplace_back(t);
 		}
@@ -1382,7 +1382,7 @@ bool CClientManager::InitializeObjectProto()
 			t.lNPCY = MAX(t.lRegion[1], t.lRegion[3])+300;
 			// END_OF_ADD_BUILDING_NPC
 
-			sys_log(0, "OBJ_PROTO: vnum %lu price %lu mat %lu %lu",
+			sys_log(0, "OBJ_PROTO: vnum %u price %lld mat %u %u",
 					t.dwVnum, t.dwPrice, t.kMaterials[0].dwItemVnum, t.kMaterials[0].dwCount);
 
 			m_vec_kObjectProto.emplace_back(t);
@@ -1429,7 +1429,7 @@ bool CClientManager::InitializeObjectTable()
 			str_to_number(k->zRot, data[col++]);
 			str_to_number(k->lLife, data[col++]);
 
-			sys_log(0, "OBJ: %lu vnum %lu map %-4ld %7ldx%-7ld life %ld",
+			sys_log(0, "OBJ: %u vnum %u map %-4d %7dx%-7d life %d",
 					k->dwID, k->dwVnum, k->lMapIndex, k->x, k->y, k->lLife);
 
 			m_map_pkObjectTable.emplace(k->dwID, k);
@@ -2082,7 +2082,7 @@ bool CClientManager::InitializeItemTableFromDB()
 	#endif
 	if (dwPrice > item_table->dwGold)
 	{
-		sys_err("ITEM: #%-5lu %-24s SELL_OVERFLOW dwGold: %lld < dwShopBuyPrice %lld",
+		sys_err("ITEM: #%-5u %-24s SELL_OVERFLOW dwGold: %lld < dwShopBuyPrice %lld",
 			item_table->dwVnum,
 			item_table->szLocaleName,
 			item_table->dwGold,
@@ -2093,7 +2093,7 @@ bool CClientManager::InitializeItemTableFromDB()
 #endif
 
 		m_map_itemTableByVnum.emplace(item_table->dwVnum, item_table);
-		sys_log(0, "ITEM: #%-5lu %-24s %-24s VAL: %d %ld %d %d %d %d WEAR %d ANTI %d IMMUNE %d REFINE %lu REFINE_SET %u MAGIC_PCT %u",
+		sys_log(0, "ITEM: #%-5u %-24s %-24s VAL: %d %d %d %d %d %d WEAR %u ANTI %u IMMUNE %u REFINE %u REFINE_SET %u MAGIC_PCT %u",
 			item_table->dwVnum,
 			item_table->szName,
 			item_table->szLocaleName,

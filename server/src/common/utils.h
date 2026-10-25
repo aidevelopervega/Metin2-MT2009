@@ -80,7 +80,7 @@ inline bool str_to_number (long long& out, const char *in)
 {
 	if (0==in || 0==in[0])	return false;
 
-	out = (long long) strtoull(in, NULL, 10);
+	out = strtoll(in, NULL, 10);
 	return true;
 }
 
@@ -149,7 +149,7 @@ inline bool str_to_string(std::string& dest, const char* from) {
 #include <regex>
 inline bool has_proper_characters(const std::string& input)
 {
-	std::regex pattern("^[\\x20-\\x7E¥¹ÆæÊê£³ÑñÓóŒœŸ¯¿]*$");
+	std::regex pattern("^[\\x20-\\x7EÂ¥Â¹Ã†Ã¦ÃŠÃªÂ£Â³Ã‘Ã±Ã“Ã³Å’Å“ï¿½Å¸Â¯Â¿]*$");
 	return std::regex_match(input, pattern);
 }
 #endif

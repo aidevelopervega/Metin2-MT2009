@@ -243,7 +243,7 @@ bool CGuild::RemoveMember(DWORD pid)
 	}
 
 	if (g_bGuildInviteLimit)
-		DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%d, %d)", GetID(), get_global_time());
+		DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%u, %lld)", static_cast<unsigned int>(GetID()), static_cast<long long>(get_global_time()));
 
 	return true;
 }

@@ -482,7 +482,7 @@ void CPetSystem::DeletePet(CPetActor* petActor)
 		}
 	}
 
-	sys_err("[CPetSystem::DeletePet] Can't find petActor(0x%x) on my list(size: %d) ", petActor, m_petActorMap.size());
+	sys_err("[CPetSystem::DeletePet] Can't find petActor(%p) on my list(size: %zu) ", static_cast<const void*>(petActor), m_petActorMap.size());
 }
 
 void CPetSystem::Unsummon(DWORD vnum, bool bDeleteFromList)
@@ -543,7 +543,7 @@ CPetActor* CPetSystem::Summon(DWORD mobVnum, LPITEM pSummonItem, const char* pet
 #ifdef ENABLE_NEWSTUFF
 	DWORD petVID = petActor->Summon(petName, pSummonItem, bSpawnFar);
 	if (!petVID)
-		sys_err("[CPetSystem::Summon(%d)] Null Pointer (petVID)", pSummonItem);
+		sys_err("[CPetSystem::Summon(%p)] Null Pointer (petVID)", static_cast<const void*>(pSummonItem));
 #endif
 
 	if (NULL == m_pkPetSystemUpdateEvent)

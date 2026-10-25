@@ -476,7 +476,7 @@ void CHARACTER::LoadAffect(DWORD dwCount, TPacketAffectElement * pElements)
 	if (!GetDesc()->IsPhase(PHASE_GAME))
 	{
 		if (test_server)
-			sys_log(0, "LOAD_AFFECT: Creating Event", GetName(), dwCount);
+			sys_log(0, "LOAD_AFFECT: Creating Event %s (count %u)", GetName(), static_cast<unsigned int>(dwCount));
 
 		load_affect_login_event_info* info = AllocEventInfo<load_affect_login_event_info>();
 
@@ -672,7 +672,7 @@ bool CHARACTER::AddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD d
 
 	if (lDuration == 0)
 	{
-		sys_err("Character::AddAffect lDuration == 0 type %d", lDuration, dwType);
+		sys_err("Character::AddAffect lDuration == 0 (%ld) type %u", lDuration, static_cast<unsigned int>(dwType));
 		lDuration = 1;
 	}
 

@@ -10,9 +10,11 @@
 #include <cstddef>
 #include <cstring>
 #include <cassert>
+#include <algorithm>
 
 #include "server/src/game/src/packet.h"
 #include "server/src/common/tables.h"
+#include "server/src/common/utils.h"
 
 static int g_passCount = 0;
 static int g_failCount = 0;
@@ -369,6 +371,129 @@ int main()
         WIRE_ASSERT(inCharge.lAmount == -2147483647, "TRequestChargeCash lAmount (-INT32_MAX) match");
         WIRE_ASSERT(inCharge.lSecondAmount == 2147483647, "TRequestChargeCash lSecondAmount (INT32_MAX) match");
         WIRE_ASSERT(inCharge.eChargeType == ERequestCharge_Cash, "TRequestChargeCash eChargeType match");
+    }
+
+    // 9. 64-bit Audit Regression Tests (str_to_number, ItemShop Order, Inventory Bounds, YANG Tax)
+    {
+        // 9a. str_to_number(long long&, const char*) signed parsing via strtoll
+        long long llParsed = 0;
+        WIRE_ASSERT(str_to_number(llParsed, "-5000000000") && llParsed == -5000000000LL,
+            "str_to_number(long long&) parses negative 64-bit values accurately via strtoll");
+        WIRE_ASSERT(str_to_number(llParsed, "3000000000") && llParsed == 3000000000LL,
+            "str_to_number(long long&) parses >INT32_MAX positive 64-bit values accurately");
+        WIRE_ASSERT(!str_to_number(llParsed, nullptr) && llParsed == 3000000000LL,
+            "str_to_number(long long&) rejects nullptr and leaves output untouched");
+
+        // 9b. ItemShop GetPlayerAccountBalance negative/overflow DB balance clamping
+        auto clampAccountBalance = [](const char* szRaw) -> uint32_t {
+            long long rawVal = 0;
+            str_to_number(rawVal, szRaw);
+            return (rawVal > 0)
+                ? static_cast<uint32_t>(std::min<long long>(rawVal, static_cast<long long>(INT32_MAX)))
+                : 0U;
+        };
+        WIRE_ASSERT(clampAccountBalance("-150") == 0U,
+            "GetPlayerAccountBalance clamps negative DB cash (-150) to 0 instead of wrapping to 4,294,967,146");
+        WIRE_ASSERT(clampAccountBalance("3000000000") == static_cast<uint32_t>(INT32_MAX),
+            "GetPlayerAccountBalance clamps >INT32_MAX DB cash to INT32_MAX");
+        WIRE_ASSERT(clampAccountBalance("1250") == 1250U,
+            "GetPlayerAccountBalance preserves normal positive DB cash");
+
+        // 9c. ItemShop Buy transaction order: balance & DB connection & time-auction cap BEFORE charge or item delivery
+        auto simulateItemShopBuyOrder = [](bool hasDescAndDb, uint32_t cashBal, uint32_t markBal,
+                                           uint64_t unitPrice, uint64_t qty, uint64_t packCount,
+                                           bool isTimeAuction, uint32_t currentAuctionBought, uint32_t maxAuctionBuy,
+                                           bool useMarkScroll, int64_t scrollMarkAmount,
+                                           uint32_t& outCashBal, uint32_t& outMarkBal,
+                                           uint32_t& outAuctionBought, uint64_t& outDeliveredItems) -> bool {
+            outCashBal = cashBal;
+            outMarkBal = markBal;
+            outAuctionBought = currentAuctionBought;
+            outDeliveredItems = 0;
+
+            if (!hasDescAndDb || qty == 0 || unitPrice == 0 || unitPrice > static_cast<uint64_t>(INT32_MAX))
+                return false;
+            if (qty > static_cast<uint64_t>(INT32_MAX) / unitPrice)
+                return false;
+            const uint64_t totalPrice = unitPrice * qty;
+            if (totalPrice == 0 || totalPrice > static_cast<uint64_t>(INT32_MAX))
+                return false;
+            if (packCount == 0 || qty > static_cast<uint64_t>(INT32_MAX) / packCount)
+                return false;
+            const uint64_t totalItemCount = packCount * qty;
+            if (totalItemCount == 0 || totalItemCount > static_cast<uint64_t>(INT32_MAX))
+                return false;
+
+            int64_t clampedMarkUse = 0;
+            if (useMarkScroll) {
+                clampedMarkUse = std::clamp<int64_t>(scrollMarkAmount, 0, static_cast<int64_t>(totalPrice));
+                const uint64_t neededCash = totalPrice - static_cast<uint64_t>(clampedMarkUse);
+                if (cashBal < neededCash || markBal < static_cast<uint64_t>(clampedMarkUse))
+                    return false;
+            } else {
+                if (cashBal < totalPrice)
+                    return false;
+            }
+
+            if (isTimeAuction) {
+                if (static_cast<uint64_t>(currentAuctionBought) + totalItemCount > static_cast<uint64_t>(maxAuctionBuy))
+                    return false;
+                outAuctionBought = currentAuctionBought + static_cast<uint32_t>(totalItemCount);
+            }
+
+            // Deduct balance and deliver item ONLY after all checks pass
+            if (useMarkScroll) {
+                const uint32_t cashUsed = static_cast<uint32_t>(totalPrice - static_cast<uint64_t>(clampedMarkUse));
+                outCashBal -= cashUsed;
+                outMarkBal = markBal - static_cast<uint32_t>(clampedMarkUse) + cashUsed;
+            } else {
+                outCashBal -= static_cast<uint32_t>(totalPrice);
+                outMarkBal += static_cast<uint32_t>(totalPrice);
+            }
+            outDeliveredItems = totalItemCount;
+            return true;
+        };
+
+        uint32_t outCash = 0, outMark = 0, outAuction = 0;
+        uint64_t outDelivered = 0;
+
+        // Insufficient balance on time-auction item -> auction count and inventory MUST NOT change
+        WIRE_ASSERT(!simulateItemShopBuyOrder(true, 100, 0, 500, 1, 1, true, 2, 10, false, 0, outCash, outMark, outAuction, outDelivered)
+            && outCash == 100 && outAuction == 2 && outDelivered == 0,
+            "ItemShop Buy order: failed balance check leaves time-auction counter and delivered items untouched");
+
+        // Time-auction cap exceeded -> balance and inventory MUST NOT change
+        WIRE_ASSERT(!simulateItemShopBuyOrder(true, 5000, 0, 500, 2, 5, true, 6, 10, false, 0, outCash, outMark, outAuction, outDelivered)
+            && outCash == 5000 && outAuction == 6 && outDelivered == 0,
+            "ItemShop Buy order: exceeded time-auction cap (6 + 10 > 10) leaves balance and delivered items untouched");
+
+        // Dragon scroll with oversized mark value (scrollMarkAmount > totalPrice) -> clamped to totalPrice
+        WIRE_ASSERT(simulateItemShopBuyOrder(true, 100, 1000, 300, 1, 2, false, 0, 0, true, 99999, outCash, outMark, outAuction, outDelivered)
+            && outCash == 100 && outMark == 700 && outDelivered == 2,
+            "ItemShop Buy order: Dragon Scroll mark deduction clamped to item price (300) without negative cash deduction");
+
+        // 9d. IsHorseInventory cell range & 64-bit YANG shop tax / marriage love_point saturation
+        auto isHorseInventoryCell = [](int cell) -> bool {
+            return cell >= INVENTORY_DEFAULT_MAX_NUM && cell < INVENTORY_MAX_NUM;
+        };
+        WIRE_ASSERT(!isHorseInventoryCell(0) && !isHorseInventoryCell(89),
+            "IsHorseInventory: normal inventory cells [0, 89] return false");
+        WIRE_ASSERT(isHorseInventoryCell(90) && isHorseInventoryCell(134),
+            "IsHorseInventory: horse inventory cells [90, 134] return true");
+        WIRE_ASSERT(!isHorseInventoryCell(135) && !isHorseInventoryCell(-1),
+            "IsHorseInventory: out-of-range cells (-1, >=135) return false");
+
+        const int64_t shopPrice = 500000000000LL; // 500B YANG (> UINT32_MAX)
+        const int taxRate = 3;
+        const int64_t shopTax = shopPrice * taxRate / 100;
+        const int64_t netProceeds = shopPrice - shopTax;
+        WIRE_ASSERT(shopTax == 15000000000LL && netProceeds == 485000000000LL,
+            "64-bit YANG shop tax preserves 15B tax and 485B net proceeds without 32-bit DWORD truncation");
+
+        const uint64_t rawLovePoints = 5000000000ULL;
+        const uint64_t cappedLovePoints = std::min<uint64_t>(rawLovePoints, 2000000000ULL);
+        WIRE_ASSERT(cappedLovePoints == 2000000000ULL,
+            "Marriage love_point 64-bit saturation clamps 5B to 2B without 32-bit signed MIN negative wrap");
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

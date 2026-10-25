@@ -808,7 +808,7 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 	#endif
 	if (dwPrice > itemTable->dwGold)
 	{
-		sys_err("ITEM: #%-5lu %-24s SELL_OVERFLOW dwGold: %lld < dwShopBuyPrice %lld",
+		sys_err("ITEM: #%-5u %-24s SELL_OVERFLOW dwGold: %lld < dwShopBuyPrice %lld",
 			itemTable->dwVnum,
 			itemTable->szLocaleName,
 			itemTable->dwGold,

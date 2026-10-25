@@ -196,7 +196,7 @@ bool SpecialSpawnManager::LoadSpecialSpawn(const char* c_pszFileName)
 
 		LPSECTREE_MAP pkSectreeMap = SECTREE_MANAGER::instance().GetMap(iMapIndex);
 		if (pkSectreeMap == NULL) {
-			sys_err("SPECIAL_SPAWN: SECTREE_MAP not found for #%ld", iMapIndex);
+			sys_err("SPECIAL_SPAWN: SECTREE_MAP not found for #%d", iMapIndex);
 			loader.SetParentNode();
 			continue;
 		}

@@ -315,7 +315,7 @@ namespace marriage
 			StopNearCheckEvent();
 			return;
 		}
-		sys_log(0, "NearCheck %u %u %d %d %d", m_pid1, m_pid2, IsNear(), isLastNear, byLastLovePoint, GetMarriagePoint());
+		sys_log(0, "NearCheck %u %u %d %d %d %d", m_pid1, m_pid2, IsNear(), isLastNear, byLastLovePoint, GetMarriagePoint());
 
 		if (IsNear() && !isLastNear)
 		{
@@ -422,7 +422,7 @@ namespace marriage
 			bSave = true;
 			// @fixme126
 			uint64_t llActualPoints = static_cast<uint64_t>(love_point) + point;
-			love_point = MIN( llActualPoints, 2000000000 );
+			love_point = static_cast<int>(std::min<uint64_t>(llActualPoints, 2000000000ULL));
 
 			if (test_server)
 			{

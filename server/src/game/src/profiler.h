@@ -162,10 +162,10 @@ class CProfiler : public singleton<CProfiler>
 			{
 				TProfileStackData & rProfileStackData = m_ProfileStackDatas[i];
 
-				for (int i = 0; i < rProfileStackData.iCallStep; ++i)
+				for (int k = 0; k < rProfileStackData.iCallStep; ++k)
 					fprintf(fp, "\t");
 
-				fprintf(fp, "%-24s: %lu\n", rProfileStackData.strName.c_str(), rProfileStackData.iEndTime - rProfileStackData.iStartTime);
+				fprintf(fp, "%-24s: %u\n", rProfileStackData.strName.c_str(), static_cast<unsigned int>(rProfileStackData.iEndTime - rProfileStackData.iStartTime));
 			}
 
 			fprintf(fp, "Name                                 Call/Load       Ratio\n");

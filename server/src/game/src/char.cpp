@@ -3114,7 +3114,7 @@ int CHARACTER::GetPoint(BYTE type) const
 	}
 
 	if (val > max_val)
-		sys_err("POINT_ERROR: %s type %d val %d (max: %d)", GetName(), val, max_val);
+		sys_err("POINT_ERROR: %s type %d val %d (max: %d)", GetName(), type, val, max_val);
 
 	return (val);
 }
@@ -3198,7 +3198,7 @@ int CHARACTER::GetLimitPoint(BYTE type) const
 	}
 
 	if (val > max_val)
-		sys_err("POINT_ERROR: %s type %d val %d (max: %d)", GetName(), val, max_val);
+		sys_err("POINT_ERROR: %s type %d val %d (max: %d)", GetName(), type, val, max_val);
 
 	if (val > limit)
 		val = limit;
@@ -3312,7 +3312,7 @@ void CHARACTER::PointChange(BYTE type, int amount, bool bAmount, bool bBroadcast
 				int delta = GetLevel() + amount;
 				if (delta < 1)
 				{
-					sys_err(0, "POINT_LEVEL amount(%d) < 0 delta bigger than the level %d (player %s)", amount, GetLevel(), GetName());
+					sys_err("POINT_LEVEL amount(%d) < 0 delta bigger than the level %d (player %s)", amount, GetLevel(), GetName());
 					return;
 				}
 			}
@@ -5758,7 +5758,7 @@ bool CHARACTER::Follow(LPCHARACTER pkChr, float fMinDistance)
 {
 	if (IsPC())
 	{
-		sys_err("CHARACTER::Follow : PC cannot use this method", GetName());
+		sys_err("CHARACTER::Follow : PC cannot use this method (%s)", GetName());
 		return false;
 	}
 
@@ -9265,7 +9265,7 @@ void CHARACTER::SetSpecialFlag(std::string flag, long long val, bool skipSave, b
 {
 	if (flag.length() >= SPECIAL_FLAG_MAX_LEN)
 	{
-		sys_err(0, "special flag %s name is larger than %d!", flag.c_str(), SPECIAL_FLAG_MAX_LEN);
+		sys_err("special flag %s name is larger than %d!", flag.c_str(), SPECIAL_FLAG_MAX_LEN);
 		return;
 	}
 

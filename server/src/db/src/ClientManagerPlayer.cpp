@@ -1059,7 +1059,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 	if (pMsg2->Get()->uiAffectedRows <= 0)
 	{
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_ALREADY, dwHandle, 0);
-		sys_log(0, "ALREADY EXIST3 query: %s AffectedRows %lu", queryStr, pMsg2->Get()->uiAffectedRows);
+		sys_log(0, "ALREADY EXIST3 query: %s AffectedRows %u", queryStr, pMsg2->Get()->uiAffectedRows);
 		return;
 	}
 

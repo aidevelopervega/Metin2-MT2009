@@ -298,7 +298,7 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 #else
 	if (ch->GetGold() < dwPrice)
 	{
-		sys_log(1, "Shop::Buy : Not enough money : %s has %d, price %lld", ch->GetName(), ch->GetGold(), dwPrice);
+		sys_log(1, "Shop::Buy : Not enough money : %s has %lld, price %lld", ch->GetName(), ch->GetGold(), dwPrice);
 		return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 	}
 #endif
@@ -346,7 +346,7 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	ch->PointChange(POINT_CHEQUE, -dwCheque, false);
 #endif
 
-	DWORD dwTax = 0;
+	YANG dwTax = 0;
 	int iVal = 0;
 
 	{

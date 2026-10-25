@@ -915,7 +915,7 @@ void NormalAttackAffect(LPCHARACTER pkAttacker, LPCHARACTER pkVictim)
 int battle_hit(LPCHARACTER pkAttacker, LPCHARACTER pkVictim, int & iRetDam)
 {
 	if (test_server)
-		sys_log(0, "battle_hit : [%s] attack to [%s] : dam :%d type :%d", pkAttacker->GetName(), pkVictim->GetName(), iRetDam);
+		sys_log(0, "battle_hit : [%s] attack to [%s] : dam :%d", pkAttacker->GetName(), pkVictim->GetName(), iRetDam);
 
 	bool bIsPenetrate = pkAttacker ? pkAttacker->PenetrateHit(pkVictim) : false;
 	int iDam = CalcMeleeDamage(pkAttacker, pkVictim, bIsPenetrate);

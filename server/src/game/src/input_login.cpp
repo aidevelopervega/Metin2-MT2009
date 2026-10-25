@@ -562,7 +562,7 @@ void CInputLogin::CharacterCreate(LPDESC d, const char * data)
 
 	if (!NewPlayerTable2(&player_create_packet.player_table, pinfo->name, pinfo->job, pinfo->shape, d->GetEmpire()))
 	{
-		sys_err("player_prototype error: job %d face %d ", pinfo->job);
+		sys_err("player_prototype error: job %d face %d ", pinfo->job, pinfo->shape);
 		d->Packet(&packFailure, sizeof(packFailure));
 		return;
 	}
@@ -573,7 +573,7 @@ void CInputLogin::CharacterCreate(LPDESC d, const char * data)
 	player_create_packet.account_id	= c_rAccountTable.id;
 	player_create_packet.account_index	= pinfo->index;
 
-	sys_log(0, "PlayerCreate: name %s account_id %d, TPlayerCreatePacketSize(%d), Packet->Gold %d",
+	sys_log(0, "PlayerCreate: name %s account_id %d, TPlayerCreatePacketSize(%zu), Packet->Gold %lld",
 			pinfo->name,
 			pinfo->index,
 			sizeof(TPlayerCreatePacket),

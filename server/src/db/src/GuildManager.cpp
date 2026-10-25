@@ -795,7 +795,7 @@ void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 	}
 
 	it->second.gold += iGold;
-	sys_log(0, "GUILD: %u Deposit %u Total %lld", dwGuild, iGold, it->second.gold);
+	sys_log(0, "GUILD: %u Deposit %lld Total %lld", dwGuild, iGold, it->second.gold);
 
 	MoneyChange(dwGuild, it->second.gold);
 }
@@ -813,7 +813,7 @@ void CGuildManager::WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG iGold)
 	if (it->second.gold >= iGold)
 	{
 		it->second.gold -= iGold;
-		sys_log(0, "GUILD: %u Withdraw %d Total %lld", dwGuild, iGold, it->second.gold);
+		sys_log(0, "GUILD: %u Withdraw %lld Total %lld", dwGuild, iGold, it->second.gold);
 
 		TPacketDGGuildMoneyWithdraw p;
 		p.dwGuild = dwGuild;
@@ -1432,7 +1432,7 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 		return;
 	}
 
-	sys_log(0, "WAR_REWARD: End: Total bet: %u, Winner bet: %u", dwTotalBet, dwWinnerBet);
+	sys_log(0, "WAR_REWARD: End: Total bet: %lld, Winner bet: %lld", dwTotalBet, dwWinnerBet);
 
 	itertype(mapBet) it = mapBet.begin();
 

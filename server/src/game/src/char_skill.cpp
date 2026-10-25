@@ -2291,7 +2291,7 @@ int CHARACTER::ComputeSkill(DWORD dwVnum, LPCHARACTER pkVictim, BYTE bSkillLevel
 				k,
 				GetSkillPower(pkSk->dwVnum, bSkillLevel),
 				pkSk->bMaxLevel,
-				pkSk->bMaxLevel/100
+				pkSk->bMaxLevel / 100.0f
 				);
 
 	// ADD_GRANDMASTER_SKILL

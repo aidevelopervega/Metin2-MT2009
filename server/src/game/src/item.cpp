@@ -1683,7 +1683,7 @@ void CItem::SetAccessorySocketDownGradeTime(DWORD time)
 	SetSocket(2, time, true, "SOCKET_ACCESSORY");
 
 	if (test_server && GetOwner())
-		GetOwner()->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Time remaining %d seconds."), GetName(), time);
+		GetOwner()->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Time remaining %d seconds."), static_cast<int>(time));
 }
 
 EVENTFUNC(accessory_socket_expire_event)

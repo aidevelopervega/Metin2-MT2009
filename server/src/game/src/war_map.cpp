@@ -276,7 +276,7 @@ void CWarMap::UsePotion(LPCHARACTER ch, LPITEM item)
 	if (!item->GetProto())
 		return;
 
-	int iPrice = item->GetProto()->dwGold;
+	YANG iPrice = item->GetProto()->dwGold;
 
 	DWORD gid = ch->GetGuild()->GetID();
 
@@ -492,9 +492,9 @@ void CWarMap::CheckWarEnd()
 		CheckScore();
 }
 
-int CWarMap::GetRewardGold(BYTE bWinnerIdx)
+YANG CWarMap::GetRewardGold(BYTE bWinnerIdx)
 {
-	int iRewardGold = m_WarInfo.iWarPrice;
+	YANG iRewardGold = m_WarInfo.iWarPrice;
 	iRewardGold += (m_TeamData[bWinnerIdx].iUsePotionPrice * m_WarInfo.iWinnerPotionRewardPctToWinner) / 100;
 	iRewardGold += (m_TeamData[bWinnerIdx ? 0 : 1].iUsePotionPrice * m_WarInfo.iLoserPotionRewardPctToWinner) / 100;
 	return iRewardGold;

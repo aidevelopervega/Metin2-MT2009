@@ -399,7 +399,7 @@ void CShopManager::Sell(LPCHARACTER ch, BYTE bCell, ITEM_COUNT bCount)
 	sys_log(0, "SHOP: SELL: %s item name: %s(x%d):%d price: %lld", ch->GetName(), item->GetName(), bCount, item->GetID(), dwPrice);
 
 	if (iVal > 0)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This sale will be taxed %d%%."), iVal, dwTax);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This sale will be taxed %d%%."), iVal);
 
 	DBManager::instance().SendMoneyLog(MONEY_LOG_SHOP, item->GetVnum(), dwPrice);
 

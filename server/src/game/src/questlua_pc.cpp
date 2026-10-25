@@ -2817,7 +2817,7 @@ namespace quest
 					}
 					else
 					{
-						ch->ChatPacket(CHAT_TYPE_INFO, "#%u item not exist by that unknown vnum.");
+						ch->ChatPacket(CHAT_TYPE_INFO, "#%u item not exist by that unknown vnum.", static_cast<unsigned int>(m_vnum));
 						return 0;
 					}
 					break;
@@ -2833,7 +2833,7 @@ namespace quest
 					}
 					else
 					{
-						ch->ChatPacket(CHAT_TYPE_INFO, "#%u item not exist by that unknown count.");
+						ch->ChatPacket(CHAT_TYPE_INFO, "#%u item not exist by that unknown count.", static_cast<unsigned int>(m_count));
 						return 0;
 					}
 					break;

@@ -1040,7 +1040,7 @@ ACMD(do_war)
 					return;
 				}
 
-				int iWarPrice = KOR_aGuildWarInfo[type].iWarPrice;
+				YANG iWarPrice = KOR_aGuildWarInfo[type].iWarPrice;
 
 				if (g->GetGuildMoney() < iWarPrice)
 				{
@@ -1708,7 +1708,7 @@ ACMD(do_monarch_tax)
 
 	quest::CQuestManager::instance().SetEventFlag("trade_tax", tax);
 
-	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Taxes are set to %d%%."));
+	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Taxes are set to %d%%."), tax);
 
 	char szMsg[1024];
 

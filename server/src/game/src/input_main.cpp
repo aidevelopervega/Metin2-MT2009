@@ -1928,7 +1928,7 @@ void CInputMain::Attack(LPCHARACTER ch, const BYTE header, const char* data)
 		if (IsShootSkill(type->type) && HEADER_CG_SHOOT != type->header)
 		{
 			if (test_server)
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Attack :name[%s] Vnum[%d] can't use skill by attack(warning)"), type->type);
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Attack :name[%s] Vnum[%d] can't use skill by attack(warning)"), ch->GetName(), type->type);
 			return;
 		}
 	}
@@ -2907,7 +2907,7 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 					if (g_bGuildInviteLimit)
 					{
-						DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%d, %d)", pGuild->GetID(), get_global_time());
+						DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%u, %lld)", static_cast<unsigned int>(pGuild->GetID()), static_cast<long long>(get_global_time()));
 					}
 				}
 				else

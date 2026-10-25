@@ -29,7 +29,7 @@ namespace quest
 
 	ALUA(building_get_land_info)
 	{
-		int price = 1000000000;
+		YANG price = 1000000000;
 		int owner = 1000000000;
 		int level_limit = 1000000000;
 
@@ -51,7 +51,7 @@ namespace quest
 		else
 			sys_err("invalid argument");
 
-		lua_pushnumber(L, price);
+		lua_pushnumber(L, static_cast<lua_Number>(price));
 		lua_pushnumber(L, owner);
 		lua_pushnumber(L, level_limit);
 		return 3;
