@@ -394,10 +394,20 @@ jobs:
               cat /tmp/server_restart_${ENGINE_ID}.log || true
               exit 1
             fi
-            RESTART_VARS=$(mariadb --socket="$SOCKET_PATH" -u root -N -s -e "SELECT CONCAT(@@GLOBAL.bind_address,'|',@@GLOBAL.local_infile,'|',@@GLOBAL.server_audit_logging,'|',@@GLOBAL.server_audit_events);")
+            RESTART_VARS=$(mariadb --socket="$SOCKET_PATH" -u root -N -s -e "SELECT CONCAT(@@GLOBAL.bind_address,'|',@@GLOBAL.local_infile,'|',@@GLOBAL.server_audit_logging,'|',@@GLOBAL.server_audit_events);" | tr -d '\r\n')
             echo "  -> Post-restart MariaDB security variables: $RESTART_VARS"
-            if [ "$RESTART_VARS" != "127.0.0.1|0|ON|CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT" ]; then
-              echo "[ERROR] MariaDB security/audit settings did not persist after restart: $RESTART_VARS" >&2
+            case "$RESTART_VARS" in
+              "127.0.0.1|OFF|ON|CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT"|"127.0.0.1|0|ON|CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT")
+                echo "  -> [PASS] Post-restart MariaDB bind_address=127.0.0.1, local_infile=OFF(0), and server_audit settings persisted"
+                ;;
+              *)
+                echo "[ERROR] MariaDB security/audit settings did not persist after restart: $RESTART_VARS" >&2
+                exit 1
+                ;;
+            esac
+            RESTART_USERS=$(mariadb --socket="$SOCKET_PATH" -u root -N -s -e "SELECT COUNT(DISTINCT User) FROM mysql.user WHERE User IN ('mt2server','mt2log','mt2backup') AND Host IN ('127.0.0.1','localhost');" | tr -d ' \t\r\n')
+            if [ "$RESTART_USERS" != "3" ]; then
+              echo "[ERROR] Expected 3 least-privilege accounts (mt2server, mt2log, mt2backup) after restart, got $RESTART_USERS" >&2
               exit 1
             fi
 
