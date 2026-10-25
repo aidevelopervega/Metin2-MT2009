@@ -1744,11 +1744,20 @@ int main(int argc, char* argv[])
 			}
 			logSql.DirectQuery("DELETE FROM ikarusshop_log WHERE who IN (991001, 991002);");
 
-			// Bug 2: Test itemshop 10-column insert (both normal item ID and VIP/award NULL item_id) + verify 0 quarantine in durable spool
+			// Bug 2: Test itemshop 10-column insert (normal item ID, VIP/award NULL item_id, and large 64-bit price > INT32_MAX via %lld) + verify 0 quarantine in durable spool
 			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");
 			const std::string itemshopSpoolPath = "./mt2_test_itemshop_spool_" + std::to_string(port) + ".jsonl";
 			std::remove(itemshopSpoolPath.c_str());
 			std::remove((itemshopSpoolPath + ".quarantine").c_str());
+
+			const uint32_t largeUnitPrice = 300000000U;
+			const int largeQty = 10;
+			const long long llLargePrice = static_cast<long long>(largeUnitPrice) * static_cast<long long>(largeQty); // 3,000,000,000 > INT32_MAX (2,147,483,647)
+			char szLargePriceQuery[512];
+			std::snprintf(szLargePriceQuery, sizeof(szLargePriceQuery),
+				"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
+				"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %u)",
+				991001U, 990501U, 18, 80017U, largeQty, llLargePrice, 1, "8800999", 4000000000U);
 
 			{
 				CAsyncSQL asyncLogSql;
@@ -1763,22 +1772,23 @@ int main(int argc, char* argv[])
 				asyncLogSql.AsyncQuery(
 					"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
 					"VALUES (991001, 990501, 15, 70021, 1, 500, 2, null, NOW(), 750)");
+				asyncLogSql.AsyncQuery(szLargePriceQuery);
 
 				for (int w = 0; w < 60; ++w) {
-					if (asyncLogSql.CountQueryFinished() >= 2 && asyncLogSql.CountQuery() == 0)
+					if (asyncLogSql.CountQueryFinished() >= 3 && asyncLogSql.CountQuery() == 0)
 						break;
 					std::this_thread::sleep_for(std::chrono::milliseconds(50));
 				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 				auto spoolStats = asyncLogSql.GetDurableSpoolStats();
-				LIVE_ASSERT(spoolStats.ullQuarantinedCount == 0 && spoolStats.ullCommittedCount >= 2,
-					"In-Game SQL [Bug 2]: CItemShopManager::BuyItem 10-column itemshop log committed cleanly with 0 quarantined statements");
+				LIVE_ASSERT(spoolStats.ullQuarantinedCount == 0 && spoolStats.ullCommittedCount >= 3,
+					"In-Game SQL [Bug 2]: CItemShopManager::BuyItem 10-column itemshop log (including >INT32_MAX 64-bit price) committed cleanly with 0 quarantined statements");
 				asyncLogSql.Quit();
 			}
 
 			auto rVerifyShop = logSql.DirectQuery(
-				"SELECT COUNT(*), SUM(price), SUM(CASE WHEN item_id IS NULL THEN 1 ELSE 0 END) "
+				"SELECT COUNT(*), SUM(price), MAX(price), SUM(CASE WHEN item_id IS NULL THEN 1 ELSE 0 END) "
 				"FROM itemshop WHERE pid = 991001;");
 			LIVE_ASSERT(rVerifyShop != nullptr && !rVerifyShop->IsError() && rVerifyShop->Get() && rVerifyShop->Get()->uiNumRows == 1,
 				"In-Game SQL [Bug 2]: SELECT from log.itemshop succeeded");
@@ -1786,9 +1796,12 @@ int main(int argc, char* argv[])
 				MYSQL_ROW sRow = mysql_fetch_row(rVerifyShop->Get()->pSQLResult);
 				int cnt = (sRow && sRow[0]) ? std::atoi(sRow[0]) : 0;
 				long long sumPrice = (sRow && sRow[1]) ? std::strtoll(sRow[1], nullptr, 10) : 0;
-				int nullItemIds = (sRow && sRow[2]) ? std::atoi(sRow[2]) : 0;
-				LIVE_ASSERT(cnt == 2 && sumPrice == 750 && nullItemIds == 1,
-					"In-Game SQL [Bug 2]: Both itemshop purchases (with item_id=8800123 and item_id=NULL) persisted with all 10 fields");
+				long long maxPrice = (sRow && sRow[2]) ? std::strtoll(sRow[2], nullptr, 10) : 0;
+				int nullItemIds = (sRow && sRow[3]) ? std::atoi(sRow[3]) : 0;
+				LIVE_ASSERT(cnt == 3 && sumPrice == 3000000750LL && nullItemIds == 1,
+					"In-Game SQL [Bug 2]: All 3 itemshop purchases (item_id=8800123, item_id=NULL, and large price) persisted with all 10 fields");
+				LIVE_ASSERT(maxPrice == 3000000000LL,
+					"In-Game SQL [Bug 2]: Large 64-bit price (3,000,000,000 > INT32_MAX) formatted with %lld without LLP64 32-bit long overflow");
 			}
 
 			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");

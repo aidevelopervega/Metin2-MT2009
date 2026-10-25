@@ -910,15 +910,16 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 	}
 
+	const long long llLogPrice = static_cast<long long>(GetItemPrice(item)) * static_cast<long long>(quantity);
 	LogManager::instance().Query(
 		"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
-		"VALUES (%u, %u, %d, %u, %d, %ld, %d, %s, NOW(), %u)",
+		"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %u)",
 		ch->GetPlayerID(),
 		ch->GetDesc()->GetAccountTable().id,
 		itemIndex,
 		item.dwVnum,
 		quantity,
-		lPrice,
+		llLogPrice,
 		static_cast<int>(chargeType) + 1,
 		itemId.c_str(),
 		money_before_buy);
