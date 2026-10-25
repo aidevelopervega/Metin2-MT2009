@@ -51,7 +51,7 @@ bool SpecialSpawnManager::LoadSpecialSpawn(const char* c_pszFileName)
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().DirectQuery("SELECT vnum, channel, UNIX_TIMESTAMP() - UNIX_TIMESTAMP(kill_time) AS last_kill_delta FROM special_spawn"));
 	SQLResult* pRes = pkMsg->Get();
 
-	std::map<DWORD, DWORD> killTimeMap;
+	std::map<DWORD, int> killTimeMap;
 	if (pRes->uiNumRows > 0)
 	{
 		MYSQL_ROW data;
@@ -59,19 +59,19 @@ bool SpecialSpawnManager::LoadSpecialSpawn(const char* c_pszFileName)
 		while ((data = mysql_fetch_row(pRes->pSQLResult)))
 		{
 			col = 0;
-			int iVnum;
+			int iVnum = 0;
 			str_to_number(iVnum, data[col++]);
 
-			int iChannel;
+			int iChannel = 0;
 			str_to_number(iChannel, data[col++]);
 
 			if (iChannel != g_bChannel)
 				continue;
 
-			int kill_time;
+			int kill_time = 0;
 			str_to_number(kill_time, data[col++]);
 
-			killTimeMap[iVnum] = kill_time;
+			killTimeMap[static_cast<DWORD>(iVnum)] = kill_time;
 		}
 	}
 
@@ -258,14 +258,14 @@ bool SpecialSpawnManager::LoadSpecialSpawn(const char* c_pszFileName)
 			continue;
 		}
 
-		if (spawnCount > pkSpecialSpawn->m_vec_spawnPositions.size())
+		if (static_cast<size_t>(spawnCount) > pkSpecialSpawn->m_vec_spawnPositions.size())
 		{
 			sys_err("LoadSpecialSpawn spawn count is greater than spawn positions (%d).", iVnum);
 			M2_DELETE(pkSpecialSpawn);
 			return false;
 		}
 
-		DWORD last_kill_delta = -1;
+		int last_kill_delta = -1;
 		auto it = killTimeMap.find(iVnum);
 		if (it != killTimeMap.end())
 			last_kill_delta = it->second;

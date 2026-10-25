@@ -3,7 +3,7 @@
 #include "char_manager.h"
 #include "boss_giant.h"
 
-void BossGiant_OnStartBattle(LPCHARACTER ch, LPCHARACTER victim)
+void BossGiant_OnStartBattle(LPCHARACTER ch, [[maybe_unused]] LPCHARACTER victim)
 {
 	if (ch == NULL)
 		return;
@@ -19,7 +19,7 @@ LPCHARACTER SpawnAOE(LPCHARACTER ch) {
 	return CHARACTER_MANAGER::instance().SpawnMob(7503, ch->GetMapIndex(), ch->GetX(), ch->GetY(), ch->GetZ());
 }
 
-void BossGiant_OnDamage(LPCHARACTER victim, int& damage, BYTE damageType)
+void BossGiant_OnDamage(LPCHARACTER victim, [[maybe_unused]] int& damage, [[maybe_unused]] BYTE damageType)
 {
 	if (victim == NULL)
 		return;
@@ -27,10 +27,10 @@ void BossGiant_OnDamage(LPCHARACTER victim, int& damage, BYTE damageType)
 	int hp = victim->GetHPPct();
 	int step = victim->GetMaxSP();
 
-	if (hp <= 75 && step == 0 ||
-		hp <= 50 && step == 1 ||
-		hp <= 25 && step == 2 ||
-		hp <= 10 && step == 3)
+	if ((hp <= 75 && step == 0) ||
+		(hp <= 50 && step == 1) ||
+		(hp <= 25 && step == 2) ||
+		(hp <= 10 && step == 3))
 	{
 		victim->SetMaxSP(step + 1);
 		SpawnAOE(victim);

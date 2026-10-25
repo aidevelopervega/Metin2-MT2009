@@ -412,7 +412,7 @@ bool is_time_between_hours(DWORD fromHour, DWORD toHour) {
 	auto current_time = get_global_time();
 	auto local_tm = localtime(&current_time); // Convert to local time
 
-	int hour = local_tm->tm_hour;
+	DWORD hour = static_cast<DWORD>(local_tm->tm_hour);
 	if (fromHour < toHour) {
 		return hour >= fromHour && hour < toHour;
 	}

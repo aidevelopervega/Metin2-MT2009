@@ -66,7 +66,7 @@ void ItemAwardManager::RequestLoad()
 		"attrtype5, attrvalue5, "
 		"attrtype6, attrvalue6, "
 		#endif
-		"mall,why FROM item_award WHERE taken_time IS NULL and id > %d", g_dwLastCachedItemAwardID);
+		"mall,why FROM item_award WHERE taken_time IS NULL and id > %u", static_cast<unsigned int>(g_dwLastCachedItemAwardID));
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_AWARD_LOAD, 0, NULL);
 }
 
@@ -126,8 +126,8 @@ void ItemAwardManager::Load(SQLMsg * pMsg)
 
 		m_map_award.emplace(dwID, kData);
 
-		printf("ITEM_AWARD load id %u bMall %d \n", kData->dwID, kData->bMall);
-		sys_log(0, "ITEM_AWARD: load id %lu login %s vnum %lu count %u socket %lu", kData->dwID, kData->szLogin, kData->dwVnum, kData->dwCount, kData->dwSocket0);
+		printf("ITEM_AWARD load id %u bMall %d \n", static_cast<unsigned int>(kData->dwID), kData->bMall);
+		sys_log(0, "ITEM_AWARD: load id %u login %s vnum %u count %u socket %u", static_cast<unsigned int>(kData->dwID), kData->szLogin, static_cast<unsigned int>(kData->dwVnum), static_cast<unsigned int>(kData->dwCount), static_cast<unsigned int>(kData->dwSocket0));
 		std::set<TItemAward *> & kSet = m_map_kSetAwardByLogin[kData->szLogin];
 		kSet.emplace(kData);
 
@@ -165,7 +165,7 @@ void ItemAwardManager::Taken(DWORD dwAwardID, DWORD dwItemID)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"UPDATE item_award SET taken_time=NOW(),item_id=%u WHERE id=%u AND taken_time IS NULL",
-			dwItemID, dwAwardID);
+			static_cast<unsigned int>(dwItemID), static_cast<unsigned int>(dwAwardID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_AWARD_TAKEN, 0, NULL);
 }

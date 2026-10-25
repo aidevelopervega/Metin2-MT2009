@@ -349,51 +349,41 @@ void CHARACTER::SetItem(TItemPos Cell, LPITEM pItem
 
 	case DRAGON_SOUL_INVENTORY:
 		{
+			if (wCell >= DRAGON_SOUL_INVENTORY_MAX_NUM)
+			{
+				sys_err("CHARACTER::SetItem: invalid DS item cell %d", wCell);
+				return;
+			}
+
 			LPITEM pOld = m_PlayerSlots->pDSItems[wCell];
 
 			if (pOld)
 			{
-				if (wCell < DRAGON_SOUL_INVENTORY_MAX_NUM)
+				for (int i = 0; i < pOld->GetSize(); ++i)
 				{
-					for (int i = 0; i < pOld->GetSize(); ++i)
-					{
-						int p = wCell + (i * DRAGON_SOUL_BOX_COLUMN_NUM);
+					int p = wCell + (i * DRAGON_SOUL_BOX_COLUMN_NUM);
 
-						if (p >= DRAGON_SOUL_INVENTORY_MAX_NUM)
-							continue;
+					if (p >= DRAGON_SOUL_INVENTORY_MAX_NUM)
+						continue;
 
-						if (m_PlayerSlots->pDSItems[p] && m_PlayerSlots->pDSItems[p] != pOld)
-							continue;
+					if (m_PlayerSlots->pDSItems[p] && m_PlayerSlots->pDSItems[p] != pOld)
+						continue;
 
-						m_PlayerSlots->wDSItemGrid[p] = 0;
-					}
+					m_PlayerSlots->wDSItemGrid[p] = 0;
 				}
-				else
-					m_PlayerSlots->wDSItemGrid[wCell] = 0;
 			}
 
 			if (pItem)
 			{
-				if (wCell >= DRAGON_SOUL_INVENTORY_MAX_NUM)
+				for (int i = 0; i < pItem->GetSize(); ++i)
 				{
-					sys_err("CHARACTER::SetItem: invalid DS item cell %d", wCell);
-					return;
+					int p = wCell + (i * DRAGON_SOUL_BOX_COLUMN_NUM);
+
+					if (p >= DRAGON_SOUL_INVENTORY_MAX_NUM)
+						continue;
+
+					m_PlayerSlots->wDSItemGrid[p] = wCell + 1;
 				}
-
-				if (wCell < DRAGON_SOUL_INVENTORY_MAX_NUM)
-				{
-					for (int i = 0; i < pItem->GetSize(); ++i)
-					{
-						int p = wCell + (i * DRAGON_SOUL_BOX_COLUMN_NUM);
-
-						if (p >= DRAGON_SOUL_INVENTORY_MAX_NUM)
-							continue;
-
-						m_PlayerSlots->wDSItemGrid[p] = wCell + 1;
-					}
-				}
-				else
-					m_PlayerSlots->wDSItemGrid[wCell] = wCell + 1;
 			}
 
 			m_PlayerSlots->pDSItems[wCell] = pItem;
@@ -469,7 +459,7 @@ LPITEM CHARACTER::GetWear(BYTE bCell) const
 	if (!m_PlayerSlots)
 		return nullptr;
 
-	if (bCell >= WEAR_MAX_NUM + DRAGON_SOUL_DECK_MAX_NUM * DS_SLOT_MAX)
+	if (bCell >= WEAR_MAX_NUM + static_cast<int>(DRAGON_SOUL_DECK_MAX_NUM) * static_cast<int>(DS_SLOT_MAX))
 	{
 		sys_err("CHARACTER::GetWear: invalid wear cell %d", bCell);
 		return NULL;
@@ -480,7 +470,7 @@ LPITEM CHARACTER::GetWear(BYTE bCell) const
 
 void CHARACTER::SetWear(BYTE bCell, LPITEM item)
 {
-	if (bCell >= WEAR_MAX_NUM + DRAGON_SOUL_DECK_MAX_NUM * DS_SLOT_MAX)
+	if (bCell >= WEAR_MAX_NUM + static_cast<int>(DRAGON_SOUL_DECK_MAX_NUM) * static_cast<int>(DS_SLOT_MAX))
 	{
 		sys_err("CHARACTER::SetItem: invalid item cell %d", bCell);
 		return;
@@ -805,7 +795,7 @@ bool CHARACTER::CheckRefineBonus(LPITEM item, LPITEM scrollItem)
 	if (!scrollItem)
 		return false;
 
-		const int RefineItemType = scrollItem->GetValue(3);
+	const int RefineItemType = scrollItem->GetValue(3);
 		const int RefineMaxUseLevel = scrollItem->GetValue(4);
 		const int RefineMaxRefineLevel = scrollItem->GetValue(5);
 
@@ -1371,8 +1361,8 @@ bool CHARACTER::RefineItem(LPITEM pkItem, LPITEM pkTarget)
 	}
 	else if (pkItem->GetSubType() == USE_DETACHMENT && IS_SET(pkTarget->GetFlag(), ITEM_FLAG_REFINEABLE))
 	{
-		if (!(pkTarget->GetType() == ITEM_WEAPON && pkTarget->GetSubType() <= WEAPON_FAN
-			|| pkTarget->GetType() == ITEM_ARMOR && pkTarget->GetSubType() == ARMOR_BODY))
+		if (!((pkTarget->GetType() == ITEM_WEAPON && pkTarget->GetSubType() <= WEAPON_FAN)
+			|| (pkTarget->GetType() == ITEM_ARMOR && pkTarget->GetSubType() == ARMOR_BODY)))
 		{
 			ChatDebug("cannot detach");
 			return false;
@@ -1602,7 +1592,7 @@ void CHARACTER::__OpenPrivateShop()
 void CHARACTER::SendMyShopPriceListCmd(DWORD dwItemVnum, YANG dwItemPrice)
 {
 	char szLine[256];
-	snprintf(szLine, sizeof(szLine), "MyShopPriceList %u %lld", dwItemVnum, dwItemPrice);
+	snprintf(szLine, sizeof(szLine), "MyShopPriceList %u %lld", static_cast<unsigned int>(dwItemVnum), dwItemPrice);
 	ChatPacket(CHAT_TYPE_COMMAND, szLine);
 	sys_log(0, szLine);
 }
@@ -2056,7 +2046,6 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 				std::vector <DWORD> dwVnums;
 				std::vector <DWORD> dwCounts;
 				std::vector <LPITEM> item_gets(0);
-				int count = 0;
 
 				if( dwBoxVnum > 51500 && dwBoxVnum < 52000 )
 				{
@@ -2372,11 +2361,11 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								{
 									if (item->GetVnum() == DRAGON_HEART_VNUM)
 									{
-										sprintf(buf, "Inc %ds by item{VN:%d SOC%d:%ld}", ret, item->GetVnum(), ITEM_SOCKET_CHARGING_AMOUNT_IDX, item->GetSocket(ITEM_SOCKET_CHARGING_AMOUNT_IDX));
+										snprintf(buf, sizeof(buf), "Inc %ds by item{VN:%u SOC%d:%d}", ret, static_cast<unsigned int>(item->GetVnum()), ITEM_SOCKET_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetSocket(ITEM_SOCKET_CHARGING_AMOUNT_IDX)));
 									}
 									else
 									{
-										sprintf(buf, "Inc %ds by item{VN:%d VAL%d:%ld}", ret, item->GetVnum(), ITEM_VALUE_CHARGING_AMOUNT_IDX, item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX));
+										snprintf(buf, sizeof(buf), "Inc %ds by item{VN:%u VAL%d:%d}", ret, static_cast<unsigned int>(item->GetVnum()), ITEM_VALUE_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX)));
 									}
 
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Charged for %d seconds"), ret);
@@ -2388,11 +2377,11 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								{
 									if (item->GetVnum() == DRAGON_HEART_VNUM)
 									{
-										sprintf(buf, "No change by item{VN:%d SOC%d:%ld}", item->GetVnum(), ITEM_SOCKET_CHARGING_AMOUNT_IDX, item->GetSocket(ITEM_SOCKET_CHARGING_AMOUNT_IDX));
+										snprintf(buf, sizeof(buf), "No change by item{VN:%u SOC%d:%d}", static_cast<unsigned int>(item->GetVnum()), ITEM_SOCKET_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetSocket(ITEM_SOCKET_CHARGING_AMOUNT_IDX)));
 									}
 									else
 									{
-										sprintf(buf, "No change by item{VN:%d VAL%d:%ld}", item->GetVnum(), ITEM_VALUE_CHARGING_AMOUNT_IDX, item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX));
+										snprintf(buf, sizeof(buf), "No change by item{VN:%u VAL%d:%d}", static_cast<unsigned int>(item->GetVnum()), ITEM_VALUE_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX)));
 									}
 
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cannot charge."));
@@ -2419,7 +2408,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								if (ret)
 								{
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Charged for %d seconds"), ret);
-									sprintf(buf, "Increase %ds by item{VN:%d VAL%d:%ld}", ret, item->GetVnum(), ITEM_VALUE_CHARGING_AMOUNT_IDX, item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX));
+									snprintf(buf, sizeof(buf), "Increase %ds by item{VN:%u VAL%d:%d}", ret, static_cast<unsigned int>(item->GetVnum()), ITEM_VALUE_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX)));
 									LogManager::instance().ItemLog(this, item, "DS_CHARGING_SUCCESS", buf);
 									item->SetCount(item->GetCount() - 1);
 									return true;
@@ -2427,7 +2416,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								else
 								{
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cannot charge."));
-									sprintf(buf, "No change by item{VN:%d VAL%d:%ld}", item->GetVnum(), ITEM_VALUE_CHARGING_AMOUNT_IDX, item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX));
+									snprintf(buf, sizeof(buf), "No change by item{VN:%u VAL%d:%d}", static_cast<unsigned int>(item->GetVnum()), ITEM_VALUE_CHARGING_AMOUNT_IDX, static_cast<int>(item->GetValue(ITEM_VALUE_CHARGING_AMOUNT_IDX)));
 									LogManager::instance().ItemLog(this, item, "DS_CHARGING_FAILED", buf);
 									return false;
 								}
@@ -2770,7 +2759,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 										}
 
 										char chatbuf[CHAT_MAX_LEN + 1];
-										int len = snprintf(chatbuf, sizeof(chatbuf), "StoneDetect %u 0 0", (DWORD)GetVID());
+										int len = snprintf(chatbuf, sizeof(chatbuf), "StoneDetect %u 0 0", static_cast<unsigned int>(GetVID()));
 
 										if (len < 0 || len >= (int) sizeof(chatbuf))
 											len = sizeof(chatbuf) - 1;
@@ -2815,7 +2804,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 										char chatbuf[CHAT_MAX_LEN + 1];
 										int len = snprintf(chatbuf, sizeof(chatbuf),
 												"StoneDetect %u %d %d",
-											   	(DWORD)GetVID(), dist, (int)GetDegreeFromPositionXY(GetX(), item->GetSocket(2), item->GetSocket(1), GetY()));
+											   	static_cast<unsigned int>(GetVID()), dist, (int)GetDegreeFromPositionXY(GetX(), item->GetSocket(2), item->GetSocket(1), GetY()));
 
 										if (len < 0 || len >= (int) sizeof(chatbuf))
 											len = sizeof(chatbuf) - 1;
@@ -3460,7 +3449,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										char buf[256+1];
 										snprintf(buf, sizeof(buf), "%s(%u) %s(%u)",
-												item2->GetName(), item2->GetID(), pItemReward->GetName(), pItemReward->GetID());
+												item2->GetName(), static_cast<unsigned int>(item2->GetID()), pItemReward->GetName(), static_cast<unsigned int>(pItemReward->GetID()));
 										LogManager::instance().ItemLog(this, item, "USE_DETACHMENT_ONE", buf);
 
 										item->SetCount(item->GetCount() - 1);
@@ -3725,7 +3714,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										int iAddedIdx = item2->GetRareAttrCount() + 4;
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 
 										LogManager::instance().ItemLog(
 												GetPlayerID(),
@@ -3775,7 +3764,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 #endif
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_RARE_ATTR", buf);
 
 										item->SetCount(item->GetCount() - 1);
@@ -3826,7 +3815,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									{
 										case ITEM_AUTO_HP_RECOVERY_X:
 											isSpecialPotion = true;
-
+											[[fallthrough]];
 										case ITEM_AUTO_HP_RECOVERY_S:
 										case ITEM_AUTO_HP_RECOVERY_M:
 										case ITEM_AUTO_HP_RECOVERY_L:
@@ -3838,7 +3827,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										case ITEM_AUTO_SP_RECOVERY_X:
 											isSpecialPotion = true;
-
+											[[fallthrough]];
 										case ITEM_AUTO_SP_RECOVERY_S:
 										case ITEM_AUTO_SP_RECOVERY_M:
 										case ITEM_AUTO_SP_RECOVERY_L:
@@ -4416,7 +4405,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									item2->ChangeAttribute();
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_COSTUME_ATTR", buf);
 									}
 									break;
@@ -4425,7 +4414,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									item2->AlterToMagicItem();
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "RESET_COSTUME_ATTR", buf);
 									}
 									break;
@@ -4458,7 +4447,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								return false;
 							}
 
-							if (item2->GetVnum() >= 11901 && item2->GetVnum() <= 11904 || item2->GetVnum() == 50201 || item2->GetVnum() == 50202) // wedding items
+							if ((item2->GetVnum() >= 11901 && item2->GetVnum() <= 11904) || item2->GetVnum() == 50201 || item2->GetVnum() == 50202) // wedding items
 							{
 								ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot change the upgrade of this item."));
 								return false;
@@ -4473,7 +4462,6 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									{
 										int max_clean_count = item->GetValue(0);
 										int clean_count = 0;
-										int shift_count = 0;
 
 										int i;
 										for (i = 0; i < METIN_SOCKET_MAX_NUM; ++i)
@@ -4484,11 +4472,6 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 												item2->SetSocket(i, 1, true, "SOCKET_CLEAN");
 												clean_count++;
 											}
-											else if (socket > 0
-												&& clean_count > 0 && i >= clean_count)
-											{
-												shift_count = MIN(clean_count, i);
-											}
 										}
 
 										if (clean_count == 0)
@@ -4496,8 +4479,6 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 											ChatPacket(CHAT_TYPE_INFO, LC_TEXT("There aren't any Pieces of Broken Stone available for removal."));
 											return false;
 										}
-
-										int last_socket_index = METIN_SOCKET_MAX_NUM - 1;
 										for (int j = 0; j < METIN_SOCKET_MAX_NUM; j++)
 										{
 											if (item2->GetSocket(j) == 0)
@@ -4520,7 +4501,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										{
 											char buf[21];
-											snprintf(buf, sizeof(buf), "%u", item2->GetID());
+											snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 											LogManager::instance().ItemLog(this, item, "CLEAN_SOCKET", buf);
 										}
 
@@ -4596,7 +4577,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have changed the upgrade."));
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_ATTRIBUTE", buf);
 									}
 
@@ -4639,7 +4620,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 											}
 										}
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 
 										if (number(1, 100) <= aiItemAttributeAddPercent[item2->GetAttributeCount()])
 										{
@@ -4682,7 +4663,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									if (item2->GetAttributeCount() == 4)
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 
 										if (number(1, 100) <= aiItemAttributeAddPercent[item2->GetAttributeCount()])
 										{
@@ -4726,7 +4707,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								case USE_ADD_ACCESSORY_SOCKET:
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 
 										if (item2->IsAccessoryForSocket())
 										{
@@ -4767,7 +4748,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									if (item2->IsAccessoryForSocket() && item->CanPutInto(item2))
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", item2->GetID());
+										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
 
 										if (item2->GetAccessorySocketGrade() < item2->GetAccessorySocketMaxGrade())
 										{
@@ -5112,8 +5093,8 @@ bool CHARACTER::UseItem(TItemPos Cell, TItemPos DestCell)
 	if (!IsValidItemPosition(Cell) || !(item = GetItem(Cell)))
 		return false;
 
-	if (IsHorseInventory(item->GetItemPos()) && item->GetCell() >= GetInventoryMaxCount() ||
-		IsHorseInventory(DestCell) && DestCell.cell >= GetInventoryMaxCount())
+	if ((IsHorseInventory(item->GetItemPos()) && item->GetCell() >= GetInventoryMaxCount()) ||
+		(IsHorseInventory(DestCell) && DestCell.cell >= GetInventoryMaxCount()))
 	{
 		// summon horse item
 		if (item->GetVnum() < 50051 && item->GetVnum() > 50053)
@@ -5300,7 +5281,7 @@ bool CHARACTER::UseItem(TItemPos Cell, TItemPos DestCell)
 		}
 		else if (oldCount != item->GetCount())
 		{
-			snprintf(hint + len, sizeof(hint) - len, " %u", oldCount - 1);
+			snprintf(hint + len, sizeof(hint) - len, " %u", static_cast<unsigned int>(oldCount - 1));
 			LogManager::instance().ItemLog(this, vid, vnum, "USE_ITEM", hint);
 		}
 		return (ret);
@@ -5383,7 +5364,7 @@ bool CHARACTER::DropItem(TItemPos Cell, ITEM_COUNT bCount)
 		FN_copy_item_socket(pkItemToDrop, item);
 
 		char szBuf[51 + 1];
-		snprintf(szBuf, sizeof(szBuf), "%u %u", pkItemToDrop->GetID(), pkItemToDrop->GetCount());
+		snprintf(szBuf, sizeof(szBuf), "%u %u", static_cast<unsigned int>(pkItemToDrop->GetID()), static_cast<unsigned int>(pkItemToDrop->GetCount()));
 		LogManager::instance().ItemLog(this, item, "ITEM_SPLIT", szBuf);
 	}
 
@@ -5402,7 +5383,7 @@ bool CHARACTER::DropItem(TItemPos Cell, ITEM_COUNT bCount)
 		ITEM_MANAGER::instance().FlushDelayedSave(pkItemToDrop);
 
 		char szHint[32 + 1];
-		snprintf(szHint, sizeof(szHint), "%s %u %u", pkItemToDrop->GetName(), pkItemToDrop->GetCount(), pkItemToDrop->GetOriginalVnum());
+		snprintf(szHint, sizeof(szHint), "%s %u %u", pkItemToDrop->GetName(), static_cast<unsigned int>(pkItemToDrop->GetCount()), static_cast<unsigned int>(pkItemToDrop->GetOriginalVnum()));
 		LogManager::instance().ItemLog(this, pkItemToDrop, "DROP", szHint);
 		//Motion(MOTION_PICKUP);
 	}
@@ -5534,8 +5515,8 @@ bool CHARACTER::MoveItem(TItemPos Cell, TItemPos DestCell, ITEM_COUNT count)
 		return false;
 	}
 
-	if (IsHorseInventory(DestCell) && DestCell.cell >= GetInventoryMaxCount() ||
-		IsHorseInventory(item->GetItemPos()) && Cell.cell >= GetInventoryMaxCount())
+	if ((IsHorseInventory(DestCell) && DestCell.cell >= GetInventoryMaxCount()) ||
+		(IsHorseInventory(item->GetItemPos()) && Cell.cell >= GetInventoryMaxCount()))
 	{
 		return false;
 	}
@@ -5667,7 +5648,7 @@ bool CHARACTER::MoveItem(TItemPos Cell, TItemPos DestCell, ITEM_COUNT count)
 			item2->AddToCharacter(this, DestCell);
 
 			char szBuf[51+1];
-			snprintf(szBuf, sizeof(szBuf), "%u %d %d %d ", item2->GetID(), item2->GetCount(), item->GetCount(), item->GetCount() + item2->GetCount());
+			snprintf(szBuf, sizeof(szBuf), "%u %u %u %u ", static_cast<unsigned int>(item2->GetID()), static_cast<unsigned int>(item2->GetCount()), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetCount() + item2->GetCount()));
 			LogManager::instance().ItemLog(this, item, "ITEM_SPLIT", szBuf);
 		}
 	}
@@ -5701,7 +5682,7 @@ namespace NPartyPickupDistribute
 		int		x, y;
 
 		FCountNearMember(LPCHARACTER center )
-			: total(0), x(center->GetX()), y(center->GetY()), center(center)
+			: center(center), total(0), x(center->GetX()), y(center->GetY())
 		{
 		}
 
@@ -5912,7 +5893,7 @@ bool CHARACTER::PickupItem(DWORD dwVID)
 			item->AddToCharacter(this, TItemPos(item->GetWindowInventoryEx(), iEmptyCell));
 
 			char szHint[32+1];
-			snprintf(szHint, sizeof(szHint), "%s %u %u", item->GetName(), item->GetCount(), item->GetOriginalVnum());
+			snprintf(szHint, sizeof(szHint), "%s %u %u", item->GetName(), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetOriginalVnum()));
 			LogManager::instance().ItemLog(this, item, "GET", szHint, true);
 			ChatPacketRecieveItem(this, item, 1);
 
@@ -5947,7 +5928,7 @@ bool CHARACTER::PickupItem(DWORD dwVID)
 		item->AddToCharacter(owner, TItemPos(item->GetWindowInventoryEx(), iEmptyCell));
 
 		char szHint[32+1];
-		snprintf(szHint, sizeof(szHint), "%s %u %u", item->GetName(), item->GetCount(), item->GetOriginalVnum());
+		snprintf(szHint, sizeof(szHint), "%s %u %u", item->GetName(), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetOriginalVnum()));
 		LogManager::instance().ItemLog(owner, item, "GET", szHint, true);
 
 		if (owner == this)
@@ -6596,8 +6577,8 @@ std::pair<bool, LPITEM> CHARACTER::AutoStackItemProto(DWORD dwItemVnum, ITEM_COU
 			{
 				if (IS_SET(p->dwFlags, ITEM_FLAG_MAKECOUNT))
 				{
-					if (bCount < p->alValues[1])
-						bCount = p->alValues[1];
+					if (p->alValues[1] > 0 && bCount < static_cast<ITEM_COUNT>(p->alValues[1]))
+						bCount = static_cast<ITEM_COUNT>(p->alValues[1]);
 				}
 
 				auto bCount2 = MIN(item->GetMaxStack() - item->GetCount(), bCount);
@@ -6893,6 +6874,7 @@ bool CHARACTER::CanReceiveItem(LPCHARACTER from, LPITEM item) const
 			{
 				return false;
 			}
+			break;
 		case 20104:
 		case 20105:
 		case 20106:
@@ -7280,7 +7262,7 @@ LPITEM CHARACTER::DropSpecialItemGroup(DWORD dwGroupNum, bool& bSuccess, bool bC
 }
 
 // NEW_HAIR_STYLE_ADD
-bool CHARACTER::ItemProcess_Hair(LPITEM item, int iDestCell)
+bool CHARACTER::ItemProcess_Hair(LPITEM item, [[maybe_unused]] int iDestCell)
 {
 	if (item->CheckItemUseLevel(GetLevel()) == false)
 	{
@@ -7613,7 +7595,7 @@ bool CHARACTER::IsValidItemPosition(TItemPos Pos) const
 			return false; \
 	}
 
-bool CHARACTER::CanEquipNow(const LPITEM item, const TItemPos& srcCell, const TItemPos& destCell) /*const*/
+bool CHARACTER::CanEquipNow(const LPITEM item, [[maybe_unused]] const TItemPos& srcCell, [[maybe_unused]] const TItemPos& destCell) /*const*/
 {
 	if (!PulseManager::Instance().IncreaseCount(GetPlayerID(), ePulse::ItemEquip, std::chrono::milliseconds(500), 5))
 	{
@@ -7739,7 +7721,7 @@ bool CHARACTER::CanEquipNow(const LPITEM item, const TItemPos& srcCell, const TI
 
 	}
 
-	if (m_pkFishingEvent || m_pkPreFishingEvent || HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500)
+	if (m_pkFishingEvent || m_pkPreFishingEvent || (HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500))
 	{
 		return false;
 	}
@@ -7747,7 +7729,7 @@ bool CHARACTER::CanEquipNow(const LPITEM item, const TItemPos& srcCell, const TI
 	return true;
 }
 
-bool CHARACTER::CanUnequipNow(const LPITEM item, const TItemPos& srcCell, const TItemPos& destCell, const LPITEM keyItem) /*const*/
+bool CHARACTER::CanUnequipNow(const LPITEM item, [[maybe_unused]] const TItemPos& srcCell, [[maybe_unused]] const TItemPos& destCell, const LPITEM keyItem) /*const*/
 {
 	if (IsStun())
 		return false;
@@ -7782,7 +7764,7 @@ bool CHARACTER::CanUnequipNow(const LPITEM item, const TItemPos& srcCell, const 
 	if (IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE))
 		return false;
 
-	if (m_pkFishingEvent || m_pkPreFishingEvent || HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500)
+	if (m_pkFishingEvent || m_pkPreFishingEvent || (HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500))
 		return false;
 
 	if (m_pkMiningEvent)

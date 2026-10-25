@@ -1109,7 +1109,7 @@ namespace quest
 		}
 	}
 
-	bool CQuestManager::CanStartQuest(unsigned int quest_index, const PC& pc)
+	bool CQuestManager::CanStartQuest(unsigned int quest_index, [[maybe_unused]] const PC& pc)
 	{
 		return CanStartQuest(quest_index);
 	}
@@ -1130,7 +1130,7 @@ namespace quest
 		}
 	}
 
-	bool CQuestManager::CanEndQuestAtState(const string& quest_name, const string& state_name)
+	bool CQuestManager::CanEndQuestAtState([[maybe_unused]] const string& quest_name, [[maybe_unused]] const string& state_name)
 	{
 		return false;
 	}
@@ -1829,7 +1829,7 @@ namespace quest
 		{
 			char buf[256];
 			DWORD dwVnum = *it;
-			snprintf(buf, sizeof(buf), "%u", dwVnum);
+			snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(dwVnum));
 			m_mapNPC[dwVnum].Set(dwVnum, buf);
 		}
 	}
@@ -1908,13 +1908,13 @@ namespace quest
 		for (itertype(g_setQuestObjectDir) it = g_setQuestObjectDir.begin(); it != g_setQuestObjectDir.end(); ++it)
 		{
 			const string& stQuestObjectDir = *it;
-			snprintf(buf, sizeof(buf), "%s/%u", stQuestObjectDir.c_str(), dwVnum);
+			snprintf(buf, sizeof(buf), "%s/%u", stQuestObjectDir.c_str(), static_cast<unsigned int>(dwVnum));
 			sys_log(0, "%s", buf);
 
 			if ((dir = opendir(buf)))
 			{
 				closedir(dir);
-				snprintf(buf, sizeof(buf), "%u", dwVnum);
+				snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(dwVnum));
 				sys_log(0, "%s", buf);
 
 				m_mapNPC[dwVnum].Set(dwVnum, buf);

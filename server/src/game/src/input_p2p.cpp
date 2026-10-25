@@ -43,7 +43,7 @@ void CInputP2P::Login(LPDESC d, const char * c_pData)
 	P2P_MANAGER::instance().Login(d, (TPacketGGLogin *) c_pData);
 }
 
-void CInputP2P::Logout(LPDESC d, const char * c_pData)
+void CInputP2P::Logout([[maybe_unused]] LPDESC d, const char * c_pData)
 {
 	TPacketGGLogout * p = (TPacketGGLogout *) c_pData;
 	P2P_MANAGER::instance().Logout(p->szName);
@@ -108,7 +108,7 @@ int CInputP2P::Relay(LPDESC d, const char * c_pData, size_t uiBytes)
 }
 
 #ifdef ENABLE_FULL_NOTICE
-int CInputP2P::Notice(LPDESC d, const char * c_pData, size_t uiBytes, bool bBigFont)
+int CInputP2P::Notice(LPDESC d, const char * c_pData, size_t uiBytes, [[maybe_unused]] bool bBigFont)
 #else
 int CInputP2P::Notice(LPDESC d, const char * c_pData, size_t uiBytes)
 #endif
@@ -155,7 +155,7 @@ int CInputP2P::MonarchNotice(LPDESC d, const char * c_pData, size_t uiBytes)
 	return (p->lSize);
 }
 
-int CInputP2P::MonarchTransfer(LPDESC d, const char* c_pData)
+int CInputP2P::MonarchTransfer([[maybe_unused]] LPDESC d, const char* c_pData)
 {
 	TPacketMonarchGGTransfer* p = (TPacketMonarchGGTransfer*) c_pData;
 	LPCHARACTER pTargetChar = CHARACTER_MANAGER::instance().FindByPID(p->dwTargetPID);
@@ -175,7 +175,7 @@ int CInputP2P::MonarchTransfer(LPDESC d, const char* c_pData)
 	return 0;
 }
 
-int CInputP2P::Guild(LPDESC d, const char* c_pData, size_t uiBytes)
+int CInputP2P::Guild([[maybe_unused]] LPDESC d, const char* c_pData, size_t uiBytes)
 {
 	TPacketGGGuild * p = (TPacketGGGuild *) c_pData;
 	uiBytes -= sizeof(TPacketGGGuild);
@@ -580,7 +580,7 @@ int CInputP2P::BlockMessenger(const char* c_pData)
 	return 0;
 }
 
-void CInputP2P::IamAwake(LPDESC d, const char * c_pData)
+void CInputP2P::IamAwake(LPDESC d, [[maybe_unused]] const char * c_pData)
 {
 	std::string hostNames;
 	P2P_MANAGER::instance().GetP2PHostNames(hostNames);

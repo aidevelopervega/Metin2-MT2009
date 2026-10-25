@@ -185,9 +185,10 @@ bool DragonSoulTable::ReadBasicApplys()
 			if (NULL == pRow)
 			{
 				sys_err("In Group BasicApplys, No %d row.", j);
+				return false;
 			}
-			BYTE at;
-			int av;
+			BYTE at = 0;
+			int av = 0;
 
 			std::string stTypeName;
 			if (!pRow->GetValue("apply_type", stTypeName))
@@ -197,7 +198,7 @@ bool DragonSoulTable::ReadBasicApplys()
 			}
 			if (!pRow->GetValue("apply_value", av))
 			{
-				sys_err ("In Group BasicApplys, %s group's apply_value %s is invalid.", m_vecDragonSoulNames[i].c_str(), av);
+				sys_err ("In Group BasicApplys, %s group's apply_value %d is invalid.", m_vecDragonSoulNames[i].c_str(), av);
 				return false;
 			}
 
@@ -237,9 +238,9 @@ bool DragonSoulTable::ReadAdditionalApplys()
 
 			pChild->GetRow(j, &pRow);
 
-			BYTE at;
-			int av;
-			float prob;
+			BYTE at = 0;
+			int av = 0;
+			float prob = 0.0f;
 			std::string stTypeName;
 			if (!pRow->GetValue("apply_type", stTypeName))
 			{

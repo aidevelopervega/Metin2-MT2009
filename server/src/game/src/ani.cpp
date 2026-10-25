@@ -327,7 +327,7 @@ void ANI::print_attack_speed()
 			printf("[%s][%s] = %u\n",
 					FN_race_string(race),
 					FN_weapon_string(weapon),
-					attack_speed(race, weapon));
+					static_cast<unsigned int>(attack_speed(race, weapon)));
 		}
 		printf("\n");
 	}

@@ -1045,7 +1045,7 @@ namespace quest
 		SendScript();
 	}
 
-	void CQuestManager::GotoEndState(QuestState & qs)
+	void CQuestManager::GotoEndState([[maybe_unused]] QuestState & qs)
 	{
 		AddScript("[DONE]");
 		SendScript();
@@ -1055,7 +1055,7 @@ namespace quest
 
 	// The beginning of script
 
-	QuestState CQuestManager::OpenState(const string& quest_name, int state_index)
+	QuestState CQuestManager::OpenState([[maybe_unused]] const string& quest_name, int state_index)
 	{
 		QuestState qs;
 		qs.args=0;

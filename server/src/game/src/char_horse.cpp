@@ -44,7 +44,7 @@ bool CHARACTER::StartRiding()
 		return false;
 	}
 
-	if (m_pkFishingEvent || m_pkPreFishingEvent || HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500)
+	if (m_pkFishingEvent || m_pkPreFishingEvent || (HasPlayerData() && get_dword_time() - playerData->m_iEndFishingTime < 2500))
 	{
 		ChatPacket(CHAT_TYPE_INFO, LC_TEXT("FISHING_BLOCK_MOUNT"));
 		return false;
@@ -218,7 +218,7 @@ LPCHARACTER CHARACTER::GetRider() const
 	return m_chRider;
 }
 
-void CHARACTER::HorseSummon(bool bSummon, bool bFromFar, DWORD dwVnum, const char* pPetName)
+void CHARACTER::HorseSummon(bool bSummon, bool bFromFar, DWORD dwVnum, [[maybe_unused]] const char* pPetName)
 {
 	if ( bSummon )
 	{

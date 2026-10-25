@@ -49,7 +49,7 @@ typedef struct __coord
 	int		x, y;
 } Coord;
 
-typedef struct OfflineShopTimeConfig
+struct OfflineShopTimeConfig
 {
 	YANG price;
 	DWORD duration;

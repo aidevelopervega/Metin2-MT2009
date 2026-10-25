@@ -68,11 +68,11 @@ void CInputUDP::Handshake(LPDESC pDesc, const char * c_pData)
 		sys_log(0, "UDP: Handshake differs %s", pDesc->GetHostName());
 }
 
-void CInputUDP::StateChecker(const char * c_pData)
+void CInputUDP::StateChecker([[maybe_unused]] const char * c_pData)
 {
 }
 
-int CInputUDP::Analyze(LPDESC pDesc, BYTE bHeader, const char * c_pData)
+int CInputUDP::Analyze([[maybe_unused]] LPDESC pDesc, BYTE bHeader, [[maybe_unused]] const char * c_pData)
 {
 	switch (bHeader)
 	{
@@ -84,7 +84,7 @@ int CInputUDP::Analyze(LPDESC pDesc, BYTE bHeader, const char * c_pData)
 	return 0;
 }
 
-bool CInputUDP::Process(LPDESC pDesc, const void * c_pvOrig, int iBytes, int & r_iBytesProceed)
+bool CInputUDP::Process([[maybe_unused]] LPDESC pDesc, [[maybe_unused]] const void * c_pvOrig, [[maybe_unused]] int iBytes, [[maybe_unused]] int & r_iBytesProceed)
 {
 	return true;
 }

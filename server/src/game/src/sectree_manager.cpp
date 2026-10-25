@@ -803,7 +803,7 @@ bool SECTREE_MANAGER::GetMovablePosition(long lMapIndex, long x, long y, PIXEL_P
 	return false;
 }
 
-bool SECTREE_MANAGER::GetValidLocation(long lMapIndex, long x, long y, long & r_lValidMapIndex, PIXEL_POSITION & r_pos, BYTE empire)
+bool SECTREE_MANAGER::GetValidLocation(long lMapIndex, long x, long y, long & r_lValidMapIndex, PIXEL_POSITION & r_pos, [[maybe_unused]] BYTE empire)
 {
 	LPSECTREE_MAP pkSectreeMap = GetMap(lMapIndex);
 

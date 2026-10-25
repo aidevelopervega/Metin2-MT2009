@@ -571,7 +571,7 @@ void CHARACTER::LoadAffect(DWORD dwCount, TPacketAffectElement * pElements)
 	// @fixme118 END
 }
 
-bool CHARACTER::CanAddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD dwFlag, long lDuration)
+bool CHARACTER::CanAddAffect(DWORD dwType, BYTE bApplyOn, [[maybe_unused]] long lApplyValue, DWORD dwFlag, [[maybe_unused]] long lDuration)
 {
 	if (dwType == AFFECT_HEAVEN_PROTECTION
 		&& dwFlag == AFF_HEAVEN_PROTECTION
@@ -905,9 +905,9 @@ void CHARACTER::RemoveGoodAffect()
 	RemoveSkillAffect();
 }
 
-bool CHARACTER::IsGoodAffect(BYTE bAffectType) const
+bool CHARACTER::IsGoodAffect(DWORD dwAffectType) const
 {
-	switch (bAffectType)
+	switch (dwAffectType)
 	{
 		case (AFFECT_MOV_SPEED):
 		case (AFFECT_ATT_SPEED):

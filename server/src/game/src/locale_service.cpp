@@ -1003,7 +1003,7 @@ static void __LocaleService_Init_Taiwan()
 	PK_PROTECT_LEVEL = 15;
 }
 
-static void __CheckPlayerSlot(const std::string& service_name)
+static void __CheckPlayerSlot([[maybe_unused]] const std::string& service_name)
 {
 #ifndef ENABLE_PLAYER_PER_ACCOUNT5
 	if (PLAYER_PER_ACCOUNT != 4)

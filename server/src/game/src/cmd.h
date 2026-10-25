@@ -1,7 +1,7 @@
 #ifndef __INC_METIN_II_GAME_CMD_H__
 #define __INC_METIN_II_GAME_CMD_H__
 
-#define ACMD(name)  void (name)(LPCHARACTER ch, const char *argument, int cmd, int subcmd)
+#define ACMD(name)  void (name)([[maybe_unused]] LPCHARACTER ch, [[maybe_unused]] const char *argument, [[maybe_unused]] int cmd, [[maybe_unused]] int subcmd)
 #define CMD_NAME(name) cmd_info[cmd].command
 
 struct command_info

@@ -126,6 +126,17 @@ static_assert(offsetof(TSimplePlayer, y) == 56, "TSimplePlayer.y offset mismatch
 static_assert(offsetof(TSimplePlayer, lAddr) == 60, "TSimplePlayer.lAddr offset mismatch");
 static_assert(offsetof(TSimplePlayer, wPort) == 64, "TSimplePlayer.wPort offset mismatch");
 
+static_assert(sizeof(TRequestChargeCash) == 16, "TRequestChargeCash size mismatch");
+static_assert(offsetof(TRequestChargeCash, dwAID) == 0, "TRequestChargeCash.dwAID offset mismatch");
+static_assert(offsetof(TRequestChargeCash, lAmount) == 4, "TRequestChargeCash.lAmount offset mismatch");
+static_assert(offsetof(TRequestChargeCash, lSecondAmount) == 8, "TRequestChargeCash.lSecondAmount offset mismatch");
+static_assert(offsetof(TRequestChargeCash, eChargeType) == 12, "TRequestChargeCash.eChargeType offset mismatch");
+static_assert(sizeof(TItemShopPromotion) == 12, "TItemShopPromotion size mismatch");
+static_assert(sizeof(TItemShopTimeAuction) == 20, "TItemShopTimeAuction size mismatch");
+static_assert(sizeof(TItemShopItem) == 62, "TItemShopItem size mismatch");
+static_assert(offsetof(TItemShopItem, dwPrice) == 12, "TItemShopItem.dwPrice offset mismatch");
+static_assert(offsetof(TItemShopItem, alSockets) == 18, "TItemShopItem.alSockets offset mismatch");
+
 int main()
 {
     std::cout << "==================================================" << std::endl;
@@ -312,6 +323,52 @@ int main()
         WIRE_ASSERT(inScript.skin == 1, "packet_script skin match");
         WIRE_ASSERT(inScript.src_size == 24, "packet_script src_size match");
         WIRE_ASSERT(buffer.size() == 6, "packet_script wire size must be strictly 6 bytes for 32-bit client");
+    }
+
+    // 8. ItemShop 64-bit Price & Quantity Overflow Guard & TRequestChargeCash Wire Test
+    {
+        auto calcSafeItemShopCharge = [](uint64_t unitPrice, uint64_t quantity, int32_t& outSignedCharge) -> bool {
+            outSignedCharge = 0;
+            if (quantity == 0 || unitPrice == 0 || unitPrice > static_cast<uint64_t>(INT32_MAX))
+                return false;
+            if (quantity > static_cast<uint64_t>(INT32_MAX) / unitPrice)
+                return false;
+            const uint64_t total = unitPrice * quantity;
+            if (total == 0 || total > static_cast<uint64_t>(INT32_MAX))
+                return false;
+            outSignedCharge = -static_cast<int32_t>(total);
+            return outSignedCharge != INT32_MIN && outSignedCharge < 0;
+        };
+
+        int32_t signedCharge = 0;
+        WIRE_ASSERT(calcSafeItemShopCharge(2147483647ULL, 1ULL, signedCharge) && signedCharge == -2147483647,
+            "ItemShop 2,147,483,647 (INT32_MAX) charge fits cleanly in TRequestChargeCash::lAmount");
+        WIRE_ASSERT(!calcSafeItemShopCharge(2147483648ULL, 1ULL, signedCharge) && signedCharge == 0,
+            "ItemShop 2,147,483,648 (INT32_MAX+1) rejected fail-closed");
+        WIRE_ASSERT(!calcSafeItemShopCharge(3000000000ULL, 1ULL, signedCharge) && signedCharge == 0,
+            "ItemShop 3,000,000,000 rejected fail-closed");
+        WIRE_ASSERT(!calcSafeItemShopCharge(1500000000ULL, 2ULL, signedCharge) && signedCharge == 0,
+            "ItemShop 1,500,000,000 * 2 = 3,000,000,000 rejected fail-closed");
+        WIRE_ASSERT(!calcSafeItemShopCharge(4294967295ULL, 1ULL, signedCharge) && signedCharge == 0,
+            "ItemShop UINT32_MAX rejected fail-closed");
+        WIRE_ASSERT(!calcSafeItemShopCharge(4294967295ULL, 10ULL, signedCharge) && signedCharge == 0,
+            "ItemShop UINT32_MAX * 10 rejected fail-closed");
+
+        TRequestChargeCash outCharge{};
+        outCharge.dwAID = 77001;
+        outCharge.lAmount = -2147483647;
+        outCharge.lSecondAmount = 2147483647;
+        outCharge.eChargeType = ERequestCharge_Cash;
+
+        std::vector<uint8_t> buffer(sizeof(TRequestChargeCash));
+        std::memcpy(buffer.data(), &outCharge, sizeof(TRequestChargeCash));
+
+        TRequestChargeCash inCharge{};
+        std::memcpy(&inCharge, buffer.data(), sizeof(TRequestChargeCash));
+        WIRE_ASSERT(inCharge.dwAID == 77001, "TRequestChargeCash dwAID match");
+        WIRE_ASSERT(inCharge.lAmount == -2147483647, "TRequestChargeCash lAmount (-INT32_MAX) match");
+        WIRE_ASSERT(inCharge.lSecondAmount == 2147483647, "TRequestChargeCash lSecondAmount (INT32_MAX) match");
+        WIRE_ASSERT(inCharge.eChargeType == ERequestCharge_Cash, "TRequestChargeCash eChargeType match");
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

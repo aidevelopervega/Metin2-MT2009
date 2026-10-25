@@ -445,7 +445,7 @@ bool DSManager::PullOut(LPCHARACTER ch, TItemPos DestCell, LPITEM& pItem, LPITEM
 		{
 			if (pExtractor)
 			{
-				sprintf(buf, "dice(%d) prob(%d + %d) EXTR(VN:%d)", (int)fDice, (int)fProb, iBonus, pExtractor->GetVnum());
+				snprintf(buf, sizeof(buf), "dice(%d) prob(%d + %d) EXTR(VN:%u)", (int)fDice, (int)fProb, iBonus, static_cast<unsigned int>(pExtractor->GetVnum()));
 			}
 			else
 			{
@@ -460,11 +460,11 @@ bool DSManager::PullOut(LPCHARACTER ch, TItemPos DestCell, LPITEM& pItem, LPITEM
 		{
 			if (pExtractor)
 			{
-				sprintf(buf, "dice(%d) prob(%d + %d) EXTR(VN:%d) ByProd(VN:%d)", (int)fDice, (int)fProb, iBonus, pExtractor->GetVnum(), dwByProduct);
+				snprintf(buf, sizeof(buf), "dice(%d) prob(%d + %d) EXTR(VN:%u) ByProd(VN:%u)", (int)fDice, (int)fProb, iBonus, static_cast<unsigned int>(pExtractor->GetVnum()), static_cast<unsigned int>(dwByProduct));
 			}
 			else
 			{
-				sprintf(buf, "dice(%d) prob(%d) ByProd(VNUM:%d)", (int)fDice, (int)fProb, dwByProduct);
+				snprintf(buf, sizeof(buf), "dice(%d) prob(%d) ByProd(VNUM:%u)", (int)fDice, (int)fProb, static_cast<unsigned int>(dwByProduct));
 			}
 			LogManager::instance().ItemLog(ch, pItem, "DS_PULL_OUT_FAILED", buf);
 			M2_DESTROY_ITEM(pItem);
@@ -489,11 +489,6 @@ bool DSManager::DoRefineGrade(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL
 {
 	if (NULL == ch)
 		return false;
-
-	if (NULL == aItemPoses)
-	{
-		return false;
-	}
 
 	if (!ch->DragonSoul_RefineWindow_CanRefine())
 	{
@@ -643,10 +638,6 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 {
 	if (NULL == ch)
 		return false;
-	if (NULL == aItemPoses)
-	{
-		return false;
-	}
 
 	if (!ch->DragonSoul_RefineWindow_CanRefine())
 	{
@@ -798,10 +789,6 @@ bool DSManager::DoRefineStrength(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_S
 {
 	if (NULL == ch)
 		return false;
-	if (NULL == aItemPoses)
-	{
-		return false;
-	}
 
 	if (!ch->DragonSoul_RefineWindow_CanRefine())
 	{
@@ -1085,7 +1072,7 @@ void DSManager::RefreshDragonSoulState(LPCHARACTER ch)
 {
 	if (NULL == ch)
 		return ;
-	for (int i = WEAR_MAX_NUM; i < WEAR_MAX_NUM + DS_SLOT_MAX * DRAGON_SOUL_DECK_MAX_NUM; i++)
+	for (int i = WEAR_MAX_NUM; i < WEAR_MAX_NUM + static_cast<int>(DS_SLOT_MAX) * static_cast<int>(DRAGON_SOUL_DECK_MAX_NUM); i++)
 	{
 		LPITEM pItem = ch->GetWear(i);
 		if (pItem != NULL)

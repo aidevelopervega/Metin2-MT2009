@@ -20,12 +20,18 @@ lua_State* L;
 
 bool ReadStateFile()
 {
+    const char* dir_prefix = "state/";
     DIR* pdir = opendir("state");
 
-    if ((!pdir)&&(pdir = opendir("./object/state")))
+    if (!pdir)
     {
-		cerr << "cannot find state directory" << endl;
-		return false;
+        pdir = opendir("./object/state");
+        dir_prefix = "./object/state/";
+        if (!pdir)
+        {
+            cerr << "cannot find state directory" << endl;
+            return false;
+        }
     }
 
     dirent * pde;
@@ -35,9 +41,9 @@ bool ReadStateFile()
 	if (pde->d_name[0] == '.')
 	    continue;
 
-	string filename = string("state/") + pde->d_name;
+	string filename = string(dir_prefix) + pde->d_name;
 
-	lua_dofile(L, filename.c_str());
+	(void)luaL_dofile(L, filename.c_str());
     }
 
     closedir(pdir);
@@ -47,7 +53,7 @@ bool ReadStateFile()
 
 int main()
 {
-    L = lua_open();
+    L = luaL_newstate();
 
     if (!L)
     {
@@ -56,12 +62,21 @@ int main()
     }
 
     if (!ReadStateFile())
-	return -1;
-
-    lua_pushnil(L);
-    while (lua_next(L, LUA_GLOBALSINDEX))
     {
-	// stack: questname state_table
+	lua_close(L);
+	return -1;
+    }
+
+    lua_pushglobaltable(L);
+    lua_pushnil(L);
+    while (lua_next(L, -2))
+    {
+	// stack: globaltable questname state_table
+	if (!lua_isstring(L, -2) || !lua_istable(L, -1))
+	{
+	    lua_pop(L, 1);
+	    continue;
+	}
 	string quest_name = lua_tostring(L, -2);
 	//printf("quest name : %s\n", quest_name.c_str());
 
@@ -92,6 +107,7 @@ int main()
 
 	lua_pop(L, 1);
     }
+    lua_pop(L, 1);
 
     lua_close(L);
 

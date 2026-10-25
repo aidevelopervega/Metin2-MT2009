@@ -33,8 +33,7 @@ namespace ikashop
 	bool CShopSafebox::AddItem(const TShopPlayerItem& item)
 	{
 		// making item info
-		TShopItem info{item};
-		info.price = {};
+		TShopItem info{item, {}};
 
 		// making shop item
 		auto shopItem = std::make_shared<CShopItem>();
@@ -86,7 +85,7 @@ namespace ikashop
 		return m_items;
 	}
 
-	const DWORD CShopSafebox::GetLeftSpace() const
+	DWORD CShopSafebox::GetLeftSpace() const
 	{
 		int left = OFFLINESHOP_MAX_SAFEBOX_SIZE;
 		for (auto i : m_items)

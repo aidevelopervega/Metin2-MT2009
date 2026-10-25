@@ -108,7 +108,7 @@ public:
         return at(alias[name]).c_str();
     }
 
-    cCsvRow(const cCsvRow&) {}
+    cCsvRow(const cCsvRow& other) : std::vector<std::string>(other) {}
 
 private:
 
@@ -242,7 +242,7 @@ public:
 
 private:
 
-    const cCsvRow* const CurRow() const;
+    const cCsvRow* CurRow() const;
 
     cCsvTable(const cCsvTable&) {}
 

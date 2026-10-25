@@ -25,15 +25,6 @@ add_compile_options(
     -Wall
     -Wextra
     -pipe
-    -Wno-deprecated-declarations
-    -Wno-array-bounds
-    -Wno-address
-    -Wno-format-truncation
-    $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-enum-conversion>
-    -Wno-nonnull-compare
-    -Wno-int-in-bool-context
-    -Wno-stringop-truncation
-    -Wno-sign-compare
 )
 
 # FreeBSD Platform Ayarlari

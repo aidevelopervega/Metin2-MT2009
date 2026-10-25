@@ -21,7 +21,7 @@ const T& Decode(const char*& data){
 }
 
 
-bool CClientManager::InitializeIkarusShopTable(DWORD owner)
+bool CClientManager::InitializeIkarusShopTable([[maybe_unused]] DWORD owner)
 {
 	if(!InitializeIkarusShopShopTable())
 		return false;
@@ -659,7 +659,7 @@ bool CClientManager::RecvIkarusShopAddItemPacket(const char* data)
 
 // soft close meaning the shop is still saved in the database with its content but shop's entity is not spawned
 // so basically it has the same functionality as shop expire
-bool CClientManager::RecvIkarusShopForceSoftClose(CPeer* peer, const char* data)
+bool CClientManager::RecvIkarusShopForceSoftClose([[maybe_unused]] CPeer* peer, const char* data)
 {
 	const auto& subpack = Decode<ikashop::TSubPacketGDShopForceClose>(data);
 
@@ -679,7 +679,7 @@ bool CClientManager::RecvIkarusShopForceSoftClose(CPeer* peer, const char* data)
 }
 
 // hard close meaning removes the offlineshop from the DB
-bool CClientManager::RecvIkarusShopForceHardClose(CPeer* peer, const char* data)
+bool CClientManager::RecvIkarusShopForceHardClose([[maybe_unused]] CPeer* peer, const char* data)
 {
 	const auto& subpack = Decode<ikashop::TSubPacketGDShopForceClose>(data);
 	auto shopCache = m_offlineshopShopCache.Get(subpack.ownerid);
@@ -1447,7 +1447,7 @@ bool CClientManager::SendIkarusShopChangeName(DWORD dwOwnerID, const char* szNam
 
 	ikashop::TSubPacketDGShopChangeName subpack;
 	subpack.ownerid	= dwOwnerID;
-	strncpy(subpack.name, szName, sizeof(subpack.name));
+	strlcpy(subpack.name, szName, sizeof(subpack.name));
 
 
 	for (auto& peer : m_peerList)
@@ -1701,7 +1701,7 @@ void CClientManager::SendIkarusShopAuctionExpired(DWORD dwOwnerID)
 	}
 }
 
-void CClientManager::IkarusShopResultAddItemQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo, bool sendResponse)
+void CClientManager::IkarusShopResultAddItemQuery([[maybe_unused]] CPeer* peer, [[maybe_unused]] SQLMsg* msg, CQueryInfo* pQueryInfo, bool sendResponse)
 {
 	auto* qi = static_cast<ikashop::SQueryInfoAddItem*>(pQueryInfo->pvData);
 	m_offlineshopShopCache.PutItem(qi->owner, qi->id, *qi);
@@ -1710,7 +1710,7 @@ void CClientManager::IkarusShopResultAddItemQuery(CPeer* peer, SQLMsg* msg, CQue
 	delete(qi);
 }
 
-void CClientManager::IkarusShopResultCreateShopQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
+void CClientManager::IkarusShopResultCreateShopQuery([[maybe_unused]] CPeer* peer, [[maybe_unused]] SQLMsg* msg, CQueryInfo* pQueryInfo)
 {
 	// trying to insert shop
 	auto* qi = static_cast<ikashop::SQueryInfoCreateShop*>(pQueryInfo->pvData);
@@ -1760,7 +1760,7 @@ void CClientManager::IkarusShopResultCreateShopQuery(CPeer* peer, SQLMsg* msg, C
 	delete(qi);
 }
 
-void CClientManager::IkarusShopResultOfferAddQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
+void CClientManager::IkarusShopResultOfferAddQuery([[maybe_unused]] CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
 {
 	auto* qi = static_cast<ikashop::SQueryInfoOfferAdd *>(pQueryInfo->pvData);
 	qi->offerid = msg->Get()->uiInsertID;
@@ -1769,7 +1769,7 @@ void CClientManager::IkarusShopResultOfferAddQuery(CPeer* peer, SQLMsg* msg, CQu
 	delete(qi);
 }
 
-void CClientManager::IkarusShopResultSafeboxAddItemQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
+void CClientManager::IkarusShopResultSafeboxAddItemQuery([[maybe_unused]] CPeer* peer, [[maybe_unused]] SQLMsg* msg, CQueryInfo* pQueryInfo)
 {
 	auto* qi = static_cast<ikashop::SQueryInfoSafeboxAddItem *>(pQueryInfo->pvData);
 	m_offlineshopSafeboxCache.PutItem(qi->owner , qi->id, *qi);

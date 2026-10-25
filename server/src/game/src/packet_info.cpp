@@ -16,7 +16,7 @@ CPacketInfo::~CPacketInfo()
 	}
 }
 
-void CPacketInfo::Set(int header, int iSize, const char * c_pszName, bool bSeq)
+void CPacketInfo::Set(int header, int iSize, const char * c_pszName, [[maybe_unused]] bool bSeq)
 {
 	if (m_pPacketMap.find(header) != m_pPacketMap.end())
 		return;
@@ -124,7 +124,7 @@ void CPacketInfo::Log(const char * c_pszFileName)
 		fprintf(fp, "%-16s %-10d %-10u %.2f\n",
 				p->stName.c_str(),
 				p->iCalled,
-				p->dwLoad,
+				static_cast<unsigned int>(p->dwLoad),
 				p->iCalled != 0 ? (float) p->dwLoad / p->iCalled : 0.0f);
 	}
 

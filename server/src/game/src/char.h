@@ -28,9 +28,9 @@
 
 enum eMountType {MOUNT_TYPE_NONE=0, MOUNT_TYPE_NORMAL=1, MOUNT_TYPE_COMBAT=2, MOUNT_TYPE_MILITARY=3};
 eMountType GetMountLevelByVnum(DWORD dwMountVnum, bool IsNew);
-const DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
+DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
 
-class CBuffOnAttributes;
+class CBuffOnAttributes {};
 class CPetSystem;
 #ifdef ENABLE_IKASHOP_RENEWAL
 namespace ikashop
@@ -259,7 +259,7 @@ struct PlayerSlotT {
 };
 // @fixme199 END
 
-#define TRIGGERPARAM		LPCHARACTER ch, LPCHARACTER causer
+#define TRIGGERPARAM		[[maybe_unused]] LPCHARACTER ch, [[maybe_unused]] LPCHARACTER causer
 
 typedef struct trigger
 {
@@ -901,7 +901,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 
 		bool			IsLoadedAffect() const	{ return m_bIsLoadedAffect; }
 
-		bool			IsGoodAffect(BYTE bAffectType) const;
+		bool			IsGoodAffect(DWORD dwAffectType) const;
 
 		void			RemoveSkillAffect();
 		void			RemoveGoodAffect();
@@ -1355,7 +1355,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		bool				SkillLevelDown(DWORD dwVnum);
 		// ADD_GRANDMASTER_SKILL
 		bool				UseSkill(DWORD dwVnum, LPCHARACTER pkVictim, bool bUseGrandMaster = true);
-		bool                IsSkillCooldown(DWORD dwVnum, float fSkillPower) { return m_SkillUseInfo[dwVnum].IsOnCooldown(dwVnum); }
+		bool                IsSkillCooldown(DWORD dwVnum, [[maybe_unused]] float fSkillPower) { return m_SkillUseInfo[dwVnum].IsOnCooldown(dwVnum); }
 		void				ResetSkill();
 		void				SetSkillLevel(DWORD dwVnum, BYTE bLev);
 		int					GetUsedSkillMasterType(DWORD dwVnum);
@@ -1984,7 +1984,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		DWORD m_dwNDRFlag;
 		std::set<DWORD> m_setNDAFlag;
 	public:
-		const DWORD GetNoDamageRaceFlag();
+		DWORD GetNoDamageRaceFlag();
 		void SetNoDamageRaceFlag(DWORD dwRaceFlag);
 		void UnsetNoDamageRaceFlag(DWORD dwRaceFlag);
 		void ResetNoDamageRaceFlag();
@@ -2163,8 +2163,8 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void			IncrementSyncHackCount();
 		bool			IsHackBlock();
 
-		const DWORD			GetPlayerRealAttackSpeed(bool getAverage = false, int attackSpeed=-1) const;
-		const DWORD			PlayerMoveGetDelayTime(const long to_x, const long to_y) const;
+		DWORD			GetPlayerRealAttackSpeed(bool getAverage = false, int attackSpeed=-1) const;
+		DWORD			PlayerMoveGetDelayTime(const long to_x, const long to_y) const;
 
 		int	GetValueBasedOnPointValue(int baseValue, DWORD point_type, bool isFloat = false);
 

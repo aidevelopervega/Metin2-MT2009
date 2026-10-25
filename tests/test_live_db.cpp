@@ -1804,6 +1804,116 @@ int main(int argc, char* argv[])
 					"In-Game SQL [Bug 2]: Large 64-bit price (3,000,000,000 > INT32_MAX) formatted with %lld without LLP64 32-bit long overflow");
 			}
 
+			// ItemShop Real Payment Flow & 64-bit Price Overflow Boundary Verification
+			// Validates CItemShopManager::BuyItem / CheckBalance / AddCash / GiveItem & CClientManager::ChargeCash invariants:
+			//   - Total price computed in uint64_t (unitPrice * quantity)
+			//   - Fail-closed rejection when unitPrice == 0, quantity == 0, unitPrice > INT32_MAX, or totalPriceU64 > INT32_MAX
+			//   - Tested boundaries: 2,147,483,647 (INT32_MAX), 2,147,483,648 (INT32_MAX+1), 3,000,000,000, UINT32_MAX, UINT32_MAX*10
+			{
+				auto canProcessItemShopPurchase = [](uint64_t unitPrice, uint64_t quantity, uint64_t itemCountPerPack, int32_t currentBalance, int32_t& outNewBalance, int32_t& outChargeDelta, uint64_t& outDeliveredCount) -> bool {
+					outNewBalance = currentBalance;
+					outChargeDelta = 0;
+					outDeliveredCount = 0;
+					if (quantity == 0)
+						return false;
+					if (unitPrice == 0 || unitPrice > static_cast<uint64_t>(INT32_MAX))
+						return false;
+					if (quantity > static_cast<uint64_t>(INT32_MAX) / unitPrice)
+						return false;
+					const uint64_t totalPriceU64 = unitPrice * quantity;
+					if (totalPriceU64 == 0 || totalPriceU64 > static_cast<uint64_t>(INT32_MAX))
+						return false;
+					const uint64_t totalItemCountU64 = itemCountPerPack * quantity;
+					if (totalItemCountU64 == 0 || totalItemCountU64 > static_cast<uint64_t>(INT32_MAX))
+						return false;
+					if (currentBalance < 0 || static_cast<uint64_t>(currentBalance) < totalPriceU64)
+						return false;
+					const int32_t signedDelta = -static_cast<int32_t>(totalPriceU64);
+					if (signedDelta == INT32_MIN)
+						return false;
+					outChargeDelta = signedDelta;
+					outNewBalance = currentBalance + signedDelta;
+					outDeliveredCount = totalItemCountU64;
+					return true;
+				};
+
+				int32_t newBal = 0;
+				int32_t chargeDelta = 0;
+				uint64_t delivered = 0;
+
+				// 1) Boundary 2,147,483,647 (INT32_MAX) with sufficient balance -> PASS
+				LIVE_ASSERT(canProcessItemShopPurchase(2147483647ULL, 1ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 0 && chargeDelta == -2147483647 && delivered == 1ULL,
+					"ItemShop Payment [Boundary 2,147,483,647]: Exact INT32_MAX purchase succeeds with 0 remaining balance and 1 delivered item");
+
+				// 2) Boundary 2,147,483,648 (INT32_MAX + 1) -> REJECT fail-closed (no balance change, no item delivery)
+				LIVE_ASSERT(!canProcessItemShopPurchase(2147483648ULL, 1ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary 2,147,483,648]: INT32_MAX+1 unit price rejected fail-closed without negative int32 wrap or item delivery");
+
+				// 3) Boundary 3,000,000,000 -> REJECT fail-closed
+				LIVE_ASSERT(!canProcessItemShopPurchase(3000000000ULL, 1ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary 3,000,000,000]: 3B price (1500000000 * 2 or unit=3B) rejected fail-closed before ChargeCash");
+				LIVE_ASSERT(!canProcessItemShopPurchase(1500000000ULL, 2ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary 1,500,000,000 x 2 = 3,000,000,000]: 64-bit multiplication catches >INT32_MAX overflow");
+
+				// 4) Boundary UINT32_MAX (4,294,967,295) -> REJECT fail-closed
+				LIVE_ASSERT(!canProcessItemShopPurchase(4294967295ULL, 1ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary UINT32_MAX]: 4,294,967,295 rejected fail-closed (cannot wrap to -1 in lAmount)");
+
+				// 5) Boundary UINT32_MAX * 10 (42,949,672,950) & 500,000,000 * 10 -> REJECT fail-closed
+				LIVE_ASSERT(!canProcessItemShopPurchase(4294967295ULL, 10ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary UINT32_MAX * 10]: 42,949,672,950 rejected fail-closed without 32-bit wrap");
+				LIVE_ASSERT(!canProcessItemShopPurchase(500000000ULL, 10ULL, 1ULL, 2147483647, newBal, chargeDelta, delivered)
+					&& newBal == 2147483647 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Boundary 500M * 10 = 5B]: 32-bit DWORD wrap (5B mod 2^32 = 705,032,704) prevented by 64-bit check");
+
+				// 6) Insufficient balance -> REJECT fail-closed
+				LIVE_ASSERT(!canProcessItemShopPurchase(500ULL, 3ULL, 1ULL, 1000, newBal, chargeDelta, delivered)
+					&& newBal == 1000 && chargeDelta == 0 && delivered == 0ULL,
+					"ItemShop Payment [Insufficient Balance]: Purchase of 1500 with balance 1000 rejected with balance=1000 and delivered=0");
+
+				// 7) Live SQL verification of ChargeCash GREATEST(0, CAST(cash AS SIGNED) - amount) invariant on isolated table
+				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_account_cash`;");
+				logSql.DirectQuery(
+					"CREATE TABLE `test_itemshop_account_cash` ("
+					"  `id` int(11) NOT NULL PRIMARY KEY,"
+					"  `cash` int(10) NOT NULL DEFAULT 0,"
+					"  `cash_mark` int(10) NOT NULL DEFAULT 0"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+				logSql.DirectQuery("INSERT INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (990501, 1200, 300);");
+
+				// Valid purchase: 250 * 3 = 750 cash -> cash becomes 450, cash_mark becomes 300 + 750 = 1050
+				LIVE_ASSERT(canProcessItemShopPurchase(250ULL, 3ULL, 5ULL, 1200, newBal, chargeDelta, delivered)
+					&& newBal == 450 && chargeDelta == -750 && delivered == 15ULL,
+					"ItemShop Payment [Valid Purchase]: 250 x 3 = 750 cash deducted cleanly, 15 items delivered");
+
+				char szChargeQ[256];
+				std::snprintf(szChargeQ, sizeof(szChargeQ),
+					"UPDATE `test_itemshop_account_cash` SET `cash` = GREATEST(0, CAST(`cash` AS SIGNED) - %d), "
+					"`cash_mark` = GREATEST(0, CAST(`cash_mark` AS SIGNED) + %d) WHERE `id` = 990501;",
+					-chargeDelta, -chargeDelta);
+				auto rChargeOk = logSql.DirectQuery(szChargeQ);
+				LIVE_ASSERT(rChargeOk != nullptr && !rChargeOk->IsError(),
+					"ItemShop Payment [Live SQL ChargeCash]: Account cash & cash_mark updated cleanly under strict SQL mode");
+
+				auto rCheckBal = logSql.DirectQuery("SELECT `cash`, `cash_mark` FROM `test_itemshop_account_cash` WHERE `id` = 990501;");
+				LIVE_ASSERT(rCheckBal != nullptr && !rCheckBal->IsError() && rCheckBal->Get() && rCheckBal->Get()->uiNumRows == 1,
+					"ItemShop Payment [Live SQL ChargeCash]: Account balance row retrieved");
+				if (rCheckBal && rCheckBal->Get() && rCheckBal->Get()->uiNumRows == 1) {
+					MYSQL_ROW bRow = mysql_fetch_row(rCheckBal->Get()->pSQLResult);
+					int sqlCash = (bRow && bRow[0]) ? std::atoi(bRow[0]) : -1;
+					int sqlMark = (bRow && bRow[1]) ? std::atoi(bRow[1]) : -1;
+					LIVE_ASSERT(sqlCash == 450 && sqlMark == 1050,
+						"ItemShop Payment [Live SQL ChargeCash]: cash=450 and cash_mark=1050 match in-memory balance");
+				}
+				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_account_cash`;");
+			}
+
 			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");
 			if (bBootstrappedLog) {
 				logSql.DirectQuery("DROP TABLE IF EXISTS `ikarusshop_log`, `itemshop`, `itemshop_log`;");

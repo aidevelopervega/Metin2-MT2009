@@ -302,7 +302,7 @@ void CWarMap::STeamData::AppendMember(LPCHARACTER ch)
 	++iMemberCount;
 }
 
-void CWarMap::STeamData::RemoveMember(LPCHARACTER ch)
+void CWarMap::STeamData::RemoveMember([[maybe_unused]] LPCHARACTER ch)
 {
 	--iMemberCount;
 }
@@ -315,7 +315,7 @@ struct FSendUserCount
 	FSendUserCount(DWORD g1, int g1_count, DWORD g2, int g2_count, int observer)
 	{
 		snprintf(buf1, sizeof(buf1), "ObserverCount %d", observer);
-		snprintf(buf2, sizeof(buf2), "WarUC %u %d %u %d %d", g1, g1_count, g2, g2_count, observer);
+		snprintf(buf2, sizeof(buf2), "WarUC %u %d %u %d %d", static_cast<unsigned int>(g1), g1_count, static_cast<unsigned int>(g2), g2_count, observer);
 	}
 
 	void operator() (LPCHARACTER ch)
@@ -975,7 +975,7 @@ CWarMapManager::~CWarMapManager()
 	m_map_kWarMapInfo.clear();
 }
 
-bool CWarMapManager::LoadWarMapInfo(const char * c_pszFileName)
+bool CWarMapManager::LoadWarMapInfo([[maybe_unused]] const char * c_pszFileName)
 {
 	TWarMapInfo * k;
 

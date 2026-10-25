@@ -83,11 +83,11 @@ bool CShopEx::AddGuest(LPCHARACTER ch,DWORD owner_vid, bool bOtherEmpire)
 	for (itertype(m_vec_shopTabs) it = m_vec_shopTabs.begin(); it != m_vec_shopTabs.end(); it++)
 	{
 		const TShopTableEx& shop_tab = *it;
-		TPacketGCShopStartEx::TSubPacketShopTab pack_tab;
+		TPacketGCShopStartEx::TSubPacketShopTab pack_tab{};
 		pack_tab.coin_type = shop_tab.coinType;
 		memcpy(pack_tab.name, shop_tab.name.c_str(), sizeof(shop_tab.name));
 
-		for (BYTE i = 0; i < SHOP_PLAYER_HOST_ITEM_MAX_NUM; i++)
+		for (BYTE i = 0; i < SHOP_HOST_ITEM_MAX_NUM; i++)
 		{
 			pack_tab.items[i].vnum = shop_tab.items[i].vnum;
 			pack_tab.items[i].count = shop_tab.items[i].count;
@@ -132,7 +132,7 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 {
 	BYTE tabIdx = pos / SHOP_PLAYER_HOST_ITEM_MAX_NUM;
 	BYTE slotPos = pos % SHOP_PLAYER_HOST_ITEM_MAX_NUM;
-	if (tabIdx >= GetTabCount())
+	if (tabIdx >= GetTabCount() || slotPos >= SHOP_HOST_ITEM_MAX_NUM)
 	{
 		sys_log(0, "ShopEx::Buy : invalid position %d : %s", pos, ch->GetName());
 		return SHOP_SUBHEADER_GC_INVALID_POS;
@@ -164,16 +164,18 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 
 		if (ch->GetGold() < dwPrice)
 		{
-			sys_log(1, "ShopEx::Buy : Not enough money : %s has %d, price %lld", ch->GetName(), ch->GetGold(), dwPrice);
+			sys_log(1, "ShopEx::Buy : Not enough money : %s has %lld, price %lld",
+				ch->GetName(), static_cast<long long>(ch->GetGold()), static_cast<long long>(dwPrice));
 			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 		}
 		break;
 	case SHOP_COIN_TYPE_SECONDARY_COIN:
 		{
 			ITEM_COUNT count = ch->CountSpecifyTypeItem(ITEM_SECONDARY_COIN);
-			if (count < dwPrice)
+			if (static_cast<YANG>(count) < dwPrice)
 			{
-				sys_log(1, "ShopEx::Buy : Not enough myeongdojun : %s has %d, price %lld", ch->GetName(), count, dwPrice);
+				sys_log(1, "ShopEx::Buy : Not enough myeongdojun : %s has %u, price %lld",
+					ch->GetName(), static_cast<unsigned int>(count), static_cast<long long>(dwPrice));
 				return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY_EX;
 			}
 		}
@@ -218,10 +220,12 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 	DBManager::instance().SendMoneyLog(MONEY_LOG_SHOP, item->GetVnum(), -dwPrice);
 
 	if (item)
-		sys_log(0, "ShopEx: BUY: name %s %s(x %d):%d price %lld", ch->GetName(), item->GetName(), item->GetCount(), item->GetID(), dwPrice);
+		sys_log(0, "ShopEx: BUY: name %s %s(x %u):%u price %lld",
+			ch->GetName(), item->GetName(),
+			static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetID()),
+			static_cast<long long>(dwPrice));
 
 	ch->Save();
 
-    return (SHOP_SUBHEADER_GC_OK);
+	return (SHOP_SUBHEADER_GC_OK);
 }
-

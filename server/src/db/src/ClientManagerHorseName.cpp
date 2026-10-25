@@ -6,7 +6,7 @@ void CClientManager::UpdateHorseName(TPacketUpdateHorseName* data, CPeer* peer)
 {
 	char szQuery[512];
 
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO horse_name VALUES(%u, '%s')", data->dwPlayerID, data->szHorseName);
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO horse_name VALUES(%u, '%s')", static_cast<unsigned int>(data->dwPlayerID), data->szHorseName);
 
 	auto pmsg_insert(CDBManager::instance().DirectQuery(szQuery));
 
@@ -16,7 +16,7 @@ void CClientManager::UpdateHorseName(TPacketUpdateHorseName* data, CPeer* peer)
 void CClientManager::AckHorseName(DWORD dwPID, CPeer* peer)
 {
 	char szQuery[512];
-	snprintf(szQuery, sizeof(szQuery), "SELECT name FROM horse_name WHERE id = %u", dwPID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT name FROM horse_name WHERE id = %u", static_cast<unsigned int>(dwPID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 

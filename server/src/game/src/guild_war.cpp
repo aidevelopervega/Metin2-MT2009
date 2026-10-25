@@ -117,7 +117,7 @@ int CGuild::GetGuildWarState(DWORD dwOppGID)
 		return GUILD_WAR_NONE;
 
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
-	return (it != m_EnemyGuild.end()) ? (it->second.state) : GUILD_WAR_NONE;
+	return (it != m_EnemyGuild.end()) ? (it->second.state) : static_cast<BYTE>(GUILD_WAR_NONE);
 }
 
 int CGuild::GetGuildWarType(DWORD dwOppGID)

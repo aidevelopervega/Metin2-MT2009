@@ -187,7 +187,7 @@ int CHARACTER::GetValueBasedOnPointValue(int baseValue, DWORD point_type, bool i
 	return baseValue * pointValue / (isFloat ? 1000 : 100);
 }
 
-const DWORD CHARACTER::GetPlayerRealAttackSpeed(bool getAverage, int attackSpeed) const
+DWORD CHARACTER::GetPlayerRealAttackSpeed(bool getAverage, int attackSpeed) const
 {
 	DWORD real_attack_speed = getAverage ? REAL_AVERAGE_ATTACK_SPEED_MIN : REAL_ATTACK_SPEED_MIN;
 
@@ -460,8 +460,8 @@ bool CHARACTER::Attack(LPCHARACTER pkVictim, BYTE bType, BYTE skill_vnum)
 		else if (isUsedSkill)
 			maxRadius = GetMeleeSkillDistanceAttack(skill_vnum);
 
-		if (false == IsPolymorphed() &&
-			(bType == BATTLE_TYPE_RANGE) || (bType == BATTLE_TYPE_MAGIC))
+		if ((false == IsPolymorphed() &&
+			(bType == BATTLE_TYPE_RANGE)) || (bType == BATTLE_TYPE_MAGIC))
 			maxRadius += GetPoint(POINT_BOW_DISTANCE);
 	}
 
@@ -577,7 +577,7 @@ void CHARACTER::UpdateAttackLog(DWORD vid, DWORD time)
 	if (it == m_mapAttackLog.end())
 	{
 
-		m_mapAttackLog.insert(std::make_pair(vid, THackAttackLog{ time, GetXYZ(), time, 0 }));
+		m_mapAttackLog.insert(std::make_pair(vid, THackAttackLog{ time, GetXYZ(), time, 0, 0 }));
 	}
 	else
 	{
@@ -674,7 +674,7 @@ bool CHARACTER::IsResistFall()
 	return false;
 }
 
-void CHARACTER::Knockback(LPCHARACTER pkAttacker, int push_force, VECTOR direction)
+void CHARACTER::Knockback([[maybe_unused]] LPCHARACTER pkAttacker, int push_force, VECTOR direction)
 {
 	if (!CanBePushed())
 		return;
@@ -1002,7 +1002,7 @@ void CHARACTER::RewardGold(LPCHARACTER pkAttacker)
 		iGoldPercent += iGoldPercent;
 	// END_OF_ADD_PREMIUM
 
-	if (Is100PercentGoldDropByRace(GetRaceNum()) || GetMobRank() >= MOB_RANK_BOSS && !IsStone())
+	if (Is100PercentGoldDropByRace(GetRaceNum()) || (GetMobRank() >= MOB_RANK_BOSS && !IsStone()))
 		iGoldPercent = 100;
 
 	if (iGoldPercent > 100)
@@ -1703,7 +1703,7 @@ void CHARACTER::Dead(LPCHARACTER pkKiller, bool bImmediateDead)
 		if (pkKiller)
 			SetQuestNPCID(pkKiller->GetVID());
 		// quest::CQuestManager::instance().Die(GetPlayerID(), quest::QUEST_NO_NPC);
-		quest::CQuestManager::instance().Die(GetPlayerID(), (pkKiller)?pkKiller->GetRaceNum():quest::QUEST_NO_NPC);
+		quest::CQuestManager::instance().Die(GetPlayerID(), (pkKiller)?pkKiller->GetRaceNum():static_cast<DWORD>(quest::QUEST_NO_NPC));
 
 		AddPlayerStat(PLAYER_STATS_DEATH_FLAG);
 		if (pkKiller)
@@ -2522,13 +2522,13 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 					const DWORD levelLimit = weapon->GetLevelLimit();
 
 					DWORD vnum = weapon->GetVnum();
-					bool isElite65LevelWeapon = vnum >= 140 && vnum <= 149 ||
-						vnum >= 150 && vnum <= 159 ||
-						vnum >= 1100 && vnum <= 1109 ||
-						vnum >= 2140 && vnum <= 2149 ||
-						vnum >= 3130 && vnum <= 3139 ||
-						vnum >= 5100 && vnum <= 5109 ||
-						vnum >= 7140 && vnum <= 5149;
+					bool isElite65LevelWeapon = (vnum >= 140 && vnum <= 149) ||
+						(vnum >= 150 && vnum <= 159) ||
+						(vnum >= 1100 && vnum <= 1109) ||
+						(vnum >= 2140 && vnum <= 2149) ||
+						(vnum >= 3130 && vnum <= 3139) ||
+						(vnum >= 5100 && vnum <= 5109) ||
+						(vnum >= 7140 && vnum <= 5149);
 
 					if (levelLimit >= 32 && levelLimit <= 65 && !isElite65LevelWeapon)
 					{
@@ -2564,7 +2564,7 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 			break;
 	}
 
-	if (pAttacker && IsNPC() && (IsStone() || GetMobRank() >= MOB_RANK_BOSS && !IsStone() || IsMiniBoss(GetRaceNum())))
+	if (pAttacker && IsNPC() && (IsStone() || (GetMobRank() >= MOB_RANK_BOSS && !IsStone()) || IsMiniBoss(GetRaceNum())))
 	{
 		int att_special_value = pAttacker->GetPoint(POINT_ATT_SPECIAL);
 		if (type == DAMAGE_TYPE_NORMAL_RANGE && pAttacker->IsHorseRiding())
@@ -3183,7 +3183,7 @@ namespace NPartyExpDistribute
 				return;
 
 			if (DISTANCE_APPROX(ch->GetX() - x, ch->GetY() - y) <= PARTY_DEFAULT_RANGE ||
-				leader && leader->DistanceTo(ch) <= PARTY_DEFAULT_RANGE)
+				(leader && leader->DistanceTo(ch) <= PARTY_DEFAULT_RANGE))
 			{
 				total += __GetPartyExpNP(ch->GetLevel());
 
@@ -3203,8 +3203,7 @@ namespace NPartyExpDistribute
 		int		m_iMemberCount;
 
 		FPartyDistributor(LPCHARACTER center, int member_count, int total, DWORD iExp, int iMode)
-			: total(total), c(center), x(center->GetX()), y(center->GetY()), _iExp(iExp), m_iMode(iMode), m_iMemberCount(member_count),
-			map_index(center->GetMapIndex())
+			: total(total), c(center), x(center->GetX()), y(center->GetY()), map_index(center->GetMapIndex()), _iExp(iExp), m_iMode(iMode), m_iMemberCount(member_count)
 			{
 				if (m_iMemberCount == 0)
 					m_iMemberCount = 1;
@@ -3758,7 +3757,7 @@ public:
 					if (m_me->HasPlayerData() && m_me->playerData->m_dwRemainingShootCount == 1)
 						pkVictim->SetAdditionalShootingTarget(false);
 				}
-				else if (m_me->HasPlayerData() && m_me->playerData->m_dwRemainingShootCount == GetMaxAttackCountForSkill(SKILL_REPETITIVE_SHOT, m_me->GetSkillPower(SKILL_REPETITIVE_SHOT)))
+				else if (m_me->HasPlayerData() && m_me->playerData->m_dwRemainingShootCount == static_cast<DWORD>(GetMaxAttackCountForSkill(SKILL_REPETITIVE_SHOT, m_me->GetSkillPower(SKILL_REPETITIVE_SHOT))))
 				{
 					m_me->UseArrow(pkArrow, 1);
 				}
@@ -4012,7 +4011,7 @@ public:
 
 		// +1 because m_dwFlyTargetID is not part of m_vec_dwFlyTargets
 		int max_target = m_attacker->GetShootMaxTargetCount(m_bType);
-		if (m_attacker->m_vec_dwFlyTargets.size() + 1 >= max_target)
+		if (static_cast<int>(m_attacker->m_vec_dwFlyTargets.size() + 1) >= max_target)
 			return;
 
 		victimNeighbor->SetAdditionalShootingTarget(true);
@@ -4053,7 +4052,7 @@ void CHARACTER::ResetFlyTarget()
 
 bool CHARACTER::Shoot(BYTE bType)
 {
-	if (!CanMove() || IsPC() && IsPolymorphed())
+	if (!CanMove() || (IsPC() && IsPolymorphed()))
 	{
 		ResetFlyTarget();
 		return false;

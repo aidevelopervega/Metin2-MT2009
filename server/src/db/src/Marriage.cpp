@@ -99,7 +99,7 @@ namespace marriage
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%u, %u, 0, %u)", dwPID1, dwPID2, now);
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%u, %u, 0, %u)", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2), static_cast<unsigned int>(now));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
@@ -138,7 +138,7 @@ namespace marriage
 
 		char szQuery[512];
 		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET love_point = %d, is_married = %d WHERE pid1 = %u AND pid2 = %u",
-				iLovePoint, byMarried, pMarriage->pid1, pMarriage->pid2);
+				iLovePoint, byMarried, static_cast<unsigned int>(pMarriage->pid1), static_cast<unsigned int>(pMarriage->pid2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
@@ -183,7 +183,7 @@ namespace marriage
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM marriage WHERE pid1 = %u AND pid2 = %u", dwPID1, dwPID2);
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM marriage WHERE pid1 = %u AND pid2 = %u", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
@@ -226,7 +226,7 @@ namespace marriage
 
 		char szQuery[512];
 		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET is_married = 1 WHERE pid1 = %u AND pid2 = %u",
-				pMarriage->pid1, pMarriage->pid2);
+				static_cast<unsigned int>(pMarriage->pid1), static_cast<unsigned int>(pMarriage->pid2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();

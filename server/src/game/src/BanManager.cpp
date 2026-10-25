@@ -114,7 +114,7 @@ void BanManager::SendDisconnect(DWORD pid) // use only after ban
 		DESC_MANAGER::instance().DestroyLoginKey(foundPlayer->GetDesc());
 		foundPlayer->GetDesc()->SetPhase(PHASE_CLOSE);
 	}
-	else if (auto pkCCI = P2P_MANAGER::instance().FindByPID(pid))
+	else if (P2P_MANAGER::instance().FindByPID(pid))
 	{
 		TPacketGGDisconnectPlayerId p;
 		p.bHeader = HEADER_GG_DISCONNECT_PLAYER_ID;
@@ -130,9 +130,9 @@ void BanManager::SendDisconnectHwid(const char* hwid)
 	DisconnectHwid(hwid);
 
 	// send to other game cores
-	TPacketGGDisconnectHwid p;
+	TPacketGGDisconnectHwid p{};
 	p.bHeader = HEADER_GG_DISCONNECT_HWID;
-	strncpy(p.hwid, hwid, sizeof(p.hwid));
+	strlcpy(p.hwid, hwid, sizeof(p.hwid));
 	P2P_MANAGER::instance().Send(&p, sizeof(p));
 }
 
@@ -169,7 +169,7 @@ BanManager::BlockPlayerData BanManager::GetBlockPlayerData(DWORD pid)
 		data.pid = pid;
 		str_to_number(data.aid, row[0]);
 
-		strncpy(data.name, row[1], sizeof(data.name));
+		strlcpy(data.name, row[1], sizeof(data.name));
 	}
 	return data;
 }
@@ -183,7 +183,7 @@ BanManager::BlockHwidData BanManager::GetBlockHwidData(DWORD aid)
 	{
 		MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
 		if (row[0] != nullptr)
-			strncpy(data.hwid, row[0], sizeof(data.hwid));
+			strlcpy(data.hwid, row[0], sizeof(data.hwid));
 	}
 	return data;
 }

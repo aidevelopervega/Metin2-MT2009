@@ -532,9 +532,9 @@ double CPoly::GetVar(const std::string & strName)
     int index = find(strName);
     if (index == -1) return false;
     CSymTable * stVar = lSymbol[(index)];
-	if(!stVar)
-		return -1;
-	return stVar->dVal;
+    if (!stVar)
+        return -1;
+    return stVar->dVal;
 }
 
 void CPoly::init()

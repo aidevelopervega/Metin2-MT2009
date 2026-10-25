@@ -180,7 +180,7 @@ void MessengerManager::RequestToAdd(LPCHARACTER ch, LPCHARACTER target)
 	DWORD dw2 = GetCRC32(target->GetName(), strlen(target->GetName()));
 
 	char buf[64];
-	snprintf(buf, sizeof(buf), "%u:%u", dw1, dw2);
+	snprintf(buf, sizeof(buf), "%u:%u", static_cast<unsigned int>(dw1), static_cast<unsigned int>(dw2));
 	DWORD dwComplex = GetCRC32(buf, strlen(buf));
 
 	m_set_requestToAdd.emplace(dwComplex);
@@ -195,7 +195,7 @@ bool MessengerManager::AuthToAdd(MessengerManager::keyA account, MessengerManage
 	DWORD dw2 = GetCRC32(account.c_str(), account.length());
 
 	char buf[64];
-	snprintf(buf, sizeof(buf), "%u:%u", dw1, dw2);
+	snprintf(buf, sizeof(buf), "%u:%u", static_cast<unsigned int>(dw1), static_cast<unsigned int>(dw2));
 	DWORD dwComplex = GetCRC32(buf, strlen(buf));
 
 	if (m_set_requestToAdd.find(dwComplex) == m_set_requestToAdd.end())
@@ -362,7 +362,7 @@ void MessengerManager::SendBlockList(LPCHARACTER who)
 	for (auto name : m_BlockMap[who->GetPlayerID()])
 	{
 		TPacketGCMessengerBlockItem item{};
-		strncpy(item.name, name.c_str(), sizeof(item.name));
+		strlcpy(item.name, name.c_str(), sizeof(item.name));
 		item.isAdd = true;
 		buff.write(&item, sizeof(item));
 	}
@@ -393,7 +393,7 @@ void MessengerManager::SendBlock(LPCHARACTER who, const char* name, bool isBlock
 	buff.write(&sub, sizeof(sub));
 
 	TPacketGCMessengerBlockItem item{};
-	strncpy(item.name, name, sizeof(item.name));
+	strlcpy(item.name, name, sizeof(item.name));
 	item.isAdd = isBlock;
 	buff.write(&item, sizeof(item));
 
@@ -554,7 +554,7 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 	m_BlockMap[pid].clear();
 
 	char buf[512];
-	sprintf(buf, "SELECT blocked FROM messenger_block_list WHERE pid=%ld", pid);
+	snprintf(buf, sizeof(buf), "SELECT blocked FROM messenger_block_list WHERE pid=%u", static_cast<unsigned int>(pid));
 
 	auto pkMsg(DBManager::instance().DirectQuery(buf));
 	SQLResult* pRes = pkMsg->Get();
@@ -572,8 +572,8 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 		{
 			m_BlockMap[pid].insert(data[0]);
 
-			char playerName[PLAYER_NAME_MAX_LEN + 1];
-			strncpy(playerName, data[0], sizeof(playerName));
+			char playerName[PLAYER_NAME_MAX_LEN + 1]{};
+			strlcpy(playerName, data[0], sizeof(playerName));
 
 			buff.write(&playerName, sizeof(playerName));
 		}
@@ -597,7 +597,7 @@ void SendMessengerBlockP2PPacket(BYTE subheader, DWORD pid, const char * targetN
 
 	TSubPacketGGBlockMessengerBlock sub{};
 	sub.pid = pid;
-	strncpy(sub.name, targetName, sizeof(sub.name));
+	strlcpy(sub.name, targetName, sizeof(sub.name));
 
 	TEMP_BUFFER buff;
 	buff.write(&p, sizeof(p));

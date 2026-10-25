@@ -44,7 +44,7 @@ void CItemCache::OnFlush()
 	if (m_data.vnum == 0)
 	{
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), m_data.id);
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(m_data.id));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_DESTROY, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 
 		if (g_test_server)
@@ -188,14 +188,14 @@ void CItemPriceListTableCache::OnFlush()
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM myshop_pricelist%s WHERE owner_id = %u", GetTablePostfix(), m_data.dwOwnerID);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM myshop_pricelist%s WHERE owner_id = %u", GetTablePostfix(), static_cast<unsigned int>(m_data.dwOwnerID));
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_DESTROY, 0, NULL);
 
 	for (int idx = 0; idx < m_data.byCount; ++idx)
 	{
 		snprintf(szQuery, sizeof(szQuery),
 				"REPLACE myshop_pricelist%s(owner_id, item_vnum, price) VALUES(%u, %u, %lld)", // @fixme204 (INSERT INTO -> REPLACE)
-				GetTablePostfix(), m_data.dwOwnerID, m_data.aPriceInfo[idx].dwVnum, m_data.aPriceInfo[idx].dwPrice);
+				GetTablePostfix(), static_cast<unsigned int>(m_data.dwOwnerID), static_cast<unsigned int>(m_data.aPriceInfo[idx].dwVnum), static_cast<long long>(m_data.aPriceInfo[idx].dwPrice));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_SAVE, 0, NULL);
 	}
 

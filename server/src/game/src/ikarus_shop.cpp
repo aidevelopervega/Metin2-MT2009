@@ -344,7 +344,7 @@ namespace ikashop
 			{
 				if (item->GetTable() &&
 					item->GetTable()->bType == ITEM_WEAPON &&
-					item->GetTable()->bSubType >= WEAPON_SWORD <= WEAPON_FAN)
+					item->GetTable()->bSubType >= WEAPON_SWORD && item->GetTable()->bSubType <= WEAPON_FAN)
 					return true;
 			}
 		}
@@ -361,7 +361,7 @@ namespace ikashop
 			{
 				if (item->GetTable() &&
 					item->GetTable()->bType == ITEM_ARMOR &&
-					item->GetTable()->bSubType >= ARMOR_BODY <= ARMOR_SHIELD)
+					item->GetTable()->bSubType >= ARMOR_BODY && item->GetTable()->bSubType <= ARMOR_SHIELD)
 					return true;
 			}
 		}
@@ -415,7 +415,7 @@ namespace ikashop
 
 			if (item)
 			{
-				if (item->GetVnum() >= (28030+100*level) && item->GetVnum() <= (28043 + 100 * level))
+				if (item->GetVnum() >= static_cast<DWORD>(28030+100*level) && item->GetVnum() <= static_cast<DWORD>(28043 + 100 * level))
 					return true;
 			}
 		}
@@ -464,7 +464,7 @@ namespace ikashop
 		return false;
 	}
 
-	void CShop::_RefreshViews(LPCHARACTER ch)
+	void CShop::_RefreshViews([[maybe_unused]] LPCHARACTER ch)
 	{
 		// applying to each guest
 		for (auto& guest : m_guests)
@@ -488,7 +488,7 @@ namespace ikashop
 		return CHARACTER_MANAGER::instance().FindByPID(GetOwnerPID());
 	}
 
-	void CShop::NotifyOffers(LPCHARACTER ch)
+	void CShop::NotifyOffers([[maybe_unused]] LPCHARACTER ch)
 	{
 		for (auto& [id, offer] : m_offers)
 		{
@@ -500,7 +500,7 @@ namespace ikashop
 		}
 	}
 
-	void CShop::NotifyAcceptedOffers(LPCHARACTER ch) //UNUSED
+	void CShop::NotifyAcceptedOffers([[maybe_unused]] LPCHARACTER ch) //UNUSED
 	{
 		for (auto& [id, offer] : m_offers)
 		{
@@ -517,7 +517,7 @@ namespace ikashop
 		std::erase_if(m_offers, [&](auto&& iter){ return offerid == iter.second->offerid; });
 	}
 
-	void CShop::_SendNotifyOffer(LPCHARACTER ch, const TOfferInfo& offer)
+	void CShop::_SendNotifyOffer([[maybe_unused]] LPCHARACTER ch, [[maybe_unused]] const TOfferInfo& offer)
 	{
 		//TODO : add send packet
 	}
@@ -682,7 +682,7 @@ namespace ikashop
 		return m_guests;
 	}
 
-	const DWORD CAuction::GetBestBuyer() const
+	DWORD CAuction::GetBestBuyer() const
 	{
 		return m_bestOffer ? m_bestOffer->buyerid : 0;
 	}

@@ -494,7 +494,7 @@ void CGuildManager::RequestEndWar(DWORD guild_id1, DWORD guild_id2)
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_WAR, 0, &p, sizeof(p));
 }
 
-void CGuildManager::RequestWarOver(DWORD dwGuild1, DWORD dwGuild2, DWORD dwGuildWinner, YANG lReward)
+void CGuildManager::RequestWarOver(DWORD dwGuild1, DWORD dwGuild2, DWORD dwGuildWinner, [[maybe_unused]] YANG lReward)
 {
 	CGuild * g1 = TouchGuild(dwGuild1);
 	CGuild * g2 = TouchGuild(dwGuild2);

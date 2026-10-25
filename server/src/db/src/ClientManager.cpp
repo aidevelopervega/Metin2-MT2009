@@ -160,7 +160,7 @@ static bool __InitializeDefaultPriv()
 			else
 				duration_sec -= now_time_sec;
 			// send priv
-			printf("DEFAULT_PRIV_EMPIRE: set empire(%u), type(%u), value(%d), duration(%u)\n", empire, type, value, duration_sec);
+			printf("DEFAULT_PRIV_EMPIRE: set empire(%u), type(%u), value(%d), duration(%lld)\n", empire, type, value, static_cast<long long>(duration_sec));
 			CPrivManager::instance().AddEmpirePriv(empire, type, value, duration_sec);
 		}
 		else if (!strcmp(row[0], "GUILD"))
@@ -184,7 +184,7 @@ static bool __InitializeDefaultPriv()
 			// send priv
 			if (guild_id)
 			{
-				printf("DEFAULT_PRIV_GUILD: set guild_id(%u), type(%u), value(%d), duration(%u)\n", guild_id, type, value, duration_sec);
+				printf("DEFAULT_PRIV_GUILD: set guild_id(%u), type(%u), value(%d), duration(%lld)\n", static_cast<unsigned int>(guild_id), type, value, static_cast<long long>(duration_sec));
 				CPrivManager::instance().AddGuildPriv(guild_id, type, value, duration_sec);
 			}
 		}
@@ -201,7 +201,7 @@ static bool __InitializeDefaultPriv()
 			// send priv
 			if (pid)
 			{
-				printf("DEFAULT_PRIV_PLAYER: set pid(%u), type(%u), value(%d)\n", pid, type, value);
+				printf("DEFAULT_PRIV_PLAYER: set pid(%u), type(%u), value(%d)\n", static_cast<unsigned int>(pid), type, value);
 				CPrivManager::instance().AddCharPriv(pid, type, value);
 			}
 		}
@@ -213,8 +213,8 @@ static bool __UpdateDefaultPriv(const char* priv_type, DWORD id, BYTE type, int 
 {
 	char szQuery[1024];
 	snprintf(szQuery, 1024,
-		"REPLACE INTO priv_settings SET priv_type='%s', id=%u, type=%u, value=%d, duration=DATE_ADD(NOW(), INTERVAL %u SECOND);",
-		priv_type, id, type, value, duration_sec
+		"REPLACE INTO priv_settings SET priv_type='%s', id=%u, type=%u, value=%d, duration=DATE_ADD(NOW(), INTERVAL %lld SECOND);",
+		priv_type, static_cast<unsigned int>(id), type, value, static_cast<long long>(duration_sec)
 	);
 	auto pMsg(CDBManager::instance().DirectQuery(szQuery, SQL_COMMON));
 	return pMsg->Get()->uiAffectedRows;
@@ -279,7 +279,7 @@ bool CClientManager::Initialize()
 
 	m_fdAccept = socket_tcp_bind(szBindIP, tmpValue);
 
-	if (m_fdAccept < 0)
+	if (m_fdAccept == INVALID_SOCKET)
 	{
 		perror("socket");
 		return false;
@@ -761,14 +761,14 @@ void CClientManager::QUERY_SPECIAL_FLAG_SAVE(CPeer* pkPeer, TSpecialFlagTable* p
 		if (pTable->llValue == 0)
 		{
 			snprintf(szQuery, sizeof(szQuery),
-				"DELETE FROM player_special_flag%s WHERE (pid=%d or aid=%d) AND flag='%s'",
-				GetTablePostfix(), pTable->dwPID, pTable->dwAID, pTable->szFlag);
+				"DELETE FROM player_special_flag%s WHERE (pid=%u or aid=%u) AND flag='%s'",
+				GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), static_cast<unsigned int>(pTable->dwAID), pTable->szFlag);
 		}
 		else
 		{
 			snprintf(szQuery, sizeof(szQuery),
-				"REPLACE INTO player_special_flag%s (pid, aid, flag, value) VALUES(%d, %d, '%s', %lld)",
-				GetTablePostfix(), pTable->dwPID, pTable->dwAID, pTable->szFlag, pTable->llValue);
+				"REPLACE INTO player_special_flag%s (pid, aid, flag, value) VALUES(%u, %u, '%s', %lld)",
+				GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), static_cast<unsigned int>(pTable->dwAID), pTable->szFlag, pTable->llValue);
 		}
 
 		CDBManager::instance().ReturnQuery(szQuery, QID_SPECIAL_FLAG_SAVE, pkPeer->GetHandle(), NULL);
@@ -787,7 +787,7 @@ void CClientManager::QUERY_SAFEBOX_LOAD(CPeer * pkPeer, DWORD dwHandle, TSafebox
 	char szQuery[QUERY_MAX_LEN];
 	snprintf(szQuery, sizeof(szQuery),
 			"SELECT account_id, size, password FROM safebox%s WHERE account_id=%u",
-			GetTablePostfix(), packet->dwID);
+			GetTablePostfix(), static_cast<unsigned int>(packet->dwID));
 
 	if (g_log)
 		sys_log(0, "HEADER_GD_SAFEBOX_LOAD (handle: %d account.id %u is_mall %d)", dwHandle, packet->dwID, bMall ? 1 : 0);
@@ -871,8 +871,8 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 				"attrtype4, attrvalue4, "
 				"attrtype5, attrvalue5, "
 				"attrtype6, attrvalue6 "
-				"FROM item%s WHERE owner_id=%d AND `window`='%s'",
-				GetTablePostfix(), pi->account_id, pi->ip[0] == 0 ? "SAFEBOX" : "MALL");
+				"FROM item%s WHERE owner_id=%u AND `window`='%s'",
+				GetTablePostfix(), static_cast<unsigned int>(pi->account_id), pi->ip[0] == 0 ? "SAFEBOX" : "MALL");
 
 		pi->account_index = 1;
 
@@ -1088,10 +1088,10 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 						char szColumns[QUERY_MAX_LEN], szValues[QUERY_MAX_LEN];
 
 						auto iLen = snprintf(szColumns, sizeof(szColumns), "id, owner_id, `window`, pos, vnum, count");
-						auto iValueLen = snprintf(szValues, sizeof(szValues), "%u, %u, '%s', %d, %u, %u", GainItemID(), pi->account_id, (pi->ip[0] == 0) ? "SAFEBOX" : "MALL", iPos, pItemAward->dwVnum, pItemAward->dwCount);
+						auto iValueLen = snprintf(szValues, sizeof(szValues), "%u, %u, '%s', %d, %u, %u", static_cast<unsigned int>(GainItemID()), static_cast<unsigned int>(pi->account_id), (pi->ip[0] == 0) ? "SAFEBOX" : "MALL", iPos, static_cast<unsigned int>(pItemAward->dwVnum), static_cast<unsigned int>(pItemAward->dwCount));
 
 						iLen += snprintf(szColumns + iLen, sizeof(szColumns) - iLen, ", socket0, socket1, socket2");
-						iValueLen += snprintf(szValues + iValueLen, sizeof(szValues) - iValueLen, ", %u, %u, %u", dwSocket0, dwSocket1, dwSocket2);
+						iValueLen += snprintf(szValues + iValueLen, sizeof(szValues) - iValueLen, ", %u, %u, %u", static_cast<unsigned int>(dwSocket0), static_cast<unsigned int>(dwSocket1), static_cast<unsigned int>(dwSocket2));
 
 						for (auto i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 						{
@@ -1164,9 +1164,9 @@ void CClientManager::QUERY_SAFEBOX_CHANGE_SIZE(CPeer * pkPeer, DWORD dwHandle, T
 	char szQuery[QUERY_MAX_LEN];
 
 	if (p->bSize == 1)
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO safebox%s (account_id, size) VALUES(%u, %u)", GetTablePostfix(), p->dwID, p->bSize);
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO safebox%s (account_id, size) VALUES(%u, %u)", GetTablePostfix(), static_cast<unsigned int>(p->dwID), p->bSize);
 	else
-		snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET size=%u WHERE account_id=%u", GetTablePostfix(), p->bSize, p->dwID);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET size=%u WHERE account_id=%u", GetTablePostfix(), p->bSize, static_cast<unsigned int>(p->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_SIZE, pkPeer->GetHandle(), pi);
 }
@@ -1195,7 +1195,7 @@ void CClientManager::QUERY_SAFEBOX_CHANGE_PASSWORD(CPeer * pkPeer, DWORD dwHandl
 	pi->account_id = p->dwID;
 
 	char szQuery[QUERY_MAX_LEN];
-	snprintf(szQuery, sizeof(szQuery), "SELECT password FROM safebox%s WHERE account_id=%u", GetTablePostfix(), p->dwID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT password FROM safebox%s WHERE account_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_PASSWORD, pkPeer->GetHandle(), pi);
 }
@@ -1224,7 +1224,7 @@ void CClientManager::RESULT_SAFEBOX_CHANGE_PASSWORD(CPeer * pkPeer, SQLMsg * msg
 				return;
 			}
 
-			snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET password='%s' WHERE account_id=%u", GetTablePostfix(), escape_pwd, p->account_id);
+			snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET password='%s' WHERE account_id=%u", GetTablePostfix(), escape_pwd, static_cast<unsigned int>(p->account_id));
 
 			CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_PASSWORD_SECOND, pkPeer->GetHandle(), p);
 			return;
@@ -1362,7 +1362,7 @@ void CClientManager::QUERY_SAFEBOX_SAVE(CPeer * pkPeer, TSafeboxTable * pTable)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"UPDATE safebox%s SET gold='%lld' WHERE account_id=%u",
-			GetTablePostfix(), pTable->dwGold, pTable->dwID);
+			GetTablePostfix(), pTable->dwGold, static_cast<unsigned int>(pTable->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_SAVE, pkPeer->GetHandle(), NULL);
 }
@@ -1371,17 +1371,17 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE id=%u", GetTablePostfix(), p->bEmpire, p->dwAccountID);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE id=%u", GetTablePostfix(), p->bEmpire, static_cast<unsigned int>(p->dwAccountID));
 	CDBManager::instance().DirectQuery(szQuery);
 
 	sys_log(0, "EmpireSelect: %s", szQuery);
 	{
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
 		snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid1, pid2, pid3, pid4, pid5 FROM player_index%s WHERE id=%u", GetTablePostfix(), p->dwAccountID);
+				"SELECT pid1, pid2, pid3, pid4, pid5 FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwAccountID));
 #else
 		snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid1, pid2, pid3, pid4 FROM player_index%s WHERE id=%u", GetTablePostfix(), p->dwAccountID);
+				"SELECT pid1, pid2, pid3, pid4 FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwAccountID));
 #endif
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
@@ -1425,9 +1425,9 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 					snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET map_index=%u,x=%u,y=%u WHERE id=%u",
 							GetTablePostfix(),
 							g_start_map[p->bEmpire],
-							g_start_position[p->bEmpire][0],
-							g_start_position[p->bEmpire][1],
-							pids[i]);
+							static_cast<unsigned int>(g_start_position[p->bEmpire][0]),
+							static_cast<unsigned int>(g_start_position[p->bEmpire][1]),
+							static_cast<unsigned int>(pids[i]));
 
 					auto pmsg2(CDBManager::instance().DirectQuery(szQuery));
 				}
@@ -1439,7 +1439,7 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 	pkPeer->EncodeBYTE(p->bEmpire);
 }
 
-void CClientManager::QUERY_SETUP(CPeer * peer, DWORD dwHandle, const char * c_pData)
+void CClientManager::QUERY_SETUP(CPeer * peer, [[maybe_unused]] DWORD dwHandle, const char * c_pData)
 {
 	TPacketGDSetup * p = (TPacketGDSetup *) c_pData;
 	c_pData += sizeof(TPacketGDSetup);
@@ -1628,7 +1628,7 @@ void CClientManager::QUERY_SETUP(CPeer * peer, DWORD dwHandle, const char * c_pD
 	marriage::CManager::instance().OnSetup(peer);
 }
 
-void CClientManager::QUERY_ITEM_FLUSH(CPeer * pkPeer, const char * c_pData)
+void CClientManager::QUERY_ITEM_FLUSH([[maybe_unused]] CPeer * pkPeer, const char * c_pData)
 {
 	DWORD dwID = *(DWORD *) c_pData;
 
@@ -1959,7 +1959,7 @@ void CClientManager::QUERY_ITEM_DESTROY(CPeer * pkPeer, const char * c_pData)
 	if (!DeleteItemCache(dwID))
 	{
 		char szQuery[64];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), dwID);
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwID));
 
 		if (g_log)
 			sys_log(0, "HEADER_GD_ITEM_DESTROY: PID %u ID %u", dwPID, dwID);
@@ -2223,7 +2223,7 @@ void CClientManager::CreateObject(TPacketGDCreateObject * p)
 	char szQuery[512];
 	snprintf(szQuery, sizeof(szQuery),
 			"INSERT INTO object%s (land_id, vnum, map_index, x, y, x_rot, y_rot, z_rot) VALUES(%u, %u, %d, %d, %d, %f, %f, %f)",
-			GetTablePostfix(), p->dwLandID, p->dwVnum, p->lMapIndex, p->x, p->y, p->xRot, p->yRot, p->zRot);
+			GetTablePostfix(), static_cast<unsigned int>(p->dwLandID), static_cast<unsigned int>(p->dwVnum), p->lMapIndex, p->x, p->y, p->xRot, p->yRot, p->zRot);
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiInsertID == 0)
@@ -2255,7 +2255,7 @@ void CClientManager::CreateObject(TPacketGDCreateObject * p)
 void CClientManager::DeleteObject(DWORD dwID)
 {
 	char szQuery[128];
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM object%s WHERE id=%u", GetTablePostfix(), dwID);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM object%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 
@@ -2290,7 +2290,7 @@ void CClientManager::UpdateLand(DWORD * pdw)
 		if (p->dwID == dwID)
 		{
 			char buf[256];
-			snprintf(buf, sizeof(buf), "REPLACE INTO guild_land (land_id, guild_id) VALUES (%d, %d)", dwID, dwGuild);
+			snprintf(buf, sizeof(buf), "REPLACE INTO guild_land (land_id, guild_id) VALUES (%u, %u)", static_cast<unsigned int>(dwID), static_cast<unsigned int>(dwGuild));
 			CDBManager::instance().AsyncQuery(buf);
 
 			p->dwGuildID = dwGuild;
@@ -2406,7 +2406,7 @@ void CClientManager::MyshopPricelistUpdate(const TItemPriceListTable* pPacket) /
 		thecore_memcpy(pUpdateTable->aPriceInfo, pPacket->aPriceInfo, sizeof(TItemPriceInfo) * pPacket->byCount);
 
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), pPacket->dwOwnerID);
+		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), static_cast<unsigned int>(pPacket->dwOwnerID));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_LOAD_FOR_UPDATE, 0, pUpdateTable);
 	}
 }
@@ -2440,7 +2440,7 @@ void CClientManager::MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, DWORD d
 		sys_log(0, "Query MyShopPricelist handle[%d] pid[%d]", dwHandle, dwPlayerID);
 
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), dwPlayerID);
+		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), static_cast<unsigned int>(dwPlayerID));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_LOAD, peer->GetHandle(), new TItemPricelistReqInfo(dwHandle, dwPlayerID));
 	}
 }
@@ -3273,7 +3273,7 @@ void UsageLog()
 
 	time_s[strlen(time_s) - 1] = '\0';
 
-	fprintf(fp, "| %4d %-15.15s | %5d | %5u |", lt.tm_year + 1900, time_s + 4, avg, g_dwUsageMax);
+	fprintf(fp, "| %4d %-15.15s | %5d | %5u |", lt.tm_year + 1900, time_s + 4, avg, static_cast<unsigned int>(g_dwUsageMax));
 
 	fprintf(fp, "\n");
 	fclose(fp);
@@ -3297,7 +3297,7 @@ int CClientManager::Process()
 		{
 			if (g_test_server)
 			{
-				if (!(thecore_heart->pulse % thecore_heart->passes_per_sec * 10))
+				if ((thecore_heart->pulse % (thecore_heart->passes_per_sec * 10)) == 0)
 
 				{
 					pt_log("[%9d] return %d/%d/%d/%d async %d/%d/%d/%d",
@@ -4098,7 +4098,7 @@ void CClientManager::ReloadAdmin(CPeer*, TPacketReloadAdmin* p)
 }
 
 //BREAK_MARRIAGE
-void CClientManager::BreakMarriage(CPeer * peer, const char * data)
+void CClientManager::BreakMarriage([[maybe_unused]] CPeer * peer, const char * data)
 {
 	DWORD pid1, pid2;
 
@@ -4314,7 +4314,7 @@ void CClientManager::TakeMonarchMoney(CPeer * peer, DWORD dwHandle, const char *
 	}
 }
 
-void CClientManager::ComeToVote(CPeer * peer, DWORD dwHandle, const char * data)
+void CClientManager::ComeToVote([[maybe_unused]] CPeer * peer, [[maybe_unused]] DWORD dwHandle, [[maybe_unused]] const char * data)
 {
 	CMonarch::instance().ElectMonarch();
 }
@@ -4448,7 +4448,7 @@ void CClientManager::RMMonarch(CPeer * peer, DWORD dwHandle, const char * data)
 	}
 }
 
-void CClientManager::ChangeMonarchLord(CPeer * peer, DWORD dwHandle, TPacketChangeMonarchLord* info)
+void CClientManager::ChangeMonarchLord([[maybe_unused]] CPeer * peer, [[maybe_unused]] DWORD dwHandle, TPacketChangeMonarchLord* info)
 {
 	char szQuery[1024];
 	snprintf(szQuery, sizeof(szQuery),
@@ -4458,11 +4458,11 @@ void CClientManager::ChangeMonarchLord(CPeer * peer, DWORD dwHandle, TPacketChan
 #else
 		    "(b.pid1=%u OR b.pid2=%u OR b.pid3=%u OR b.pid4=%u)",
 #endif
-			GetTablePostfix(), GetTablePostfix(), info->dwPID, info->bEmpire,
+			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(info->dwPID), info->bEmpire,
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-		   	info->dwPID, info->dwPID, info->dwPID, info->dwPID, info->dwPID);
+		   	static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID));
 #else
-		   	info->dwPID, info->dwPID, info->dwPID, info->dwPID);
+		   	static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID));
 #endif
 
 	auto pMsg = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
@@ -4476,7 +4476,7 @@ void CClientManager::ChangeMonarchLord(CPeer * peer, DWORD dwHandle, TPacketChan
 		strlcpy(ack.szName, row[0], sizeof(ack.szName));
 		strlcpy(ack.szDate, row[1], sizeof(ack.szDate));
 
-		snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET pid=%u, windate=NOW() WHERE empire=%d", ack.dwPID, ack.bEmpire);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET pid=%u, windate=NOW() WHERE empire=%d", static_cast<unsigned int>(ack.dwPID), ack.bEmpire);
 		auto pMsg2 = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
 		if (pMsg2->Get()->uiAffectedRows > 0)
 		{
@@ -4503,7 +4503,7 @@ void CClientManager::SendSpareItemIDRange(CPeer* peer)
 	peer->SendSpareItemIDRange();
 }
 
-void CClientManager::SetLoginPremiumPass(CPeer* peer, TPacketSetPremiumPass* data)
+void CClientManager::SetLoginPremiumPass([[maybe_unused]] CPeer* peer, TPacketSetPremiumPass* data)
 {
 	CLoginData* pkLD = GetLoginDataByAID(data->dwAid);
 	if (pkLD)
@@ -4640,21 +4640,37 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 	if (!packet)
 		return;
 
+	if (packet->lAmount == INT32_MIN || packet->lSecondAmount == INT32_MIN)
+	{
+		sys_err("ChargeCash: invalid INT32_MIN amount (type : %d, amount : %d, second : %d, aid : %u)",
+			packet->eChargeType, packet->lAmount, packet->lSecondAmount, static_cast<unsigned int>(packet->dwAID));
+		return;
+	}
+
 	char szQuery[512];
 	
 	if (ERequestCharge_Cash == packet->eChargeType)
 	{
 		if (packet->lAmount >= 0)
 		{
-			sprintf(szQuery, "update account set `cash` = `cash` + %d where id = %u limit 1", packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+			snprintf(szQuery, sizeof(szQuery),
+				"update account set `cash` = `cash` + %d where id = %u limit 1",
+				packet->lAmount, static_cast<unsigned int>(packet->dwAID));
 		}
 		else
 		{
-			sprintf(szQuery, "update account set `cash` = `cash` + %d, `cash_mark` = `cash_mark` + %d where id = %u limit 1", packet->lAmount, abs(packet->lSecondAmount), static_cast<unsigned int>(packet->dwAID));
+			const int32_t secondCredit = (packet->lSecondAmount < 0) ? -packet->lSecondAmount : packet->lSecondAmount;
+			snprintf(szQuery, sizeof(szQuery),
+				"update account set `cash` = `cash` + %d, `cash_mark` = `cash_mark` + %d where id = %u limit 1",
+				packet->lAmount, secondCredit, static_cast<unsigned int>(packet->dwAID));
 		}
 	}
 	else if (ERequestCharge_Marks == packet->eChargeType)
-		sprintf(szQuery, "update account set `cash_mark` = `cash_mark` + %d where id = %u limit 1", packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+	{
+		snprintf(szQuery, sizeof(szQuery),
+			"update account set `cash_mark` = `cash_mark` + %d where id = %u limit 1",
+			packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+	}
 	else
 	{
 		sys_err("Invalid request charge type (type : %d, amount : %d, aid : %u)", packet->eChargeType, packet->lAmount, static_cast<unsigned int>(packet->dwAID));
@@ -4673,7 +4689,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 		return;
 
 	char szQuery[512];
-	sprintf(szQuery, 
+	snprintf(szQuery, sizeof(szQuery),
 		"SELECT"
 		" id, max_use_count, use_count, cash"
 		" FROM vouchers"
@@ -4720,10 +4736,15 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	//else if (max_use_count > 0 && use_count >= max_use_count)
 	else if (use_count >= max_use_count)
 		bResponse = USE_VOUCHER_ALREADY_USED;
+	else if (cash > static_cast<DWORD>(INT32_MAX))
+	{
+		sys_err("UseCodeVoucher: cash value overflow (%u > INT32_MAX, code: %s)", static_cast<unsigned int>(cash), p->code);
+		bResponse = USE_VOUCHER_NO_CODE;
+	}
 
 	if (bResponse == USE_VOUCHER_SUCCESS)
 	{
-		sprintf(szQuery, "UPDATE vouchers SET use_count=use_count+1 WHERE code='%s'", p->code);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE vouchers SET use_count=use_count+1 WHERE code='%s'", p->code);
 		CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON);
 
 		if (cash > 0)
@@ -4731,7 +4752,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 			TRequestChargeCash packet{};
 			packet.dwAID = p->dwAID;
 			packet.eChargeType = ERequestChargeType::ERequestCharge_Cash;
-			packet.lAmount = cash;
+			packet.lAmount = static_cast<int32_t>(cash);
 			ChargeCash(&packet);
 		}
 	}

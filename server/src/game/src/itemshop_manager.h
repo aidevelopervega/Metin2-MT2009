@@ -42,8 +42,8 @@ public:
 	void SendAuctionUpdate(LPCHARACTER ch, DWORD index);
 	PlayerAccountBalance GetPlayerAccountBalance(LPCHARACTER ch);
 
-	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, long amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
-	bool AddCash(LPCHARACTER ch, BYTE chargeType, long amount, bool checkBalance = true, long customSecondAmount = -1);
+	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
+	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
 	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity);
 	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount);
 	void RefreshItemShop(LPCHARACTER ch);

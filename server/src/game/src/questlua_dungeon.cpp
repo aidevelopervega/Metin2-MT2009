@@ -57,7 +57,7 @@ namespace quest
 
 		if (pDungeon)
 		{
-			BYTE bChatType = lua_isnumber(L, 2) ? lua_tonumber(L, 2) : CHAT_TYPE_NOTICE;
+			BYTE bChatType = lua_isnumber(L, 2) ? static_cast<BYTE>(lua_tonumber(L, 2)) : static_cast<BYTE>(CHAT_TYPE_NOTICE);
 			pDungeon->Notice(lua_tostring(L, 1), bChatType);
 		}
 		return 0;
@@ -1335,7 +1335,7 @@ namespace quest
 
 					for (CDungeon::ItemGroup::const_iterator it = item_group->begin(); it != item_group->end(); it++)
 					{
-						if(ch->CountSpecifyItem(it->first) >= it->second)
+						if(ch->CountSpecifyItem(it->first) >= static_cast<ITEM_COUNT>(it->second))
 						{
 							packet_script.header = HEADER_GC_SCRIPT;
 							packet_script.skin = quest::CQuestManager::QUEST_SKIN_NORMAL;
@@ -1422,7 +1422,7 @@ namespace quest
 				{
 					for (CDungeon::ItemGroup::const_iterator it = item_group->begin(); it != item_group->end(); it++)
 					{
-						if(ch->CountSpecifyItem(it->first) >= it->second)
+						if(ch->CountSpecifyItem(it->first) >= static_cast<ITEM_COUNT>(it->second))
 						{
 							return;
 						}
@@ -1487,7 +1487,7 @@ namespace quest
 				{
 					for (CDungeon::ItemGroup::const_iterator it = item_group->begin(); it != item_group->end(); it++)
 					{
-						if(ch->CountSpecifyItem(it->first) >= it->second)
+						if(ch->CountSpecifyItem(it->first) >= static_cast<ITEM_COUNT>(it->second))
 						{
 							ch->RemoveSpecifyItem (it->first, it->second);
 							return;
@@ -1814,7 +1814,7 @@ namespace quest
 			return 0;
 
 		DWORD affect_type = (DWORD)lua_tonumber(L, 1);
-		BYTE point_type = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : POINT_NONE;
+		BYTE point_type = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : static_cast<BYTE>(POINT_NONE);
 
 		pDungeon->RemoveAffectAll(pDungeon->GetMapIndex(), affect_type, point_type);
 		return 0;

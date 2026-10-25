@@ -90,7 +90,7 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 	DWORD dwItemMaxID = 0;
 	MYSQL_ROW row;
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s WHERE id >= %u and id <= %u", GetTablePostfix(), dwMin, dwMax);
+	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s WHERE id >= %u and id <= %u", GetTablePostfix(), static_cast<unsigned int>(dwMin), static_cast<unsigned int>(dwMax));
 
 	auto pMsg = CDBManager::instance().DirectQuery(szQuery);
 	if (pMsg != NULL)
@@ -119,7 +119,7 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 		range.dwUsableItemIDMin = dwItemMaxID;
 
 		snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM item%s WHERE id >= %u AND id <= %u",
-				GetTablePostfix(), range.dwUsableItemIDMin, range.dwMax);
+				GetTablePostfix(), static_cast<unsigned int>(range.dwUsableItemIDMin), static_cast<unsigned int>(range.dwMax));
 
 		pMsg = CDBManager::instance().DirectQuery(szQuery);
 

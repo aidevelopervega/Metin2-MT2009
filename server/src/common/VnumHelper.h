@@ -5,15 +5,15 @@ class CItemVnumHelper
 {
 public:
 
-	static	const bool	IsPhoenix(DWORD vnum)				{ return 53001 == vnum; }
+	static	bool	IsPhoenix(DWORD vnum)				{ return 53001 == vnum; }
 
-	static	const bool	IsRamadanMoonRing(DWORD vnum)		{ return 71135 == vnum; }
+	static	bool	IsRamadanMoonRing(DWORD vnum)		{ return 71135 == vnum; }
 
-	static	const bool	IsHalloweenCandy(DWORD vnum)		{ return 71136 == vnum; }
+	static	bool	IsHalloweenCandy(DWORD vnum)		{ return 71136 == vnum; }
 
-	static	const bool	IsHappinessRing(DWORD vnum)		{ return 71143 == vnum; }
+	static	bool	IsHappinessRing(DWORD vnum)		{ return 71143 == vnum; }
 
-	static	const bool	IsLovePendant(DWORD vnum)		{ return 71145 == vnum; }
+	static	bool	IsLovePendant(DWORD vnum)		{ return 71145 == vnum; }
 };
 
 class CMobVnumHelper

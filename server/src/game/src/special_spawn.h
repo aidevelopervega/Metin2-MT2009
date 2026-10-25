@@ -63,7 +63,7 @@ public:
 
 	bool IsSpawned();
 
-	void OnBoot(DWORD last_kill_delta = -1);
+	void OnBoot(int last_kill_delta = -1);
 	void OnSpawnedKill(LPCHARACTER ch);
 	void OnSpawnedDestroy(LPCHARACTER ch);
 

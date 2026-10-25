@@ -88,7 +88,7 @@ unsigned int get_string_crc(const std::string & str)
 	return h;
 }
 
-static const char *getF (lua_State *L, void *ud, size_t *size) {
+static const char *getF ([[maybe_unused]] lua_State *L, void *ud, size_t *size) {
 	LoadF *lf = (LoadF *)ud;
 
 	if (feof(lf->f))
@@ -206,7 +206,7 @@ bool check_syntax(const string& str, const string& module)
 	return true;
 }
 
-int none_c_function(lua_State* L)
+int none_c_function([[maybe_unused]] lua_State* L)
 {
 	return 0;
 }
@@ -951,14 +951,11 @@ void parse(char * filename)
 			state_crc.emplace(*it, crc);
 		}
 
-		int idx = 1;
-
 		for (auto it = define_state_name_set.begin(); it!=define_state_name_set.end(); ++it)
 		{
 			if (*it != "start")
 			{
 				ouf << ",[\"" << *it << "\"]=" <<state_crc[*it];
-				++idx;
 			}
 		}
 

@@ -803,12 +803,12 @@ void CItem::ModifyPoints(bool bAdd)
 			{
 				if (bAdd)
 				{
-					if (m_wCell == INVENTORY_MAX_NUM + WEAR_WEAPON)
+					if (m_wCell == static_cast<WORD>(INVENTORY_MAX_NUM) + static_cast<WORD>(WEAR_WEAPON))
 						m_pOwner->SetPart(PART_WEAPON, GetVnum());
 				}
 				else
 				{
-					if (m_wCell == INVENTORY_MAX_NUM + WEAR_WEAPON)
+					if (m_wCell == static_cast<WORD>(INVENTORY_MAX_NUM) + static_cast<WORD>(WEAR_WEAPON))
 						m_pOwner->SetPart(PART_WEAPON, 0);
 				}
 			}
@@ -823,12 +823,12 @@ void CItem::ModifyPoints(bool bAdd)
 
 				if (bAdd)
 				{
-					if (m_wCell == INVENTORY_MAX_NUM + WEAR_WEAPON)
+					if (m_wCell == static_cast<WORD>(INVENTORY_MAX_NUM) + static_cast<WORD>(WEAR_WEAPON))
 						m_pOwner->SetPart(PART_WEAPON, GetVnum());
 				}
 				else
 				{
-					if (m_wCell == INVENTORY_MAX_NUM + WEAR_WEAPON)
+					if (m_wCell == static_cast<WORD>(INVENTORY_MAX_NUM) + static_cast<WORD>(WEAR_WEAPON))
 						m_pOwner->SetPart(PART_WEAPON, 0);
 				}
 			}
@@ -969,7 +969,7 @@ bool CItem::EquipTo(LPCHARACTER ch, BYTE bWearCell)
 
 	if (IsDragonSoul())
 	{
-		if (bWearCell < WEAR_MAX_NUM || bWearCell >= WEAR_MAX_NUM + DRAGON_SOUL_DECK_MAX_NUM * DS_SLOT_MAX)
+		if (bWearCell < WEAR_MAX_NUM || bWearCell >= WEAR_MAX_NUM + static_cast<int>(DRAGON_SOUL_DECK_MAX_NUM) * static_cast<int>(DS_SLOT_MAX))
 		{
 			sys_err("EquipTo: invalid dragon soul cell (this: #%d %s wearflag: %d cell: %d)", GetOriginalVnum(), GetName(), GetSubType(), bWearCell - WEAR_MAX_NUM);
 			return false;
@@ -1850,7 +1850,7 @@ void CItem::AccessorySocketDegrade()
 	}
 }
 
-static const bool CanPutIntoRing(LPITEM ring, LPITEM item)
+static bool CanPutIntoRing([[maybe_unused]] LPITEM ring, [[maybe_unused]] LPITEM item)
 {
 	//const DWORD vnum = item->GetVnum();
 	return false;
@@ -1943,7 +1943,7 @@ bool CItem::CanPutInto(LPITEM item)
 
 	DWORD type = vnum / 20;
 
-	if (type < 0 || type > 11)
+	if (type > 11)
 	{
 		type = (vnum - 170) / 20;
 

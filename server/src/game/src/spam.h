@@ -13,7 +13,7 @@
 class SpamManager : public singleton<SpamManager>
 {
 	public:
-		inline const char * GetSpamScore(const char * src, size_t len, unsigned int & score)
+		inline const char * GetSpamScore(const char * src, [[maybe_unused]] size_t len, unsigned int & score)
 		{
 			const char * word = NULL;
 			score = 0;

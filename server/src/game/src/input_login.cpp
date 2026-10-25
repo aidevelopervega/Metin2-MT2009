@@ -302,10 +302,10 @@ bool NewPlayerTable(TPlayerTable * table,
 		BYTE job,
 		BYTE shape,
 		BYTE bEmpire,
-		BYTE bCon,
-		BYTE bInt,
-		BYTE bStr,
-		BYTE bDex)
+		[[maybe_unused]] BYTE bCon,
+		[[maybe_unused]] BYTE bInt,
+		[[maybe_unused]] BYTE bStr,
+		[[maybe_unused]] BYTE bDex)
 {
 	if (job >= JOB_MAX_NUM)
 		return false;
@@ -633,7 +633,7 @@ typedef struct SPacketGTLogin
 } TPacketGTLogin;
 #pragma pack()
 
-void CInputLogin::Entergame(LPDESC d, const char * data)
+void CInputLogin::Entergame(LPDESC d, [[maybe_unused]] const char * data)
 {
 	LPCHARACTER ch;
 
@@ -995,7 +995,7 @@ void CInputLogin::GuildSymbolCRC(LPDESC d, const char* c_pData)
 	}
 }
 
-void CInputLogin::GuildMarkUpload(LPDESC d, const char* c_pData)
+void CInputLogin::GuildMarkUpload([[maybe_unused]] LPDESC d, const char* c_pData)
 {
 	TPacketCGMarkUpload * p = (TPacketCGMarkUpload *) c_pData;
 
@@ -1036,7 +1036,7 @@ void CInputLogin::GuildMarkUpload(LPDESC d, const char* c_pData)
 		rkMarkMgr.SaveMark(p->gid, p->image);
 }
 
-void CInputLogin::GuildMarkIDXList(LPDESC d, const char* c_pData)
+void CInputLogin::GuildMarkIDXList(LPDESC d, [[maybe_unused]] const char* c_pData)
 {
 	CGuildMarkManager& rkMarkMgr = CGuildMarkManager::instance();
 

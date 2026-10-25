@@ -259,7 +259,7 @@ void CHARACTER::OpenMyShop(const char* c_pszSign, TShopItemTable* pTable, BYTE b
 	for (BYTE i = 0; i < bItemCount; ++i)
 	{
 		// check if pos is valid
-		if (pTable->display_pos < 0 || pTable->display_pos >= SHOP_PLAYER_HOST_ITEM_MAX_NUM)
+		if (pTable->display_pos >= SHOP_PLAYER_HOST_ITEM_MAX_NUM)
 		{
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_ITEM_WRONG_POS"));
 			return;

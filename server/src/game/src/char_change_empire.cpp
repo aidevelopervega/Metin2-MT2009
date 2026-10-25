@@ -23,8 +23,16 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
 				", pid5"
 				#endif
-				" FROM player_index%s WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u OR pid5=%u) AND empire=%u",
-				get_table_postfix(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetEmpire());
+				" FROM player_index%s WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
+				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
+				" OR pid5=%u"
+				#endif
+				") AND empire=%u",
+				get_table_postfix(), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
+				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
+				static_cast<unsigned int>(GetPlayerID()),
+				#endif
+				static_cast<unsigned int>(GetEmpire()));
 		auto msg(DBManager::instance().DirectQuery(szQuery));
 		if (msg->Get()->uiNumRows == 0)
 		{
@@ -52,7 +60,7 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 
 		for (int i = 0; i < loop; ++i)
 		{
-			snprintf(szQuery, sizeof(szQuery), "SELECT guild_id FROM guild_member%s WHERE pid=%u", get_table_postfix(), dwPID[i]);
+			snprintf(szQuery, sizeof(szQuery), "SELECT guild_id FROM guild_member%s WHERE pid=%u", get_table_postfix(), static_cast<unsigned int>(dwPID[i]));
 
 			pMsg = DBManager::instance().DirectQuery(szQuery);
 
@@ -94,11 +102,11 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 				")"
 #endif
 				" AND empire=%u",
-				get_table_postfix(), empire, GetPlayerID(), GetPlayerID(), GetPlayerID(), GetPlayerID(),
+				get_table_postfix(), static_cast<unsigned int>(empire), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-			GetPlayerID(),
+			static_cast<unsigned int>(GetPlayerID()),
 #endif
-			GetEmpire());
+			static_cast<unsigned int>(GetEmpire()));
 
 		auto msg(DBManager::instance().DirectQuery(szQuery));
 		if (msg->Get()->uiAffectedRows > 0)
@@ -120,7 +128,7 @@ int CHARACTER::GetChangeEmpireCount() const
 	if (dwAID == 0)
 		return 0;
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT change_count FROM change_empire WHERE aid = %u", dwAID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT change_count FROM change_empire WHERE aid = %u", static_cast<unsigned int>(dwAID));
 
 	auto pMsg = DBManager::instance().DirectQuery(szQuery);
 	if (pMsg != NULL)
@@ -151,12 +159,12 @@ void CHARACTER::SetChangeEmpireCount()
 	if (count == 0)
 	{
 		count++;
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO change_empire VALUES(%u, %d, NOW())", dwAID, count);
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO change_empire VALUES(%u, %d, NOW())", static_cast<unsigned int>(dwAID), count);
 	}
 	else
 	{
 		count++;
-		snprintf(szQuery, sizeof(szQuery), "UPDATE change_empire SET change_count=%d WHERE aid=%u", count, dwAID);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE change_empire SET change_count=%d WHERE aid=%u", count, static_cast<unsigned int>(dwAID));
 	}
 
 	auto pmsg(DBManager::instance().DirectQuery(szQuery));
@@ -166,12 +174,16 @@ DWORD CHARACTER::GetAID() const
 {
 	char szQuery[1024+1];
 	DWORD dwAID = 0;
-	snprintf(szQuery, sizeof(szQuery), "SELECT id FROM player_index%s WHERE pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
+	snprintf(szQuery, sizeof(szQuery), "SELECT id FROM player_index%s WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
 			#ifdef ENABLE_PLAYER_PER_ACCOUNT5
 			" OR pid5=%u"
 			#endif
-			" AND empire=%u",
-			get_table_postfix(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetPlayerID(), GetEmpire());
+			") AND empire=%u",
+			get_table_postfix(), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
+			#ifdef ENABLE_PLAYER_PER_ACCOUNT5
+			static_cast<unsigned int>(GetPlayerID()),
+			#endif
+			static_cast<unsigned int>(GetEmpire()));
 
 	auto pMsg = DBManager::instance().DirectQuery(szQuery);
 	if (pMsg != NULL)

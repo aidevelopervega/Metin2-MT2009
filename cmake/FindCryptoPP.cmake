@@ -58,7 +58,7 @@ elseif(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/extern/server/cryptopp/cryptlib.cpp
     add_library(cryptopp_bundled STATIC ${CRYPTOPP_WIN_SRCS})
     target_include_directories(cryptopp_bundled PUBLIC "${CRYPTOPP_INC_DIRS}" "${CMAKE_SOURCE_DIR}/extern/server/cryptopp")
     target_compile_definitions(cryptopp_bundled PUBLIC CRYPTOPP_DISABLE_ASM NDEBUG)
-    target_compile_options(cryptopp_bundled PRIVATE -O2 -w -fexceptions)
+    target_compile_options(cryptopp_bundled PRIVATE -O2 -Wall -Wextra -fexceptions)
     add_library(CryptoPP::CryptoPP ALIAS cryptopp_bundled)
     set(CryptoPP_FOUND TRUE)
     message(STATUS "[CryptoPP] Windows x64 kaynak tabanlı statik CryptoPP hedefi yapılandırıldı (cryptopp_bundled).")

@@ -27,7 +27,7 @@ bool CMonarch::VoteMonarch(DWORD pid, DWORD selectdpid)
 
 		char szQuery[256];
 		snprintf(szQuery, sizeof(szQuery),
-				"INSERT INTO monarch_election(pid, selectedpid, electiondata) VALUES(%d, %d, now())", pid, selectdpid);
+				"INSERT INTO monarch_election(pid, selectedpid, electiondata) VALUES(%u, %u, now())", static_cast<unsigned int>(pid), static_cast<unsigned int>(selectdpid));
 
 		CDBManager::instance().AsyncQuery(szQuery);
 		return 1;
@@ -86,7 +86,7 @@ bool CMonarch::AddCandidacy(DWORD pid, const char * name)
 
 	char szQuery[256];
 	snprintf(szQuery, sizeof(szQuery),
-			"INSERT INTO monarch_candidacy(pid, date) VALUES(%d, now())", pid);
+			"INSERT INTO monarch_candidacy(pid, date) VALUES(%u, now())", static_cast<unsigned int>(pid));
 
 	CDBManager::instance().AsyncQuery(szQuery);
 	return true;
@@ -101,7 +101,7 @@ bool CMonarch::DelCandidacy(const char * name)
 		{
 			char szQuery[256];
 			snprintf(szQuery, sizeof(szQuery),
-					"DELETE FROM monarch_candidacy WHERE pid=%d ", it->pid);
+					"DELETE FROM monarch_candidacy WHERE pid=%u ", static_cast<unsigned int>(it->pid));
 			CDBManager::instance().AsyncQuery(szQuery);
 
 			m_vec_MonarchCandidacy.erase (it);
@@ -183,10 +183,12 @@ bool CMonarch::LoadMonarch()
         return false;
 
     MYSQL_ROW row;
-    for (int n = 0; (row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL; ++n)
+    while ((row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL)
     {
         int idx = 0;
         int Empire = 0; str_to_number(Empire, row[idx++]);
+        if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+            continue;
 
         str_to_number(p->pid[Empire], row[idx++]);
 		strlcpy(p->name[Empire], row[idx++], sizeof(p->name[Empire]));
@@ -221,10 +223,12 @@ bool CMonarch::SetMonarch(const char * name)
 
 	MYSQL_ROW row;
 	int Empire = 0;
-	for (int n = 0; (row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL; ++n)
+	while ((row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL)
 	{
 		int idx = 0;
 		str_to_number(Empire, row[idx++]);
+		if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+			return false;
 
 		str_to_number(p->pid[Empire], row[idx++]);
 		strlcpy(p->name[Empire], row[idx++], sizeof(p->name[Empire]));
@@ -235,7 +239,7 @@ bool CMonarch::SetMonarch(const char * name)
 	}
 
 	snprintf(szQuery, sizeof(szQuery),
-					"REPLACE INTO monarch (empire, pid, windate, money) VALUES(%d, %u, now(), %lld)", Empire, p->pid[Empire], p->money[Empire]);
+					"REPLACE INTO monarch (empire, pid, windate, money) VALUES(%d, %u, now(), %lld)", Empire, static_cast<unsigned int>(p->pid[Empire]), p->money[Empire]);
 
 	CDBManager::instance().AsyncQuery(szQuery, SQL_PLAYER);
 	return true;

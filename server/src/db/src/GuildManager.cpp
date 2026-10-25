@@ -193,7 +193,7 @@ void CGuildManager::Initialize()
 void CGuildManager::Load(DWORD dwGuildID)
 {
 	char szQuery[1024];
-	snprintf(szQuery, sizeof(szQuery), "SELECT id, name, ladder_point, win, draw, loss, gold, level FROM guild%s WHERE id=%u", GetTablePostfix(), dwGuildID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT id, name, ladder_point, win, draw, loss, gold, level FROM guild%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwGuildID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiNumRows)
@@ -355,7 +355,7 @@ void CGuildManager::GuildWarWin(DWORD GID)
 	++it->second.win;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET win=%d WHERE id=%u", GetTablePostfix(), it->second.win, GID);
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET win=%d WHERE id=%u", GetTablePostfix(), it->second.win, static_cast<unsigned int>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
@@ -369,7 +369,7 @@ void CGuildManager::GuildWarLose(DWORD GID)
 	++it->second.loss;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET loss=%d WHERE id=%u", GetTablePostfix(), it->second.loss, GID);
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET loss=%d WHERE id=%u", GetTablePostfix(), it->second.loss, static_cast<unsigned int>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
@@ -383,7 +383,7 @@ void CGuildManager::GuildWarDraw(DWORD GID)
 	++it->second.draw;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET draw=%d WHERE id=%u", GetTablePostfix(), it->second.draw, GID);
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET draw=%d WHERE id=%u", GetTablePostfix(), it->second.draw, static_cast<unsigned int>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
@@ -742,7 +742,7 @@ void CGuildManager::ChangeLadderPoint(DWORD GID, int change)
 		r.ladder_point = 0;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET ladder_point=%d WHERE id=%u", GetTablePostfix(), r.ladder_point, GID);
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET ladder_point=%d WHERE id=%u", GetTablePostfix(), r.ladder_point, static_cast<unsigned int>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 
 	sys_log(0, "GuildManager::ChangeLadderPoint %u %d", GID, r.ladder_point);
@@ -777,7 +777,7 @@ void CGuildManager::MoneyChange(DWORD dwGuild, YANG dwGold)
 	CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_MONEY_CHANGE, &p, sizeof(p));
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET gold=%lld WHERE id = %u", GetTablePostfix(), dwGold, dwGuild);
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET gold=%lld WHERE id = %u", GetTablePostfix(), dwGold, static_cast<unsigned int>(dwGuild));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
@@ -932,7 +932,7 @@ void CGuildManager::BootReserveWar()
 			CGuildWarReserve * pkReserve = new CGuildWarReserve(t);
 
 			char buf[512];
-			snprintf(buf, sizeof(buf), "GuildWar: BootReserveWar : step %d id %u GID1 %u GID2 %u", i, t.dwID, t.dwGuildFrom, t.dwGuildTo);
+			snprintf(buf, sizeof(buf), "GuildWar: BootReserveWar : step %d id %u GID1 %u GID2 %u", i, static_cast<unsigned int>(t.dwID), static_cast<unsigned int>(t.dwGuildFrom), static_cast<unsigned int>(t.dwGuildTo));
 
 			//if (i == 0 || (int) t.dwTime - CClientManager::instance().GetCurrentTime() < 60 * 5)
 			if (i == 0 || (int) t.dwTime - CClientManager::instance().GetCurrentTime() < 0)
@@ -960,7 +960,7 @@ int GetAverageGuildMemberLevel(DWORD dwGID)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"SELECT AVG(level) FROM guild_member%s, player%s AS p WHERE guild_id=%u AND guild_member%s.pid=p.id",
-			GetTablePostfix(), GetTablePostfix(), dwGID, GetTablePostfix());
+			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(dwGID), GetTablePostfix());
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
 
@@ -975,7 +975,7 @@ int GetGuildMemberCount(DWORD dwGID)
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), dwGID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(dwGID));
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
 
@@ -1059,7 +1059,7 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 	snprintf(szQuery, sizeof(szQuery),
 			"INSERT INTO guild_war_reservation (guild1, guild2, time, type, warprice, initscore, power1, power2, handicap) "
 			"VALUES(%u, %u, DATE_ADD(NOW(), INTERVAL 180 SECOND), %u, %lld, %d, %d, %d, %d)",
-			GID1, GID2, p->bType, p->lWarPrice, p->lInitialScore, t.lPowerFrom, t.lPowerTo, t.lHandicap);
+			static_cast<unsigned int>(GID1), static_cast<unsigned int>(GID2), p->bType, p->lWarPrice, p->lInitialScore, t.lPowerFrom, t.lPowerTo, t.lHandicap);
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 
@@ -1102,7 +1102,7 @@ void CGuildManager::ProcessReserveWar()
 			if (iMin <= 0)
 			{
 				char szQuery[128];
-				snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1 WHERE id=%u", r.dwID);
+				snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1 WHERE id=%u", static_cast<unsigned int>(r.dwID));
 				CDBManager::instance().AsyncQuery(szQuery);
 
 				CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR_RESERVE_DEL, &r.dwID, sizeof(DWORD));
@@ -1184,13 +1184,13 @@ bool CGuildManager::ChangeMaster(DWORD dwGID, DWORD dwFrom, DWORD dwTo)
 
 	char szQuery[1024];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild%s SET master=%u WHERE id=%u", GetTablePostfix(), dwTo, dwGID);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild%s SET master=%u WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwTo), static_cast<unsigned int>(dwGID));
 	CDBManager::instance().DirectQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=1 WHERE pid=%u", GetTablePostfix(), dwTo);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=1 WHERE pid=%u", GetTablePostfix(), static_cast<unsigned int>(dwTo));
 	CDBManager::instance().DirectQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=15 WHERE pid=%u", GetTablePostfix(), dwFrom);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=15 WHERE pid=%u", GetTablePostfix(), static_cast<unsigned int>(dwFrom));
 	CDBManager::instance().DirectQuery(szQuery);
 
 	return true;
@@ -1210,7 +1210,7 @@ CGuildWarReserve::CGuildWarReserve(const TGuildWarReserve & rTable)
 void CGuildWarReserve::Initialize()
 {
 	char szQuery[256];
-	snprintf(szQuery, sizeof(szQuery), "SELECT login, guild, gold FROM guild_war_bet WHERE war_id=%u", m_data.dwID);
+	snprintf(szQuery, sizeof(szQuery), "SELECT login, guild, gold FROM guild_war_bet WHERE war_id=%u", static_cast<unsigned int>(m_data.dwID));
 
 	auto msgbet(CDBManager::instance().DirectQuery(szQuery));
 	if (msgbet->Get()->uiNumRows)
@@ -1286,7 +1286,7 @@ bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"INSERT INTO guild_war_bet (war_id, login, gold, guild) VALUES(%u, '%s', %lld, %u)",
-			m_data.dwID, pszLogin, dwGold, dwGuild);
+			static_cast<unsigned int>(m_data.dwID), pszLogin, dwGold, static_cast<unsigned int>(dwGuild));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiAffectedRows == 0 || pmsg->Get()->uiAffectedRows == (uint32_t)-1)
@@ -1303,7 +1303,7 @@ bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild)
 	CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR_RESERVE_ADD, &m_data, sizeof(TGuildWarReserve));
 
 	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET bet_from=%lld,bet_to=%lld WHERE id=%u",
-			m_data.dwBetFrom, m_data.dwBetTo, m_data.dwID);
+			m_data.dwBetFrom, m_data.dwBetTo, static_cast<unsigned int>(m_data.dwID));
 
 	CDBManager::instance().AsyncQuery(szQuery);
 
@@ -1327,7 +1327,7 @@ void CGuildWarReserve::Draw()
 {
 	char szQuery[1024];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=0 WHERE id=%u", m_data.dwID);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=0 WHERE id=%u", static_cast<unsigned int>(m_data.dwID));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	if (mapBet.empty())
@@ -1407,7 +1407,7 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 
 	char szQuery[1024];
 	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=%u,result1=%d,result2=%d WHERE id=%u",
-			dwWinner, iScoreFrom, iScoreTo, m_data.dwID);
+			static_cast<unsigned int>(dwWinner), iScoreFrom, iScoreTo, static_cast<unsigned int>(m_data.dwID));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	if (mapBet.empty())

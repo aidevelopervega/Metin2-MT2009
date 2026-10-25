@@ -23,6 +23,7 @@ struct TAffectFlag
 
 	inline TAffectFlag() { bits[0] = 0; bits[1] = 0; }
 	inline TAffectFlag(DWORD v1, DWORD v2 = 0) {bits[0] = v1; bits[1] = v2;}
+	inline TAffectFlag(const TAffectFlag& rhs) = default;
 
 	inline bool IsSet(int flag) const
 	{

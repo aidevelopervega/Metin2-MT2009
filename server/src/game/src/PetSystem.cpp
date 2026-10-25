@@ -256,7 +256,7 @@ bool CPetActor::_UpdateFollowAI()
 	return true;
 }
 
-bool CPetActor::Update(DWORD deltaTime)
+bool CPetActor::Update([[maybe_unused]] DWORD deltaTime)
 {
 	bool bResult = true;
 

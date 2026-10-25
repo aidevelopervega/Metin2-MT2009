@@ -394,6 +394,7 @@ bool CHARACTER::IsImmune(DWORD dwImmuneFlag, LPCHARACTER pkAttacker)
 		break;
 	case IMMUNE_ROOT:
 		break_pct = 0;
+		break;
 	default:
 		break_pct = 10;
 		break;

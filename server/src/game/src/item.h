@@ -65,7 +65,7 @@ class CItem : public CEntity
 		DWORD		GetOriginalVnum() const		{ return m_dwVnum;	}
 		BYTE		GetType() const		{ return m_pProto ? m_pProto->bType : 0;	}
 		BYTE		GetSubType() const	{ return m_pProto ? m_pProto->bSubType : 0;	}
-		DWORD		GetMaxStack() const { return m_pProto ? m_pProto->dwMaxStack : ITEM_MAX_COUNT; }
+		DWORD		GetMaxStack() const { return m_pProto ? m_pProto->dwMaxStack : static_cast<DWORD>(ITEM_MAX_COUNT); }
 		BYTE		GetLimitType(DWORD idx) const { return m_pProto ? m_pProto->aLimits[idx].bType : 0;	}
 		long		GetLimitValue(DWORD idx) const { return m_pProto ? m_pProto->aLimits[idx].lValue : 0;	}
 

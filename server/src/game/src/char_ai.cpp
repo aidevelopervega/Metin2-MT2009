@@ -13,18 +13,18 @@ void AIOnSpawn(LPCHARACTER ch)
 	if (ch == NULL)
 		return;
 
-	if (ch->GetRaceNum() == ELDER_TREE_BOSS_VNUM) // red forest worldboss
+	if (ch->GetRaceNum() == static_cast<DWORD>(ELDER_TREE_BOSS_VNUM)) // red forest worldboss
 		BossElderTree_Spawn(ch);
 }
 
-void AIOnDead(LPCHARACTER ch, LPCHARACTER killer)
+void AIOnDead(LPCHARACTER ch, [[maybe_unused]] LPCHARACTER killer)
 {
 	if (ch == NULL)
 		return;
 
 	// killer can be null
 
-	if (ch->GetRaceNum() == ELDER_TREE_BOSS_VNUM) // red forest worldboss
+	if (ch->GetRaceNum() == static_cast<DWORD>(ELDER_TREE_BOSS_VNUM)) // red forest worldboss
 		BossElderTree_Dead(ch);
 }
 
@@ -40,7 +40,7 @@ void AIOnStartBattle(LPCHARACTER ch, LPCHARACTER victim)
 		BossGiant_OnStartBattle(ch, victim);
 }
 
-int AIOnDamage(LPCHARACTER attacker, LPCHARACTER victim, int damage, BYTE damageType)
+int AIOnDamage([[maybe_unused]] LPCHARACTER attacker, LPCHARACTER victim, int damage, BYTE damageType)
 {
 	if (victim == NULL)
 		return damage;

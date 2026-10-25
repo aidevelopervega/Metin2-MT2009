@@ -277,7 +277,7 @@ void CMobManager::DumpRegenCount(const char* c_szFilename)
 
 		for (it = m_mapRegenCount.begin(); it != m_mapRegenCount.end(); ++it)
 		{
-			fprintf(fp,"%u\t%g\n", it->first, it->second);
+			fprintf(fp,"%u\t%g\n", static_cast<unsigned int>(it->first), it->second);
 		}
 
 		fclose(fp);

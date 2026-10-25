@@ -6,8 +6,8 @@ INCLUDE = -I../include -Iargon2 -Iargon2/blake2
 INCLUDE += -I../../../../extern/common/include -I../../../../extern/server/include
 LBITS := $(shell getconf LONG_BIT)
 
-CFLAGS  = -Wall -O2 -pipe -g $(INCLUDE)
-CXXFLAGS = $(CFLAGS) -std=c++20 -Wno-invalid-source-encoding -Wno-deprecated
+CFLAGS  = -Wall -Wextra -O2 -pipe -g $(INCLUDE)
+CXXFLAGS = $(CFLAGS) -std=c++20
 CCFLAGS  = $(CFLAGS) -std=c11
 
 LIBS    =

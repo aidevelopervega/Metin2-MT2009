@@ -195,7 +195,7 @@ void CShop::SetShopItems(TShopItemTable * pTable, BYTE bItemCount)
 		}
 
 		char name[36];
-		snprintf(name, sizeof(name), "%-20s(#%-5d) (x %d)", item_table->szName, (int) item.vnum, item.count);
+		snprintf(name, sizeof(name), "%-20s(#%-5d) (x %u)", item_table->szName, (int) item.vnum, static_cast<unsigned int>(item.count));
 
 		sys_log(0, "SHOP_ITEM: %-36s PRICE %lld", name, item.price);
 		++pTable;
@@ -381,7 +381,7 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 
 			if (item->GetVnum() >= 80003 && item->GetVnum() <= 80007)
 			{
-				snprintf(buf, sizeof(buf), "%s FROM: %u TO: %u PRICE: %lld", item->GetName(), ch->GetPlayerID(), m_pkPC->GetPlayerID(), dwPrice);
+				snprintf(buf, sizeof(buf), "%s FROM: %u TO: %u PRICE: %lld", item->GetName(), static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(m_pkPC->GetPlayerID()), dwPrice);
 				LogManager::instance().GoldBarLog(ch->GetPlayerID(), item->GetID(), SHOP_BUY, buf);
 				LogManager::instance().GoldBarLog(m_pkPC->GetPlayerID(), item->GetID(), SHOP_SELL, buf);
 			}
@@ -390,10 +390,10 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 			item->AddToCharacter(ch, TItemPos(item->GetWindowInventoryEx(), iEmptyPos));
 			ITEM_MANAGER::instance().FlushDelayedSave(item);
 
-			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %d", item->GetName(), m_pkPC->GetPlayerID(), m_pkPC->GetName(), dwPrice, item->GetCount());
+			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %u", item->GetName(), static_cast<unsigned int>(m_pkPC->GetPlayerID()), m_pkPC->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
 			LogManager::instance().ItemLog(ch, item, "SHOP_BUY", buf);
 
-			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %d", item->GetName(), ch->GetPlayerID(), ch->GetName(), dwPrice, item->GetCount());
+			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %u", item->GetName(), static_cast<unsigned int>(ch->GetPlayerID()), ch->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
 			LogManager::instance().ItemLog(m_pkPC, item, "SHOP_SELL", buf);
 		}
 

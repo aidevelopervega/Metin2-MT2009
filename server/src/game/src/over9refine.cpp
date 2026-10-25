@@ -57,7 +57,7 @@ bool COver9RefineManager::Change9ToOver9(LPCHARACTER pChar, LPITEM item)
 	over9->AddToCharacter(pChar, TItemPos(INVENTORY, iEmptyCell));
 
 	char szBuf[256];
-	snprintf(szBuf, sizeof(szBuf), "SUCCESS %u %s %u", over9->GetID(), over9->GetName(), over9->GetOriginalVnum());
+	snprintf(szBuf, sizeof(szBuf), "SUCCESS %u %s %u", static_cast<unsigned int>(over9->GetID()), over9->GetName(), static_cast<unsigned int>(over9->GetOriginalVnum()));
 	LogManager::instance().ItemLog(pChar, item, "REFINE OVER9", szBuf);
 	return true;
 }
@@ -87,7 +87,7 @@ bool COver9RefineManager::Over9Refine(LPCHARACTER pChar, LPITEM item)
 	over9->AddToCharacter(pChar, TItemPos(INVENTORY, iEmptyCell));
 
 	char szBuf[256];
-	snprintf(szBuf, sizeof(szBuf), "SUCCESS %u %s %u", over9->GetID(), over9->GetName(), over9->GetOriginalVnum());
+	snprintf(szBuf, sizeof(szBuf), "SUCCESS %u %s %u", static_cast<unsigned int>(over9->GetID()), over9->GetName(), static_cast<unsigned int>(over9->GetOriginalVnum()));
 	LogManager::instance().ItemLog(pChar, item, "REFINE OVER9", szBuf);
 	return true;
 }

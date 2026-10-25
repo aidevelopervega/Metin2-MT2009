@@ -75,7 +75,7 @@ bool PlayerHB::Query(DWORD id)
 		m_stTableName = szTableName;
 	}
 
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO %s SELECT * FROM %splayer%s WHERE id=%u", m_stTableName.c_str(), GetPlayerDBName(), GetTablePostfix(), id);
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO %s SELECT * FROM %splayer%s WHERE id=%u", m_stTableName.c_str(), GetPlayerDBName(), GetTablePostfix(), static_cast<unsigned int>(id));
 	CDBManager::instance().AsyncQuery(szQuery, SQL_HOTBACKUP);
 	return true;
 }

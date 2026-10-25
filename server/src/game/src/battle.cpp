@@ -257,7 +257,7 @@ void battle_end(LPCHARACTER ch)
 
 // AG = Attack Grade
 // AL = Attack Limit
-int CalcBattleDamage(int iDam, int iAttackerLev, int iVictimLev)
+int CalcBattleDamage(int iDam, [[maybe_unused]] int iAttackerLev, [[maybe_unused]] int iVictimLev)
 {
 	if (iDam < 3)
 		iDam = number(1, 5);
@@ -849,7 +849,7 @@ int CalcArrowDamage(LPCHARACTER pkAttacker, LPCHARACTER pkVictim, LPITEM pkBow, 
 	}
 
 	// buff 10% w bossy, minibossy i metiny
-	if (pkVictim->IsNPC() && pkVictim->GetMobRank() >= MOB_RANK_BOSS || IsMiniBoss(pkVictim->GetRaceNum()))
+	if ((pkVictim->IsNPC() && pkVictim->GetMobRank() >= MOB_RANK_BOSS) || IsMiniBoss(pkVictim->GetRaceNum()))
 	{
 		iAtk += iAtk * 10 / 100;
 	}
@@ -1087,7 +1087,7 @@ bool IS_SPEED_HACK(LPCHARACTER ch, LPCHARACTER victim, DWORD current_time, bool 
 		if (dwSkillVnum == SKILL_SHOOTING_DRAGON)
 			min_attack_speed = 100;
 
-		if (target_attack_delta_time < min_attack_speed) {
+		if (target_attack_delta_time < static_cast<DWORD>(min_attack_speed)) {
 			ch->ChatDebug("SPEED_HACK: target_attack_delta_time < REAL_ATTACK_SPEED_MIN (%d < %d)", target_attack_delta_time, min_attack_speed);
 			return true;
 		}

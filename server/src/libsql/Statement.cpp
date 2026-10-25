@@ -121,7 +121,7 @@ int CStmt::Execute()
 {
 	if (m_uiParamCount != m_vec_param.size())
 	{
-		sys_log(0, "Parameter not enough %d, expected %d query: %s", m_uiParamCount, m_vec_param.size(), m_stQuery.c_str());
+		sys_log(0, "Parameter not enough %u, expected %zu query: %s", m_uiParamCount, m_vec_param.size(), m_stQuery.c_str());
 		return 0;
 	}
 
@@ -132,7 +132,7 @@ int CStmt::Execute()
 		if (bind->buffer_type == MYSQL_TYPE_STRING)
 		{
 			*(m_puiParamLen + i) = strlen((const char *) bind->buffer);
-			sys_log(0, "param %d len %d buf %s", i, *m_puiParamLen, (const char *) bind->buffer);
+			sys_log(0, "param %u len %lu buf %s", i, *(m_puiParamLen + i), (const char *) bind->buffer);
 		}
 	}
 

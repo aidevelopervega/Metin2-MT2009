@@ -216,7 +216,7 @@ namespace marriage
 		return m_set_pkChr.find(ch) != m_set_pkChr.end();
 	}
 
-	void WeddingMap::ShoutInMap(BYTE type, const char* msg)
+	void WeddingMap::ShoutInMap([[maybe_unused]] BYTE type, const char* msg)
 	{
 		for (itertype(m_set_pkChr) it = m_set_pkChr.begin(); it != m_set_pkChr.end(); ++it)
 		{

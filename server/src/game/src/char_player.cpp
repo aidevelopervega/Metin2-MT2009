@@ -268,7 +268,7 @@ void CHARACTER::CCharacterPlayerData::SetPlayerCaptcha(const char* code, int att
 {
 	ClearPlayerCaptcha();
 
-	strncpy(m_Captcha.code, code, sizeof(m_Captcha.code));
+	strlcpy(m_Captcha.code, code, sizeof(m_Captcha.code));
 	m_Captcha.attempts = attempts;
 	m_Captcha.expireTime = expireTime;
 	if (invoker)

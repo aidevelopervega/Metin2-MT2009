@@ -150,9 +150,10 @@ void CArenaMap::SendArenaMapListTo(LPCHARACTER pChar, DWORD mapIdx)
 
 	for (; iter != m_listArena.end(); iter++)
 	{
-		pChar->ChatPacket(CHAT_TYPE_INFO, "ArenaMapInfo Map: %d stA(%d, %d) stB(%d, %d)", mapIdx,
-				(CArena*)(*iter)->GetStartPointA().x, (CArena*)(*iter)->GetStartPointA().y,
-				(CArena*)(*iter)->GetStartPointB().x, (CArena*)(*iter)->GetStartPointB().y);
+		pChar->ChatPacket(CHAT_TYPE_INFO, "ArenaMapInfo Map: %u stA(%d, %d) stB(%d, %d)",
+				static_cast<unsigned int>(mapIdx),
+				(*iter)->GetStartPointA().x, (*iter)->GetStartPointA().y,
+				(*iter)->GetStartPointB().x, (*iter)->GetStartPointB().y);
 	}
 }
 
@@ -972,7 +973,7 @@ void CArena::RemoveObserver(DWORD pid)
 	}
 }
 
-void CArena::SendPacketToObserver(const void * c_pvData, int iSize)
+void CArena::SendPacketToObserver([[maybe_unused]] const void * c_pvData, [[maybe_unused]] int iSize)
 {
 	/*
 	itertype(m_mapObserver) iter = m_mapObserver.begin();
@@ -992,7 +993,7 @@ void CArena::SendPacketToObserver(const void * c_pvData, int iSize)
 	*/
 }
 
-void CArena::SendChatPacketToObserver(BYTE type, const char * format, ...)
+void CArena::SendChatPacketToObserver([[maybe_unused]] BYTE type, [[maybe_unused]] const char * format, ...)
 {
 	/*
 	char chatbuf[CHAT_MAX_LEN + 1];
@@ -1063,7 +1064,7 @@ bool CArenaManager::RegisterObserverPtr(LPCHARACTER pChar, DWORD mapIdx, WORD Ob
 	return pArenaMap->RegisterObserverPtr(pChar, mapIdx, ObserverX, ObserverY);
 }
 
-bool CArenaMap::RegisterObserverPtr(LPCHARACTER pChar, DWORD mapIdx, WORD ObserverX, WORD ObserverY)
+bool CArenaMap::RegisterObserverPtr(LPCHARACTER pChar, [[maybe_unused]] DWORD mapIdx, WORD ObserverX, WORD ObserverY)
 {
 	itertype(m_listArena) iter = m_listArena.begin();
 

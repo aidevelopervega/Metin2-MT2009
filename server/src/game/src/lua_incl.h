@@ -53,7 +53,7 @@ static inline int m2_lua_resume(lua_State* L, int nargs) {
 #endif
 
 #ifndef ALUA
-#define ALUA(name) int name(lua_State* L)
+#define ALUA(name) int name([[maybe_unused]] lua_State* L)
 #endif
 
 #ifndef LUA_YIELD

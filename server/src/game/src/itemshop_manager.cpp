@@ -60,8 +60,8 @@ bool CItemShopManager::Initialize(TItemShopItem* pTable, int iSize)
 		while ((row = mysql_fetch_row(pkMsg->Get()->pSQLResult)) != NULL)
 		{
 			int col = 0;
-			DWORD item_index;
-			DWORD buy_count;
+			DWORD item_index = 0;
+			DWORD buy_count = 0;
 			str_to_number(item_index, row[col++]);
 			str_to_number(buy_count, row[col++]);
 			UpdateAuctionBuyAmount(item_index, buy_count);
@@ -194,7 +194,10 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 			if (buy_count >= item.timeAuction.dwMaxBuyAmount)
 				return false;
 
-			DWORD item_count = item.dwCount * quantity;
+			const uint64_t item_count_u64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
+			if (item.dwCount == 0 || item_count_u64 == 0 || item_count_u64 > static_cast<uint64_t>(INT32_MAX))
+				return false;
+			const DWORD item_count = static_cast<DWORD>(item_count_u64);
 
 			// account limit start
 			const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
@@ -203,24 +206,25 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 				std::string auction_buy_flag = "itemshop_auction_buy_" + std::to_string(item.dwIndex);
 				std::string auction_buy_time_flag = "itemshop_auction_time_" + std::to_string(item.dwIndex);
 				int buyer_buy_count = buyer->GetAccountFlag(auction_buy_flag);
-				if (get_global_time() > buyer->GetAccountFlag(auction_buy_time_flag))
+				int buyer_buy_time = buyer->GetAccountFlag(auction_buy_time_flag);
+				if (buyer_buy_count < 0 || buyer_buy_time <= 0 || get_global_time() > static_cast<DWORD>(buyer_buy_time))
 				{
 					buyer_buy_count = 0;
 				}
 
-				if (buyer_buy_count >= MAX_BUY_PER_ACCOUNT)
+				if (static_cast<DWORD>(buyer_buy_count) >= MAX_BUY_PER_ACCOUNT)
 				{
 					buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_ACCOUNT_LIMIT"), item.timeAuction.dwAccountLimit);
 					return false;
 				}
 
-				if (buyer_buy_count + item_count > MAX_BUY_PER_ACCOUNT)
+				if (static_cast<uint64_t>(buyer_buy_count) + item_count_u64 > static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
 				{
 					buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_PURCHASE_WOULD_EXCEED_LIMIT"));
 					return false;
 				}
 
-				buyer->SetAccountFlag(auction_buy_flag, buyer_buy_count + item_count);
+				buyer->SetAccountFlag(auction_buy_flag, static_cast<int>(static_cast<DWORD>(buyer_buy_count) + item_count));
 				buyer->SetAccountFlag(auction_buy_time_flag, item.timeAuction.dwEndTime);
 			}
 			// account limit end
@@ -240,7 +244,8 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 				P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
 				UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
 			}
-			DBManager::instance().DirectQuery("UPDATE itemshop_time_auction SET buy_count=buy_count+%d WHERE item_index=%d", item_count, item.dwIndex);
+			DBManager::instance().DirectQuery("UPDATE itemshop_time_auction SET buy_count=buy_count+%u WHERE item_index=%u",
+				static_cast<unsigned int>(item_count), static_cast<unsigned int>(item.dwIndex));
 		}
 
 		return true;
@@ -321,7 +326,10 @@ DWORD CItemShopManager::GetTimeAuctionProgress(TItemShopItem item)
 	if (item.timeAuction.dwMaxBuyAmount < 1)
 		return 999; // infinite
 
-	int amount_left = MAX(item.timeAuction.dwMaxBuyAmount - item.timeAuction.dwCurrentBuyAmount, 0);
+	if (item.timeAuction.dwCurrentBuyAmount >= item.timeAuction.dwMaxBuyAmount)
+		return 0;
+
+	DWORD amount_left = item.timeAuction.dwMaxBuyAmount - item.timeAuction.dwCurrentBuyAmount;
 	return amount_left * 100 / item.timeAuction.dwMaxBuyAmount;
 }
 
@@ -364,7 +372,7 @@ void CItemShopManager::SendHappyHour(LPCHARACTER ch)
 	if (value < 1)
 		return;
 
-	if (get_global_time() > dwEndTime)
+	if (dwEndTime <= 0 || get_global_time() > static_cast<DWORD>(dwEndTime))
 		return;
 
 	if (!ch)
@@ -449,7 +457,6 @@ void CItemShopManager::SendItemShopData(LPCHARACTER ch)
 	buff.write(&subpack, sizeof(subpack));
 
 	for (const auto& pair : m_map_ItemShopItems) {
-		DWORD key = pair.first;
 		auto& item = pair.second;
 		if (CanSendItem(ch, item)) {
 			//ch->ChatDebug("sending item vnum: %d count: %d", item.dwVnum, item.dwCount);
@@ -489,7 +496,6 @@ void CItemShopManager::SendAuctionData(LPCHARACTER ch)
 	buff.write(&subpack, sizeof(subpack));
 
 	for (const auto& pair : m_map_ItemShopTimeAuctions) {
-		DWORD key = pair.first;
 		auto& item = pair.second;
 		if (CanSendTimeAuction(item)) {
 			TItemShopItem sendItem{};
@@ -707,38 +713,78 @@ void CItemShopManager::RefreshAuctionViewers(DWORD auctionIndex)
 	}
 }
 
-bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, long amount, PlayerAccountBalance& currentBalance, bool addMarks)
+bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks)
 {
+	if (amount < -static_cast<int64_t>(INT32_MAX) || amount > static_cast<int64_t>(INT32_MAX))
+		return false;
+
 	if (chargeType == ERequestCharge_Cash)
 	{
-		if (amount < 0 && abs(amount) > currentBalance.dwDragonCoins)
+		if (amount < 0)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_COINS"));
-			return false;
+			const uint64_t cost = static_cast<uint64_t>(-amount);
+			if (cost > static_cast<uint64_t>(currentBalance.dwDragonCoins))
+			{
+				if (ch)
+					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_COINS"));
+				return false;
+			}
+			if (addMarks && static_cast<uint64_t>(currentBalance.dwDragonMarks) + cost > static_cast<uint64_t>(INT32_MAX))
+				return false;
+
+			currentBalance.dwDragonCoins -= static_cast<DWORD>(cost);
+			if (addMarks)
+				currentBalance.dwDragonMarks += static_cast<DWORD>(cost);
 		}
-		currentBalance.dwDragonCoins += amount;
-		if (addMarks && amount < 0) {
-			currentBalance.dwDragonMarks += abs(amount);
+		else
+		{
+			const uint64_t credit = static_cast<uint64_t>(amount);
+			if (static_cast<uint64_t>(currentBalance.dwDragonCoins) + credit > static_cast<uint64_t>(INT32_MAX))
+				return false;
+			currentBalance.dwDragonCoins += static_cast<DWORD>(credit);
 		}
 	}
 	else if (chargeType == ERequestCharge_Marks)
 	{
-		if (amount < 0 && abs(amount) > currentBalance.dwDragonMarks)
+		if (amount < 0)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_MARKS"));
-			return false;
+			const uint64_t cost = static_cast<uint64_t>(-amount);
+			if (cost > static_cast<uint64_t>(currentBalance.dwDragonMarks))
+			{
+				if (ch)
+					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_MARKS"));
+				return false;
+			}
+			currentBalance.dwDragonMarks -= static_cast<DWORD>(cost);
 		}
-		currentBalance.dwDragonMarks += amount;
+		else
+		{
+			const uint64_t credit = static_cast<uint64_t>(amount);
+			if (static_cast<uint64_t>(currentBalance.dwDragonMarks) + credit > static_cast<uint64_t>(INT32_MAX))
+				return false;
+			currentBalance.dwDragonMarks += static_cast<DWORD>(credit);
+		}
+	}
+	else
+	{
+		return false;
 	}
 	return true;
 }
 
-bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, long amount, bool checkBalance, long customSecondAmount)
+bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance, int64_t customSecondAmount)
 {
-	if (NULL == ch || NULL == ch->GetDesc())
+	if (NULL == ch || NULL == ch->GetDesc() || NULL == db_clientdesc)
 	{
 		return false;
 	}
+	if (chargeType != ERequestCharge_Cash && chargeType != ERequestCharge_Marks)
+		return false;
+	if (amount < -static_cast<int64_t>(INT32_MAX) || amount > static_cast<int64_t>(INT32_MAX))
+		return false;
+	if (customSecondAmount < -1 || customSecondAmount > static_cast<int64_t>(INT32_MAX))
+		return false;
+
 	if (checkBalance) {
 		PlayerAccountBalance balance = GetPlayerAccountBalance(ch);
 		if (!CheckBalance(ch, chargeType, amount, balance))
@@ -747,13 +793,13 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, long amount, boo
 		SendBalance(ch, balance);
 	}
 
-	TRequestChargeCash packet;
+	TRequestChargeCash packet{};
 	packet.dwAID = ch->GetDesc()->GetAccountTable().id;
-	packet.lAmount = amount;
+	packet.lAmount = static_cast<int32_t>(amount);
 	if (customSecondAmount >= 0)
-		packet.lSecondAmount = customSecondAmount;
+		packet.lSecondAmount = static_cast<int32_t>(customSecondAmount);
 	else
-		packet.lSecondAmount = amount;
+		packet.lSecondAmount = static_cast<int32_t>(amount);
 	packet.eChargeType = (ERequestChargeType)chargeType;
 
 	db_clientdesc->DBPacketHeader(HEADER_GD_REQUEST_CHARGE_CASH, 0, sizeof(TRequestChargeCash));
@@ -763,7 +809,7 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, long amount, boo
 
 bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 {
-	if (!ch)
+	if (!ch || !ch->GetDesc() || !db_clientdesc)
 		return false;
 
 	if (!PulseManager::Instance().IncreaseClock(ch->GetPlayerID(), ePulse::ItemShopBuy, std::chrono::milliseconds(1000)))
@@ -810,7 +856,27 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		quantity = 1;
 	}
 
-	long lPrice = (long)GetItemPrice(item) * quantity;
+	const uint64_t unitPrice = static_cast<uint64_t>(GetItemPrice(item));
+	const uint64_t totalPriceU64 = unitPrice * static_cast<uint64_t>(quantity);
+	if (unitPrice > static_cast<uint64_t>(INT32_MAX) || totalPriceU64 > static_cast<uint64_t>(INT32_MAX))
+	{
+		sys_err("ItemShop::BuyItem price overflow blocked (pid=%u, itemIndex=%d, unitPrice=%llu, quantity=%d, totalPrice=%llu)",
+			static_cast<uint32_t>(ch->GetPlayerID()), itemIndex,
+			static_cast<unsigned long long>(unitPrice), quantity,
+			static_cast<unsigned long long>(totalPriceU64));
+		return false;
+	}
+	const int64_t llPrice = static_cast<int64_t>(totalPriceU64);
+
+	const uint64_t totalItemCountU64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
+	if (!isVIPEffect && (item.dwCount == 0 || totalItemCountU64 == 0 || totalItemCountU64 > static_cast<uint64_t>(INT32_MAX)))
+	{
+		sys_err("ItemShop::BuyItem invalid item count blocked (pid=%u, itemIndex=%d, dwCount=%u, quantity=%d)",
+			static_cast<uint32_t>(ch->GetPlayerID()), itemIndex,
+			static_cast<uint32_t>(item.dwCount), quantity);
+		return false;
+	}
+
 	PlayerAccountBalance balance = GetPlayerAccountBalance(ch);
 	DWORD money_before_buy;
 
@@ -828,8 +894,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 
 	bool isItemDragonScroll = itemTable->dwVnum >= 80014 && itemTable->dwVnum <= 80019;
 
-	auto betaServer = g_dwClientVersion < 1000000 && quest::CQuestManager::instance().GetEventFlag("beta_server");
-	if (betaServer && betaServer < 4)
+	const int betaServer = (g_dwClientVersion < 1000000) ? quest::CQuestManager::instance().GetEventFlag("beta_server") : 0;
+	if (betaServer > 0 && betaServer < 4)
 	{
 		if (isItemDragonScroll)
 		{
@@ -839,7 +905,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	}
 
 
-	if (!CheckBalance(ch, chargeType, -lPrice, balance))
+	if (!CheckBalance(ch, chargeType, -llPrice, balance))
 		return false;
 
 	if (IsItemTimeAuction(item) && !CheckIfCanBuyTimeAuctionAndUpdate(item, ch, quantity))
@@ -848,21 +914,23 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		return false;
 	}
 
-	ch->ChatDebug("Buy item index %d (quantity %d) with price %ld", itemIndex, quantity, lPrice);
+	ch->ChatDebug("Buy item index %d (quantity %d) with price %lld", itemIndex, quantity, static_cast<long long>(llPrice));
 
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN) {
 
-		long dragonMarkAmount = lPrice - itemTable->alValues[0];
+		int64_t dragonMarkAmount = llPrice - static_cast<int64_t>(itemTable->alValues[0]);
 		if (dragonMarkAmount < 0)
 			dragonMarkAmount = 0;
 
-		balance.dwDragonMarks -= lPrice;
-		balance.dwDragonMarks += dragonMarkAmount;
-		AddCash(ch, chargeType, -lPrice, false, dragonMarkAmount);
+		balance.dwDragonMarks -= static_cast<DWORD>(llPrice);
+		balance.dwDragonMarks += static_cast<DWORD>(dragonMarkAmount);
+		if (!AddCash(ch, chargeType, -llPrice, false, dragonMarkAmount))
+			return false;
 	}
 	else
 	{
-		AddCash(ch, chargeType, -lPrice, false);
+		if (!AddCash(ch, chargeType, -llPrice, false))
+			return false;
 	}
 	SendBalance(ch, balance);
 
@@ -877,11 +945,11 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	else
 	{
 		DWORD itemVnum = item.dwVnum;
-		int itemCount = item.dwCount * quantity;
-		int maxI = 0;
-		int r = 0;
+		DWORD itemCount = static_cast<DWORD>(totalItemCountU64);
+		DWORD maxI = 0;
+		DWORD r = 0;
 		DWORD max_item_stack = itemTable->dwMaxStack;
-		if (itemCount > max_item_stack)
+		if (max_item_stack > 0 && itemCount > max_item_stack)
 		{
 			maxI = itemCount / max_item_stack;
 			r = itemCount - maxI * max_item_stack;
@@ -891,7 +959,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			r = itemCount;
 		}
 
-		for (int i = 0; i < maxI; i++) {
+		for (DWORD i = 0; i < maxI; i++) {
 			ch->ChatDebug("add item %u %u", itemVnum, max_item_stack);
 			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, max_item_stack);
 			if (newItem)
@@ -901,7 +969,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 
 		if (r > 0) {
-			ch->ChatDebug("add item %u %d", itemVnum, r);
+			ch->ChatDebug("add item %u %u", itemVnum, r);
 			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, r);
 			if (newItem)
 			{
@@ -910,7 +978,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 	}
 
-	const long long llLogPrice = static_cast<long long>(GetItemPrice(item)) * static_cast<long long>(quantity);
+	const long long llLogPrice = static_cast<long long>(llPrice);
 	LogManager::instance().Query(
 		"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
 		"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %u)",

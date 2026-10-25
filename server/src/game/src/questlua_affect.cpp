@@ -65,7 +65,7 @@ namespace quest
 
 		long value = (long)lua_tonumber(L, 3);
 		long duration = (long)lua_tonumber(L, 4);
-		DWORD flag = lua_isnumber(L, 5) ? (DWORD)lua_tonumber(L, 5) : AFF_NONE;
+		DWORD flag = lua_isnumber(L, 5) ? (DWORD)lua_tonumber(L, 5) : static_cast<DWORD>(AFF_NONE);
 		bool bOverride = lua_isboolean(L, 6) ? (bool)lua_toboolean(L, 6) : false;
 		bool bCube = lua_isboolean(L, 7) ? (bool)lua_toboolean(L, 7) : false;
 		DWORD itemVnum = lua_isnumber(L, 8) ? (DWORD)lua_tonumber(L, 8) : 0;
@@ -108,7 +108,7 @@ namespace quest
 		}
 
 		DWORD dwType = (DWORD)lua_tonumber(L, 1);
-		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : POINT_NONE;
+		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : static_cast<BYTE>(POINT_NONE);
 		CAffect* pkAff = ch->FindAffect(dwType, bPoint);
 		if (pkAff)
 			ch->RemoveAffect(pkAff);

@@ -435,14 +435,14 @@ bool ITEM_MANAGER::ConvSpecialDropItemFile()
 
 				// @fixme148 BEGIN
 				if (type==4)
-					fprintf(fp, "	%d	%u	%d\n", k, dwVnum, iCount);
+					fprintf(fp, "	%d	%u	%d\n", k, static_cast<unsigned int>(dwVnum), iCount);
 				// @fixme148 END
 				else
 				{
 					if (0 == dwVnum)
 						fprintf(fp, "	%d	%s	%d	%d\n", k, name.c_str(), iCount, iProb);
 					else
-						fprintf(fp, "	%d	%u	%d	%d\n", k, dwVnum, iCount, iProb);
+						fprintf(fp, "	%d	%u	%d	%d\n", k, static_cast<unsigned int>(dwVnum), iCount, iProb);
 				}
 
 				continue;

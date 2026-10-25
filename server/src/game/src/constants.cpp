@@ -1013,19 +1013,18 @@ bool IsEliteRefine(DWORD refineSet)
 
 bool IsUnique70LevelWeapon(DWORD vnum)
 {
-	return vnum >= 170 && vnum <= 179 ||
-		vnum >= 250 && vnum <= 259 ||
-		vnum >= 1120 && vnum <= 1129 ||
-		vnum >= 7150 && vnum <= 7159 ||
-		vnum >= 2180 && vnum <= 2189 ||
-		vnum >= 3150 && vnum <= 3159 ||
-		vnum >= 5130 && vnum <= 5139 ||
-		vnum >= 7150 && vnum <= 7159;
+	return (vnum >= 170 && vnum <= 179) ||
+		(vnum >= 250 && vnum <= 259) ||
+		(vnum >= 1120 && vnum <= 1129) ||
+		(vnum >= 7150 && vnum <= 7159) ||
+		(vnum >= 2180 && vnum <= 2189) ||
+		(vnum >= 3150 && vnum <= 3159) ||
+		(vnum >= 5130 && vnum <= 5139);
 }
 
 int GetUniqueApplyWeapon70PointIndex(BYTE bPoint)
 {
-	for (int i = 0; i < std::size(aiUniqueApplyWeapon70Types); ++i)
+	for (size_t i = 0; i < std::size(aiUniqueApplyWeapon70Types); ++i)
 	{
 		if (aiUniqueApplyWeapon70Types[i] == bPoint)
 		{
@@ -1049,14 +1048,14 @@ TItemApply GetUniqueApplyWeapon70(BYTE bPoint, DWORD refineLevel)
 
 bool IsMiniBoss(DWORD mobRace)
 {
-	if (mobRace >= 191 && mobRace <= 194 || // m1 mini bossy (np. Lykos)
-		mobRace >= 491 && mobRace <= 494 || // m2 mini bossy (np. Mahon)
+	if ((mobRace >= 191 && mobRace <= 194) || // m1 mini bossy (np. Lykos)
+		(mobRace >= 491 && mobRace <= 494) || // m2 mini bossy (np. Mahon)
 		mobRace == 681 || // dolina mini bossy
-		mobRace >= 2181 && mobRace <= 2182 || // pustynia mini bossy
-		mobRace >= 781 && mobRace <= 782 || // hwang mini bossy
-		mobRace >= 1181 && mobRace <= 1182 || // sohan mini bossy
-		mobRace >= 2281 && mobRace <= 2282 || // pieklo mini bossy
-		mobRace >= 2381 && mobRace <= 2382) // las i red las mini bossy
+		(mobRace >= 2181 && mobRace <= 2182) || // pustynia mini bossy
+		(mobRace >= 781 && mobRace <= 782) || // hwang mini bossy
+		(mobRace >= 1181 && mobRace <= 1182) || // sohan mini bossy
+		(mobRace >= 2281 && mobRace <= 2282) || // pieklo mini bossy
+		(mobRace >= 2381 && mobRace <= 2382)) // las i red las mini bossy
 		return true;
 
 	return false;
@@ -1064,9 +1063,9 @@ bool IsMiniBoss(DWORD mobRace)
 
 int Is100PercentGoldDropByRace(DWORD mobRace)
 {
-	if (mobRace >= 151 && mobRace <= 155 || // m1 mini-mini bossy (np. Cung-Mok)
-		mobRace >= 331 && mobRace <= 334 || // m2 mini-mini bossy (np. agresywne zaprzysiezone)
-		mobRace >= 531 && mobRace <= 534 || // besty
+	if ((mobRace >= 151 && mobRace <= 155) || // m1 mini-mini bossy (np. Cung-Mok)
+		(mobRace >= 331 && mobRace <= 334) || // m2 mini-mini bossy (np. agresywne zaprzysiezone)
+		(mobRace >= 531 && mobRace <= 534) || // besty
 		IsMiniBoss(mobRace))
 		return true;
 

@@ -2110,7 +2110,7 @@ namespace quest
 		/* change_name_log */
 		LogManager::instance().ChangeNameLog(pid, ch->GetName(), szName, ch->GetDesc()->GetHostName());
 
-		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%u", get_table_postfix(), szName, pid);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%u", get_table_postfix(), szName, static_cast<unsigned int>(pid));
 		auto msg = DBManager::instance().DirectQuery(szQuery);
 
 		ch->SetNewName(szName);
@@ -2918,6 +2918,7 @@ namespace quest
 						pkNewItem->SetOwnership(ch, m_sec<=0?1:m_sec); //, ch->ChatPacket(CHAT_TYPE_INFO, "arg5 is %d", m_sec<=0?1:m_sec);
 					else
 						pkNewItem->SetOwnership(ch);
+					[[fallthrough]];
 				case PCMI0_DROP:
 					pos.x = ch->GetX() + number(-200, 200);
 					pos.y = ch->GetY() + number(-200, 200);
@@ -3551,7 +3552,7 @@ namespace quest
 		}
 
 		DWORD affectVnum = (DWORD)lua_tonumber(L, 1);
-		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : POINT_NONE;
+		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : static_cast<BYTE>(POINT_NONE);
 		CAffect* affect = ch->FindAffect(affectVnum, bPoint);
 		if (affect)
 		{
@@ -3578,7 +3579,7 @@ namespace quest
 		}
 
 		DWORD affectVnum = (DWORD)lua_tonumber(L, 1);
-		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : POINT_NONE;
+		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : static_cast<BYTE>(POINT_NONE);
 		CAffect* pkAff = ch->FindAffect(affectVnum, bPoint);
 		if (pkAff)
 		{
@@ -3605,7 +3606,7 @@ namespace quest
 		}
 
 		DWORD affectVnum = (DWORD)lua_tonumber(L, 1);
-		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : POINT_NONE;
+		BYTE bPoint = lua_isnumber(L, 2) ? (BYTE)lua_tonumber(L, 2) : static_cast<BYTE>(POINT_NONE);
 		if (ch->FindAffect(affectVnum, bPoint))
 		{
 			lua_pushboolean(L, TRUE);
@@ -3733,7 +3734,7 @@ namespace quest
 
 	ALUA(pc_charge_cash)
 	{
-		const long amount = lua_isnumber(L, 1) ? (long)lua_tonumber(L, 1) : 0;
+		const int64_t amount = lua_isnumber(L, 1) ? static_cast<int64_t>(lua_tonumber(L, 1)) : 0;
 		const int chargeType = lua_isnumber(L, 2) ? (int)lua_tonumber(L, 2) : ERequestCharge_Cash;
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
@@ -3834,7 +3835,7 @@ namespace quest
 
 		DWORD targetVID = (DWORD)lua_tonumber(L, 1);
 		char chatbuf[256 + 1];
-		int len = snprintf(chatbuf, sizeof(chatbuf), "pickup %d %d", (DWORD)ch->GetVID(), targetVID);
+		int len = snprintf(chatbuf, sizeof(chatbuf), "pickup %u %u", static_cast<unsigned int>(ch->GetVID()), static_cast<unsigned int>(targetVID));
 
 		if (len < 0 || len >= (int)sizeof(chatbuf))
 			len = sizeof(chatbuf) - 1;

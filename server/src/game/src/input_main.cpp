@@ -180,7 +180,7 @@ enum
 	TEXT_TAG_RESTORE_COLOR,
 };
 
-int GetTextTag(const char * src, int maxLen, int & tagLen, std::string & extraInfo)
+int GetTextTag(const char * src, int maxLen, int & tagLen, [[maybe_unused]] std::string & extraInfo)
 {
 	tagLen = 1;
 
@@ -375,7 +375,7 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 		return iExtraLen;
 	}
 
-	if (ch->GetLevel() < WHISPER_MINIMUM_LEVEL && pinfo->szNameTo && pinfo->szNameTo[0] != '[')
+	if (ch->GetLevel() < WHISPER_MINIMUM_LEVEL && pinfo->szNameTo[0] != '[')
 	{
 		SendWhisperError(ch->GetDesc(), WHISPER_TYPE_LOW_LEVEL, pinfo->szNameTo);
 		return iExtraLen;
@@ -640,7 +640,7 @@ struct FYmirChatPacket
 	char m_conv_msg[CHAT_MAX_LEN+1];
 	int m_len_conv_msg;
 
-	FYmirChatPacket(packet_chat& p, const char* chat, size_t len_chat, const char* name, size_t len_name, int iMapIndex, BYTE empire, bool ring)
+	FYmirChatPacket(packet_chat& p, const char* chat, size_t len_chat, const char* name, [[maybe_unused]] size_t len_name, int iMapIndex, BYTE empire, bool ring)
 		: packet(p),
 		m_szChat(chat), m_lenChat(len_chat),
 		m_szName(name),
@@ -1765,7 +1765,7 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 		if (ch->HasPlayerData())
 		{
 			int checkTimeBonus = ch->playerData->m_iMoveCheckTimeBonus;
-			if (dwCurTime - ch->playerData->m_moveCheckerTime > 1500 + checkTimeBonus)
+			if (dwCurTime - ch->playerData->m_moveCheckerTime > static_cast<DWORD>(1500 + checkTimeBonus))
 			{
 				PIXEL_POSITION pos = ch->playerData->last_checked_position;
 				int moveBonusPoint = ch->playerData->m_iMoveBonusPoint;
@@ -1783,11 +1783,11 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 				int penalty = ch->playerData->m_iMoveSpeedHackPenalty;
 
 				ch->ChatDebug("MOVE: check (%d) (avg %d) (penalty %d)", checkDistance, averageDistance, penalty);
-				if (checkDistance > averageDistance)
+				if (static_cast<DWORD>(checkDistance) > averageDistance)
 				{
-					penalty += checkDistance - averageDistance;
+					penalty += checkDistance - static_cast<int>(averageDistance);
 
-					if (penalty >= averageDistance)
+					if (static_cast<DWORD>(penalty) >= averageDistance)
 					{
 						ch->playerData->m_iMoveSpeedHackPunishmentCount++;
 						ch->ChatDebug("MOVE SPEED_HACK: Moving too fast (%d) (avg %d (bonus %d) (penalty %d, punishment %d)", checkDistance, averageDistance, moveBonusPoint, penalty, ch->playerData->m_iMoveSpeedHackPunishmentCount);
@@ -2116,7 +2116,7 @@ int CInputMain::SyncPosition(LPCHARACTER ch, const char * c_pcData, size_t uiByt
 	return iExtraLen;
 }
 
-void CInputMain::FlyTarget(LPCHARACTER ch, const char * pcData, BYTE bHeader)
+void CInputMain::FlyTarget(LPCHARACTER ch, const char * pcData, [[maybe_unused]] BYTE bHeader)
 {
 	TPacketCGFlyTargeting * p = (TPacketCGFlyTargeting *) pcData;
 	ch->MainFlyTarget(p->dwTargetVID, p->x, p->y);
@@ -2215,7 +2215,7 @@ void CInputMain::Target(LPCHARACTER ch, const char * pcData)
 		ch->SetTarget(CHARACTER_MANAGER::instance().Find(p->dwVID));
 }
 
-void CInputMain::Warp(LPCHARACTER ch, const char * pcData)
+void CInputMain::Warp(LPCHARACTER ch, [[maybe_unused]] const char * pcData)
 {
 	ch->WarpEnd();
 }
@@ -2308,7 +2308,7 @@ void CInputMain::SafeboxCheckin(LPCHARACTER ch, const char * c_pData)
 	pkSafebox->Add(p->bSafePos, pkItem);
 
 	char szHint[128];
-	snprintf(szHint, sizeof(szHint), "%s %u", pkItem->GetName(), pkItem->GetCount());
+	snprintf(szHint, sizeof(szHint), "%s %u", pkItem->GetName(), static_cast<unsigned int>(pkItem->GetCount()));
 	LogManager::instance().ItemLog(ch, pkItem, "SAFEBOX PUT", szHint);
 }
 
@@ -2405,7 +2405,7 @@ void CInputMain::SafeboxCheckout(LPCHARACTER ch, const char * c_pData, bool bMal
 	db_clientdesc->Packet(&dwID, sizeof(DWORD));
 
 	char szHint[128];
-	snprintf(szHint, sizeof(szHint), "%s %u", pkItem->GetName(), pkItem->GetCount());
+	snprintf(szHint, sizeof(szHint), "%s %u", pkItem->GetName(), static_cast<unsigned int>(pkItem->GetCount()));
 	if (bMall)
 		LogManager::instance().ItemLog(ch, pkItem, "MALL GET", szHint);
 	else
@@ -3414,7 +3414,7 @@ struct DecodeException : public std::exception {
 template <class T>
 const T& Decode(const char*& data, int& left, int& len)
 {
-	if(left < sizeof(T))
+	if(left < static_cast<int>(sizeof(T)))
 		throw DecodeException();
 
 	auto obj = reinterpret_cast<const T*>(data);
@@ -3432,7 +3432,7 @@ int IkarusShopPacketReopenShop(LPCHARACTER ch, const char* data, int left)
 	return extra;
 }
 
-int IkarusShopPacketForceCloseShop(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketForceCloseShop(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvShopForceCloseClientPacket(ch);
 	return 0;
@@ -3446,7 +3446,7 @@ int IkarusShopPacketOpenShop(LPCHARACTER ch, const char* data, int left)
 	return extra;
 }
 
-int IkarusShopPacketOpenShowOwner(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketOpenShowOwner(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvShopOpenMyShopClientPacket(ch);
 	return 0;
@@ -3479,7 +3479,7 @@ int IkarusShopPacketRemoveItem(LPCHARACTER ch, const char* data, int left)
 int IkarusShopPacketRemoveAllItem(LPCHARACTER ch, const char* data, int left)
 {
 	int extra = 0;
-	const auto& pack = Decode<ikashop::TSubPacketCGRemoveItem>(data, left, extra);
+	(void)Decode<ikashop::TSubPacketCGRemoveItem>(data, left, extra);
 	ikashop::GetManager().RecvShopRemoveAllItemClientPacket(ch);
 	return extra;
 }
@@ -3508,7 +3508,7 @@ int IkarusShopPacketFilterRequest(LPCHARACTER ch, const char* data, int left)
 	return extra;
 }
 
-int IkarusShopPacketSearchFillRequest(LPCHARACTER ch, const char* data, int left)
+int IkarusShopPacketSearchFillRequest(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int left)
 {
 	ikashop::GetManager().RecvShopSearchFillRequestClientPacket(ch);
 	return 0;
@@ -3544,7 +3544,7 @@ int IkarusShopPacketOfferListRequest(LPCHARACTER ch)
 	return 0;
 }
 
-int IkarusShopPacketOpenSafebox(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketOpenSafebox(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvShopSafeboxOpenClientPacket(ch);
 	return 0;
@@ -3577,20 +3577,20 @@ int IkarusShopPacketGetItemSafebox(LPCHARACTER ch, const char* data, int left)
 
 }
 
-int IkarusShopPacketGetValutesSafebox(LPCHARACTER ch, const char* data, int left)
+int IkarusShopPacketGetValutesSafebox(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int left)
 {
 	ikashop::GetManager().RecvShopSafeboxGetValutesClientPacket(ch);
 	return 0;
 }
 
-int IkarusShopPacketCloseSafebox(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketCloseSafebox(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::CShopManager& rManager = ikashop::GetManager();
 	rManager.RecvShopSafeboxCloseClientPacket(ch);
 	return 0;
 }
 
-int IkarusShopPacketListRequest(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketListRequest(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::CShopManager& rManager = ikashop::GetManager();
 	rManager.RecvAuctionListRequestClientPacket(ch);
@@ -3605,19 +3605,19 @@ int IkarusShopPacketOpenAuctionRequest(LPCHARACTER ch, const char* data, int lef
 	return extra;
 }
 
-int IkarusShopPacketOpenMyAuctionRequest(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketOpenMyAuctionRequest(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvMyAuctionOpenRequestClientPacket(ch);
 	return 0;
 }
 
-int IkarusShopPacketCloseMyAuction(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketCloseMyAuction(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvMyAuctionCloseClientPacket(ch);
 	return 0;
 }
 
-int IkarusShopPacketCancelMyAuction(LPCHARACTER ch, const char* data, int iBufferLeft)
+int IkarusShopPacketCancelMyAuction(LPCHARACTER ch, [[maybe_unused]] const char* data, [[maybe_unused]] int iBufferLeft)
 {
 	ikashop::GetManager().RecvMyAuctionCancelClientPacket(ch);
 	return 0;
@@ -3696,7 +3696,7 @@ int IkarusShopPacketSearchItem(LPCHARACTER ch, const char* data, int left)
 	return extra;
 }
 
-int IkarusShopPacketRequestEdit(BYTE subheader, LPCHARACTER ch, const char* data, int left)
+int IkarusShopPacketRequestEdit([[maybe_unused]] BYTE subheader, LPCHARACTER ch, const char* data, int left)
 {
 	int extra = 0;
 	const auto& pack = Decode<ikashop::TSubPacketCGShopRequestEdit>(data, left, extra);

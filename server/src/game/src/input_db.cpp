@@ -57,7 +57,7 @@
 
 #define MAPNAME_DEFAULT	"none"
 
-bool GetServerLocation(TAccountTable & rTab, BYTE bEmpire)
+bool GetServerLocation(TAccountTable & rTab, [[maybe_unused]] BYTE bEmpire)
 {
 	bool bFound = false;
 
@@ -367,7 +367,7 @@ void CInputDB::PlayerDeleteFail(LPDESC d, const char* c_pData)
 
 	auto bError = decode_byte(c_pData);
 	c_pData += sizeof(BYTE);
-	auto bAccountIndex = decode_byte(c_pData);
+	(void)decode_byte(c_pData);
 	c_pData += sizeof(BYTE);
 
 	TPacketGCDeleteCharacterError p{};
@@ -1070,7 +1070,7 @@ void CInputDB::Boot(const char* data)
 
 	for (int n = 1; n < 4; ++n)
 	{
-		if (p.name[n] && *p.name[n])
+		if (*p.name[n])
 			sys_log(0, "[MONARCH] Empire %d Pid %d Money %d %s", n, p.pid[n], p.money[n], p.name[n]);
 	}
 
@@ -2740,7 +2740,7 @@ void IkarusShopPacket(const char* data)
 ////////////////////////////////////////////////////////////////////
 // Analyze
 ////////////////////////////////////////////////////////////////////
-int CInputDB::Analyze(LPDESC d, BYTE bHeader, const char * c_pData)
+int CInputDB::Analyze([[maybe_unused]] LPDESC d, BYTE bHeader, const char * c_pData)
 {
 	switch (bHeader)
 	{
@@ -3158,7 +3158,7 @@ bool CInputDB::Process(LPDESC d, const void * orig, int bytes, int & r_iBytesPro
 	return true;
 }
 
-void CInputDB::AddMonarchMoney(LPDESC d, const char * data )
+void CInputDB::AddMonarchMoney([[maybe_unused]] LPDESC d, const char * data )
 {
 	int Empire = *(int *) data;
 	data += sizeof(int);
@@ -3179,7 +3179,7 @@ void CInputDB::AddMonarchMoney(LPDESC d, const char * data )
 	}
 }
 
-void CInputDB::DecMonarchMoney(LPDESC d, const char * data)
+void CInputDB::DecMonarchMoney([[maybe_unused]] LPDESC d, const char * data)
 {
 	int Empire = *(int *) data;
 	data += sizeof(int);
@@ -3274,8 +3274,11 @@ void CInputDB::ItemAwardInformer(TPacketItemAwardInfromer *data)
 std::vector<char> cachedChannelStatus;
 void WriteBytesToVector(std::vector<char>& buffer, const void* data, size_t size)
 {
-	const char* charData = reinterpret_cast<const char*>(data);
-	buffer.insert(buffer.end(), charData, charData + size);
+	if (size == 0)
+		return;
+	const size_t oldSize = buffer.size();
+	buffer.resize(oldSize + size);
+	std::memcpy(buffer.data() + oldSize, data, size);
 }
 #endif
 void CInputDB::RespondChannelStatus(LPDESC desc, const char* pcData)

@@ -172,7 +172,7 @@ LPDESC DESC_MANAGER::AcceptDesc(LPFDWATCH fdw, socket_t s)
 	static struct sockaddr_in   peer;
 	static char					host[MAX_HOST_LENGTH + 1];
 
-	if ((desc = socket_accept(s, &peer)) == -1)
+	if ((desc = socket_accept(s, &peer)) == INVALID_SOCKET)
 		return NULL;
 
 	strlcpy(host, inet_ntoa(peer.sin_addr), sizeof(host));
@@ -246,7 +246,7 @@ LPDESC DESC_MANAGER::AcceptP2PDesc(LPFDWATCH fdw, socket_t bind_fd)
 	struct sockaddr_in peer;
 	char               host[MAX_HOST_LENGTH + 1];
 
-	if ((fd = socket_accept(bind_fd, &peer)) == -1)
+	if ((fd = socket_accept(bind_fd, &peer)) == INVALID_SOCKET)
 		return NULL;
 
 	strlcpy(host, inet_ntoa(peer.sin_addr), sizeof(host));

@@ -528,7 +528,7 @@ void castle_save()
 			fprintf(fp, "\tguard ");
 			for (int guard_index = 0; guard_index < MAX_CASTLE_GUARD_PER_REGION; ++guard_index)
 			{
-				fprintf(fp, " %u", GET_GUARD_GROUP(empire, region_index, guard_index));
+				fprintf(fp, " %u", static_cast<unsigned int>(GET_GUARD_GROUP(empire, region_index, guard_index)));
 			}
 			fprintf(fp, "\n");
 		}
@@ -770,7 +770,7 @@ bool castle_spawn_tower(int empire, int tower_count)
 	return true;
 }
 
-void castle_guard_die(LPCHARACTER ch, LPCHARACTER killer)
+void castle_guard_die(LPCHARACTER ch, [[maybe_unused]] LPCHARACTER killer)
 {
 	int	empire = ch->GetEmpire();
 

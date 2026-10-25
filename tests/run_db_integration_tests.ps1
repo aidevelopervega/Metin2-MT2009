@@ -52,12 +52,12 @@ try {
 
     $Flags = @(
         "-std=c++20",
+        "-Wall",
+        "-Wextra",
         "-O2",
         "-pipe",
         "-fno-rtti",
-        "-fno-exceptions",
-        "-Wno-deprecated-enum-enum-conversion",
-        "-Wno-deprecated-declarations"
+        "-fno-exceptions"
     )
 
     # DB nesne dosyalarının varlığını kontrol et, yoksa derle

@@ -141,7 +141,7 @@ bool CGuildMarkImage::SaveMark(DWORD posMark, BYTE * pbImage)
 	DWORD colMark = posMark % MARK_COL_COUNT;
 	DWORD rowMark = posMark / MARK_COL_COUNT;
 
-	printf("PutMark pos %u %ux%u\n", posMark, colMark * SGuildMark::WIDTH, rowMark * SGuildMark::HEIGHT);
+	printf("PutMark pos %u %ux%u\n", static_cast<unsigned int>(posMark), static_cast<unsigned int>(colMark * SGuildMark::WIDTH), static_cast<unsigned int>(rowMark * SGuildMark::HEIGHT));
 	PutData(colMark * SGuildMark::WIDTH, rowMark * SGuildMark::HEIGHT, SGuildMark::WIDTH, SGuildMark::HEIGHT, pbImage);
 
 	DWORD rowBlock = rowMark / SGuildMarkBlock::MARK_PER_BLOCK_HEIGHT;

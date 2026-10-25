@@ -979,7 +979,7 @@ static bool __LoadGeneralConfigFile(const char* configName)
 			DWORD flag = 0;
 			str_to_number(flag, value_string);
 			g_dwItemBonusChangeTime = flag;
-			fprintf(stdout, "CHANGE_ATTR_TIME_LIMIT: %u\n", g_dwItemBonusChangeTime);
+			fprintf(stdout, "CHANGE_ATTR_TIME_LIMIT: %u\n", static_cast<unsigned int>(g_dwItemBonusChangeTime));
 			continue;
 		}
 
@@ -1144,7 +1144,7 @@ static bool __LoadGeneralConfigFile(const char* configName)
 		TOKEN("server_version")
 		{
 			str_to_number(g_dwClientVersion, value_string);
-			fprintf(stdout, "server_version: %d\n", g_dwClientVersion);
+			fprintf(stdout, "server_version: %u\n", static_cast<unsigned int>(g_dwClientVersion));
 			continue;
 		}
 
@@ -1202,7 +1202,7 @@ static bool __LoadGeneralConfigFile(const char* configName)
 			DWORD flag = 0;
 			str_to_number(flag, value_string);
 			g_dwSkillBookNextReadMin = flag;
-			fprintf(stdout, "SKILLBOOK_NEXTREAD_MIN: %u\n", g_dwSkillBookNextReadMin);
+			fprintf(stdout, "SKILLBOOK_NEXTREAD_MIN: %u\n", static_cast<unsigned int>(g_dwSkillBookNextReadMin));
 			continue;
 		}
 
@@ -1211,7 +1211,7 @@ static bool __LoadGeneralConfigFile(const char* configName)
 			DWORD flag = 0;
 			str_to_number(flag, value_string);
 			g_dwSkillBookNextReadMax = flag;
-			fprintf(stdout, "SKILLBOOK_NEXTREAD_MAX: %u\n", g_dwSkillBookNextReadMax);
+			fprintf(stdout, "SKILLBOOK_NEXTREAD_MAX: %u\n", static_cast<unsigned int>(g_dwSkillBookNextReadMax));
 			continue;
 		}
 
@@ -1619,15 +1619,15 @@ void LoadValidCRCList()
 			if (!*buf)
 				continue;
 
-			DWORD dwValidClientProcessCRC;
-			DWORD dwValidClientFileCRC;
-
-			sscanf(buf, " %u %u ", &dwValidClientProcessCRC, &dwValidClientFileCRC);
+			unsigned int uProcessCRC = 0, uFileCRC = 0;
+			sscanf(buf, " %u %u ", &uProcessCRC, &uFileCRC);
+			DWORD dwValidClientProcessCRC = uProcessCRC;
+			DWORD dwValidClientFileCRC = uFileCRC;
 
 			s_set_dwProcessCRC.emplace(dwValidClientProcessCRC);
 			s_set_dwFileCRC.emplace(dwValidClientFileCRC);
 
-			fprintf(stderr, "CLIENT_CRC: %u %u\n", dwValidClientProcessCRC, dwValidClientFileCRC);
+			fprintf(stderr, "CLIENT_CRC: %u %u\n", uProcessCRC, uFileCRC);
 		}
 
 		fclose(fp);

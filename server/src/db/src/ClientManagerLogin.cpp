@@ -197,9 +197,9 @@ void CClientManager::QUERY_LOGIN_BY_KEY(CPeer * pkPeer, DWORD dwHandle, TPacketG
 	sys_log(0, "LOGIN_BY_KEY success %s key ***MASKED*** %s", r.login, info->ip);
 	char szQuery[QUERY_MAX_LEN];
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, pid5, empire FROM player_index%s WHERE id=%u", GetTablePostfix(), r.id);
+	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, pid5, empire FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(r.id));
 #else
-	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, empire FROM player_index%s WHERE id=%u", GetTablePostfix(), r.id);
+	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, empire FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(r.id));
 #endif
 	CDBManager::instance().ReturnQuery(szQuery, QID_LOGIN_BY_KEY, pkPeer->GetHandle(), info);
 }
@@ -227,7 +227,7 @@ void CClientManager::RESULT_LOGIN_BY_KEY(CPeer * peer, SQLMsg * msg)
 			#ifdef ENABLE_PLAYER_PER_ACCOUNT5
 			" pid5,"
 			#endif
-			" empire FROM player_index%s WHERE id=%u", GetTablePostfix(), account_id);
+			" empire FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(account_id));
 		auto pMsg(CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER));
 
 		sys_log(0, "RESULT_LOGIN_BY_KEY FAIL player_index's NULL : ID:%d", account_id);
@@ -238,7 +238,7 @@ void CClientManager::RESULT_LOGIN_BY_KEY(CPeer * peer, SQLMsg * msg)
 
 			// PLAYER_INDEX_CREATE_BUG_FIX
 			//snprintf(szQuery, sizeof(szQuery), "INSERT IGNORE INTO player_index%s (id) VALUES(%lu)", GetTablePostfix(), info->pAccountTable->id);
-			snprintf(szQuery, sizeof(szQuery), "INSERT INTO player_index%s (id) VALUES(%u)", GetTablePostfix(), info->pAccountTable->id);
+			snprintf(szQuery, sizeof(szQuery), "INSERT INTO player_index%s (id) VALUES(%u)", GetTablePostfix(), static_cast<unsigned int>(info->pAccountTable->id));
 			CDBManager::instance().ReturnQuery(szQuery, QID_PLAYER_INDEX_CREATE, peer->GetHandle(), info);
 			// END_PLAYER_INDEX_CREATE_BUF_FIX
 		}
@@ -261,7 +261,7 @@ void CClientManager::RESULT_LOGIN_BY_KEY(CPeer * peer, SQLMsg * msg)
 			"part_acce,"
 			#endif
 			" x, y, skill_group, change_name FROM player%s WHERE account_id=%u",
-			GetTablePostfix(), info->pAccountTable->id);
+			GetTablePostfix(), static_cast<unsigned int>(info->pAccountTable->id));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_LOGIN, peer->GetHandle(), info);
 }
@@ -275,10 +275,10 @@ void CClientManager::RESULT_PLAYER_INDEX_CREATE(CPeer * pkPeer, SQLMsg * msg)
 	char szQuery[QUERY_MAX_LEN];
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
 	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, pid5, empire FROM player_index%s WHERE id=%u", GetTablePostfix(),
-			info->pAccountTable->id);
+			static_cast<unsigned int>(info->pAccountTable->id));
 #else
 	snprintf(szQuery, sizeof(szQuery), "SELECT pid1, pid2, pid3, pid4, empire FROM player_index%s WHERE id=%u", GetTablePostfix(),
-			info->pAccountTable->id);
+			static_cast<unsigned int>(info->pAccountTable->id));
 #endif
 	CDBManager::instance().ReturnQuery(szQuery, QID_LOGIN_BY_KEY, pkPeer->GetHandle(), info);
 }
@@ -447,7 +447,7 @@ void CClientManager::RESULT_LOGIN(CPeer * peer, SQLMsg * msg)
 					"part_acce, "
 					#endif
 					" x, y, skill_group, change_name FROM player%s WHERE account_id=%u",
-					GetTablePostfix(), info->pAccountTable->id);
+					GetTablePostfix(), static_cast<unsigned int>(info->pAccountTable->id));
 
 			CDBManager::instance().ReturnQuery(queryStr, QID_LOGIN, peer->GetHandle(), info);
 		}
@@ -496,7 +496,7 @@ void CClientManager::RESULT_LOGIN(CPeer * peer, SQLMsg * msg)
 	}
 }
 
-void CClientManager::QUERY_LOGOUT(CPeer * peer, DWORD dwHandle,const char * data)
+void CClientManager::QUERY_LOGOUT(CPeer * peer, [[maybe_unused]] DWORD dwHandle, const char * data)
 {
 	TLogoutPacket* packet = (TLogoutPacket*)data;
 
@@ -556,7 +556,7 @@ void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDCh
 
 	char queryStr[QUERY_MAX_LEN];
 	snprintf(queryStr, sizeof(queryStr),
-		"SELECT COUNT(*) as count FROM player%s WHERE name='%s' AND id <> %u", GetTablePostfix(), szEscapedName, p->pid);
+		"SELECT COUNT(*) as count FROM player%s WHERE name='%s' AND id <> %u", GetTablePostfix(), szEscapedName, static_cast<unsigned int>(p->pid));
 
 	auto pMsg(CDBManager::instance().DirectQuery(queryStr, SQL_PLAYER));
 
@@ -583,7 +583,7 @@ void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDCh
 	}
 
 	snprintf(queryStr, sizeof(queryStr),
-			"UPDATE player%s SET name='%s',change_name=0 WHERE id=%u", GetTablePostfix(), szEscapedName, p->pid);
+			"UPDATE player%s SET name='%s',change_name=0 WHERE id=%u", GetTablePostfix(), szEscapedName, static_cast<unsigned int>(p->pid));
 
 	auto pMsg0(CDBManager::instance().DirectQuery(queryStr, SQL_PLAYER));
 

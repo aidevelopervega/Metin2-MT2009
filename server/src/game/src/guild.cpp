@@ -1745,7 +1745,7 @@ void CGuild::RequestDepositMoney(LPCHARACTER ch, YANG iGold)
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_DEPOSIT_MONEY, 0, &p, sizeof(p));
 
 	char buf[64+1];
-	snprintf(buf, sizeof(buf), "%u %s", GetID(), GetName());
+	snprintf(buf, sizeof(buf), "%u %s", static_cast<unsigned int>(GetID()), GetName());
 	LogManager::instance().CharLog(ch, iGold, "GUILD_DEPOSIT", buf);
 
 	ch->UpdateDepositPulse(3);
@@ -2047,7 +2047,7 @@ bool CGuild::ChangeMasterTo(DWORD dwPID)
 	return true;
 }
 
-void CGuild::SendGuildDataUpdateToAllMember(SQLMsg* pmsg)
+void CGuild::SendGuildDataUpdateToAllMember([[maybe_unused]] SQLMsg* pmsg)
 {
 	TGuildMemberOnlineContainer::iterator iter = m_memberOnline.begin();
 

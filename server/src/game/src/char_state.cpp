@@ -402,7 +402,7 @@ struct FStoneSpawnAttackAttacker
 void CHARACTER::__StoneSpawnGroup(DWORD groupVnum, DWORD count)
 {
 	CHARACTER_MANAGER::instance().SelectStone(this);
-	for (int i = 0; i < count; i++)
+	for (DWORD i = 0; i < count; i++)
 	{
 		DWORD distance = number(1, 3) * 500;
 		auto partyLeader = CHARACTER_MANAGER::instance().SpawnGroup(groupVnum, GetMapIndex(), GetX() - distance, GetY() - distance, GetX() + distance, GetY() + distance, 0, true);

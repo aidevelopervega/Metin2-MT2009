@@ -64,12 +64,12 @@ inline void AttackAffect(LPCHARACTER pkAttacker,
 
 			if (test_server)
 			{
-				pkVictim->ChatPacket(CHAT_TYPE_PARTY, "%s %s(%ld%%) SUCCESS", pkAttacker->GetName(), name, pct_value);
+				pkVictim->ChatPacket(CHAT_TYPE_PARTY, "%s %s(%d%%) SUCCESS", pkAttacker->GetName(), name, pct_value);
 			}
 		}
 		else if (test_server)
 		{
-			pkVictim->ChatPacket(CHAT_TYPE_PARTY, "%s %s(%ld%%) FAIL", pkAttacker->GetName(), name, pct_value);
+			pkVictim->ChatPacket(CHAT_TYPE_PARTY, "%s %s(%d%%) FAIL", pkAttacker->GetName(), name, pct_value);
 
 		}
 	}
@@ -87,7 +87,7 @@ inline void SkillAttackAffect(LPCHARACTER pkAttacker,
 		const char* name)
 {
 	bool isImmune = pkVictim->IsImmune(immune_flag, pkAttacker);
-	if (name == "GM_STUN" || name == "GM_SLOW")
+	if (name && (!strcmp(name, "GM_STUN") || !strcmp(name, "GM_SLOW")))
 		isImmune = false;
 
 	if (success_pct && !pkVictim->IsAffectFlag(affect_flag))

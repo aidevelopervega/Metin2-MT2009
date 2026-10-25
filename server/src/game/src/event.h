@@ -31,7 +31,7 @@ typedef struct event EVENT;
 typedef boost::intrusive_ptr<EVENT> LPEVENT;
 typedef long (*TEVENTFUNC) (LPEVENT event, long processing_time);
 
-#define EVENTFUNC(name)	long (name) (LPEVENT event, long processing_time)
+#define EVENTFUNC(name)	long (name) ([[maybe_unused]] LPEVENT event, [[maybe_unused]] long processing_time)
 #define EVENTINFO(name) struct name : public event_info_data
 
 struct TQueueElement;

@@ -215,7 +215,7 @@ ACMD(do_emotion)
 	char chatbuf[256+1];
 	int len = snprintf(chatbuf, sizeof(chatbuf), "%s %u %u",
 			emotion_types[i].command_to_client,
-			(DWORD) ch->GetVID(), victim ? (DWORD) victim->GetVID() : 0);
+			static_cast<unsigned int>(ch->GetVID()), victim ? static_cast<unsigned int>(victim->GetVID()) : 0U);
 
 	if (len < 0 || len >= (int) sizeof(chatbuf))
 		len = sizeof(chatbuf) - 1;

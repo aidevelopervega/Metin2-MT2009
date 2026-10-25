@@ -309,7 +309,7 @@ bool COXEventManager::CheckAnswer(bool answer)
 				// pkChar->CreateFly(number(FLY_FIREWORK1, FLY_FIREWORK6), pkChar);
 				char chatbuf[256];
 				int len = snprintf(chatbuf, sizeof(chatbuf),
-						"%s %u %u", number(0, 1) == 1 ? "cheer1" : "cheer2", (DWORD)pkChar->GetVID(), 0);
+						"%s %u %u", number(0, 1) == 1 ? "cheer1" : "cheer2", static_cast<unsigned int>(pkChar->GetVID()), 0U);
 
 				if (len < 0 || len >= (int) sizeof(chatbuf))
 					len = sizeof(chatbuf) - 1;

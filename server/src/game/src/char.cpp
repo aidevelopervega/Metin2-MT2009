@@ -102,7 +102,7 @@ bool CAN_ENTER_ZONE(const LPCHARACTER& ch, int map_index)
 }
 
 #ifdef NEW_ICEDAMAGE_SYSTEM
-const DWORD CHARACTER::GetNoDamageRaceFlag()
+DWORD CHARACTER::GetNoDamageRaceFlag()
 {
 	return m_dwNDRFlag;
 }
@@ -2716,7 +2716,7 @@ void CHARACTER::Standup()
 	PacketAround(pack_position);
 }
 
-void CHARACTER::Sitdown(int is_ground)
+void CHARACTER::Sitdown([[maybe_unused]] int is_ground)
 {
 	struct packet_position pack_position;
 
@@ -3545,7 +3545,6 @@ void CHARACTER::PointChange(BYTE type, int amount, bool bAmount, bool bBroadcast
 				if (IsDead() || IsStun())
 					return;
 
-				int prev_val = GetStamina();
 				amount = MIN(GetMaxStamina() - GetStamina(), amount);
 				SetStamina(GetStamina() + amount);
 				val = GetStamina();
@@ -4037,7 +4036,7 @@ void CHARACTER::MonsterLog(const char* format, ...)
 		return;
 
 	char chatbuf[CHAT_MAX_LEN + 1];
-	int len = snprintf(chatbuf, sizeof(chatbuf), "%u)", (DWORD)GetVID());
+	int len = snprintf(chatbuf, sizeof(chatbuf), "%u)", static_cast<unsigned int>(GetVID()));
 
 	if (len < 0 || len >= (int) sizeof(chatbuf))
 		len = sizeof(chatbuf) - 1;
@@ -4353,7 +4352,7 @@ void CHARACTER::SetNextStatePulse(int iNextPulse)
 		MonsterLog("다음상태로어서가자");
 }
 
-void CHARACTER::UpdateCharacter(DWORD dwPulse)
+void CHARACTER::UpdateCharacter([[maybe_unused]] DWORD dwPulse)
 {
 	CFSM::Update();
 }
@@ -5416,13 +5415,13 @@ void CHARACTER::SetTarget(LPCHARACTER pkChrTarget)
 		TPacketGCGamemasterTarget p{};
 		p.header = HEADER_GC_GAMEMASTER_TARGET;
 		p.pid = pkChrTarget->GetPlayerID();
-		strncpy(p.playerName, pkChrTarget->GetName(), sizeof(p.playerName));
+		strlcpy(p.playerName, pkChrTarget->GetName(), sizeof(p.playerName));
 
 		if (pkChrTarget->GetDesc())
 		{
 			auto accTable = pkChrTarget->GetDesc()->GetAccountTable();
 			p.aid = accTable.id;
-			strncpy(p.accountName, accTable.login, sizeof(p.accountName));
+			strlcpy(p.accountName, accTable.login, sizeof(p.accountName));
 		}
 
 		p.isPremium = pkChrTarget->IsActivePremiumSubscription();
@@ -6378,7 +6377,7 @@ void CHARACTER::GiveRandomSkillBook()
 
 	if (NULL != item)
 	{
-		extern const DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
+		extern DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
 		DWORD dwSkillVnum = 0;
 		// 50% of getting random books or getting one of the same player's race
 		if (!number(0, 1))
@@ -6435,11 +6434,11 @@ void CHARACTER::EffectPacket(int enumEffectType)
 
 void CHARACTER::SpecificEffectPacket(const char filename[MAX_EFFECT_FILE_NAME])
 {
-	TPacketGCSpecificEffect p;
+	TPacketGCSpecificEffect p{};
 
 	p.header = HEADER_GC_SPECIFIC_EFFECT;
 	p.vid = GetVID();
-	memcpy (p.effect_file, filename, MAX_EFFECT_FILE_NAME);
+	strlcpy(p.effect_file, filename, sizeof(p.effect_file));
 
 	PacketAround(p);
 }
@@ -6512,8 +6511,8 @@ void CHARACTER::MonsterChat(BYTE bMonsterChatType)
 			return;
 
 		snprintf(sbuf, sizeof(sbuf),
-				"(locale.monster_chat[%i] and locale.monster_chat[%i][%d] or '')",
-				GetRaceNum(), GetRaceNum(), bMonsterChatType*3 + number(1, 3));
+				"(locale.monster_chat[%u] and locale.monster_chat[%u][%d] or '')",
+				static_cast<unsigned int>(GetRaceNum()), static_cast<unsigned int>(GetRaceNum()), bMonsterChatType*3 + number(1, 3));
 	}
 	else
 	{
@@ -6531,7 +6530,7 @@ void CHARACTER::MonsterChat(BYTE bMonsterChatType)
 				return;
 		}
 
-		snprintf(sbuf, sizeof(sbuf), "(locale.monster_chat[%i] and locale.monster_chat[%i][number(1, table.getn(locale.monster_chat[%i]))] or '')", GetRaceNum(), GetRaceNum(), GetRaceNum());
+		snprintf(sbuf, sizeof(sbuf), "(locale.monster_chat[%u] and locale.monster_chat[%u][number(1, table.getn(locale.monster_chat[%u]))] or '')", static_cast<unsigned int>(GetRaceNum()), static_cast<unsigned int>(GetRaceNum()), static_cast<unsigned int>(GetRaceNum()));
 	}
 
 	std::string text = quest::ScriptToString(sbuf);
@@ -8986,7 +8985,7 @@ bool CHARACTER::ChangeChannel(const TRespondMoveChannel * respond)
 	GetDesc()->Packet(p);
 
 	char buf[256];
-	snprintf(buf, sizeof(buf), "%s DestChannel %d lAddr %ld port %d", GetName(), respond->bChannel, p.lAddr, p.wPort);
+	snprintf(buf, sizeof(buf), "%s DestChannel %d lAddr %d port %d", GetName(), respond->bChannel, static_cast<int>(p.lAddr), p.wPort);
 	LogManager::instance().CharLog(this, 0, "MOVE_CHANNEL", buf);
 
 	Stop();
@@ -9211,7 +9210,7 @@ void CHARACTER::StartResetAttackLogEvent()
 	m_pkResetAttackLogEvent = event_create(reset_attack_log_map_event, info, PASSES_PER_SEC(30));
 }
 
-const DWORD CHARACTER::PlayerMoveGetDelayTime(const long to_x, const long to_y) const
+DWORD CHARACTER::PlayerMoveGetDelayTime(const long to_x, const long to_y) const
 {
 	PIXEL_POSITION current_POSITION = GetXYZ();
 	float fDist = DISTANCE_SQRT(current_POSITION.x - to_x, current_POSITION.y - to_y);
@@ -9485,7 +9484,6 @@ void CHARACTER::ExpireCaptcha()
 
 	LogManager::instance().CaptchaLog(this, "EXPIRE", "");
 
-	auto captcha = playerData->GetPlayerCaptcha();
 	StopCaptcha(true);
 
 }
@@ -9512,12 +9510,12 @@ void CHARACTER::CaptchaRequestChange()
 	return;
 }
 
-void CHARACTER::StartCaptcha(CAPTCHA_IMAGE captcha_image, const char* captcha_code, BYTE maxAttempts, DWORD duration, LPCHARACTER invoker)
+void CHARACTER::StartCaptcha([[maybe_unused]] CAPTCHA_IMAGE captcha_image, [[maybe_unused]] const char* captcha_code, [[maybe_unused]] BYTE maxAttempts, [[maybe_unused]] DWORD duration, [[maybe_unused]] LPCHARACTER invoker)
 {
 	return;
 }
 
-void CHARACTER::StopCaptcha(bool kill_event)
+void CHARACTER::StopCaptcha([[maybe_unused]] bool kill_event)
 {
 	return;
 }
@@ -9550,10 +9548,10 @@ void CHARACTER::SendCaptchaInfo(CAPTCHA_IMAGE captcha_image, const char* captcha
 	{
 		TSubPacketGCCaptchaGMWho p_who{};
 		p_who.pid = target->GetPlayerID();
-		strncpy(p_who.name, target->GetName(), sizeof(p_who.name));
+		strlcpy(p_who.name, target->GetName(), sizeof(p_who.name));
 
 		TSubPacketGCCaptchaGMCode p_code{};
-		strncpy(p_code.code, captcha_code, sizeof(p_code.code));
+		strlcpy(p_code.code, captcha_code, sizeof(p_code.code));
 
 		p.size += sizeof(p_who) + sizeof(p_code);
 		buff.write(&p_who, sizeof(p_who));
@@ -9605,7 +9603,7 @@ void CHARACTER::SendCaptchaGameMasterFeedback(DWORD pid, BYTE type, const char *
 
 	TSubPacketGCCaptchaGMFeedback sub{};
 	sub.type = type;
-	strncpy(sub.arg1, code, sizeof(sub.arg1));
+	strlcpy(sub.arg1, code, sizeof(sub.arg1));
 	sub.arg2 = elapsedTime;
 
 	if (GetDesc())
@@ -9645,7 +9643,7 @@ BYTE CHARACTER::GetInventoryMaxCount() const
 
 bool CHARACTER::IsHorseInventory(TItemPos cell) const
 {
-	return cell.window_type == INVENTORY && cell.cell >= INVENTORY_DEFAULT_MAX_NUM <= INVENTORY_MAX_NUM;
+	return cell.window_type == INVENTORY && cell.cell >= INVENTORY_DEFAULT_MAX_NUM && cell.cell < INVENTORY_MAX_NUM;
 }
 
 

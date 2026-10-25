@@ -548,7 +548,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 									"UPDATE account SET password='%s', last_play=NOW(), hwid='%s' WHERE id=%u AND password='%s'",
 									szEscapedNewHash,
 									szEscapedHWID,
-									dwID,
+									static_cast<unsigned int>(dwID),
 									szEscapedOldHash);
 								std::unique_ptr<SQLMsg> pUpdMsg(DBManager::instance().DirectQuery("%s", szUpgradeQuery));
 								const bool bUpdOk = (pUpdMsg && pUpdMsg->uiSQLErrno == 0 && pUpdMsg->Get() != nullptr);
@@ -556,7 +556,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 								if (!bUpdOk || uiAffected == 0U)
 								{
 									char szQuery[1024];
-									snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+									snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
 									DBManager::instance().Query("%s", szQuery);
 								}
 
@@ -573,14 +573,14 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 							else
 							{
 								char szQuery[1024];
-								snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+								snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
 								DBManager::instance().Query("%s", szQuery);
 							}
 						}
 						else
 						{
 							char szQuery[1024];
-							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, dwID);
+							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
 							DBManager::instance().Query("%s", szQuery);
 							sys_log(0, "QID_AUTH_LOGIN: Argon2id verified account id %u (%llu us)",
 									dwID, static_cast<unsigned long long>(verifyRes.elapsed_usec));

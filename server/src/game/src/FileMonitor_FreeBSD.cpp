@@ -35,7 +35,7 @@ FileMonitorFreeBSD::~FileMonitorFreeBSD()
 	m_TriggeredEventLists.clear();
 }
 
-void FileMonitorFreeBSD::Update(DWORD dwPulses)
+void FileMonitorFreeBSD::Update([[maybe_unused]] DWORD dwPulses)
 {
 	if( m_KernelEventQueue == INVALID_KERNEL_EVENT || m_FileLists.size() == 0 )
 		return;
@@ -107,6 +107,7 @@ void FileMonitorFreeBSD::AddWatch(const std::string& strFileName, PFN_FileChange
 	if( m_KernelEventQueue == INVALID_KERNEL_EVENT )
 	{
 		sys_err("FileMonitorFreeBSD:AddWatch : failed to create kqueue.\n");
+		close(iFileHandle);
 		return;
 	}
 
@@ -114,6 +115,7 @@ void FileMonitorFreeBSD::AddWatch(const std::string& strFileName, PFN_FileChange
 	if( it != m_FileLists.end() )
 	{
 		sys_log(0, "FileMonitorFreeBSD:AddWatch : trying to add duplicated watch on file(%s).\n", strFileName.c_str() );
+		close(iFileHandle);
 		return;
 	}
 

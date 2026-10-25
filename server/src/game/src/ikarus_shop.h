@@ -309,7 +309,7 @@ namespace ikashop
 		bool RemoveValute(TValutesInfo val);
 
 		const ITEM_MAP& GetItems() const;
-		const DWORD GetLeftSpace() const;
+		DWORD GetLeftSpace() const;
 		const TValutesInfo& GetValutes() const;
 
 		ITEM_HANDLE GetItem(DWORD itemid) const;
@@ -350,7 +350,7 @@ namespace ikashop
 		void IncreaseDuration();
 		
 		const GUESTVEC& GetGuests() const;
-		const DWORD	GetBestBuyer() const;
+		DWORD	GetBestBuyer() const;
 		const TAuctionInfo& GetInfo() const;
 		const AUCTION_OFFERVEC& GetOffers() const;
 		AUCTION_OFFER_HANDLE GetBestOffer() const;

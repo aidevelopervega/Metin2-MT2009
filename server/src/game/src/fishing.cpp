@@ -92,7 +92,7 @@ namespace fishing
 	int g_prob_sum[MAX_PROB];
 	int g_prob_accumulate[MAX_PROB][MAX_FISH];
 
-	SFishInfo fish_info[MAX_FISH] = { { "\0", }, };
+	SFishInfo fish_info[MAX_FISH] = {};
 	/*
 	   {
 	   { "²Î",		00000, 00000, 00000, {  750, 1750, 2750 },   10, FISHING_LIMIT_NONE,	{  0,   0,   0}, FISHING_TIME_NORMAL, { 0,           },
@@ -572,7 +572,7 @@ namespace fishing
 					rod->SetSocket(2, 0, true, "SOCKET_FISHING");
 				}
 			}
-			else if (deltaTime < 1700 || deltaTime > 3500 && deltaTime < 5000)
+			else if (deltaTime < 1700 || (deltaTime > 3500 && deltaTime < 5000))
 			{
 				FishingFail(ch);
 				if (rod)
@@ -595,7 +595,7 @@ namespace fishing
 		}
 	}
 
-	void Take(fishing_event_info* info, LPCHARACTER ch)
+	void Take([[maybe_unused]] fishing_event_info* info, LPCHARACTER ch)
 	{
 		if (ch && ch->IsPlayingFishGame() && ch->m_biFishGameState >= FISHING_GAME_STATE_IN_PROGRESS) {
 			ch->IncrementPlayerFishGamePosition(8);

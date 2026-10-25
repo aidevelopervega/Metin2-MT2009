@@ -2269,7 +2269,7 @@ ACMD(do_in_game_mall)
 		MD5_CTX ctx;
 		const char sas_key[] = "GF9001";
 
-		snprintf(buf, sizeof(buf), "%u%u%s", ch->GetPlayerID(), ch->GetAID(), sas_key);
+		snprintf(buf, sizeof(buf), "%u%u%s", static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(ch->GetAID()), sas_key);
 
 		MD5Init(&ctx);
 		MD5Update(&ctx, (const unsigned char *) buf, strlen(buf));
@@ -2288,7 +2288,7 @@ ACMD(do_in_game_mall)
 #endif
 
 		snprintf(buf, sizeof(buf), "mall http://%s/ishop?pid=%u&c=%s&sid=%d&sas=%s",
-				g_strWebMallURL.c_str(), ch->GetPlayerID(), country_code, g_server_id, sas);
+				g_strWebMallURL.c_str(), static_cast<unsigned int>(ch->GetPlayerID()), country_code, g_server_id, sas);
 
 		ch->ChatPacket(CHAT_TYPE_COMMAND, buf);
 	}
@@ -2530,7 +2530,7 @@ ACMD(do_escape)
 		return;
 	}
 
-	if (ch->playerData->GetEscapeCooltime() > thecore_pulse())
+	if (ch->playerData->GetEscapeCooltime() > static_cast<DWORD>(thecore_pulse()))
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have to wait %d minutes to use this option again."), 1);
 		return;

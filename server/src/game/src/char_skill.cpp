@@ -408,7 +408,7 @@ bool CHARACTER::LearnGrandMasterSkill(DWORD dwSkillVnum)
 	chance = chance * (100 + learn_bonus) / 100;
 
 	ChatDebug("chance %d minReadCount %d totalReadCount %d", chance, iMinReadCount, iTotalReadCount);
-	bool bSuccess = number(1, 100) <= chance;
+	bool bSuccess = static_cast<DWORD>(number(1, 100)) <= chance;
 	if (bSuccess)
 	{
 		SkillLevelUp(dwSkillVnum, SKILL_UP_BY_QUEST);
@@ -514,7 +514,7 @@ bool CHARACTER::LearnSkillByBook(DWORD dwSkillVnum, DWORD dwProb)
 
 		ChatDebug("LearnSkillByBook Pct %d prob %d", dwSkillVnum, dwProb);
 
-		bool isSuccess = number(1, 100) <= dwProb;
+		bool isSuccess = static_cast<DWORD>(number(1, 100)) <= dwProb;
 		if (isSuccess)
 		{
 			if (test_server)
@@ -562,7 +562,7 @@ bool CHARACTER::LearnSkillByBook(DWORD dwSkillVnum, DWORD dwProb)
 		{
 			char flag[128+1];
 			memset(flag, 0, sizeof(flag));
-			snprintf(flag, sizeof(flag), "traning_master_skill.%u.read_count", dwSkillVnum);
+			snprintf(flag, sizeof(flag), "traning_master_skill.%u.read_count", static_cast<unsigned int>(dwSkillVnum));
 
 			int read_count = pPC->GetFlag(flag);
 			int percent = 35;
@@ -886,7 +886,7 @@ void CHARACTER::SkillLevelUp(DWORD dwVnum, BYTE bMethod)
 	char szSkillUp[1024];
 
 	snprintf(szSkillUp, sizeof(szSkillUp), "SkillUp: %s %u %d %d[Before:%d] type %u",
-			GetName(), pkSk->dwVnum, m_pSkillLevels[pkSk->dwVnum].bMasterType, m_pSkillLevels[pkSk->dwVnum].bLevel, SkillPointBefore, pkSk->dwType);
+			GetName(), static_cast<unsigned int>(pkSk->dwVnum), m_pSkillLevels[pkSk->dwVnum].bMasterType, m_pSkillLevels[pkSk->dwVnum].bLevel, SkillPointBefore, static_cast<unsigned int>(pkSk->dwType));
 
 	sys_log(0, "%s", szSkillUp);
 
@@ -2982,12 +2982,10 @@ bool CHARACTER::UseSkill(DWORD dwVnum, LPCHARACTER pkVictim, bool bUseGrandMaste
 		int grade = GetSkillMasterType(SKILL_AMBUSH);
 		int multiplierByGrade[4] = { 5, 10, 11, 12 };
 		int iVal = 8 + GetSkillLevel(SKILL_AMBUSH) * multiplierByGrade[grade] / 10;
-		bool addBloodthirst = false;
 
 		CAffect* affect = FindAffect(AFFECT_BLOODTHIRST);
 		if (affect && affect->lDuration > 0)
 		{
-			addBloodthirst = true;
 
 			int maxStackDamage = iVal * 30 / 100 + GetPoint(POINT_DX) / 5;
 			int damagePerStack = maxStackDamage / 2;
@@ -3027,7 +3025,7 @@ int CHARACTER::GetSkillMasterType(DWORD dwVnum) const
 		return 0;
 	}
 
-	return m_pSkillLevels ? m_pSkillLevels[dwVnum].bMasterType:SKILL_NORMAL;
+	return m_pSkillLevels ? m_pSkillLevels[dwVnum].bMasterType : static_cast<BYTE>(SKILL_NORMAL);
 }
 
 int CHARACTER::GetSkillPower(DWORD dwVnum, BYTE bLevel) const
@@ -3881,6 +3879,7 @@ eMountType GetMountLevelByVnum(DWORD dwMountVnum, bool IsNew) // updated to 2014
 		case 20109: // normal military horse (guild master)
 			if (IsNew)
 				return MOUNT_TYPE_NONE;
+			[[fallthrough]];
 		// @fixme116 end
 		// Classic
 		case 20110: // Classic Boar
@@ -3923,6 +3922,7 @@ eMountType GetMountLevelByVnum(DWORD dwMountVnum, bool IsNew) // updated to 2014
 		case 20106: // normal combat horse (guild master)
 			if (IsNew)
 				return MOUNT_TYPE_NONE;
+			[[fallthrough]];
 		// @fixme116 end
 		case 20119: // Black Horse (no skill, yes atk)
 		case 20214: // Rudolph m Lv2 (no skill, yes atk)
@@ -3947,6 +3947,7 @@ eMountType GetMountLevelByVnum(DWORD dwMountVnum, bool IsNew) // updated to 2014
 		case 20103: // normal beginner horse (guild master)
 			if (IsNew)
 				return MOUNT_TYPE_NONE;
+			[[fallthrough]];
 		// @fixme116 end
 		case 20213: // Rudolph m Lv1 (no skill, no atk)
 		case 20216: // Rudolph f Lv1 (no skill, no atk)
@@ -3978,7 +3979,7 @@ static const DWORD SkillList[JOB_MAX_NUM][SKILL_GROUP_MAX_NUM][SKILL_COUNT] =
 #endif
 };
 
-const DWORD GetRandomSkillVnum(BYTE bJob)
+DWORD GetRandomSkillVnum(BYTE bJob)
 {
 	// the chosen skill
 	DWORD dwSkillVnum = 0;

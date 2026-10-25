@@ -18,7 +18,7 @@ echo "Derleyici: $CXX"
 
 mkdir -p "$BUILD_DIR"
 
-FLAGS="-std=c++20 -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE -w"
+FLAGS="-std=c++20 -Wall -Wextra -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE"
 
 RPATH=""
 if [ -d "/usr/local/lib/gcc14" ]; then

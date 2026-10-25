@@ -7,7 +7,7 @@
 #include "QID.h"
 #include "GuildManager.h"
 
-void CClientManager::GuildCreate(CPeer * peer, DWORD dwGuildID)
+void CClientManager::GuildCreate([[maybe_unused]] CPeer * peer, DWORD dwGuildID)
 {
 	sys_log(0, "GuildCreate %u", dwGuildID);
 	ForwardPacket(HEADER_DG_GUILD_LOAD, &dwGuildID, sizeof(DWORD));
@@ -15,13 +15,13 @@ void CClientManager::GuildCreate(CPeer * peer, DWORD dwGuildID)
 	CGuildManager::instance().Load(dwGuildID);
 }
 
-void CClientManager::GuildChangeGrade(CPeer* peer, TPacketGuild* p)
+void CClientManager::GuildChangeGrade([[maybe_unused]] CPeer* peer, TPacketGuild* p)
 {
 	sys_log(0, "GuildChangeGrade %u %u", p->dwGuild, p->dwInfo);
 	ForwardPacket(HEADER_DG_GUILD_CHANGE_GRADE, p, sizeof(TPacketGuild));
 }
 
-void CClientManager::GuildAddMember(CPeer* peer, TPacketGDGuildAddMember * p)
+void CClientManager::GuildAddMember([[maybe_unused]] CPeer* peer, TPacketGDGuildAddMember * p)
 {
 	CGuildManager::instance().TouchGuild(p->dwGuild);
 	sys_log(0, "GuildAddMember %u %u", p->dwGuild, p->dwPID);
@@ -30,12 +30,12 @@ void CClientManager::GuildAddMember(CPeer* peer, TPacketGDGuildAddMember * p)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"INSERT INTO guild_member%s VALUES(%u, %u, %d, 0, 0)",
-			GetTablePostfix(), p->dwPID, p->dwGuild, p->bGrade);
+			GetTablePostfix(), static_cast<unsigned int>(p->dwPID), static_cast<unsigned int>(p->dwGuild), p->bGrade);
 
 	auto pmsg_insert(CDBManager::instance().DirectQuery(szQuery));
 
 	snprintf(szQuery, sizeof(szQuery),
-			"SELECT pid, grade, is_general, offer, level, job, name FROM guild_member%s, player%s WHERE guild_id = %u and pid = id and pid = %u", GetTablePostfix(), GetTablePostfix(), p->dwGuild, p->dwPID);
+			"SELECT pid, grade, is_general, offer, level, job, name FROM guild_member%s, player%s WHERE guild_id = %u and pid = id and pid = %u", GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(p->dwGuild), static_cast<unsigned int>(p->dwPID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiNumRows == 0)
@@ -63,22 +63,22 @@ void CClientManager::GuildAddMember(CPeer* peer, TPacketGDGuildAddMember * p)
 	ForwardPacket(HEADER_DG_GUILD_ADD_MEMBER, &dg, sizeof(TPacketDGGuildMember));
 }
 
-void CClientManager::GuildRemoveMember(CPeer* peer, TPacketGuild* p)
+void CClientManager::GuildRemoveMember([[maybe_unused]] CPeer* peer, TPacketGuild* p)
 {
 	sys_log(0, "GuildRemoveMember %u %u", p->dwGuild, p->dwInfo);
 
 	char szQuery[512];
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_member%s WHERE pid=%u and guild_id=%u", GetTablePostfix(), p->dwInfo, p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_member%s WHERE pid=%u and guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwInfo), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	// @fixme202 new_+withdraw_time
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%u, 'guild_manage', 'new_withdraw_time', %u)", GetTablePostfix(), p->dwInfo, (DWORD) GetCurrentTime());
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%u, 'guild_manage', 'new_withdraw_time', %u)", GetTablePostfix(), static_cast<unsigned int>(p->dwInfo), static_cast<unsigned int>(GetCurrentTime()));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	ForwardPacket(HEADER_DG_GUILD_REMOVE_MEMBER, p, sizeof(TPacketGuild));
 }
 
-void CClientManager::GuildSkillUpdate(CPeer* peer, TPacketGuildSkillUpdate* p)
+void CClientManager::GuildSkillUpdate([[maybe_unused]] CPeer* peer, TPacketGuildSkillUpdate* p)
 {
 	sys_log(0, "GuildSkillUpdate %d", p->amount);
 	ForwardPacket(HEADER_DG_GUILD_SKILL_UPDATE, p, sizeof(TPacketGuildSkillUpdate));
@@ -96,26 +96,26 @@ void CClientManager::GuildChangeMemberData(CPeer* peer, TPacketGuildChangeMember
 	ForwardPacket(HEADER_DG_GUILD_CHANGE_MEMBER_DATA, p, sizeof(TPacketGuildChangeMemberData), 0, peer);
 }
 
-void CClientManager::GuildDisband(CPeer* peer, TPacketGuild* p)
+void CClientManager::GuildDisband([[maybe_unused]] CPeer* peer, TPacketGuild* p)
 {
 	sys_log(0, "GuildDisband %u", p->dwGuild);
 
 	char szQuery[512];
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild%s WHERE id=%u", GetTablePostfix(), p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_grade%s WHERE guild_id=%u", GetTablePostfix(), p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_grade%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	// @fixme401 (withdraw -> new_disband)_time
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO quest%s (dwPID, szName, szState, lValue) SELECT pid, 'guild_manage', 'new_disband_time', %u FROM guild_member%s WHERE guild_id = %u", GetTablePostfix(), (DWORD) GetCurrentTime(), GetTablePostfix(), p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO quest%s (dwPID, szName, szState, lValue) SELECT pid, 'guild_manage', 'new_disband_time', %u FROM guild_member%s WHERE guild_id = %u", GetTablePostfix(), static_cast<unsigned int>(GetCurrentTime()), GetTablePostfix(), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_comment%s WHERE guild_id=%u", GetTablePostfix(), p->dwGuild);
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM guild_comment%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwGuild));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	ForwardPacket(HEADER_DG_GUILD_DISBAND, p, sizeof(TPacketGuild));
@@ -136,7 +136,7 @@ const char* __GetWarType(int n)
 	}
 }
 
-void CClientManager::GuildWar(CPeer* peer, TPacketGuildWar* p)
+void CClientManager::GuildWar([[maybe_unused]] CPeer* peer, TPacketGuildWar* p)
 {
 	switch (p->bWar)
 	{
@@ -161,6 +161,7 @@ void CClientManager::GuildWar(CPeer* peer, TPacketGuildWar* p)
 
 		case GUILD_WAR_WAIT_START:
 			sys_log(0, "GuildWar: GUILD_WAR_WAIT_START type(%s) guild(%d - %d)", __GetWarType(p->bType), p->dwGuildFrom, p->dwGuildTo);
+			[[fallthrough]];
 		case GUILD_WAR_RESERVE:
 			if (p->bWar != GUILD_WAR_WAIT_START)
 				sys_log(0, "GuildWar: GUILD_WAR_RESERVE type(%s) guild(%d - %d)", __GetWarType(p->bType), p->dwGuildFrom, p->dwGuildTo);
@@ -198,7 +199,7 @@ void CClientManager::GuildWar(CPeer* peer, TPacketGuildWar* p)
 	ForwardPacket(HEADER_DG_GUILD_WAR, p, sizeof(TPacketGuildWar));
 }
 
-void CClientManager::GuildWarScore(CPeer* peer, TPacketGuildWarScore * p)
+void CClientManager::GuildWarScore([[maybe_unused]] CPeer* peer, TPacketGuildWarScore * p)
 {
 	CGuildManager::instance().UpdateScore(p->dwGuildGainPoint, p->dwGuildOpponent, p->lScore, p->lBetScore);
 }

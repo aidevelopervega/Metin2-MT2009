@@ -19,6 +19,7 @@ namespace ikashop
 			// checking activation only for real time first use
 			if (item.alSockets[1] == 0)
 				return false;
+			[[fallthrough]];
 		case ikashop::ExpirationType::EXPIRE_REAL_TIME:
 			// checking timestamp on socket 0 for both timers
 			if (now < item.alSockets[0])
@@ -42,11 +43,11 @@ namespace ikashop
 		, BYTE unlockCount, bool isPremium
 	);
 	std::string CreateShopCacheUpdateDurationQuery(DWORD dwOwnerID, DWORD dwDuration);
-	std::string CreateShopCacheDeleteItemQuery(DWORD dwOwnerID, DWORD dwItemID);
+	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] DWORD dwOwnerID, DWORD dwItemID);
 
 	//SAFEBOX
 	std::string CreateSafeboxCacheDeleteItemQuery(DWORD dwItem);
-	std::string CreateSafeboxCacheInsertItemQuery(DWORD dwOwner, DWORD dwItemID, const TShopPlayerItem& item);
+	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] DWORD dwOwner, [[maybe_unused]] DWORD dwItemID, const TShopPlayerItem& item);
 	std::string CreateSafeboxCacheUpdateValutes(DWORD dwOwner, const TValutesInfo& val);
 	std::string CreateSafeboxCacheInsertSafeboxValutesQuery(DWORD dwOwnerID);
 	std::string CreateSafeboxCacheUpdateValutesByAdding(DWORD dwOwner, const TValutesInfo& val);
@@ -1172,7 +1173,7 @@ namespace ikashop
 		return fmt::format("DELETE FROM `item` WHERE `id` = {}", dwItem);
 	}
 
-	std::string CreateSafeboxCacheInsertItemQuery(DWORD dwOwner, DWORD dwItemID, const TShopPlayerItem& item)
+	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] DWORD dwOwner, [[maybe_unused]] DWORD dwItemID, const TShopPlayerItem& item)
 	{
 		// making json value
 		rapidjson::Document jsonValue;
@@ -1266,7 +1267,7 @@ namespace ikashop
 		return fmt::format("DELETE from `ikashop_private_offer`  WHERE `id` = {};", dwOfferID);
 	}
 
-	std::string CreateShopCacheDeleteItemQuery(DWORD dwOwnerID, DWORD dwItemID)
+	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] DWORD dwOwnerID, DWORD dwItemID)
 	{
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '' WHERE `id` = {}", dwItemID);
 	}

@@ -194,7 +194,7 @@ DWORD CHARACTER_MANAGER::CountRace(DWORD dwRace, DWORD mapIndex, LPCHARACTER who
 
 	while (it != m_map_pkChrByVID.end())
 	{
-		if (it->second->GetRaceNum() == dwRace && it->second->GetMapIndex() == mapIndex)
+		if (it->second->GetRaceNum() == dwRace && it->second->GetMapIndex() == static_cast<long>(mapIndex))
 		{
 			count++;
 
@@ -285,7 +285,7 @@ LPCHARACTER CHARACTER_MANAGER::FindPlayerArg(const char* arg)
 	{
 		const char* pidStr = arg + 4; // Skip "pid:"
 
-		DWORD dwPID;
+		DWORD dwPID = 0;
 		str_to_number(dwPID, pidStr);
 		return FindPlayer(dwPID);
 	}
@@ -406,7 +406,7 @@ LPCHARACTER CHARACTER_MANAGER::SpawnMobRandomPosition(DWORD dwVnum, long lMapInd
 	char buf[512+1];
 	long local_x = x - pkSectreeMap->m_setting.iBaseX;
 	long local_y = y - pkSectreeMap->m_setting.iBaseY;
-	snprintf(buf, sizeof(buf), "spawn %s[%d] random position at %ld %ld %ld %ld (time: %d)", ch->GetName(), dwVnum, x, y, local_x, local_y, get_global_time());
+	snprintf(buf, sizeof(buf), "spawn %s[%u] random position at %ld %ld %ld %ld (time: %lld)", ch->GetName(), static_cast<unsigned int>(dwVnum), x, y, local_x, local_y, static_cast<long long>(get_global_time()));
 
 	if (test_server)
 		SendNotice(buf);
@@ -510,7 +510,7 @@ LPCHARACTER CHARACTER_MANAGER::SpawnMob(DWORD dwVnum, long lMapIndex, long x, lo
 	return (ch);
 }
 
-LPCHARACTER CHARACTER_MANAGER::SpawnMobRange(DWORD dwVnum, long lMapIndex, int sx, int sy, int ex, int ey, bool bIsException, bool bSpawnMotion, bool bAggressive )
+LPCHARACTER CHARACTER_MANAGER::SpawnMobRange(DWORD dwVnum, long lMapIndex, int sx, int sy, int ex, int ey, [[maybe_unused]] bool bIsException, bool bSpawnMotion, bool bAggressive )
 {
 	const CMob * pkMob = CMobManager::instance().Get(dwVnum);
 
@@ -1023,7 +1023,7 @@ int CHARACTER_MANAGER::GetMobItemRate(LPCHARACTER ch)
 	return m_iMobItemRate;
 }
 
-int CHARACTER_MANAGER::GetMobDamageRate(LPCHARACTER ch)
+int CHARACTER_MANAGER::GetMobDamageRate([[maybe_unused]] LPCHARACTER ch)
 {
 	return m_iMobDamageRate;
 }

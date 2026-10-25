@@ -159,7 +159,7 @@ bool SpecialSpawn::IsSpawned()
 			spawnCount--;
 	}
 
-	return spawnCount < maxSpawnCount;
+	return spawnCount < static_cast<int>(maxSpawnCount);
 }
 
 
@@ -184,19 +184,19 @@ void SpecialSpawn::StartEvent(int delay)
 	spawn_event = event_create(special_spawn_event, info, PASSES_PER_SEC(delay));
 }
 
-void SpecialSpawn::OnBoot(DWORD last_kill_delta)
+void SpecialSpawn::OnBoot(int last_kill_delta)
 {
 	int delay = initialSpawnDelay;
 	if (timeType == SPECIAL_SPAWN_TIME_NORMAL && last_kill_delta >= 0) {
 		auto spawnTime = GetSpawnRandomTime();
-		if (last_kill_delta < spawnTime) {
-			delay = spawnTime - last_kill_delta;
+		if (static_cast<DWORD>(last_kill_delta) < spawnTime) {
+			delay = spawnTime - static_cast<DWORD>(last_kill_delta);
 		}
 	}
 	StartEvent(delay);
 }
 
-void SpecialSpawn::OnSpawnedKill(LPCHARACTER ch)
+void SpecialSpawn::OnSpawnedKill([[maybe_unused]] LPCHARACTER ch)
 {
 	if (isSaveDestroyTime)
 		DBManager::instance().Query("REPLACE INTO special_spawn VALUES (%d, %d, NOW())", unique_vnum, g_bChannel);

@@ -392,7 +392,7 @@ namespace quest
 		return HandleReceiveAllEvent(pc, QUEST_LEVELUP_EVENT);
 	}
 
-	bool NPC::OnLogin(PC& pc, const char * c_pszQuestName)
+	bool NPC::OnLogin(PC& pc, [[maybe_unused]] const char * c_pszQuestName)
 	{
 		/*
 		   if (c_pszQuestName)
@@ -476,7 +476,7 @@ namespace quest
 			return vdwNewStartQuestIndices.size() != 0;
 		}
 
-		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
+		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
 		{
 			DWORD dwQuestIndex = itQuestMap->first;
 
@@ -512,7 +512,7 @@ namespace quest
 			return bMatched;
 		}
 
-		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
+		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
 		{
 			NPC::AQuestScriptType::iterator itQuestScript;
 
@@ -596,7 +596,7 @@ namespace quest
 			bHandled = false;
 		}
 
-		void operator() (PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
+		void operator() ([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
 		{
 			DWORD dwQuestIndex = itQuestMap->first;
 
@@ -679,7 +679,7 @@ namespace quest
 
 	struct FuncDoNothing
 	{
-		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
+		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, [[maybe_unused]] NPC::QuestMapType::iterator& itQuestMap)
 		{
 		}
 	};
@@ -693,7 +693,7 @@ namespace quest
 			bHandled = false;
 		}
 
-		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
+		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::QuestMapType::iterator& itQuestMap)
 		{
 			DWORD dwQuestIndex = itQuestMap->first;
 
@@ -901,7 +901,7 @@ namespace quest
 			: rAvailScript(rAvailScript)
 			{}
 
-		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::ArgQuestMapType::iterator& itQuestMap)
+		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::ArgQuestMapType::iterator& itQuestMap)
 		{
 			if (CQuestManager::instance().CanStartQuest(itQuestMap->first) && NPC::HasStartState(itQuestMap->second))
 			{
@@ -1029,7 +1029,7 @@ namespace quest
 		return result;
 	}
 
-	bool NPC::OnItemInformer(PC& pc, unsigned int vnum)
+	bool NPC::OnItemInformer(PC& pc, [[maybe_unused]] unsigned int vnum)
 	{
 		bool result = HandleEvent(pc, QUEST_ITEM_INFORMER_EVENT);
 

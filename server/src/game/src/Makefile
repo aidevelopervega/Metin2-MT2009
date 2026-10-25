@@ -33,17 +33,12 @@ endif
 LIBS = -lm -lmd
 
 # Project Flags
-CFLAGS  = -g -Wall -O2 -pipe -fexceptions -fno-strict-aliasing -pthread -D_THREAD_SAFE -DNDEBUG
-CFLAGS += -Wno-deprecated-declarations -Wno-nonnull-compare -Wno-array-bounds -Wno-address
-CFLAGS += -Wno-int-in-bool-context -Wno-format-truncation -Wno-stringop-truncation -Wno-sign-compare -Wno-deprecated-enum-enum-conversion
+CFLAGS  = -g -Wall -Wextra -O2 -pipe -fexceptions -fno-strict-aliasing -pthread -D_THREAD_SAFE -DNDEBUG
 
 CXXFLAGS = -std=c++20
 
-# for clang
-ifneq '' '$(findstring clang++,$(CXX))'
-CFLAGS += -Wno-invalid-source-encoding -Wno-deprecated-anon-enum-enum-conversion -Wno-unknown-warning-option
 # for gcc
-else ifneq '' '$(findstring g++,$(CXX))'
+ifneq '' '$(findstring g++,$(CXX))'
 ifneq ($(wildcard /usr/local/lib/gcc14),)
 CFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
 CXXFLAGS += -Wl,-rpath=/usr/local/lib/gcc14
@@ -68,10 +63,6 @@ endif
 
 ifeq ($(ENABLE_STATIC), 1)
 CFLAGS += -static
-endif
-
-ifeq ($(GccMinorEGT8), 1)
-CFLAGS += -Wno-unused-local-typedefs
 endif
 
 # FreeBSD stack protector

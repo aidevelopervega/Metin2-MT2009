@@ -111,8 +111,11 @@ void InvertibleESIGNFunction::GenerateRandom(RandomNumberGenerator &rng, const N
 
 	if (param.GetValue("Seed", seedParam))
 	{
+		if (seedParam.size() > static_cast<size_t>(-1) / 2 - 4)
+			throw InvalidArgument("InvertibleESIGNFunction: seed size exceeds maximum object size");
 		seed.resize(seedParam.size() + 4);
-		std::memcpy(seed + 4, seedParam.begin(), seedParam.size());
+		if (seedParam.size() > 0)
+			std::memcpy(seed + 4, seedParam.begin(), seedParam.size());
 
 		PutWord(false, BIG_ENDIAN_ORDER, seed, (word32)0);
 		m_p.GenerateRandom(rng, CombinedNameValuePairs(primeParam, MakeParameters("Seed", ConstByteArrayParameter(seed))));

@@ -172,7 +172,6 @@ namespace mining
 			return 0;
 
 		int defaultPct = 20;
-		int iSkillLevel = ch->GetSkillLevel(SKILL_MINING);
 
 		LPITEM pick = ch->GetWear(WEAR_WEAPON);
 

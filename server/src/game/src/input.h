@@ -55,7 +55,7 @@ class CInputClose : public CInputProcessor
 		virtual BYTE	GetType() { return INPROC_CLOSE; }
 
 	protected:
-		virtual int	Analyze(LPDESC d, BYTE bHeader, const char * c_pData) { return m_iBufferLeft; }
+		virtual int	Analyze([[maybe_unused]] LPDESC d, [[maybe_unused]] BYTE bHeader, [[maybe_unused]] const char * c_pData) { return m_iBufferLeft; }
 };
 
 class CInputHandshake : public CInputProcessor

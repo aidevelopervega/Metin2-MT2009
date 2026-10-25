@@ -41,7 +41,7 @@ inline INT decode_4bytes(const void *a)
 
 #define DEFAULT_PACKET_BUFFER_SIZE (150*1024) //@warme015 prevent dc if there are many entities
 
-inline bool __packet_encode(LPBUFFER& pbuf, const void * data, int length, const char * file, int line)
+inline bool __packet_encode(LPBUFFER& pbuf, const void * data, int length, [[maybe_unused]] const char * file, [[maybe_unused]] int line)
 {
 	assert(NULL != pbuf);
 	assert(NULL != data);

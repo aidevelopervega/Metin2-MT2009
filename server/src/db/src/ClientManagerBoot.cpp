@@ -1477,7 +1477,7 @@ bool CClientManager::InitializeItemShop()
             itemshop_time_auctions t
         ON
             i.index = t.item_index
-        )", GetTablePostfix());
+        )");
 
 	std::unique_ptr<SQLMsg> pkMsg(CDBManager::instance().DirectQuery(query, SQL_COMMON));
 	SQLResult* pRes = pkMsg->Get();
@@ -1502,8 +1502,8 @@ bool CClientManager::InitializeItemShop()
 	{
 		while ((buyCountData = mysql_fetch_row(pRes2->pSQLResult)))
 		{
-			DWORD item_index;
-			DWORD buy_count;
+			DWORD item_index = 0;
+			DWORD buy_count = 0;
 			int col = 0;
 
 			str_to_number(item_index, buyCountData[col++]);
@@ -1620,18 +1620,18 @@ bool CClientManager::MirrorMobTableIntoDB()
 				")",
 				GetTablePostfix(),
 
-				t.dwVnum, t.szName, t.bType, t.bRank, t.bBattleType, t.bLevel, t.bSize, t.dwAIFlag, t.dwRaceFlag, t.dwImmuneFlag,
-				t.bOnClickType, t.bEmpire, t.dwDropItemVnum, t.dwResurrectionVnum, t.szFolder,
-				t.bStr, t.bDex, t.bCon, t.bInt, t.dwDamageRange[0], t.dwDamageRange[1], t.dwMaxHP, t.bRegenCycle, t.bRegenPercent, t.dwExp,
+				static_cast<unsigned int>(t.dwVnum), t.szName, t.bType, t.bRank, t.bBattleType, t.bLevel, t.bSize, static_cast<unsigned int>(t.dwAIFlag), static_cast<unsigned int>(t.dwRaceFlag), static_cast<unsigned int>(t.dwImmuneFlag),
+				t.bOnClickType, t.bEmpire, static_cast<unsigned int>(t.dwDropItemVnum), static_cast<unsigned int>(t.dwResurrectionVnum), t.szFolder,
+				t.bStr, t.bDex, t.bCon, t.bInt, static_cast<unsigned int>(t.dwDamageRange[0]), static_cast<unsigned int>(t.dwDamageRange[1]), static_cast<unsigned int>(t.dwMaxHP), t.bRegenCycle, t.bRegenPercent, static_cast<unsigned int>(t.dwExp),
 
-				t.dwGoldMin, t.dwGoldMax, t.wDef, t.sAttackSpeed, t.sMovingSpeed, t.bAggresiveHPPct, t.wAggressiveSight, t.wAttackRange, t.dwPolymorphItemVnum,
+				static_cast<unsigned int>(t.dwGoldMin), static_cast<unsigned int>(t.dwGoldMax), t.wDef, t.sAttackSpeed, t.sMovingSpeed, t.bAggresiveHPPct, t.wAggressiveSight, t.wAttackRange, static_cast<unsigned int>(t.dwPolymorphItemVnum),
 				t.cEnchants[0], t.cEnchants[1], t.cEnchants[2], t.cEnchants[3], t.cEnchants[4], t.cEnchants[5],
 				t.cResists[0], t.cResists[1], t.cResists[2], t.cResists[3], t.cResists[4], t.cResists[5],
 				t.cResists[6], t.cResists[7], t.cResists[8], t.cResists[9], t.cResists[10],
-				t.fDamMultiply, t.dwSummonVnum, t.dwDrainSP,
+				t.fDamMultiply, static_cast<unsigned int>(t.dwSummonVnum), static_cast<unsigned int>(t.dwDrainSP),
 
-				t.Skills[0].dwVnum, t.Skills[0].bLevel, t.Skills[1].dwVnum, t.Skills[1].bLevel, t.Skills[2].dwVnum, t.Skills[2].bLevel,
-				t.Skills[3].dwVnum, t.Skills[3].bLevel, t.Skills[4].dwVnum, t.Skills[4].bLevel,
+				static_cast<unsigned int>(t.Skills[0].dwVnum), t.Skills[0].bLevel, static_cast<unsigned int>(t.Skills[1].dwVnum), t.Skills[1].bLevel, static_cast<unsigned int>(t.Skills[2].dwVnum), t.Skills[2].bLevel,
+				static_cast<unsigned int>(t.Skills[3].dwVnum), t.Skills[3].bLevel, static_cast<unsigned int>(t.Skills[4].dwVnum), t.Skills[4].bLevel,
 				t.bBerserkPoint, t.bStoneSkinPoint, t.bGodSpeedPoint, t.bDeathBlowPoint, t.bRevivePoint
 			);
 		}
@@ -1672,18 +1672,18 @@ bool CClientManager::MirrorMobTableIntoDB()
 				")",
 				GetTablePostfix(), g_stLocaleNameColumn.c_str(),
 
-				t.dwVnum, t.szName, t.szLocaleName, t.bType, t.bRank, t.bBattleType, t.bLevel, t.bSize, t.dwAIFlag, t.dwRaceFlag, t.dwImmuneFlag,
-				t.bOnClickType, t.bEmpire, t.dwDropItemVnum, t.dwResurrectionVnum, t.szFolder,
-				t.bStr, t.bDex, t.bCon, t.bInt, t.dwDamageRange[0], t.dwDamageRange[1], t.dwMaxHP, t.bRegenCycle, t.bRegenPercent, t.dwExp,
+				static_cast<unsigned int>(t.dwVnum), t.szName, t.szLocaleName, t.bType, t.bRank, t.bBattleType, t.bLevel, t.bSize, static_cast<unsigned int>(t.dwAIFlag), static_cast<unsigned int>(t.dwRaceFlag), static_cast<unsigned int>(t.dwImmuneFlag),
+				t.bOnClickType, t.bEmpire, static_cast<unsigned int>(t.dwDropItemVnum), static_cast<unsigned int>(t.dwResurrectionVnum), t.szFolder,
+				t.bStr, t.bDex, t.bCon, t.bInt, static_cast<unsigned int>(t.dwDamageRange[0]), static_cast<unsigned int>(t.dwDamageRange[1]), static_cast<unsigned int>(t.dwMaxHP), t.bRegenCycle, t.bRegenPercent, static_cast<unsigned int>(t.dwExp),
 
-				t.dwGoldMin, t.dwGoldMax, t.wDef, t.sAttackSpeed, t.sMovingSpeed, t.bAggresiveHPPct, t.wAggressiveSight, t.wAttackRange, t.dwPolymorphItemVnum,
+				static_cast<unsigned int>(t.dwGoldMin), static_cast<unsigned int>(t.dwGoldMax), t.wDef, t.sAttackSpeed, t.sMovingSpeed, t.bAggresiveHPPct, t.wAggressiveSight, t.wAttackRange, static_cast<unsigned int>(t.dwPolymorphItemVnum),
 				t.cEnchants[0], t.cEnchants[1], t.cEnchants[2], t.cEnchants[3], t.cEnchants[4], t.cEnchants[5],
 				t.cResists[0], t.cResists[1], t.cResists[2], t.cResists[3], t.cResists[4], t.cResists[5],
 				t.cResists[6], t.cResists[7], t.cResists[8], t.cResists[9], t.cResists[10],
-				t.fDamMultiply, t.dwSummonVnum, t.dwDrainSP,
+				t.fDamMultiply, static_cast<unsigned int>(t.dwSummonVnum), static_cast<unsigned int>(t.dwDrainSP),
 
-				t.Skills[0].dwVnum, t.Skills[0].bLevel, t.Skills[1].dwVnum, t.Skills[1].bLevel, t.Skills[2].dwVnum, t.Skills[2].bLevel,
-				t.Skills[3].dwVnum, t.Skills[3].bLevel, t.Skills[4].dwVnum, t.Skills[4].bLevel,
+				static_cast<unsigned int>(t.Skills[0].dwVnum), t.Skills[0].bLevel, static_cast<unsigned int>(t.Skills[1].dwVnum), t.Skills[1].bLevel, static_cast<unsigned int>(t.Skills[2].dwVnum), t.Skills[2].bLevel,
+				static_cast<unsigned int>(t.Skills[3].dwVnum), t.Skills[3].bLevel, static_cast<unsigned int>(t.Skills[4].dwVnum), t.Skills[4].bLevel,
 				t.bBerserkPoint, t.bStoneSkinPoint, t.bGodSpeedPoint, t.bDeathBlowPoint, t.bRevivePoint
 			);
 		}
@@ -1717,9 +1717,9 @@ bool CClientManager::MirrorItemTableIntoDB()
 				"%u, %d, %u, %d, %u, %d, " //30
 				"%d, %d, %d, %d, %d, %d )", //36
 				GetTablePostfix(), g_stLocaleNameColumn.c_str(), //2
-				t.dwVnum, t.bType, t.bSubType, t.szName, t.szLocaleName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize, //11
-				t.dwFlags, t.dwWearFlags, t.dwAntiFlags, t.dwImmuneFlag, //15
-				t.dwRefinedVnum, t.wRefineSet, t.bAlterToMagicItemPct, t.bGainSocketPct, t.sAddonType, //20
+				static_cast<unsigned int>(t.dwVnum), t.bType, t.bSubType, t.szName, t.szLocaleName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize, //11
+				static_cast<unsigned int>(t.dwFlags), static_cast<unsigned int>(t.dwWearFlags), static_cast<unsigned int>(t.dwAntiFlags), static_cast<unsigned int>(t.dwImmuneFlag), //15
+				static_cast<unsigned int>(t.dwRefinedVnum), t.wRefineSet, t.bAlterToMagicItemPct, t.bGainSocketPct, t.sAddonType, //20
 				t.aLimits[0].bType, t.aLimits[0].lValue, t.aLimits[1].bType, t.aLimits[1].lValue, //24
 				t.aApplies[0].bType, t.aApplies[0].lValue, t.aApplies[1].bType, t.aApplies[1].lValue, t.aApplies[2].bType, t.aApplies[2].lValue, //30
 				t.alValues[0], t.alValues[1], t.alValues[2], t.alValues[3], t.alValues[4], t.alValues[5]); //36
@@ -1738,16 +1738,16 @@ bool CClientManager::MirrorItemTableIntoDB()
 				"applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, "
 				"value0, value1, value2, value3, value4, value5 ) "
 				"values ("
-				"%d, %d, %d, \"%s\", %lld, %lld, %d, %d, "
-				"%d, %d, %d, %d, "
-				"%d, %d, %d, %d, %d, "
+				"%u, %d, %d, \"%s\", %lld, %lld, %d, %d, "
+				"%u, %u, %u, %u, "
+				"%u, %d, %d, %d, %d, "
 				"%d, %d, %d, %d, "
 				"%d, %d, %d, %d, %d, %d, "
 				"%d, %d, %d, %d, %d, %d )",
 				GetTablePostfix(),
-				t.dwVnum, t.bType, t.bSubType, t.szName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize,
-				t.dwFlags, t.dwWearFlags, t.dwAntiFlags, t.dwImmuneFlag,
-				t.dwRefinedVnum, t.wRefineSet, t.bAlterToMagicItemPct, t.bGainSocketPct, t.sAddonType,
+				static_cast<unsigned int>(t.dwVnum), t.bType, t.bSubType, t.szName, t.dwGold, t.dwShopBuyPrice, t.bWeight, t.bSize,
+				static_cast<unsigned int>(t.dwFlags), static_cast<unsigned int>(t.dwWearFlags), static_cast<unsigned int>(t.dwAntiFlags), static_cast<unsigned int>(t.dwImmuneFlag),
+				static_cast<unsigned int>(t.dwRefinedVnum), t.wRefineSet, t.bAlterToMagicItemPct, t.bGainSocketPct, t.sAddonType,
 				t.aLimits[0].bType, t.aLimits[0].lValue, t.aLimits[1].bType, t.aLimits[1].lValue,
 				t.aApplies[0].bType, t.aApplies[0].lValue, t.aApplies[1].bType, t.aApplies[1].lValue, t.aApplies[2].bType, t.aApplies[2].lValue,
 				t.alValues[0], t.alValues[1], t.alValues[2], t.alValues[3], t.alValues[4], t.alValues[5]);
@@ -1948,7 +1948,7 @@ bool CClientManager::InitializeMobTableFromDB()
 	}
 	sort(m_vec_mobTable.begin(), m_vec_mobTable.end(), FCompareVnum());
 
-	fprintf(stdout, "Complete! %u Mobs loaded.\n", addNumber);
+	fprintf(stdout, "Complete! %u Mobs loaded.\n", static_cast<unsigned int>(addNumber));
 	return true;
 }
 
@@ -2114,7 +2114,7 @@ bool CClientManager::InitializeItemTableFromDB()
 	}
 	sort(m_vec_itemTable.begin(), m_vec_itemTable.end(), FCompareVnum());
 
-	fprintf(stdout, "Complete! %u Items loaded.\n", addNumber);
+	fprintf(stdout, "Complete! %u Items loaded.\n", static_cast<unsigned int>(addNumber));
 	return true;
 }
 #endif

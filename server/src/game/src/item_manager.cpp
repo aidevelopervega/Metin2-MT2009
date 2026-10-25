@@ -327,7 +327,7 @@ LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTr
 		if (bTryMagic)
 		{
 			int base_rare_pct = table->bAlterToMagicItemPct;
-			if (iRarePct == -1 || iRarePct > 0 && iRarePct < base_rare_pct)
+			if (iRarePct == -1 || (iRarePct > 0 && iRarePct < base_rare_pct))
 				iRarePct = base_rare_pct;
 
 			int real_chance = iRarePct > 0 ? (iRarePct + addRarePct) : 0;
@@ -341,7 +341,7 @@ LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTr
 
 		if (vnum == 50300 || vnum == ITEM_SKILLFORGET_VNUM)
 		{
-			extern const DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
+			extern DWORD GetRandomSkillVnum(BYTE bJob = JOB_MAX_NUM);
 			item->SetSocket(0, GetRandomSkillVnum());
 		}
 		else if (ITEM_SKILLFORGET2_VNUM == vnum)
@@ -505,7 +505,7 @@ void ITEM_MANAGER::RemoveItem(LPITEM item, const char * c_pszReason)
 	if ((o = item->GetOwner()))
 	{
 		char szHint[64 + 1];
-		snprintf(szHint, sizeof(szHint), "%s %d", item->GetName(), item->GetCount());
+		snprintf(szHint, sizeof(szHint), "%s %u", item->GetName(), static_cast<unsigned int>(item->GetCount()));
 		LogManager::instance().ItemLog(o, item, c_pszReason ? c_pszReason : "REMOVE", szHint, true);
 
 		// SAFEBOX_TIME_LIMIT_ITEM_BUG_FIX
@@ -681,7 +681,7 @@ bool ITEM_MANAGER::GetVnum(const char * c_pszName, DWORD & r_dwVnum)
 	return false;
 }
 
-bool ITEM_MANAGER::GetVnumByOriginalName(const char * c_pszName, DWORD & r_dwVnum)
+bool ITEM_MANAGER::GetVnumByOriginalName([[maybe_unused]] const char * c_pszName, [[maybe_unused]] DWORD & r_dwVnum)
 {
 	//int len = strlen(c_pszName);
 
@@ -838,7 +838,7 @@ void SetDropRarePct(LPCHARACTER pkMob, int& rarePct, TItemTable * itemTable)
 	{
 		setPct = MAX(rarePct, 25);
 	}
-	else if (dwRace >= 491 && dwRace <= 494 ||	// m2
+	else if ((dwRace >= 491 && dwRace <= 494) ||	// m2
 		dwRace == 681 ||                    // dolina
 		dwRace == 781 || dwRace == 782 ||   // hwang
 		dwRace == 1181 || dwRace == 1182 || // sohan
@@ -1786,7 +1786,7 @@ void ITEM_MANAGER::ListMobItemDrop(LPCHARACTER ch, DWORD mobVnum)
 			if (itemTable)
 			{
 				float prob = 0;
-				if (ch->GetLevel() >= levelIt->second->GetLevelLimit())
+				if (static_cast<DWORD>(ch->GetLevel()) >= levelIt->second->GetLevelLimit())
 					prob = (float)item.dwPct / 1000000;
 				ch->ChatPacket(CHAT_TYPE_INFO, "%dx %s (%d) %.2f%%", item.iCount, itemTable->szLocaleName, item.dwVNum, prob * 100);
 			}

@@ -15,7 +15,7 @@ void CGuildMarkManager::__DeleteImage(CGuildMarkImage * pkImgDel)
 
 CGuildMarkManager::CGuildMarkManager()
 {
-	for (DWORD i = 0; i < MAX_IMAGE_COUNT * CGuildMarkImage::MARK_TOTAL_COUNT; ++i)
+	for (DWORD i = 0; i < static_cast<DWORD>(MAX_IMAGE_COUNT) * static_cast<DWORD>(CGuildMarkImage::MARK_TOTAL_COUNT); ++i)
 		m_setFreeMarkID.emplace(i);
 }
 
@@ -33,7 +33,7 @@ bool CGuildMarkManager::GetMarkImageFilename(DWORD imgIdx, std::string & path) c
 		return false;
 
 	char buf[64];
-	snprintf(buf, sizeof(buf), "mark/%s_%u.tga", m_pathPrefix.c_str(), imgIdx);
+	snprintf(buf, sizeof(buf), "mark/%s_%u.tga", m_pathPrefix.c_str(), static_cast<unsigned int>(imgIdx));
 	path = buf;
 	return true;
 }
@@ -59,7 +59,10 @@ bool CGuildMarkManager::LoadMarkIndex()
 
 	while (fgets(line, sizeof(line)-1, fp))
 	{
-		sscanf(line, "%u %u", &guildID, &markID);
+		unsigned int uGuildID = 0, uMarkID = 0;
+		sscanf(line, "%u %u", &uGuildID, &uMarkID);
+		guildID = uGuildID;
+		markID = uMarkID;
 		line[0] = '\0';
 		AddMarkIDByGuildID(guildID, markID);
 	}
@@ -83,7 +86,7 @@ bool CGuildMarkManager::SaveMarkIndex()
 	}
 
 	for (std::map<DWORD, DWORD>::iterator it = m_mapGID_MarkID.begin(); it != m_mapGID_MarkID.end(); ++it)
-		fprintf(fp, "%u %u\n", it->first, it->second);
+		fprintf(fp, "%u %u\n", static_cast<unsigned int>(it->first), static_cast<unsigned int>(it->second));
 
 	fclose(fp);
 	sys_log(0, "MarkManager::SaveMarkIndex: index count %d", m_mapGID_MarkID.size());
@@ -99,7 +102,7 @@ void CGuildMarkManager::LoadMarkImages()
 	{
 		DWORD markID = it->second;
 
-		if (markID < MAX_IMAGE_COUNT * CGuildMarkImage::MARK_TOTAL_COUNT)
+		if (markID < static_cast<DWORD>(MAX_IMAGE_COUNT) * static_cast<DWORD>(CGuildMarkImage::MARK_TOTAL_COUNT))
 			isMarkExists[markID / CGuildMarkImage::MARK_TOTAL_COUNT] = true;
 	}
 
@@ -147,7 +150,7 @@ CGuildMarkImage * CGuildMarkManager::__GetImage(DWORD imgIdx)
 
 bool CGuildMarkManager::AddMarkIDByGuildID(DWORD guildID, DWORD markID)
 {
-	if (markID >= MAX_IMAGE_COUNT * CGuildMarkImage::MARK_TOTAL_COUNT)
+	if (markID >= static_cast<DWORD>(MAX_IMAGE_COUNT) * static_cast<DWORD>(CGuildMarkImage::MARK_TOTAL_COUNT))
 		return false;
 
 	//sys_log(0, "MarkManager: guild_id=%d mark_id=%d", guildID, markID);

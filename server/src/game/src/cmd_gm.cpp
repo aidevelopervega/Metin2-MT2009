@@ -1029,7 +1029,7 @@ ACMD(do_state)
 	{
 		TMapSetting& map_setting = SECTREE_MANAGER::instance().GetMap(tch->GetMapIndex())->m_setting;
 		snprintf(buf + len, sizeof(buf) - len, " MapIndex %ld Attribute %08X Local Position (%ld x %ld)",
-			tch->GetMapIndex(), pSec->GetAttribute(tch->GetX(), tch->GetY()), (tch->GetX() - map_setting.iBaseX)/100, (tch->GetY() - map_setting.iBaseY)/100);
+			tch->GetMapIndex(), static_cast<unsigned int>(pSec->GetAttribute(tch->GetX(), tch->GetY())), (tch->GetX() - map_setting.iBaseX)/100, (tch->GetY() - map_setting.iBaseY)/100);
 	}
 
 	ch->ChatPacket(CHAT_TYPE_INFO, "%s", buf);
@@ -2900,7 +2900,7 @@ ACMD(do_priv_guild)
 		else
 		{
 			char buf[1024+1];
-			snprintf(buf, sizeof(buf), "%d", g->GetID()); // @fixme177
+			snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(g->GetID())); // @fixme177
 
 			using namespace quest;
 			PC * pc = CQuestManager::instance().GetPC(ch->GetPlayerID());
@@ -3251,7 +3251,7 @@ ACMD(do_build)
 						if (dwItemVnum == 0)
 							break;
 
-						if ((int) dwItemCount > ch->CountSpecifyItem(dwItemVnum))
+						if (dwItemCount > ch->CountSpecifyItem(dwItemVnum))
 						{
 							ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not have enough resources to build a building."));
 							return;
@@ -4820,7 +4820,7 @@ ACMD(do_special_spawn_info)
 	char arg1[256];
 	one_argument(argument, arg1, sizeof(arg1));
 
-	int vnum;
+	int vnum = 0;
 	str_to_number(vnum, arg1);
 
 	std::map<DWORD, LPSPECIAL_SPAWN>& spawnsMap = SpecialSpawnManager::instance().m_map_specialSpawns;

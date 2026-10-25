@@ -282,7 +282,7 @@ void CPVPManager::Connect(LPCHARACTER pkChr)
 	ConnectEx(pkChr, false);
 }
 
-void CPVPManager::Disconnect(LPCHARACTER pkChr)
+void CPVPManager::Disconnect([[maybe_unused]] LPCHARACTER pkChr)
 {
 	//ConnectEx(pkChr, true);
 }

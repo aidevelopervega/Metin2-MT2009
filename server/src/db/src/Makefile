@@ -21,9 +21,7 @@ DEPFILE = Depend
 endif
 
 # Project Flags
-CFLAGS  = -g -Wall -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE
-CFLAGS += -Wno-deprecated-declarations -Wno-array-bounds -Wno-address
-CFLAGS += -Wno-format-truncation -Wno-deprecated-enum-enum-conversion
+CFLAGS  = -g -Wall -Wextra -O2 -pipe -fno-rtti -fno-exceptions -pthread -D_THREAD_SAFE
 
 CXXFLAGS = -std=c++20
 

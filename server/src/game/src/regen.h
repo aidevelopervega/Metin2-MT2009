@@ -53,9 +53,9 @@ typedef struct regen
 		is_aggressive(0),
 		is_high_traffic_hours(0),
 		is_first_spawn_delayed(0),
+		is_boss_or_stone(false),
 		event(NULL),
-		id(0),
-		is_boss_or_stone(false)
+		id(0)
 	{}
 
 	DWORD GetSpawnDelay()

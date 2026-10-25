@@ -1018,7 +1018,7 @@ void CDungeon::Purge()
 	pkMap->for_each(f);
 }
 
-void CDungeon::IncKillCount(LPCHARACTER pkKiller, LPCHARACTER pkVictim)
+void CDungeon::IncKillCount([[maybe_unused]] LPCHARACTER pkKiller, LPCHARACTER pkVictim)
 {
 	if (pkVictim->IsStone())
 		m_iStoneKill ++;
@@ -1062,12 +1062,12 @@ void CDungeon::SetLevel(int level)
 	pMap->for_each(f);
 }
 
-void CDungeon::UsePotion(LPCHARACTER ch)
+void CDungeon::UsePotion([[maybe_unused]] LPCHARACTER ch)
 {
 	m_bUsePotion = true;
 }
 
-void CDungeon::UseRevive(LPCHARACTER ch)
+void CDungeon::UseRevive([[maybe_unused]] LPCHARACTER ch)
 {
 	m_bUseRevive = true;
 }

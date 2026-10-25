@@ -4,7 +4,7 @@
 #include "char.h"
 #include "common_ai.h"
 
-void CommonAI_HealOnDamage(LPCHARACTER victim, int& damage, BYTE damageType)
+void CommonAI_HealOnDamage(LPCHARACTER victim, int& damage, [[maybe_unused]] BYTE damageType)
 {
 	if (victim == NULL)
 		return;

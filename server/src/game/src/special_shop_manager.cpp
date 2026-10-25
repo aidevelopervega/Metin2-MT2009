@@ -257,7 +257,7 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 
 				const auto seed = GetShopMetaData(shop_vnum).seed + item->vnum;
 				auto randomItems = GetRandomItems(seed, item);
-				for (int i = 0; i < randomItems.size(); i++)
+				for (size_t i = 0; i < randomItems.size(); i++)
 				{
 					sendItem.items[last_items_index + i] = randomItems[i];
 				}
@@ -491,7 +491,7 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 		auto meta = GetShopMetaData(shopGuest.shop_vnum);
 
 		char buf[128 + 1];
-		snprintf(buf, sizeof(buf), "%d %d %dx %s %d", shopGuest.shop_vnum, item->vnum, item->count, pkItem->GetName(), meta.seed);
+		snprintf(buf, sizeof(buf), "%u %u %ux %s %u", static_cast<unsigned int>(shopGuest.shop_vnum), static_cast<unsigned int>(item->vnum), static_cast<unsigned int>(item->count), pkItem->GetName(), static_cast<unsigned int>(meta.seed));
 
 		LogManager::instance().ItemLog(ch, pkItem, "SPECIAL_BUY", buf);
 	}

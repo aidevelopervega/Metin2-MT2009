@@ -70,7 +70,7 @@ class CHorseRider
 		virtual void SendHorseInfo() {}
 		virtual void ClearHorseInfo() {}
 
-		virtual void UpdateRideTime(int interval) {}
+		virtual void UpdateRideTime([[maybe_unused]] int interval) {}
 
 	protected:
 		void SetHorseData(const THorseInfo& crInfo);

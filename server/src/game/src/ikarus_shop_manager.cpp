@@ -120,7 +120,7 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 	if(filter.type == 0)
 		return true;
 
-	static auto MatchWeapon = [](const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) -> bool {
+	static auto MatchWeapon = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) -> bool {
 		if(table->bType != ITEM_WEAPON)
 			return false;
 		if(filter.subtype == 0)
@@ -157,7 +157,7 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 		return false;
 	};
 
-	static auto MatchArmor = [](const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
+	static auto MatchArmor = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
 		if(table->bType != ITEM_ARMOR || table->bSubType != ARMOR_BODY)
 			return false;
 		if(filter.subtype == 0)
@@ -180,7 +180,7 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 		return false;
 	};
 
-	static auto MatchJewel = [](const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
+	static auto MatchJewel = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
 		if (table->bType != ITEM_ARMOR || table->bSubType == ARMOR_BODY)
 			return false;
 		if (filter.subtype == 0)
@@ -203,7 +203,7 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 		return false;
 	};
 
-	static auto MatchCostume = [](const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
+	static auto MatchCostume = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
 		if(table->bType != ITEM_COSTUME)
 			return false;
 		if(filter.subtype == 0)
@@ -228,7 +228,7 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 		return false;
 	};
 
-	static auto MatchPet = [](const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
+	static auto MatchPet = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
 		if(table->bType != ITEM_PET || (table->bSubType != PET_EGG && table->bSubType != PET_UPBRINGING && table->bSubType != PET_PAY))
 			return false;
 		if(filter.subtype == 0)
@@ -276,14 +276,14 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 	return false;
 }
 
-bool MatchSpecial(const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table)
+bool MatchSpecial([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table)
 {
 	if(table->bType == ITEM_DS)
 	{
 		if(filter.alchemyGrade != 0)
 		{
 			const auto grade = (table->dwVnum / 1000) % 10;
-			return grade+1 >= filter.alchemyGrade;
+			return static_cast<int>(grade + 1) >= filter.alchemyGrade;
 		}
 	}
 
@@ -808,13 +808,13 @@ namespace ikashop
 			}
 		}
 
-		if (shopsOnMap >= it->second.shopPremiumLimit)
+		if (static_cast<int>(shopsOnMap) >= it->second.shopPremiumLimit)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_MAX_LIMIT"));
 			return false;
 		}
 
-		if (ch->GetPremiumRemainSeconds(PREMIUM_SHOP) <= 0 && shopsOnMap >= it->second.shopLimit)
+		if (ch->GetPremiumRemainSeconds(PREMIUM_SHOP) <= 0 && static_cast<int>(shopsOnMap) >= it->second.shopLimit)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_MAX_LIMIT_FREE"));
 			return false;
@@ -1554,7 +1554,7 @@ namespace ikashop
 
 		TSubPacketGDShopChangeName subpack{};
 		subpack.ownerid	= ownerid;
-		strncpy(subpack.name, name, sizeof(subpack.name));
+		strlcpy(subpack.name, name, sizeof(subpack.name));
 
 		TEMP_BUFFER buff;
 		buff.write(&pack, sizeof(pack));
@@ -2367,8 +2367,7 @@ namespace ikashop
 //#endif
 
 		// the system assumes that the items were already checked in CHARACTER::OpenMyShop
-		TShopItem items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
-		std::memset(items, 0, sizeof(items));
+		TShopItem items[SHOP_PLAYER_HOST_ITEM_MAX_NUM]{};
 		for (size_t i = 0; i < bItemCount; ++i)
 		{
 			auto item = ch->GetItem(pItemTable[i].pos);
@@ -2617,7 +2616,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopBuyItemClientPacket(LPCHARACTER ch, DWORD ownerid, DWORD itemid, bool searching, long long seenprice)  //patch seen price check
+	bool CShopManager::RecvShopBuyItemClientPacket(LPCHARACTER ch, DWORD ownerid, DWORD itemid, [[maybe_unused]] bool searching, long long seenprice)  //patch seen price check
 	{
 		if(!ch || !CheckGMLevel(ch))
 			return false;
@@ -2911,7 +2910,7 @@ namespace ikashop
 		return false;
 	}
 
-	bool CShopManager::RecvShopSearchItemClientPacket(LPCHARACTER ch, DWORD itemVnum, int socket0)
+	bool CShopManager::RecvShopSearchItemClientPacket(LPCHARACTER ch, DWORD itemVnum, [[maybe_unused]] int socket0)
 	{
 		if (!ch)
 			return false;
@@ -4539,7 +4538,7 @@ namespace ikashop
 	}
 #endif
 
-	void CShopManager::SendBoardCountersClientPacket(LPCHARACTER ch)
+	void CShopManager::SendBoardCountersClientPacket([[maybe_unused]] LPCHARACTER ch)
 	{
 		// mt2009 remove counters
 		/*if (!ch || !ch->GetDesc())
