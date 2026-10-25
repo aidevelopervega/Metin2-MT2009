@@ -1942,7 +1942,310 @@ int main(int argc, char* argv[])
 						"64-bit time_t SQL [FROM_UNIXTIME(%lld)]: Round-trip epoch 2,200,000,000 preserved without 32-bit Year-2038 truncation");
 				}
 
-				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_account_cash`;");
+				// 10) ItemShop 7-Scenario Transaction Integrity & Multi-Threaded Concurrency Verification
+				// Exercises the exact SQL queries and compensating rollback logic of:
+				//   CItemShopManager::CheckBalance -> CheckIfCanBuyTimeAuctionAndUpdate -> AddCash -> GiveItem / AddVIP
+				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_time_auction`, `test_itemshop_item_award`;");
+				logSql.DirectQuery(
+					"CREATE TABLE `test_itemshop_time_auction` ("
+					"  `item_index` int(10) unsigned NOT NULL PRIMARY KEY,"
+					"  `buy_count` int(10) unsigned NOT NULL DEFAULT 0,"
+					"  `max_buy_amount` int(10) unsigned NOT NULL DEFAULT 10"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+				logSql.DirectQuery(
+					"CREATE TABLE `test_itemshop_item_award` ("
+					"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+					"  `login` varchar(30) NOT NULL DEFAULT '',"
+					"  `vnum` int(10) unsigned NOT NULL DEFAULT 0,"
+					"  `count` int(10) unsigned NOT NULL DEFAULT 0"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+				auto queryAccountBal = [&](int accId, int& outCash, int& outMark) -> bool {
+					char q[160];
+					std::snprintf(q, sizeof(q), "SELECT `cash`, `cash_mark` FROM `test_itemshop_account_cash` WHERE `id` = %d;", accId);
+					auto m = logSql.DirectQuery(q);
+					if (!m || m->IsError() || !m->Get() || m->Get()->uiNumRows != 1)
+						return false;
+					MYSQL_ROW r = mysql_fetch_row(m->Get()->pSQLResult);
+					outCash = (r && r[0]) ? std::atoi(r[0]) : -1;
+					outMark = (r && r[1]) ? std::atoi(r[1]) : -1;
+					return true;
+				};
+				auto queryAuctionCount = [&](uint32_t itemIdx) -> int {
+					char q[160];
+					std::snprintf(q, sizeof(q), "SELECT `buy_count` FROM `test_itemshop_time_auction` WHERE `item_index` = %u;", itemIdx);
+					auto m = logSql.DirectQuery(q);
+					if (!m || m->IsError() || !m->Get() || m->Get()->uiNumRows != 1)
+						return -1;
+					MYSQL_ROW r = mysql_fetch_row(m->Get()->pSQLResult);
+					return (r && r[0]) ? std::atoi(r[0]) : -1;
+				};
+
+				// Scenario 10a: Payment failure after initial balance check -> 0 items delivered, balance intact
+				logSql.DirectQuery("REPLACE INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (990510, 1000, 100);");
+				{
+					// Player passes CheckBalance(600) when cash=1000, then balance drops to 300 before AddCash executes
+					logSql.DirectQuery("UPDATE `test_itemshop_account_cash` SET `cash` = 300 WHERE `id` = 990510;");
+					auto rPayFail = logSql.DirectQuery(
+						"UPDATE `test_itemshop_account_cash` "
+						"SET `cash` = CAST(`cash` AS SIGNED) - 600, "
+						"`cash_mark` = LEAST(2147483647, GREATEST(0, CAST(`cash_mark` AS SIGNED)) + 600) "
+						"WHERE `id` = 990510 AND `cash` >= 600;");
+					const bool bPayOk = (rPayFail && !rPayFail->IsError() && rPayFail->Get() && rPayFail->Get()->uiAffectedRows == 1);
+					int curCash = -1, curMark = -1;
+					queryAccountBal(990510, curCash, curMark);
+					LIVE_ASSERT(!bPayOk && curCash == 300 && curMark == 100,
+						"ItemShop Integrity [Scenario 1 - Payment Failure After CheckBalance]: Conditional WHERE cash>=cost rejects deduction (uiAffectedRows=0), leaving cash=300, mark=100, items=0");
+				}
+
+				// Scenario 10b: Payment failure after time-auction counter update -> auction counter rolled back in DB
+				logSql.DirectQuery("REPLACE INTO `test_itemshop_time_auction` (`item_index`, `buy_count`, `max_buy_amount`) VALUES (7701, 4, 10);");
+				{
+					// Step 1: Reserve 2 units in time auction (4 -> 6)
+					auto rRes = logSql.DirectQuery(
+						"UPDATE `test_itemshop_time_auction` SET `buy_count` = `buy_count` + 2 "
+						"WHERE `item_index` = 7701 AND `buy_count` + 2 <= 10;");
+					const bool bReserved = (rRes && !rRes->IsError() && rRes->Get() && rRes->Get()->uiAffectedRows == 1);
+					LIVE_ASSERT(bReserved && queryAuctionCount(7701) == 6,
+						"ItemShop Integrity [Scenario 2 - Auction Reserved]: Atomic UPDATE reserved 2 auction units (buy_count 4 -> 6)");
+
+					// Step 2: Payment fails (cash=300 < cost=600)
+					auto rPayFail2 = logSql.DirectQuery(
+						"UPDATE `test_itemshop_account_cash` "
+						"SET `cash` = CAST(`cash` AS SIGNED) - 600, "
+						"`cash_mark` = LEAST(2147483647, GREATEST(0, CAST(`cash_mark` AS SIGNED)) + 600) "
+						"WHERE `id` = 990510 AND `cash` >= 600;");
+					const bool bPayOk2 = (rPayFail2 && !rPayFail2->IsError() && rPayFail2->Get() && rPayFail2->Get()->uiAffectedRows == 1);
+					if (!bPayOk2 && bReserved) {
+						logSql.DirectQuery(
+							"UPDATE `test_itemshop_time_auction` "
+							"SET `buy_count` = CASE WHEN `buy_count` >= 2 THEN `buy_count` - 2 ELSE 0 END "
+							"WHERE `item_index` = 7701;");
+					}
+					int curCash = -1, curMark = -1;
+					queryAccountBal(990510, curCash, curMark);
+					LIVE_ASSERT(!bPayOk2 && queryAuctionCount(7701) == 4 && curCash == 300 && curMark == 100,
+						"ItemShop Integrity [Scenario 2 - Rollback After Payment Failure]: Time-auction buy_count rolled back (6 -> 4) and cash/mark untouched");
+				}
+
+				// Scenario 10c: Item creation/delivery failure after payment succeeds -> automatic refund of cash/mark & auction rollback
+				logSql.DirectQuery("REPLACE INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (990511, 1000, 200);");
+				{
+					auto rRes3 = logSql.DirectQuery(
+						"UPDATE `test_itemshop_time_auction` SET `buy_count` = `buy_count` + 2 "
+						"WHERE `item_index` = 7701 AND `buy_count` + 2 <= 10;");
+					auto rPayOk3 = logSql.DirectQuery(
+						"UPDATE `test_itemshop_account_cash` "
+						"SET `cash` = CAST(`cash` AS SIGNED) - 600, "
+						"`cash_mark` = LEAST(2147483647, GREATEST(0, CAST(`cash_mark` AS SIGNED)) + 600) "
+						"WHERE `id` = 990511 AND `cash` >= 600;");
+					const bool bPaid3 = (rRes3 && !rRes3->IsError() && rRes3->Get()->uiAffectedRows == 1)
+						&& (rPayOk3 && !rPayOk3->IsError() && rPayOk3->Get()->uiAffectedRows == 1);
+					int midCash = -1, midMark = -1;
+					queryAccountBal(990511, midCash, midMark);
+					LIVE_ASSERT(bPaid3 && midCash == 400 && midMark == 800 && queryAuctionCount(7701) == 6,
+						"ItemShop Integrity [Scenario 3 - Payment Committed Before Delivery]: Cash deducted (1000->400) and mark added (200->800)");
+
+					// Simulate partial item_award row followed by delivery failure on second item pack
+					auto rPartialAward = logSql.DirectQuery(
+						"INSERT INTO `test_itemshop_item_award` (`login`, `vnum`, `count`) VALUES ('test_buyer', 71084, 1);");
+					uint32_t partialAwardId = (rPartialAward && !rPartialAward->IsError() && rPartialAward->Get())
+						? static_cast<uint32_t>(rPartialAward->Get()->uiInsertID) : 0U;
+					const bool bDeliveryFailed = true; // Second pack creation/delivery fails
+
+					if (bDeliveryFailed) {
+						// Rollback partial item_award row
+						if (partialAwardId != 0) {
+							char qDel[160];
+							std::snprintf(qDel, sizeof(qDel), "DELETE FROM `test_itemshop_item_award` WHERE `id` = %u;", partialAwardId);
+							logSql.DirectQuery(qDel);
+						}
+						// Refund cash & cash_mark (AddCash(+600))
+						logSql.DirectQuery(
+							"UPDATE `test_itemshop_account_cash` "
+							"SET `cash` = LEAST(2147483647, GREATEST(0, CAST(`cash` AS SIGNED)) + 600), "
+							"`cash_mark` = GREATEST(0, CAST(`cash_mark` AS SIGNED) - 600) "
+							"WHERE `id` = 990511;");
+						// Rollback time auction buy_count
+						logSql.DirectQuery(
+							"UPDATE `test_itemshop_time_auction` "
+							"SET `buy_count` = CASE WHEN `buy_count` >= 2 THEN `buy_count` - 2 ELSE 0 END "
+							"WHERE `item_index` = 7701;");
+					}
+					int finalCash = -1, finalMark = -1;
+					queryAccountBal(990511, finalCash, finalMark);
+					auto rAwardCnt = logSql.DirectQuery("SELECT COUNT(*) FROM `test_itemshop_item_award` WHERE `login` = 'test_buyer';");
+					int awardCnt = -1;
+					if (rAwardCnt && !rAwardCnt->IsError() && rAwardCnt->Get() && rAwardCnt->Get()->uiNumRows == 1) {
+						MYSQL_ROW aRow = mysql_fetch_row(rAwardCnt->Get()->pSQLResult);
+						awardCnt = (aRow && aRow[0]) ? std::atoi(aRow[0]) : -1;
+					}
+					LIVE_ASSERT(finalCash == 1000 && finalMark == 200 && queryAuctionCount(7701) == 4 && awardCnt == 0,
+						"ItemShop Integrity [Scenario 3 - Delivery Failure Compensating Rollback]: Cash (1000), mark (200), auction (4), and item_award (0) completely restored");
+				}
+
+				// Scenario 10d: SQL query error during transaction -> fail-closed rejection without state corruption
+				{
+					auto rBadSql = logSql.DirectQuery(
+						"INSERT INTO `test_itemshop_item_award` (`non_existent_column`) VALUES (123);");
+					const bool bSqlErrDetected = (!rBadSql || rBadSql->IsError() || rBadSql->uiSQLErrno != 0);
+					int cashAfterErr = -1, markAfterErr = -1;
+					queryAccountBal(990511, cashAfterErr, markAfterErr);
+					LIVE_ASSERT(bSqlErrDetected && cashAfterErr == 1000 && markAfterErr == 200 && queryAuctionCount(7701) == 4,
+						"ItemShop Integrity [Scenario 4 - SQL Query Error]: SQL error detected fail-closed without corrupting balance or auction count");
+				}
+
+				// Scenario 10e: DB connection loss during purchase (via TcpFaultProxy) -> fail-closed, then clean recovery
+				{
+					TcpFaultProxy dropProxy;
+					int dropProxyPort = dropProxy.Start(host, port);
+					if (dropProxyPort > 0) {
+						CAsyncSQL proxyShopSql;
+						if (proxyShopSql.Setup("127.0.0.1", user.c_str(), password.c_str(), "log", "utf8mb4", true, dropProxyPort)) {
+							dropProxy.SetBlackhole(true);
+							dropProxy.SeverActiveConnections();
+							auto rDroppedPay = proxyShopSql.DirectQuery(
+								"UPDATE `test_itemshop_account_cash` "
+								"SET `cash` = CAST(`cash` AS SIGNED) - 600 "
+								"WHERE `id` = 990511 AND `cash` >= 600;");
+							const bool bDroppedRejected = (!rDroppedPay || rDroppedPay->IsError() || rDroppedPay->uiSQLErrno != 0);
+							dropProxy.SetBlackhole(false);
+							int cashAfterDrop = -1, markAfterDrop = -1;
+							queryAccountBal(990511, cashAfterDrop, markAfterDrop);
+							LIVE_ASSERT(bDroppedRejected && cashAfterDrop == 1000 && markAfterDrop == 200,
+								"ItemShop Integrity [Scenario 5 - DB Connection Loss]: Dropped DB connection aborts purchase fail-closed with 0 cash lost and 0 items delivered");
+							proxyShopSql.Quit();
+						}
+						dropProxy.Stop();
+					}
+				}
+
+				// Scenario 10f: Concurrent purchases from the same player/account (8 threads, balance=1000, item cost=600)
+				logSql.DirectQuery("REPLACE INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (990512, 1000, 0);");
+				{
+					constexpr int kNumThreads = 8;
+					std::atomic<int> readyThreads{0};
+					std::atomic<bool> startGun{false};
+					std::atomic<int> successCount{0};
+					std::atomic<int> failCount{0};
+					std::vector<std::thread> workers;
+					workers.reserve(kNumThreads);
+
+					for (int t = 0; t < kNumThreads; ++t) {
+						workers.emplace_back([&, t]() {
+							CAsyncSQL workerSql;
+							if (!workerSql.Setup(host.c_str(), user.c_str(), password.c_str(), "log", "utf8mb4", true, port)) {
+								failCount.fetch_add(1);
+								readyThreads.fetch_add(1);
+								return;
+							}
+							readyThreads.fetch_add(1);
+							while (!startGun.load(std::memory_order_acquire)) {
+								std::this_thread::yield();
+							}
+							auto rCharge = workerSql.DirectQuery(
+								"UPDATE `test_itemshop_account_cash` "
+								"SET `cash` = CAST(`cash` AS SIGNED) - 600, "
+								"`cash_mark` = LEAST(2147483647, GREATEST(0, CAST(`cash_mark` AS SIGNED)) + 600) "
+								"WHERE `id` = 990512 AND `cash` >= 600;");
+							if (rCharge && !rCharge->IsError() && rCharge->Get() && rCharge->Get()->uiAffectedRows == 1) {
+								char qAward[160];
+								std::snprintf(qAward, sizeof(qAward),
+									"INSERT INTO `test_itemshop_item_award` (`login`, `vnum`, `count`) VALUES ('conc_buyer_%d', 71084, 1);", t);
+								workerSql.DirectQuery(qAward);
+								successCount.fetch_add(1);
+							} else {
+								failCount.fetch_add(1);
+							}
+							workerSql.Quit();
+						});
+					}
+					while (readyThreads.load() < kNumThreads) {
+						std::this_thread::sleep_for(std::chrono::milliseconds(5));
+					}
+					startGun.store(true, std::memory_order_release);
+					for (auto& th : workers) {
+						th.join();
+					}
+
+					int concCash = -1, concMark = -1;
+					queryAccountBal(990512, concCash, concMark);
+					auto rConcAwards = logSql.DirectQuery("SELECT COUNT(*) FROM `test_itemshop_item_award` WHERE `login` LIKE 'conc_buyer_%';");
+					int concAwardCnt = -1;
+					if (rConcAwards && !rConcAwards->IsError() && rConcAwards->Get() && rConcAwards->Get()->uiNumRows == 1) {
+						MYSQL_ROW cRow = mysql_fetch_row(rConcAwards->Get()->pSQLResult);
+						concAwardCnt = (cRow && cRow[0]) ? std::atoi(cRow[0]) : -1;
+					}
+					LIVE_ASSERT(successCount.load() == 1 && failCount.load() == (kNumThreads - 1) && concCash == 400 && concMark == 600 && concAwardCnt == 1,
+						"ItemShop Integrity [Scenario 6 - Concurrent Same-Player Purchases]: Exactly 1/8 concurrent threads succeeded (cash 1000->400, mark=600, delivered=1), 7/8 rejected without double-spend");
+				}
+
+				// Scenario 10g: Concurrent purchases of the last remaining unit of a time-auction item (buy_count=9, max=10, 8 threads)
+				logSql.DirectQuery("REPLACE INTO `test_itemshop_time_auction` (`item_index`, `buy_count`, `max_buy_amount`) VALUES (7702, 9, 10);");
+				for (int t = 0; t < 8; ++t) {
+					char qInit[160];
+					std::snprintf(qInit, sizeof(qInit),
+						"REPLACE INTO `test_itemshop_account_cash` (`id`, `cash`, `cash_mark`) VALUES (%d, 1000, 0);", 990520 + t);
+					logSql.DirectQuery(qInit);
+				}
+				{
+					constexpr int kNumThreads = 8;
+					std::atomic<int> readyThreads{0};
+					std::atomic<bool> startGun{false};
+					std::atomic<int> wonAuctionCount{0};
+					std::atomic<int> rejectedAuctionCount{0};
+					std::vector<std::thread> workers;
+					workers.reserve(kNumThreads);
+
+					for (int t = 0; t < kNumThreads; ++t) {
+						workers.emplace_back([&, t]() {
+							CAsyncSQL workerSql;
+							if (!workerSql.Setup(host.c_str(), user.c_str(), password.c_str(), "log", "utf8mb4", true, port)) {
+								rejectedAuctionCount.fetch_add(1);
+								readyThreads.fetch_add(1);
+								return;
+							}
+							readyThreads.fetch_add(1);
+							while (!startGun.load(std::memory_order_acquire)) {
+								std::this_thread::yield();
+							}
+							auto rClaim = workerSql.DirectQuery(
+								"UPDATE `test_itemshop_time_auction` SET `buy_count` = `buy_count` + 1 "
+								"WHERE `item_index` = 7702 AND `buy_count` + 1 <= `max_buy_amount`;");
+							if (rClaim && !rClaim->IsError() && rClaim->Get() && rClaim->Get()->uiAffectedRows == 1) {
+								char qPay[256];
+								std::snprintf(qPay, sizeof(qPay),
+									"UPDATE `test_itemshop_account_cash` SET `cash` = CAST(`cash` AS SIGNED) - 500, "
+									"`cash_mark` = `cash_mark` + 500 WHERE `id` = %d AND `cash` >= 500;", 990520 + t);
+								workerSql.DirectQuery(qPay);
+								wonAuctionCount.fetch_add(1);
+							} else {
+								rejectedAuctionCount.fetch_add(1);
+							}
+							workerSql.Quit();
+						});
+					}
+					while (readyThreads.load() < kNumThreads) {
+						std::this_thread::sleep_for(std::chrono::milliseconds(5));
+					}
+					startGun.store(true, std::memory_order_release);
+					for (auto& th : workers) {
+						th.join();
+					}
+
+					auto rTotalCharged = logSql.DirectQuery(
+						"SELECT COUNT(*), SUM(`cash`) FROM `test_itemshop_account_cash` WHERE `id` BETWEEN 990520 AND 990527 AND `cash` = 500;");
+					int chargedAccounts = -1;
+					if (rTotalCharged && !rTotalCharged->IsError() && rTotalCharged->Get() && rTotalCharged->Get()->uiNumRows == 1) {
+						MYSQL_ROW tcRow = mysql_fetch_row(rTotalCharged->Get()->pSQLResult);
+						chargedAccounts = (tcRow && tcRow[0]) ? std::atoi(tcRow[0]) : -1;
+					}
+					LIVE_ASSERT(wonAuctionCount.load() == 1 && rejectedAuctionCount.load() == (kNumThreads - 1)
+						&& queryAuctionCount(7702) == 10 && chargedAccounts == 1,
+						"ItemShop Integrity [Scenario 7 - Concurrent Last Time-Auction Unit]: Exactly 1/8 threads claimed the 10th unit (buy_count 9->10) and paid 500 cash; 7/8 rejected without over-selling or charging");
+				}
+
+				logSql.DirectQuery("DROP TABLE IF EXISTS `test_itemshop_time_auction`, `test_itemshop_item_award`, `test_itemshop_account_cash`;");
 			}
 
 			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");

@@ -33,8 +33,8 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 				static_cast<unsigned int>(GetPlayerID()),
 				#endif
 				static_cast<unsigned int>(GetEmpire()));
-		auto msg(DBManager::instance().DirectQuery(szQuery));
-		if (msg->Get()->uiNumRows == 0)
+		auto msg(DBManager::instance().DirectQuery("%s", szQuery));
+		if (!msg || msg->uiSQLErrno != 0 || !msg->Get() || msg->Get()->uiNumRows == 0)
 		{
 			return 0;
 		}
@@ -62,7 +62,7 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 		{
 			snprintf(szQuery, sizeof(szQuery), "SELECT guild_id FROM guild_member%s WHERE pid=%u", get_table_postfix(), static_cast<unsigned int>(dwPID[i]));
 
-			pMsg = DBManager::instance().DirectQuery(szQuery);
+			pMsg = DBManager::instance().DirectQuery("%s", szQuery);
 
 			if (pMsg != NULL)
 			{
@@ -108,8 +108,8 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 #endif
 			static_cast<unsigned int>(GetEmpire()));
 
-		auto msg(DBManager::instance().DirectQuery(szQuery));
-		if (msg->Get()->uiAffectedRows > 0)
+		auto msg(DBManager::instance().DirectQuery("%s", szQuery));
+		if (msg && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->uiAffectedRows > 0)
 		{
 			SetChangeEmpireCount();
 
@@ -130,8 +130,8 @@ int CHARACTER::GetChangeEmpireCount() const
 
 	snprintf(szQuery, sizeof(szQuery), "SELECT change_count FROM change_empire WHERE aid = %u", static_cast<unsigned int>(dwAID));
 
-	auto pMsg = DBManager::instance().DirectQuery(szQuery);
-	if (pMsg != NULL)
+	auto pMsg = DBManager::instance().DirectQuery("%s", szQuery);
+	if (pMsg != NULL && pMsg->uiSQLErrno == 0 && pMsg->Get())
 	{
 		if (pMsg->Get()->uiNumRows == 0)
 			return 0;
@@ -167,7 +167,7 @@ void CHARACTER::SetChangeEmpireCount()
 		snprintf(szQuery, sizeof(szQuery), "UPDATE change_empire SET change_count=%d WHERE aid=%u", count, static_cast<unsigned int>(dwAID));
 	}
 
-	auto pmsg(DBManager::instance().DirectQuery(szQuery));
+	auto pmsg(DBManager::instance().DirectQuery("%s", szQuery));
 }
 
 DWORD CHARACTER::GetAID() const
@@ -185,8 +185,8 @@ DWORD CHARACTER::GetAID() const
 			#endif
 			static_cast<unsigned int>(GetEmpire()));
 
-	auto pMsg = DBManager::instance().DirectQuery(szQuery);
-	if (pMsg != NULL)
+	auto pMsg = DBManager::instance().DirectQuery("%s", szQuery);
+	if (pMsg != NULL && pMsg->uiSQLErrno == 0 && pMsg->Get())
 	{
 		if (pMsg->Get()->uiNumRows == 0)
 			return 0;

@@ -16,15 +16,15 @@ bool CMemoryTextFileLoader::SplitLine(DWORD dwLine, std::vector<std::string>* ps
 	std::string stToken;
 	const std::string & c_rstLine = GetLineString(dwLine);
 
-	DWORD basePos = 0;
+	size_t basePos = 0;
 
 	do
 	{
-		int beginPos = c_rstLine.find_first_not_of(c_szDelimeter, basePos);
-		if (beginPos < 0)
+		size_t beginPos = c_rstLine.find_first_not_of(c_szDelimeter, basePos);
+		if (beginPos == std::string::npos)
 			return false;
 
-		int endPos;
+		size_t endPos;
 
 		if (c_rstLine[beginPos] == '#' && c_rstLine.compare(beginPos, 4, "#--#") != 0)
 		{
@@ -35,7 +35,7 @@ bool CMemoryTextFileLoader::SplitLine(DWORD dwLine, std::vector<std::string>* ps
 			++beginPos;
 			endPos = c_rstLine.find_first_of("\"", beginPos);
 
-			if (endPos < 0)
+			if (endPos == std::string::npos)
 				return false;
 
 			basePos = endPos + 1;
@@ -46,9 +46,9 @@ bool CMemoryTextFileLoader::SplitLine(DWORD dwLine, std::vector<std::string>* ps
 			basePos = endPos;
 		}
 
-		pstTokenVector->emplace_back(c_rstLine.substr(beginPos, endPos - beginPos));
+		pstTokenVector->emplace_back(c_rstLine.substr(beginPos, endPos == std::string::npos ? std::string::npos : endPos - beginPos));
 
-		if (int(c_rstLine.find_first_not_of(c_szDelimeter, basePos)) < 0)
+		if (basePos == std::string::npos || c_rstLine.find_first_not_of(c_szDelimeter, basePos) == std::string::npos)
 			break;
 	} while (basePos < c_rstLine.length());
 
@@ -57,7 +57,7 @@ bool CMemoryTextFileLoader::SplitLine(DWORD dwLine, std::vector<std::string>* ps
 
 DWORD CMemoryTextFileLoader::GetLineCount()
 {
-	return m_stLineVector.size();
+	return static_cast<DWORD>(m_stLineVector.size());
 }
 
 bool CMemoryTextFileLoader::CheckLineIndex(DWORD dwLine)

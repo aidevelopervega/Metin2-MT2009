@@ -11,12 +11,12 @@ class CMonarch : public singleton<CMonarch>
 
 		bool Initialize();
 
-		int HealMyEmpire(LPCHARACTER ch, DWORD price);
+		int HealMyEmpire(LPCHARACTER ch, YANG price);
 		void SetMonarchInfo(TMonarchInfo * pInfo);
 
 		bool IsMonarch(DWORD pid, BYTE bEmpire);
 		bool IsMoneyOk(int price, BYTE bEmpire);
-		bool SendtoDBAddMoney(int Money, BYTE bEmpire, LPCHARACTER ch);
+		bool SendtoDBAddMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch);
 		bool SendtoDBDecMoney(int Money, BYTE bEmpire, LPCHARACTER ch);
 
 		bool AddMoney(int Money, BYTE bEmpire);

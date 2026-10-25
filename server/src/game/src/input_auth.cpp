@@ -76,7 +76,8 @@ CInputAuth::CInputAuth()
 std::string GetAuthLoginQuery(const char* c_pszEscapedLogin, const char* c_pszEscapedHardware)
 {
 	char szQuery[1024];
-	const char* query = "SELECT "
+	snprintf(szQuery, sizeof(szQuery),
+	    "SELECT "
 	    "ac.password,ac.social_id,ac.id,ac.status,hw.status,ac.availDt - NOW() > 0,"
 	    "UNIX_TIMESTAMP(ac.premium_expire),"
 	    "UNIX_TIMESTAMP(ac.silver_expire),"
@@ -90,9 +91,8 @@ std::string GetAuthLoginQuery(const char* c_pszEscapedLogin, const char* c_pszEs
 	    "UNIX_TIMESTAMP(ac.create_time) "
 	    "FROM account AS ac "
 	    "LEFT JOIN hardware_status AS hw ON hw.hwid='%s' "
-	    "WHERE ac.login = '%s'";
-
-	snprintf(szQuery, sizeof(szQuery), query, c_pszEscapedHardware, c_pszEscapedLogin);
+	    "WHERE ac.login = '%s'",
+	    c_pszEscapedHardware, c_pszEscapedLogin);
 	return szQuery;
 }
 
@@ -220,13 +220,13 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		sys_log(0, "ChannelServiceLogin [%s]", szEscapedLogin);
 
 		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, pAuthInfo,
-				GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
+				"%s", GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
 	}
 	// END_OF_CHANNEL_SERVICE_LOGIN
 	else
 	{
 		DBManager::instance().ReturnQuery(QID_AUTH_LOGIN, dwKey, pAuthInfo,
-			GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
+			"%s", GetAuthLoginQuery(szEscapedLogin, szEscapedHWID).c_str());
 	}
 }
 

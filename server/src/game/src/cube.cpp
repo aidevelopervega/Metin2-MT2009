@@ -38,12 +38,13 @@ struct SCubeMaterialInfo
 {
 	SCubeMaterialInfo()
 	{
+		gold = 0;
 		bHaveComplicateMaterial = false;
 	};
 
 	CUBE_VALUE			reward;
 	TCubeValueVector	material;
-	DWORD				gold;
+	YANG				gold;
 	TCubeValueVector	complicateMaterial;
 
 	// 72723,1&72724,2&72730,1
@@ -673,44 +674,47 @@ void Cube_MakeCubeInformationText()
 				std::sort(materialInfo.complicateMaterial.begin(), materialInfo.complicateMaterial.end(), FIsLessCubeValue);
 				std::sort(materialInfo.material.begin(), materialInfo.material.end(), FIsLessCubeValue);
 
-				for (TCubeValueVector::iterator iter = materialInfo.complicateMaterial.begin(); materialInfo.complicateMaterial.end() != iter; ++iter)
+				for (TCubeValueVector::iterator compIter = materialInfo.complicateMaterial.begin(); materialInfo.complicateMaterial.end() != compIter; ++compIter)
 				{
 					for (TCubeValueVector::iterator targetIter = materialInfo.material.begin(); materialInfo.material.end() != targetIter; ++targetIter)
 					{
-						if (*targetIter == *iter)
+						if (*targetIter == *compIter)
 						{
 							targetIter = materialInfo.material.erase(targetIter);
+							break;
 						}
 					}
 				}
 
-				for (TCubeValueVector::iterator iter = materialInfo.complicateMaterial.begin(); materialInfo.complicateMaterial.end() != iter; ++iter)
+				for (TCubeValueVector::iterator compIter = materialInfo.complicateMaterial.begin(); materialInfo.complicateMaterial.end() != compIter; ++compIter)
 				{
 					char tempBuffer[128];
-					snprintf(tempBuffer, sizeof(tempBuffer), "%u,%d|", static_cast<unsigned int>(iter->vnum), iter->count);
+					snprintf(tempBuffer, sizeof(tempBuffer), "%u,%d|", static_cast<unsigned int>(compIter->vnum), compIter->count);
 
 					infoText += std::string(tempBuffer);
 				}
 
-				infoText.erase(infoText.size() - 1);
+				if (!infoText.empty())
+					infoText.erase(infoText.size() - 1);
 
 				if (0 < materialInfo.material.size())
 					infoText += "&";
 			}
 
-			for (TCubeValueVector::iterator iter = materialInfo.material.begin(); materialInfo.material.end() != iter; ++iter)
+			for (TCubeValueVector::iterator matIter = materialInfo.material.begin(); materialInfo.material.end() != matIter; ++matIter)
 			{
 				char tempBuffer[128];
-				snprintf(tempBuffer, sizeof(tempBuffer), "%u,%d&", static_cast<unsigned int>(iter->vnum), iter->count);
+				snprintf(tempBuffer, sizeof(tempBuffer), "%u,%d&", static_cast<unsigned int>(matIter->vnum), matIter->count);
 				infoText += std::string(tempBuffer);
 			}
 
-			infoText.erase(infoText.size() - 1);
+			if (!infoText.empty())
+				infoText.erase(infoText.size() - 1);
 
 			if (0 < materialInfo.gold)
 			{
 				char temp[128];
-				snprintf(temp, sizeof(temp), "%u", static_cast<unsigned int>(materialInfo.gold));
+				snprintf(temp, sizeof(temp), "%lld", static_cast<long long>(materialInfo.gold));
 				infoText += std::string("/") + temp;
 			}
 
@@ -729,7 +733,7 @@ void Cube_InformationInitialize()
 
 		if (1 != rewards.size())
 		{
-			sys_err("[CubeInfo] WARNING! Does not support multiple rewards (count: %d)", rewards.size());
+			sys_err("[CubeInfo] WARNING! Does not support multiple rewards (count: %zu)", rewards.size());
 			continue;
 		}
 		//if (1 != cubeData->npc_vnum.size())
@@ -836,9 +840,9 @@ void Cube_request_result_list(LPCHARACTER ch)
 		if (resultText.size() != 0) // @fixme127
 			resultText.erase(resultText.size() - 1);
 
-		if (resultText.size() - 20 >= CHAT_MAX_LEN)
+		if (resultText.size() + 20 >= CHAT_MAX_LEN)
 		{
-			sys_err("[CubeInfo] Too long cube result list text. (NPC: %d, length: %d)", npcVNUM, resultText.size());
+			sys_err("[CubeInfo] Too long cube result list text. (NPC: %u, length: %zu)", static_cast<unsigned int>(npcVNUM), resultText.size());
 			resultText.clear();
 			resultCount = 0;
 		}
@@ -848,7 +852,7 @@ void Cube_request_result_list(LPCHARACTER ch)
 	// (Server -> Client) /cube r_list npcVNUM resultCount vnum1,count1/vnum2,count2,/vnum3,count3/...
 	// (Server -> Client) /cube r_list 20383 4 123,1/125,1/128,1/130,5
 
-	ch->ChatPacket(CHAT_TYPE_COMMAND, "cube r_list %d %d %s", npcVNUM, resultCount, resultText.c_str());
+	ch->ChatPacket(CHAT_TYPE_COMMAND, "cube r_list %u %zu %s", static_cast<unsigned int>(npcVNUM), resultCount, resultText.c_str());
 }
 
 //
@@ -895,7 +899,7 @@ void Cube_request_material_info(LPCHARACTER ch, int requestStartIndex, int reque
 
 	if (false == bCatchInfo)
 	{
-		sys_err("[CubeInfo] Can't find matched material info (NPC: %d, index: %d, request count: %d)", npcVNUM, requestStartIndex, requestCount);
+		sys_err("[CubeInfo] Can't find matched material info (NPC: %u, index: %d, request count: %d)", static_cast<unsigned int>(npcVNUM), requestStartIndex, requestCount);
 		return;
 	}
 
@@ -903,9 +907,9 @@ void Cube_request_material_info(LPCHARACTER ch, int requestStartIndex, int reque
 		materialInfoText.erase(materialInfoText.size() - 1);
 
 	// (Server -> Client) /cube m_info start_index count 125,1|126,2|127,2|123,5&555,5&555,4/120000
-	if (materialInfoText.size() - 20 >= CHAT_MAX_LEN)
+	if (materialInfoText.size() + 20 >= CHAT_MAX_LEN)
 	{
-		sys_err("[CubeInfo] Too long material info. (NPC: %d, requestStart: %d, requestCount: %d, length: %d)", npcVNUM, requestStartIndex, requestCount, materialInfoText.size());
+		sys_err("[CubeInfo] Too long material info. (NPC: %u, requestStart: %d, requestCount: %d, length: %zu)", static_cast<unsigned int>(npcVNUM), requestStartIndex, requestCount, materialInfoText.size());
 	}
 
 	ch->ChatPacket(CHAT_TYPE_COMMAND, "cube m_info %d %d %s", requestStartIndex, requestCount, materialInfoText.c_str());

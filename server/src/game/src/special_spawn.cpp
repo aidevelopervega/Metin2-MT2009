@@ -66,7 +66,7 @@ bool SpecialSpawn::DoSpawn()
 		if (IsNotify())
 		{
 			char buf[512];
-			sprintf(buf, LC_TEXT("%s has spawned!"), ch->GetName());
+			snprintf(buf, sizeof(buf), LC_TEXT("%s has spawned!"), ch->GetName());
 			SendNoticeMap(buf, mapIndex, false, notifyLevel, true);
 		}
 
@@ -130,7 +130,7 @@ DWORD SpecialSpawn::GetSpawnDelay()
 			remainingTime += 86400;
 		}
 
-		return remainingTime;
+		return static_cast<DWORD>(remainingTime);
 	}
 
 	return randomSpawnTime;
@@ -143,8 +143,11 @@ DWORD SpecialSpawn::GetTimeLeft()
 		return 0;
 	}
 
-	const int delta = end_event_time - get_global_time();
-	return MAX(delta, 0);
+	const time_t now = get_global_time();
+	if (static_cast<time_t>(end_event_time) <= now)
+		return 0;
+	const time_t diff = static_cast<time_t>(end_event_time) - now;
+	return (diff > static_cast<time_t>(UINT32_MAX)) ? UINT32_MAX : static_cast<DWORD>(diff);
 }
 
 bool SpecialSpawn::IsSpawned()
@@ -153,9 +156,9 @@ bool SpecialSpawn::IsSpawned()
 	if (spawnCount < 1)
 		return false;
 
-	for (auto ch : m_vec_spawnedChars)
+	for (auto spawnedCh : m_vec_spawnedChars)
 	{
-		if (!ch)
+		if (!spawnedCh)
 			spawnCount--;
 	}
 
@@ -180,7 +183,7 @@ void SpecialSpawn::StartEvent(int delay)
 		delay = GetSpawnDelay();
 	}
 	
-	end_event_time = get_global_time() + delay;
+	end_event_time = static_cast<DWORD>(get_global_time() + delay);
 	spawn_event = event_create(special_spawn_event, info, PASSES_PER_SEC(delay));
 }
 
@@ -212,7 +215,7 @@ void SpecialSpawn::OnSpawnedDestroy(LPCHARACTER ch)
 	if (ch && IsNotify())
 	{
 		char buf[512];
-		sprintf(buf, LC_TEXT("%s has been killed!"), ch->GetName());
+		snprintf(buf, sizeof(buf), LC_TEXT("%s has been killed!"), ch->GetName());
 		SendNoticeMap(buf, mapIndex, false, notifyLevel, true);
 	}
 }

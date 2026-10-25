@@ -62,9 +62,9 @@ bool PlayerHB::Query(DWORD id)
 	{
 		char szFind[32];
 		snprintf(szFind, sizeof(szFind), "CREATE TABLE `player%s`", GetTablePostfix());
-		int pos = m_stCreateTableQuery.find(szFind);
+		size_t pos = m_stCreateTableQuery.find(szFind);
 
-		if (pos < 0)
+		if (pos == std::string::npos)
 		{
 			sys_err("cannot find %s ", szFind);
 			return false;

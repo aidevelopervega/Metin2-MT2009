@@ -276,7 +276,7 @@ void CGuild::NotifyGuildMaster(const char* msg)
 {
 	LPCHARACTER ch = GetMasterCharacter();
 	if (ch)
-		ch->ChatPacket(CHAT_TYPE_INFO, msg);
+		ch->ChatPacket(CHAT_TYPE_INFO, "%s", msg);
 }
 
 //
@@ -429,7 +429,7 @@ void CGuild::StartWar(DWORD dwOppGID)
 		return;
 
 	gw.state = GUILD_WAR_ON_WAR;
-	gw.war_start_time = get_global_time();
+	gw.war_start_time = static_cast<DWORD>(get_global_time());
 
 	GuildWarPacket(dwOppGID, gw.type, GUILD_WAR_ON_WAR);
 
@@ -595,9 +595,9 @@ void CGuild::EndWar(DWORD dwOppGID)
 
 		if (!UnderAnyWar())
 		{
-			for (itertype(m_memberOnline) it = m_memberOnline.begin(); it != m_memberOnline.end(); ++it)
+			for (itertype(m_memberOnline) itMember = m_memberOnline.begin(); itMember != m_memberOnline.end(); ++itMember)
 			{
-				LPCHARACTER ch = *it;
+				LPCHARACTER ch = *itMember;
 
 				ch->RemoveGuildWarAffect();
 				ch->RemoveBadAffect();
@@ -719,7 +719,7 @@ void CGuild::SetLadderPoint(int point)
 		for (itertype(m_memberOnline) it = m_memberOnline.begin(); it!=m_memberOnline.end();++it)
 		{
 			LPCHARACTER ch = (*it);
-			ch->ChatPacket(CHAT_TYPE_INFO, buf);
+			ch->ChatPacket(CHAT_TYPE_INFO, "%s", buf);
 		}
 	}
 	m_data.ladder_point = point;

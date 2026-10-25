@@ -556,7 +556,9 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 	char buf[512];
 	snprintf(buf, sizeof(buf), "SELECT blocked FROM messenger_block_list WHERE pid=%u", static_cast<unsigned int>(pid));
 
-	auto pkMsg(DBManager::instance().DirectQuery(buf));
+	auto pkMsg(DBManager::instance().DirectQuery("%s", buf));
+	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get())
+		return;
 	SQLResult* pRes = pkMsg->Get();
 
 	if (pRes->uiNumRows > 0)

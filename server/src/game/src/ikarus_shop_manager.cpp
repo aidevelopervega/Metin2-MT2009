@@ -120,125 +120,125 @@ bool MatchFilterType(const ikashop::TShopItem& info, const ikashop::TFilterInfo&
 	if(filter.type == 0)
 		return true;
 
-	static auto MatchWeapon = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) -> bool {
-		if(table->bType != ITEM_WEAPON)
+	static auto MatchWeapon = []([[maybe_unused]] const ikashop::TShopItem& itemInfo, const ikashop::TFilterInfo& filterInfo, TItemTable* itemTable) -> bool {
+		if(itemTable->bType != ITEM_WEAPON)
 			return false;
-		if(filter.subtype == 0)
+		if(filterInfo.subtype == 0)
 			return true;
-		switch(filter.subtype)
+		switch(filterInfo.subtype)
 		{
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_SWORD:
-				return table->bSubType == WEAPON_SWORD
-					&& IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN) 
-					&& !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR) 
-					&& !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN) 
-					&& !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SURA);
+				return itemTable->bSubType == WEAPON_SWORD
+					&& IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN) 
+					&& !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR) 
+					&& !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN) 
+					&& !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SURA);
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_BLADE:
-				return table->bSubType == WEAPON_SWORD 
-					&& IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN)
-					&& IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR)
-					&& IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN)
-					&& !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SURA);
+				return itemTable->bSubType == WEAPON_SWORD 
+					&& IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN)
+					&& IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR)
+					&& IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN)
+					&& !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SURA);
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_TWOHANDED:
-				return table->bSubType == WEAPON_TWO_HANDED;
+				return itemTable->bSubType == WEAPON_TWO_HANDED;
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_DAGGER:
-				return table->bSubType == WEAPON_DAGGER;
+				return itemTable->bSubType == WEAPON_DAGGER;
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_BOW:
-				return table->bSubType == WEAPON_BOW;
+				return itemTable->bSubType == WEAPON_BOW;
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_BELL:
-				return table->bSubType == WEAPON_BELL;
+				return itemTable->bSubType == WEAPON_BELL;
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_FAN:
-				return table->bSubType == WEAPON_FAN;
+				return itemTable->bSubType == WEAPON_FAN;
 #ifdef ENABLE_WOLFMAN_CHARACTER
 			case ikashop::SEARCH_SHOP_SUBTYPE_WEAPON_CLAW:
-				return table->bSubType == WEAPON_CLAW;
+				return itemTable->bSubType == WEAPON_CLAW;
 #endif
 		}
 		return false;
 	};
 
-	static auto MatchArmor = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
-		if(table->bType != ITEM_ARMOR || table->bSubType != ARMOR_BODY)
+	static auto MatchArmor = []([[maybe_unused]] const ikashop::TShopItem& itemInfo, const ikashop::TFilterInfo& filterInfo, TItemTable* itemTable) {
+		if(itemTable->bType != ITEM_ARMOR || itemTable->bSubType != ARMOR_BODY)
 			return false;
-		if(filter.subtype == 0)
+		if(filterInfo.subtype == 0)
 			return true;
-		switch(filter.subtype)
+		switch(filterInfo.subtype)
 		{
 			case ikashop::SEARCH_SHOP_SUBTYPE_ARMOR_WARRIOR:
-				return !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR);
+				return !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_WARRIOR);
 			case ikashop::SEARCH_SHOP_SUBTYPE_ARMOR_SURA:
-				return !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SURA);
+				return !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SURA);
 			case ikashop::SEARCH_SHOP_SUBTYPE_ARMOR_ASSASSIN:
-				return !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN);
+				return !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_ASSASSIN);
 			case ikashop::SEARCH_SHOP_SUBTYPE_ARMOR_SHAMAN:
-				return !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN);
+				return !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_SHAMAN);
 #ifdef ENABLE_WOLFMAN_CHARACTER
 			case ikashop::SEARCH_SHOP_SUBTYPE_ARMOR_WOLFMAN:
-				return !IS_SET(table->dwAntiFlags, ITEM_ANTIFLAG_WOLFMAN);
+				return !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_WOLFMAN);
 #endif
 		}
 		return false;
 	};
 
-	static auto MatchJewel = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
-		if (table->bType != ITEM_ARMOR || table->bSubType == ARMOR_BODY)
+	static auto MatchJewel = []([[maybe_unused]] const ikashop::TShopItem& itemInfo, const ikashop::TFilterInfo& filterInfo, TItemTable* itemTable) {
+		if (itemTable->bType != ITEM_ARMOR || itemTable->bSubType == ARMOR_BODY)
 			return false;
-		if (filter.subtype == 0)
+		if (filterInfo.subtype == 0)
 			return true;
-		switch(filter.subtype)
+		switch(filterInfo.subtype)
 		{
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_HELM:
-				return table->bSubType == ARMOR_HEAD;
+				return itemTable->bSubType == ARMOR_HEAD;
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_SHIELD:
-				return table->bSubType == ARMOR_SHIELD;
+				return itemTable->bSubType == ARMOR_SHIELD;
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_EAR:
-				return table->bSubType == ARMOR_EAR;
+				return itemTable->bSubType == ARMOR_EAR;
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_NECK:
-				return table->bSubType == ARMOR_NECK;
+				return itemTable->bSubType == ARMOR_NECK;
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_WRIST:
-				return table->bSubType == ARMOR_WRIST;
+				return itemTable->bSubType == ARMOR_WRIST;
 			case ikashop::SEARCH_SHOP_SUBTYPE_JEWEL_SHOES:
-				return table->bSubType == ARMOR_FOOTS;
+				return itemTable->bSubType == ARMOR_FOOTS;
 		}
 		return false;
 	};
 
-	static auto MatchCostume = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
-		if(table->bType != ITEM_COSTUME)
+	static auto MatchCostume = []([[maybe_unused]] const ikashop::TShopItem& itemInfo, const ikashop::TFilterInfo& filterInfo, TItemTable* itemTable) {
+		if(itemTable->bType != ITEM_COSTUME)
 			return false;
-		if(filter.subtype == 0)
+		if(filterInfo.subtype == 0)
 			return true;
-		switch(filter.subtype)
+		switch(filterInfo.subtype)
 		{
 		case ikashop::SEARCH_SHOP_SUBTYPE_COSTUME_BODY:
-			return table->bSubType == COSTUME_BODY;
+			return itemTable->bSubType == COSTUME_BODY;
 		case ikashop::SEARCH_SHOP_SUBTYPE_COSTUME_WEAPON:
 #ifdef ENABLE_WEAPON_COSTUME_SYSTEM
-			return table->bSubType == COSTUME_WEAPON;
+			return itemTable->bSubType == COSTUME_WEAPON;
 #else
 			return false;
 #endif
 		case ikashop::SEARCH_SHOP_SUBTYPE_COSTUME_HAIR:
-			return table->bSubType == COSTUME_HAIR;
+			return itemTable->bSubType == COSTUME_HAIR;
 #ifdef ENABLE_ACCE_COSTUME_SYSTEM
 		case ikashop::SEARCH_SHOP_SUBTYPE_COSTUME_SASH:
-			return table->bSubType == COSTUME_ACCE;
+			return itemTable->bSubType == COSTUME_ACCE;
 #endif
 		}
 		return false;
 	};
 
-	static auto MatchPet = []([[maybe_unused]] const ikashop::TShopItem& info, const ikashop::TFilterInfo& filter, TItemTable* table) {
-		if(table->bType != ITEM_PET || (table->bSubType != PET_EGG && table->bSubType != PET_UPBRINGING && table->bSubType != PET_PAY))
+	static auto MatchPet = []([[maybe_unused]] const ikashop::TShopItem& itemInfo, const ikashop::TFilterInfo& filterInfo, TItemTable* itemTable) {
+		if(itemTable->bType != ITEM_PET || (itemTable->bSubType != PET_EGG && itemTable->bSubType != PET_UPBRINGING && itemTable->bSubType != PET_PAY))
 			return false;
-		if(filter.subtype == 0)
+		if(filterInfo.subtype == 0)
 			return true;
-		switch(filter.subtype)
+		switch(filterInfo.subtype)
 		{
 		case ikashop::SEARCH_SHOP_SUBTYPE_PET_EGGS:
-			return table->bSubType == PET_EGG;
+			return itemTable->bSubType == PET_EGG;
 		case ikashop::SEARCH_SHOP_SUBTYPE_PET_SEALS:
-			return table->bSubType == PET_UPBRINGING || table->bSubType == PET_PAY;
+			return itemTable->bSubType == PET_UPBRINGING || itemTable->bSubType == PET_PAY;
 		}
 		return false;
 	};
@@ -2021,7 +2021,7 @@ namespace ikashop
 			SendBoardCountersClientPacket(ch);
 
 		// refreshing to owner
-		if(auto ch = CHARACTER_MANAGER::instance().FindByPID(ownerid))
+		if(auto ownerCh = CHARACTER_MANAGER::instance().FindByPID(ownerid))
 		{
 			TPacketGCNewIkarusShop pack{};
 			pack.header = HEADER_GC_NEW_OFFLINESHOP;
@@ -2031,10 +2031,10 @@ namespace ikashop
 			TSubPacketGCShopSafeboxRemoveItem subpack{};
 			subpack.itemid = itemid;
 
-			if(ch->GetDesc())
+			if(ownerCh->GetDesc())
 			{
-				ch->GetDesc()->BufferedPacket(&pack, sizeof(pack));
-				ch->GetDesc()->Packet(&subpack, sizeof(subpack));
+				ownerCh->GetDesc()->BufferedPacket(&pack, sizeof(pack));
+				ownerCh->GetDesc()->Packet(&subpack, sizeof(subpack));
 			}
 		}
 
@@ -3520,7 +3520,7 @@ namespace ikashop
 				continue;
 #endif
 
-			for (auto& [id, sitem] : shop->GetItems())
+			for (auto& [itemId, sitem] : shop->GetItems())
 			{
 				const auto& info = sitem->GetInfo();
 				if(!MatchFilter(info, filter, filtername))
@@ -4423,17 +4423,17 @@ namespace ikashop
 			{
 				if(offer->seenflag == false)
 				{
-					TPacketGDNewIkarusShop pack{};
-					pack.bSubHeader = ikashop::SUBHEADER_GD_AUCTION_OFFER_SEEN;
+					TPacketGDNewIkarusShop gdPack{};
+					gdPack.bSubHeader = ikashop::SUBHEADER_GD_AUCTION_OFFER_SEEN;
 
-					ikashop::TSubPacketGDAuctionOfferSeen subpack{};
-					subpack.ownerid = auction.GetInfo().owner;
-					subpack.buyerid = offer->buyerid;
-					subpack.price = offer->price.yang;
+					ikashop::TSubPacketGDAuctionOfferSeen gdSubpack{};
+					gdSubpack.ownerid = auction.GetInfo().owner;
+					gdSubpack.buyerid = offer->buyerid;
+					gdSubpack.price = offer->price.yang;
 
 					TEMP_BUFFER buffer;
-					buffer.write(&pack, sizeof(pack));
-					buffer.write(&subpack, sizeof(subpack));
+					buffer.write(&gdPack, sizeof(gdPack));
+					buffer.write(&gdSubpack, sizeof(gdSubpack));
 
 					db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buffer.read_peek(), buffer.size());
 				}
@@ -4514,18 +4514,18 @@ namespace ikashop
 			// removing notifications
 			for(auto& notification : notifications)
 			{
-				TPacketGDNewIkarusShop pack{};
-				pack.bSubHeader = ikashop::SUBHEADER_GD_NOTIFICATION_SEEN;
+				TPacketGDNewIkarusShop gdPack{};
+				gdPack.bSubHeader = ikashop::SUBHEADER_GD_NOTIFICATION_SEEN;
 
-				ikashop::TSubPacketGDNotificationSeen subpack{};
-				subpack.id = notification.id;
-				subpack.owner = ch->GetPlayerID();
+				ikashop::TSubPacketGDNotificationSeen gdSubpack{};
+				gdSubpack.id = notification.id;
+				gdSubpack.owner = ch->GetPlayerID();
 
-				TEMP_BUFFER buffer;
-				buffer.write(&pack, sizeof(pack));
-				buffer.write(&subpack, sizeof(subpack));
+				TEMP_BUFFER gdBuffer;
+				gdBuffer.write(&gdPack, sizeof(gdPack));
+				gdBuffer.write(&gdSubpack, sizeof(gdSubpack));
 
-				db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buffer.read_peek(), buffer.size());
+				db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, gdBuffer.read_peek(), gdBuffer.size());
 			}
 
 			notifications.clear();

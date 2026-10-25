@@ -416,11 +416,11 @@ void ItemAwardManager::CheckItemSkillBook(TItemAward & rkItemAward, const std::v
 		}
 	}
 
-	if (!bHasSkill)
+	if (!bHasSkill && !vec_skillTable.empty())
 	{
 		do
 		{
-			const TSkillTable * pkSkillTable = &vec_skillTable.at(number(0, vec_skillTable.size() - 1));
+			const TSkillTable * pkSkillTable = &vec_skillTable.at(static_cast<size_t>(number(0, static_cast<int>(vec_skillTable.size() - 1))));
 			if (!pkSkillTable)
 				continue;
 

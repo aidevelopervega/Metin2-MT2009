@@ -39,7 +39,7 @@ struct FHealMyEmpire
 
 			if (ch->IsPC() && m_bEmpire == ch->GetEmpire())
 			{
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("군주가 내린 축복으로 모든 에너지가 가득 채워집니다"));
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("\xb1\xba\xc1\xd6\xb0\xa1 \xb3\xbb\xb8\xb0 \xc3\xe0\xba\xb9\xc0\xb8\xb7\xce \xb8\xf0\xb5\xe7 \xbf\xa1\xb3\xca\xc1\xf6\xb0\xa1 \xb0\xa1\xb5\xe6 \xc3\xa4\xbf\xf6\xc1\xfd\xb4\xcf\xb4\xd9"));
 				ch->PointChange(POINT_HP, ch->GetMaxHP() - ch->GetHP());
 				ch->PointChange(POINT_SP, ch->GetMaxSP() - ch->GetSP());
 				ch->EffectPacket(SE_SPUP_BLUE);
@@ -49,33 +49,37 @@ struct FHealMyEmpire
 	}
 };
 
-int CMonarch::HealMyEmpire(LPCHARACTER ch ,DWORD price)
+int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 {
+	if (price <= 0 || price > 2000000000)
+		return 0;
+
+	const int iPrice = static_cast<int>(price);
 	BYTE Empire = ch->GetEmpire();
 	DWORD pid = ch->GetPlayerID();
 
-	sys_log(0, "HealMyEmpire[%d] pid:%d price %d", pid, Empire, price);
+	sys_log(0, "HealMyEmpire[%d] pid:%u price %d", Empire, static_cast<unsigned int>(pid), iPrice);
 
 	if (IsMonarch(pid, Empire) == 0)
 	{
 		if (!ch->IsGM())
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("군주의 자격을 가지고 있지 않습니다"));
-			sys_err("No Monarch pid %d ", pid);
+			ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("\xb1\xba\xc1\xd6\xc0\xc7 \xc0\xda\xb0\xdd\xc0\xbb \xb0\xa1\xc1\xf6\xb0\xed \xc0\xd6\xc1\xf6 \xbe\xca\xbd\xc0\xb4\xcf\xb4\xd9"));
+			sys_err("No Monarch pid %u ", static_cast<unsigned int>(pid));
 			return 0;
 		}
 	}
 
 	if (!ch->IsMCOK(CHARACTER::MI_HEAL))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%d 초 후에 군주의 축복을 사용할 수 있습니다"), ch->GetMCLTime(CHARACTER::MI_HEAL));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%d \xc3\xca \xc8\xc4\xbf\xa1 \xb1\xba\xc1\xd6\xc0\xc7 \xc3\xe0\xba\xb9\xc0\xbb \xbb\xe7\xbf\xeb\xc7\xd2 \xbc\xf6 \xc0\xd6\xbd\xc0\xb4\xcf\xb4\xd9"), ch->GetMCLTime(CHARACTER::MI_HEAL));
 
 		return 0;
 	}
 
-	if (!IsMoneyOk(price, Empire))
+	if (!IsMoneyOk(iPrice, Empire))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("국고에 돈이 부족합니다. 현재 : %u 필요금액 : %u"), GetMoney(Empire), price);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("\xb1\xb9\xb0\xed\xbf\xa1 \xb5\xb7\xc0\xcc \xba\xce\xc1\xb7\xc7\xd5\xb4\xcf\xb4\xd9. \xc7\xf6\xc0\xe7 : %u \xc7\xca\xbf\xe4\xb1\xdd\xbe\xd7 : %u"), static_cast<unsigned int>(GetMoney(Empire)), static_cast<unsigned int>(iPrice));
 		return 0;
 	}
 
@@ -86,13 +90,13 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch ,DWORD price)
 	SECTREE_MANAGER::instance().for_each(iMapIndex, f);
 
 
-	SendtoDBDecMoney(price, Empire, ch);
+	SendtoDBDecMoney(iPrice, Empire, ch);
 
 
 	ch->SetMC(CHARACTER::MI_HEAL);
 
 	if (test_server)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]현재 국고 : %d "), GetMoney(Empire) - price);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]\xc7\xf6\xc0\xe7 \xb1\xb9\xb0\xed : %d "), GetMoney(Empire) - iPrice);
 	return 1;
 }
 
@@ -114,18 +118,20 @@ bool CMonarch::IsMoneyOk(int price, BYTE bEmpire)
 	return (GetMoney(bEmpire) >= price);
 }
 
-bool CMonarch::SendtoDBAddMoney(int Money, BYTE bEmpire, LPCHARACTER ch)
+bool CMonarch::SendtoDBAddMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch)
 {
-	if (GetMoney(bEmpire) + Money > 2000000000)
+	if (Money <= 0 || Money > 2000000000)
 		return false;
 
-	if (GetMoney(bEmpire) + Money < 0)
+	const YANG totalMoney = static_cast<YANG>(GetMoney(bEmpire)) + Money;
+	if (totalMoney > 2000000000 || totalMoney < 0)
 		return false;
 
 	int nEmpire = bEmpire;
+	int nMoney = static_cast<int>(Money);
 	db_clientdesc->DBPacketHeader(HEADER_GD_ADD_MONARCH_MONEY, ch->GetDesc()->GetHandle(), sizeof(int) + sizeof(int));
 	db_clientdesc->Packet(&nEmpire, sizeof(int));
-	db_clientdesc->Packet(&Money, sizeof(int));
+	db_clientdesc->Packet(&nMoney, sizeof(int));
 	return true;
 }
 
@@ -134,7 +140,7 @@ bool CMonarch::SendtoDBDecMoney(int Money, BYTE bEmpire, LPCHARACTER ch)
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return false;
 
-	if (GetMoney(bEmpire) - Money < 0)
+	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) - static_cast<YANG>(Money) < 0)
 		return false;
 
 
@@ -152,7 +158,7 @@ bool CMonarch::AddMoney(int Money, BYTE bEmpire)
 		return false;
 
 
-	if (GetMoney(bEmpire) + Money > 2000000000)
+	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) + static_cast<YANG>(Money) > 2000000000)
 		return false;
 
 	m_MonarchInfo.money[bEmpire] += Money;
@@ -164,7 +170,7 @@ bool CMonarch::DecMoney(int Money, BYTE bEmpire)
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return false;
 
-	if (GetMoney(bEmpire) - Money < 0)
+	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) - static_cast<YANG>(Money) < 0)
 		return false;
 
 	m_MonarchInfo.money[bEmpire] -= Money;
@@ -176,7 +182,12 @@ int CMonarch::GetMoney(BYTE bEmpire)
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return 0;
 
-	return m_MonarchInfo.money[bEmpire];
+	const YANG money = m_MonarchInfo.money[bEmpire];
+	if (money < 0)
+		return 0;
+	if (money > 2000000000)
+		return 2000000000;
+	return static_cast<int>(money);
 }
 
 TMonarchInfo* CMonarch::GetMonarch()
@@ -207,7 +218,7 @@ bool CMonarch::CheckPowerUpCT(BYTE Empire)
 	if (m_PowerUpCT[Empire] > thecore_pulse())
 	{
 		if (test_server)
-			sys_log(0, "[TEST_ONLY] : CheckPowerUpCT CT%d Now%d 60sec %d", m_PowerUpCT[Empire], thecore_pulse(), PASSES_PER_SEC(60 * 10));
+			sys_log(0, "[TEST_ONLY] : CheckPowerUpCT CT%d Now%d 60sec %ld", m_PowerUpCT[Empire], thecore_pulse(), static_cast<long>(PASSES_PER_SEC(60 * 10)));
 		return false;
 	}
 
@@ -222,7 +233,7 @@ bool CMonarch::CheckDefenseUpCT(BYTE Empire)
 	if (m_DefenseUpCT[Empire] > thecore_pulse())
 	{
 		if (test_server)
-			sys_log(0, "[TEST_ONLY] : CheckPowerUpCT CT%d Now%d 60sec %d", m_PowerUpCT[Empire], thecore_pulse(), PASSES_PER_SEC(60 * 10));
+			sys_log(0, "[TEST_ONLY] : CheckPowerUpCT CT%d Now%d 60sec %ld", m_PowerUpCT[Empire], thecore_pulse(), static_cast<long>(PASSES_PER_SEC(60 * 10)));
 		return false;
 	}
 
@@ -271,4 +282,3 @@ bool IsMonarchWarpZone (int map_idx)
 
 	return (map_idx != 208 && map_idx != 216 && map_idx != 217);
 }
-

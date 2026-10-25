@@ -204,7 +204,7 @@ void CPVPManager::Insert(LPCHARACTER pkChr, LPCHARACTER pkVictim)
 	char msg[CHAT_MAX_LEN + 1];
 	snprintf(msg, sizeof(msg), LC_TEXT("%s challenged you to a battle!"), pkChr->GetName());
 
-	pkVictim->ChatPacket(CHAT_TYPE_INFO, msg);
+	pkVictim->ChatPacket(CHAT_TYPE_INFO, "%s", msg);
 	pkChr->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have challenged %s to a battle."), pkVictim->GetName());
 
 	// NOTIFY_PVP_MESSAGE
@@ -213,10 +213,10 @@ void CPVPManager::Insert(LPCHARACTER pkChr, LPCHARACTER pkVictim)
 	{
 		TPacketGCWhisper pack;
 
-		int len = MIN(CHAT_MAX_LEN, strlen(msg) + 1);
+		int len = static_cast<int>(MIN(CHAT_MAX_LEN, strlen(msg) + 1));
 
 		pack.bHeader = HEADER_GC_WHISPER;
-		pack.wSize = sizeof(TPacketGCWhisper) + len;
+		pack.wSize = static_cast<WORD>(sizeof(TPacketGCWhisper) + static_cast<size_t>(len));
 		pack.bType = WHISPER_TYPE_SYSTEM;
 		strlcpy(pack.szNameFrom, pkChr->GetName(), sizeof(pack.szNameFrom));
 
@@ -606,8 +606,8 @@ void CPVPManager::SendList(LPDESC d)
 			LPCHARACTER ch = CHARACTER_MANAGER::instance().Find(pkPVP->m_players[1].dwVID);
 			if (ch && ch->GetDesc())
 			{
-				LPDESC d = ch->GetDesc();
-				d->Packet(&pack, sizeof(pack));
+				LPDESC pkDesc = ch->GetDesc();
+				pkDesc->Packet(&pack, sizeof(pack));
 			}
 		}
 		else if (pkPVP->m_players[1].dwVID == dwVID)
@@ -615,8 +615,8 @@ void CPVPManager::SendList(LPDESC d)
 			LPCHARACTER ch = CHARACTER_MANAGER::instance().Find(pkPVP->m_players[0].dwVID);
 			if (ch && ch->GetDesc())
 			{
-				LPDESC d = ch->GetDesc();
-				d->Packet(&pack, sizeof(pack));
+				LPDESC pkDesc = ch->GetDesc();
+				pkDesc->Packet(&pack, sizeof(pack));
 			}
 		}
 	}

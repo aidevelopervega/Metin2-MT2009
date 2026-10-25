@@ -1964,8 +1964,8 @@ static bool FN_hair_affect_string(LPCHARACTER ch, char *buf, size_t bufsiz)
 	// set apply string
 	offset = snprintf(buf, bufsiz, FN_point_string(aff->bApplyOn), aff->lApplyValue);
 
-	if (offset < 0 || offset >= (int) bufsiz)
-		offset = bufsiz - 1;
+	if (offset < 0 || static_cast<size_t>(offset) >= bufsiz)
+		offset = static_cast<int>(bufsiz) - 1;
 
 	localtime_r(&expire, &ltm);
 
@@ -1973,7 +1973,7 @@ static bool FN_hair_affect_string(LPCHARACTER ch, char *buf, size_t bufsiz)
 	mon		= ltm.tm_mon + 1;
 	day		= ltm.tm_mday;
 
-	snprintf(buf + offset, bufsiz - offset, LC_TEXT("(Procedure: %d y- %d m - %d d)"), year, mon, day);
+	snprintf(buf + offset, bufsiz - static_cast<size_t>(offset), LC_TEXT("(Procedure: %d y- %d m - %d d)"), year, mon, day);
 
 	return true;
 }
@@ -2069,7 +2069,7 @@ ACMD(do_hair)
 	if (false == FN_hair_affect_string(ch, buf, sizeof(buf)))
 		return;
 
-	ch->ChatPacket(CHAT_TYPE_INFO, buf);
+	ch->ChatPacket(CHAT_TYPE_INFO, "%s", buf);
 }
 
 ACMD(do_inventory)
@@ -2272,7 +2272,7 @@ ACMD(do_in_game_mall)
 		snprintf(buf, sizeof(buf), "%u%u%s", static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(ch->GetAID()), sas_key);
 
 		MD5Init(&ctx);
-		MD5Update(&ctx, (const unsigned char *) buf, strlen(buf));
+		MD5Update(&ctx, (const unsigned char *) buf, static_cast<unsigned int>(strlen(buf)));
 #ifdef __FreeBSD__
 		MD5End(&ctx, sas);
 #else
@@ -2290,7 +2290,7 @@ ACMD(do_in_game_mall)
 		snprintf(buf, sizeof(buf), "mall http://%s/ishop?pid=%u&c=%s&sid=%d&sas=%s",
 				g_strWebMallURL.c_str(), static_cast<unsigned int>(ch->GetPlayerID()), country_code, g_server_id, sas);
 
-		ch->ChatPacket(CHAT_TYPE_COMMAND, buf);
+		ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", buf);
 	}
 }
 

@@ -320,8 +320,8 @@ struct FSendUserCount
 
 	void operator() (LPCHARACTER ch)
 	{
-		ch->ChatPacket(CHAT_TYPE_COMMAND, buf1);
-		ch->ChatPacket(CHAT_TYPE_COMMAND, buf2);
+		ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", buf1);
+		ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", buf2);
 	}
 };
 
@@ -517,7 +517,7 @@ void CWarMap::Timeout()
 
 	DWORD dwWinner = 0;
 	DWORD dwLoser = 0;
-	int iRewardGold = 0;
+	YANG iRewardGold = 0;
 
 	if (get_dword_time() - m_dwStartTime < 60000 * 5)
 	{
@@ -563,8 +563,8 @@ void CWarMap::Timeout()
 		}
 	}
 
-	sys_log(0, "WarMap: Timeout %u %u winner %u loser %u reward %d map %d",
-			m_TeamData[0].dwID, m_TeamData[1].dwID, dwWinner, dwLoser, iRewardGold, m_kMapInfo.lMapIndex);
+	sys_log(0, "WarMap: Timeout %u %u winner %u loser %u reward %lld map %ld",
+			m_TeamData[0].dwID, m_TeamData[1].dwID, dwWinner, dwLoser, static_cast<long long>(iRewardGold), m_kMapInfo.lMapIndex);
 
 	if (dwWinner)
 		CGuildManager::instance().RequestWarOver(dwWinner, dwLoser, dwWinner, iRewardGold);
@@ -712,21 +712,21 @@ bool CWarMap::CheckScore()
 	else
 		return false;
 
-	int iRewardGold = 0;
+	YANG iRewardGold = 0;
 
 	if (dwWinner == m_TeamData[0].dwID)
 		iRewardGold = GetRewardGold(0);
 	else if (dwWinner == m_TeamData[1].dwID)
 		iRewardGold = GetRewardGold(1);
 
-	sys_log(0, "WarMap::CheckScore end score %d guild1 %u score guild2 %d %u score %d winner %u reward %d",
+	sys_log(0, "WarMap::CheckScore end score %d guild1 %u score guild2 %d %u score %d winner %u reward %lld",
 			iEndScore,
 			m_TeamData[0].dwID,
 			m_TeamData[0].iScore,
 			m_TeamData[1].dwID,
 			m_TeamData[1].iScore,
 			dwWinner,
-			iRewardGold);
+			static_cast<long long>(iRewardGold));
 
 	CGuildManager::instance().RequestWarOver(dwWinner, dwLoser, dwWinner, iRewardGold);
 	return true;

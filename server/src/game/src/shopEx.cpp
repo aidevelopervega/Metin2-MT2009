@@ -171,6 +171,8 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 		break;
 	case SHOP_COIN_TYPE_SECONDARY_COIN:
 		{
+			if (dwPrice > static_cast<YANG>(std::numeric_limits<ITEM_COUNT>::max()))
+				return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY_EX;
 			ITEM_COUNT count = ch->CountSpecifyTypeItem(ITEM_SECONDARY_COIN);
 			if (static_cast<YANG>(count) < dwPrice)
 			{
@@ -203,7 +205,7 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 		ch->ChangeGold(-dwPrice);
 		break;
 	case SHOP_COIN_TYPE_SECONDARY_COIN:
-		ch->RemoveSpecifyTypeItem(ITEM_SECONDARY_COIN, dwPrice);
+		ch->RemoveSpecifyTypeItem(ITEM_SECONDARY_COIN, static_cast<ITEM_COUNT>(dwPrice));
 		break;
 	}
 

@@ -234,8 +234,14 @@ bool CThreeWayWar::IsSungZiMapIndex(int iMapIndex) const
 
 void CThreeWayWar::RandomEventMapSet()
 {
-	const size_t pass_idx = number( 0, PassInfoMap_.size()-1 );
-	const size_t sung_idx = number( 0, SungZiInfoMap_.size()-1 );
+	if (PassInfoMap_.empty() || SungZiInfoMap_.empty())
+	{
+		sys_err("CThreeWayWar::RandomEventMapSet: empty map info (pass=%zu, sungzi=%zu)", PassInfoMap_.size(), SungZiInfoMap_.size());
+		return;
+	}
+
+	const int pass_idx = number( 0, static_cast<int>(PassInfoMap_.size() - 1) );
+	const int sung_idx = number( 0, static_cast<int>(SungZiInfoMap_.size() - 1) );
 
 	quest::CQuestManager::instance().RequestSetEventFlag( "threeway_war_sungzi_idx", sung_idx );
 	quest::CQuestManager::instance().RequestSetEventFlag( "threeway_war_pass_idx", pass_idx );

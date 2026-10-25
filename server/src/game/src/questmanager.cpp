@@ -131,11 +131,16 @@ namespace quest
 
 				string s;
 				getline(inf, s);
-				unsigned int li = 0, ri = s.size()-1;
-				while (li < s.size() && isspace(s[li])) li++;
-				while (ri > 0 && isspace(s[ri])) ri--;
+				if (s.empty())
+				{
+					sys_err("QUEST questnpc.txt:%d:npc name error",line);
+					continue;
+				}
+				size_t li = 0, ri = s.size() - 1;
+				while (li < s.size() && isspace(static_cast<unsigned char>(s[li]))) li++;
+				while (ri > 0 && isspace(static_cast<unsigned char>(s[ri]))) ri--;
 
-				if (ri < li)
+				if (ri < li || isspace(static_cast<unsigned char>(s[ri])))
 				{
 					sys_err("QUEST questnpc.txt:%d:npc name error",line);
 					continue;
@@ -271,11 +276,16 @@ namespace quest
 
 			string s;
 			getline(inf, s);
-			unsigned int li = 0, ri = s.size()-1;
-			while (li < s.size() && isspace(s[li])) li++;
-			while (ri > 0 && isspace(s[ri])) ri--;
+			if (s.empty())
+			{
+				sys_err("QUEST questcategory.txt:%d:npc name error",line);
+				continue;
+			}
+			size_t li = 0, ri = s.size() - 1;
+			while (li < s.size() && isspace(static_cast<unsigned char>(s[li]))) li++;
+			while (ri > 0 && isspace(static_cast<unsigned char>(s[ri]))) ri--;
 
-			if (ri < li)
+			if (ri < li || isspace(static_cast<unsigned char>(s[ri])))
 			{
 				sys_err("QUEST questcategory.txt:%d:npc name error",line);
 				continue;

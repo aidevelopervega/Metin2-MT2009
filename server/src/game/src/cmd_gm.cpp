@@ -1475,7 +1475,7 @@ class user_func
 
 			if (!(count % 4))
 			{
-				m_ch->ChatPacket(CHAT_TYPE_INFO, str);
+				m_ch->ChatPacket(CHAT_TYPE_INFO, "%s", str);
 
 				str[0] = '\0';
 				str_len = 0;
@@ -1496,7 +1496,7 @@ ACMD(do_user)
 	std::for_each(c_ref_set.begin(), c_ref_set.end(), func);
 
 	if (func.count % 4)
-		ch->ChatPacket(CHAT_TYPE_INFO, func.str);
+		ch->ChatPacket(CHAT_TYPE_INFO, "%s", func.str);
 
 	ch->ChatPacket(CHAT_TYPE_INFO, "Total %d", func.count);
 }

@@ -45,7 +45,7 @@ public:
 	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
 	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
 	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity);
-	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount);
+	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr);
 	void RefreshItemShop(LPCHARACTER ch);
 	void OpenItemShop(LPCHARACTER ch, bool refresh = false);
 	void CloseItemShop(LPCHARACTER ch);
@@ -57,7 +57,7 @@ public:
 
 	void RefreshAuctionViewers(DWORD dwAuctionIndex);
 
-	void AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationInHours);
+	bool AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationInHours);
 
 	void UpdateAuctionBuyAmount(DWORD dwItemIndex, DWORD dwBuyAmount);
 

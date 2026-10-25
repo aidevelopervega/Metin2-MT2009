@@ -468,8 +468,8 @@ namespace ikashop
 	{
 		// applying to each guest
 		for (auto& guest : m_guests)
-			if (auto ch = CHARACTER_MANAGER::Instance().FindByPID(guest))
-				GetManager().SendShopOpenClientPacket(ch, this);
+			if (auto guestCh = CHARACTER_MANAGER::Instance().FindByPID(guest))
+				GetManager().SendShopOpenClientPacket(guestCh, this);
 
 		// applying to owner
 		RefreshToOwner();

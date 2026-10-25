@@ -1702,7 +1702,7 @@ namespace quest
 		}
 
 		const char* query = lua_tostring(L, 1);
-		LogManager::instance().Query(query);
+		LogManager::instance().Query("%s", query);
 		return 0;
 	}
 

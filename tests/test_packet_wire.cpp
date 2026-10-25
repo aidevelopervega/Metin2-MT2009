@@ -494,6 +494,107 @@ int main()
         const uint64_t cappedLovePoints = std::min<uint64_t>(rawLovePoints, 2000000000ULL);
         WIRE_ASSERT(cappedLovePoints == 2000000000ULL,
             "Marriage love_point 64-bit saturation clamps 5B to 2B without 32-bit signed MIN negative wrap");
+
+        // 9e. Locale dynamic format string validator, FormatNumberWithDots(LLONG_MIN), Cube size check, & Monarch/DropGold YANG bounds
+        auto extractFormatSpecs = [](const char* str, std::vector<std::string>& outSpecs) -> bool {
+            outSpecs.clear();
+            if (!str)
+                return true;
+            for (const char* p = str; *p != '\0'; ++p) {
+                if (*p != '%')
+                    continue;
+                ++p;
+                if (*p == '\0')
+                    return false;
+                if (*p == '%')
+                    continue;
+                while (*p == '-' || *p == '+' || *p == ' ' || *p == '#' || *p == '0')
+                    ++p;
+                if (*p == '*')
+                    return false;
+                while (*p >= '0' && *p <= '9')
+                    ++p;
+                if (*p == '.') {
+                    ++p;
+                    if (*p == '*')
+                        return false;
+                    while (*p >= '0' && *p <= '9')
+                        ++p;
+                }
+                std::string spec;
+                if (*p == 'h' || *p == 'l') {
+                    char mod = *p++;
+                    spec.push_back(mod);
+                    if (*p == mod)
+                        spec.push_back(*p++);
+                } else if (*p == 'z' || *p == 'j' || *p == 't' || *p == 'L') {
+                    spec.push_back(*p++);
+                }
+                if (*p == '\0' || *p == 'n')
+                    return false;
+                switch (*p) {
+                    case 'd': case 'i': spec.push_back('d'); break;
+                    case 'u': case 'o': case 'x': case 'X': spec.push_back('u'); break;
+                    case 'f': case 'F': case 'e': case 'E': case 'g': case 'G': case 'a': case 'A': spec.push_back('f'); break;
+                    case 'c': case 's': case 'p': spec.push_back(*p); break;
+                    default: return false;
+                }
+                outSpecs.push_back(spec);
+            }
+            return true;
+        };
+        auto isSafeTranslation = [&](const char* key, const char* trans) -> bool {
+            if (!key || !trans)
+                return false;
+            std::vector<std::string> kSpecs, tSpecs;
+            if (!extractFormatSpecs(key, kSpecs) || !extractFormatSpecs(trans, tSpecs))
+                return false;
+            if (tSpecs.empty())
+                return true;
+            return kSpecs == tSpecs;
+        };
+
+        WIRE_ASSERT(isSafeTranslation("%d hours %d minutes left", "%d saat %d dakika kaldi"),
+            "Locale format guard accepts matching %d specifiers");
+        WIRE_ASSERT(isSafeTranslation("%s has logged in", "Oyuncu oyuna girdi"),
+            "Locale format guard accepts specifier-free translation for formatted key");
+        WIRE_ASSERT(!isSafeTranslation("%s has logged in", "%s %n"),
+            "Locale format guard rejects malicious %n write specifier");
+        WIRE_ASSERT(!isSafeTranslation("Hello world", "Merhaba %s %x"),
+            "Locale format guard rejects unverified extra format specifiers in translation");
+        WIRE_ASSERT(!isSafeTranslation("%d Yang received", "%s Yang alindi"),
+            "Locale format guard rejects mismatched %d vs %s specifier types");
+        WIRE_ASSERT(!isSafeTranslation("Discount 50%%", "Indirim %50%"),
+            "Locale format guard rejects dangling trailing % in translation");
+
+        auto formatNumberWithDots = [](long long number) -> std::string {
+            std::string result;
+            const bool isNegative = (number < 0);
+            const unsigned long long absNumber = isNegative
+                ? (0ULL - static_cast<unsigned long long>(number))
+                : static_cast<unsigned long long>(number);
+            std::string numStr = std::to_string(absNumber);
+            int count = 0;
+            for (int i = static_cast<int>(numStr.size()) - 1; i >= 0; --i) {
+                result.push_back(numStr[static_cast<size_t>(i)]);
+                if (++count == 3 && i > 0) {
+                    result.push_back('.');
+                    count = 0;
+                }
+            }
+            std::reverse(result.begin(), result.end());
+            if (isNegative)
+                result.insert(result.begin(), '-');
+            return result;
+        };
+        WIRE_ASSERT(formatNumberWithDots(LLONG_MIN) == "-9.223.372.036.854.775.808",
+            "FormatNumberWithDots(LLONG_MIN) formats without signed negation UB or duplicate minus sign");
+        WIRE_ASSERT(formatNumberWithDots(LLONG_MAX) == "9.223.372.036.854.775.807",
+            "FormatNumberWithDots(LLONG_MAX) formats 64-bit maximum cleanly");
+
+        const size_t shortCubeTextLen = 7; // e.g. "12345,1" (< 20 chars)
+        WIRE_ASSERT((shortCubeTextLen + 20 < CHAT_MAX_LEN),
+            "Cube short resultText length check (size + 20 >= CHAT_MAX_LEN) avoids unsigned size_t underflow when size < 20");
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

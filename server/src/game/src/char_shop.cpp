@@ -239,7 +239,7 @@ void CHARACTER::OpenMyShop(const char* c_pszSign, TShopItemTable* pTable, BYTE b
 	}
 
 	// MYSHOP_PRICE_LIST
-	std::map<DWORD, ITEM_COUNT> itemkind;
+	std::map<DWORD, YANG> itemkind;
 	// END_OF_MYSHOP_PRICE_LIST
 
 	std::unique_ptr<CGrid> _tempGrid = std::make_unique<CGrid>(SHOP_PLAYER_WIDTH, SHOP_PLAYER_HEIGHT);

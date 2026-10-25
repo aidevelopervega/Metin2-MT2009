@@ -155,38 +155,38 @@ bool ANI::load()
 
 DWORD ANI::load_one_weapon(const char *dir_name, int weapon, BYTE combo, bool horse)
 {
-	char format[128];
 	char filename[256];
+	const char* horse_prefix = horse ? "horse_" : "";
 
 	switch (weapon)
 	{
 		case WEAPON_SWORD:
-			strlcpy(format, "%s/%sonehand_sword/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sonehand_sword/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 
 		case WEAPON_DAGGER:
-			strlcpy(format, "%s/%sdualhand_sword/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sdualhand_sword/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 
 		case WEAPON_BOW:
-			strlcpy(format, "%s/%sbow/attack.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sbow/attack.msa", dir_name, horse_prefix);
 			break;
 
 		case WEAPON_TWO_HANDED:
-			strlcpy(format, "%s/%stwohand_sword/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%stwohand_sword/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 
 		case WEAPON_BELL:
-			strlcpy(format, "%s/%sbell/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sbell/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 
 		case WEAPON_FAN:
-			strlcpy(format, "%s/%sfan/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sfan/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 
 #ifdef ENABLE_WOLFMAN_CHARACTER
 		case WEAPON_CLAW:
-			strlcpy(format, "%s/%sclaw/combo_%02d.msa", sizeof(format));
+			snprintf(filename, sizeof(filename), "%s/%sclaw/combo_%02d.msa", dir_name, horse_prefix, combo);
 			break;
 #endif
 
@@ -194,7 +194,6 @@ DWORD ANI::load_one_weapon(const char *dir_name, int weapon, BYTE combo, bool ho
 			return 1000;
 	}
 
-	snprintf(filename, sizeof(filename), format, dir_name, horse ? "horse_" : "", combo);
 	DWORD speed = FN_attack_speed_from_file(filename);
 
 	if (speed == 0)

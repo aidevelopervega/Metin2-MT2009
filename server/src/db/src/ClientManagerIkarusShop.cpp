@@ -119,12 +119,12 @@ bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
 		str_to_number(item.vnum, row[col++]);
 		str_to_number(item.count, row[col++]);
 		// fetching sockets
-		for (int i = 0; i < ITEM_SOCKET_MAX_NUM; i++)
-			str_to_number(item.alSockets[i], row[col++]);
+		for (int idx = 0; idx < ITEM_SOCKET_MAX_NUM; idx++)
+			str_to_number(item.alSockets[idx], row[col++]);
 		// fetching attributes
-		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; i++) {
-			str_to_number(item.aAttr[i].bType, row[col++]);
-			str_to_number(item.aAttr[i].sValue, row[col++]);
+		for (int idx = 0; idx < ITEM_ATTRIBUTE_MAX_NUM; idx++) {
+			str_to_number(item.aAttr[idx].bType, row[col++]);
+			str_to_number(item.aAttr[idx].sValue, row[col++]);
 		}
 
 #ifdef ENABLE_CHANGELOOK_SYSTEM
@@ -240,12 +240,12 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 		str_to_number(info.vnum, row[col++]);
 		str_to_number(info.count, row[col++]);
 		str_to_number(info.owner, row[col++]);
-		for (int i = 0; i < ITEM_SOCKET_MAX_NUM; i++)
-			str_to_number(info.alSockets[i], row[col++]);
-		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; i++)
+		for (int idx = 0; idx < ITEM_SOCKET_MAX_NUM; idx++)
+			str_to_number(info.alSockets[idx], row[col++]);
+		for (int idx = 0; idx < ITEM_ATTRIBUTE_MAX_NUM; idx++)
 		{
-			str_to_number(info.aAttr[i].bType, row[col++]);
-			str_to_number(info.aAttr[i].sValue, row[col++]);
+			str_to_number(info.aAttr[idx].bType, row[col++]);
+			str_to_number(info.aAttr[idx].sValue, row[col++]);
 		}
 #ifdef ENABLE_CHANGELOOK_SYSTEM
 		str_to_number(info.dwTransmutation, row[col++]);
@@ -791,9 +791,9 @@ bool CClientManager::RecvIkarusShopOfferCreate(const char* data)
 
 	if(m_offlineshopOfferCache.AddOffer(info)){
 #ifdef EXTEND_IKASHOP_PRO
-		if(auto item = m_offlineshopShopCache.GetItem(subpack.offer.ownerid, subpack.offer.itemid))
+		if(auto cachedItem = m_offlineshopShopCache.GetItem(subpack.offer.ownerid, subpack.offer.itemid))
 			AppendIkarusShopNotification(
-				ikashop::ENotificationType::SELLER_NEW_OFFER_ON_ITEM, subpack.offer.ownerid, item->vnum, info.buyername, fmt::format("{}", subpack.offer.price.yang));
+				ikashop::ENotificationType::SELLER_NEW_OFFER_ON_ITEM, subpack.offer.ownerid, cachedItem->vnum, info.buyername, fmt::format("{}", subpack.offer.price.yang));
 #endif
 
 #ifdef ENABLE_IKASHOP_LOGS

@@ -233,12 +233,12 @@ EVENTFUNC(oxevent_timer)
 bool COXEventManager::Quiz(unsigned char level, int timelimit)
 {
 	if (m_vec_quiz.size() == 0) return false;
-	if (level > m_vec_quiz.size()) level = m_vec_quiz.size() - 1;
+	if (level >= m_vec_quiz.size()) level = static_cast<unsigned char>(m_vec_quiz.size() - 1);
 	if (m_vec_quiz[level].size() <= 0) return false;
 
 	if (timelimit < 0) timelimit = 30;
 
-	int idx = number(0, m_vec_quiz[level].size()-1);
+	int idx = number(0, static_cast<int>(m_vec_quiz[level].size() - 1));
 
 	SendNoticeMap(LC_TEXT("OX-Question: "), OXEVENT_MAP_INDEX, true);
 	SendNoticeMap(m_vec_quiz[level][idx].Quiz, OXEVENT_MAP_INDEX, true);

@@ -221,7 +221,6 @@ void CClientManager::RESULT_LOGIN_BY_KEY(CPeer * peer, SQLMsg * msg)
 	if (msg->Get()->uiNumRows == 0)
 	{
 		DWORD account_id = info->pAccountTable->id;
-		char szQuery[QUERY_MAX_LEN];
 		snprintf(szQuery, sizeof(szQuery),
 			"SELECT pid1, pid2, pid3, pid4,"
 			#ifdef ENABLE_PLAYER_PER_ACCOUNT5

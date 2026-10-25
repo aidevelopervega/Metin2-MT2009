@@ -201,21 +201,18 @@ namespace std
 
 inline std::string FormatNumberWithDots(long long number) {
 	std::string result;
-	bool isNegative = false;
-
-	// Handle the case for negative numbers
-	if (number < 0) {
-		isNegative = true;
-		number = -number; // Make it positive for processing
-	}
+	const bool isNegative = (number < 0);
+	const unsigned long long absNumber = isNegative
+		? (0ULL - static_cast<unsigned long long>(number))
+		: static_cast<unsigned long long>(number);
 
 	// Convert the number to a string
-	std::string numStr = std::to_string(number);
+	std::string numStr = std::to_string(absNumber);
 
 	// Insert dots from the right every three digits
 	int count = 0;
-	for (int i = numStr.size() - 1; i >= 0; --i) {
-		result.push_back(numStr[i]);
+	for (int i = static_cast<int>(numStr.size()) - 1; i >= 0; --i) {
+		result.push_back(numStr[static_cast<size_t>(i)]);
 		if (++count == 3 && i > 0) {
 			result.push_back('.');
 			count = 0;

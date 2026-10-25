@@ -1013,7 +1013,7 @@ void CArena::SendChatPacketToObserver([[maybe_unused]] BYTE type, [[maybe_unused
 		{
 			if (pChar->GetDesc() != NULL)
 			{
-				pChar->ChatPacket(type, chatbuf);
+				pChar->ChatPacket(type, "%s", chatbuf);
 			}
 		}
 	}

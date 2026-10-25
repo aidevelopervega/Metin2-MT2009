@@ -1593,8 +1593,8 @@ void CHARACTER::SendMyShopPriceListCmd(DWORD dwItemVnum, YANG dwItemPrice)
 {
 	char szLine[256];
 	snprintf(szLine, sizeof(szLine), "MyShopPriceList %u %lld", static_cast<unsigned int>(dwItemVnum), dwItemPrice);
-	ChatPacket(CHAT_TYPE_COMMAND, szLine);
-	sys_log(0, szLine);
+	ChatPacket(CHAT_TYPE_COMMAND, "%s", szLine);
+	sys_log(0, "%s", szLine);
 }
 
 //
@@ -5397,7 +5397,7 @@ bool CHARACTER::DropGold(YANG gold)
 	return false;
 #endif
 
-	if (gold <= 0 || gold > GetGold())
+	if (gold <= 0 || gold > GetGold() || gold > static_cast<YANG>(std::numeric_limits<ITEM_COUNT>::max()))
 		return false;
 
 	if (!CanHandleItem())
@@ -5411,7 +5411,7 @@ bool CHARACTER::DropGold(YANG gold)
 	}
 #endif
 
-	LPITEM item = ITEM_MANAGER::instance().CreateItem(1, gold);
+	LPITEM item = ITEM_MANAGER::instance().CreateItem(1, static_cast<ITEM_COUNT>(gold));
 
 	if (item)
 	{

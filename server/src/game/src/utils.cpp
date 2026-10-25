@@ -363,39 +363,39 @@ SParsedTime parse_time(DWORD left_seconds) {
 	return SParsedTime{ days, hours, minutes, seconds };
 }
 
-void seconds_to_dh(DWORD seconds, char* info)
+void seconds_to_dh(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_HOUR - 1);
-	sprintf(info, LC_TEXT("WAIT_DELAY_DH"), parsed_time.days, parsed_time.hours);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DH"), parsed_time.days, parsed_time.hours);
 }
 
-void seconds_to_dhm(DWORD seconds, char* info)
+void seconds_to_dhm(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	sprintf(info, LC_TEXT("WAIT_DELAY_DHM"), parsed_time.days, parsed_time.hours, parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DHM"), parsed_time.days, parsed_time.hours, parsed_time.minutes);
 }
 
-void seconds_to_hm(DWORD seconds, char* info)
+void seconds_to_hm(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	sprintf(info, LC_TEXT("WAIT_DELAY_HM"), parsed_time.hours, parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_HM"), parsed_time.hours, parsed_time.minutes);
 }
 
-void seconds_to_min(DWORD seconds, char* info)
+void seconds_to_min(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	sprintf(info, LC_TEXT("WAIT_DELAY_M"), parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_M"), parsed_time.minutes);
 }
 
 const char* seconds_to_smart_time(DWORD seconds)
 {
 	static char buffer[512];
 	if (seconds >= SECONDS_IN_DAY)
-		seconds_to_dh(seconds, buffer);
+		seconds_to_dh(seconds, buffer, sizeof(buffer));
 	else if (seconds >= (SECONDS_IN_HOUR - SECONDS_IN_MINUTE))
-		seconds_to_hm(seconds, buffer);
+		seconds_to_hm(seconds, buffer, sizeof(buffer));
 	else
-		seconds_to_min(seconds, buffer);
+		seconds_to_min(seconds, buffer, sizeof(buffer));
 
 	return buffer;
 }

@@ -395,17 +395,17 @@ void CClientManager::MainLoop()
 	int iShutdownWaitCycles = 0;
 	while (1)
 	{
-		SQLMsg * tmp;
-		while ((tmp = CDBManager::instance().PopResult()))
+		SQLMsg * drainMsg;
+		while ((drainMsg = CDBManager::instance().PopResult()))
 		{
-			AnalyzeQueryResult(tmp);
-			delete tmp;
+			AnalyzeQueryResult(drainMsg);
+			delete drainMsg;
 		}
 
-		while ((tmp = CDBManager::instance().PopFailedQuery()))
+		while ((drainMsg = CDBManager::instance().PopFailedQuery()))
 		{
-			AnalyzeFailedQuery(tmp);
-			delete tmp;
+			AnalyzeFailedQuery(drainMsg);
+			delete drainMsg;
 		}
 
 		int iRemainingQueries = 0;
@@ -610,10 +610,10 @@ void CClientManager::QUERY_BOOT(CPeer* peer, TPacketGDBoot * p)
 
 	peer->EncodeWORD(sizeof(TSpecialShopMetaData));
 	peer->EncodeWORD(m_map_SpecialShopMetaData.size());
-	for (auto it : m_map_SpecialShopMetaData)
+	for (auto metaPair : m_map_SpecialShopMetaData)
 	{
-		peer->Encode(&it.first, sizeof(DWORD));
-		peer->Encode(&it.second, sizeof(TSpecialShopMetaData));
+		peer->Encode(&metaPair.first, sizeof(DWORD));
+		peer->Encode(&metaPair.second, sizeof(TSpecialShopMetaData));
 	}
 
 	peer->EncodeWORD(sizeof(TQuestRewardItem));
@@ -942,19 +942,19 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 					if (pi->ip[0] == 1 && !pItemAward->bMall)
 						continue;
 
-					itertype(m_map_itemTableByVnum) it = m_map_itemTableByVnum.find(pItemAward->dwVnum);
+					itertype(m_map_itemTableByVnum) itItemTable = m_map_itemTableByVnum.find(pItemAward->dwVnum);
 
-					if (it == m_map_itemTableByVnum.end())
+					if (itItemTable == m_map_itemTableByVnum.end())
 					{
 						sys_err("invalid item vnum %u in item_award: login %s", pItemAward->dwVnum, pi->login);
 						continue;
 					}
 
-					TItemTable * pItemTable = it->second;
+					TItemTable * pItemTable = itItemTable->second;
 
 					int iPos;
 
-					if ((iPos = grid.FindBlank(1, it->second->bSize)) == -1)
+					if ((iPos = grid.FindBlank(1, itItemTable->second->bSize)) == -1)
 						break;
 
 					TPlayerItem item;
@@ -1037,13 +1037,13 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 					}
 
 					{
-						itertype(m_map_itemTableByVnum) it = m_map_itemTableByVnum.find (dwItemVnum);
-						if (it == m_map_itemTableByVnum.end())
+						itertype(m_map_itemTableByVnum) itProto = m_map_itemTableByVnum.find (dwItemVnum);
+						if (itProto == m_map_itemTableByVnum.end())
 						{
 							sys_err ("Invalid item(vnum : %d). It is not in m_map_itemTableByVnum.", dwItemVnum);
 							continue;
 						}
-						TItemTable* item_table = it->second;
+						TItemTable* item_table = itProto->second;
 						if (item_table == NULL)
 						{
 							sys_err ("Invalid item_table (vnum : %d). It's value is NULL in m_map_itemTableByVnum.", dwItemVnum);
@@ -1135,7 +1135,7 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 					s_items.emplace_back(item);
 
 					vec_dwFinishedAwardID.emplace_back(pItemAward->dwID, item.id);
-					grid.Put(iPos, 1, it->second->bSize);
+					grid.Put(iPos, 1, pItemTable->bSize);
 				}
 
 				for (DWORD i = 0; i < vec_dwFinishedAwardID.size(); ++i)
@@ -2167,7 +2167,7 @@ void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDA
 	}
 	else
 	{
-		CLoginData * pkLD = new CLoginData;
+		pkLD = new CLoginData;
 
 		pkLD->SetKey(p->dwLoginKey);
 		pkLD->SetClientKey(p->adwClientKey);
@@ -4653,23 +4653,42 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 	{
 		if (packet->lAmount >= 0)
 		{
+			const uint32_t credit = static_cast<uint32_t>(packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash` = `cash` + %d where id = %u limit 1",
-				packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+				"update account set `cash` = `cash` + %u "
+				"where id = %u and CAST(`cash` AS SIGNED) >= 0 and CAST(`cash` AS SIGNED) + %u <= %d limit 1",
+				credit, static_cast<unsigned int>(packet->dwAID), credit, INT32_MAX);
 		}
 		else
 		{
-			const int32_t secondCredit = (packet->lSecondAmount < 0) ? -packet->lSecondAmount : packet->lSecondAmount;
+			const uint32_t cost = static_cast<uint32_t>(-packet->lAmount);
+			const uint32_t secondCredit = (packet->lSecondAmount < 0)
+				? static_cast<uint32_t>(-packet->lSecondAmount)
+				: static_cast<uint32_t>(packet->lSecondAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash` = `cash` + %d, `cash_mark` = `cash_mark` + %d where id = %u limit 1",
-				packet->lAmount, secondCredit, static_cast<unsigned int>(packet->dwAID));
+				"update account set `cash` = `cash` - %u, `cash_mark` = `cash_mark` + %u "
+				"where id = %u and `cash` >= %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) + %u <= %d limit 1",
+				cost, secondCredit, static_cast<unsigned int>(packet->dwAID), cost, secondCredit, INT32_MAX);
 		}
 	}
 	else if (ERequestCharge_Marks == packet->eChargeType)
 	{
-		snprintf(szQuery, sizeof(szQuery),
-			"update account set `cash_mark` = `cash_mark` + %d where id = %u limit 1",
-			packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+		if (packet->lAmount >= 0)
+		{
+			const uint32_t credit = static_cast<uint32_t>(packet->lAmount);
+			snprintf(szQuery, sizeof(szQuery),
+				"update account set `cash_mark` = `cash_mark` + %u "
+				"where id = %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) + %u <= %d limit 1",
+				credit, static_cast<unsigned int>(packet->dwAID), credit, INT32_MAX);
+		}
+		else
+		{
+			const uint32_t cost = static_cast<uint32_t>(-packet->lAmount);
+			snprintf(szQuery, sizeof(szQuery),
+				"update account set `cash_mark` = `cash_mark` - %u "
+				"where id = %u and `cash_mark` >= %u limit 1",
+				cost, static_cast<unsigned int>(packet->dwAID), cost);
+		}
 	}
 	else
 	{

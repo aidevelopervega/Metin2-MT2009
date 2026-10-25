@@ -78,15 +78,15 @@ void SendBlockChatInfo(LPCHARACTER ch, int sec)
 	char buf[128+1];
 
 	if (hour > 0 && min > 0)
-		snprintf(buf, sizeof(buf), LC_TEXT("%d hours %d minutes %d seconds left on your chat block"), hour, min, sec);
+		snprintf(buf, sizeof(buf), LC_TEXT("%d hours %d minutes %d seconds left on your chat block"), static_cast<int>(hour), static_cast<int>(min), static_cast<int>(sec));
 	else if (hour > 0 && min == 0)
-		snprintf(buf, sizeof(buf), LC_TEXT("%d hours %d seconds left on your chat block"), hour, sec);
+		snprintf(buf, sizeof(buf), LC_TEXT("%d hours %d seconds left on your chat block"), static_cast<int>(hour), static_cast<int>(sec));
 	else if (hour == 0 && min > 0)
-		snprintf(buf, sizeof(buf), LC_TEXT("%d minutes %d seconds left on your chat block"), min, sec);
+		snprintf(buf, sizeof(buf), LC_TEXT("%d minutes %d seconds left on your chat block"), static_cast<int>(min), static_cast<int>(sec));
 	else
-		snprintf(buf, sizeof(buf), LC_TEXT("%d seconds left on your chat block"), sec);
+		snprintf(buf, sizeof(buf), LC_TEXT("%d seconds left on your chat block"), static_cast<int>(sec));
 
-	ch->ChatPacket(CHAT_TYPE_INFO, buf);
+	ch->ChatPacket(CHAT_TYPE_INFO, "%s", buf);
 }
 
 EVENTINFO(spam_event_info)
@@ -787,21 +787,16 @@ int CInputMain::Chat(LPCHARACTER ch, const char * data, size_t uiBytes)
 		if (CHAT_TYPE_SHOUT == pinfo->type || CHAT_TYPE_TRADE == pinfo->type)
 		{
 			const char* color_by_empire[EMPIRE_MAX_NUM] = { "", "ff5959", "ffdb3b", "4590ff" };
+			const BYTE bEmpire = (ch->GetEmpire() < EMPIRE_MAX_NUM) ? ch->GetEmpire() : 0;
 
-			std::string message_format = "[|Hmsg:%s,%d|h%s|h|r]: %s";
 			if (pinfo->type == CHAT_TYPE_SHOUT)
 			{
-				std::string message_format = "[|Hmsg:%s,%d|h%s|h|r]: %s";
-				len = snprintf(chatbuf, sizeof(chatbuf), message_format.c_str(), ch->GetName(), ch->GetEmpire(), ch->GetName(), buf);
+				len = snprintf(chatbuf, sizeof(chatbuf), "[|Hmsg:%s,%d|h%s|h|r]: %s", ch->GetName(), ch->GetEmpire(), ch->GetName(), buf);
 			}
 			else if (CHAT_TYPE_TRADE == pinfo->type)
 			{
-				std::string message_format = "[|cff%s|Hmsg:%s,%d|h%s|h|r]: %s";
-				//message_format = "*|r " + message_format;
-				len = snprintf(chatbuf, sizeof(chatbuf), message_format.c_str(), color_by_empire[ch->GetEmpire()], ch->GetName(), ch->GetEmpire(), ch->GetName(), buf);
+				len = snprintf(chatbuf, sizeof(chatbuf), "[|cff%s|Hmsg:%s,%d|h%s|h|r]: %s", color_by_empire[bEmpire], ch->GetName(), ch->GetEmpire(), ch->GetName(), buf);
 			}
-
-
 		}
 		else
 			len = snprintf(chatbuf, sizeof(chatbuf), "%s : %s", ch->GetName(), buf);
@@ -1860,7 +1855,7 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 				if (test_server)
 				{
 					ch->GetDesc()->DelayedDisconnect(number(2, 8));
-					ch->ChatPacket(CHAT_TYPE_INFO, szBuf);
+					ch->ChatPacket(CHAT_TYPE_INFO, "%s", szBuf);
 				}
 				else
 				{

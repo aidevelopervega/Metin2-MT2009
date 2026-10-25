@@ -2077,10 +2077,18 @@ namespace quest
 			return 1;
 		}
 
-		char szQuery[1024];
-		snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM player%s WHERE name='%s'", get_table_postfix(), szName);
+		char szEscapedName[CHARACTER_NAME_MAX_LEN * 2 + 1];
+		DBManager::instance().EscapeString(szEscapedName, sizeof(szEscapedName), szName, strlen(szName));
 
-		auto pmsg(DBManager::instance().DirectQuery(szQuery));
+		char szQuery[1024];
+		snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM player%s WHERE name='%s'", get_table_postfix(), szEscapedName);
+
+		auto pmsg(DBManager::instance().DirectQuery("%s", szQuery));
+		if (!pmsg || pmsg->uiSQLErrno != 0 || !pmsg->Get())
+		{
+			lua_pushnumber(L, 3);
+			return 1;
+		}
 		if ( pmsg->Get()->uiNumRows > 0 )
 		{
 			MYSQL_ROW row = mysql_fetch_row(pmsg->Get()->pSQLResult);
@@ -2110,8 +2118,8 @@ namespace quest
 		/* change_name_log */
 		LogManager::instance().ChangeNameLog(pid, ch->GetName(), szName, ch->GetDesc()->GetHostName());
 
-		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%u", get_table_postfix(), szName, static_cast<unsigned int>(pid));
-		auto msg = DBManager::instance().DirectQuery(szQuery);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%u", get_table_postfix(), szEscapedName, static_cast<unsigned int>(pid));
+		auto msg = DBManager::instance().DirectQuery("%s", szQuery);
 
 		ch->SetNewName(szName);
 		lua_pushnumber(L, 4);

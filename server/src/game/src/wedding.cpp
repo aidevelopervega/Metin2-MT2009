@@ -221,7 +221,7 @@ namespace marriage
 		for (itertype(m_set_pkChr) it = m_set_pkChr.begin(); it != m_set_pkChr.end(); ++it)
 		{
 			LPCHARACTER ch = *it;
-			ch->ChatPacket(CHAT_TYPE_COMMAND, msg);
+			ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", msg);
 		}
 	}
 
@@ -284,7 +284,7 @@ namespace marriage
 		if (m_isSnow)
 			ch->ChatPacket(CHAT_TYPE_COMMAND, "xmas_snow 1");
 		if (m_isMusic)
-			ch->ChatPacket(CHAT_TYPE_COMMAND, __BuildCommandPlayMusic(szCommand, sizeof(szCommand), 1, m_stMusicFileName.c_str()));
+			ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", __BuildCommandPlayMusic(szCommand, sizeof(szCommand), 1, m_stMusicFileName.c_str()));
 	}
 
 	const char* WeddingMap::__BuildCommandPlayMusic(char* szCommand, size_t nCmdLen, BYTE bSet, const char* c_szMusicFileName)

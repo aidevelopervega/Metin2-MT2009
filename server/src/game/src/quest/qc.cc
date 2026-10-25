@@ -1002,7 +1002,7 @@ void parse(char * filename)
 				// two like [WHO].Kill
 				string s = it->first;
 				transform(s.begin(),s.end(),s.begin(),::tolower);
-				int i = s.find('.');
+				size_t i = s.find('.');
 				mkdir((OUTPUT_FOLDER "/"+it->first.substr(0,i)).c_str(),0755);
 				mkdir((OUTPUT_FOLDER "/"+it->first.substr(0,i)+"/"+s.substr(i+1,s.npos)).c_str(),0755);
 				path = OUTPUT_FOLDER "/" + it->first.substr(0,i) + "/"+s.substr(i+1,s.npos)+"/";
@@ -1054,7 +1054,7 @@ void parse(char * filename)
 				// two like [WHO].Kill
 				string s = it->first;
 				transform(s.begin(),s.end(),s.begin(),::tolower);
-				int i = s.find('.');
+				size_t i = s.find('.');
 				mkdir((OUTPUT_FOLDER "/"+it->first.substr(0,i)).c_str(),0755);
 				mkdir((OUTPUT_FOLDER "/"+it->first.substr(0,i)+"/"+s.substr(i+1,s.npos)).c_str(),0755);
 				path = OUTPUT_FOLDER "/" + it->first.substr(0,i) + "/"+s.substr(i+1,s.npos)+"/";
