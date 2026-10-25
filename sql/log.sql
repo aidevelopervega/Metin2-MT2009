@@ -100,6 +100,79 @@ UNLOCK TABLES;
 commit;
 
 --
+-- Table structure for table `ikarusshop_log`
+--
+
+DROP TABLE IF EXISTS `ikarusshop_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ikarusshop_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `who` int(10) unsigned NOT NULL DEFAULT 0,
+  `itemid` int(10) unsigned NOT NULL DEFAULT 0,
+  `what` varchar(64) NOT NULL DEFAULT '',
+  `shop_owner` int(10) unsigned NOT NULL DEFAULT 0,
+  `extra` text NOT NULL,
+  `vnum` int(10) unsigned NOT NULL DEFAULT 0,
+  `count` int(10) unsigned NOT NULL DEFAULT 0,
+  `yang` bigint(20) NOT NULL DEFAULT 0,
+  `cheque` int(11) NOT NULL DEFAULT 0,
+  `log_date` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_ikarusshop_log_who` (`who`),
+  KEY `idx_ikarusshop_log_owner` (`shop_owner`),
+  KEY `idx_ikarusshop_log_itemid` (`itemid`),
+  KEY `idx_ikarusshop_log_date` (`log_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ikarusshop_log`
+--
+
+LOCK TABLES `ikarusshop_log` WRITE;
+/*!40000 ALTER TABLE `ikarusshop_log` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `ikarusshop_log` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
+-- Table structure for table `itemshop`
+--
+
+DROP TABLE IF EXISTS `itemshop`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `itemshop` (
+  `pid` int(10) unsigned NOT NULL DEFAULT 0,
+  `account_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `item_index` int(11) NOT NULL DEFAULT 0,
+  `vnum` int(10) unsigned NOT NULL DEFAULT 0,
+  `count` int(11) NOT NULL DEFAULT 0,
+  `price` bigint(20) NOT NULL DEFAULT 0,
+  `currency` tinyint(4) NOT NULL DEFAULT 0,
+  `item_id` int(10) unsigned DEFAULT NULL,
+  `date` datetime NOT NULL DEFAULT current_timestamp(),
+  `money_before_buy` int(10) unsigned NOT NULL DEFAULT 0,
+  KEY `idx_itemshop_pid` (`pid`),
+  KEY `idx_itemshop_account_id` (`account_id`),
+  KEY `idx_itemshop_date` (`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `itemshop`
+--
+
+LOCK TABLES `itemshop` WRITE;
+/*!40000 ALTER TABLE `itemshop` DISABLE KEYS */;
+set autocommit=0;
+/*!40000 ALTER TABLE `itemshop` ENABLE KEYS */;
+UNLOCK TABLES;
+commit;
+
+--
 -- Table structure for table `itemshop_log`
 --
 

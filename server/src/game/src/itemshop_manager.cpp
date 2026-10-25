@@ -848,7 +848,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		return false;
 	}
 
-	ch->ChatDebug("Buy item index %d (quantity %d) with price %d", itemIndex, quantity, lPrice);
+	ch->ChatDebug("Buy item index %d (quantity %d) with price %ld", itemIndex, quantity, lPrice);
 
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN) {
 
@@ -892,7 +892,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 
 		for (int i = 0; i < maxI; i++) {
-			ch->ChatDebug("add item %d %d", itemVnum, max_item_stack);
+			ch->ChatDebug("add item %u %u", itemVnum, max_item_stack);
 			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, max_item_stack);
 			if (newItem)
 			{
@@ -901,7 +901,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 
 		if (r > 0) {
-			ch->ChatDebug("add item %d %d", itemVnum, r);
+			ch->ChatDebug("add item %u %d", itemVnum, r);
 			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, r);
 			if (newItem)
 			{
@@ -910,35 +910,36 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 	}
 
-	LogManager::instance().Query("INSERT INTO itemshop VALUES (%d, %d, %d, %d, %d, %ld, %d, %s, NOW(), %d)",
-		ch->GetPlayerID(), ch->GetDesc()->GetAccountTable().id, itemIndex, item.dwVnum, quantity, lPrice, chargeType + 1, itemId.c_str(), money_before_buy);
+	LogManager::instance().Query(
+		"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
+		"VALUES (%u, %u, %d, %u, %d, %ld, %d, %s, NOW(), %u)",
+		ch->GetPlayerID(),
+		ch->GetDesc()->GetAccountTable().id,
+		itemIndex,
+		item.dwVnum,
+		quantity,
+		lPrice,
+		static_cast<int>(chargeType) + 1,
+		itemId.c_str(),
+		money_before_buy);
 	return true;
 }
 
 LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount)
 {
-	bool addToItemAward = false;
+	(void)itemIndex;
 	if (ch->HasSlotForItem(itemVnum))
 	{
 		LPITEM pkItem = ch->AutoGiveItem(itemVnum, itemCount, -1, true, true);
 		if (pkItem)
 			return pkItem;
-
-		addToItemAward = true;
-	}
-	else
-	{
-		addToItemAward = true;
 	}
 
-	if (addToItemAward)
-	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_ITEM_AWARD"));
-		DBManager::instance().DirectQuery("INSERT INTO item_award (login, vnum, count, given_time, why, mall) VALUES ('%s', %d, %d, NOW(), '%s', %u)",
-			ch->GetDesc()->GetAccountTable().login, itemVnum, itemCount, "ITEMSHOP_BUY", 1);
+	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_ITEM_AWARD"));
+	DBManager::instance().DirectQuery("INSERT INTO item_award (login, vnum, count, given_time, why, mall) VALUES ('%s', %u, %u, NOW(), '%s', %u)",
+		ch->GetDesc()->GetAccountTable().login, itemVnum, itemCount, "ITEMSHOP_BUY", 1);
 
-		return nullptr;
-	}
+	return nullptr;
 }
 
 void CItemShopManager::AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationInHours)

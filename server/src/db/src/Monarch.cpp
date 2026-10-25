@@ -203,34 +203,42 @@ bool CMonarch::LoadMonarch()
 
 bool CMonarch::SetMonarch(const char * name)
 {
+	if (!name || !*name)
+		return false;
+
 	MonarchInfo * p = &m_MonarchInfo;
-    char szQuery[256];
-	snprintf(szQuery, sizeof(szQuery), "SELECT player_index.empire, player.id, player.name, player.gold FROM player JOIN player_index ON player_index.id = player.account_id WHERE player.name = '%s'", name);
+	char szEscapedName[CHARACTER_NAME_MAX_LEN * 2 + 1];
+	const size_t nameLen = strnlen(name, CHARACTER_NAME_MAX_LEN);
+	if (CDBManager::instance().EscapeString(szEscapedName, name, static_cast<unsigned long>(nameLen), SQL_PLAYER) == 0)
+		return false;
+
+	char szQuery[256];
+	snprintf(szQuery, sizeof(szQuery), "SELECT player_index.empire, player.id, player.name, player.gold FROM player JOIN player_index ON player_index.id = player.account_id WHERE player.name = '%s'", szEscapedName);
 
 	auto pMsg = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
-    if (pMsg->Get()->uiNumRows == 0)
-        return false;
+	if (!pMsg || !pMsg->Get() || pMsg->Get()->uiNumRows == 0)
+		return false;
 
-    MYSQL_ROW row;
+	MYSQL_ROW row;
 	int Empire = 0;
-    for (int n = 0; (row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL; ++n)
-    {
-        int idx = 0;
-        str_to_number(Empire, row[idx++]);
+	for (int n = 0; (row = mysql_fetch_row(pMsg->Get()->pSQLResult)) != NULL; ++n)
+	{
+		int idx = 0;
+		str_to_number(Empire, row[idx++]);
 
-        str_to_number(p->pid[Empire], row[idx++]);
+		str_to_number(p->pid[Empire], row[idx++]);
 		strlcpy(p->name[Empire], row[idx++], sizeof(p->name[Empire]));
-        p->money[Empire] = atoll(row[idx++]);
+		p->money[Empire] = atoll(row[idx++]);
 
 		if (g_test_server)
-			sys_log(0, "[Set_MONARCH] Empire %d pid %d money %lld windate %s", Empire, p->pid[Empire], p->money[Empire], p->date[Empire]);
-    }
+			sys_log(0, "[Set_MONARCH] Empire %d pid %u money %lld windate %s", Empire, p->pid[Empire], p->money[Empire], p->date[Empire]);
+	}
 
 	snprintf(szQuery, sizeof(szQuery),
-					"REPLACE INTO monarch (empire, name, windate, money) VALUES(%d, %d, now(), %lld)", Empire, p->pid[Empire], p->money[Empire]);
+					"REPLACE INTO monarch (empire, pid, windate, money) VALUES(%d, %u, now(), %lld)", Empire, p->pid[Empire], p->money[Empire]);
 
- 	CDBManager::instance().AsyncQuery(szQuery, SQL_PLAYER);
-    return true;
+	CDBManager::instance().AsyncQuery(szQuery, SQL_PLAYER);
+	return true;
 }
 
 bool CMonarch::DelMonarch(int Empire)

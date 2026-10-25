@@ -2165,6 +2165,26 @@ void CClientManager::RemoveOfferOnShop(DWORD dwOwnerID)
 #ifdef ENABLE_IKASHOP_LOGS
 void CClientManager::IkarusShopLog(DWORD who, DWORD itemid, std::string_view what, DWORD shopOwner, const std::string& extra, DWORD vnum, DWORD count, int64_t yang, int cheque)
 {
+	std::vector<char> escapedWhat(what.size() * 2 + 1, '\0');
+	if (!what.empty())
+	{
+		if (CDBManager::instance().EscapeString(escapedWhat.data(), what.data(), static_cast<unsigned long>(what.size()), SQL_LOG) == 0)
+		{
+			sys_err("IkarusShopLog: Failed to escape 'what' string on SQL_LOG (who=%u, itemid=%u)", who, itemid);
+			return;
+		}
+	}
+
+	std::vector<char> escapedExtra(extra.size() * 2 + 1, '\0');
+	if (!extra.empty())
+	{
+		if (CDBManager::instance().EscapeString(escapedExtra.data(), extra.data(), static_cast<unsigned long>(extra.size()), SQL_LOG) == 0)
+		{
+			sys_err("IkarusShopLog: Failed to escape 'extra' string on SQL_LOG (who=%u, itemid=%u)", who, itemid);
+			return;
+		}
+	}
+
 	//* making query
 	std::string query = "INSERT INTO `ikarusshop_log` (";
 	query += "`who`, `itemid`, `what`, `shop_owner`, `extra`, `vnum`, `count`, `yang`";
@@ -2174,9 +2194,11 @@ void CClientManager::IkarusShopLog(DWORD who, DWORD itemid, std::string_view wha
 	query += ") ";
 
 	query += fmt::format("VALUES({}, {}, '{}', {}, '{}', {}, {}, {}",
-		who, itemid, what, shopOwner, extra, vnum, count, yang);
+		who, itemid, escapedWhat.data(), shopOwner, escapedExtra.data(), vnum, count, yang);
 #ifdef ENABLE_CHEQUE_SYSTEM
 	query += fmt::format(", {}", cheque);
+#else
+	(void)cheque;
 #endif
 	query += ");";
 

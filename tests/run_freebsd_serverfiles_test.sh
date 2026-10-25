@@ -614,7 +614,7 @@ PYEOF
     rm -rf "$FB_AG_DIR"
     echo "  -> Verified FreeBSD audit_guard.sh v2, --check-audit-health & isolated --install-cron (0 persistent runner cron files left)"
 
-    echo "=== [Bonus 4.E] Verifying FreeBSD backup_mariadb.sh v2 (123 InnoDB, HMAC-SHA256(v2), Tamper/v1/Passphrase/Disk Rejection, --verify-latest, --export-removable & 8-Table + Trigger Restore) ==="
+    echo "=== [Bonus 4.E] Verifying FreeBSD backup_mariadb.sh v2 (125 InnoDB, HMAC-SHA256(v2), Tamper/v1/Passphrase/Disk Rejection, --verify-latest, --export-removable & 8-Table + Trigger Restore) ==="
     FB_BK_DIR="/tmp/mt2_fb_backup_test_$$"
     rm -rf "$FB_BK_DIR"
     mkdir -p "$FB_BK_DIR"
@@ -632,14 +632,14 @@ password="${MT2_TEST_PASSWORD:-$PASS}"
 EOF
     chmod 600 "$ADMIN_CNF"
 
-    # 1. Verify 123/123 InnoDB tables across 5 schemas
+    # 1. Verify 125/125 InnoDB tables across 5 schemas
     TOTAL_INNODB=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s \
         -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('account','common','log','player','world') AND TABLE_TYPE='BASE TABLE' AND ENGINE='InnoDB';" | tr -d ' \t\r\n')
     NON_INNODB=$("$DB_CLI" "--defaults-extra-file=$ADMIN_CNF" -N -s \
         -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('account','common','log','player','world') AND TABLE_TYPE='BASE TABLE' AND ENGINE<>'InnoDB';" | tr -d ' \t\r\n')
-    echo "  -> FreeBSD 5-Schema Storage Engine Check: InnoDB=$TOTAL_INNODB/123, Non-InnoDB=$NON_INNODB"
-    if [ "$TOTAL_INNODB" != "123" ] || [ "$NON_INNODB" != "0" ]; then
-        echo "[ERROR] Expected 123 InnoDB tables and 0 non-InnoDB tables, got InnoDB=$TOTAL_INNODB Non-InnoDB=$NON_INNODB" >&2
+    echo "  -> FreeBSD 5-Schema Storage Engine Check: InnoDB=$TOTAL_INNODB/125, Non-InnoDB=$NON_INNODB"
+    if [ "$TOTAL_INNODB" != "125" ] || [ "$NON_INNODB" != "0" ]; then
+        echo "[ERROR] Expected 125 InnoDB tables and 0 non-InnoDB tables, got InnoDB=$TOTAL_INNODB Non-InnoDB=$NON_INNODB" >&2
         exit 1
     fi
 
@@ -805,7 +805,7 @@ DELETE FROM player_index WHERE id = 501;
 DROP DATABASE IF EXISTS player_restore_verify;
 EOSQL
     rm -rf "$FB_BK_DIR"
-    echo "  -> Verified FreeBSD backup_mariadb.sh v2: 123 InnoDB, HMAC-SHA256(v2), forged/v1/passphrase/disk rejection, --verify-latest, --export-removable & 8-table + trigger restore"
+    echo "  -> Verified FreeBSD backup_mariadb.sh v2: 125 InnoDB, HMAC-SHA256(v2), forged/v1/passphrase/disk rejection, --verify-latest, --export-removable & 8-table + trigger restore"
 
     echo "=== [Bonus 4.F] Verifying FreeBSD PF Firewall Template & 8-Service Port Drift Guard (pf_guard.sh) ==="
     "$SFROOT/pf_guard.sh" --verify-all --pf-conf "$SFROOT/pf.conf.example" --serverfiles-dir "$SFROOT"

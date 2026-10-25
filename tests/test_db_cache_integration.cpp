@@ -14,6 +14,9 @@
 #include <memory>
 #include <cassert>
 #include <chrono>
+#include <thread>
+#include <cstdlib>
+#include <cstring>
 #include <new>
 
 // =============================================================================
@@ -103,7 +106,7 @@ int main()
 
     // Gerçek tekil yöneticileri ilklendir (CClientManager kirli 0xAB yığın belleği üzerinde oluşturulur)
     CDBManager dbManager;
-    alignas(CClientManager) unsigned char dirtyCmBuf[sizeof(CClientManager)];
+    alignas(CClientManager) static unsigned char dirtyCmBuf[sizeof(CClientManager)];
     memset(dirtyCmBuf, 0xAB, sizeof(dirtyCmBuf));
     CClientManager& clientManager = *(new (dirtyCmBuf) CClientManager());
     CItemIDRangeManager itemIDRangeManager;
@@ -115,6 +118,7 @@ int main()
     dbManager.SetMainSQL(SQL_PLAYER, std::unique_ptr<CAsyncSQL2>(testSqlPtr.release()));
 
     auto testAsyncSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
+    CIntegrationAsyncSQL* testPlayerAsyncSql = testAsyncSqlPtr.get();
     dbManager.SetAsyncSQL(SQL_PLAYER, std::unique_ptr<CAsyncSQL2>(testAsyncSqlPtr.release()));
 
     auto testDirectSqlPtr = std::make_unique<CIntegrationAsyncSQL>();
@@ -1008,6 +1012,245 @@ int main()
         TEST_ASSERT(clientManager.GetSpecialShopTable() == nullptr, "Senaryo 10D: Reload to empty resets m_pSpecialShopTable to nullptr");
 
         peer.DetachTestOutBuffer();
+    }
+
+    // =========================================================================
+    // SENARYO 11: IkarusShopLog (SQL_LOG) & CMonarch::SetMonarch (SQL_PLAYER)
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo 11: IkarusShopLog SQL_LOG kacirma ve CMonarch::SetMonarch dogrulamasi..." << std::endl;
+
+        auto testLogAsyncPtr = std::make_unique<CIntegrationAsyncSQL>();
+        CIntegrationAsyncSQL* testLogAsyncSql = testLogAsyncPtr.get();
+        dbManager.SetAsyncSQL(SQL_LOG, std::unique_ptr<CAsyncSQL2>(testLogAsyncPtr.release()));
+
+        auto testLogDirectPtr = std::make_unique<CIntegrationAsyncSQL>();
+        CIntegrationAsyncSQL* testLogDirectSql = testLogDirectPtr.get();
+        dbManager.SetDirectSQL(SQL_LOG, std::unique_ptr<CAsyncSQL2>(testLogDirectPtr.release()));
+
+        // 11A: SQL_LOG baglantisi yokken IkarusShopLog fail-closed davranmali (bozuk/kacirilmamis SQL uretmemeli)
+        testLogDirectSql->m_escapeHandler = nullptr;
+        clientManager.IkarusShopLog(1001, 5001, "CREATE_SHOP", 1001, "Hero's Shop", 0, 0, 0, 0);
+        SQLMsg* logMsg = nullptr;
+        TEST_ASSERT(testLogAsyncSql->PopQueuedQuery(&logMsg) == false,
+                    "Senaryo 11A: Disconnected SQL_LOG fails closed and queues no unescaped IkarusShopLog query");
+
+        // 11B: SQL_LOG aktifken tek tirnak ('), ters egik cizgi (\), UTF-8 ve 2400+ karakterli extra guvenle kacirilmali
+        auto mysqlStyleEscape = [](char* dst, size_t dstSize, const char* src, size_t srcSize) -> size_t {
+            if (!dst || dstSize < srcSize * 2 + 1) return 0;
+            size_t outIdx = 0;
+            for (size_t i = 0; i < srcSize; ++i)
+            {
+                unsigned char c = static_cast<unsigned char>(src[i]);
+                if (c == '\'' || c == '\\' || c == '"')
+                {
+                    dst[outIdx++] = '\\';
+                    dst[outIdx++] = static_cast<char>(c);
+                }
+                else if (c == '\0')
+                {
+                    dst[outIdx++] = '\\';
+                    dst[outIdx++] = '0';
+                }
+                else if (c == '\n')
+                {
+                    dst[outIdx++] = '\\';
+                    dst[outIdx++] = 'n';
+                }
+                else if (c == '\r')
+                {
+                    dst[outIdx++] = '\\';
+                    dst[outIdx++] = 'r';
+                }
+                else
+                {
+                    dst[outIdx++] = static_cast<char>(c);
+                }
+            }
+            dst[outIdx] = '\0';
+            return outIdx;
+        };
+        testLogDirectSql->m_escapeHandler = mysqlStyleEscape;
+
+        const std::string specialExtra = "Pazar: 'Kılıç+9' \\ Test — ŞĞÜÖÇİ";
+        clientManager.IkarusShopLog(1001, 0, "CREATE_SHOP", 1001, specialExtra, 0, 0, 0, 0);
+        TEST_ASSERT(testLogAsyncSql->PopQueuedQuery(&logMsg) == true && logMsg != nullptr,
+                    "Senaryo 11B: CREATE_SHOP log query queued on SQL_LOG");
+        TEST_ASSERT(logMsg->stQuery.find("INSERT INTO `ikarusshop_log` (`who`, `itemid`, `what`, `shop_owner`, `extra`, `vnum`, `count`, `yang`") != std::string::npos,
+                    "Senaryo 11B: Query targets ikarusshop_log with expected column list");
+        TEST_ASSERT(logMsg->stQuery.find("Pazar: \\'Kılıç+9\\' \\\\ Test — ŞĞÜÖÇİ") != std::string::npos,
+                    "Senaryo 11B: Single quotes, backslashes, and UTF-8 in extra are safely escaped");
+        delete logMsg;
+        logMsg = nullptr;
+
+        clientManager.IkarusShopLog(1001, 90001, "ADD_ITEM", 1001, "pos:0", 189, 1, 25000000, 3);
+        TEST_ASSERT(testLogAsyncSql->PopQueuedQuery(&logMsg) == true && logMsg != nullptr,
+                    "Senaryo 11B: ADD_ITEM log query queued on SQL_LOG");
+        TEST_ASSERT(logMsg->stQuery.find("VALUES(1001, 90001, 'ADD_ITEM', 1001, 'pos:0', 189, 1, 25000000") != std::string::npos,
+                    "Senaryo 11B: ADD_ITEM values match");
+        delete logMsg;
+        logMsg = nullptr;
+
+        std::string longExtra(2400, 'A');
+        longExtra.replace(500, 6, "'\\UTF8");
+        clientManager.IkarusShopLog(2002, 90001, "BUY_ITEM", 1001, longExtra, 189, 1, 25000000, 3);
+        TEST_ASSERT(testLogAsyncSql->PopQueuedQuery(&logMsg) == true && logMsg != nullptr,
+                    "Senaryo 11B: BUY_ITEM with 2400-byte extra queued without truncation");
+        TEST_ASSERT(logMsg->stQuery.size() > 2450 && logMsg->stQuery.find("\\'\\\\UTF8") != std::string::npos,
+                    "Senaryo 11B: 2400-byte extra preserved and escaped");
+        delete logMsg;
+        logMsg = nullptr;
+
+        // 11C: CMonarch::SetMonarch baglantisiz SQL_PLAYER slotunda fail-closed donmeli,
+        // aktif slotta ise oyuncu adini EscapeString ile kacirmali
+        testDirectSql->m_escapeHandler = nullptr;
+        TEST_ASSERT(monarch.SetMonarch("Emperor'One") == false,
+                    "Senaryo 11C: CMonarch::SetMonarch fails closed when SQL_PLAYER is offline");
+
+        testDirectSql->m_escapeHandler = mysqlStyleEscape;
+        std::string capturedMonarchSelect;
+        testDirectSql->m_directQueryHandler = [&capturedMonarchSelect](const char* q) -> std::unique_ptr<SQLMsg> {
+            capturedMonarchSelect = q ? q : "";
+            auto msg = std::make_unique<SQLMsg>();
+            msg->uiSQLErrno = 0;
+            auto pRes = new SQLResult();
+            pRes->uiNumRows = 0;
+            msg->vec_pkResult.push_back(pRes);
+            return msg;
+        };
+        TEST_ASSERT(monarch.SetMonarch("Emperor'One") == false,
+                    "Senaryo 11C: CMonarch::SetMonarch returns false when candidate is not found");
+        TEST_ASSERT(capturedMonarchSelect.find("WHERE player.name = 'Emperor\\'One'") != std::string::npos,
+                    "Senaryo 11C: CMonarch::SetMonarch escapes candidate name via EscapeString");
+        testDirectSql->m_directQueryHandler = nullptr;
+
+        // 11D: Canli MariaDB ortam degiskenleri tanimliysa CClientManager::IkarusShopLog ve
+        // CMonarch::SetMonarch / AddMoney / LoadMonarch gercek MariaDB 12.3 LTS uzerinde uctan uca calistirilir
+        const char* envPort = std::getenv("MT2_DB_PORT");
+        if (envPort && *envPort)
+        {
+            const char* envHost = std::getenv("MT2_DB_HOST");
+            const char* envUser = std::getenv("MT2_DB_USER");
+            const char* envPass = std::getenv("MT2_DB_PASS");
+            std::string host = (envHost && *envHost) ? envHost : "127.0.0.1";
+            std::string user = (envUser && *envUser) ? envUser : "root";
+            std::string pass = (envPass) ? envPass : "";
+            int port = std::atoi(envPort);
+
+            std::cout << "[RUN] Senaryo 11D: Canli MariaDB (" << host << ":" << port << ") uzerinde IkarusShopLog ve CMonarch uctan uca dogrulamasi..." << std::endl;
+
+            CAsyncSQL livePlayerSql;
+            CAsyncSQL liveLogSql;
+            TEST_ASSERT(livePlayerSql.Setup(host.c_str(), user.c_str(), pass.c_str(), "player", "utf8mb4", true, port) == true,
+                        "Senaryo 11D: Connected livePlayerSql to MariaDB player schema");
+            TEST_ASSERT(liveLogSql.Setup(host.c_str(), user.c_str(), pass.c_str(), "log", "utf8mb4", true, port) == true,
+                        "Senaryo 11D: Connected liveLogSql to MariaDB log schema");
+
+            testLogDirectSql->m_escapeHandler = [&liveLogSql](char* dst, size_t dstSize, const char* src, size_t srcSize) -> size_t {
+                return liveLogSql.EscapeString(dst, dstSize, src, srcSize);
+            };
+            testDirectSql->m_escapeHandler = [&livePlayerSql](char* dst, size_t dstSize, const char* src, size_t srcSize) -> size_t {
+                return livePlayerSql.EscapeString(dst, dstSize, src, srcSize);
+            };
+            testDirectSql->m_directQueryHandler = [&livePlayerSql](const char* q) -> std::unique_ptr<SQLMsg> {
+                return livePlayerSql.DirectQuery(q);
+            };
+
+            // 1. Gercek CClientManager::IkarusShopLog cagrilari -> canli log.ikarusshop_log tablosuna yazim
+            {
+                auto cleanLog = liveLogSql.DirectQuery("DELETE FROM ikarusshop_log WHERE who IN (881001, 881002);");
+                TEST_ASSERT(cleanLog != nullptr && !cleanLog->IsError(), "Senaryo 11D: Cleaned test rows in ikarusshop_log");
+
+                std::string liveLongExtra(2100, 'Z');
+                liveLongExtra.replace(100, 18, "quote'bs\\utf8_ŞĞÜİ");
+                clientManager.IkarusShopLog(881001, 0, "CREATE_SHOP", 881001, "Kral'ın Pazarı \\ UTF8: ŞĞÜÖÇİ", 0, 0, 0, 0);
+                clientManager.IkarusShopLog(881001, 77001, "ADD_ITEM", 881001, liveLongExtra, 189, 1, 50000000, 5);
+                clientManager.IkarusShopLog(881002, 77001, "BUY_ITEM", 881001, "buyer:881002", 189, 1, 50000000, 5);
+
+                int executedLogQueries = 0;
+                while (testLogAsyncSql->PopQueuedQuery(&logMsg))
+                {
+                    auto execRes = liveLogSql.DirectQuery(logMsg->stQuery.c_str());
+                    TEST_ASSERT(execRes != nullptr && !execRes->IsError() && execRes->uiSQLErrno == 0,
+                                "Senaryo 11D: Queued IkarusShopLog query executed cleanly on live MariaDB");
+                    delete logMsg;
+                    logMsg = nullptr;
+                    ++executedLogQueries;
+                }
+                TEST_ASSERT(executedLogQueries == 3, "Senaryo 11D: All 3 queued IkarusShopLog queries executed");
+
+                auto verifyLog = liveLogSql.DirectQuery(
+                    "SELECT COUNT(*), MAX(CHAR_LENGTH(extra)) FROM ikarusshop_log WHERE who IN (881001, 881002);");
+                TEST_ASSERT(verifyLog != nullptr && !verifyLog->IsError() && verifyLog->Get() && verifyLog->Get()->uiNumRows == 1,
+                            "Senaryo 11D: SELECT from live ikarusshop_log succeeded");
+                MYSQL_ROW lRow = mysql_fetch_row(verifyLog->Get()->pSQLResult);
+                int rowCount = (lRow && lRow[0]) ? std::atoi(lRow[0]) : 0;
+                int maxExtraLen = (lRow && lRow[1]) ? std::atoi(lRow[1]) : 0;
+                TEST_ASSERT(rowCount == 3, "Senaryo 11D: All 3 IkarusShopLog events (CREATE_SHOP, ADD_ITEM, BUY_ITEM) persisted in live ikarusshop_log");
+                TEST_ASSERT(maxExtraLen >= 2095, "Senaryo 11D: 2100-byte extra with quotes/backslashes/UTF-8 persisted intact");
+
+                liveLogSql.DirectQuery("DELETE FROM ikarusshop_log WHERE who IN (881001, 881002);");
+            }
+
+            // 2. Gercek CMonarch::SetMonarch + AddMoney + LoadMonarch cagrilari -> canli player.monarch tablosu
+            {
+                livePlayerSql.DirectQuery("DELETE FROM monarch WHERE empire = 1;");
+                livePlayerSql.DirectQuery("DELETE FROM player WHERE id = 881001;");
+                livePlayerSql.DirectQuery("DELETE FROM player_index WHERE id = 880501;");
+
+                auto insIdx = livePlayerSql.DirectQuery(
+                    "INSERT INTO player_index (id, pid1, pid2, pid3, pid4, empire) VALUES (880501, 881001, 0, 0, 0, 1);");
+                TEST_ASSERT(insIdx != nullptr && !insIdx->IsError(), "Senaryo 11D: Inserted candidate player_index");
+
+                auto insPlr = livePlayerSql.DirectQuery(
+                    "INSERT INTO player (id, account_id, name, job, voice, dir, x, y, z, map_index, exit_x, exit_y, exit_map_index, "
+                    "hp, mp, stamina, random_hp, random_sp, playtime, level, level_step, st, ht, dx, iq, exp, gold, stat_point, "
+                    "skill_point, quickslot, ip, part_main, part_base, part_hair, skill_group, skill_level, alignment, last_play, "
+                    "change_name, mobile, sub_skill_point, horse_skill_point, stat_reset_count) "
+                    "VALUES (881001, 880501, 'MonarchHero', 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1000, 500, 800, 0, 0, 0, 99, 0, "
+                    "90, 90, 90, 90, 0, 77000000, 0, 0, '', '127.0.0.1', 0, 0, 0, 1, '', 0, NOW(), 0, '', 0, 0, 0);");
+                TEST_ASSERT(insPlr != nullptr && !insPlr->IsError(), "Senaryo 11D: Inserted candidate player MonarchHero");
+
+                TEST_ASSERT(monarch.SetMonarch("MonarchHero") == true, "Senaryo 11D: CMonarch::SetMonarch('MonarchHero') succeeded");
+                SQLMsg* mMsg = nullptr;
+                TEST_ASSERT(testPlayerAsyncSql->PopQueuedQuery(&mMsg) == true && mMsg != nullptr,
+                            "Senaryo 11D: SetMonarch queued REPLACE INTO monarch query on SQL_PLAYER");
+                TEST_ASSERT(mMsg->stQuery.find("REPLACE INTO monarch (empire, pid, windate, money) VALUES(1, 881001, now(), 77000000)") != std::string::npos,
+                            "Senaryo 11D: SetMonarch query uses (empire, pid, windate, money)");
+                auto execSet = livePlayerSql.DirectQuery(mMsg->stQuery.c_str());
+                TEST_ASSERT(execSet != nullptr && !execSet->IsError() && execSet->uiSQLErrno == 0,
+                            "Senaryo 11D: SetMonarch REPLACE INTO monarch executed cleanly on live MariaDB");
+                delete mMsg;
+                mMsg = nullptr;
+
+                TEST_ASSERT(monarch.AddMoney(1, 23000000) == true, "Senaryo 11D: CMonarch::AddMoney(1, 23000000) succeeded");
+                TEST_ASSERT(testPlayerAsyncSql->PopQueuedQuery(&mMsg) == true && mMsg != nullptr,
+                            "Senaryo 11D: AddMoney queued REPLACE INTO monarch query on SQL_PLAYER");
+                auto execAdd = livePlayerSql.DirectQuery(mMsg->stQuery.c_str());
+                TEST_ASSERT(execAdd != nullptr && !execAdd->IsError() && execAdd->uiSQLErrno == 0,
+                            "Senaryo 11D: AddMoney REPLACE INTO monarch executed cleanly on live MariaDB");
+                delete mMsg;
+                mMsg = nullptr;
+
+                std::memset(monarch.GetMonarch(), 0, sizeof(TMonarchInfo));
+                TEST_ASSERT(monarch.GetMonarch()->pid[1] == 0 && monarch.GetMonarch()->money[1] == 0,
+                            "Senaryo 11D: Cleared in-memory monarch state before LoadMonarch()");
+                TEST_ASSERT(monarch.LoadMonarch() == true, "Senaryo 11D: CMonarch::LoadMonarch() succeeded from live MariaDB");
+                const MonarchInfo* mInfo = monarch.GetMonarch();
+                TEST_ASSERT(mInfo != nullptr && mInfo->pid[1] == 881001, "Senaryo 11D: Reloaded monarch pid[1] == 881001");
+                TEST_ASSERT(std::string(mInfo->name[1]) == "MonarchHero", "Senaryo 11D: Reloaded monarch name[1] == 'MonarchHero'");
+                TEST_ASSERT(mInfo->money[1] == 100000000LL, "Senaryo 11D: Reloaded monarch money[1] == 100,000,000");
+                TEST_ASSERT(std::strlen(mInfo->date[1]) >= 10, "Senaryo 11D: Reloaded monarch windate preserved");
+
+                livePlayerSql.DirectQuery("DELETE FROM monarch WHERE empire = 1;");
+                livePlayerSql.DirectQuery("DELETE FROM player WHERE id = 881001;");
+                livePlayerSql.DirectQuery("DELETE FROM player_index WHERE id = 880501;");
+            }
+
+            testDirectSql->m_directQueryHandler = nullptr;
+            liveLogSql.Quit();
+            livePlayerSql.Quit();
+        }
     }
 
     std::cout << "\n==================================================" << std::endl;

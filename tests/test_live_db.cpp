@@ -1621,9 +1621,322 @@ int main(int argc, char* argv[])
 	}
 
 	// --------------------------------------------------------------------------
-	// 16. CLEANUP OF TEST SCHEMA
+	// 16. IN-GAME SQL BUG FIXES VERIFICATION (IKARUS OFFLINE SHOP, ITEMSHOP, MONARCH)
 	// --------------------------------------------------------------------------
-	std::cout << "\n[16/16] Clean Teardown of Test Schema..." << std::endl;
+	std::cout << "\n[16/17] Verifying In-Game SQL Fixes (ikarusshop_log, itemshop + Durable Spool 0 Quarantine, monarch)..." << std::endl;
+	{
+		CAsyncSQL logSql;
+		if (logSql.Setup(host.c_str(), user.c_str(), password.c_str(), "log", "utf8mb4", true, port)) {
+			bool bBootstrappedLog = false;
+			auto preLogCheck = logSql.DirectQuery(
+				"SELECT COUNT(*) FROM information_schema.TABLES "
+				"WHERE TABLE_SCHEMA='log' AND TABLE_NAME IN ('ikarusshop_log','itemshop','itemshop_log');");
+			if (preLogCheck && !preLogCheck->IsError() && preLogCheck->Get() && preLogCheck->Get()->uiNumRows == 1) {
+				MYSQL_ROW pRow = mysql_fetch_row(preLogCheck->Get()->pSQLResult);
+				int existingCnt = (pRow && pRow[0]) ? std::atoi(pRow[0]) : 0;
+				if (existingCnt == 0) {
+					bBootstrappedLog = true;
+					logSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `ikarusshop_log` ("
+						"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,"
+						"  `who` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `itemid` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `what` varchar(64) NOT NULL DEFAULT '',"
+						"  `shop_owner` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `extra` mediumtext NOT NULL,"
+						"  `vnum` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `count` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `yang` bigint(20) NOT NULL DEFAULT 0,"
+						"  `cheque` int(11) NOT NULL DEFAULT 0,"
+						"  `time` datetime NOT NULL DEFAULT current_timestamp(),"
+						"  PRIMARY KEY (`id`),"
+						"  KEY `idx_ikashop_who` (`who`),"
+						"  KEY `idx_ikashop_owner` (`shop_owner`),"
+						"  KEY `idx_ikashop_itemid` (`itemid`),"
+						"  KEY `idx_ikashop_time` (`time`)"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+					logSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `itemshop` ("
+						"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,"
+						"  `pid` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `account_id` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `item_index` int(11) NOT NULL DEFAULT 0,"
+						"  `vnum` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `count` int(11) NOT NULL DEFAULT 0,"
+						"  `price` bigint(20) NOT NULL DEFAULT 0,"
+						"  `currency` tinyint(4) NOT NULL DEFAULT 0,"
+						"  `item_id` int(11) unsigned DEFAULT NULL,"
+						"  `date` datetime NOT NULL DEFAULT current_timestamp(),"
+						"  `money_before_buy` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  PRIMARY KEY (`id`),"
+						"  KEY `idx_itemshop_pid` (`pid`),"
+						"  KEY `idx_itemshop_account` (`account_id`),"
+						"  KEY `idx_itemshop_date` (`date`)"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+					logSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `itemshop_log` ("
+						"  `account_id` int(11) DEFAULT NULL,"
+						"  `player_id` int(11) DEFAULT NULL,"
+						"  `player_name` char(50) DEFAULT NULL,"
+						"  `vnum` int(11) DEFAULT NULL,"
+						"  `count` int(11) DEFAULT NULL,"
+						"  `price` int(11) DEFAULT NULL,"
+						"  `ip` varchar(50) DEFAULT NULL,"
+						"  `date` datetime DEFAULT NULL"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+				}
+			}
+
+			// Verify ikarusshop_log and itemshop exist in `log` schema with ENGINE=InnoDB
+			auto tblCheck = logSql.DirectQuery(
+				"SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+				"WHERE TABLE_SCHEMA='log' AND TABLE_NAME IN ('ikarusshop_log','itemshop','itemshop_log') "
+				"ORDER BY TABLE_NAME;");
+			LIVE_ASSERT(tblCheck != nullptr && !tblCheck->IsError() && tblCheck->Get() && tblCheck->Get()->uiNumRows == 3,
+				"In-Game SQL [Bug 1 & 2]: log.ikarusshop_log, log.itemshop, and legacy log.itemshop_log all exist");
+			if (tblCheck && tblCheck->Get()) {
+				MYSQL_ROW tRow;
+				while ((tRow = mysql_fetch_row(tblCheck->Get()->pSQLResult)) != nullptr) {
+					std::string tName = tRow[0] ? tRow[0] : "";
+					std::string tEng = tRow[1] ? tRow[1] : "";
+					LIVE_ASSERT(tEng == "InnoDB",
+						("In-Game SQL [Bug 1 & 2]: log." + tName + " uses ENGINE=InnoDB").c_str());
+				}
+			}
+
+			// Bug 1: Test ikarusshop_log inserts with single quotes, backslashes, UTF-8, and 2500-char extra
+			logSql.DirectQuery("DELETE FROM ikarusshop_log WHERE who IN (991001, 991002);");
+
+			std::string rawExtra = "Pazar: 'Dolunay Kılıcı+9' \\ Özel Not: ŞĞÜÖÇİ — ";
+			rawExtra.append(2450, 'X');
+			std::vector<char> escExtra(rawExtra.size() * 2 + 1, '\0');
+			size_t escLen = logSql.EscapeString(escExtra.data(), escExtra.size(), rawExtra.c_str(), rawExtra.size());
+			LIVE_ASSERT(escLen > rawExtra.size(),
+				"In-Game SQL [Bug 1]: CAsyncSQL::EscapeString escaped quotes/backslashes/UTF-8 in 2500+ byte extra");
+
+			std::string qCreate = "INSERT INTO `ikarusshop_log` (`who`, `itemid`, `what`, `shop_owner`, `extra`, `vnum`, `count`, `yang`, `cheque`) "
+								  "VALUES(991001, 0, 'CREATE_SHOP', 991001, '" + std::string(escExtra.data()) + "', 0, 0, 0, 0);";
+			auto rCreate = logSql.DirectQuery(qCreate.c_str());
+			LIVE_ASSERT(rCreate != nullptr && !rCreate->IsError() && rCreate->uiSQLErrno == 0,
+				"In-Game SQL [Bug 1]: ikarusshop_log CREATE_SHOP with quotes, backslashes, UTF-8 & 2500+ byte extra succeeded");
+
+			auto rAdd = logSql.DirectQuery(
+				"INSERT INTO `ikarusshop_log` (`who`, `itemid`, `what`, `shop_owner`, `extra`, `vnum`, `count`, `yang`, `cheque`) "
+				"VALUES(991001, 550001, 'ADD_ITEM', 991001, 'pos:0', 299, 1, 150000000, 10);");
+			LIVE_ASSERT(rAdd != nullptr && !rAdd->IsError() && rAdd->uiSQLErrno == 0,
+				"In-Game SQL [Bug 1]: ikarusshop_log ADD_ITEM succeeded");
+
+			auto rBuy = logSql.DirectQuery(
+				"INSERT INTO `ikarusshop_log` (`who`, `itemid`, `what`, `shop_owner`, `extra`, `vnum`, `count`, `yang`, `cheque`) "
+				"VALUES(991002, 550001, 'BUY_ITEM', 991001, 'buyer:991002', 299, 1, 150000000, 10);");
+			LIVE_ASSERT(rBuy != nullptr && !rBuy->IsError() && rBuy->uiSQLErrno == 0,
+				"In-Game SQL [Bug 1]: ikarusshop_log BUY_ITEM succeeded");
+
+			auto rVerifyIka = logSql.DirectQuery(
+				"SELECT extra FROM ikarusshop_log WHERE who=991001 AND what='CREATE_SHOP' LIMIT 1;");
+			LIVE_ASSERT(rVerifyIka != nullptr && !rVerifyIka->IsError() && rVerifyIka->Get() && rVerifyIka->Get()->uiNumRows == 1,
+				"In-Game SQL [Bug 1]: ikarusshop_log CREATE_SHOP row fetched back");
+			if (rVerifyIka && rVerifyIka->Get() && rVerifyIka->Get()->uiNumRows == 1) {
+				MYSQL_ROW iRow = mysql_fetch_row(rVerifyIka->Get()->pSQLResult);
+				std::string fetchedExtra = (iRow && iRow[0]) ? iRow[0] : "";
+				LIVE_ASSERT(fetchedExtra == rawExtra,
+					"In-Game SQL [Bug 1]: ikarusshop_log extra round-tripped byte-for-byte intact (quotes, backslashes, UTF-8, 2500+ chars)");
+			}
+			logSql.DirectQuery("DELETE FROM ikarusshop_log WHERE who IN (991001, 991002);");
+
+			// Bug 2: Test itemshop 10-column insert (both normal item ID and VIP/award NULL item_id) + verify 0 quarantine in durable spool
+			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");
+			const std::string itemshopSpoolPath = "./mt2_test_itemshop_spool_" + std::to_string(port) + ".jsonl";
+			std::remove(itemshopSpoolPath.c_str());
+			std::remove((itemshopSpoolPath + ".quarantine").c_str());
+
+			{
+				CAsyncSQL asyncLogSql;
+				LIVE_ASSERT(asyncLogSql.EnableDurableSpool(itemshopSpoolPath.c_str()) == true,
+					"In-Game SQL [Bug 2]: Enabled durable spool for itemshop log verification");
+				LIVE_ASSERT(asyncLogSql.Setup(host.c_str(), user.c_str(), password.c_str(), "log", "utf8mb4", false, port) == true,
+					"In-Game SQL [Bug 2]: Started threaded CAsyncSQL worker for log.itemshop");
+
+				asyncLogSql.AsyncQuery(
+					"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
+					"VALUES (991001, 990501, 12, 71084, 5, 250, 1, 8800123, NOW(), 1000)");
+				asyncLogSql.AsyncQuery(
+					"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
+					"VALUES (991001, 990501, 15, 70021, 1, 500, 2, null, NOW(), 750)");
+
+				for (int w = 0; w < 60; ++w) {
+					if (asyncLogSql.CountQueryFinished() >= 2 && asyncLogSql.CountQuery() == 0)
+						break;
+					std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+				auto spoolStats = asyncLogSql.GetDurableSpoolStats();
+				LIVE_ASSERT(spoolStats.ullQuarantinedCount == 0 && spoolStats.ullCommittedCount >= 2,
+					"In-Game SQL [Bug 2]: CItemShopManager::BuyItem 10-column itemshop log committed cleanly with 0 quarantined statements");
+				asyncLogSql.Quit();
+			}
+
+			auto rVerifyShop = logSql.DirectQuery(
+				"SELECT COUNT(*), SUM(price), SUM(CASE WHEN item_id IS NULL THEN 1 ELSE 0 END) "
+				"FROM itemshop WHERE pid = 991001;");
+			LIVE_ASSERT(rVerifyShop != nullptr && !rVerifyShop->IsError() && rVerifyShop->Get() && rVerifyShop->Get()->uiNumRows == 1,
+				"In-Game SQL [Bug 2]: SELECT from log.itemshop succeeded");
+			if (rVerifyShop && rVerifyShop->Get() && rVerifyShop->Get()->uiNumRows == 1) {
+				MYSQL_ROW sRow = mysql_fetch_row(rVerifyShop->Get()->pSQLResult);
+				int cnt = (sRow && sRow[0]) ? std::atoi(sRow[0]) : 0;
+				long long sumPrice = (sRow && sRow[1]) ? std::strtoll(sRow[1], nullptr, 10) : 0;
+				int nullItemIds = (sRow && sRow[2]) ? std::atoi(sRow[2]) : 0;
+				LIVE_ASSERT(cnt == 2 && sumPrice == 750 && nullItemIds == 1,
+					"In-Game SQL [Bug 2]: Both itemshop purchases (with item_id=8800123 and item_id=NULL) persisted with all 10 fields");
+			}
+
+			logSql.DirectQuery("DELETE FROM itemshop WHERE pid = 991001;");
+			if (bBootstrappedLog) {
+				logSql.DirectQuery("DROP TABLE IF EXISTS `ikarusshop_log`, `itemshop`, `itemshop_log`;");
+			}
+			logSql.Quit();
+			std::remove(itemshopSpoolPath.c_str());
+			std::remove((itemshopSpoolPath + ".quarantine").c_str());
+		}
+
+		// Bug 3: Test monarch election/selection, money update, and reload on `player` schema
+		CAsyncSQL playerSql;
+		if (playerSql.Setup(host.c_str(), user.c_str(), password.c_str(), "player", "utf8mb4", true, port)) {
+			bool bBootstrappedPlayer = false;
+			auto prePlrCheck = playerSql.DirectQuery(
+				"SELECT COUNT(*) FROM information_schema.TABLES "
+				"WHERE TABLE_SCHEMA='player' AND TABLE_NAME IN ('monarch','player','player_index');");
+			if (prePlrCheck && !prePlrCheck->IsError() && prePlrCheck->Get() && prePlrCheck->Get()->uiNumRows == 1) {
+				MYSQL_ROW pRow = mysql_fetch_row(prePlrCheck->Get()->pSQLResult);
+				int existingCnt = (pRow && pRow[0]) ? std::atoi(pRow[0]) : 0;
+				if (existingCnt == 0) {
+					bBootstrappedPlayer = true;
+					playerSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `monarch` ("
+						"  `empire` int(10) unsigned NOT NULL DEFAULT 0,"
+						"  `pid` int(10) unsigned DEFAULT NULL,"
+						"  `windate` datetime DEFAULT NULL,"
+						"  `money` bigint(20) unsigned DEFAULT NULL,"
+						"  PRIMARY KEY (`empire`)"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+					playerSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `player_index` ("
+						"  `id` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `pid1` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `pid2` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `pid3` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `pid4` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `empire` tinyint(4) unsigned NOT NULL DEFAULT 0,"
+						"  PRIMARY KEY (`id`)"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+					playerSql.DirectQuery(
+						"CREATE TABLE IF NOT EXISTS `player` ("
+						"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,"
+						"  `account_id` int(11) unsigned NOT NULL DEFAULT 0,"
+						"  `name` varchar(24) NOT NULL DEFAULT 'NONAME',"
+						"  `job` tinyint(2) unsigned NOT NULL DEFAULT 0,"
+						"  `voice` tinyint(1) NOT NULL DEFAULT 0,"
+						"  `dir` tinyint(2) NOT NULL DEFAULT 0,"
+						"  `x` int(11) NOT NULL DEFAULT 0,"
+						"  `y` int(11) NOT NULL DEFAULT 0,"
+						"  `z` int(11) NOT NULL DEFAULT 0,"
+						"  `map_index` int(11) NOT NULL DEFAULT 0,"
+						"  `exit_x` int(11) NOT NULL DEFAULT 0,"
+						"  `exit_y` int(11) NOT NULL DEFAULT 0,"
+						"  `exit_map_index` int(11) NOT NULL DEFAULT 1,"
+						"  `hp` int(11) NOT NULL DEFAULT 0,"
+						"  `mp` int(11) NOT NULL DEFAULT 0,"
+						"  `stamina` smallint(6) NOT NULL DEFAULT 0,"
+						"  `random_hp` smallint(5) NOT NULL DEFAULT 0,"
+						"  `random_sp` smallint(5) NOT NULL DEFAULT 0,"
+						"  `playtime` int(11) NOT NULL DEFAULT 0,"
+						"  `level` tinyint(2) unsigned NOT NULL DEFAULT 1,"
+						"  `level_step` tinyint(1) NOT NULL DEFAULT 0,"
+						"  `st` smallint(3) NOT NULL DEFAULT 0,"
+						"  `ht` smallint(3) NOT NULL DEFAULT 0,"
+						"  `dx` smallint(3) NOT NULL DEFAULT 0,"
+						"  `iq` smallint(3) NOT NULL DEFAULT 0,"
+						"  `exp` int(11) NOT NULL DEFAULT 0,"
+						"  `gold` int(11) NOT NULL DEFAULT 0,"
+						"  `stat_point` smallint(3) NOT NULL DEFAULT 0,"
+						"  `skill_point` smallint(3) NOT NULL DEFAULT 0,"
+						"  `quickslot` tinyblob DEFAULT NULL,"
+						"  `ip` varchar(15) DEFAULT '0.0.0.0',"
+						"  `part_main` mediumint(6) NOT NULL DEFAULT 0,"
+						"  `part_base` tinyint(4) NOT NULL DEFAULT 0,"
+						"  `part_hair` mediumint(4) NOT NULL DEFAULT 0,"
+						"  `skill_group` tinyint(4) NOT NULL DEFAULT 0,"
+						"  `skill_level` blob DEFAULT NULL,"
+						"  `alignment` int(11) NOT NULL DEFAULT 0,"
+						"  `last_play` datetime NOT NULL DEFAULT current_timestamp(),"
+						"  `change_name` tinyint(1) NOT NULL DEFAULT 0,"
+						"  `mobile` varchar(24) DEFAULT NULL,"
+						"  `sub_skill_point` smallint(3) NOT NULL DEFAULT 0,"
+						"  `horse_skill_point` smallint(3) NOT NULL DEFAULT 0,"
+						"  `stat_reset_count` tinyint(4) NOT NULL DEFAULT 0,"
+						"  PRIMARY KEY (`id`),"
+						"  KEY `account_id_idx` (`account_id`),"
+						"  KEY `name_idx` (`name`)"
+						") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+				}
+			}
+
+			playerSql.DirectQuery("DELETE FROM monarch WHERE empire = 2;");
+			playerSql.DirectQuery("DELETE FROM player WHERE id = 992001;");
+			playerSql.DirectQuery("DELETE FROM player_index WHERE id = 990601;");
+
+			auto rIdx = playerSql.DirectQuery(
+				"INSERT INTO player_index (id, pid1, pid2, pid3, pid4, empire) VALUES (990601, 992001, 0, 0, 0, 2);");
+			LIVE_ASSERT(rIdx != nullptr && !rIdx->IsError(),
+				"In-Game SQL [Bug 3]: Inserted monarch test player_index for empire 2");
+
+			auto rPlr = playerSql.DirectQuery(
+				"INSERT INTO player (id, account_id, name, job, voice, dir, x, y, z, map_index, exit_x, exit_y, exit_map_index, "
+				"hp, mp, stamina, random_hp, random_sp, playtime, level, level_step, st, ht, dx, iq, exp, gold, stat_point, "
+				"skill_point, quickslot, ip, part_main, part_base, part_hair, skill_group, skill_level, alignment, last_play, "
+				"change_name, mobile, sub_skill_point, horse_skill_point, stat_reset_count) "
+				"VALUES (992001, 990601, 'ChunjoEmperor', 0, 0, 0, 0, 0, 0, 21, 0, 0, 21, 1000, 500, 800, 0, 0, 0, 99, 0, "
+				"90, 90, 90, 90, 0, 45000000, 0, 0, '', '127.0.0.1', 0, 0, 0, 1, '', 0, NOW(), 0, '', 0, 0, 0);");
+			LIVE_ASSERT(rPlr != nullptr && !rPlr->IsError(),
+				"In-Game SQL [Bug 3]: Inserted monarch test player ChunjoEmperor");
+
+			// Execute the fixed SetMonarch REPLACE INTO monarch (empire, pid, windate, money) query
+			auto rReplace = playerSql.DirectQuery(
+				"REPLACE INTO monarch (empire, pid, windate, money) VALUES(2, 992001, now(), 45000000);");
+			LIVE_ASSERT(rReplace != nullptr && !rReplace->IsError() && rReplace->uiSQLErrno == 0,
+				"In-Game SQL [Bug 3]: REPLACE INTO monarch (empire, pid, windate, money) succeeded without errno 1054");
+
+			// Execute LoadMonarch SELECT join query
+			auto rLoad = playerSql.DirectQuery(
+				"SELECT a.empire, a.pid, b.name, a.money, a.windate FROM monarch a, player b WHERE a.pid=b.id AND a.empire=2;");
+			LIVE_ASSERT(rLoad != nullptr && !rLoad->IsError() && rLoad->Get() && rLoad->Get()->uiNumRows == 1,
+				"In-Game SQL [Bug 3]: LoadMonarch SELECT join query returned elected monarch row");
+			if (rLoad && rLoad->Get() && rLoad->Get()->uiNumRows == 1) {
+				MYSQL_ROW mRow = mysql_fetch_row(rLoad->Get()->pSQLResult);
+				int mEmpire = (mRow && mRow[0]) ? std::atoi(mRow[0]) : 0;
+				unsigned int mPid = (mRow && mRow[1]) ? static_cast<unsigned int>(std::strtoul(mRow[1], nullptr, 10)) : 0;
+				std::string mName = (mRow && mRow[2]) ? mRow[2] : "";
+				long long mMoney = (mRow && mRow[3]) ? std::strtoll(mRow[3], nullptr, 10) : 0;
+				std::string mWindate = (mRow && mRow[4]) ? mRow[4] : "";
+				LIVE_ASSERT(mEmpire == 2 && mPid == 992001 && mName == "ChunjoEmperor" && mMoney == 45000000LL && mWindate.size() >= 10,
+					"In-Game SQL [Bug 3]: Reloaded monarch preserves empire, pid, name, money, and windate");
+			}
+
+			playerSql.DirectQuery("DELETE FROM monarch WHERE empire = 2;");
+			playerSql.DirectQuery("DELETE FROM player WHERE id = 992001;");
+			playerSql.DirectQuery("DELETE FROM player_index WHERE id = 990601;");
+			if (bBootstrappedPlayer) {
+				playerSql.DirectQuery("DROP TABLE IF EXISTS `monarch`, `player`, `player_index`;");
+			}
+			playerSql.Quit();
+		}
+	}
+
+	// --------------------------------------------------------------------------
+	// 17. CLEANUP OF TEST SCHEMA
+	// --------------------------------------------------------------------------
+	std::cout << "\n[17/17] Clean Teardown of Test Schema..." << std::endl;
 	{
 		CAsyncSQL sql;
 		sql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "latin1", true, port);

@@ -241,6 +241,14 @@ unsigned long CDBManager::EscapeString(void *to, const void *from, unsigned long
 	{
 		return (unsigned long)m_directSQL[iSlot]->EscapeString((char*)to, length * 2 + 1, (const char*)from, length);
 	}
+	if (m_mainSQL[iSlot])
+	{
+		return (unsigned long)m_mainSQL[iSlot]->EscapeString((char*)to, length * 2 + 1, (const char*)from, length);
+	}
+	if (m_asyncSQL[iSlot])
+	{
+		return (unsigned long)m_asyncSQL[iSlot]->EscapeString((char*)to, length * 2 + 1, (const char*)from, length);
+	}
 
 	sys_err("CDBManager::EscapeString: Cannot escape string without active database slot (slot %d, len %lu)", iSlot, length);
 	*((char *)to) = '\0';
@@ -253,9 +261,12 @@ void CDBManager::SetLocale(const char * szLocale)
 	sys_log(0, "SetLocale start %s", szLocale);
 	for (int n = 0; n < SQL_MAX_NUM; ++n)
 	{
-		m_mainSQL[n]->SetLocale(stLocale);
-		m_directSQL[n]->SetLocale(stLocale);
-		m_asyncSQL[n]->SetLocale(stLocale);
+		if (m_mainSQL[n])
+			m_mainSQL[n]->SetLocale(stLocale);
+		if (m_directSQL[n])
+			m_directSQL[n]->SetLocale(stLocale);
+		if (m_asyncSQL[n])
+			m_asyncSQL[n]->SetLocale(stLocale);
 	}
 	sys_log(0, "SetLocale end %s", szLocale);
 }
@@ -264,9 +275,12 @@ void CDBManager::QueryLocaleSet()
 {
 	for (int n = 0; n < SQL_MAX_NUM; ++n)
 	{
-		m_mainSQL[n]->QueryLocaleSet();
-		m_directSQL[n]->QueryLocaleSet();
-		m_asyncSQL[n]->QueryLocaleSet();
+		if (m_mainSQL[n])
+			m_mainSQL[n]->QueryLocaleSet();
+		if (m_directSQL[n])
+			m_directSQL[n]->QueryLocaleSet();
+		if (m_asyncSQL[n])
+			m_asyncSQL[n]->QueryLocaleSet();
 	}
 }
 
