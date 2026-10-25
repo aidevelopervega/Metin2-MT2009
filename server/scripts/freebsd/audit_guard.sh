@@ -684,9 +684,12 @@ def save_progress(sig, off):
 try:
     raw_sock = socket.create_connection((host, port), timeout=3.0)
     if use_tls:
-        ctx = ssl.create_default_context(cafile=ca_file if ca_file else None)
-        if ca_file and hasattr(ssl, "VERIFY_X509_STRICT"):
-            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+        ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_file if ca_file else None)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.check_hostname = True
+        if hasattr(ssl, "VERIFY_X509_STRICT"):
+            ctx.verify_flags |= ssl.VERIFY_X509_STRICT
         conn = ctx.wrap_socket(raw_sock, server_hostname=host)
     else:
         conn = raw_sock
@@ -711,7 +714,7 @@ finally:
     if sent_count > 0:
         save_progress(committed_sig, committed_offset)
 
-mode_note = "TLS+ACK" if (use_tls and req_ack) else ("TCP+ACK" if req_ack else "TCP socket handoff (no remote disk ACK)")
+mode_note = "TLS+ACK" if (use_tls and req_ack) else ("TLS socket handoff (no remote disk ACK)" if use_tls else ("TCP+ACK" if req_ack else "TCP socket handoff (no remote disk ACK)"))
 print(f"[OK] Forwarded {sent_count} redacted audit records to {host}:{port} [{mode_note}] (new_offset={committed_offset}).")
 PYEOF
         then

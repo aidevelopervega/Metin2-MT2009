@@ -227,11 +227,19 @@ jobs:
 
             # Test CA ve Sunucu Sertifikaları Oluşturma
             echo "--> Test TLS CA ve Sunucu Sertifikaları Üretiliyor..."
-            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/ca-key.pem" -out "$SSL_DIR/ca-cert.pem" -days 365 -subj "/CN=Metin2 Test CA"
+            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/ca-key.pem" -out "$SSL_DIR/ca-cert.pem" -days 365 -subj "/CN=Metin2 Test CA" \
+              -addext "basicConstraints=critical,CA:TRUE" \
+              -addext "keyUsage=critical,keyCertSign,cRLSign" \
+              -addext "subjectKeyIdentifier=hash" \
+              -addext "authorityKeyIdentifier=keyid:always,issuer"
             openssl req -newkey rsa:2048 -nodes -keyout "$SSL_DIR/server-key.pem" -out "$SSL_DIR/server-req.pem" -subj "/CN=127.0.0.1"
-            printf "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n" > "$SSL_DIR/san.cnf"
+            printf "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n" > "$SSL_DIR/san.cnf"
             openssl x509 -req -in "$SSL_DIR/server-req.pem" -CA "$SSL_DIR/ca-cert.pem" -CAkey "$SSL_DIR/ca-key.pem" -CAcreateserial -extfile "$SSL_DIR/san.cnf" -out "$SSL_DIR/server-cert.pem" -days 365
-            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/invalid-ca-key.pem" -out "$SSL_DIR/invalid-ca-cert.pem" -days 365 -subj "/CN=Untrusted Fake CA"
+            openssl req -x509 -newkey rsa:2048 -nodes -keyout "$SSL_DIR/invalid-ca-key.pem" -out "$SSL_DIR/invalid-ca-cert.pem" -days 365 -subj "/CN=Untrusted Fake CA" \
+              -addext "basicConstraints=critical,CA:TRUE" \
+              -addext "keyUsage=critical,keyCertSign,cRLSign" \
+              -addext "subjectKeyIdentifier=hash" \
+              -addext "authorityKeyIdentifier=keyid:always,issuer"
             # FreeBSD üzerinde veritabanı servisleri 'mysql' kullanıcısı ile çalışır
             chown -R mysql:mysql "$DATA_DIR" "$SSL_DIR"
             chmod 750 "$DATA_DIR" "$SSL_DIR"

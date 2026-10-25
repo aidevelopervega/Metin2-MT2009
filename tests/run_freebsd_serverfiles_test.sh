@@ -485,35 +485,96 @@ srv2.close()
 assert rc2 == 0 and len(received_batch2) == 2, f"Expected 2 lines across rotation, got rc={rc2}, len={len(received_batch2)}"
 assert "gold=123" in received_batch2[0] and "gold=456" in received_batch2[1], f"Wrong rotation ordering: {received_batch2}"
 
-# Test TLS + ACK transport if ssl_dir is available
+# Test strict RFC 5280 TLS verification (VERIFY_X509_STRICT) + ACK transport if ssl_dir is available
 if ssl_dir and os.path.isfile(os.path.join(ssl_dir, "ca-cert.pem")):
+    tls_tmp = os.path.join(os.path.dirname(ag_log), "tls_matrix")
+    os.makedirs(tls_tmp, exist_ok=True)
+    ca_cert = os.path.join(ssl_dir, "ca-cert.pem")
+    ca_key = os.path.join(ssl_dir, "ca-key.pem")
+    srv_cert = os.path.join(ssl_dir, "server-cert.pem")
+    srv_key = os.path.join(ssl_dir, "server-key.pem")
+    inv_ca_cert = os.path.join(ssl_dir, "invalid-ca-cert.pem")
+
+    # Generate wrong-hostname cert (signed by valid CA, but SAN=DNS:wrong-host.mt2.internal)
+    wrong_host_req = os.path.join(tls_tmp, "wrong-host-req.pem")
+    wrong_host_cert = os.path.join(tls_tmp, "wrong-host-cert.pem")
+    wrong_host_cnf = os.path.join(tls_tmp, "wrong-host-san.cnf")
+    with open(wrong_host_cnf, "w", encoding="ascii") as cf:
+        cf.write("basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\nsubjectAltName=DNS:wrong-host.mt2.internal\n")
+    subprocess.run(["openssl", "req", "-new", "-key", srv_key, "-out", wrong_host_req, "-subj", "/CN=wrong-host.mt2.internal"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["openssl", "x509", "-req", "-in", wrong_host_req, "-CA", ca_cert, "-CAkey", ca_key, "-CAcreateserial", "-extfile", wrong_host_cnf, "-out", wrong_host_cert, "-days", "365"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Generate invalid certificate chain (leaf signed by a certificate with CA:FALSE, violating RFC 5280 / VERIFY_X509_STRICT)
+    bad_ca_key = os.path.join(tls_tmp, "bad-ca-key.pem")
+    bad_ca_cert = os.path.join(tls_tmp, "bad-ca-cert.pem")
+    bad_leaf_cert = os.path.join(tls_tmp, "bad-leaf-cert.pem")
+    bad_leaf_cnf = os.path.join(tls_tmp, "bad-leaf-san.cnf")
+    with open(bad_leaf_cnf, "w", encoding="ascii") as cf:
+        cf.write("basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n")
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", bad_ca_key, "-out", bad_ca_cert, "-days", "365", "-subj", "/CN=Invalid Non-CA Signer", "-addext", "basicConstraints=critical,CA:FALSE", "-addext", "keyUsage=critical,digitalSignature"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["openssl", "x509", "-req", "-in", wrong_host_req, "-CA", bad_ca_cert, "-CAkey", bad_ca_key, "-CAcreateserial", "-extfile", bad_leaf_cnf, "-out", bad_leaf_cert, "-days", "365"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def run_tls_case(cert_path, key_path, client_ca_path, require_ack=True, connect_host="127.0.0.1"):
+        received_items = []
+        srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv_sock.settimeout(5.0)
+        srv_sock.bind(("127.0.0.1", 0))
+        srv_sock.listen(1)
+        lport = srv_sock.getsockname()[1]
+        sctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        sctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+
+        def _accept():
+            try:
+                raw_c, _ = srv_sock.accept()
+                with sctx.wrap_socket(raw_c, server_side=True) as tls_c:
+                    sf = tls_c.makefile("rwb")
+                    line = sf.readline()
+                    if line:
+                        received_items.append(line.decode("utf-8").strip())
+                        if require_ack:
+                            sf.write(b"ACK\n")
+                            sf.flush()
+            except Exception:
+                pass
+
+        th = threading.Thread(target=_accept, daemon=True)
+        th.start()
+        cmd = [guard_sh, "--forward-once", "--tls", "--tls-ca-file", client_ca_path, "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", connect_host, "--remote-port", str(lport)]
+        if require_ack:
+            cmd.append("--require-ack")
+        rc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode
+        th.join(timeout=5)
+        srv_sock.close()
+        return rc, received_items
+
+    with open(ag_log, "ab") as f:
+        f.write(b"20261024 12:00:08,mt2,mt2server,127.0.0.1,2,7,QUERY,player,'UPDATE player SET gold=701',0\n")
+    offset_file = ag_log + ".forward.offset"
+    pre_tls_offset = open(offset_file, "r", encoding="ascii").read().strip()
+
+    # (1) Wrong CA -> REJECT (rc == 3, offset unchanged)
+    rc_wrong_ca, rec_wrong_ca = run_tls_case(srv_cert, srv_key, inv_ca_cert, require_ack=True)
+    assert rc_wrong_ca == 3 and len(rec_wrong_ca) == 0 and open(offset_file, "r", encoding="ascii").read().strip() == pre_tls_offset, f"Wrong CA was not rejected: rc={rc_wrong_ca}"
+
+    # (2) Wrong Hostname -> REJECT (rc == 3, offset unchanged)
+    rc_wrong_host, rec_wrong_host = run_tls_case(wrong_host_cert, srv_key, ca_cert, require_ack=True, connect_host="127.0.0.1")
+    assert rc_wrong_host == 3 and len(rec_wrong_host) == 0 and open(offset_file, "r", encoding="ascii").read().strip() == pre_tls_offset, f"Wrong hostname was not rejected: rc={rc_wrong_host}"
+
+    # (3) Invalid Certificate Chain (CA:FALSE signer under VERIFY_X509_STRICT & unanchored chain) -> REJECT (rc == 3, offset unchanged)
+    rc_bad_chain1, rec_bad_chain1 = run_tls_case(bad_leaf_cert, srv_key, bad_ca_cert, require_ack=True)
+    rc_bad_chain2, rec_bad_chain2 = run_tls_case(bad_leaf_cert, srv_key, ca_cert, require_ack=True)
+    assert rc_bad_chain1 == 3 and rc_bad_chain2 == 3 and len(rec_bad_chain1) == 0 and len(rec_bad_chain2) == 0 and open(offset_file, "r", encoding="ascii").read().strip() == pre_tls_offset, f"Invalid cert chain was not rejected: rc1={rc_bad_chain1}, rc2={rc_bad_chain2}"
+
+    # (4) Valid CA + Valid Hostname (TLS without ACK) -> PASS (rc == 0)
+    rc_valid_tls, rec_valid_tls = run_tls_case(srv_cert, srv_key, ca_cert, require_ack=False, connect_host="127.0.0.1")
+    assert rc_valid_tls == 0 and len(rec_valid_tls) == 1 and "gold=701" in rec_valid_tls[0], f"Valid CA + valid hostname TLS failed: rc={rc_valid_tls}, rec={rec_valid_tls}"
+
+    # (5) TLS + ACK (Valid CA + Valid Hostname + Application ACK) -> PASS (rc == 0)
     with open(ag_log, "ab") as f:
         f.write(b"20261024 12:00:08,mt2,mt2server,127.0.0.1,2,7,QUERY,player,'UPDATE player SET gold=789',0\n")
-    received_tls = []
-    srv_tls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv_tls.settimeout(5.0)
-    srv_tls.bind(("127.0.0.1", 0))
-    srv_tls.listen(1)
-    port_tls = srv_tls.getsockname()[1]
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ctx.load_cert_chain(certfile=os.path.join(ssl_dir, "server-cert.pem"), keyfile=os.path.join(ssl_dir, "server-key.pem"))
-
-    def accept_tls():
-        raw_c, _ = srv_tls.accept()
-        with ctx.wrap_socket(raw_c, server_side=True) as tls_c:
-            sf = tls_c.makefile("rwb")
-            line = sf.readline()
-            if line:
-                received_tls.append(line.decode("utf-8").strip())
-                sf.write(b"ACK\n")
-                sf.flush()
-
-    t_tls = threading.Thread(target=accept_tls, daemon=True)
-    t_tls.start()
-    rc_tls = subprocess.run([guard_sh, "--forward-once", "--tls", "--tls-ca-file", os.path.join(ssl_dir, "ca-cert.pem"), "--require-ack", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port_tls)], check=False).returncode
-    t_tls.join(timeout=5)
-    srv_tls.close()
-    assert rc_tls == 0 and len(received_tls) == 1 and "gold=789" in received_tls[0], f"TLS+ACK forward failed: rc={rc_tls}, received={received_tls}"
+    rc_tls_ack, rec_tls_ack = run_tls_case(srv_cert, srv_key, ca_cert, require_ack=True, connect_host="127.0.0.1")
+    assert rc_tls_ack == 0 and len(rec_tls_ack) == 1 and "gold=789" in rec_tls_ack[0], f"TLS+ACK forward failed: rc={rc_tls_ack}, rec={rec_tls_ack}"
 
 # Test send failure does NOT advance offset
 offset_file = ag_log + ".forward.offset"
@@ -523,7 +584,7 @@ with open(ag_log, "ab") as f:
 rc_fail = subprocess.run([guard_sh, "--forward-once", "--audit-log", ag_log, "--archive-dir", arch_dir, "--alert-file", alert_file, "--remote-host", "127.0.0.1", "--remote-port", str(port2)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False).returncode
 after_offset = open(offset_file, "r", encoding="ascii").read().strip()
 assert rc_fail == 3 and before_offset == after_offset, f"Expected rc=3 and unchanged offset ({before_offset} vs {after_offset}), got rc={rc_fail}"
-print("  -> [PASS] Python TCP/TLS/ACK receiver verified: holdback, redaction, .1 rotation ordering, TLS+ACK & offset safety")
+print("  -> [PASS] Python TCP/TLS/ACK receiver verified: holdback, redaction, .1 rotation ordering, strict RFC 5280 TLS (valid CA+host PASS, wrong CA REJECT, wrong host REJECT, invalid chain REJECT, TLS+ACK PASS) & offset safety")
 PYEOF
 
     # Test --install-cron in isolated directory
