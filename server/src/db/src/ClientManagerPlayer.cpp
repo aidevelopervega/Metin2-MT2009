@@ -305,9 +305,9 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 
 			while (it != pSet->end())
 			{
-				CItemCache * c = *it++;
-				c->CancelPendingEviction();
-				TPlayerItem * p = c->Get();
+				CItemCache * pkItemCache = *it++;
+				pkItemCache->CancelPendingEviction();
+				TPlayerItem * p = pkItemCache->Get();
 
 				if (p->vnum)
 					thecore_memcpy(&s_items[dwCount++], p, sizeof(TPlayerItem));

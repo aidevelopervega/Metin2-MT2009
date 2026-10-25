@@ -9247,7 +9247,8 @@ void CHARACTER::OnSetSpecialFlag(std::string flag, long long value)
 {
 	if (flag == GET_SPECIAL_FLAG_KEY(HORSE_INVENTORY_UNLOCK_PROGRES_FLAG))
 	{
-		SetHorseInventory(value);
+		const BYTE clampedVal = static_cast<BYTE>(std::clamp<long long>(value, 0, static_cast<long long>(UCHAR_MAX)));
+		SetHorseInventory(clampedVal);
 	}
 }
 
@@ -9333,7 +9334,8 @@ int CHARACTER::GetReputation(BYTE fraction)
 	if (fraction >= FRACTION_MAX_NUM)
 		return 0;
 
-	return GetSpecialFlag(REPUTATION_FLAG_START + fraction);
+	const long long rawRep = GetSpecialFlag(REPUTATION_FLAG_START + fraction);
+	return static_cast<int>(std::clamp<long long>(rawRep, 0, static_cast<long long>(REPUTATION_MAX_TOTAL_VALUE)));
 }
 
 void CHARACTER::SetReputation(BYTE fraction, int value)

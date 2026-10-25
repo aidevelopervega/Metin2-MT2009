@@ -16,8 +16,8 @@ struct TPrivEmpireData
 	// ADD_EMPIRE_PRIV_TIME
     time_t end_time_sec;
 
-    TPrivEmpireData(BYTE type, int value, BYTE empire, time_t end_time_sec)
-	: type(type), value(value), bRemoved(false), empire(empire), end_time_sec(end_time_sec)
+    TPrivEmpireData(BYTE _type, int _value, BYTE _empire, time_t _end_time_sec)
+	: type(_type), value(_value), bRemoved(false), empire(_empire), end_time_sec(_end_time_sec)
     {}
 	// END_OF_ADD_EMPIRE_PRIV_TIME
 };
@@ -32,8 +32,8 @@ struct TPrivGuildData
 	// ADD_GUILD_PRIV_TIME
     time_t end_time_sec;
 
-    TPrivGuildData(BYTE type, int value, DWORD guild_id, time_t _end_time_sec)
-	: type(type), value(value), bRemoved(false), guild_id(guild_id), end_time_sec(_end_time_sec )
+    TPrivGuildData(BYTE _type, int _value, DWORD _guild_id, time_t _end_time_sec)
+	: type(_type), value(_value), bRemoved(false), guild_id(_guild_id), end_time_sec(_end_time_sec )
     {}
 	// END_OF_ADD_GUILD_PRIV_TIME
 };
@@ -44,8 +44,8 @@ struct TPrivCharData
     int value;
     bool bRemoved;
     DWORD pid;
-    TPrivCharData(BYTE type, int value, DWORD pid)
-	: type(type), value(value), bRemoved(false), pid(pid)
+    TPrivCharData(BYTE _type, int _value, DWORD _pid)
+	: type(_type), value(_value), bRemoved(false), pid(_pid)
     {}
 };
 

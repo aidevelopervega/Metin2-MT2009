@@ -277,3 +277,19 @@ Bu sıra, projenin modernizasyonunda takip edilecek değişmez operasyonel iş a
 6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
    * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
 
+---
+
+## 12. WINDOWS YEREL GELİŞTİRME ZORUNLU CPU VE ÇEKİRDEK SINIRLANDIRMASI
+
+Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E-core], 12 mantıksal işlemci) geliştirme bilgisayarında kullanıcının sistemini %100 işlemci yükü altında bırakmamak için bütün yerel derleme, analiz ve ağır test görevleri **`tests/run_limited.ps1`** başlatıcısı üzerinden aşağıdaki değişmez sınırlarla yürütülecektir:
+
+1. **Paralellik Sınırları:**
+   * `CMake`, `Ninja`, `Make`, `GCC`, `G++`, `linker` ve alt süreçleri en fazla **2 paralel derleme işi** (`CMAKE_BUILD_PARALLEL_LEVEL=2`, `-j 2`) çalıştıracaktır.
+   * `CTest` ve ağır MariaDB entegrasyon testleri en fazla **1 paralel test** (`CTEST_PARALLEL_LEVEL=1`) çalıştıracaktır.
+   * Birbirinden bağımsız birden fazla ağır derleme veya test grubu asla aynı anda çalıştırılmayacaktır.
+2. **Donanım ve Windows Job Object Sınırları (`tests/run_limited.ps1`):**
+   * **CPU Hard-Cap (`JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP`):** İşlem ağacının toplam sistem CPU kullanımı en fazla **%35 (`CpuRate = 3500/10000`, üst sınır %35–40)** ile sınırlandırılır.
+   * **Hibrit CPU Affinity (`JOB_OBJECT_LIMIT_AFFINITY`):** İşlem ağacı en fazla **4 mantıksal işlemci** kullanabilir; Intel hibrit mimaride P-core'ları (`LP 0..7`, `0xFF`) kullanıcıya tamamen serbest bırakmak için derleme/test iş grubu varsayılan olarak 4 E-core mantıksal işlemcisine (`LP 8..11`, `0xF00`) sabitlenir.
+   * **İşlem Önceliği (`JOB_OBJECT_LIMIT_PRIORITY_CLASS`):** Tüm işlem ağacı **`BelowNormal` (`0x4000`)** önceliğinde çalışır; alt süreçlerin iş grubundan kaçışı (`BREAKAWAY`) kapalıdır.
+   * **Geri Çekilme Kuralı:** Sistem CPU yükü yüksek kalırsa derleme paralelliği `-ParallelJobs 1` ve affinity sınırı `-MaxLogicalProcessors 2` düzeyine indirilir.
+   * **Dokunulmazlık:** Kullanıcının Chrome, Windows veya diğer uygulamalarının öncelik/affinity ayarlarına kesinlikle dokunulmaz.

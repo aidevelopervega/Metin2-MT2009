@@ -30,9 +30,9 @@ namespace marriage
 		DWORD dwPID1;
 		DWORD dwPID2;
 
-		TWedding(DWORD time, DWORD dwMapIndex, DWORD pid1, DWORD pid2)
+		TWedding(DWORD time, DWORD _dwMapIndex, DWORD pid1, DWORD pid2)
 			: dwTime(time),
-			dwMapIndex(dwMapIndex),
+			dwMapIndex(_dwMapIndex),
 			dwPID1(pid1),
 			dwPID2(pid2)
 		{
@@ -53,8 +53,8 @@ namespace marriage
 		std::string name1;
 		std::string name2;
 
-		TMarriage(DWORD _pid1, DWORD _pid2, int _love_point, DWORD _time, BYTE _is_married, const char* name1, const char* name2)
-			: pid1(_pid1), pid2(_pid2), love_point(_love_point), time(_time), is_married(_is_married), name1(name1), name2(name2)
+		TMarriage(DWORD _pid1, DWORD _pid2, int _love_point, DWORD _time, BYTE _is_married, const char* _name1, const char* _name2)
+			: pid1(_pid1), pid2(_pid2), love_point(_love_point), time(_time), is_married(_is_married), name1(_name1), name2(_name2)
 		{
 		}
 

@@ -4981,15 +4981,16 @@ ACMD(do_special_shop_meta)
 		str_to_number(shopVnum, arg1);
 		auto meta = CSpecialShopManager::instance().GetShopMetaData(shopVnum);
 
-		auto deltaTime = get_global_time() - meta.lastUpdate;
-		ch->ChatPacket(CHAT_TYPE_INFO, "special shop (vnum %d) seed %d update time %d (delta %d)", shopVnum, meta.seed, meta.lastUpdate, deltaTime);
+		const long long deltaTimeLL = std::max<long long>(0, static_cast<long long>(get_global_time()) - static_cast<long long>(meta.lastUpdate));
+		const DWORD deltaTime = static_cast<DWORD>(std::min<long long>(deltaTimeLL, static_cast<long long>(UINT32_MAX)));
+		ch->ChatPacket(CHAT_TYPE_INFO, "special shop (vnum %u) seed %u update time %u (delta %u)", shopVnum, meta.seed, meta.lastUpdate, deltaTime);
 		ch->ChatPacket(CHAT_TYPE_INFO, "current duration: %s", seconds_to_smart_time(deltaTime));
 
 		if (shopVnum == 101) // deviltower
 		{
 			auto left_time = get_time_until(5, 0, meta.lastUpdate);
 			ch->ChatPacket(CHAT_TYPE_INFO, "Additional Deviltower Shop info");
-			ch->ChatPacket(CHAT_TYPE_INFO, "left time for update %s (%d)", seconds_to_smart_time(left_time), left_time);
+			ch->ChatPacket(CHAT_TYPE_INFO, "left time for update %s (%u)", seconds_to_smart_time(left_time), left_time);
 		}
 	}
 }

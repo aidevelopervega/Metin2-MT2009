@@ -811,7 +811,7 @@ bool CClientManager::InitializeItemTable() // TXT -- UNUSED!!!
 
 	while (it != m_vec_itemTable.end())
 	{
-		TItemTable * item_table = &(*(it++));
+		item_table = &(*(it++));
 
 		sys_log(1, "ITEM: #%-5u %-24s %-24s VAL: %d %d %d %d %d %d WEAR %u ANTI %u IMMUNE %u REFINE %u REFINE_SET %u MAGIC_PCT %u",
 				item_table->dwVnum,

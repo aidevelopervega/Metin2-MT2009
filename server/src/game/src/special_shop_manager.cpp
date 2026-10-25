@@ -158,7 +158,7 @@ bool CSpecialShopManager::CheckShopOfferChange(DWORD shop_vnum)
 	{
 		case 9006: // STARSZA PANI
 		{
-			int delta_time = get_global_time() - meta.lastUpdate;
+			const long long delta_time = static_cast<long long>(get_global_time()) - static_cast<long long>(meta.lastUpdate);
 			if (delta_time > 3600 * 12)
 			{
 				SetShopSeed(shop_vnum, number(1, 9999999));
@@ -377,18 +377,19 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 		else if (limitType == SPECIAL_SHOP_LIMIT_BUY_PER_TIME)
 		{
 			std::string flagName = "special_shop_buy" + std::to_string(item->vnum);
-			int delta = ch->GetSpecialFlag(flagName) - get_global_time();
+			const long long delta = ch->GetSpecialFlag(flagName) - static_cast<long long>(get_global_time());
 			if (delta > 0)
 			{
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_TIME_DELAY"), seconds_to_smart_time(delta));
+				const DWORD waitSeconds = static_cast<DWORD>(std::min<long long>(delta, static_cast<long long>(UINT32_MAX)));
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_TIME_DELAY"), seconds_to_smart_time(waitSeconds));
 				return;
 			}
 		}
 		else if (limitType == SPECIAL_SHOP_LIMIT_ACCOUNT)
 		{
 			std::string flagName = "special_shop_buy" + std::to_string(item->vnum);
-			const int buyCount = ch->GetAccountFlag(flagName);
-			if (buyCount >= limitValue)
+			const long long buyCount = ch->GetAccountFlag(flagName);
+			if (buyCount >= static_cast<long long>(limitValue))
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_ACCOUNT_LIMIT"));
 				return;

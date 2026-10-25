@@ -1280,7 +1280,9 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 
 	int iPulse = thecore_pulse();
 
-	if ((to_ch = CHARACTER_MANAGER::instance().Find(pinfo->arg1)))
+	if (pinfo->sub_header == EXCHANGE_SUBHEADER_CG_START &&
+		pinfo->arg1 > 0 && pinfo->arg1 <= static_cast<YANG>(UINT32_MAX) &&
+		(to_ch = CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(pinfo->arg1))))
 	{
 		if (iPulse - to_ch->GetSafeboxLoadTime() < PASSES_PER_SEC(g_nPortalLimitTime))
 		{
@@ -1313,7 +1315,8 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 					return;
 				}
 
-				if ((to_ch = CHARACTER_MANAGER::instance().Find(pinfo->arg1)))
+				if (pinfo->arg1 > 0 && pinfo->arg1 <= static_cast<YANG>(UINT32_MAX) &&
+					(to_ch = CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(pinfo->arg1))))
 				{
 					//MONARCH_LIMIT
 
@@ -1384,9 +1387,11 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 		case EXCHANGE_SUBHEADER_CG_ELK_ADD:	// arg1 == amount of gold
 			if (ch->GetExchange())
 			{
-				const YANG nTotalGold = static_cast<YANG>(ch->GetExchange()->GetCompany()->GetOwner()->GetGold()) + static_cast<YANG>(pinfo->arg1);
+				if (pinfo->arg1 <= 0 || pinfo->arg1 >= GOLD_MAX)
+					return;
 
-				if (GOLD_MAX <= nTotalGold)
+				const YANG ownerGold = ch->GetExchange()->GetCompany()->GetOwner()->GetGold();
+				if (ownerGold < 0 || ownerGold >= GOLD_MAX || pinfo->arg1 >= GOLD_MAX - ownerGold)
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The player has more than 2 Billion Yang. You cannot trade with him."));
 
@@ -1407,6 +1412,9 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 		case EXCHANGE_SUBHEADER_CG_CHEQUE_ADD:	// arg1 == amount of cheque
 			if (ch->GetExchange())
 			{
+				if (pinfo->arg1 <= 0 || pinfo->arg1 >= CHEQUE_MAX)
+					return;
+
 				const int64_t nTotalCheque = static_cast<int64_t>(ch->GetExchange()->GetCompany()->GetOwner()->GetCheque()) + static_cast<int64_t>(pinfo->arg1);
 
 				if (CHEQUE_MAX <= nTotalCheque)
@@ -1422,7 +1430,7 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 				}
 
 				if (ch->GetExchange()->GetCompany()->GetAcceptStatus() != true)
-					ch->GetExchange()->AddCheque(pinfo->arg1);
+					ch->GetExchange()->AddCheque(static_cast<long>(pinfo->arg1));
 			}
 			break;
 #endif
@@ -2660,13 +2668,13 @@ void CInputMain::AnswerMakeGuild(LPCHARACTER ch, const char* c_pData)
 		return;
 
 	auto npcVid = ch->GetSpecialFlag("make_guild_vid");
-	if (npcVid == 0)
+	if (npcVid <= 0 || npcVid > static_cast<long long>(UINT32_MAX))
 	{
 		ch->ChatDebug("Zagadaj do NPC...");
 		return;
 	}
 
-	LPCHARACTER npc = CHARACTER_MANAGER::instance().Find(npcVid);
+	LPCHARACTER npc = CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(npcVid));
 	if (!npc)
 	{
 		ch->ChatDebug("NPC nie istnieje.");
@@ -2834,14 +2842,15 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 		case GUILD_SUBHEADER_CG_WITHDRAW_MONEY:
 			{
-				const YANG gold = MAX(*reinterpret_cast<const YANG*>(c_pData), 500000);
+				const YANG rawGold = *reinterpret_cast<const YANG*>(c_pData);
 
-				if (gold < 0)
+				if (rawGold <= 0 || rawGold >= GOLD_MAX)
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] That is not the correct amount of Yang."));
 					return SubPacketLen;
 				}
 
+				const YANG gold = std::max<YANG>(rawGold, 500000);
 				pGuild->RequestWithdrawMoney(ch, gold);
 				return SubPacketLen;
 			}

@@ -1224,7 +1224,8 @@ void CGuildWarReserve::Initialize()
 
 		while ((row = mysql_fetch_row(res)))
 		{
-			dwGuild = dwGold = 0;
+			dwGuild = 0;
+			dwGold = 0;
 			strlcpy(szLogin, row[0], sizeof(szLogin));
 			str_to_number(dwGuild, row[1]);
 			str_to_number(dwGold, row[2]);

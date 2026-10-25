@@ -640,6 +640,10 @@ bool CHARACTER::HasSlotForItem(DWORD dwItemVnum) const
 	{
 		return false;
 	}
+	if (pTable->bType == ITEM_DS || pTable->bType == ITEM_SPECIAL_DS)
+	{
+		return false;
+	}
 	return GetEmptyInventory(pTable->bSize) != -1;
 }
 
@@ -6684,7 +6688,7 @@ LPITEM CHARACTER::AutoGiveItem(DWORD dwItemVnum, ITEM_COUNT bCount, int iRarePct
 		}
 	}
 
-	if (item->GetType() == ITEM_BLEND)
+	if (!alwaysNewItem && item->GetType() == ITEM_BLEND)
 	{
 		for (int i=0; i < GetInventoryMaxCount(); i++)
 		{
@@ -6701,8 +6705,15 @@ LPITEM CHARACTER::AutoGiveItem(DWORD dwItemVnum, ITEM_COUNT bCount, int iRarePct
 							inv_item->GetSocket(2) == item->GetSocket(2) &&
 							inv_item->GetCount() < inv_item->GetMaxStack())
 					{
-						inv_item->SetCount(inv_item->GetCount() + item->GetCount());
-						return inv_item;
+						const ITEM_COUNT canAdd = inv_item->GetMaxStack() - inv_item->GetCount();
+						const ITEM_COUNT addCount = std::min<ITEM_COUNT>(canAdd, item->GetCount());
+						inv_item->SetCount(inv_item->GetCount() + addCount);
+						if (addCount >= item->GetCount())
+						{
+							M2_DESTROY_ITEM(item);
+							return inv_item;
+						}
+						item->SetCount(item->GetCount() - addCount);
 					}
 				}
 			}

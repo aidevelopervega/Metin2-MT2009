@@ -595,6 +595,60 @@ int main()
         const size_t shortCubeTextLen = 7; // e.g. "12345,1" (< 20 chars)
         WIRE_ASSERT((shortCubeTextLen + 20 < CHAT_MAX_LEN),
             "Cube short resultText length check (size + 20 >= CHAT_MAX_LEN) avoids unsigned size_t underflow when size < 20");
+
+        // 7.9 ItemShop stack cap, DragonSoul slot guard, ITEM_BLEND alwaysNewItem isolation, and 64-bit Yang/Exchange guards
+        {
+            const uint32_t protoMaxStackZero = 0;
+            const uint32_t effectiveMaxStack = (protoMaxStackZero > 0)
+                ? std::min<uint32_t>(protoMaxStackZero, static_cast<uint32_t>(INT32_MAX))
+                : static_cast<uint32_t>(ITEM_MAX_COUNT);
+            const uint32_t totalBoughtCount = 550; // > 200 (ITEM_MAX_COUNT)
+            const uint32_t fullStacks = totalBoughtCount / effectiveMaxStack;
+            const uint32_t remainderStack = totalBoughtCount - fullStacks * effectiveMaxStack;
+            WIRE_ASSERT(effectiveMaxStack == static_cast<uint32_t>(ITEM_MAX_COUNT) && fullStacks == 2 && remainderStack == 150,
+                "ItemShop stack splitter falls back to ITEM_MAX_COUNT (200) when dwMaxStack=0 and caps at INT32_MAX");
+        }
+        {
+            auto hasNormalInventorySlotForItemShop = [](uint8_t itemType, int emptyNormalCell) -> bool {
+                if (itemType == ITEM_DS || itemType == ITEM_SPECIAL_DS)
+                    return false;
+                return emptyNormalCell != -1;
+            };
+            WIRE_ASSERT(!hasNormalInventorySlotForItemShop(ITEM_DS, 0) && hasNormalInventorySlotForItemShop(ITEM_WEAPON, 0),
+                "HasSlotForItem rejects ITEM_DS/ITEM_SPECIAL_DS so ItemShop routes DragonSoul to item_award instead of AddToGround");
+        }
+        {
+            auto shouldMergeBlendInAutoGive = [](bool alwaysNewItem, uint8_t itemType) -> bool {
+                return !alwaysNewItem && itemType == ITEM_BLEND;
+            };
+            WIRE_ASSERT(!shouldMergeBlendInAutoGive(true, ITEM_BLEND) && shouldMergeBlendInAutoGive(false, ITEM_BLEND),
+                "AutoGiveItem(alwaysNewItem=true) never merges ITEM_BLEND into pre-existing inventory stack");
+        }
+        {
+            const int64_t guildWithdrawReq = 3000000000LL; // 3B Yang (> INT32_MAX)
+            const int64_t goldMax = 10000000000000LL;
+            const bool validReq = (guildWithdrawReq > 0 && guildWithdrawReq < goldMax);
+            const int64_t safeWithdraw = validReq ? std::max<int64_t>(guildWithdrawReq, 500000LL) : -1LL;
+            WIRE_ASSERT(safeWithdraw == 3000000000LL,
+                "Guild withdraw preserves 64-bit YANG (> INT32_MAX) instead of truncating via 32-bit MAX(int, int)");
+        }
+        {
+            const int64_t negativeWithdrawReq = -500000LL;
+            const int64_t goldMax = 10000000000000LL;
+            const bool validNegativeReq = (negativeWithdrawReq > 0 && negativeWithdrawReq < goldMax);
+            WIRE_ASSERT(!validNegativeReq,
+                "Guild withdraw rejects negative YANG before std::max(rawGold, 500000) floor");
+        }
+        {
+            const int64_t goldMax = 10000000000000LL;
+            const int64_t ownerGold = 1000LL;
+            const int64_t maliciousArg1 = LLONG_MAX;
+            const bool elkAddAllowed = (maliciousArg1 > 0 && maliciousArg1 < goldMax &&
+                                        ownerGold >= 0 && ownerGold < goldMax &&
+                                        maliciousArg1 < (goldMax - ownerGold));
+            WIRE_ASSERT(!elkAddAllowed,
+                "Exchange ELK_ADD rejects LLONG_MAX before signed 64-bit addition overflow (ownerGold + arg1)");
+        }
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

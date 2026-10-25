@@ -10,12 +10,12 @@
 #define SET_BIT(var,bit)                ((var) |= (bit))
 #define REMOVE_BIT(var,bit)             ((var) &= ~(bit))
 
-void CAttribute::Initialize(DWORD width, DWORD height)
+void CAttribute::Initialize(DWORD dwWidth, DWORD dwHeight)
 {
     dataType = D_DWORD;
     defaultAttr = 0;
-    this->width = width;
-    this->height = height;
+    this->width = dwWidth;
+    this->height = dwHeight;
     data = NULL;
     bytePtr = NULL;
     wordPtr = NULL;
@@ -29,15 +29,15 @@ void CAttribute::Alloc()
     switch (dataType)
     {
 	case D_DWORD:
-	    memSize = width * height * sizeof(DWORD);
+	    memSize = static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(DWORD);
 	    break;
 
 	case D_WORD:
-	    memSize = width * height * sizeof(WORD);
+	    memSize = static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(WORD);
 	    break;
 
 	case D_BYTE:
-	    memSize = width * height;
+	    memSize = static_cast<size_t>(width) * static_cast<size_t>(height);
 	    break;
 
 	default:
@@ -91,15 +91,15 @@ void CAttribute::Alloc()
     }
 }
 
-CAttribute::CAttribute(DWORD width, DWORD height)
+CAttribute::CAttribute(DWORD dwWidth, DWORD dwHeight)
 {
-    Initialize(width, height);
+    Initialize(dwWidth, dwHeight);
     Alloc();
 }
 
-CAttribute::CAttribute(DWORD * attr, DWORD width, DWORD height)
+CAttribute::CAttribute(DWORD * attr, DWORD dwWidth, DWORD dwHeight)
 {
-    Initialize(width, height);
+    Initialize(dwWidth, dwHeight);
 
     int i;
     int size = width * height;
