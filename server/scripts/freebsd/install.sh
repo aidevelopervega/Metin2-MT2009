@@ -332,3 +332,12 @@ EOF
 fi
 
 echo "=== [OK] FreeBSD 15.1 x64 Serverfiles Installed at $TARGET_DIR ==="
+echo "  [Operator-Approved Optional Security Activation]"
+echo "  1. PF Firewall (60s SIGHUP/SIGINT-safe auto-rollback):"
+echo "     $TARGET_DIR/pf_guard.sh --verify-all"
+echo "     $TARGET_DIR/pf_guard.sh --arm-rollback 60 && pfctl -e -f /etc/pf.conf"
+echo "     $TARGET_DIR/pf_guard.sh --confirm-rollback"
+echo "  2. Cron Tasks (Local Audit Guard + Encrypted MariaDB Backup):"
+echo "     $TARGET_DIR/audit_guard.sh --install-cron --cron-file /usr/local/etc/cron.d/mt2_audit_guard"
+echo "     $TARGET_DIR/backup_mariadb.sh --install-cron --cron-file /usr/local/etc/cron.d/mt2_backup"
+echo "     ls -l /usr/local/etc/cron.d/mt2_audit_guard /usr/local/etc/cron.d/mt2_backup"

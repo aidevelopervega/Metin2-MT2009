@@ -4,13 +4,16 @@
 # IMPORTANT OPERATOR SAFETY NOTICE:
 # 1. DO NOT enable PF blindly on a remote production server without verifying
 #    `$ext_if` (`ifconfig`) and `$ssh_port` (`sockstat -4 -l | grep sshd`).
-# 2. Always validate syntax first (does NOT load rules):
+# 2. Always validate syntax and port alignment first (does NOT load rules):
+#      /usr/home/mt2/pf_guard.sh --verify-all --pf-conf /etc/pf.conf --serverfiles-dir /usr/home/mt2
 #      pfctl -nf /etc/pf.conf
-# 3. Always use an auto-rollback timer when testing new rules over SSH so that
-#    management SSH access can NEVER be permanently severed:
-#      sh -c 'pfctl -e -f /etc/pf.conf && sleep 60 && pfctl -d'
-#    (If SSH stays responsive, press Ctrl+C within 60 seconds to keep PF active,
-#     then enable at boot via `sysrc pf_enable="YES"`.)
+# 3. Always arm the SIGHUP/SIGINT-immune 60-second background rollback watchdog
+#    before enabling PF over SSH so a frozen or dropped SSH session is guaranteed
+#    to trigger `pfctl -d` automatically after 60 seconds:
+#      /usr/home/mt2/pf_guard.sh --arm-rollback 60 && pfctl -e -f /etc/pf.conf
+#    Once you verify SSH is still responsive, explicitly disarm the rollback:
+#      /usr/home/mt2/pf_guard.sh --confirm-rollback
+#    (Then enable at boot via `sysrc pf_enable="YES"`.)
 # ==============================================================================
 
 # --- 1. Network Interfaces & Management SSH ---

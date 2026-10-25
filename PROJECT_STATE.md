@@ -1617,18 +1617,19 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
      * 8 servisli MT2009 `CONFIG` dosyalarından (`db/conf.txt`, `auth/CONFIG`, `chs/ch11..ch01/CONFIG`) gerçek port matrisi çıkarıldı:
        - İç/Kapalı Portlar (`mt2_internal_ports` — WAN üzerinde IPv4 ve IPv6 `block drop in log quick`): MariaDB `3306`/`3307`, `db_r41023` önbellek portu `18000` (`db/conf.txt` içine `BIND_IP = "$MT2_DB_ADDR"` eklendi), ve 7 iç `P2P_PORT` (`19555`, `29000`, `29001`, `29002`, `14099`, `14088`, `14098`).
        - Oyuncu TCP Portları (`mt2_player_tcp_ports` — Yalnızca IPv4 TCP + synflood/bağlantı hızı sınırlandırması): `17105` (`auth`), `28000` (`ch11`), `28001` (`ch12`), `28002` (`ch13`), `13099` (`ch99`), `13088` (`ch00`), `13098` (`ch01`).
-       - Dış UDP ve IPv6 oyun portları tamamen engellendi; `lo0` (`set skip on lo0`), ICMPv6 Neighbor Discovery ve yönetim SSH (`22` + anti-lockout 60 sn otomatik geri alma prosedürü) korundu.
-       - `pf_guard.sh` yalnızca doğrulama yapar (`--verify-template`, `--verify-config-ports`, `--print-matrix`), gerçek sunucuda firewall'u izinsiz etkinleştirmez.
+        - Dış UDP ve IPv6 oyun portları tamamen engellendi; `lo0` (`set skip on lo0`), ICMPv6 Neighbor Discovery ve yönetim SSH (`22` + anti-lockout 60 sn otomatik geri alma prosedürü) korundu.
+        - `pf_guard.sh` yalnızca doğrulama yapar (`--verify-template`, `--verify-config-ports`, `--print-matrix`) ve operatör için `SIGHUP`/`SIGINT` (SSH kopması veya `Ctrl+C`) sinyallerine bağışık arka plan otomatik geri alma bekçisi (`--arm-rollback 60` + `--confirm-rollback`, onay gelmezse `pfctl -d` ve `[MT2_PF_ALERT][AUTO_ROLLBACK_EXECUTED]`) sağlar; gerçek sunucuda firewall'u izinsiz etkinleştirmez.
   2. **Yerel Otomatik Şifreli Yedekleme (`server/scripts/freebsd/backup_mariadb.sh` v2):**
      * Harici bulut/S3/Azure zorunluluğu olmadan `%100` FreeBSD yerel araçlarıyla (`mariadb-dump`, `gzip`, `openssl`, `sha256`, `cron`, `logger`) çalışır.
-     * `MT2_BACKUP_RETENTION_COUNT=14`, `MT2_BACKUP_RETENTION_DAYS=14`, `MT2_BACKUP_MAX_TOTAL_MB=10240`, `MT2_MIN_FREE_DISK_MB=1024` (düşük diskte `exit 2`), `--verify-latest` / `--verify-archive` (günlük kriptografik ve `CREATE TABLE` bütünlük doğrulaması), `--export-removable <dir>` (çıkarılabilir diske `SHA-256` + `HMAC-SHA256(v2)` doğrulamalı kopya) ve `cleanup()` içinde beklenmeyen cron hatalarını `syslog`'a (`[MT2_CRON_ALERT][BACKUP_EXEC_FAILED]`) kaydetme özellikleri eklendi.
-  3. **Yerel Audit ve Log Alarmları (`server/scripts/freebsd/audit_guard.sh` v2):**
+     * `MT2_BACKUP_RETENTION_COUNT=14`, `MT2_BACKUP_RETENTION_DAYS=14`, `MT2_BACKUP_MAX_TOTAL_MB=10240`, `MT2_MIN_FREE_DISK_MB=1024` (düşük diskte `exit 2`), `--verify-latest` / `--verify-archive` (günlük kriptografik ve `CREATE TABLE` bütünlük doğrulaması), `--export-removable <dir>` (hedefin `$BACKUP_DIR` ve `/` ile aynı dosya sisteminde olmasını `SAME_FILESYSTEM_REJECTED` / `exit 3` ile reddeden, yalnızca ayrı bağlı/yazılabilir dosya sistemine `SHA-256` + `HMAC-SHA256(v2)` doğrulamalı kopya alan mekanizma) ve `cleanup()` içinde beklenmeyen cron hatalarını `syslog`'a (`[MT2_CRON_ALERT][BACKUP_EXEC_FAILED]`) kaydetme özellikleri eklendi.
+  3. **Yerel Audit ve Log Alarmları (`server/scripts/freebsd/audit_guard.sh` v2) & Çift Cron Şablonu:**
      * Uzak SIEM/syslog zorunluluğu olmadan yerel `enforce_perms`, `check_audit_health` (`0`-bayt/eksik audit dosyası veya `server_audit` yazma hatasında `exit 5` + `[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]`), `check_capacity` (`exit 2`), `check_spool_syserr` (`exit 4`) ve cron görev hatalarının `logger -p security.crit` ile FreeBSD `syslog`'a kaydı doğrulandı.
+     * Hem yerel audit (`audit_guard.sh --install-cron --cron-file /usr/local/etc/cron.d/mt2_audit_guard`) hem de şifreli yedekleme (`backup_mariadb.sh --install-cron --cron-file /usr/local/etc/cron.d/mt2_backup`) cron görevleri çakışmasız olarak kurulum ve doğrulama talimatlarına (`install.sh`) eklendi; etkinleştirme operatör onayına bağlıdır.
   4. **Sekiz Servisin Güvenli Başlangıcı (`start.sh`, `stop.sh`, `mt2server.rc`, `install.sh`):**
      * `start.sh` içinde `umask 027`, tüm `CONFIG` dosyalarında `chmod 600` ön kontrolü, `db (18000)` -> `ch11..ch01 (port + CInputDB::Boot)` -> `auth (17105)` kesin başlatma sırası ve kısmi başlatma hatasında `stop.sh` + `syslog` alarmı ile otomatik geri alma (`on_start_exit` trap) devreye alındı.
-     * `[4.A]` CI YAML `local_infile` (`OFF` ve `0`) karşılaştırması yerel olarak doğrulandı; kullanıcı talimatı gereği üçüncü bir FreeBSD CI başlatılmadı.
+     * `[4.A]` CI YAML `local_infile` (`OFF` ve `0`) karşılaştırması ve son 3 operasyonel düzeltme yerel olarak doğrulandı; kullanıcı talimatı gereği yeni bir FreeBSD CI başlatılmadı.
 * **Sıradaki Güvenli Adım:**
-   1. Üretim FreeBSD 15.1 sunucusunda firewall (`pf`), `cron` ve servis hesabı (`mt2`) etkinleştirmeleri yalnızca operatör onayıyla uygulanacaktır.
+   1. Üretim FreeBSD 15.1 sunucusunda firewall (`pf`), `cron` (`/usr/local/etc/cron.d/mt2_audit_guard` ve `/usr/local/etc/cron.d/mt2_backup`) ve servis hesabı (`mt2`) etkinleştirmeleri yalnızca operatör onayıyla uygulanacaktır.
 
 
 

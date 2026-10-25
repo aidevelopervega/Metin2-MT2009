@@ -720,13 +720,20 @@ EOSQL
         exit 1
     fi
 
-    # 4b. Verify --verify-latest and --export-removable
+    # 4b. Verify --verify-latest and --export-removable same-filesystem rejection (rc=3)
     MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
         "$SFROOT/backup_mariadb.sh" --verify-latest --backup-dir "$FB_BK_DIR"
     FB_REM_DIR="$FB_BK_DIR/removable_usb"
     mkdir -p "$FB_REM_DIR"
+    set +e
     MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
-        "$SFROOT/backup_mariadb.sh" --export-removable "$FB_REM_DIR" --backup-dir "$FB_BK_DIR"
+        "$SFROOT/backup_mariadb.sh" --export-removable "$FB_REM_DIR" --backup-dir "$FB_BK_DIR" >/dev/null 2>&1
+    SAME_FS_RC=$?
+    set -e
+    if [ "$SAME_FS_RC" -ne 3 ]; then
+        echo "[ERROR] Expected exit code 3 (SAME_FILESYSTEM_REJECTED) when --export-removable target is on the same filesystem, got $SAME_FS_RC" >&2
+        exit 1
+    fi
     rm -rf "$FB_REM_DIR"
 
     # 5. Test forged archive + recomputed SHA-256 rejection

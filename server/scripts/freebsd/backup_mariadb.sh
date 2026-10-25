@@ -172,12 +172,10 @@ if [ "$INSTALL_CRON" -eq 1 ]; then
     umask 077
     mkdir -p "$(dirname "$target_cron")"
     cat > "$target_cron" <<EOF
-# Metin2 MT2009 — 100% FreeBSD-Native Local Audit Guard & Encrypted MariaDB 12.3 LTS Backup Schedule
+# Metin2 MT2009 — 100% FreeBSD-Native Encrypted MariaDB 12.3 LTS Backup Schedule
+# Pair with: $SCRIPT_DIR/audit_guard.sh --install-cron --cron-file /usr/local/etc/cron.d/mt2_audit_guard
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-
-# Every 5 minutes: enforce audit permissions/chflags, check audit write health, check disk capacity, and check spool syserr
-*/5 * * * * root "$SCRIPT_DIR/audit_guard.sh" --enforce-perms && "$SCRIPT_DIR/audit_guard.sh" --check-audit-health && "$SCRIPT_DIR/audit_guard.sh" --check-capacity && "$SCRIPT_DIR/audit_guard.sh" --check-spool-syserr || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][AUDIT_GUARD_FAILED] periodic audit check failed"
 
 # Every 6 hours: take authenticated encrypted MariaDB 12.3 LTS backup via least-privilege mt2backup user
 0 */6 * * * root "$SCRIPT_DIR/backup_mariadb.sh" --backup --env-file "$ENV_FILE" || /usr/bin/logger -p security.crit -t mt2_backup "[MT2_CRON_ALERT][BACKUP_FAILED] periodic backup failed"
@@ -204,6 +202,25 @@ if [ "$ACTION" = "backup" ] || [ "$ACTION" = "restore" ]; then
         exit 1
     fi
 fi
+
+get_fs_identity() {
+    target_p="$1"
+    df_id=""
+    if command -v df >/dev/null 2>&1; then
+        df_id=$(df -Pk "$target_p" 2>/dev/null | awk 'NR==2 {print $1 "|" $NF}' | tr -d '\r\n')
+    fi
+    if [ -n "$df_id" ]; then
+        printf '%s' "$df_id"
+        return 0
+    fi
+    if stat -f '%d' "$target_p" >/dev/null 2>&1; then
+        stat -f '%d' "$target_p" | tr -d ' \t\r\n'
+    elif stat -c '%d' "$target_p" >/dev/null 2>&1; then
+        stat -c '%d' "$target_p" | tr -d ' \t\r\n'
+    else
+        printf 'unknown'
+    fi
+}
 
 compute_sha256() {
     f="$1"
@@ -447,6 +464,13 @@ if [ "$ACTION" = "export_removable" ]; then
     if [ -z "$REMOVABLE_DIR" ] || [ ! -d "$REMOVABLE_DIR" ] || [ ! -w "$REMOVABLE_DIR" ]; then
         emit_backup_alert "[MT2_BACKUP_ALERT][EXPORT_ERROR]" "Removable target directory missing or not writable: $REMOVABLE_DIR"
         exit 1
+    fi
+    bk_fs_id=$(get_fs_identity "$BACKUP_DIR")
+    rem_fs_id=$(get_fs_identity "$REMOVABLE_DIR")
+    root_fs_id=$(get_fs_identity "/")
+    if [ -z "$rem_fs_id" ] || [ "$rem_fs_id" = "unknown" ] || [ "$rem_fs_id" = "$bk_fs_id" ] || [ "$rem_fs_id" = "$root_fs_id" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][SAME_FILESYSTEM_REJECTED]" "Removable target '$REMOVABLE_DIR' ($rem_fs_id) is on the same filesystem as BACKUP_DIR ($bk_fs_id) or root ($root_fs_id). Mount a separate removable disk first!"
+        exit 3
     fi
     if command -v df >/dev/null 2>&1; then
         free_mb=$(df -Pk "$REMOVABLE_DIR" 2>/dev/null | awk 'NR==2 {print int($4 / 1024)}' | tr -d ' \t\r\n')

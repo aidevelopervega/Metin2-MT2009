@@ -21,6 +21,9 @@ fi
 
 PF_CONF="$DEFAULT_PF_CONF"
 SERVERFILES_DIR="${MT2_SERVERFILES_DIR:-/usr/home/mt2}"
+ROLLBACK_SECONDS=60
+ROLLBACK_STATE_DIR="${MT2_PF_ROLLBACK_DIR:-/tmp/mt2_pf_rollback}"
+AUDIT_ALERT_FILE="${MT2_AUDIT_ALERT_FILE:-/var/log/mt2_security_alerts.log}"
 ACTION="verify_all"
 
 while [ "$#" -gt 0 ]; do
@@ -41,6 +44,23 @@ while [ "$#" -gt 0 ]; do
             ACTION="print_matrix"
             shift
             ;;
+        --arm-rollback)
+            ACTION="arm_rollback"
+            if [ -n "${2:-}" ] && [ "${2#-}" = "$2" ]; then
+                ROLLBACK_SECONDS="$2"
+                shift 2
+            else
+                shift 1
+            fi
+            ;;
+        --confirm-rollback)
+            ACTION="confirm_rollback"
+            shift
+            ;;
+        --rollback-state-dir)
+            ROLLBACK_STATE_DIR="$2"
+            shift 2
+            ;;
         --pf-conf)
             PF_CONF="$2"
             shift 2
@@ -51,11 +71,29 @@ while [ "$#" -gt 0 ]; do
             ;;
         *)
             echo "[ERROR] Unknown argument: $1" >&2
-            echo "Usage: $0 [--verify-template | --verify-config-ports | --verify-all | --print-matrix] [--pf-conf <path>] [--serverfiles-dir <dir>]" >&2
+            echo "Usage: $0 [--verify-template | --verify-config-ports | --verify-all | --print-matrix | --arm-rollback [sec] | --confirm-rollback] [--pf-conf <path>] [--serverfiles-dir <dir>] [--rollback-state-dir <dir>]" >&2
             exit 1
             ;;
     esac
 done
+
+emit_pf_alert() {
+    tag="$1"
+    msg="$2"
+    ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)
+    line="$ts $tag $msg"
+    if [ -n "$AUDIT_ALERT_FILE" ]; then
+        alert_dir=$(dirname "$AUDIT_ALERT_FILE")
+        mkdir -p "$alert_dir" 2>/dev/null || true
+        if [ -d "$alert_dir" ]; then
+            umask 077
+            { echo "$line" >> "$AUDIT_ALERT_FILE"; } 2>/dev/null || true
+        fi
+    fi
+    if command -v logger >/dev/null 2>&1; then
+        logger -p security.crit -t mt2_pf_guard "$tag $msg" 2>/dev/null || true
+    fi
+}
 
 extract_macro_ports() {
     macro_name="$1"
@@ -156,8 +194,6 @@ verify_template_rules() {
         if pfctl -nf "$tmp_pf" >/dev/null 2>&1; then
             echo "[OK] FreeBSD pfctl -nf dry-run syntax validation passed (no kernel rules modified)."
         else
-            # Note: In unprivileged CI runners without /dev/pf device node, pfctl -nf may still parse or warn on device open;
-            # verify whether failure was parser syntax vs /dev/pf permission.
             pf_err=$(pfctl -nf "$tmp_pf" 2>&1 || true)
             rm -f "$tmp_pf"
             case "$pf_err" in
@@ -266,6 +302,83 @@ sshd       /etc/ssh/sshd_cfg 22     TCP    Host IP       PASS IN QUICK (Protecte
 EOF
 }
 
+arm_rollback_watchdog() {
+    case "$ROLLBACK_SECONDS" in
+        ''|*[!0-9]*|0)
+            echo "[ERROR] Invalid rollback timeout seconds: $ROLLBACK_SECONDS" >&2
+            exit 1
+            ;;
+    esac
+    umask 077
+    mkdir -p "$ROLLBACK_STATE_DIR"
+    chmod 700 "$ROLLBACK_STATE_DIR"
+    confirm_file="$ROLLBACK_STATE_DIR/pf_confirmed"
+    pid_file="$ROLLBACK_STATE_DIR/watchdog.pid"
+    status_file="$ROLLBACK_STATE_DIR/rollback.status"
+
+    if [ -f "$pid_file" ]; then
+        old_pid=$(tr -d ' \t\r\n' < "$pid_file" 2>/dev/null || true)
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            echo "[ERROR] A PF rollback watchdog is already active (PID $old_pid). Run --confirm-rollback first." >&2
+            exit 1
+        fi
+        rm -f "$pid_file"
+    fi
+    rm -f "$confirm_file" "$status_file"
+    printf 'ARMED\n' > "$status_file"
+
+    pfctl_bin="${MT2_PFCTL_CMD:-/sbin/pfctl}"
+    (
+        # Ignore SIGHUP (SSH disconnect), SIGINT (Ctrl+C), SIGQUIT, SIGPIPE, SIGTSTP
+        # so neither a dropped SSH session nor terminal Ctrl+C can abort the safety rollback.
+        trap '' HUP INT QUIT PIPE TSTP
+        elapsed=0
+        while [ "$elapsed" -lt "$ROLLBACK_SECONDS" ]; do
+            if [ -f "$confirm_file" ]; then
+                rm -f "$confirm_file" "$pid_file"
+                printf 'CONFIRMED_DISARMED\n' > "$status_file"
+                exit 0
+            fi
+            sleep 1
+            elapsed=$((elapsed + 1))
+        done
+        if [ -f "$confirm_file" ]; then
+            rm -f "$confirm_file" "$pid_file"
+            printf 'CONFIRMED_DISARMED\n' > "$status_file"
+            exit 0
+        fi
+        "$pfctl_bin" -d >/dev/null 2>&1 || true
+        rm -f "$pid_file"
+        printf 'AUTO_ROLLBACK_EXECUTED\n' > "$status_file"
+        emit_pf_alert "[MT2_PF_ALERT][AUTO_ROLLBACK_EXECUTED]" "PF automatically disabled ($pfctl_bin -d) after ${ROLLBACK_SECONDS}s without operator confirmation."
+    ) </dev/null >/dev/null 2>&1 &
+    wd_pid=$!
+    printf '%s\n' "$wd_pid" > "$pid_file"
+    echo "[OK] Armed SIGHUP/SIGINT-immune PF auto-rollback watchdog (PID=$wd_pid, timeout=${ROLLBACK_SECONDS}s). Run '$0 --confirm-rollback' within ${ROLLBACK_SECONDS}s after verifying SSH."
+}
+
+confirm_rollback_watchdog() {
+    if [ ! -d "$ROLLBACK_STATE_DIR" ]; then
+        echo "[ERROR] Rollback state directory not found: $ROLLBACK_STATE_DIR" >&2
+        exit 1
+    fi
+    confirm_file="$ROLLBACK_STATE_DIR/pf_confirmed"
+    pid_file="$ROLLBACK_STATE_DIR/watchdog.pid"
+    status_file="$ROLLBACK_STATE_DIR/rollback.status"
+    printf 'CONFIRMED\n' > "$confirm_file"
+    i=0
+    while [ -f "$pid_file" ] && [ "$i" -lt 15 ]; do
+        sleep 0.2
+        i=$((i + 1))
+    done
+    cur_status=$(tr -d ' \t\r\n' < "$status_file" 2>/dev/null || true)
+    if [ "$cur_status" != "CONFIRMED_DISARMED" ]; then
+        echo "[ERROR] Watchdog did not confirm disarm cleanly (status='$cur_status')." >&2
+        exit 1
+    fi
+    echo "[OK] Disarmed PF auto-rollback watchdog; active firewall rules remain in place."
+}
+
 case "$ACTION" in
     verify_template)
         verify_template_rules
@@ -282,5 +395,11 @@ case "$ACTION" in
         ;;
     print_matrix)
         print_port_matrix
+        ;;
+    arm_rollback)
+        arm_rollback_watchdog
+        ;;
+    confirm_rollback)
+        confirm_rollback_watchdog
         ;;
 esac
