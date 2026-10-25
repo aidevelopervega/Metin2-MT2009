@@ -92,12 +92,16 @@ if [ -x "$QC_BIN" ]; then
     chmod 750 "$TARGET_DIR/share/locale/poland/quest/qc"
 fi
 
-for s in start.sh stop.sh status.sh install.sh mt2server.rc audit_guard.sh backup_mariadb.sh; do
+for s in start.sh stop.sh status.sh install.sh mt2server.rc audit_guard.sh backup_mariadb.sh pf_guard.sh; do
     if [ -f "$REPO_ROOT/server/scripts/freebsd/$s" ]; then
         cp -f "$REPO_ROOT/server/scripts/freebsd/$s" "$TARGET_DIR/$s"
         chmod 750 "$TARGET_DIR/$s"
     fi
 done
+if [ -f "$REPO_ROOT/server/config/pf.conf.example" ]; then
+    cp -f "$REPO_ROOT/server/config/pf.conf.example" "$TARGET_DIR/pf.conf.example"
+    chmod 640 "$TARGET_DIR/pf.conf.example"
+fi
 
 ln -sfn "$TARGET_DIR/share/bin/db" "$TARGET_DIR/db/db"
 
@@ -200,6 +204,7 @@ SQL_COMMON = "$MT2_DB_HOST common $MT2_DB_USER $MT2_DB_PASS $MT2_DB_PORT"
 SQL_LOG = "$MT2_DB_HOST log $MT2_LOG_DB_USER $MT2_LOG_DB_PASS $MT2_DB_PORT"
 SQL_WORLD = "$MT2_DB_HOST world $MT2_DB_USER $MT2_DB_PASS $MT2_DB_PORT"
 TABLE_POSTFIX = ""
+BIND_IP = "$MT2_DB_ADDR"
 BIND_PORT = $MT2_DB_LISTEN_PORT
 DB_SLEEP_MSEC = 10
 CLIENT_HEART_FPS = 10

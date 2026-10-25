@@ -587,6 +587,22 @@ assert rc_fail == 3 and before_offset == after_offset, f"Expected rc=3 and uncha
 print("  -> [PASS] Python TCP/TLS/ACK receiver verified: holdback, redaction, .1 rotation ordering, strict RFC 5280 TLS (valid CA+host PASS, wrong CA REJECT, wrong host REJECT, invalid chain REJECT, TLS+ACK PASS) & offset safety")
 PYEOF
 
+    # Test --check-audit-health (valid non-empty log PASS, 0-byte log REJECT rc=5, server_audit write error in .err REJECT rc=5)
+    "$SFROOT/audit_guard.sh" --check-audit-health --audit-log "$AG_LOG" --alert-file "$AG_ALERT"
+    : > "$FB_AG_DIR/empty_audit.log"
+    set +e
+    "$SFROOT/audit_guard.sh" --check-audit-health --audit-log "$FB_AG_DIR/empty_audit.log" --alert-file "$AG_ALERT" >/dev/null 2>&1
+    EMPTY_AUDIT_RC=$?
+    printf '2026-10-25 12:00:00 0 [ERROR] mysqld: server_audit: error writing to file mariadb_audit.log (No space left on device)\n' > "$FB_AG_DIR/mariadb_test.err"
+    "$SFROOT/audit_guard.sh" --check-audit-health --audit-log "$AG_LOG" --mariadb-err-log "$FB_AG_DIR/mariadb_test.err" --alert-file "$AG_ALERT" >/dev/null 2>&1
+    ERR_AUDIT_RC=$?
+    set -e
+    if [ "$EMPTY_AUDIT_RC" -ne 5 ] || [ "$ERR_AUDIT_RC" -ne 5 ] || ! grep -q "\[MT2_AUDIT_ALERT\]\[AUDIT_WRITE_ERROR\]" "$AG_ALERT"; then
+        echo "[ERROR] Expected exit code 5 and [MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR] for audit write failure checks (got empty_rc=$EMPTY_AUDIT_RC, err_rc=$ERR_AUDIT_RC)!" >&2
+        exit 1
+    fi
+    rm -f "$FB_AG_DIR/empty_audit.log" "$FB_AG_DIR/mariadb_test.err"
+
     # Test --install-cron in isolated directory
     "$SFROOT/audit_guard.sh" --install-cron --cron-file "$FB_AG_DIR/cron_audit" --audit-log "$AG_LOG" --archive-dir "$FB_AG_DIR/archive" --alert-file "$AG_ALERT"
     "$SFROOT/backup_mariadb.sh" --install-cron --cron-file "$FB_AG_DIR/cron_backup" --backup-dir "$FB_AG_DIR/archive"
@@ -596,9 +612,9 @@ PYEOF
     fi
     chflags -R nosappnd "$FB_AG_DIR" 2>/dev/null || true
     rm -rf "$FB_AG_DIR"
-    echo "  -> Verified FreeBSD audit_guard.sh v2 & isolated --install-cron (0 persistent runner cron files left)"
+    echo "  -> Verified FreeBSD audit_guard.sh v2, --check-audit-health & isolated --install-cron (0 persistent runner cron files left)"
 
-    echo "=== [Bonus 4.E] Verifying FreeBSD backup_mariadb.sh v2 (123 InnoDB, HMAC-SHA256(v2), Tamper/v1/Passphrase/Disk Rejection & 8-Table + Trigger Restore) ==="
+    echo "=== [Bonus 4.E] Verifying FreeBSD backup_mariadb.sh v2 (123 InnoDB, HMAC-SHA256(v2), Tamper/v1/Passphrase/Disk Rejection, --verify-latest, --export-removable & 8-Table + Trigger Restore) ==="
     FB_BK_DIR="/tmp/mt2_fb_backup_test_$$"
     rm -rf "$FB_BK_DIR"
     mkdir -p "$FB_BK_DIR"
@@ -704,6 +720,15 @@ EOSQL
         exit 1
     fi
 
+    # 4b. Verify --verify-latest and --export-removable
+    MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
+        "$SFROOT/backup_mariadb.sh" --verify-latest --backup-dir "$FB_BK_DIR"
+    FB_REM_DIR="$FB_BK_DIR/removable_usb"
+    mkdir -p "$FB_REM_DIR"
+    MT2_BACKUP_PASSPHRASE="$FB_PASS_KEY" MT2_BACKUP_HMAC_SECRET="$FB_HMAC_KEY" \
+        "$SFROOT/backup_mariadb.sh" --export-removable "$FB_REM_DIR" --backup-dir "$FB_BK_DIR"
+    rm -rf "$FB_REM_DIR"
+
     # 5. Test forged archive + recomputed SHA-256 rejection
     FB_FORGED="$FB_BK_DIR/forged.sql.gz.enc"
     cp "$FB_ENC_FILE" "$FB_FORGED"
@@ -773,7 +798,10 @@ DELETE FROM player_index WHERE id = 501;
 DROP DATABASE IF EXISTS player_restore_verify;
 EOSQL
     rm -rf "$FB_BK_DIR"
-    echo "  -> Verified FreeBSD backup_mariadb.sh v2: 123 InnoDB, HMAC-SHA256(v2), forged/v1/passphrase/disk rejection & 8-table + trigger restore"
+    echo "  -> Verified FreeBSD backup_mariadb.sh v2: 123 InnoDB, HMAC-SHA256(v2), forged/v1/passphrase/disk rejection, --verify-latest, --export-removable & 8-table + trigger restore"
+
+    echo "=== [Bonus 4.F] Verifying FreeBSD PF Firewall Template & 8-Service Port Drift Guard (pf_guard.sh) ==="
+    "$SFROOT/pf_guard.sh" --verify-all --pf-conf "$SFROOT/pf.conf.example" --serverfiles-dir "$SFROOT"
 fi
 
 echo "=================================================================="

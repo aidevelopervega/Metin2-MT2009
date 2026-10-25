@@ -42,9 +42,11 @@ BACKUP_DIR="${MT2_BACKUP_DIR:-/var/backups/mt2_mariadb}"
 DATABASES="account common log player world"
 RESTORE_ARCHIVE=""
 RESTORE_TARGET_DB=""
+REMOVABLE_DIR=""
 ALLOW_LEGACY_V1=0
 INSTALL_CRON=0
 CRON_FILE=""
+ALERT_EMITTED=0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -54,6 +56,25 @@ while [ "$#" -gt 0 ]; do
             ;;
         --restore)
             ACTION="restore"
+            RESTORE_ARCHIVE="$2"
+            shift 2
+            ;;
+        --verify-latest)
+            ACTION="verify_archive"
+            RESTORE_ARCHIVE=""
+            shift 1
+            ;;
+        --verify-archive)
+            ACTION="verify_archive"
+            RESTORE_ARCHIVE="$2"
+            shift 2
+            ;;
+        --export-removable)
+            ACTION="export_removable"
+            REMOVABLE_DIR="$2"
+            shift 2
+            ;;
+        --archive)
             RESTORE_ARCHIVE="$2"
             shift 2
             ;;
@@ -98,6 +119,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -f "$ENV_FILE" ]; then
+    chmod 600 "$ENV_FILE" 2>/dev/null || true
     while IFS='=' read -r k v || [ -n "$k" ]; do
         k_trimmed=$(printf '%s' "$k" | tr -d ' \t\r\n')
         case "$k_trimmed" in
@@ -120,6 +142,7 @@ MT2_INIT_DB_PASS="${MT2_INIT_DB_PASS:-}"
 MT2_BACKUP_PASSPHRASE="${MT2_BACKUP_PASSPHRASE:-}"
 MT2_BACKUP_HMAC_SECRET="${MT2_BACKUP_HMAC_SECRET:-}"
 MT2_BACKUP_RETENTION_COUNT="${MT2_BACKUP_RETENTION_COUNT:-14}"
+MT2_BACKUP_RETENTION_DAYS="${MT2_BACKUP_RETENTION_DAYS:-14}"
 MT2_BACKUP_MAX_TOTAL_MB="${MT2_BACKUP_MAX_TOTAL_MB:-10240}"
 MT2_MIN_FREE_DISK_MB="${MT2_MIN_FREE_DISK_MB:-1024}"
 AUDIT_ALERT_FILE="${MT2_AUDIT_ALERT_FILE:-/var/log/mt2_security_alerts.log}"
@@ -127,6 +150,7 @@ AUDIT_ALERT_FILE="${MT2_AUDIT_ALERT_FILE:-/var/log/mt2_security_alerts.log}"
 emit_backup_alert() {
     tag="$1"
     msg="$2"
+    ALERT_EMITTED=1
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)
     line="$ts $tag $msg"
     echo "$line" >&2
@@ -148,15 +172,18 @@ if [ "$INSTALL_CRON" -eq 1 ]; then
     umask 077
     mkdir -p "$(dirname "$target_cron")"
     cat > "$target_cron" <<EOF
-# Metin2 MT2009 — Automated Audit Guard & Encrypted MariaDB 12.3 LTS Backup Schedule
+# Metin2 MT2009 — 100% FreeBSD-Native Local Audit Guard & Encrypted MariaDB 12.3 LTS Backup Schedule
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-# Every 5 minutes: enforce audit permissions/chflags, check disk capacity, check spool syserr, and forward audit logs
-*/5 * * * * root "$SCRIPT_DIR/audit_guard.sh" --enforce-perms && "$SCRIPT_DIR/audit_guard.sh" --check-capacity && "$SCRIPT_DIR/audit_guard.sh" --check-spool-syserr
+# Every 5 minutes: enforce audit permissions/chflags, check audit write health, check disk capacity, and check spool syserr
+*/5 * * * * root "$SCRIPT_DIR/audit_guard.sh" --enforce-perms && "$SCRIPT_DIR/audit_guard.sh" --check-audit-health && "$SCRIPT_DIR/audit_guard.sh" --check-capacity && "$SCRIPT_DIR/audit_guard.sh" --check-spool-syserr || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][AUDIT_GUARD_FAILED] periodic audit check failed"
 
 # Every 6 hours: take authenticated encrypted MariaDB 12.3 LTS backup via least-privilege mt2backup user
-0 */6 * * * root "$SCRIPT_DIR/backup_mariadb.sh" --backup --env-file "$ENV_FILE"
+0 */6 * * * root "$SCRIPT_DIR/backup_mariadb.sh" --backup --env-file "$ENV_FILE" || /usr/bin/logger -p security.crit -t mt2_backup "[MT2_CRON_ALERT][BACKUP_FAILED] periodic backup failed"
+
+# Daily at 04:30 UTC: verify latest encrypted backup SHA-256 + HMAC-SHA256(v2) + AES-256-CBC decryption integrity
+30 4 * * * root "$SCRIPT_DIR/backup_mariadb.sh" --verify-latest --env-file "$ENV_FILE" || /usr/bin/logger -p security.crit -t mt2_backup "[MT2_CRON_ALERT][VERIFY_FAILED] daily backup verification failed"
 EOF
     chmod 600 "$target_cron"
     echo "[OK] Installed cron schedule template at $target_cron"
@@ -171,9 +198,11 @@ fi
 DUMP_CLI=$(which mariadb-dump 2>/dev/null || which mysqldump 2>/dev/null || true)
 DB_CLI=$(which mariadb 2>/dev/null || which mysql 2>/dev/null || true)
 
-if [ -z "$DUMP_CLI" ] || [ -z "$DB_CLI" ]; then
-    emit_backup_alert "[MT2_BACKUP_ALERT][CLI_MISSING]" "mariadb-dump/mysqldump or mariadb/mysql CLI not found in PATH."
-    exit 1
+if [ "$ACTION" = "backup" ] || [ "$ACTION" = "restore" ]; then
+    if [ -z "$DUMP_CLI" ] || [ -z "$DB_CLI" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][CLI_MISSING]" "mariadb-dump/mysqldump or mariadb/mysql CLI not found in PATH."
+        exit 1
+    fi
 fi
 
 compute_sha256() {
@@ -213,6 +242,9 @@ TMP_SQL=""
 cleanup() {
     rc=$?
     set +e
+    if [ "$rc" -ne 0 ] && [ "$ALERT_EMITTED" -eq 0 ]; then
+        emit_backup_alert "[MT2_CRON_ALERT][BACKUP_EXEC_FAILED]" "backup_mariadb.sh action='$ACTION' failed unexpectedly with exit code $rc"
+    fi
     [ -n "$TMP_CNF" ] && rm -f "$TMP_CNF"
     [ -n "$TMP_PASS" ] && rm -f "$TMP_PASS"
     [ -n "$TMP_GZ" ] && rm -f "$TMP_GZ"
@@ -329,12 +361,16 @@ EOF
 
     echo "[OK] Authenticated encrypted backup (v2) created: $OUT_ENC (SHA256=$HASH_VAL, HMAC-SHA256=$HMAC_VAL)"
 
-    # Retention rotation by count and total size cap
+    # Retention rotation by count, total size cap, and age in days (always keeping at least the newest archive)
     COUNT=0
     TOTAL_BYTES=0
     MAX_BYTES=$((MT2_BACKUP_MAX_TOTAL_MB * 1024 * 1024))
+    NEWEST_ENC=""
     for f in $(ls -1t "$BACKUP_DIR"/mt2_backup_*.sql.gz.enc 2>/dev/null); do
         COUNT=$((COUNT + 1))
+        if [ "$COUNT" -eq 1 ]; then
+            NEWEST_ENC="$f"
+        fi
         f_bytes=$(wc -c < "$f" | tr -d ' \t\r\n')
         TOTAL_BYTES=$((TOTAL_BYTES + f_bytes))
         if [ "$COUNT" -gt "$MT2_BACKUP_RETENTION_COUNT" ] || { [ "$COUNT" -gt 1 ] && [ "$TOTAL_BYTES" -gt "$MAX_BYTES" ]; }; then
@@ -342,6 +378,122 @@ EOF
             echo "[INFO] Pruned old backup exceeding retention policy (count=$MT2_BACKUP_RETENTION_COUNT, max_mb=$MT2_BACKUP_MAX_TOTAL_MB): $f"
         fi
     done
+    case "$MT2_BACKUP_RETENTION_DAYS" in
+        ''|*[!0-9]*|0) ;;
+        *)
+            for old_f in $(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'mt2_backup_*.sql.gz.enc' -mtime +"$MT2_BACKUP_RETENTION_DAYS" 2>/dev/null || true); do
+                if [ -f "$old_f" ] && [ "$old_f" != "$NEWEST_ENC" ]; then
+                    rm -f "$old_f" "${old_f}.sha256"
+                    echo "[INFO] Pruned old backup exceeding retention age (${MT2_BACKUP_RETENTION_DAYS} days): $old_f"
+                fi
+            done
+            ;;
+    esac
+    exit 0
+fi
+
+if [ "$ACTION" = "verify_archive" ]; then
+    if [ -z "$RESTORE_ARCHIVE" ]; then
+        RESTORE_ARCHIVE=$(ls -1t "$BACKUP_DIR"/mt2_backup_*.sql.gz.enc 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$RESTORE_ARCHIVE" ] || [ ! -f "$RESTORE_ARCHIVE" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][VERIFY_ERROR]" "No backup archive found to verify in $BACKUP_DIR"
+        exit 1
+    fi
+    SHA_FILE="${RESTORE_ARCHIVE}.sha256"
+    if [ ! -f "$SHA_FILE" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "Missing integrity manifest: $SHA_FILE"
+        exit 1
+    fi
+    EXPECTED_HASH=$(awk 'NR==1 {print $1}' "$SHA_FILE" | tr -d ' \t\r\n')
+    ACTUAL_HASH=$(compute_sha256 "$RESTORE_ARCHIVE")
+    if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "SHA-256 mismatch on $RESTORE_ARCHIVE! Expected=$EXPECTED_HASH Actual=$ACTUAL_HASH"
+        exit 1
+    fi
+    EXPECTED_HMAC=$(sed -n 's/^HMAC-SHA256(v2)=//p' "$SHA_FILE" | tr -d ' \t\r\n')
+    if [ -z "$EXPECTED_HMAC" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "Manifest $SHA_FILE lacks HMAC-SHA256(v2) tag!"
+        exit 1
+    fi
+    ACTUAL_HMAC=$(compute_backup_hmac_v2 "$RESTORE_ARCHIVE" "$ACTUAL_HASH" "$HMAC_KEY")
+    if [ "$EXPECTED_HMAC" != "$ACTUAL_HMAC" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "Keyed HMAC-SHA256(v2) verification FAILED on $RESTORE_ARCHIVE!"
+        exit 1
+    fi
+    TMP_GZ="$BACKUP_DIR/.verify_$$.sql.gz"
+    TMP_SQL="$BACKUP_DIR/.verify_$$.sql"
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass "file:$TMP_PASS" -in "$RESTORE_ARCHIVE" -out "$TMP_GZ" 2>/dev/null; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][DECRYPT_FAILED]" "AES-256-CBC decryption failed during verification of $RESTORE_ARCHIVE."
+        exit 1
+    fi
+    if ! gzip -t "$TMP_GZ" 2>/dev/null; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][DECOMPRESS_FAILED]" "Decompressed payload failed gzip integrity check on $RESTORE_ARCHIVE."
+        exit 1
+    fi
+    gzip -dc "$TMP_GZ" > "$TMP_SQL"
+    rm -f "$TMP_GZ"
+    tbl_defs=$(grep -c "CREATE TABLE" "$TMP_SQL" 2>/dev/null || echo 0)
+    rm -f "$TMP_SQL"
+    if [ "$tbl_defs" -le 0 ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][VERIFY_EMPTY]" "Decrypted SQL archive $RESTORE_ARCHIVE contains 0 CREATE TABLE definitions."
+        exit 1
+    fi
+    echo "[OK] Verified backup archive $RESTORE_ARCHIVE (SHA256=$ACTUAL_HASH, HMAC-SHA256(v2)=OK, AES-256-CBC=OK, CREATE_TABLE_COUNT=$tbl_defs)"
+    exit 0
+fi
+
+if [ "$ACTION" = "export_removable" ]; then
+    if [ -z "$REMOVABLE_DIR" ] || [ ! -d "$REMOVABLE_DIR" ] || [ ! -w "$REMOVABLE_DIR" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][EXPORT_ERROR]" "Removable target directory missing or not writable: $REMOVABLE_DIR"
+        exit 1
+    fi
+    if command -v df >/dev/null 2>&1; then
+        free_mb=$(df -Pk "$REMOVABLE_DIR" 2>/dev/null | awk 'NR==2 {print int($4 / 1024)}' | tr -d ' \t\r\n')
+        case "$free_mb" in
+            ''|*[!0-9]*) ;;
+            *)
+                if [ "$free_mb" -lt "$MT2_MIN_FREE_DISK_MB" ]; then
+                    emit_backup_alert "[MT2_BACKUP_ALERT][DISK_FREE_LOW]" "Available disk space ${free_mb}MB on removable target $REMOVABLE_DIR is below minimum ${MT2_MIN_FREE_DISK_MB}MB."
+                    exit 2
+                fi
+                ;;
+        esac
+    fi
+    if [ -z "$RESTORE_ARCHIVE" ]; then
+        RESTORE_ARCHIVE=$(ls -1t "$BACKUP_DIR"/mt2_backup_*.sql.gz.enc 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$RESTORE_ARCHIVE" ] || [ ! -f "$RESTORE_ARCHIVE" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][EXPORT_ERROR]" "No backup archive found to export from $BACKUP_DIR"
+        exit 1
+    fi
+    SHA_FILE="${RESTORE_ARCHIVE}.sha256"
+    if [ ! -f "$SHA_FILE" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "Missing integrity manifest for export: $SHA_FILE"
+        exit 1
+    fi
+    EXPECTED_HASH=$(awk 'NR==1 {print $1}' "$SHA_FILE" | tr -d ' \t\r\n')
+    ACTUAL_HASH=$(compute_sha256 "$RESTORE_ARCHIVE")
+    EXPECTED_HMAC=$(sed -n 's/^HMAC-SHA256(v2)=//p' "$SHA_FILE" | tr -d ' \t\r\n')
+    ACTUAL_HMAC=$(compute_backup_hmac_v2 "$RESTORE_ARCHIVE" "$ACTUAL_HASH" "$HMAC_KEY")
+    if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ] || [ -z "$EXPECTED_HMAC" ] || [ "$EXPECTED_HMAC" != "$ACTUAL_HMAC" ]; then
+        emit_backup_alert "[MT2_BACKUP_ALERT][TAMPER_DETECTED]" "Source archive failed SHA-256 or HMAC-SHA256(v2) verification before removable export: $RESTORE_ARCHIVE"
+        exit 1
+    fi
+    DEST_ENC="$REMOVABLE_DIR/$(basename "$RESTORE_ARCHIVE")"
+    DEST_SHA="${DEST_ENC}.sha256"
+    umask 077
+    cp -f "$RESTORE_ARCHIVE" "$DEST_ENC"
+    cp -f "$SHA_FILE" "$DEST_SHA"
+    chmod 600 "$DEST_ENC" "$DEST_SHA"
+    COPY_HASH=$(compute_sha256 "$DEST_ENC")
+    COPY_HMAC=$(compute_backup_hmac_v2 "$DEST_ENC" "$COPY_HASH" "$HMAC_KEY")
+    if [ "$COPY_HASH" != "$EXPECTED_HASH" ] || [ "$COPY_HMAC" != "$EXPECTED_HMAC" ]; then
+        rm -f "$DEST_ENC" "$DEST_SHA"
+        emit_backup_alert "[MT2_BACKUP_ALERT][EXPORT_CORRUPTED]" "Removable copy verification failed on $DEST_ENC"
+        exit 1
+    fi
+    echo "[OK] Exported and verified encrypted backup on removable storage: $DEST_ENC (SHA256=$COPY_HASH, HMAC-SHA256(v2)=$COPY_HMAC)"
     exit 0
 fi
 

@@ -20,8 +20,10 @@ AUDIT_USE_TLS="${MT2_AUDIT_USE_TLS:-0}"
 AUDIT_TLS_CA_FILE="${MT2_AUDIT_TLS_CA_FILE:-}"
 AUDIT_REQUIRE_ACK="${MT2_AUDIT_REQUIRE_ACK:-0}"
 SERVERFILES_DIR="${MT2_SERVERFILES_DIR:-/usr/home/mt2}"
+MARIADB_ERR_LOG="${MT2_MARIADB_ERR_LOG:-}"
 
 ACTION=""
+ALERT_EMITTED=0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -31,6 +33,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --check-capacity)
             ACTION="check_capacity"
+            shift
+            ;;
+        --check-audit-health)
+            ACTION="check_audit_health"
             shift
             ;;
         --forward-once)
@@ -51,6 +57,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --audit-log)
             AUDIT_LOG_PATH="$2"
+            shift 2
+            ;;
+        --mariadb-err-log)
+            MARIADB_ERR_LOG="$2"
             shift 2
             ;;
         --archive-dir)
@@ -111,6 +121,7 @@ done
 emit_alert() {
     alert_tag="$1"
     alert_msg="$2"
+    ALERT_EMITTED=1
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)
     line="$ts $alert_tag $alert_msg"
     echo "$line" >&2
@@ -126,6 +137,16 @@ emit_alert() {
         logger -p security.crit -t mt2_audit_guard "$alert_tag $alert_msg" 2>/dev/null || true
     fi
 }
+
+on_audit_exit() {
+    rc=$?
+    if [ "$rc" -ne 0 ] && [ "$ALERT_EMITTED" -eq 0 ]; then
+        set +e
+        emit_alert "[MT2_CRON_ALERT][AUDIT_GUARD_EXEC_FAILED]" "audit_guard.sh action='${ACTION:-none}' failed unexpectedly with exit code $rc"
+    fi
+    exit "$rc"
+}
+trap on_audit_exit EXIT INT TERM
 
 find_python() {
     if python3 -c "import sys" >/dev/null 2>&1; then
@@ -723,6 +744,39 @@ PYEOF
         fi
         ;;
 
+    check_audit_health)
+        audit_dir=$(dirname "$AUDIT_LOG_PATH")
+        if [ ! -d "$audit_dir" ] || [ ! -w "$audit_dir" ]; then
+            emit_alert "[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]" "MariaDB audit directory missing or not writable: $audit_dir"
+            exit 5
+        fi
+        if [ ! -f "$AUDIT_LOG_PATH" ]; then
+            emit_alert "[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]" "MariaDB audit log file missing: $AUDIT_LOG_PATH"
+            exit 5
+        fi
+        if [ ! -s "$AUDIT_LOG_PATH" ]; then
+            emit_alert "[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]" "MariaDB audit log file is 0 bytes (audit logging inactive or write failed): $AUDIT_LOG_PATH"
+            exit 5
+        fi
+        err_candidates=""
+        if [ -n "$MARIADB_ERR_LOG" ] && [ -f "$MARIADB_ERR_LOG" ]; then
+            err_candidates="$MARIADB_ERR_LOG"
+        else
+            for ef in "$audit_dir"/*.err; do
+                if [ -f "$ef" ]; then
+                    err_candidates="$err_candidates $ef"
+                fi
+            done
+        fi
+        for ef in $err_candidates; do
+            if grep -Eiq "server_audit.*(error writing|Could not open|Permission denied|No space left|Disk is full|failed to write)" "$ef" 2>/dev/null; then
+                emit_alert "[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]" "MariaDB server_audit write error detected in $ef"
+                exit 5
+            fi
+        done
+        echo "[OK] MariaDB audit log health verified ($AUDIT_LOG_PATH non-empty, writable, 0 server_audit write errors)."
+        ;;
+
     check_spool_syserr)
         alert_count=0
         for syserr_file in "$SERVERFILES_DIR"/auth/syserr "$SERVERFILES_DIR"/chs/*/syserr; do
@@ -755,17 +809,20 @@ PYEOF
         mkdir -p "$cron_dir" 2>/dev/null || true
         umask 077
         cat > "$target_cron" <<EOF
-# MT2009 MariaDB 12.3 LTS Audit Guard & Spool Monitor Schedule (every 5 minutes)
-*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --enforce-perms --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
-*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-capacity --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
-*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-spool-syserr --serverfiles-dir "$SERVERFILES_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1
+# MT2009 MariaDB 12.3 LTS Local Audit Guard & Spool Monitor Schedule (every 5 minutes, 100% FreeBSD-native)
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --enforce-perms --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1 || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][ENFORCE_PERMS_FAILED] cron task failed"
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-audit-health --audit-log "$AUDIT_LOG_PATH" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1 || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][AUDIT_HEALTH_FAILED] cron task failed"
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-capacity --audit-log "$AUDIT_LOG_PATH" --archive-dir "$AUDIT_ARCHIVE_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1 || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][CAPACITY_CHECK_FAILED] cron task failed"
+*/5 * * * * root $SERVERFILES_DIR/audit_guard.sh --check-spool-syserr --serverfiles-dir "$SERVERFILES_DIR" --alert-file "$AUDIT_ALERT_FILE" >/dev/null 2>&1 || /usr/bin/logger -p security.crit -t mt2_audit_guard "[MT2_CRON_ALERT][SPOOL_CHECK_FAILED] cron task failed"
 EOF
         chmod 0600 "$target_cron" 2>/dev/null || true
         echo "[OK] Generated audit_guard cron schedule at $target_cron"
         ;;
 
     *)
-        echo "Usage: $0 [--enforce-perms | --check-capacity | --forward-once | --check-spool-syserr | --install-cron] [options]" >&2
+        echo "Usage: $0 [--enforce-perms | --check-audit-health | --check-capacity | --forward-once | --check-spool-syserr | --install-cron] [options]" >&2
         exit 1
         ;;
 esac

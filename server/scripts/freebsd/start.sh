@@ -106,6 +106,19 @@ wait_for_boot() {
     return 1
 }
 
+umask 027
+
+for cfg_f in "$SFROOT/serverfiles.env" "$SFROOT/db/conf.txt" "$SFROOT/auth/CONFIG" \
+    "$SFROOT/chs/ch11/CONFIG" "$SFROOT/chs/ch12/CONFIG" "$SFROOT/chs/ch13/CONFIG" \
+    "$SFROOT/chs/ch99/CONFIG" "$SFROOT/chs/ch00/CONFIG" "$SFROOT/chs/ch01/CONFIG"; do
+    if [ -f "$cfg_f" ]; then
+        chmod 600 "$cfg_f" 2>/dev/null || true
+    elif [ "$cfg_f" != "$SFROOT/serverfiles.env" ]; then
+        echo "[ERROR] Missing required runtime configuration file: $cfg_f" >&2
+        exit 1
+    fi
+done
+
 clear_stale_state "db"   "$SFROOT/db"       18000
 clear_stale_state "auth" "$SFROOT/auth"     17105
 clear_stale_state "ch11" "$SFROOT/chs/ch11" 28000
@@ -118,6 +131,23 @@ clear_stale_state "ch01" "$SFROOT/chs/ch01" 13098
 for d in "$SFROOT/db" "$SFROOT/auth" "$SFROOT/chs/ch11" "$SFROOT/chs/ch12" "$SFROOT/chs/ch13" "$SFROOT/chs/ch99" "$SFROOT/chs/ch00" "$SFROOT/chs/ch01"; do
     [ -d "$d" ] && rotate_service_logs "$d" "$ROTATE_LOGS"
 done
+
+BOOT_COMPLETE=0
+on_start_exit() {
+    rc=$?
+    if [ "$rc" -ne 0 ] && [ "$BOOT_COMPLETE" -eq 0 ]; then
+        set +e
+        echo "[ERROR] MT2009 service boot failed (rc=$rc); stopping partially started services..." >&2
+        if command -v logger >/dev/null 2>&1; then
+            logger -p security.crit -t mt2_start "[MT2_START_ALERT][BOOT_FAILED] Service startup failed (rc=$rc); rolling back partial processes." 2>/dev/null || true
+        fi
+        if [ -x "$SFROOT/stop.sh" ]; then
+            sh "$SFROOT/stop.sh" >/dev/null 2>&1 || true
+        fi
+    fi
+    exit "$rc"
+}
+trap on_start_exit EXIT INT TERM
 
 echo "=== [1/3] Starting DB Cache Server (127.0.0.1:18000) ==="
 cd "$SFROOT/db"
@@ -144,12 +174,6 @@ for ch in $ch_list; do
     fi
 done
 
-echo "=== [3/3] Starting AUTH Server (127.0.0.1:17105) ==="
-cd "$SFROOT/auth"
-./auth > stdout.log 2> stderr.log &
-echo "  -> auth launched"
-
-wait_for_port 17105 "auth"
 wait_for_port 28000 "ch11"
 wait_for_port 28001 "ch12"
 wait_for_port 28002 "ch13"
@@ -160,4 +184,12 @@ wait_for_port 13098 "ch01"
 for ch in $ch_list; do
     wait_for_boot "$SFROOT/chs/$ch/syslog" "$ch"
 done
+
+echo "=== [3/3] Starting AUTH Server (127.0.0.1:17105) ==="
+cd "$SFROOT/auth"
+./auth > stdout.log 2> stderr.log &
+echo "  -> auth launched"
+wait_for_port 17105 "auth"
+
+BOOT_COMPLETE=1
 echo "=== All MT2009 FreeBSD services are ONLINE ==="

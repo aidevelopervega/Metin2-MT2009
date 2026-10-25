@@ -4,10 +4,10 @@
 # REQUIRE: DAEMON NETWORKING mysql
 # KEYWORD: shutdown
 #
-# Add the following lines to /etc/rc.conf to enable mt2server:
-# mt2server_enable="YES"
-# mt2server_dir="/usr/home/mt2"
-# mt2server_user="root"
+# Add the following lines to /etc/rc.conf to enable mt2server (recommended non-root 'mt2' account):
+#   pw groupadd mt2 -g 2009 && pw useradd mt2 -u 2009 -g mt2 -d /usr/home/mt2 -s /bin/sh
+#   chown -R mt2:mt2 /usr/home/mt2
+#   sysrc mt2server_enable="YES" mt2server_dir="/usr/home/mt2" mt2server_user="mt2"
 
 . /etc/rc.subr
 
@@ -18,7 +18,15 @@ load_rc_config $name
 
 : ${mt2server_enable:="NO"}
 : ${mt2server_dir:="/usr/home/mt2"}
-: ${mt2server_user:="root"}
+if [ -z "${mt2server_user:-}" ]; then
+    if [ -d "${mt2server_dir}" ] && command -v stat >/dev/null 2>&1; then
+        mt2server_user=$(stat -f '%Su' "${mt2server_dir}" 2>/dev/null || echo "root")
+    elif id -u mt2 >/dev/null 2>&1; then
+        mt2server_user="mt2"
+    else
+        mt2server_user="root"
+    fi
+fi
 
 start_cmd="${name}_start"
 stop_cmd="${name}_stop"

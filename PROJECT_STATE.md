@@ -1612,11 +1612,23 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
 
 ## 9. TEK AKTİF GÖREV VE SIRADAKİ ADIM
 
-* **Aktif Görev:** **İkinci FreeBSD 15.1 CI Doğrulaması (`CI Run ID 40182578376` / `Job ID 121136559119` -> Tüm Sunucu ve Güvenlik Betikleri Gerçek FreeBSD Üzerinde `PASS`, İş Akışı `[4.A]` `OFF` vs `0` Karşılaştırması Nedeniyle `BLOCKED`)** —
-  1. Gerçek FreeBSD 15.1 amd64 (`CI Run ID 40182578376`, `9m 44s`) üzerinde `tests/run_freebsd_serverfiles_test.sh` içindeki tüm aşamalar (`[1/7]..[7/7]`, `[Bonus 4.A]`, `[Bonus 4.C]`, `[Bonus 4.D & 5]` `audit_guard.sh` v2 + katı RFC 5280 TLS `VERIFY_X509_STRICT` 5/5 senaryo ve `[Bonus 4.E]` `backup_mariadb.sh` v2 `HMAC-SHA256(v2)` + 8-tablo + trigger geri yükleme) %100 `PASS` oldu.
-  2. `[4.A]` MariaDB restart adımında `127.0.0.1|OFF|ON|CONNECT,QUERY_DDL,QUERY_DCL,QUERY_DML_NO_SELECT` sonucu ile ayarların korunduğu doğrulandı; `.github/workflows/freebsd-gcc-test.yml:399` içindeki `"0"` vs `"OFF"` metin karşılaştırması hatası yerel olarak düzeltildi ve yeni CI başlatılmadan uzak dala aktarıldı.
+* **Aktif Görev:** **Aşama 2 — Yerel FreeBSD 15.1 Güvenliği, PF Firewall, Yerel Yedekleme/Audit Otomasyonu ve 8 Servis Güvenli Başlangıç Hazırlığı (`%100 FreeBSD-Native`, Üçüncü Taraf Bağımlılıksız)** —
+  1. **FreeBSD PF Firewall (`server/config/pf.conf.example` & `server/scripts/freebsd/pf_guard.sh`):**
+     * 8 servisli MT2009 `CONFIG` dosyalarından (`db/conf.txt`, `auth/CONFIG`, `chs/ch11..ch01/CONFIG`) gerçek port matrisi çıkarıldı:
+       - İç/Kapalı Portlar (`mt2_internal_ports` — WAN üzerinde IPv4 ve IPv6 `block drop in log quick`): MariaDB `3306`/`3307`, `db_r41023` önbellek portu `18000` (`db/conf.txt` içine `BIND_IP = "$MT2_DB_ADDR"` eklendi), ve 7 iç `P2P_PORT` (`19555`, `29000`, `29001`, `29002`, `14099`, `14088`, `14098`).
+       - Oyuncu TCP Portları (`mt2_player_tcp_ports` — Yalnızca IPv4 TCP + synflood/bağlantı hızı sınırlandırması): `17105` (`auth`), `28000` (`ch11`), `28001` (`ch12`), `28002` (`ch13`), `13099` (`ch99`), `13088` (`ch00`), `13098` (`ch01`).
+       - Dış UDP ve IPv6 oyun portları tamamen engellendi; `lo0` (`set skip on lo0`), ICMPv6 Neighbor Discovery ve yönetim SSH (`22` + anti-lockout 60 sn otomatik geri alma prosedürü) korundu.
+       - `pf_guard.sh` yalnızca doğrulama yapar (`--verify-template`, `--verify-config-ports`, `--print-matrix`), gerçek sunucuda firewall'u izinsiz etkinleştirmez.
+  2. **Yerel Otomatik Şifreli Yedekleme (`server/scripts/freebsd/backup_mariadb.sh` v2):**
+     * Harici bulut/S3/Azure zorunluluğu olmadan `%100` FreeBSD yerel araçlarıyla (`mariadb-dump`, `gzip`, `openssl`, `sha256`, `cron`, `logger`) çalışır.
+     * `MT2_BACKUP_RETENTION_COUNT=14`, `MT2_BACKUP_RETENTION_DAYS=14`, `MT2_BACKUP_MAX_TOTAL_MB=10240`, `MT2_MIN_FREE_DISK_MB=1024` (düşük diskte `exit 2`), `--verify-latest` / `--verify-archive` (günlük kriptografik ve `CREATE TABLE` bütünlük doğrulaması), `--export-removable <dir>` (çıkarılabilir diske `SHA-256` + `HMAC-SHA256(v2)` doğrulamalı kopya) ve `cleanup()` içinde beklenmeyen cron hatalarını `syslog`'a (`[MT2_CRON_ALERT][BACKUP_EXEC_FAILED]`) kaydetme özellikleri eklendi.
+  3. **Yerel Audit ve Log Alarmları (`server/scripts/freebsd/audit_guard.sh` v2):**
+     * Uzak SIEM/syslog zorunluluğu olmadan yerel `enforce_perms`, `check_audit_health` (`0`-bayt/eksik audit dosyası veya `server_audit` yazma hatasında `exit 5` + `[MT2_AUDIT_ALERT][AUDIT_WRITE_ERROR]`), `check_capacity` (`exit 2`), `check_spool_syserr` (`exit 4`) ve cron görev hatalarının `logger -p security.crit` ile FreeBSD `syslog`'a kaydı doğrulandı.
+  4. **Sekiz Servisin Güvenli Başlangıcı (`start.sh`, `stop.sh`, `mt2server.rc`, `install.sh`):**
+     * `start.sh` içinde `umask 027`, tüm `CONFIG` dosyalarında `chmod 600` ön kontrolü, `db (18000)` -> `ch11..ch01 (port + CInputDB::Boot)` -> `auth (17105)` kesin başlatma sırası ve kısmi başlatma hatasında `stop.sh` + `syslog` alarmı ile otomatik geri alma (`on_start_exit` trap) devreye alındı.
+     * `[4.A]` CI YAML `local_infile` (`OFF` ve `0`) karşılaştırması yerel olarak doğrulandı; kullanıcı talimatı gereği üçüncü bir FreeBSD CI başlatılmadı.
 * **Sıradaki Güvenli Adım:**
-   1. Kullanıcı talimatı gereği ikinci bir CI denemesi başlatılmamıştır; tüm gerçek FreeBSD test kanıtları ve `.github/workflows/freebsd-gcc-test.yml` düzeltmesi kullanıcıya raporlanmıştır.
+   1. Üretim FreeBSD 15.1 sunucusunda firewall (`pf`), `cron` ve servis hesabı (`mt2`) etkinleştirmeleri yalnızca operatör onayıyla uygulanacaktır.
 
 
 

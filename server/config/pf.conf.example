@@ -1,0 +1,113 @@
+# ==============================================================================
+# Metin2 MT2009 — FreeBSD 15.1 PF (Packet Filter) Firewall Policy Template
+# ==============================================================================
+# IMPORTANT OPERATOR SAFETY NOTICE:
+# 1. DO NOT enable PF blindly on a remote production server without verifying
+#    `$ext_if` (`ifconfig`) and `$ssh_port` (`sockstat -4 -l | grep sshd`).
+# 2. Always validate syntax first (does NOT load rules):
+#      pfctl -nf /etc/pf.conf
+# 3. Always use an auto-rollback timer when testing new rules over SSH so that
+#    management SSH access can NEVER be permanently severed:
+#      sh -c 'pfctl -e -f /etc/pf.conf && sleep 60 && pfctl -d'
+#    (If SSH stays responsive, press Ctrl+C within 60 seconds to keep PF active,
+#     then enable at boot via `sysrc pf_enable="YES"`.)
+# ==============================================================================
+
+# --- 1. Network Interfaces & Management SSH ---
+# Replace `vtnet0` with your actual external NIC (`em0`, `igb0`, `vmx0`, `ena0`, etc.)
+ext_if = "vtnet0"
+
+# Management SSH port (verify against /etc/ssh/sshd_config before loading!)
+ssh_port = "22"
+
+# Optional: Restrict SSH to static administrator IPs/subnets if fixed IPs exist.
+# Default `<ssh_allowed>` is `any` with anti-bruteforce rate limiting so dynamic-IP
+# administrators do not accidentally lock themselves out.
+table <ssh_allowed> persist { any }
+table <ssh_bruteforce> persist
+table <mt2_abusers> persist
+
+# --- 2. MT2009 8-Service Port Definitions (from actual CONFIG files) ---
+# Database & Cache Ports (STRICTLY INTERNAL / LOOPBACK ONLY):
+# - 3306, 3307 : MariaDB 12.3 LTS SQL server (`bind-address = 127.0.0.1`)
+# - 18000      : db_r41023 DB Cache server (`db/conf.txt` -> `BIND_PORT = 18000`)
+mt2_sql_ports = "{ 3306, 3307 }"
+mt2_db_cache_port = "18000"
+
+# Internal Core-to-Core P2P & AdminPage Ports (STRICTLY INTERNAL / BLOCKED ON WAN):
+# - 19555 : auth   P2P_PORT (`auth/CONFIG`)
+# - 29000 : ch11   P2P_PORT (`chs/ch11/CONFIG`)
+# - 29001 : ch12   P2P_PORT (`chs/ch12/CONFIG`)
+# - 29002 : ch13   P2P_PORT (`chs/ch13/CONFIG`)
+# - 14099 : ch99   P2P_PORT (`chs/ch99/CONFIG`)
+# - 14088 : ch00   P2P_PORT (`chs/ch00/CONFIG`)
+# - 14098 : ch01   P2P_PORT (`chs/ch01/CONFIG`)
+mt2_p2p_ports = "{ 19555, 29000, 29001, 29002, 14099, 14088, 14098 }"
+
+# Combined strictly-internal port group (NEVER reachable from external network):
+mt2_internal_ports = "{ 3306, 3307, 18000, 19555, 29000, 29001, 29002, 14099, 14088, 14098 }"
+
+# Player-Facing TCP Ports (OPEN TO PLAYERS — TCP ONLY):
+# - 17105 : auth   PORT (`auth/CONFIG`     — Login / Argon2id / LoginKey)
+# - 28000 : ch11   PORT (`chs/ch11/CONFIG` — CH1 Core 1: Empire Map 1 Cities)
+# - 28001 : ch12   PORT (`chs/ch12/CONFIG` — CH1 Core 2: Map 2 & Common Maps)
+# - 28002 : ch13   PORT (`chs/ch13/CONFIG` — CH1 Core 3: Dungeons / Towers / Forest)
+# - 13099 : ch99   PORT (`chs/ch99/CONFIG` — Shared CH99: Guild War / OX / Event Maps)
+# - 13088 : ch00   PORT (`chs/ch00/CONFIG` — Shared CH99 Core 00: Map 250)
+# - 13098 : ch01   PORT (`chs/ch01/CONFIG` — Shared CH99 Core 01: Map 71 & Guild Marks)
+mt2_auth_port = "17105"
+mt2_game_ports = "{ 28000, 28001, 28002, 13099, 13088, 13098 }"
+mt2_player_tcp_ports = "{ 17105, 28000, 28001, 28002, 13099, 13088, 13098 }"
+
+# --- 3. Global PF Options & Normalization ---
+set block-policy drop
+set loginterface $ext_if
+set skip on lo0
+
+scrub in all fragment reassemble no-df max-mss 1440
+
+# --- 4. Default Deny Policy (IPv4 & IPv6) ---
+block in all
+pass out all keep state
+
+# --- 5. Anti-Spoofing & Dynamic Blocklists ---
+antispoof quick for { lo0, $ext_if }
+block in quick on $ext_if from <ssh_bruteforce>
+block in quick on $ext_if from <mt2_abusers>
+
+# --- 6. Preserve Management SSH Access (IPv4 & IPv6 Anti-Lockout) ---
+pass in quick on $ext_if proto tcp from <ssh_allowed> to ($ext_if) port $ssh_port \
+    flags S/SA keep state \
+    (max-src-conn 15, max-src-conn-rate 10/60, overload <ssh_bruteforce> flush global)
+
+# --- 7. Allow Local Self-IP P2P Communication (if BIND_IP = $ext_if IPv4) ---
+pass in quick on $ext_if inet proto tcp from ($ext_if) to ($ext_if) port $mt2_p2p_ports \
+    flags S/SA keep state
+
+# --- 8. Hard Block SQL (3306/3307), DB Cache (18000) & P2P Ports on External NIC ---
+block drop in log quick on $ext_if inet  proto { tcp, udp } from any to any port $mt2_internal_ports
+block drop in log quick on $ext_if inet6 proto { tcp, udp } from any to any port $mt2_internal_ports
+
+# --- 9. Hard Block All External UDP Traffic to Game Ports (`udp_socket` mitigation) ---
+block drop in quick on $ext_if inet  proto udp from any to any port $mt2_player_tcp_ports
+block drop in quick on $ext_if inet6 proto udp from any to any port $mt2_player_tcp_ports
+
+# --- 10. IPv6 Policy: Block Game Ports over IPv6 (MT2009 Client/Server is IPv4-Only) ---
+block drop in quick on $ext_if inet6 proto tcp from any to any port $mt2_player_tcp_ports
+
+# Allow essential ICMPv6 (Neighbor Discovery, Router Advertisement, Path MTU)
+pass in quick inet6 proto ipv6-icmp all icmp6-type { echoreq, unreach, toobig, timex, paramprob, routersol, routeradv, neighbrsol, neighbradv } keep state
+
+# --- 11. IPv4 ICMP Diagnostic & Path MTU ---
+pass in quick on $ext_if inet proto icmp all icmp-type { echoreq, unreach, timex } keep state
+
+# --- 12. Player-Facing MT2009 Auth & Game Channels (IPv4 TCP Only + Flood Protection) ---
+# Auth port (17105): stricter per-IP connection rate limit against credential stuffing
+pass in on $ext_if inet proto tcp from any to ($ext_if) port $mt2_auth_port \
+    flags S/SA keep state \
+    (max-src-conn 20, max-src-conn-rate 30/60, overload <mt2_abusers> flush global)
+
+# Game channel ports (28000, 28001, 28002, 13099, 13088, 13098): allow multi-core warps
+pass in on $ext_if inet proto tcp from any to ($ext_if) port $mt2_game_ports \
+    flags S/SA keep state \
+    (max-src-conn 40, max-src-conn-rate 90/60, overload <mt2_abusers> flush global)

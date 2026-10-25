@@ -225,6 +225,7 @@ SQL_COMMON = "$dbHost common $dbUser $dbPass $dbPort"
 SQL_LOG = "$dbHost log $logDbUser $logDbPass $dbPort"
 SQL_WORLD = "$dbHost world $dbUser $dbPass $dbPort"
 TABLE_POSTFIX = ""
+BIND_IP = "$dbAddr"
 BIND_PORT = $dbListenPort
 DB_SLEEP_MSEC = 10
 CLIENT_HEART_FPS = 10
