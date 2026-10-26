@@ -45,7 +45,7 @@ class CPeerBase : public CNetBase
 	}
 	template<typename C, std::enable_if_t<utils::IsContiguousV<C>>* = nullptr>
 	void Encode(const C& v) {
-		Encode(v.data(), v.size() * sizeof(typename C::value_type));
+		Encode(v.data(), static_cast<DWORD>(v.size() * sizeof(typename C::value_type)));
 	}
 
 	int		Recv();

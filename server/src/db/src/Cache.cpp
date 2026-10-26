@@ -170,12 +170,12 @@ void CItemPriceListTableCache::UpdateList(const TItemPriceListTable* pUpdateList
 		if (tmpvec.size() != 0)
 		{
 			thecore_memcpy(m_data.aPriceInfo + pUpdateList->byCount, &tmpvec[0], sizeof(TItemPriceInfo) * sizeAddOldDataSize);
-			m_data.byCount += sizeAddOldDataSize;
+			m_data.byCount = static_cast<BYTE>(m_data.byCount + sizeAddOldDataSize);
 		}
-		nDeletedNum = tmpvec.size() - sizeAddOldDataSize;
+		nDeletedNum = static_cast<int>(tmpvec.size() - sizeAddOldDataSize);
 	}
 	else
-		nDeletedNum = tmpvec.size();
+		nDeletedNum = static_cast<int>(tmpvec.size());
 
 	m_bNeedQuery = true;
 

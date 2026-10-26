@@ -288,8 +288,8 @@ int main(int argc, char** argv)
 
 		iCount = 0;
 
-		iCount += CDBManager::instance().CountReturnQuery(SQL_PLAYER);
-		iCount += CDBManager::instance().CountAsyncQuery(SQL_PLAYER);
+		iCount += static_cast<int>(CDBManager::instance().CountReturnQuery(SQL_PLAYER));
+		iCount += static_cast<int>(CDBManager::instance().CountAsyncQuery(SQL_PLAYER));
 
 		if (iCount == 0)
 			break;
@@ -368,7 +368,7 @@ int Start()
 	if (CConfig::instance().GetValue("LOG_KEEP_DAYS", &tmpValue))
 	{
 		tmpValue = MINMAX(3, tmpValue, 30);
-		log_set_expiration_days(tmpValue);
+		log_set_expiration_days(static_cast<unsigned int>(tmpValue));
 		fprintf(stderr, "Setting log keeping days to %d\n", tmpValue);
 	}
 
@@ -432,7 +432,7 @@ int Start()
 	if (CConfig::instance().GetValue("CACHE_FLUSH_LIMIT_PER_SECOND", szBuf, 256))
 	{
 		DWORD dwVal = 0; str_to_number(dwVal, szBuf);
-		CClientManager::instance().SetCacheFlushCountLimit(dwVal);
+		CClientManager::instance().SetCacheFlushCountLimit(static_cast<int>(dwVal));
 	}
 
 	int iIDStart;

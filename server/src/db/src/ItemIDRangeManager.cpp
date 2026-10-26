@@ -16,7 +16,7 @@ void CItemIDRangeManager::Build()
 	DWORD dwMax = 0;
 	TItemIDRangeTable range;
 
-	for (int i = 0; ; ++i)
+	for (DWORD i = 0; ; ++i)
 	{
 		dwMin = cs_dwMinimumRange * (i + 1) + 1;
 		dwMax = cs_dwMinimumRange * (i + 2);

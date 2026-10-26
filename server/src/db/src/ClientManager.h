@@ -64,7 +64,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	typedef boost::unordered_set<CItemCache *, boost::hash<CItemCache*> > TItemCacheSet;
 	typedef boost::unordered_map<DWORD, TItemCacheSet *> TItemCacheSetPtrMap;
 	typedef boost::unordered_map<DWORD, CItemPriceListTableCache*> TItemPriceListCacheMap;
-	typedef boost::unordered_map<short, BYTE> TChannelStatusMap;
+	typedef boost::unordered_map<WORD, BYTE> TChannelStatusMap;
 
 	// MYSHOP_PRICE_LIST
 
@@ -200,8 +200,8 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 		m_map_SpecialShopMetaData.clear();
 		if (pTables && iCount > 0)
 		{
-			m_pSpecialShopTable = new TSpecialShopTable[iCount];
-			memcpy(m_pSpecialShopTable, pTables, sizeof(TSpecialShopTable) * iCount);
+			m_pSpecialShopTable = new TSpecialShopTable[static_cast<size_t>(iCount)];
+			memcpy(m_pSpecialShopTable, pTables, sizeof(TSpecialShopTable) * static_cast<size_t>(iCount));
 			m_iSpecialShopTableSize = iCount;
 			for (int i = 0; i < iCount; ++i)
 				GetSpecialShopMetaCache(pTables[i].vnum);

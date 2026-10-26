@@ -345,13 +345,13 @@ void CreateAccountPlayerDataFromRes(MYSQL_RES * pRes, TAccountTable * pkTab)
 				{
 					strlcpy(pkTab->players[j].szName, pt->name, sizeof(pkTab->players[j].szName));
 
-					pkTab->players[j].byJob			= pt->job;
+					pkTab->players[j].byJob			= static_cast<BYTE>(pt->job);
 					pkTab->players[j].byLevel			= pt->level;
-					pkTab->players[j].dwPlayMinutes		= pt->playtime;
-					pkTab->players[j].byST			= pt->st;
-					pkTab->players[j].byHT			= pt->ht;
-					pkTab->players[j].byDX			= pt->dx;
-					pkTab->players[j].byIQ			= pt->iq;
+					pkTab->players[j].dwPlayMinutes		= static_cast<DWORD>(pt->playtime);
+					pkTab->players[j].byST			= static_cast<BYTE>(pt->st);
+					pkTab->players[j].byHT			= static_cast<BYTE>(pt->ht);
+					pkTab->players[j].byDX			= static_cast<BYTE>(pt->dx);
+					pkTab->players[j].byIQ			= static_cast<BYTE>(pt->iq);
 					pkTab->players[j].wMainPart			= pt->parts[PART_MAIN];
 					pkTab->players[j].wHairPart			= pt->parts[PART_HAIR];
 #ifdef ENABLE_ACCE_COSTUME_SYSTEM
@@ -507,21 +507,21 @@ void CClientManager::QUERY_LOGOUT(CPeer * peer, [[maybe_unused]] DWORD dwHandle,
 	if (pLoginData == NULL)
 		return;
 
-	int pid[PLAYER_PER_ACCOUNT];
+	DWORD pid[PLAYER_PER_ACCOUNT];
 
 	for (int n = 0; n < PLAYER_PER_ACCOUNT; ++n)
 	{
 		if (pLoginData->GetAccountRef().players[n].dwID == 0)
 		{
 			if (g_test_server)
-				sys_log(0, "LOGOUT %s %d", packet->login, pLoginData->GetAccountRef().players[n].dwID);
+				sys_log(0, "LOGOUT %s %u", packet->login, pLoginData->GetAccountRef().players[n].dwID);
 			continue;
 		}
 
 		pid[n] = pLoginData->GetAccountRef().players[n].dwID;
 
 		if (g_log)
-			sys_log(0, "LOGOUT InsertLogoutPlayer %s %d", packet->login, pid[n]);
+			sys_log(0, "LOGOUT InsertLogoutPlayer %s %u", packet->login, pid[n]);
 
 		InsertLogoutPlayer(pid[n]);
 	}
@@ -551,7 +551,7 @@ void CClientManager::QUERY_CHANGE_NAME(CPeer * peer, DWORD dwHandle, TPacketGDCh
 	}
 
 	char szEscapedName[CHARACTER_NAME_MAX_LEN * 2 + 1] = {0};
-	CDBManager::instance().EscapeString(szEscapedName, p->name, strlen(p->name), SQL_PLAYER);
+	CDBManager::instance().EscapeString(szEscapedName, p->name, static_cast<unsigned long>(strlen(p->name)), SQL_PLAYER);
 
 	char queryStr[QUERY_MAX_LEN];
 	snprintf(queryStr, sizeof(queryStr),

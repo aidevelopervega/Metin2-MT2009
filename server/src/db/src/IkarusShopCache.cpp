@@ -365,7 +365,7 @@ namespace ikashop
 			static TShopInfo pack{};
 			pack.duration = shop->duration;
 			pack.ownerid = owner;
-			pack.count = shop->itemsmap.size();
+			pack.count = static_cast<DWORD>(shop->itemsmap.size());
 			str_to_cstring(pack.name, shop->name.c_str());
 			str_to_cstring(pack.ownerName, shop->ownerName.c_str());
 #ifdef ENABLE_IKASHOP_ENTITIES
@@ -382,8 +382,8 @@ namespace ikashop
 
 	DWORD CShopCache::GetItemCount() const
 	{
-		return std::accumulate(m_shopsMap.begin(), m_shopsMap.end(), 0UL, 
-			[](const auto& val, const auto& iter){ return val + iter.second->itemsmap.size(); });
+		return std::accumulate(m_shopsMap.begin(), m_shopsMap.end(), DWORD{0}, 
+			[](const DWORD val, const auto& iter){ return val + static_cast<DWORD>(iter.second->itemsmap.size()); });
 	}
 
 	void CShopCache::ShopDurationProcess()
@@ -762,8 +762,8 @@ namespace ikashop
 
 	DWORD CSafeboxCache::GetItemCount() const
 	{
-		return std::accumulate(m_safeboxMap.begin(), m_safeboxMap.end(), 0UL,
-			[](const auto& value, const auto& iter){ return value + iter.second->itemsmap.size(); });
+		return std::accumulate(m_safeboxMap.begin(), m_safeboxMap.end(), DWORD{0},
+			[](const DWORD value, const auto& iter){ return value + static_cast<DWORD>(iter.second->itemsmap.size()); });
 	}
 
 	//patch 08-03-2020
@@ -1077,14 +1077,14 @@ namespace ikashop
 
 	DWORD CAuctionCache::GetCount()
 	{
-		return m_mapAuction.size();
+		return static_cast<DWORD>(m_mapAuction.size());
 	}
 
 	DWORD CAuctionCache::GetOffersCount()
 	{
 		DWORD dwCount =0;
 		for(itertype(m_mapAuctionOffer) it = m_mapAuctionOffer.begin(); it != m_mapAuctionOffer.end(); it++)
-			dwCount += it->second.size();
+			dwCount += static_cast<DWORD>(it->second.size());
 
 		return dwCount;
 	}
@@ -1120,7 +1120,7 @@ namespace ikashop
 		value.Accept(StringWriter);
 		// escaping json string
 		static char escape[1024];
-		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), static_cast<unsigned long>(buffer.GetSize()));
 		if (buffer.GetSize() > 0 && len == 0)
 			return "";
 		// making query
@@ -1191,7 +1191,7 @@ namespace ikashop
 		
 		// escaping json string
 		static char escape[1024];
-		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), static_cast<unsigned long>(buffer.GetSize()));
 		if (buffer.GetSize() > 0 && len == 0)
 			return "";
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '{}' WHERE `id` = {}", escape, item.id);
@@ -1237,7 +1237,7 @@ namespace ikashop
 		//ikashop-updated 03/08/19
 		static char szEscapeString[CHARACTER_NAME_MAX_LEN + 32];
 		size_t nameLen = strnlen(rOffer.buyername, sizeof(rOffer.buyername));
-		unsigned long len = CDBManager::instance().EscapeString(szEscapeString, rOffer.buyername, nameLen);
+		unsigned long len = CDBManager::instance().EscapeString(szEscapeString, rOffer.buyername, static_cast<unsigned long>(nameLen));
 		if (nameLen > 0 && len == 0)
 			return "";
 		// offer_id,owner_id,offerer_id,price_yang,price_cheque,is_notified,is_accept
@@ -1292,7 +1292,7 @@ namespace ikashop
 
 		// escaping json string
 		static char escape[500];
-		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), buffer.GetSize());
+		unsigned long len = CDBManager::instance().EscapeString(escape, buffer.GetString(), static_cast<unsigned long>(buffer.GetSize()));
 		if (buffer.GetSize() > 0 && len == 0)
 			return "";
 
@@ -1304,7 +1304,7 @@ namespace ikashop
 	{
 		static char szEscapeName[CHARACTER_NAME_MAX_LEN+32];
 		size_t nameLen = strnlen(auctionOffer.buyername, sizeof(auctionOffer.buyername));
-		unsigned long len = CDBManager::instance().EscapeString(szEscapeName, auctionOffer.buyername, nameLen);
+		unsigned long len = CDBManager::instance().EscapeString(szEscapeName, auctionOffer.buyername, static_cast<unsigned long>(nameLen));
 		if (nameLen > 0 && len == 0)
 			return "";
 		return fmt::format("INSERT INTO `ikashop_auction_offer` (`seller`, `buyer`, `buyer_name` , `price`, `seen`) "

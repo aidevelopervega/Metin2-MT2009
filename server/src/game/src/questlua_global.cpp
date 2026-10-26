@@ -1365,13 +1365,13 @@ namespace quest
 		}
 
 		const DWORD dwVnum = static_cast<DWORD>(lua_tonumber(L, 1));
-		const size_t count = MINMAX(1, static_cast<size_t>(lua_tonumber(L, 2)), 10);
+		const size_t count = std::clamp<size_t>(static_cast<size_t>(lua_tonumber(L, 2)), 1, 10);
 		const bool isAggressive = static_cast<bool>(lua_toboolean(L, 3));
 		const int iMapIndex = static_cast<int>(lua_tonumber(L, 4));
 		const int iMapX = static_cast<int>(lua_tonumber(L, 5));
 		const int iMapY = static_cast<int>(lua_tonumber(L, 6));
 		size_t SpawnCount = 0;
-		sys_log(0, "QUEST _spawn_mob_in_map: VNUM(%u) COUNT(%u) isAggressive(%b) MapIndex(%d) MapX(%d) MapY(%d)", dwVnum, count, isAggressive, iMapIndex, iMapX, iMapY);
+		sys_log(0, "QUEST _spawn_mob_in_map: VNUM(%u) COUNT(%zu) isAggressive(%d) MapIndex(%d) MapX(%d) MapY(%d)", dwVnum, count, isAggressive ? 1 : 0, iMapIndex, iMapX, iMapY);
 
 		PIXEL_POSITION pos;
 		if (!SECTREE_MANAGER::instance().GetMapBasePositionByMapIndex(iMapIndex, pos))

@@ -38,9 +38,11 @@ bool CMonarch::VoteMonarch(DWORD pid, DWORD selectdpid)
 
 void CMonarch::ElectMonarch()
 {
-	int size = GetVecMonarchCandidacy().size();
+	const size_t size = GetVecMonarchCandidacy().size();
+	if (size == 0)
+		return;
 
-	int * s = new int[size];
+	std::vector<int> s(size, 0);
 
 	itertype(m_map_MonarchElection) it = m_map_MonarchElection.begin();
 
@@ -48,16 +50,18 @@ void CMonarch::ElectMonarch()
 
 	for (; it != m_map_MonarchElection.end(); ++it)
 	{
-		if ((idx =  GetCandidacyIndex(it->second->pid)) < 0)
+		if ((idx = GetCandidacyIndex(it->second->pid)) < 0)
 			continue;
 
-		++s[idx];
+		const size_t uIdx = static_cast<size_t>(idx);
+		if (uIdx >= size)
+			continue;
+
+		++s[uIdx];
 
 		if (g_test_server)
-			sys_log (0, "[MONARCH_VOTE] pid(%d) come to vote candidacy pid(%d)", it->second->pid, m_vec_MonarchCandidacy[idx].pid);
+			sys_log (0, "[MONARCH_VOTE] pid(%d) come to vote candidacy pid(%d)", it->second->pid, m_vec_MonarchCandidacy[uIdx].pid);
 	}
-
-	delete [] s;
 }
 
 bool CMonarch::IsCandidacy(DWORD pid)

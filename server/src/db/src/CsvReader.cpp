@@ -367,6 +367,6 @@ const cCsvRow* cCsvTable::CurRow() const
         return NULL;
     }
 
-    return m_File[m_CurRow];
+    return m_File[static_cast<size_t>(m_CurRow)];
 }
 

@@ -255,9 +255,9 @@ void CPrivManager::SendChangeCharPriv(DWORD pid, BYTE type, int value)
 
 void CPrivManager::SendPrivOnSetup(CPeer* peer)
 {
-	for (int i = 1; i < MAX_PRIV_NUM; ++i)
+	for (BYTE i = 1; i < MAX_PRIV_NUM; ++i)
 	{
-		for (int e = 0; e < EMPIRE_MAX_NUM; ++e)
+		for (BYTE e = 0; e < EMPIRE_MAX_NUM; ++e)
 		{
 			// ADD_EMPIRE_PRIV_TIME
 			TPrivEmpireData* pPrivEmpireData = m_aaPrivEmpire[i][e];

@@ -29,17 +29,17 @@ bool CreateItemTableFromRes(MYSQL_RES * res, std::vector<TPlayerItem> * pVec, DW
 		return true;
 	}
 
-	int rows;
+	uint64_t rows = mysql_num_rows(res);
 
-	if ((rows = mysql_num_rows(res)) <= 0)
+	if (rows == 0)
 	{
 		pVec->clear();
 		return true;
 	}
 
-	pVec->resize(rows);
+	pVec->resize(static_cast<size_t>(rows));
 
-	for (int i = 0; i < rows; ++i)
+	for (size_t i = 0; i < static_cast<size_t>(rows); ++i)
 	{
 		MYSQL_ROW row = mysql_fetch_row(res);
 		TPlayerItem & item = pVec->at(i);
@@ -74,7 +74,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 {
 	size_t queryLen;
 
-	queryLen = snprintf(pszQuery, querySize,
+	queryLen = static_cast<size_t>(snprintf(pszQuery, querySize,
 			"UPDATE player%s SET "
 			"job = %d, "
 			"voice = %d, "
@@ -169,7 +169,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 #ifdef ENABLE_CHEQUE_SYSTEM
 		, pkTab->cheque
 #endif
-	);
+	));
 
 	static char text[8192 + 1];
 
@@ -181,7 +181,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 			pszQuery[0] = '\0';
 		return 0;
 	}
-	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, "skill_level = '%s', ", text);
+	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, "skill_level = '%s', ", text));
 
 	unsigned long lenQuickslot = CDBManager::instance().EscapeString(text, pkTab->quickslot, sizeof(pkTab->quickslot));
 	if (sizeof(pkTab->quickslot) > 0 && lenQuickslot == 0)
@@ -191,9 +191,9 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 			pszQuery[0] = '\0';
 		return 0;
 	}
-	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, "quickslot = '%s' ", text);
+	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, "quickslot = '%s' ", text));
 
-	queryLen += snprintf(pszQuery + queryLen, querySize - queryLen, " WHERE id=%u", static_cast<unsigned int>(pkTab->id));
+	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, " WHERE id=%u", static_cast<unsigned int>(pkTab->id)));
 	return queryLen;
 }
 
@@ -205,7 +205,7 @@ CPlayerTableCache * CClientManager::GetPlayerCache(DWORD id)
 		return NULL;
 
 	TPlayerTable* pTable = it->second->Get(false);
-	pTable->logoff_interval = GetCurrentTime() - it->second->GetLastUpdateTime();
+	pTable->logoff_interval = static_cast<DWORD>(GetCurrentTime()) - it->second->GetLastUpdateTime();
 	return it->second;
 }
 
@@ -316,11 +316,11 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 			if (g_test_server)
 				sys_log(0, "ITEM_CACHE: HIT! %s count: %u", pTab->name, dwCount);
 
-			peer->EncodeHeader(HEADER_DG_ITEM_LOAD, dwHandle, sizeof(DWORD) + sizeof(TPlayerItem) * dwCount);
+			peer->EncodeHeader(HEADER_DG_ITEM_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(TPlayerItem) * dwCount));
 			peer->EncodeDWORD(dwCount);
 
 			if (dwCount)
-				peer->Encode(&s_items[0], sizeof(TPlayerItem) * dwCount);
+				peer->Encode(&s_items[0], static_cast<DWORD>(sizeof(TPlayerItem) * dwCount));
 
 			// Quest
 			snprintf(szQuery, sizeof(szQuery),
@@ -591,7 +591,7 @@ bool CreatePlayerTableFromRes(MYSQL_RES * res, TPlayerTable * pkTab)
 				MIN(20, pkTab->skills[141].bLevel) +
 				MIN(20, pkTab->skills[142].bLevel);
 
-			pkTab->sub_skill_point = max_point - skill_point;
+			pkTab->sub_skill_point = static_cast<short>(max_point - skill_point);
 		}
 		else
 			pkTab->sub_skill_point = 0;
@@ -734,9 +734,9 @@ void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHa
 	static std::vector<TPlayerItem> s_items;
 
 	CreateItemTableFromRes(pRes, &s_items, dwPID);
-	DWORD dwCount = s_items.size();
+	DWORD dwCount = static_cast<DWORD>(s_items.size());
 
-	peer->EncodeHeader(HEADER_DG_ITEM_LOAD, dwHandle, sizeof(DWORD) + sizeof(TPlayerItem) * dwCount);
+	peer->EncodeHeader(HEADER_DG_ITEM_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(TPlayerItem) * dwCount));
 	peer->EncodeDWORD(dwCount);
 
 	CreateItemCacheSet(dwPID);
@@ -757,7 +757,7 @@ void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHa
 // @fixme402 (RESULT_AFFECT_LOAD +dwRealPID)
 void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwRealPID)
 {
-	int iNumRows;
+	uint64_t iNumRows;
 	if ((iNumRows = mysql_num_rows(pRes)) == 0)
 	{
 		// @fixme402 begin
@@ -768,7 +768,7 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 		dwPID = dwRealPID;
 		sys_log(0, "AFFECT_LOAD: count %u PID %u RealPID %u", dwCount, dwPID, dwRealPID);
 
-		peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount);
+		peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
 		peer->Encode(dwPID);
 		peer->Encode(dwCount);
 		peer->Encode(emptyElements);
@@ -777,13 +777,13 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 	}
 
 	static std::vector<TPacketAffectElement> s_elements;
-	s_elements.resize(iNumRows);
+	s_elements.resize(static_cast<size_t>(iNumRows));
 
 	DWORD dwPID = 0;
 
 	MYSQL_ROW row;
 
-	for (int i = 0; i < iNumRows; ++i)
+	for (size_t i = 0; i < static_cast<size_t>(iNumRows); ++i)
 	{
 		TPacketAffectElement & r = s_elements[i];
 		row = mysql_fetch_row(pRes);
@@ -800,10 +800,10 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 		str_to_number(r.dwItemVnum, row[7]);
 	}
 
-	DWORD dwCount = s_elements.size();
+	DWORD dwCount = static_cast<DWORD>(s_elements.size());
 	sys_log(0, "AFFECT_LOAD: count %d PID %u", dwCount, dwPID);
 
-	peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount);
+	peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
 	peer->Encode(dwPID);
 	peer->Encode(dwCount);
 	peer->Encode(s_elements);
@@ -811,7 +811,7 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 
 void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, [[maybe_unused]] DWORD pid)
 {
-	int iNumRows;
+	uint64_t iNumRows;
 
 	if ((iNumRows = mysql_num_rows(pRes)) == 0)
 	{
@@ -822,11 +822,11 @@ void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwH
 	}
 
 	static std::vector<TQuestTable> s_table;
-	s_table.resize(iNumRows);
+	s_table.resize(static_cast<size_t>(iNumRows));
 
 	MYSQL_ROW row;
 
-	for (int i = 0; i < iNumRows; ++i)
+	for (size_t i = 0; i < static_cast<size_t>(iNumRows); ++i)
 	{
 		TQuestTable & r = s_table[i];
 
@@ -838,17 +838,17 @@ void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwH
 		str_to_number(r.lValue, row[3]);
 	}
 
-	DWORD dwCount = s_table.size();
+	DWORD dwCount = static_cast<DWORD>(s_table.size());
 	sys_log(0, "QUEST_LOAD: count %d PID %u", dwCount, s_table[0].dwPID);
 
-	peer->EncodeHeader(HEADER_DG_QUEST_LOAD, dwHandle, sizeof(DWORD) + sizeof(TQuestTable) * s_table.size());
+	peer->EncodeHeader(HEADER_DG_QUEST_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(TQuestTable) * s_table.size()));
 	peer->Encode(dwCount);
 	peer->Encode(s_table);
 }
 
 void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWORD dwHandle, [[maybe_unused]] DWORD pid)
 {
-	int iNumRows;
+	uint64_t iNumRows;
 
 	if ((iNumRows = mysql_num_rows(pRes)) == 0)
 	{
@@ -859,11 +859,11 @@ void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWOR
 	}
 
 	static std::vector<TSpecialFlagTable> s_table;
-	s_table.resize(iNumRows);
+	s_table.resize(static_cast<size_t>(iNumRows));
 
 	MYSQL_ROW row;
 
-	for (int i = 0; i < iNumRows; ++i)
+	for (size_t i = 0; i < static_cast<size_t>(iNumRows); ++i)
 	{
 		TSpecialFlagTable& r = s_table[i];
 
@@ -875,13 +875,13 @@ void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWOR
 		str_to_number(r.llValue, row[3]);
 	}
 
-	sys_log(0, "SPECIAL_FLAG_LOAD: count %d PID %u AID %u", s_table.size(), s_table[0].dwPID, s_table[0].dwAID);
+	sys_log(0, "SPECIAL_FLAG_LOAD: count %zu PID %u AID %u", s_table.size(), s_table[0].dwPID, s_table[0].dwAID);
 
-	DWORD dwCount = s_table.size();
+	DWORD dwCount = static_cast<DWORD>(s_table.size());
 
-	peer->EncodeHeader(HEADER_DG_SPECIAL_FLAG_LOAD, dwHandle, sizeof(DWORD) + sizeof(TSpecialFlagTable) * dwCount);
+	peer->EncodeHeader(HEADER_DG_SPECIAL_FLAG_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(TSpecialFlagTable) * dwCount));
 	peer->Encode(&dwCount, sizeof(DWORD));
-	peer->Encode(&s_table[0], sizeof(TSpecialFlagTable) * dwCount);
+	peer->Encode(&s_table[0], static_cast<DWORD>(sizeof(TSpecialFlagTable) * dwCount));
 }
 
 /*
@@ -905,7 +905,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 {
 	char	queryStr[QUERY_MAX_LEN];
 	int		queryLen;
-	int		player_id;
+	DWORD	player_id;
 
 	if (!packet || packet->account_index >= PLAYER_PER_ACCOUNT)
 	{
@@ -921,7 +921,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
 		return;
 	}
-	CDBManager::instance().EscapeString(szEscapedName, packet->player_table.name, rawNameLen);
+	CDBManager::instance().EscapeString(szEscapedName, packet->player_table.name, static_cast<unsigned long>(rawNameLen));
 
 	time_by_id_map_t::iterator it = s_createTimeByAccountID.find(packet->account_id);
 
@@ -1039,7 +1039,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
 		return;
 	}
-	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - queryLen, "'%s', ", text);
+	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - static_cast<size_t>(queryLen), "'%s', ", text);
 	if (g_test_server)
 		sys_log(0, "Create_Player queryLen[%d] TEXT[%s]", queryLen, text);
 
@@ -1050,30 +1050,30 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
 		return;
 	}
-	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - queryLen, "'%s')", text);
+	queryLen += snprintf(queryStr + queryLen, sizeof(queryStr) - static_cast<size_t>(queryLen), "'%s')", text);
 
 	auto pMsg2(CDBManager::instance().DirectQuery(queryStr));
 	if (g_test_server)
 		sys_log(0, "Create_Player queryLen[%d] TEXT[%s]", queryLen, text);
 
-	if (pMsg2->Get()->uiAffectedRows <= 0)
+	if (pMsg2->Get()->uiAffectedRows == 0 || pMsg2->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
 	{
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_ALREADY, dwHandle, 0);
-		sys_log(0, "ALREADY EXIST3 query: %s AffectedRows %u", queryStr, pMsg2->Get()->uiAffectedRows);
+		sys_log(0, "ALREADY EXIST3 query: %s AffectedRows %llu", queryStr, static_cast<unsigned long long>(pMsg2->Get()->uiAffectedRows));
 		return;
 	}
 
-	player_id = pMsg2->Get()->uiInsertID;
+	player_id = static_cast<DWORD>(pMsg2->Get()->uiInsertID);
 
-	snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%d=%d WHERE id=%u",
-			GetTablePostfix(), packet->account_index + 1, player_id, static_cast<unsigned int>(packet->account_id));
+	snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%d=%u WHERE id=%u",
+			GetTablePostfix(), packet->account_index + 1, static_cast<unsigned int>(player_id), static_cast<unsigned int>(packet->account_id));
 
 	auto pMsg3(CDBManager::instance().DirectQuery(queryStr));
-	if (pMsg3->Get()->uiAffectedRows <= 0)
+	if (pMsg3->Get()->uiAffectedRows == 0)
 	{
 		sys_err("QUERY_ERROR: %s", queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%d", GetTablePostfix(), player_id);
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(player_id));
 		CDBManager::instance().DirectQuery(queryStr);
 
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
@@ -1087,13 +1087,13 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 
 	pack.player.dwID			= player_id;
 	strlcpy(pack.player.szName, packet->player_table.name, sizeof(pack.player.szName));
-	pack.player.byJob			= packet->player_table.job;
+	pack.player.byJob			= static_cast<BYTE>(packet->player_table.job);
 	pack.player.byLevel			= 1;
 	pack.player.dwPlayMinutes	= 0;
-	pack.player.byST			= packet->player_table.st;
-	pack.player.byHT			= packet->player_table.ht;
-	pack.player.byDX 			= packet->player_table.dx;
-	pack.player.byIQ			= packet->player_table.iq;
+	pack.player.byST			= static_cast<BYTE>(packet->player_table.st);
+	pack.player.byHT			= static_cast<BYTE>(packet->player_table.ht);
+	pack.player.byDX 			= static_cast<BYTE>(packet->player_table.dx);
+	pack.player.byIQ			= static_cast<BYTE>(packet->player_table.iq);
 	pack.player.wMainPart		= packet->player_table.part_base;
 	pack.player.x			= packet->player_table.x;
 	pack.player.y			= packet->player_table.y;
@@ -1232,7 +1232,7 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 				GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
 		auto pIns(CDBManager::instance().DirectQuery(queryStr));
 
-		if (pIns->Get()->uiAffectedRows == 0 || pIns->Get()->uiAffectedRows == (uint32_t)-1)
+		if (pIns->Get()->uiAffectedRows == 0 || pIns->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
 		{
 			sys_log(0, "PLAYER_DELETE FAILED %u CANNOT INSERT TO player%s_deleted", dwPID, GetTablePostfix());
 
@@ -1281,7 +1281,7 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 				static_cast<unsigned int>(pi->player_id));
 
 		auto pMsg(CDBManager::instance().DirectQuery(queryStr));
-		if (pMsg->Get()->uiAffectedRows == 0 || pMsg->Get()->uiAffectedRows == (uint32_t)-1)
+		if (pMsg->Get()->uiAffectedRows == 0 || pMsg->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
 		{
 			sys_log(0, "PLAYER_DELETE FAIL WHEN UPDATE account table");
 			peer->EncodeHeader(HEADER_DG_PLAYER_DELETE_FAILED, pi->dwHandle, sizeof(BYTE) + sizeof(BYTE));

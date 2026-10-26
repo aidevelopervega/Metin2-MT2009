@@ -157,7 +157,7 @@ void CPeerBase::Encode(const void* data, DWORD size)
 	if (size == 0 || !data)
 		return;
 
-	buffer_write(m_outBuffer, data, size);
+	buffer_write(m_outBuffer, data, static_cast<int>(size));
 	fdwatch_add_fd(m_fdWatcher, m_fd, this, FDW_WRITE, true);
 }
 
@@ -171,7 +171,7 @@ int CPeerBase::Recv()
 
 	buffer_adjust_size(m_inBuffer, MAX_INPUT_LEN >> 2);
 	int bytes_to_read = buffer_has_space(m_inBuffer);
-	ssize_t bytes_read = socket_read(m_fd, (char *) buffer_write_peek(m_inBuffer), bytes_to_read);
+	ssize_t bytes_read = socket_read(m_fd, (char *) buffer_write_peek(m_inBuffer), static_cast<size_t>(bytes_to_read));
 
 	if (bytes_read < 0)
 	{
@@ -181,15 +181,15 @@ int CPeerBase::Recv()
 	else if (bytes_read == 0)
 		return 0;
 
-	buffer_write_proceed(m_inBuffer, bytes_read);
-	m_BytesRemain = buffer_size(m_inBuffer);
+	buffer_write_proceed(m_inBuffer, static_cast<int>(bytes_read));
+	m_BytesRemain = static_cast<int>(buffer_size(m_inBuffer));
 	return 1;
 }
 
 void CPeerBase::RecvEnd(int proceed_bytes)
 {
 	buffer_read_proceed(m_inBuffer, proceed_bytes);
-	m_BytesRemain = buffer_size(m_inBuffer);
+	m_BytesRemain = static_cast<int>(buffer_size(m_inBuffer));
 }
 
 int CPeerBase::GetRecvLength()
@@ -204,7 +204,7 @@ const void * CPeerBase::GetRecvBuffer()
 
 int CPeerBase::GetSendLength()
 {
-	return buffer_size(m_outBuffer);
+	return static_cast<int>(buffer_size(m_outBuffer));
 }
 
 int CPeerBase::Send()
@@ -213,12 +213,12 @@ int CPeerBase::Send()
 		return 0;
 
 	int iBufferLeft = fdwatch_get_buffer_size(m_fdWatcher, m_fd);
-	int iBytesToWrite = MIN(iBufferLeft, buffer_size(m_outBuffer));
+	int iBytesToWrite = MIN(iBufferLeft, static_cast<int>(buffer_size(m_outBuffer)));
 
 	if (iBytesToWrite == 0)
 		return 0;
 
-	int result = socket_write(m_fd, (const char *) buffer_read_peek(m_outBuffer), iBytesToWrite);
+	int result = static_cast<int>(socket_write(m_fd, (const char *) buffer_read_peek(m_outBuffer), static_cast<size_t>(iBytesToWrite)));
 
 	if (result == 0)
 	{

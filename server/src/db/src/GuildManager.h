@@ -90,8 +90,8 @@ struct TGuildWarPQElement
 	bool	bEnd;
 	BYTE	bType;
 	DWORD	GID[2];
-	DWORD	iScore[2];
-	DWORD	iBetScore[2];
+	int	iScore[2];
+	int	iBetScore[2];
 
 	TGuildWarPQElement(BYTE _bType, DWORD GID1, DWORD GID2) : bEnd(false), bType(_bType)
 	{

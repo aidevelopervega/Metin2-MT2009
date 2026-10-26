@@ -215,10 +215,10 @@ bool CClientManager::InitializeRefineTable()
 		m_pRefineTable = NULL;
 	}
 
-	m_iRefineTableSize = pRes->uiNumRows;
+	m_iRefineTableSize = static_cast<int>(pRes->uiNumRows);
 
-	m_pRefineTable	= new TRefineTable[m_iRefineTableSize];
-	memset(m_pRefineTable, 0, sizeof(TRefineTable) * m_iRefineTableSize);
+	m_pRefineTable	= new TRefineTable[static_cast<size_t>(m_iRefineTableSize)];
+	memset(m_pRefineTable, 0, sizeof(TRefineTable) * static_cast<size_t>(m_iRefineTableSize));
 
 	TRefineTable* prt = m_pRefineTable;
 	MYSQL_ROW data;
@@ -242,7 +242,7 @@ bool CClientManager::InitializeRefineTable()
 			str_to_number(prt->materials[i].count, data[col++]);
 			if (prt->materials[i].vnum == 0)
 			{
-				prt->material_count = i;
+				prt->material_count = static_cast<BYTE>(i);
 				break;
 			}
 		}
@@ -304,7 +304,7 @@ bool CClientManager::InitializeQuestRewardTable()
 		m_vec_QuestRewardTable.clear();
 	}
 
-	m_vec_QuestRewardTable.reserve(pRes->uiNumRows);
+	m_vec_QuestRewardTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW data;
 
@@ -341,13 +341,13 @@ bool CClientManager::InitializeQuestRewardTable()
 						{
 							itemReward.isSpecial = false;
 						}
-						itemReward.vnum = std::stoul(token);
+						itemReward.vnum = static_cast<DWORD>(std::stoul(token));
 					}
 					else
 						break;
 
 					if (std::getline(iss, token, ','))
-						itemReward.count = std::stoi(token);
+						itemReward.count = static_cast<DWORD>(std::stoul(token));
 					else
 						break;
 
@@ -390,7 +390,7 @@ bool CClientManager::InitializeCraftingTable()
 		m_vec_CraftingTable.clear();
 	}
 
-	m_vec_CraftingTable.reserve(pRes->uiNumRows);
+	m_vec_CraftingTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW data;
 
@@ -416,12 +416,12 @@ bool CClientManager::InitializeCraftingTable()
 			{
 				TRefineMaterial material{};
 				if (std::getline(iss, token, ','))
-					material.vnum = std::stoul(token);
+					material.vnum = static_cast<DWORD>(std::stoul(token));
 				else
 					break;
 
 				if (std::getline(iss, token, ','))
-					material.count = std::stoi(token);
+					material.count = static_cast<WORD>(std::stoul(token));
 				else
 					break;
 
@@ -456,7 +456,7 @@ bool CClientManager::InitializeSpecialShopItemTable()
 		m_vec_SpecialShopItemTable.clear();
 	}
 
-	m_vec_SpecialShopItemTable.reserve(pRes->uiNumRows);
+	m_vec_SpecialShopItemTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW data;
 
@@ -484,12 +484,12 @@ bool CClientManager::InitializeSpecialShopItemTable()
 				{
 					TRefineMaterial item{};
 					if (std::getline(iss, token, ','))
-						item.vnum = std::stoul(token);
+						item.vnum = static_cast<DWORD>(std::stoul(token));
 					else
 						break;
 
 					if (std::getline(iss, token, ','))
-						item.count = std::stoi(token);
+						item.count = static_cast<WORD>(std::stoul(token));
 					else
 						break;
 
@@ -547,22 +547,22 @@ bool CClientManager::InitializeSpecialShopTable()
 	{
 		col = 0;
 
-		int iShopVnum = 0;
-		str_to_number(iShopVnum, data[col++]);
+		DWORD dwShopVnum = 0;
+		str_to_number(dwShopVnum, data[col++]);
 
-		if (map_special_shop.end() == map_special_shop.find(iShopVnum))
+		if (map_special_shop.end() == map_special_shop.find(dwShopVnum))
 		{
 			shop_table = new TSpecialShopTable{};
 			memset(shop_table, 0, sizeof(TSpecialShopTable));
-			shop_table->vnum = iShopVnum;
+			shop_table->vnum = dwShopVnum;
 
-			GetSpecialShopMetaCache(iShopVnum); // create cache
+			GetSpecialShopMetaCache(dwShopVnum); // create cache
 
-			map_special_shop[iShopVnum] = shop_table;
+			map_special_shop[dwShopVnum] = shop_table;
 			shopItemCount = 0;
 		}
 		else
-			shop_table = map_special_shop[iShopVnum];
+			shop_table = map_special_shop[dwShopVnum];
 
 		if (!data[col])
 			continue;
@@ -573,7 +573,7 @@ bool CClientManager::InitializeSpecialShopTable()
 	}
 
 	m_pSpecialShopTable = new TSpecialShopTable[map_special_shop.size()];
-	m_iSpecialShopTableSize = map_special_shop.size();
+	m_iSpecialShopTableSize = static_cast<int>(map_special_shop.size());
 
 	typeof(map_special_shop.begin()) it = map_special_shop.begin();
 
@@ -639,7 +639,7 @@ bool CClientManager::InitializeMobTable() // TXT -- UNUSED!!!
 		sys_log(0, "RELOAD: mob_proto");
 		m_vec_mobTable.clear();
 	}
-	m_vec_mobTable.resize(data.m_File.GetRowCount()-1);
+	m_vec_mobTable.resize(static_cast<size_t>(data.m_File.GetRowCount() - 1));
 	memset(&m_vec_mobTable[0], 0, sizeof(TMobTable) * m_vec_mobTable.size());
 	TMobTable * mob_table = &m_vec_mobTable[0];
 
@@ -704,7 +704,7 @@ bool CClientManager::InitializeShopTable()
 		if (map_shop.end() == map_shop.find(iShopVnum))
 		{
 			shop_table = new TShopTable{};
-			shop_table->dwVnum	= iShopVnum;
+			shop_table->dwVnum	= static_cast<DWORD>(iShopVnum);
 
 			map_shop[iShopVnum] = shop_table;
 		}
@@ -725,7 +725,7 @@ bool CClientManager::InitializeShopTable()
 	}
 
 	m_pShopTable = new TShopTable[map_shop.size()];
-	m_iShopTableSize = map_shop.size();
+	m_iShopTableSize = static_cast<int>(map_shop.size());
 
 	typeof(map_shop.begin()) it = map_shop.begin();
 
@@ -784,7 +784,7 @@ bool CClientManager::InitializeItemTable() // TXT -- UNUSED!!!
 	}
 	data.Next();
 
-	m_vec_itemTable.resize(data.m_File.GetRowCount() - 1);
+	m_vec_itemTable.resize(static_cast<size_t>(data.m_File.GetRowCount() - 1));
 	memset(&m_vec_itemTable[0], 0, sizeof(TItemTable) * m_vec_itemTable.size());
 
 	TItemTable * item_table = &m_vec_itemTable[0];
@@ -864,7 +864,7 @@ bool CClientManager::InitializeSkillTable()
 		m_vec_skillTable.clear();
 	}
 
-	m_vec_skillTable.reserve(pRes->uiNumRows);
+	m_vec_skillTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW	data;
 	int		col;
@@ -990,7 +990,7 @@ bool CClientManager::InitializeItemAttrTable()
 		m_vec_itemAttrTable.clear();
 	}
 
-	m_vec_itemAttrTable.reserve(pRes->uiNumRows);
+	m_vec_itemAttrTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW	data;
 
@@ -1115,7 +1115,7 @@ bool CClientManager::InitializeItemRareTable()
 		m_vec_itemRareTable.clear();
 	}
 
-	m_vec_itemRareTable.reserve(pRes->uiNumRows);
+	m_vec_itemRareTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW	data;
 
@@ -1235,7 +1235,7 @@ bool CClientManager::InitializeLandTable()
 		m_vec_kLandTable.clear();
 	}
 
-	m_vec_kLandTable.reserve(pRes->uiNumRows);
+	m_vec_kLandTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW	data;
 
@@ -1280,7 +1280,7 @@ void parse_pair_number_string(const char * c_pszString, std::vector<std::pair<in
 	{
 		if (isnhdigit(*t))
 		{
-			strlcpy(szNum, t, MIN(sizeof(szNum), (p-t)+1));
+			strlcpy(szNum, t, std::min<size_t>(sizeof(szNum), static_cast<size_t>(p - t) + 1));
 
 			comma = strchr(szNum, ',');
 
@@ -1338,7 +1338,7 @@ bool CClientManager::InitializeObjectProto()
 		m_vec_kObjectProto.clear();
 	}
 
-	m_vec_kObjectProto.reserve(MAX(0, pRes->uiNumRows));
+	m_vec_kObjectProto.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW	data;
 
@@ -1361,8 +1361,8 @@ bool CClientManager::InitializeObjectProto()
 			{
 				std::pair<int, int> & r = vec[i];
 
-				t.kMaterials[i].dwItemVnum = r.first;
-				t.kMaterials[i].dwCount = r.second;
+				t.kMaterials[i].dwItemVnum = static_cast<DWORD>(r.first);
+				t.kMaterials[i].dwCount = static_cast<DWORD>(r.second);
 			}
 
 			str_to_number(t.dwUpgradeVnum, data[col++]);
@@ -1520,7 +1520,7 @@ bool CClientManager::InitializeItemShop()
 		m_vec_itemShopItemTable.clear();
 	}
 
-	m_vec_itemShopItemTable.reserve(pRes->uiNumRows);
+	m_vec_itemShopItemTable.reserve(static_cast<size_t>(pRes->uiNumRows));
 
 	MYSQL_ROW data;
 
@@ -1820,7 +1820,7 @@ bool CClientManager::InitializeMobTableFromDB()
 	auto pkMsg(CDBManager::instance().DirectQuery(query, SQL_WORLD));
 	SQLResult * pRes = pkMsg->Get();
 
-	DWORD addNumber = pRes->uiNumRows;
+	DWORD addNumber = static_cast<DWORD>(pRes->uiNumRows);
 	if (addNumber == 0)
 		return false;
 
@@ -1988,7 +1988,7 @@ bool CClientManager::InitializeItemTableFromDB()
 	auto pkMsg(CDBManager::instance().DirectQuery(query, SQL_WORLD));
 	SQLResult * pRes = pkMsg->Get();
 
-	DWORD addNumber = pRes->uiNumRows;
+	DWORD addNumber = static_cast<DWORD>(pRes->uiNumRows);
 	if (addNumber == 0)
 		return false;
 
@@ -2015,7 +2015,7 @@ bool CClientManager::InitializeItemTableFromDB()
 		VERIFY_IFIELD(IProto::subtype,			item_table->bSubType);
 		VERIFY_IFIELD(IProto::weight,			item_table->bWeight);
 		VERIFY_IFIELD(IProto::size,				item_table->bSize);
-		item_table->bSize = MINMAX(1, item_table->bSize, 3); // @fixme179
+		item_table->bSize = std::clamp<BYTE>(item_table->bSize, 1, 3); // @fixme179
 		VERIFY_IFIELD(IProto::maxStack,				item_table->dwMaxStack);
 		VERIFY_IFIELD(IProto::antiflag,			item_table->dwAntiFlags);
 		VERIFY_IFIELD(IProto::flag,				item_table->dwFlags);

@@ -46,7 +46,8 @@ bool CConfig::GetWord(FILE *fp, char *tar)
 				return true;
 			}
 
-			tar[i++] = c;
+			if (i < 255)
+				tar[i++] = static_cast<char>(c);
 			continue;
 		}
 		else
@@ -71,11 +72,15 @@ bool CConfig::GetWord(FILE *fp, char *tar)
 				return true;
 			}
 
-			tar[i] = c;
-			++i;
+			if (i < 255)
+			{
+				tar[i] = static_cast<char>(c);
+				++i;
+			}
 		}
 	}
 
+	tar[i] = '\0';
 	return (i != 0);
 }
 
@@ -86,10 +91,17 @@ bool CConfig::GetLine(FILE* fp, char*dest)
 	while ((c = fgetc(fp)) != EOF)
 	{
 		if (c == '\n')
+		{
+			dest[i] = '\0';
 			return true;
-		dest[i] = c;
-		++i;
+		}
+		if (i < 255)
+		{
+			dest[i] = static_cast<char>(c);
+			++i;
+		}
 	}
+	dest[i] = '\0';
 	return true;
 }
 

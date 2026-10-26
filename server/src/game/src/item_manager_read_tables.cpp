@@ -59,7 +59,7 @@ bool ITEM_MANAGER::ReadCommonDropItemFile(const char * c_pszFileName)
 				if (!p2)
 					break;
 
-				strlcpy(szTemp, p, MIN(sizeof(szTemp), (p2 - p) + 1));
+				strlcpy(szTemp, p, std::min<size_t>(sizeof(szTemp), static_cast<size_t>(p2 - p) + 1));
 				p = p2 + 1;
 
 				switch (j)
@@ -67,7 +67,7 @@ bool ITEM_MANAGER::ReadCommonDropItemFile(const char * c_pszFileName)
 				case 0: break;
 				case 1: str_to_number(d[i].iLvStart, szTemp);	break;
 				case 2: str_to_number(d[i].iLvEnd, szTemp);	break;
-				case 3: d[i].fPercent = atof(szTemp);	break;
+				case 3: d[i].fPercent = static_cast<float>(atof(szTemp));	break;
 				case 4: strlcpy(d[i].szItemName, szTemp, sizeof(d[i].szItemName));	break;
 				case 5: str_to_number(d[i].iCount, szTemp);	break;
 				}

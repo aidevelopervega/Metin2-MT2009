@@ -70,13 +70,14 @@ void CPeer::SetUserCount(DWORD dwCount)
 
 bool CPeer::PeekPacket(int & iBytesProceed, BYTE & header, DWORD & dwHandle, DWORD & dwLength, const char ** data)
 {
-	if (GetRecvLength() < iBytesProceed + 9)
+	const int iRecvLen = GetRecvLength();
+	if (iBytesProceed < 0 || iRecvLen < iBytesProceed + 9)
 		return false;
 
 	const char * buf = (const char *) GetRecvBuffer();
 	buf += iBytesProceed;
 
-	header	= *(buf++);
+	header	= static_cast<BYTE>(*(buf++));
 
 	dwHandle	= *((DWORD *) buf);
 	buf		+= sizeof(DWORD);
@@ -85,15 +86,16 @@ bool CPeer::PeekPacket(int & iBytesProceed, BYTE & header, DWORD & dwHandle, DWO
 	buf		+= sizeof(DWORD);
 
 	//sys_log(0, "%d header %d handle %u length %u", GetRecvLength(), header, dwHandle, dwLength);
-	if (iBytesProceed + dwLength + 9 > (DWORD) GetRecvLength())
+	const uint64_t totalNeeded = static_cast<uint64_t>(iBytesProceed) + static_cast<uint64_t>(dwLength) + 9ULL;
+	if (totalNeeded > static_cast<uint64_t>(iRecvLen))
 	{
 		sys_log(0, "PeekPacket: not enough buffer size: len %u, recv %d",
-				9+dwLength, GetRecvLength()-iBytesProceed);
+				9+dwLength, iRecvLen-iBytesProceed);
 		return false;
 	}
 
 	*data = buf;
-	iBytesProceed += dwLength + 9;
+	iBytesProceed = static_cast<int>(totalNeeded);
 	return true;
 }
 

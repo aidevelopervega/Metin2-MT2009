@@ -89,7 +89,7 @@ namespace marriage
 
 	void CManager::Add(DWORD dwPID1, DWORD dwPID2, const char* szName1, const char* szName2)
 	{
-		DWORD now = CClientManager::instance().GetCurrentTime();
+		DWORD now = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 		if (IsMarried(dwPID1) || IsMarried(dwPID2))
 		{
 			sys_err("cannot marry already married character. %d - %d", dwPID1, dwPID2);
@@ -298,7 +298,7 @@ namespace marriage
 
 	void CManager::ReadyWedding(DWORD dwMapIndex, DWORD dwPID1, DWORD dwPID2)
 	{
-		DWORD dwStartTime = CClientManager::instance().GetCurrentTime();
+		DWORD dwStartTime = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 		m_pqWeddingStart.push(TWedding(dwStartTime + 5, dwMapIndex, dwPID1, dwPID2));
 	}
 
@@ -322,7 +322,7 @@ namespace marriage
 
 	void CManager::Update()
 	{
-		DWORD now = CClientManager::instance().GetCurrentTime();
+		DWORD now = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 
 		if (!m_pqWeddingEnd.empty())
 		{

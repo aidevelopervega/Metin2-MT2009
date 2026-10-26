@@ -702,7 +702,7 @@ bool CGuildManager::WaitStart(TPacketGuildWar * p)
 		if (!TakeBetPrice(p->dwGuildFrom, p->dwGuildTo, p->lWarPrice))
 			return false;
 
-	DWORD dwCurTime = CClientManager::instance().GetCurrentTime();
+	DWORD dwCurTime = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 
 	TGuildWaitStartInfo info(p->bType, p->dwGuildFrom, p->dwGuildTo, p->lWarPrice, p->lInitialScore, NULL);
 	m_pqWaitStart.push(std::make_pair(dwCurTime + GetGuildWarWaitStartDuration(), info));
@@ -935,7 +935,7 @@ void CGuildManager::BootReserveWar()
 			snprintf(buf, sizeof(buf), "GuildWar: BootReserveWar : step %d id %u GID1 %u GID2 %u", i, static_cast<unsigned int>(t.dwID), static_cast<unsigned int>(t.dwGuildFrom), static_cast<unsigned int>(t.dwGuildTo));
 
 			//if (i == 0 || (int) t.dwTime - CClientManager::instance().GetCurrentTime() < 60 * 5)
-			if (i == 0 || (int) t.dwTime - CClientManager::instance().GetCurrentTime() < 0)
+			if (i == 0 || static_cast<int64_t>(t.dwTime) - static_cast<int64_t>(CClientManager::instance().GetCurrentTime()) < 0)
 			{
 				if (i == 0)
 					sys_log(0, "%s : DB was shutdowned while war is being.", buf);
@@ -963,9 +963,12 @@ int GetAverageGuildMemberLevel(DWORD dwGID)
 			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(dwGID), GetTablePostfix());
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
+	if (!msg || !msg->Get() || !msg->Get()->pSQLResult)
+		return 0;
 
-	MYSQL_ROW row;
-	row = mysql_fetch_row(msg->Get()->pSQLResult);
+	MYSQL_ROW row = mysql_fetch_row(msg->Get()->pSQLResult);
+	if (!row || !row[0])
+		return 0;
 
 	int nAverageLevel = 0; str_to_number(nAverageLevel, row[0]);
 	return nAverageLevel;
@@ -978,12 +981,15 @@ int GetGuildMemberCount(DWORD dwGID)
 	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(dwGID));
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
+	if (!msg || !msg->Get() || !msg->Get()->pSQLResult)
+		return 0;
 
-	MYSQL_ROW row;
-	row = mysql_fetch_row(msg->Get()->pSQLResult);
+	MYSQL_ROW row = mysql_fetch_row(msg->Get()->pSQLResult);
+	if (!row || !row[0])
+		return 0;
 
 	DWORD dwCount = 0; str_to_number(dwCount, row[0]);
-	return dwCount;
+	return static_cast<int>(dwCount);
 }
 
 bool CGuildManager::ReserveWar(TPacketGuildWar * p)
@@ -1003,7 +1009,7 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 
 	t.dwGuildFrom = GID1;
 	t.dwGuildTo = GID2;
-	t.dwTime = CClientManager::instance().GetCurrentTime() + GetGuildWarReserveSeconds();
+	t.dwTime = static_cast<DWORD>(CClientManager::instance().GetCurrentTime()) + GetGuildWarReserveSeconds();
 	t.bType = p->bType;
 	t.lWarPrice = p->lWarPrice;
 	t.lInitialScore = p->lInitialScore;
@@ -1069,7 +1075,7 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 		return false;
 	}
 
-	t.dwID = pmsg->Get()->uiInsertID;
+	t.dwID = static_cast<DWORD>(pmsg->Get()->uiInsertID);
 
 	m_map_kWarReserve.emplace(t.dwID, new CGuildWarReserve(t));
 
@@ -1079,7 +1085,7 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 
 void CGuildManager::ProcessReserveWar()
 {
-	DWORD dwCurTime = CClientManager::instance().GetCurrentTime();
+	DWORD dwCurTime = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 
 	itertype(m_map_kWarReserve) it = m_map_kWarReserve.begin();
 
@@ -1340,19 +1346,19 @@ void CGuildWarReserve::Draw()
 
 	while (1)
 	{
-		int iLen = 0;
+		size_t iLen = 0;
 		int iRow = 0;
 
-		iLen += snprintf(szQuery, sizeof(szQuery) - iLen, "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES");
+		iLen += static_cast<size_t>(snprintf(szQuery, sizeof(szQuery) - iLen, "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES"));
 
 		while (it != mapBet.end())
 		{
 			if (iRow == 0)
-				iLen += snprintf(szQuery + iLen, sizeof(szQuery) - iLen, "('%s', %d, %lld, NOW())",
-						it->first.c_str(), ITEM_ELK_VNUM, it->second.second);
+				iLen += static_cast<size_t>(snprintf(szQuery + iLen, sizeof(szQuery) - iLen, "('%s', %d, %lld, NOW())",
+						it->first.c_str(), ITEM_ELK_VNUM, it->second.second));
 			else
-				iLen += snprintf(szQuery + iLen, sizeof(szQuery) - iLen, ",('%s', %d, %lld, NOW())",
-						it->first.c_str(), ITEM_ELK_VNUM, it->second.second);
+				iLen += static_cast<size_t>(snprintf(szQuery + iLen, sizeof(szQuery) - iLen, ",('%s', %d, %lld, NOW())",
+						it->first.c_str(), ITEM_ELK_VNUM, it->second.second));
 
 			it++;
 
@@ -1439,10 +1445,10 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 
 	while (1)
 	{
-		int iLen = 0;
+		size_t iLen = 0;
 		int iRow = 0;
 
-		iLen += snprintf(szQuery, sizeof(szQuery) - iLen, "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES");
+		iLen += static_cast<size_t>(snprintf(szQuery, sizeof(szQuery) - iLen, "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES"));
 
 		while (it != mapBet.end())
 		{
@@ -1452,18 +1458,18 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 				continue;
 			}
 
-			double ratio = (double) it->second.second / dwWinnerBet;
+			double ratio = static_cast<double>(it->second.second) / static_cast<double>(dwWinnerBet);
 
-			sys_log(0, "WAR_REWARD: %s %u ratio %f", it->first.c_str(), it->second.second, ratio);
+			sys_log(0, "WAR_REWARD: %s %lld ratio %f", it->first.c_str(), it->second.second, ratio);
 
-			YANG dwGold = (YANG) (dwTotalBet * ratio * 0.9);
+			YANG dwGold = static_cast<YANG>(static_cast<double>(dwTotalBet) * ratio * 0.9);
 
 			if (iRow == 0)
-				iLen += snprintf(szQuery + iLen, sizeof(szQuery) - iLen, "('%s', %d, %lld, NOW())",
-						it->first.c_str(), ITEM_ELK_VNUM, dwGold);
+				iLen += static_cast<size_t>(snprintf(szQuery + iLen, sizeof(szQuery) - iLen, "('%s', %d, %lld, NOW())",
+						it->first.c_str(), ITEM_ELK_VNUM, dwGold));
 			else
-				iLen += snprintf(szQuery + iLen, sizeof(szQuery) - iLen, ",('%s', %d, %lld, NOW())",
-						it->first.c_str(), ITEM_ELK_VNUM, dwGold);
+				iLen += static_cast<size_t>(snprintf(szQuery + iLen, sizeof(szQuery) - iLen, ",('%s', %d, %lld, NOW())",
+						it->first.c_str(), ITEM_ELK_VNUM, dwGold));
 
 			++it;
 

@@ -71,13 +71,13 @@ class CDBManager : public singleton<CDBManager>
 
 	DWORD			CountReturnQuery(int i) { return m_mainSQL[i] ? m_mainSQL[i]->CountQuery() : 0; }
 	DWORD			CountReturnResult(int i) { return m_mainSQL[i] ? m_mainSQL[i]->CountResult() : 0; }
-	DWORD			CountReturnQueryFinished(int i) { return m_mainSQL[i] ? m_mainSQL[i]->CountQueryFinished() : 0; }
-	DWORD			CountReturnCopiedQuery(int i) { return m_mainSQL[i] ? m_mainSQL[i]->GetCopiedQueryCount() : 0; }
+	DWORD			CountReturnQueryFinished(int i) { return m_mainSQL[i] ? static_cast<DWORD>(m_mainSQL[i]->CountQueryFinished()) : 0; }
+	DWORD			CountReturnCopiedQuery(int i) { return m_mainSQL[i] ? static_cast<DWORD>(m_mainSQL[i]->GetCopiedQueryCount()) : 0; }
 
 	DWORD			CountAsyncQuery(int i) { return m_asyncSQL[i] ? m_asyncSQL[i]->CountQuery() : 0; }
 	DWORD			CountAsyncResult(int i) { return m_asyncSQL[i] ? m_asyncSQL[i]->CountResult() : 0; }
-	DWORD			CountAsyncQueryFinished(int i) { return m_asyncSQL[i] ? m_asyncSQL[i]->CountQueryFinished() : 0; }
-	DWORD			CountAsyncCopiedQuery(int i) { return m_asyncSQL[i] ? m_asyncSQL[i]->GetCopiedQueryCount() : 0; }
+	DWORD			CountAsyncQueryFinished(int i) { return m_asyncSQL[i] ? static_cast<DWORD>(m_asyncSQL[i]->CountQueryFinished()) : 0; }
+	DWORD			CountAsyncCopiedQuery(int i) { return m_asyncSQL[i] ? static_cast<DWORD>(m_asyncSQL[i]->GetCopiedQueryCount()) : 0; }
 
 	void			ResetCounter()
 	{

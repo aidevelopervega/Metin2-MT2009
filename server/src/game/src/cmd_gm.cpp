@@ -217,7 +217,7 @@ bool FindInString(const char * c_pszFind, const char * c_pszIn)
 
 		do
 		{
-			strlcpy(sz, c, MIN(sizeof(sz), (p - c) + 1));
+			strlcpy(sz, c, std::min<size_t>(sizeof(sz), static_cast<size_t>(p - c) + 1));
 
 			if (!strncasecmp(c_pszFind, sz, strlen(c_pszFind)))
 				return true;

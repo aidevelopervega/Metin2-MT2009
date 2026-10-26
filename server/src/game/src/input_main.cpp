@@ -329,11 +329,11 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 	if (uiBytes < pinfo->wSize)
 		return -1;
 
-	int iExtraLen = pinfo->wSize - sizeof(TPacketCGWhisper);
+	int iExtraLen = static_cast<int>(pinfo->wSize) - static_cast<int>(sizeof(TPacketCGWhisper));
 
 	if (iExtraLen < 0)
 	{
-		sys_err("invalid packet length (len %d size %u buffer %u)", iExtraLen, pinfo->wSize, uiBytes);
+		sys_err("invalid packet length (len %d size %u buffer %zu)", iExtraLen, pinfo->wSize, uiBytes);
 		ch->GetDesc()->SetPhase(PHASE_CLOSE);
 		return -1;
 	}
@@ -436,7 +436,7 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 			BYTE bType = WHISPER_TYPE_NORMAL;
 
 			char buf[CHAT_MAX_LEN + 1];
-			strlcpy(buf, data + sizeof(TPacketCGWhisper), MIN(iExtraLen + 1, sizeof(buf)));
+			strlcpy(buf, data + sizeof(TPacketCGWhisper), std::min<size_t>(static_cast<size_t>(iExtraLen) + 1, sizeof(buf)));
 			const size_t buflen = strlen(buf);
 
 			if (true == SpamBlockCheck(ch, buf, buflen))
@@ -464,7 +464,7 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 						{
 							if (!pkChr)
 							{
-								bType = ch->GetEmpire() << 4;
+								bType = static_cast<BYTE>(ch->GetEmpire() << 4);
 							}
 							else
 							{
@@ -503,7 +503,7 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 						pack.bHeader = HEADER_GC_WHISPER;
 						pack.bType = WHISPER_TYPE_ERROR;
-						pack.wSize = sizeof(TPacketGCWhisper) + len;
+						pack.wSize = static_cast<WORD>(sizeof(TPacketGCWhisper) + static_cast<size_t>(len));
 						strlcpy(pack.szNameFrom, pinfo->szNameTo, sizeof(pack.szNameFrom));
 
 						ch->GetDesc()->BufferedPacket(&pack, sizeof(pack));
@@ -528,14 +528,14 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 				TPacketGCWhisper pack;
 
 				pack.bHeader = HEADER_GC_WHISPER;
-				pack.wSize = sizeof(TPacketGCWhisper) + buflen;
+				pack.wSize = static_cast<WORD>(sizeof(TPacketGCWhisper) + buflen);
 				pack.bType = bType;
 				strlcpy(pack.szNameFrom, ch->GetName(), sizeof(pack.szNameFrom));
 
 				TEMP_BUFFER tmpbuf;
 
 				tmpbuf.write(&pack, sizeof(pack));
-				tmpbuf.write(buf, buflen);
+				tmpbuf.write(buf, static_cast<int>(buflen));
 
 				pkDesc->Packet(tmpbuf.read_peek(), tmpbuf.size());
 
@@ -648,17 +648,20 @@ struct FYmirChatPacket
 		m_iMapIndex(iMapIndex), m_bEmpire(empire),
 		m_ring(ring)
 	{
-		m_len_orig_msg = snprintf(m_orig_msg, sizeof(m_orig_msg), "%s : %s", m_szName, m_szChat) + 1;
+		int origWritten = snprintf(m_orig_msg, sizeof(m_orig_msg), "%s : %s", m_szName, m_szChat);
+		if (origWritten < 0 || static_cast<size_t>(origWritten) >= sizeof(m_orig_msg))
+			m_len_orig_msg = static_cast<int>(sizeof(m_orig_msg));
+		else
+			m_len_orig_msg = origWritten + 1;
 
-		if (m_len_orig_msg < 0 || m_len_orig_msg >= (int) sizeof(m_orig_msg))
-			m_len_orig_msg = sizeof(m_orig_msg) - 1;
+		int convWritten = snprintf(m_conv_msg, sizeof(m_conv_msg), "??? : %s", m_szChat);
+		if (convWritten < 0 || static_cast<size_t>(convWritten) >= sizeof(m_conv_msg))
+			m_len_conv_msg = static_cast<int>(sizeof(m_conv_msg));
+		else
+			m_len_conv_msg = convWritten + 1;
 
-		m_len_conv_msg = snprintf(m_conv_msg, sizeof(m_conv_msg), "??? : %s", m_szChat) + 1;
-
-		if (m_len_conv_msg < 0 || m_len_conv_msg >= (int) sizeof(m_conv_msg))
-			m_len_conv_msg = sizeof(m_conv_msg) - 1;
-
-		ConvertEmpireText(m_bEmpire, m_conv_msg + 6, m_len_conv_msg - 6, 10);
+		if (m_len_conv_msg > 6)
+			ConvertEmpireText(m_bEmpire, m_conv_msg + 6, static_cast<size_t>(m_len_conv_msg - 6), 10);
 	}
 
 	void operator() (LPDESC d)
@@ -674,14 +677,14 @@ struct FYmirChatPacket
 			d->GetCharacter()->GetGMLevel() > GM_PLAYER ||
 			d->GetCharacter()->IsEquipUniqueGroup(UNIQUE_GROUP_RING_OF_LANGUAGE))
 		{
-			packet.size = m_len_orig_msg + sizeof(TPacketGCChat);
+			packet.size = static_cast<WORD>(static_cast<size_t>(m_len_orig_msg) + sizeof(TPacketGCChat));
 
 			d->BufferedPacket(&packet, sizeof(packet_chat));
 			d->Packet(m_orig_msg, m_len_orig_msg);
 		}
 		else
 		{
-			packet.size = m_len_conv_msg + sizeof(TPacketGCChat);
+			packet.size = static_cast<WORD>(static_cast<size_t>(m_len_conv_msg) + sizeof(TPacketGCChat));
 
 			d->BufferedPacket(&packet, sizeof(packet_chat));
 			d->Packet(m_conv_msg, m_len_conv_msg);
@@ -696,11 +699,11 @@ int CInputMain::Chat(LPCHARACTER ch, const char * data, size_t uiBytes)
 	if (uiBytes < pinfo->size)
 		return -1;
 
-	const int iExtraLen = pinfo->size - sizeof(TPacketCGChat);
+	const int iExtraLen = static_cast<int>(pinfo->size) - static_cast<int>(sizeof(TPacketCGChat));
 
 	if (iExtraLen < 0)
 	{
-		sys_err("invalid packet length (len %d size %u buffer %u)", iExtraLen, pinfo->size, uiBytes);
+		sys_err("invalid packet length (len %d size %u buffer %zu)", iExtraLen, pinfo->size, uiBytes);
 		ch->GetDesc()->SetPhase(PHASE_CLOSE);
 		return -1;
 	}
@@ -712,7 +715,7 @@ int CInputMain::Chat(LPCHARACTER ch, const char * data, size_t uiBytes)
 	}
 
 	char buf[CHAT_MAX_LEN - (CHARACTER_NAME_MAX_LEN * 2 + 31) + 1];
-	strlcpy(buf, data + sizeof(TPacketCGChat), MIN(iExtraLen + 1, sizeof(buf)));
+	strlcpy(buf, data + sizeof(TPacketCGChat), std::min<size_t>(static_cast<size_t>(iExtraLen) + 1, sizeof(buf)));
 	const size_t buflen = strlen(buf);
 
 	if (buflen > 1 && *buf == '/')

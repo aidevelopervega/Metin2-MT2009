@@ -267,7 +267,7 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 			sys_err("FAILED FETCH JSON AUCTION DURATION : pid(%d) item(%d) playername(%s)", info.owner, info.id, info.ownername);
 			continue;
 		}
-		info.duration = *extractedDuration;
+		info.duration = static_cast<DWORD>(*extractedDuration);
 
 		// fetching json starting price
 		auto extractedPrice = jsonHelper::getValue<int64_t>(jsonValue, "price");
@@ -326,11 +326,13 @@ bool CClientManager::InitializeIkarusShopAuctionOfferTable()
 void CClientManager::SendIkarusShopTable(CPeer* peer)
 {
 	peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0,
-		sizeof(TPacketDGNewIkarusShop) + sizeof(ikashop::TSubPacketDGLoadTables) +
-		sizeof(ikashop::TShopInfo)	* m_offlineshopShopCache.GetCount() + sizeof(ikashop::TShopItem) * m_offlineshopShopCache.GetItemCount()  +
-		sizeof(ikashop::TOfferInfo)	* m_offlineshopOfferCache.GetCount() +
-		sizeof(ikashop::TAuctionInfo) * m_offlineshopAuctionCache.GetCount() +
-		sizeof(ikashop::TAuctionOfferInfo) * m_offlineshopAuctionCache.GetOffersCount()
+		static_cast<DWORD>(
+			sizeof(TPacketDGNewIkarusShop) + sizeof(ikashop::TSubPacketDGLoadTables) +
+			sizeof(ikashop::TShopInfo) * m_offlineshopShopCache.GetCount() + sizeof(ikashop::TShopItem) * m_offlineshopShopCache.GetItemCount() +
+			sizeof(ikashop::TOfferInfo) * m_offlineshopOfferCache.GetCount() +
+			sizeof(ikashop::TAuctionInfo) * m_offlineshopAuctionCache.GetCount() +
+			sizeof(ikashop::TAuctionOfferInfo) * m_offlineshopAuctionCache.GetOffersCount()
+		)
 	);
 
 
@@ -1268,13 +1270,13 @@ bool CClientManager::RecvIkarusShopLoadExpiredShop(const char* data)
 
 	ikashop::TSubPacketDGLoadExpiredShop subpack{};
 	subpack.owner = info.owner;
-	subpack.itemCount = cache->itemsmap.size();
+	subpack.itemCount = static_cast<DWORD>(cache->itemsmap.size());
 
 	for (auto& peer : m_peerList)
 	{
 		if (peer->GetChannel() != 0)
 		{
-			peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TShopItem) * subpack.itemCount);
+			peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, static_cast<DWORD>(sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TShopItem) * subpack.itemCount));
 			peer->Encode(pack);
 			peer->Encode(subpack);
 
@@ -1763,7 +1765,7 @@ void CClientManager::IkarusShopResultCreateShopQuery([[maybe_unused]] CPeer* pee
 void CClientManager::IkarusShopResultOfferAddQuery([[maybe_unused]] CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
 {
 	auto* qi = static_cast<ikashop::SQueryInfoOfferAdd *>(pQueryInfo->pvData);
-	qi->offerid = msg->Get()->uiInsertID;
+	qi->offerid = static_cast<DWORD>(msg->Get()->uiInsertID);
 	m_offlineshopOfferCache.Puts(*qi);
 	SendIkarusShopOfferCreate(*qi);
 	delete(qi);
@@ -1955,10 +1957,10 @@ void CClientManager::IkarusShopLoadShopSafebox(CPeer* peer, DWORD dwID)
 
 	ikashop::TSubPacketDGSafeboxLoad subpack;
 	subpack.ownerid = dwID;
-	subpack.itemcount = safebox->itemsmap.size();
+	subpack.itemcount = static_cast<DWORD>(safebox->itemsmap.size());
 	subpack.valute = safebox->valutes;
 
-	const auto packetSize = sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TShopPlayerItem) * safebox->itemsmap.size();
+	const auto packetSize = static_cast<DWORD>(sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TShopPlayerItem) * safebox->itemsmap.size());
 	peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, packetSize);
 	peer->Encode(&pack, sizeof(pack));
 	peer->Encode(&subpack, sizeof(subpack));
@@ -2004,12 +2006,12 @@ void CClientManager::IkarusShopLoadNotifications(CPeer* peer, DWORD owner)
 
 		ikashop::TSubPacketDGNotificationLoad subpack{};
 		subpack.ownerid = owner;
-		subpack.count = notifications.size();
+		subpack.count = static_cast<DWORD>(notifications.size());
 
-		peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TNotificationInfo) * notifications.size());
+		peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, static_cast<DWORD>(sizeof(pack) + sizeof(subpack) + sizeof(ikashop::TNotificationInfo) * notifications.size()));
 		peer->Encode(&pack, sizeof(pack));
 		peer->Encode(&subpack, sizeof(subpack));
-		peer->Encode(notifications.data(), sizeof(ikashop::TNotificationInfo) * notifications.size());
+		peer->Encode(notifications.data(), static_cast<DWORD>(sizeof(ikashop::TNotificationInfo) * notifications.size()));
 	}
 }
 
@@ -2017,7 +2019,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 {
 	// escaping who
 	static char escapeWho[500];
-	unsigned long lenWho = CDBManager::instance().EscapeString(escapeWho, who.c_str(), who.size());
+	unsigned long lenWho = CDBManager::instance().EscapeString(escapeWho, who.c_str(), static_cast<unsigned long>(who.size()));
 	if (who.size() > 0 && lenWho == 0)
 	{
 		sys_err("AppendIkarusShopNotification: EscapeString failed for who [DB disconnected]");
@@ -2025,7 +2027,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 	}
 	// escaping format
 	static char escapeFormat[500];
-	unsigned long lenFormat = CDBManager::instance().EscapeString(escapeFormat, format.c_str(), format.size());
+	unsigned long lenFormat = CDBManager::instance().EscapeString(escapeFormat, format.c_str(), static_cast<unsigned long>(format.size()));
 	if (format.size() > 0 && lenFormat == 0)
 	{
 		sys_err("AppendIkarusShopNotification: EscapeString failed for format [DB disconnected]");
@@ -2047,7 +2049,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 
 	ikashop::TSubPacketDGNotificationForward subpack{};
 	subpack.datetime = static_cast<int64_t>(std::time(nullptr));
-	subpack.id = msg->Get()->uiInsertID;
+	subpack.id = static_cast<DWORD>(msg->Get()->uiInsertID);
 	subpack.seenflag = false;
 	subpack.type = type;
 	subpack.what = what;

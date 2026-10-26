@@ -426,7 +426,7 @@ void CGuild::SendListPacket(LPCHARACTER ch)
 	pack.size = sizeof(TPacketGCGuild);
 	pack.subheader = GUILD_SUBHEADER_GC_LIST;
 
-	pack.size += sizeof(TGuildMemberPacketData) * m_member.size();
+	pack.size = static_cast<WORD>(pack.size + sizeof(TGuildMemberPacketData) * m_member.size());
 
 	TEMP_BUFFER buf;
 
@@ -440,7 +440,7 @@ void CGuild::SendListPacket(LPCHARACTER ch)
 
 		buf.write(&(it->second), sizeof(DWORD)*3+1);
 
-		strlcpy(c, it->second.name.c_str(), MIN(sizeof(c), it->second.name.length() + 1));
+		strlcpy(c, it->second.name.c_str(), sizeof(c));
 
 		buf.write(c, CHARACTER_NAME_MAX_LEN+1 );
 

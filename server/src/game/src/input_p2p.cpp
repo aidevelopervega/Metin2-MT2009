@@ -53,15 +53,15 @@ int CInputP2P::Relay(LPDESC d, const char * c_pData, size_t uiBytes)
 {
 	TPacketGGRelay * p = (TPacketGGRelay *) c_pData;
 
-	if (uiBytes < sizeof(TPacketGGRelay) + p->lSize)
-		return -1;
-
 	if (p->lSize < 0)
 	{
 		sys_err("invalid packet length %d", p->lSize);
 		d->SetPhase(PHASE_CLOSE);
 		return -1;
 	}
+
+	if (uiBytes < sizeof(TPacketGGRelay) + static_cast<size_t>(p->lSize))
+		return -1;
 
 	sys_log(0, "InputP2P::Relay : %s size %d", p->szName, p->lSize);
 
@@ -80,7 +80,12 @@ int CInputP2P::Relay(LPDESC d, const char * c_pData, size_t uiBytes)
 		}
 
 		char buf[1024];
-		memcpy(buf, c_pbData, MIN(p->lSize, sizeof(buf)));
+		if (static_cast<size_t>(p->lSize) < sizeof(TPacketGCWhisper) || static_cast<size_t>(p->lSize) > sizeof(buf))
+		{
+			sys_err("InputP2P::Relay: invalid whisper packet length %d", p->lSize);
+			return p->lSize;
+		}
+		memcpy(buf, c_pbData, static_cast<size_t>(p->lSize));
 
 		TPacketGCWhisper* p2 = (TPacketGCWhisper*) buf;
 
@@ -92,9 +97,10 @@ int CInputP2P::Relay(LPDESC d, const char * c_pData, size_t uiBytes)
 			if (!pkChr->IsEquipUniqueGroup(UNIQUE_GROUP_RING_OF_LANGUAGE))
 				if (bToEmpire >= 1 && bToEmpire <= 3 && pkChr->GetEmpire() != bToEmpire)
 				{
+					const size_t textLen = static_cast<size_t>(p->lSize) - sizeof(TPacketGCWhisper);
 					ConvertEmpireText(bToEmpire,
 							buf + sizeof(TPacketGCWhisper),
-							p2->wSize - sizeof(TPacketGCWhisper),
+							textLen,
 							10+2*pkChr->GetSkillPower(SKILL_LANGUAGE1 + bToEmpire - 1));
 				}
 		}
@@ -115,9 +121,6 @@ int CInputP2P::Notice(LPDESC d, const char * c_pData, size_t uiBytes)
 {
 	TPacketGGNotice * p = (TPacketGGNotice *) c_pData;
 
-	if (uiBytes < sizeof(TPacketGGNotice) + p->lSize)
-		return -1;
-
 	if (p->lSize < 0)
 	{
 		sys_err("invalid packet length %d", p->lSize);
@@ -125,8 +128,11 @@ int CInputP2P::Notice(LPDESC d, const char * c_pData, size_t uiBytes)
 		return -1;
 	}
 
+	if (uiBytes < sizeof(TPacketGGNotice) + static_cast<size_t>(p->lSize))
+		return -1;
+
 	char szBuf[256+1];
-	strlcpy(szBuf, c_pData + sizeof(TPacketGGNotice), MIN(p->lSize + 1, sizeof(szBuf)));
+	strlcpy(szBuf, c_pData + sizeof(TPacketGGNotice), std::min<size_t>(static_cast<size_t>(p->lSize) + 1, sizeof(szBuf)));
 #ifdef ENABLE_FULL_NOTICE
 	SendNotice(szBuf, p->bChatType);
 #else
@@ -139,9 +145,6 @@ int CInputP2P::MonarchNotice(LPDESC d, const char * c_pData, size_t uiBytes)
 {
 	TPacketGGMonarchNotice * p = (TPacketGGMonarchNotice *) c_pData;
 
-	if (uiBytes < p->lSize + sizeof(TPacketGGMonarchNotice))
-		return -1;
-
 	if (p->lSize < 0)
 	{
 		sys_err("invalid packet length %d", p->lSize);
@@ -149,8 +152,11 @@ int CInputP2P::MonarchNotice(LPDESC d, const char * c_pData, size_t uiBytes)
 		return -1;
 	}
 
+	if (uiBytes < static_cast<size_t>(p->lSize) + sizeof(TPacketGGMonarchNotice))
+		return -1;
+
 	char szBuf[256+1];
-	strlcpy(szBuf, c_pData + sizeof(TPacketGGMonarchNotice), MIN(p->lSize + 1, sizeof(szBuf)));
+	strlcpy(szBuf, c_pData + sizeof(TPacketGGMonarchNotice), std::min<size_t>(static_cast<size_t>(p->lSize) + 1, sizeof(szBuf)));
 	SendMonarchNotice(p->bEmpire, szBuf);
 	return (p->lSize);
 }

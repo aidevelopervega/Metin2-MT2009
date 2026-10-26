@@ -34,13 +34,13 @@ void CPrivManager::RequestGiveGuildPriv(DWORD guild_id, BYTE type, int value, ti
 	}
 
 	value = MINMAX(0, value, 50);
-	duration_sec = MINMAX(0, duration_sec, 60*60*24*7);
+	duration_sec = std::clamp<time_t>(duration_sec, 0, 60 * 60 * 24 * 7);
 
 	TPacketGiveGuildPriv p;
 	p.type = type;
 	p.value = value;
 	p.guild_id = guild_id;
-	p.duration_sec = duration_sec;
+	p.duration_sec = static_cast<uint32_t>(duration_sec);
 
 	db_clientdesc->DBPacket(HEADER_GD_REQUEST_GUILD_PRIV, 0, &p, sizeof(p));
 }
@@ -54,13 +54,13 @@ void CPrivManager::RequestGiveEmpirePriv(BYTE empire, BYTE type, int value, time
 	}
 
 	value = MINMAX(0, value, 200);
-	duration_sec = MINMAX(0, duration_sec, 60*60*24*7);
+	duration_sec = std::clamp<time_t>(duration_sec, 0, 60 * 60 * 24 * 7);
 
 	TPacketGiveEmpirePriv p;
 	p.type = type;
 	p.value = value;
 	p.empire = empire;
-	p.duration_sec = duration_sec;
+	p.duration_sec = static_cast<uint32_t>(duration_sec);
 
 	db_clientdesc->DBPacket(HEADER_GD_REQUEST_EMPIRE_PRIV, 0, &p, sizeof(p));
 }

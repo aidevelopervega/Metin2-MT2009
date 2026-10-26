@@ -62,7 +62,7 @@ namespace ikashop
 			, BYTE unlockCount, bool isPremium
 		);
 			 
-		DWORD GetCount() const {return m_shopsMap.size();}
+		DWORD GetCount() const {return static_cast<DWORD>(m_shopsMap.size());}
 		void EncodeCache(CPeer* peer) const;
 		DWORD GetItemCount() const;
 			 
@@ -116,7 +116,7 @@ namespace ikashop
 		void AddValutesAsQuery(DWORD dwOwnerID, const TValutesInfo& val);
 
 		SAFEBOX_HANDLE CreateSafebox(DWORD dwOwnerID);
-		DWORD GetCount() const {return m_safeboxMap.size();}
+		DWORD GetCount() const {return static_cast<DWORD>(m_safeboxMap.size());}
 		DWORD GetItemCount() const;
 
 		SAFEBOX_HANDLE LoadSafebox(DWORD dwPID);
@@ -152,7 +152,7 @@ namespace ikashop
 		std::vector<OFFER_HANDLE> GetOffersByShopOwner(DWORD dwOwnerID) const;
 		std::vector<OFFER_HANDLE> GetOffersByItemID(DWORD dwOwnerID, DWORD dwItemID) const;
 
-		DWORD GetCount() {return m_mapOffersByBuyer.size();}
+		DWORD GetCount() {return static_cast<DWORD>(m_mapOffersByBuyer.size());}
 		void EncodeCache(CPeer* peer) const;
 
 	private:

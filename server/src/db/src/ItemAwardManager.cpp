@@ -36,10 +36,10 @@ inline float gauss_random(const float fAverage, const float sigma)
 			s = (v1 * v1) + (v2 * v2);
 		} while (s >= 1.f || fabs(s) < FLT_EPSILON);
 
-		const double multiplier = sqrtf(-2 * logf(s) / s);
-		fNextGaussian = v2 * multiplier;
+		const double multiplier = std::sqrt(-2.0 * std::log(s) / s);
+		fNextGaussian = static_cast<float>(v2 * multiplier);
 		bHasNextGaussian = true;
-		return (v1 * multiplier) * sigma + fAverage;
+		return static_cast<float>((v1 * multiplier) * static_cast<double>(sigma) + static_cast<double>(fAverage));
 	}
 }
 #endif
@@ -300,7 +300,7 @@ void ItemAwardManager::CheckItemAttributes(TItemAward & rkItemAward, const TItem
 					const TItemAttrTable & rkAttrTable = vec_itemAttrTable.at(j);
 					if (rkAttrTable.dwApplyIndex == bApplyType)
 					{
-						const auto bAttrLevel = rkAttrTable.bMaxLevelBySet[iAttributeSet];
+						const auto bAttrLevel = rkAttrTable.bMaxLevelBySet[static_cast<size_t>(iAttributeSet)];
 						if (bAttrLevel > 0)
 							pkAttrTable = &rkAttrTable;
 					}
@@ -314,7 +314,7 @@ void ItemAwardManager::CheckItemAttributes(TItemAward & rkItemAward, const TItem
 					const TItemAttrTable & rkAttrTable = vec_itemRareTable.at(j);
 					if (rkAttrTable.dwApplyIndex == bApplyType)
 					{
-						const auto bAttrLevel = rkAttrTable.bMaxLevelBySet[iAttributeSet];
+						const auto bAttrLevel = rkAttrTable.bMaxLevelBySet[static_cast<size_t>(iAttributeSet)];
 						if (bAttrLevel > 0)
 							pkAttrTable = &rkAttrTable;
 					}
@@ -325,7 +325,7 @@ void ItemAwardManager::CheckItemAttributes(TItemAward & rkItemAward, const TItem
 			{
 				const auto sMinValue = static_cast<int16_t>(pkAttrTable->lValues[0]);
 				const auto sMaxValue = static_cast<int16_t>(pkAttrTable->lValues[(sizeof(pkAttrTable->lValues) / sizeof(pkAttrTable->lValues[0])) - 1]);
-				rkItemAward.aAttr[i].sValue = MINMAX(sMinValue, rkItemAward.aAttr[i].sValue, sMaxValue);
+				rkItemAward.aAttr[i].sValue = static_cast<int16_t>(MINMAX(sMinValue, rkItemAward.aAttr[i].sValue, sMaxValue));
 			}
 			else
 			{
@@ -366,10 +366,10 @@ void ItemAwardManager::CheckItemAddonType(TItemAward & rkItemAward, const TItemT
 
 	if (!bHasBonus)
 	{
-		const auto sApplySkillDamageValue = MINMAX(-30, static_cast<int16_t>((gauss_random(0, 5) + 0.5f)), 30);
-		const auto sApplyNormalHitValue = std::abs(sApplySkillDamageValue) <= 20 ?
+		const auto sApplySkillDamageValue = static_cast<int16_t>(MINMAX(-30, static_cast<int16_t>((gauss_random(0, 5) + 0.5f)), 30));
+		const auto sApplyNormalHitValue = static_cast<int16_t>(std::abs(sApplySkillDamageValue) <= 20 ?
 												(-2 * sApplySkillDamageValue) + std::abs(number(-8, 8) + number(-8, 8)) + number(1, 4) :
-												(-2 * sApplySkillDamageValue) + number(1, 5);
+												(-2 * sApplySkillDamageValue) + number(1, 5));
 
 		rkItemAward.aAttr[0].bType = POINT_NORMAL_HIT_DAMAGE_BONUS;
 		rkItemAward.aAttr[0].sValue = sApplyNormalHitValue;
@@ -455,7 +455,7 @@ void ItemAwardManager::CheckItemCount(TItemAward & rkItemAward, const TItemTable
 	if (rkItemAward.dwCount > 1 && !bIsStackableItem)
 		rkItemAward.dwCount = 1;
 	else
-		rkItemAward.dwCount = MINMAX(1, rkItemAward.dwCount, ITEM_MAX_COUNT);
+		rkItemAward.dwCount = std::clamp<DWORD>(rkItemAward.dwCount, 1U, static_cast<DWORD>(ITEM_MAX_COUNT));
 }
 
 /*******************************************************************\

@@ -1410,7 +1410,7 @@ ACMD(do_monarch_warpto)
 
 	if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 	{
-		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 		return;
 	}
@@ -1525,7 +1525,7 @@ ACMD(do_monarch_transfer)
 
 	if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 	{
-		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 		return;
 	}
@@ -1785,7 +1785,7 @@ ACMD(do_monarch_mob)
 
 	if (!CMonarch::instance().IsMoneyOk(SummonPrice, ch->GetEmpire()))
 	{
-		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)SummonPrice);
 		return;
 	}

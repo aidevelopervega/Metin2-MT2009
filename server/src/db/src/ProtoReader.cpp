@@ -98,7 +98,7 @@ static const std::vector<std::string> arItemType = {
 	"ITEM_RING",
 	"ITEM_BELT",
 	"ITEM_PET", "ITEM_MEDIUM", // 35,36
-	"ITEM_GACHA", "ITEM_SOUL" // 37,38
+	"ITEM_GACHA", "ITEM_SOUL", // 37,38
 	"ITEM_PASSIVE" // 39
 };
 
@@ -112,7 +112,7 @@ int get_Item_Type_Value(std::string inputString)
 	auto it = std::find(std::begin(arItemType), std::end(arItemType), inputString);
 	if (it == std::end(arItemType))
 		return -1;
-	return std::distance(std::begin(arItemType), it);
+	return static_cast<int>(std::distance(std::begin(arItemType), it));
 }
 
 static const std::unordered_map<uint32_t, std::vector<std::string>> mapItemSubType {
@@ -156,7 +156,13 @@ int get_Item_SubType_Value(int type_value, std::string inputString)
 		return std::stoi(inputString);
 #endif
 
-	auto itType = mapItemSubType.find(type_value);
+	if (type_value < 0)
+	{
+		sys_err("Type Out of range! (type_value: %d)", type_value);
+		return -1;
+	}
+
+	auto itType = mapItemSubType.find(static_cast<uint32_t>(type_value));
 	if (itType == mapItemSubType.end())
 	{
 		sys_err("Type Out of range! (type_value: %d)", type_value);
@@ -171,7 +177,7 @@ int get_Item_SubType_Value(int type_value, std::string inputString)
 		return -1;
 	}
 
-    return std::distance(vecSubtype.begin(), itSubtype);
+    return static_cast<int>(std::distance(vecSubtype.begin(), itSubtype));
 }
 
 int get_Item_AntiFlag_Value(string inputString)
@@ -193,7 +199,7 @@ int get_Item_AntiFlag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -224,7 +230,7 @@ int get_Item_Flag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -255,7 +261,7 @@ int get_Item_WearFlag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -284,7 +290,7 @@ int get_Item_Immune_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -313,7 +319,7 @@ int get_Item_LimitType_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j;
+			retInt = static_cast<int>(j);
 			break;
 		}
 	}
@@ -361,7 +367,7 @@ int get_Item_ApplyType_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j;
+			retInt = static_cast<int>(j);
 			break;
 		}
 	}
@@ -386,7 +392,7 @@ int get_Mob_Rank_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j;
+			retInt = static_cast<int>(j);
 			break;
 		}
 	}
@@ -411,7 +417,7 @@ int get_Mob_Type_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j;
+			retInt = static_cast<int>(j);
 			break;
 		}
 	}
@@ -436,7 +442,7 @@ int get_Mob_BattleType_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j;
+			retInt = static_cast<int>(j);
 			break;
 		}
 	}
@@ -461,7 +467,7 @@ int get_Mob_Size_Value(string inputString)
 		if	(tempInputString.compare(tempString)==0)
 		{
 			//cout << j << " ";
-			retInt =  j + 1;
+			retInt = static_cast<int>(j + 1);
 			break;
 		}
 	}
@@ -487,7 +493,7 @@ int get_Mob_AIFlag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -516,7 +522,7 @@ int get_Mob_RaceFlag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -544,7 +550,7 @@ int get_Mob_ImmuneFlag_Value(string inputString)
 		{
 			string tempString2 = arInputString[j];
 			if (tempString2.compare(tempString)==0) {
-				retValue = retValue + pow((float)2,(float)i);
+				retValue |= (1 << static_cast<int>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -561,11 +567,11 @@ int get_Mob_ImmuneFlag_Value(string inputString)
 
 bool Set_Proto_Mob_Table(TMobTable *mobTable, cCsvTable &csvTable,std::map<int,const char*> &nameMap)
 {
-	int col = 0;
+	size_t col = 0;
 	str_to_number(mobTable->dwVnum, csvTable.AsStringByIndex(col++));
 	strlcpy(mobTable->szName, csvTable.AsStringByIndex(col++), sizeof(mobTable->szName));
 
-	auto it = nameMap.find(mobTable->dwVnum);
+	auto it = nameMap.find(static_cast<int>(mobTable->dwVnum));
 	if (it != nameMap.end()) {
 		const char * localeName = it->second;
 		strlcpy(mobTable->szLocaleName, localeName, sizeof(mobTable->szLocaleName));
@@ -575,29 +581,29 @@ bool Set_Proto_Mob_Table(TMobTable *mobTable, cCsvTable &csvTable,std::map<int,c
 
 	//RANK
 	int rankValue = get_Mob_Rank_Value(csvTable.AsStringByIndex(col++));
-	mobTable->bRank = rankValue;
+	mobTable->bRank = static_cast<BYTE>(rankValue);
 	//TYPE
 	int typeValue = get_Mob_Type_Value(csvTable.AsStringByIndex(col++));
-	mobTable->bType = typeValue;
+	mobTable->bType = static_cast<BYTE>(typeValue);
 	//BATTLE_TYPE
 	int battleTypeValue = get_Mob_BattleType_Value(csvTable.AsStringByIndex(col++));
-	mobTable->bBattleType = battleTypeValue;
+	mobTable->bBattleType = static_cast<BYTE>(battleTypeValue);
 
 	str_to_number(mobTable->bLevel, csvTable.AsStringByIndex(col++));
 	//SIZE
 	int sizeValue = get_Mob_Size_Value(csvTable.AsStringByIndex(col++));
-	mobTable->bSize = sizeValue;
+	mobTable->bSize = static_cast<BYTE>(sizeValue);
 	//AI_FLAG
 	int aiFlagValue = get_Mob_AIFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwAIFlag = aiFlagValue;
+	mobTable->dwAIFlag = static_cast<DWORD>(aiFlagValue);
 	//mount_capacity;
 	col++;
 	//RACE_FLAG
 	int raceFlagValue = get_Mob_RaceFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwRaceFlag = raceFlagValue;
+	mobTable->dwRaceFlag = static_cast<DWORD>(raceFlagValue);
 	//IMMUNE_FLAG
 	int immuneFlagValue = get_Mob_ImmuneFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwImmuneFlag = immuneFlagValue;
+	mobTable->dwImmuneFlag = static_cast<DWORD>(immuneFlagValue);
 
 	str_to_number(mobTable->bEmpire, csvTable.AsStringByIndex(col++));  //col = 11
 
@@ -665,16 +671,16 @@ bool Set_Proto_Mob_Table(TMobTable *mobTable, cCsvTable &csvTable,std::map<int,c
 
 bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<int,const char*> &nameMap)
 {
-	int col = 0;
+	size_t col = 0;
 
-	int dataArray[33];
+	int64_t dataArray[33];
 	for (size_t i=0; i<_countof(dataArray);i++) {
-		int validCheck = 0;
+		int64_t validCheck = 0;
 		if (i==2) {
 			dataArray[i] = get_Item_Type_Value(csvTable.AsStringByIndex(col));
 			validCheck = dataArray[i];
 		} else if (i==3) {
-			dataArray[i] = get_Item_SubType_Value(dataArray[i-1], csvTable.AsStringByIndex(col));
+			dataArray[i] = get_Item_SubType_Value(static_cast<int>(dataArray[i-1]), csvTable.AsStringByIndex(col));
 			validCheck = dataArray[i];
 		} else if (i==5) {
 			dataArray[i] = get_Item_AntiFlag_Value(csvTable.AsStringByIndex(col));
@@ -715,8 +721,8 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 				dataStream << dataArray[j] << ",";
 
 			//fprintf(stderr, "ItemProto Reading Failed : Invalid value.\n");
-			sys_err("ItemProto Reading Failed : Invalid value. (index: %d, col: %d, value: %s)", i, col, csvTable.AsStringByIndex(col));
-			sys_err("\t%d ~ %d Values: %s", 0, i, dataStream.str().c_str());
+			sys_err("ItemProto Reading Failed : Invalid value. (index: %d, col: %d, value: %s)", static_cast<int>(i), static_cast<int>(col), csvTable.AsStringByIndex(col));
+			sys_err("\t%d ~ %d Values: %s", 0, static_cast<int>(i), dataStream.str().c_str());
 
 			exit(0);
 		}
@@ -729,7 +735,7 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 		size_t pos = s.find("~");
 		if (std::string::npos == pos)
 		{
-			itemTable->dwVnum = dataArray[0];
+			itemTable->dwVnum = static_cast<DWORD>(dataArray[0]);
 			itemTable->dwVnumRange = 0;
 		}
 		else
@@ -744,31 +750,31 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 				sys_err ("INVALID VNUM %s", s.c_str());
 				return false;
 			}
-			itemTable->dwVnum = start_vnum;
-			itemTable->dwVnumRange = end_vnum - start_vnum;
+			itemTable->dwVnum = static_cast<DWORD>(start_vnum);
+			itemTable->dwVnumRange = static_cast<DWORD>(end_vnum - start_vnum);
 		}
 	}
 
 	strlcpy(itemTable->szName, csvTable.AsStringByIndex(1), sizeof(itemTable->szName));
-	auto it = nameMap.find(itemTable->dwVnum);
+	auto it = nameMap.find(static_cast<int>(itemTable->dwVnum));
 	if (it != nameMap.end()) {
 		const char * localeName = it->second;
 		strlcpy(itemTable->szLocaleName, localeName, sizeof(itemTable->szLocaleName));
 	} else {
 		strlcpy(itemTable->szLocaleName, itemTable->szName, sizeof(itemTable->szLocaleName));
 	}
-	itemTable->bType = dataArray[2];
-	itemTable->bSubType = dataArray[3];
-	itemTable->bSize = MINMAX(1, dataArray[4], 3); // @fixme179
-	itemTable->dwAntiFlags = dataArray[5];
-	itemTable->dwFlags = dataArray[6];
-	itemTable->dwWearFlags = dataArray[7];
-	itemTable->dwImmuneFlag = dataArray[8];
+	itemTable->bType = static_cast<BYTE>(dataArray[2]);
+	itemTable->bSubType = static_cast<BYTE>(dataArray[3]);
+	itemTable->bSize = static_cast<BYTE>(std::clamp<int64_t>(dataArray[4], 1, 3)); // @fixme179
+	itemTable->dwAntiFlags = static_cast<DWORD>(dataArray[5]);
+	itemTable->dwFlags = static_cast<DWORD>(dataArray[6]);
+	itemTable->dwWearFlags = static_cast<DWORD>(dataArray[7]);
+	itemTable->dwImmuneFlag = static_cast<DWORD>(dataArray[8]);
 	itemTable->dwGold = dataArray[9];
 	itemTable->dwShopBuyPrice = dataArray[10];
-	itemTable->dwRefinedVnum = dataArray[11];
-	itemTable->wRefineSet = dataArray[12];
-	itemTable->bAlterToMagicItemPct = dataArray[13];
+	itemTable->dwRefinedVnum = static_cast<DWORD>(dataArray[11]);
+	itemTable->wRefineSet = static_cast<WORD>(dataArray[12]);
+	itemTable->bAlterToMagicItemPct = static_cast<BYTE>(dataArray[13]);
 	itemTable->cLimitRealTimeFirstUseIndex = -1;
 	itemTable->cLimitTimerBasedOnWearIndex = -1;
 
@@ -776,8 +782,8 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 
 	for (i = 0; i < ITEM_LIMIT_MAX_NUM; ++i)
 	{
-		itemTable->aLimits[i].bType = dataArray[14+i*2];
-		itemTable->aLimits[i].lValue = dataArray[15+i*2];
+		itemTable->aLimits[i].bType = static_cast<BYTE>(dataArray[14+i*2]);
+		itemTable->aLimits[i].lValue = static_cast<long>(dataArray[15+i*2]);
 
 		if (LIMIT_REAL_TIME_START_FIRST_USE == itemTable->aLimits[i].bType)
 			itemTable->cLimitRealTimeFirstUseIndex = (char)i;
@@ -789,15 +795,15 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 
 	for (i = 0; i < ITEM_APPLY_MAX_NUM; ++i)
 	{
-		itemTable->aApplies[i].bType = dataArray[18+i*2];
-		itemTable->aApplies[i].lValue = dataArray[19+i*2];
+		itemTable->aApplies[i].bType = static_cast<BYTE>(dataArray[18+i*2]);
+		itemTable->aApplies[i].lValue = static_cast<long>(dataArray[19+i*2]);
 	}
 
 	for (i = 0; i < ITEM_VALUES_MAX_NUM; ++i)
-		itemTable->alValues[i] = dataArray[24+i];
+		itemTable->alValues[i] = static_cast<long>(dataArray[24+i]);
 
-	itemTable->bGainSocketPct = dataArray[31];
-	itemTable->sAddonType = dataArray[32];
+	itemTable->bGainSocketPct = static_cast<BYTE>(dataArray[31]);
+	itemTable->sAddonType = static_cast<short>(dataArray[32]);
 
 	str_to_number(itemTable->bWeight, "0");
 
