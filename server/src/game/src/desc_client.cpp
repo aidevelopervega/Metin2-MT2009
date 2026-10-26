@@ -147,6 +147,7 @@ void CLIENT_DESC::SetPhase(int iPhase)
 
 				memset(&p, 0, sizeof(p));
 				strlcpy(p.szPublicIP, g_szPublicIP, sizeof(p.szPublicIP));
+				p.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 
 				if (!g_bAuthServer)
 				{

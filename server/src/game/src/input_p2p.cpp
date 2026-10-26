@@ -287,6 +287,14 @@ void CInputP2P::Disconnect(const char * c_pData)
 void CInputP2P::Setup(LPDESC d, const char * c_pData)
 {
 	TPacketGGSetup * p = (TPacketGGSetup *) c_pData;
+	if (p->dwProtocolVersion != MT2_PROTOCOL_VERSION_X64)
+	{
+		sys_err("P2P: rejected Setup from %s:%u with incompatible protocol version 0x%08x (expected 0x%08x)",
+			d->GetHostName(), static_cast<unsigned int>(p->wPort),
+			static_cast<unsigned int>(p->dwProtocolVersion), static_cast<unsigned int>(MT2_PROTOCOL_VERSION_X64));
+		d->SetPhase(PHASE_CLOSE);
+		return;
+	}
 	sys_log(0, "P2P: Setup %s:%d", d->GetHostName(), p->wPort);
 	d->SetP2P(d->GetHostName(), p->wPort, p->bChannel);
 }

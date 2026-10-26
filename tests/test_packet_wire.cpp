@@ -69,7 +69,14 @@ static_assert(sizeof(TSimplePlayer) == 67, "TSimplePlayer size mismatch");
 static_assert(sizeof(TItemLimit) == 5, "TItemLimit size mismatch");
 static_assert(sizeof(TItemApply) == 5, "TItemApply size mismatch");
 static_assert(sizeof(TPacketAffectElement) == 25, "TPacketAffectElement size mismatch");
-static_assert(sizeof(TPacketGDSetup) == 155, "TPacketGDSetup size mismatch");
+static_assert(sizeof(TPacketGDSetup) == 159, "TPacketGDSetup size mismatch");
+static_assert(offsetof(TPacketGDSetup, dwProtocolVersion) == 155, "TPacketGDSetup.dwProtocolVersion offset mismatch");
+static_assert(sizeof(TPacketGGSetup) == 8, "TPacketGGSetup size mismatch");
+static_assert(offsetof(TPacketGGSetup, dwProtocolVersion) == 4, "TPacketGGSetup.dwProtocolVersion offset mismatch");
+static_assert(sizeof(TPacketCGLogin2) == 56, "TPacketCGLogin2 size mismatch");
+static_assert(offsetof(TPacketCGLogin2, dwProtocolVersion) == 52, "TPacketCGLogin2.dwProtocolVersion offset mismatch");
+static_assert(sizeof(TPacketCGLogin3) == 325, "TPacketCGLogin3 size mismatch");
+static_assert(offsetof(TPacketCGLogin3, dwProtocolVersion) == 321, "TPacketCGLogin3.dwProtocolVersion offset mismatch");
 static_assert(sizeof(TMapLocation) == 147, "TMapLocation size mismatch");
 
 static_assert(sizeof(TPacketGCLoginSuccess) == 353, "TPacketGCLoginSuccess size mismatch");
@@ -716,6 +723,27 @@ int main()
                 : (expireSec > static_cast<int64_t>(UINT32_MAX) ? UINT32_MAX : static_cast<DWORD>(expireSec));
             WIRE_ASSERT(clampedSocket0 == UINT32_MAX,
                 "Safebox real-time expire clamps 64-bit time_t + duration to UINT32_MAX instead of wrapping modulo 2^32");
+        }
+        {
+            TPacketGDSetup gdSetup{};
+            gdSetup.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+            TPacketGGSetup ggSetup{};
+            ggSetup.bHeader = HEADER_GG_SETUP;
+            ggSetup.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+            TPacketCGLogin2 cgLogin2{};
+            cgLogin2.header = HEADER_CG_LOGIN2;
+            cgLogin2.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+            TPacketCGLogin3 cgLogin3{};
+            cgLogin3.header = HEADER_CG_LOGIN3;
+            cgLogin3.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+
+            WIRE_ASSERT(MT2_PROTOCOL_VERSION_X64 == 0x20090064U &&
+                        MT2_PROTOCOL_VERSION_LEGACY_X86 == 0x20090032U &&
+                        gdSetup.dwProtocolVersion != MT2_PROTOCOL_VERSION_LEGACY_X86 &&
+                        ggSetup.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64 &&
+                        cgLogin2.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64 &&
+                        cgLogin3.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64,
+                "x64 protocol version contract (MT2_PROTOCOL_VERSION_X64=0x20090064) is embedded across GD/GG/CG setup & login packets");
         }
     }
 

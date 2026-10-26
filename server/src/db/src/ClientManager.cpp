@@ -1456,6 +1456,14 @@ void CClientManager::QUERY_SETUP(CPeer * peer, [[maybe_unused]] DWORD dwHandle, 
 	TPacketGDSetup * p = (TPacketGDSetup *) c_pData;
 	c_pData += sizeof(TPacketGDSetup);
 
+	if (p->dwProtocolVersion != MT2_PROTOCOL_VERSION_X64)
+	{
+		sys_err("QUERY_SETUP: rejected peer %p with incompatible protocol version 0x%08x (expected 0x%08x)",
+			peer, static_cast<unsigned int>(p->dwProtocolVersion), static_cast<unsigned int>(MT2_PROTOCOL_VERSION_X64));
+		peer->Close();
+		return;
+	}
+
 	if (p->bAuthServer)
 	{
 		sys_log(0, "AUTH_PEER ptr %p", peer);

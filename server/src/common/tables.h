@@ -9,7 +9,12 @@
 typedef	DWORD IDENT;
 
 typedef DWORD	ITEM_COUNT;
-typedef long long	YANG;
+typedef int64_t	YANG;
+
+// Explicit Server-Side x64 Wire Protocol Contract
+// Little-endian (LE), #pragma pack(1), fixed-width integer types across Windows LLP64 & FreeBSD LP64.
+inline constexpr uint32_t MT2_PROTOCOL_VERSION_LEGACY_X86 = 0x20090032U;
+inline constexpr uint32_t MT2_PROTOCOL_VERSION_X64        = 0x20090064U;
 
 enum
 {
@@ -883,6 +888,7 @@ typedef struct SPacketGDSetup
 	DWORD	dwLoginCount;
 	BYTE	bAuthServer;
 	BYTE	bPremiumChannel;
+	uint32_t dwProtocolVersion;
 } TPacketGDSetup;
 
 typedef struct SPacketDGMapLocations

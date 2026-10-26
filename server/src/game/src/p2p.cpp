@@ -83,10 +83,11 @@ void P2P_MANAGER::RegisterConnector(LPDESC d)
 	m_set_pkPeers.emplace(d);
 	Boot(d);
 
-	TPacketGGSetup p;
+	TPacketGGSetup p{};
 	p.bHeader = HEADER_GG_SETUP;
 	p.wPort = p2p_port;
 	p.bChannel = g_bChannel;
+	p.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 	d->Packet(&p, sizeof(p));
 }
 

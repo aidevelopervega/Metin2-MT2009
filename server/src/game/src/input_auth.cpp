@@ -100,6 +100,14 @@ void CInputAuth::CheckClientVersion(LPDESC d, const char* c_pData)
 {
 	TPacketCGCheckVersion* pinfo = (TPacketCGCheckVersion*)c_pData;
 	d->SetClientVersion(pinfo->dwVersion);
+	if (pinfo->dwVersion != MT2_PROTOCOL_VERSION_X64 ||
+	    (g_dwClientVersion != 0 && pinfo->dwVersion < g_dwClientVersion))
+	{
+		sys_log(0, "InputAuth::CheckClientVersion : rejected incompatible client version 0x%08x from %s (expected 0x%08x)",
+			static_cast<unsigned int>(pinfo->dwVersion), d->GetHostName(), static_cast<unsigned int>(MT2_PROTOCOL_VERSION_X64));
+		LoginFailure(d, "VERSION");
+		d->DelayedDisconnect(3);
+	}
 	return;
 }
 
@@ -114,6 +122,20 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 		d->DelayedDisconnect(5);
 		return;
 	}
+
+	if (pinfo->dwProtocolVersion != MT2_PROTOCOL_VERSION_X64 ||
+	    (d->GetClientVersion() != 0 && d->GetClientVersion() != MT2_PROTOCOL_VERSION_X64))
+	{
+		sys_log(0, "InputAuth::Login : rejected incompatible protocol version 0x%08x (clientVer=0x%08x) from %s",
+			static_cast<unsigned int>(pinfo->dwProtocolVersion),
+			static_cast<unsigned int>(d->GetClientVersion()),
+			d->GetHostName());
+		LoginFailure(d, "VERSION");
+		d->DelayedDisconnect(3);
+		return;
+	}
+
+	d->SetClientVersion(pinfo->dwProtocolVersion);
 
 	if (d->GetClientVersion() < g_dwClientVersion)
 	{

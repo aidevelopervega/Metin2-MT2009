@@ -35,11 +35,15 @@ struct SmokePacketHandshake {
 	int32_t  lDelta;
 };
 
+static constexpr uint32_t MT2_PROTOCOL_VERSION_LEGACY_X86 = 0x20090032U;
+static constexpr uint32_t MT2_PROTOCOL_VERSION_X64        = 0x20090064U;
+
 struct SmokePacketCGLogin2 {
 	uint8_t  header;      // 109 (HEADER_CG_LOGIN2)
 	char     login[31];   // LOGIN_MAX_LEN (30) + 1
 	uint32_t dwLoginKey;
 	uint32_t adwClientKey[4];
+	uint32_t dwProtocolVersion;
 };
 
 struct SmokePacketCGLogin3 {
@@ -48,6 +52,7 @@ struct SmokePacketCGLogin3 {
 	char     passwd[17];  // PASSWD_MAX_LEN (16) + 1
 	uint32_t adwClientKey[4];
 	char     hwid[256];   // HWID_MAX_LEN (255) + 1
+	uint32_t dwProtocolVersion;
 };
 
 struct SmokePacketGCAuthSuccess {
@@ -157,8 +162,8 @@ struct SmokePacketGCScript {
 
 static_assert(sizeof(SmokePacketGCPhase) == 2, "SmokePacketGCPhase must be 2 bytes");
 static_assert(sizeof(SmokePacketHandshake) == 13, "SmokePacketHandshake must be 13 bytes");
-static_assert(sizeof(SmokePacketCGLogin2) == 52, "SmokePacketCGLogin2 must be 52 bytes");
-static_assert(sizeof(SmokePacketCGLogin3) == 321, "SmokePacketCGLogin3 must be 321 bytes");
+static_assert(sizeof(SmokePacketCGLogin2) == 56, "SmokePacketCGLogin2 must be 56 bytes");
+static_assert(sizeof(SmokePacketCGLogin3) == 325, "SmokePacketCGLogin3 must be 325 bytes");
 static_assert(sizeof(SmokePacketGCAuthSuccess) == 6, "SmokePacketGCAuthSuccess must be 6 bytes");
 static_assert(sizeof(SmokePacketGCLoginFailure) == 10, "SmokePacketGCLoginFailure must be 10 bytes");
 static_assert(sizeof(SmokePacketCGEmpire) == 2, "SmokePacketCGEmpire must be 2 bytes");
@@ -652,8 +657,9 @@ static int run_auth_login(int port, const char* login_arg, const char* passwd_ar
 	pkt.adwClientKey[2] = 0x99AABBCCu;
 	pkt.adwClientKey[3] = 0xDDEEFF00u;
 	std::snprintf(pkt.hwid, sizeof(pkt.hwid), "%s", hwid_hex);
+	pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 
-	// Pad 321-byte TPacketCGLogin3 to 328 bytes (multiple of 8) and TEA-encrypt with initial key "9382ujfn8237gydb"
+	// Pad 325-byte TPacketCGLogin3 to 328 bytes (multiple of 8) and TEA-encrypt with initial key "9382ujfn8237gydb"
 	uint8_t plainBuf[328]{};
 	uint8_t encBuf[328]{};
 	std::memcpy(plainBuf, &pkt, sizeof(pkt));
@@ -1112,6 +1118,7 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	pkt.adwClientKey[1] = 0x55667788u;
 	pkt.adwClientKey[2] = 0x99AABBCCu;
 	pkt.adwClientKey[3] = 0xDDEEFF00u;
+	pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 
 	uint32_t initKey[4]{};
 	get_initial_tea_key(initKey);
@@ -1397,6 +1404,7 @@ static int run_game_login_key_expect_fail(int port, const char* login_arg, uint3
 	pkt.adwClientKey[1] = 0x55667788u;
 	pkt.adwClientKey[2] = 0x99AABBCCu;
 	pkt.adwClientKey[3] = 0xDDEEFF00u;
+	pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 
 	uint32_t initKey[4]{};
 	get_initial_tea_key(initKey);
@@ -1449,6 +1457,7 @@ static int run_game_cross_core_warp(int ch11_port, int ch12_port, const char* lo
 	std::snprintf(loginPkt.login, sizeof(loginPkt.login), "%s", login);
 	loginPkt.dwLoginKey = login_key;
 	std::memcpy(loginPkt.adwClientKey, clientKey, sizeof(clientKey));
+	loginPkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 
 	// Step 1: Connect to ch11 (28000) and verify CMapLocation resolves slot 0 (on map_index=3) to ch12_port (28001)
 	sock_t s1 = connect_with_retry(ch11_port, 60);

@@ -134,6 +134,23 @@ void CInputLogin::LoginByKey(LPDESC d, const char * data)
 {
 	TPacketCGLogin2 * pinfo = (TPacketCGLogin2 *) data;
 
+	if (pinfo->dwProtocolVersion != MT2_PROTOCOL_VERSION_X64 ||
+	    (d->GetClientVersion() != 0 && d->GetClientVersion() != MT2_PROTOCOL_VERSION_X64))
+	{
+		sys_log(0, "InputLogin::LoginByKey : rejected incompatible protocol version 0x%08x from %s (expected 0x%08x)",
+			static_cast<unsigned int>(pinfo->dwProtocolVersion),
+			d->GetHostName(),
+			static_cast<unsigned int>(MT2_PROTOCOL_VERSION_X64));
+		TPacketGCLoginFailure failurePacket{};
+		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+		strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
+		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+		d->DelayedDisconnect(3);
+		return;
+	}
+
+	d->SetClientVersion(pinfo->dwProtocolVersion);
+
 	if (!AuthSecurity::IsFieldNullTerminated(pinfo->login, sizeof(pinfo->login), 2, LOGIN_MAX_LEN) ||
 	    pinfo->dwLoginKey == 0)
 	{
@@ -1132,6 +1149,21 @@ int CInputLogin::Analyze(LPDESC d, BYTE bHeader, const char* c_pData)
 
 		case HEADER_CG_LOGIN2:
 			LoginByKey(d, c_pData);
+			break;
+
+		case HEADER_CG_CHECK_VERSION:
+			{
+				const TPacketCGCheckVersion* pVer = reinterpret_cast<const TPacketCGCheckVersion*>(c_pData);
+				d->SetClientVersion(pVer->dwVersion);
+				if (pVer->dwVersion != MT2_PROTOCOL_VERSION_X64)
+				{
+					TPacketGCLoginFailure failurePacket{};
+					failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+					strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
+					d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+					d->DelayedDisconnect(3);
+				}
+			}
 			break;
 
 		case HEADER_CG_CHARACTER_SELECT:

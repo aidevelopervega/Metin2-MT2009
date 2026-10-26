@@ -361,6 +361,7 @@ typedef struct SPacketGGSetup
 	BYTE	bHeader;
 	WORD	wPort;
 	BYTE	bChannel;
+	uint32_t dwProtocolVersion;
 } TPacketGGSetup;
 
 typedef struct SPacketGGHandshakeValidate
@@ -615,6 +616,7 @@ typedef struct command_login2
 	char	login[LOGIN_MAX_LEN + 1];
 	DWORD	dwLoginKey;
 	DWORD	adwClientKey[4];
+	uint32_t dwProtocolVersion;
 } TPacketCGLogin2;
 
 typedef struct command_login3
@@ -624,6 +626,7 @@ typedef struct command_login3
 	char	passwd[PASSWD_MAX_LEN + 1];
 	DWORD	adwClientKey[4];
 	char	hwid[HWID_MAX_LEN + 1];
+	uint32_t dwProtocolVersion;
 } TPacketCGLogin3;
 
 typedef struct packet_login_key
