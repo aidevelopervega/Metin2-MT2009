@@ -279,17 +279,16 @@ Bu sıra, projenin modernizasyonunda takip edilecek değişmez operasyonel iş a
 
 ---
 
-## 12. WINDOWS YEREL GELİŞTİRME ZORUNLU CPU VE ÇEKİRDEK SINIRLANDIRMASI
+## 12. WINDOWS YEREL GELİŞTİRME DERLEME CPU VE ÇEKİRDEK SINIRLANDIRMASI (YALNIZCA DERLEME)
 
-Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E-core], 12 mantıksal işlemci) geliştirme bilgisayarında kullanıcının sistemini %100 işlemci yükü altında bırakmamak için bütün yerel derleme, analiz ve ağır test görevleri **`tests/run_limited.ps1`** başlatıcısı üzerinden aşağıdaki değişmez sınırlarla yürütülecektir:
+Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E-core], 12 mantıksal işlemci) geliştirme bilgisayarında kaynak sınırlandırması **yalnızca derleme süreçlerine** uygulanır; derleme dışındaki test, analiz ve geliştirme işlemlerine hiçbir yapay kısıtlama uygulanmaz:
 
-1. **Paralellik Sınırları:**
-   * `CMake`, `Ninja`, `Make`, `GCC`, `G++`, `linker` ve alt süreçleri en fazla **2 paralel derleme işi** (`CMAKE_BUILD_PARALLEL_LEVEL=2`, `-j 2`) çalıştıracaktır.
-   * `CTest` ve ağır MariaDB entegrasyon testleri en fazla **1 paralel test** (`CTEST_PARALLEL_LEVEL=1`) çalıştıracaktır.
-   * Birbirinden bağımsız birden fazla ağır derleme veya test grubu asla aynı anda çalıştırılmayacaktır.
-2. **Donanım ve Windows Job Object Sınırları (`tests/run_limited.ps1`):**
-   * **CPU Hard-Cap (`JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP`):** İşlem ağacının toplam sistem CPU kullanımı en fazla **%35 (`CpuRate = 3500/10000`, üst sınır %35–40)** ile sınırlandırılır.
-   * **Hibrit CPU Affinity (`JOB_OBJECT_LIMIT_AFFINITY`):** İşlem ağacı en fazla **4 mantıksal işlemci** kullanabilir; Intel hibrit mimaride P-core'ları (`LP 0..7`, `0xFF`) kullanıcıya tamamen serbest bırakmak için derleme/test iş grubu varsayılan olarak 4 E-core mantıksal işlemcisine (`LP 8..11`, `0xF00`) sabitlenir.
-   * **İşlem Önceliği (`JOB_OBJECT_LIMIT_PRIORITY_CLASS`):** Tüm işlem ağacı **`BelowNormal` (`0x4000`)** önceliğinde çalışır; alt süreçlerin iş grubundan kaçışı (`BREAKAWAY`) kapalıdır.
-   * **Geri Çekilme Kuralı:** Sistem CPU yükü yüksek kalırsa derleme paralelliği `-ParallelJobs 1` ve affinity sınırı `-MaxLogicalProcessors 2` düzeyine indirilir.
-   * **Dokunulmazlık:** Kullanıcının Chrome, Windows veya diğer uygulamalarının öncelik/affinity ayarlarına kesinlikle dokunulmaz.
+1. **Yalnızca Derleme Süreçleri İçin Sınırlar (`CMake`, `Ninja`, `Make`, `GCC`, `G++`, `linker`):**
+   * **CPU Hard-Cap (`JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP`):** Derleme işlem ağacının toplam sistem CPU kullanımı en fazla **%50 (`CpuRate = 5000/10000`)** ile sınırlandırılır.
+   * **Hibrit CPU Affinity (`JOB_OBJECT_LIMIT_AFFINITY` — 6 Mantıksal İşlemci):** Intel Core i5-12450H hibrit topolojisinde (`P-core LP 0..7 [0x0FF]`, `E-core LP 8..11 [0xF00]`) ilk 3 fiziksel P-core'u (`LP 0..5`, `0x03F`) kullanıcıya tamamen serbest bırakmak için derleme iş grubu **6 mantıksal işlemciye (`0xFC0` -> `LP 6..11`: 1 P-core [2 LP, `0x0C0`] + 4 E-core [4 LP, `0xF00`])** sabitlenir (eski `0xF00` 4-LP maskesi kaldırılmıştır).
+   * **Derleme Paralelliği:** Maksimum **6 paralel derleme işi** (`CMAKE_BUILD_PARALLEL_LEVEL=6`, `-j6`) çalıştırılır.
+   * **İşlem Önceliği (`JOB_OBJECT_LIMIT_PRIORITY_CLASS`):** Yalnızca derleme işlem ağacı **`BelowNormal` (`0x4000`)** önceliğinde çalışır; alt derleme süreçleri aynı Job Object sınırlarına tabidir ve derleme bittiği anda sınırlandırma sona erer.
+2. **Derleme Dışı İşlemlerde Sınırlama Yasağı (`DEFAULT` Zamanlayıcı):**
+   * `CTest`, MariaDB entegrasyon testleri, Lua ve Quest testleri, Packet Wire testleri, Python analiz/kaynak taramaları, Git işlemleri ve diğer tüm geliştirme/sistem işlemlerine **CPU hard-cap, affinity daraltması, `BelowNormal` öncelik veya yapay paralellik sınırı uygulanmaz**.
+   * Bu işlemler Windows'un standart CPU zamanlayıcısı (`CPU_RATE_CONTROL_HARD_CAP = INACTIVE`), varsayılan işlem önceliği (`Normal`, `0x20`) ve tüm kullanılabilir mantıksal işlemcilerle (`0xFFF`, 12/12 LP) çalışır.
+   * Kullanıcının diğer uygulamalarına veya sistem geneli kalıcı CPU/affinity/priority ayarlarına kesinlikle dokunulmaz.
