@@ -808,8 +808,8 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 11:  return 1;    // HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID
 		case 13:  return 5;    // HEADER_GC_STUN
 		case 14:  return 5;    // HEADER_GC_DEAD
-		case 16:  return 709;  // HEADER_GC_CHARACTER_POINTS
-		case 17:  return 17;   // HEADER_GC_CHARACTER_POINT_CHANGE
+		case 16:  return 1417; // HEADER_GC_CHARACTER_POINTS (x64: 1 + 177 * 8)
+		case 17:  return 25;   // HEADER_GC_CHARACTER_POINT_CHANGE (x64: 4 + 4 + 1 + 8 + 8)
 		case 18:  return 7;    // HEADER_GC_CHANGE_SPEED
 		case 19:  return 44;   // HEADER_GC_CHARACTER_UPDATE
 		case 20:  return 36;   // HEADER_GC_ITEM_DEL (deprecated)
@@ -843,7 +843,7 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 88:  return 2;    // HEADER_GC_SAFEBOX_SIZE
 		case 89:  return 7;    // HEADER_GC_FISHING
 		case 90:  return 2;    // HEADER_GC_EMPIRE
-		case 106: return 5;    // HEADER_GC_TIME
+		case 106: return 9;    // HEADER_GC_TIME (x64: 1 + 8)
 		case 107: return 30;   // HEADER_GC_CHANGE_NAME
 		case 111: return 6;    // HEADER_GC_WALK_MODE
 		case 112: return 2;    // HEADER_GC_SKILL_GROUP

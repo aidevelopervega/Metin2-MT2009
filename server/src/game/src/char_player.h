@@ -100,14 +100,14 @@ public:
 	{
 		int attempts;
 		int changeRequests;
-		DWORD expireTime;
+		int64_t expireTime;
 		char code[8 + 1];
 		DWORD invokerPID;
 	};
 	TPlayerCaptcha m_Captcha;
 	TPlayerCaptcha&	GetPlayerCaptcha() { return m_Captcha; }
 	bool HasCaptchaExpired();
-	void SetPlayerCaptcha(const char * code, int attempts, DWORD expireTime, LPCHARACTER invoker);
+	void SetPlayerCaptcha(const char * code, int attempts, int64_t expireTime, LPCHARACTER invoker);
 	void ClearPlayerCaptcha() { m_Captcha = {}; }
 
 	BYTE VerifyCaptcha(const char* code);

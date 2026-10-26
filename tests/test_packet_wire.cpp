@@ -41,7 +41,7 @@ static_assert(sizeof(TPacketCGSyncPositionElement) == 12, "TPacketCGSyncPosition
 static_assert(sizeof(TPacketGCSyncPositionElement) == 12, "TPacketGCSyncPositionElement size mismatch");
 static_assert(sizeof(TPacketGCCharacterAdd) == 37, "TPacketGCCharacterAdd size mismatch");
 static_assert(sizeof(TPacketGCMainCharacter) == 48, "TPacketGCMainCharacter size mismatch");
-static_assert(sizeof(TPacketGCPointChange) == 17, "TPacketGCPointChange size mismatch");
+static_assert(sizeof(TPacketGCPointChange) == 25, "TPacketGCPointChange size mismatch");
 static_assert(sizeof(TPacketGCItemSet) == 54, "TPacketGCItemSet size mismatch");
 static_assert(sizeof(TPacketGCItemUpdate) == 41, "TPacketGCItemUpdate size mismatch");
 static_assert(sizeof(TPacketGCItemGroundAdd) == 26, "TPacketGCItemGroundAdd size mismatch");
@@ -49,16 +49,16 @@ static_assert(sizeof(TPacketCGFlyTargeting) == 13, "TPacketCGFlyTargeting size m
 static_assert(sizeof(TPacketGCFlyTargeting) == 17, "TPacketGCFlyTargeting size mismatch");
 static_assert(sizeof(TPacketGCWarp) == 15, "TPacketGCWarp size mismatch");
 static_assert(sizeof(TPacketGCQuestConfirm) == 74, "TPacketGCQuestConfirm size mismatch");
-static_assert(sizeof(TPacketGCTime) == 5, "TPacketGCTime size mismatch (must be 5 bytes for 32-bit client)");
-static_assert(sizeof(TPacketCGSafeboxMoney) == 6, "TPacketCGSafeboxMoney size mismatch");
-static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 5, "TPacketGCSafeboxMoneyChange size mismatch");
+static_assert(sizeof(TPacketGCTime) == 9, "TPacketGCTime size mismatch (x64 64-bit time)");
+static_assert(sizeof(TPacketCGSafeboxMoney) == 10, "TPacketCGSafeboxMoney size mismatch (x64 64-bit YANG)");
+static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9, "TPacketGCSafeboxMoneyChange size mismatch (x64 64-bit YANG)");
 static_assert(sizeof(TPacketGCTargetCreate) == 43, "TPacketGCTargetCreate size mismatch");
 static_assert(sizeof(TPacketGCTargetUpdate) == 13, "TPacketGCTargetUpdate size mismatch");
 static_assert(sizeof(TPacketGCTargetDelete) == 5, "TPacketGCTargetDelete size mismatch");
 static_assert(sizeof(TPacketGCDungeonDestPosition) == 8, "TPacketGCDungeonDestPosition size mismatch");
 static_assert(sizeof(TPacketCGStateCheck) == 9, "TPacketCGStateCheck size mismatch");
 static_assert(sizeof(TPacketGCStateCheck) == 10, "TPacketGCStateCheck size mismatch");
-static_assert(sizeof(struct packet_script) == 6, "struct packet_script size mismatch (must be 6 bytes for 32-bit client)");
+static_assert(sizeof(struct packet_script) == 6, "struct packet_script size mismatch");
 static_assert(offsetof(struct packet_script, header) == 0, "packet_script.header offset mismatch");
 static_assert(offsetof(struct packet_script, size) == 1, "packet_script.size offset mismatch");
 static_assert(offsetof(struct packet_script, skin) == 3, "packet_script.skin offset mismatch");
@@ -87,7 +87,7 @@ static_assert(sizeof(TPacketCGScriptAnswer) == 2, "TPacketCGScriptAnswer size mi
 static_assert(sizeof(TPacketCGQuestInputString) == 66, "TPacketCGQuestInputString size mismatch");
 static_assert(sizeof(TPacketGCMainCharacter3_BGM) == 73, "TPacketGCMainCharacter3_BGM size mismatch");
 static_assert(sizeof(TPacketGCMainCharacter4_BGM_VOL) == 77, "TPacketGCMainCharacter4_BGM_VOL size mismatch");
-static_assert(sizeof(TPacketGCPoints) == 709, "TPacketGCPoints size mismatch");
+static_assert(sizeof(TPacketGCPoints) == 1417, "TPacketGCPoints size mismatch (x64 64-bit points)");
 static_assert(sizeof(TPacketGCSkillLevel) == 1591, "TPacketGCSkillLevel size mismatch");
 static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 62, "TPacketGCCharacterAdditionalInfo size mismatch");
 static_assert(sizeof(TPacketGCCharacterUpdate) == 44, "TPacketGCCharacterUpdate size mismatch");
@@ -102,6 +102,11 @@ static_assert(sizeof(TPacketGCGoldUpdate) == 9, "TPacketGCGoldUpdate size mismat
 static_assert(sizeof(TPacketGCSpecialFlag) == 42, "TPacketGCSpecialFlag size mismatch");
 static_assert(sizeof(TPacketGCGuildToken) == 9, "TPacketGCGuildToken size mismatch");
 static_assert(sizeof(TPacketGCSpecificEffect) == 133, "TPacketGCSpecificEffect size mismatch");
+static_assert(sizeof(TPacketGCItemShopBalance) == 16, "TPacketGCItemShopBalance size mismatch");
+static_assert(sizeof(TPacketGCItemShopHappyHour) == 12, "TPacketGCItemShopHappyHour size mismatch");
+static_assert(sizeof(TPacketGCItemShopLatestTimeAuction) == 8, "TPacketGCItemShopLatestTimeAuction size mismatch");
+static_assert(sizeof(TPacketGCRefineInformation) == 64, "TPacketGCRefineInformation size mismatch");
+static_assert(sizeof(TSubPacketGCCaptchaMeta) == 9, "TSubPacketGCCaptchaMeta size mismatch");
 
 // ------------------------------------------------------------------------------
 // Compile-Time Offset Checks (Guarantees no internal padding/misalignment)
@@ -118,7 +123,7 @@ static_assert(offsetof(TPacketGCMove, lX) == 8, "TPacketGCMove.lX offset mismatc
 static_assert(offsetof(TPacketGCMove, lY) == 12, "TPacketGCMove.lY offset mismatch");
 
 static_assert(offsetof(TPacketGCPointChange, amount) == 9, "TPacketGCPointChange.amount offset mismatch");
-static_assert(offsetof(TPacketGCPointChange, value) == 13, "TPacketGCPointChange.value offset mismatch");
+static_assert(offsetof(TPacketGCPointChange, value) == 17, "TPacketGCPointChange.value offset mismatch");
 
 static_assert(offsetof(TPacketGCItemSet, alSockets) == 21, "TPacketGCItemSet.alSockets offset mismatch");
 static_assert(offsetof(TPacketGCItemUpdate, alSockets) == 8, "TPacketGCItemUpdate.alSockets offset mismatch");
@@ -270,7 +275,7 @@ int main()
 
         WIRE_ASSERT(inTime.bHeader == HEADER_GC_TIME, "Time header match");
         WIRE_ASSERT(inTime.time == 1718000000, "Time value match");
-        WIRE_ASSERT(buffer.size() == 5, "Time packet size is strictly 5 bytes");
+        WIRE_ASSERT(buffer.size() == 9, "Time packet size is strictly 9 bytes (x64 64-bit time)");
     }
 
     // 5. Boundary & Coordinate Range Test (Negative & Extreme Coordinates)
@@ -804,6 +809,57 @@ int main()
             specItem.price = 99000000000LL;
             WIRE_ASSERT(refineTab.cost == 12000000000LL && specItem.price == 99000000000LL,
                 "TRefineTable and TSpecialShopItemClient preserve 64-bit YANG costs/prices (> 2^32)");
+        }
+        {
+            TPacketGCPoints gcPoints{};
+            gcPoints.header = HEADER_GC_CHARACTER_POINTS;
+            gcPoints.points[POINT_EXP] = 6000000000LL;
+            gcPoints.points[POINT_MAX_HP] = 5000000000LL;
+            TPacketGCPoints gcPointsIn{};
+            std::memcpy(&gcPointsIn, &gcPoints, sizeof(gcPoints));
+            WIRE_ASSERT(gcPointsIn.points[POINT_EXP] == 6000000000LL && gcPointsIn.points[POINT_MAX_HP] == 5000000000LL,
+                "TPacketGCPoints round-trips 64-bit points (> 2^32) without truncation");
+
+            TPacketGCPointChange gcPtChange{};
+            gcPtChange.header = HEADER_GC_CHARACTER_POINT_CHANGE;
+            gcPtChange.dwVID = 100;
+            gcPtChange.type = POINT_EXP;
+            gcPtChange.amount = 3000000000LL;
+            gcPtChange.value = 9000000000LL;
+            TPacketGCPointChange gcPtChangeIn{};
+            std::memcpy(&gcPtChangeIn, &gcPtChange, sizeof(gcPtChange));
+            WIRE_ASSERT(gcPtChangeIn.amount == 3000000000LL && gcPtChangeIn.value == 9000000000LL,
+                "TPacketGCPointChange round-trips 64-bit amount and value (> 2^32)");
+
+            TPacketGCItemShopBalance isBal{};
+            isBal.dwDragonCoins = 7500000000LL;
+            isBal.dwDragonMarks = 4200000000LL;
+            TPacketGCItemShopBalance isBalIn{};
+            std::memcpy(&isBalIn, &isBal, sizeof(isBal));
+            WIRE_ASSERT(isBalIn.dwDragonCoins == 7500000000LL && isBalIn.dwDragonMarks == 4200000000LL,
+                "TPacketGCItemShopBalance round-trips 64-bit DragonCoins and DragonMarks (> 2^32)");
+
+            TPacketCGSafeboxMoney sbMoney{};
+            sbMoney.bHeader = 0;
+            sbMoney.bState = SAFEBOX_MONEY_STATE_SAVE;
+            sbMoney.lMoney = 88000000000LL;
+            TPacketGCSafeboxMoneyChange sbChange{};
+            sbChange.bHeader = 0;
+            sbChange.lMoney = 88000000000LL;
+            WIRE_ASSERT(sbMoney.lMoney == 88000000000LL && sbChange.lMoney == 88000000000LL,
+                "TPacketCGSafeboxMoney and TPacketGCSafeboxMoneyChange preserve 64-bit YANG (> 2^32)");
+
+            TPacketGCTime gcTime{};
+            gcTime.bHeader = HEADER_GC_TIME;
+            gcTime.time = 2500000000LL;
+            TPacketGCRefineInformation gcRefine{};
+            gcRefine.header = HEADER_GC_REFINE_INFORMATION;
+            gcRefine.cost = 15000000000LL;
+            TSubPacketGCCaptchaMeta capMeta{};
+            capMeta.captchaExpireTime = 2600000000LL;
+            capMeta.attemptCount = 3;
+            WIRE_ASSERT(gcTime.time == 2500000000LL && gcRefine.cost == 15000000000LL && capMeta.captchaExpireTime == 2600000000LL,
+                "TPacketGCTime, TPacketGCRefineInformation, and TSubPacketGCCaptchaMeta preserve 64-bit timestamps/costs");
         }
     }
 

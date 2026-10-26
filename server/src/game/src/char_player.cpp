@@ -264,7 +264,7 @@ void CHARACTER::CCharacterPlayerData::SetSummonItemDelay(LPCHARACTER ch, int dur
 	ch->SetQuestFlag("summon_item.delay", get_global_time() + duration);
 }
 
-void CHARACTER::CCharacterPlayerData::SetPlayerCaptcha(const char* code, int attempts, DWORD expireTime, LPCHARACTER invoker)
+void CHARACTER::CCharacterPlayerData::SetPlayerCaptcha(const char* code, int attempts, int64_t expireTime, LPCHARACTER invoker)
 {
 	ClearPlayerCaptcha();
 
@@ -277,7 +277,7 @@ void CHARACTER::CCharacterPlayerData::SetPlayerCaptcha(const char* code, int att
 
 bool CHARACTER::CCharacterPlayerData::HasCaptchaExpired()
 {
-	return m_Captcha.expireTime < get_global_time();
+	return m_Captcha.expireTime < static_cast<int64_t>(get_global_time());
 }
 
 BYTE CHARACTER::CCharacterPlayerData::VerifyCaptcha(const char* code)

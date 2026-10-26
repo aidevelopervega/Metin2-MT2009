@@ -829,7 +829,7 @@ typedef struct command_exchange
 {
 	BYTE	header;
 	BYTE	sub_header;
-	long long	arg1;
+	int64_t	arg1;
 	BYTE	arg2;
 	TItemPos	Pos;
 } TPacketCGExchange;
@@ -1114,7 +1114,7 @@ typedef struct packet_main_character4_bgm_vol
 typedef struct packet_points
 {
 	BYTE	header;
-	INT		points[POINT_MAX_NUM];
+	int64_t	points[POINT_MAX_NUM];
 } TPacketGCPoints;
 
 typedef struct packet_skill_level
@@ -1125,11 +1125,11 @@ typedef struct packet_skill_level
 
 typedef struct packet_point_change
 {
-	int		header;
+	int32_t	header;
 	DWORD	dwVID;
 	BYTE	type;
-	int32_t	amount;
-	int32_t	value;
+	int64_t	amount;
+	int64_t	value;
 } TPacketGCPointChange;
 
 typedef struct SPacketGold
@@ -1282,19 +1282,19 @@ typedef struct packet_itemshop
 
 typedef struct packet_itemshop_balance
 {
-	DWORD dwDragonCoins;
-	DWORD dwDragonMarks;
+	int64_t dwDragonCoins;
+	int64_t dwDragonMarks;
 } TPacketGCItemShopBalance;
 
 typedef struct packet_itemshop_happyhour
 {
 	DWORD dwHappyHourValue;
-	DWORD dwEndTime;
+	int64_t dwEndTime;
 } TPacketGCItemShopHappyHour;
 
 typedef struct packet_itemshop_time_auction
 {
-	DWORD dwEndTime;
+	int64_t dwEndTime;
 } TPacketGCItemShopLatestTimeAuction;
 
 struct TPacketGCItemShopUseCodeVoucher
@@ -1384,7 +1384,7 @@ struct packet_exchange
 	BYTE	header;
 	BYTE	sub_header;
 	BYTE	is_me;
-	long long	arg1;	// vnum
+	int64_t	arg1;	// vnum or gold
 	TItemPos	arg2;	// cell
 	ITEM_COUNT	arg3;	// count
 	TItemPos	arg4;
@@ -1841,13 +1841,13 @@ typedef struct command_safebox_money
 {
 	BYTE        bHeader;
 	BYTE        bState;
-	int32_t	lMoney;
+	YANG        lMoney;
 } TPacketCGSafeboxMoney;
 
 typedef struct packet_safebox_money_change
 {
 	BYTE	bHeader;
-	int32_t	lMoney;
+	YANG	lMoney;
 } TPacketGCSafeboxMoneyChange;
 
 // Guild
@@ -2112,7 +2112,7 @@ typedef struct SPacketCGMyShop
 typedef struct SPacketGCTime
 {
 	BYTE	bHeader;
-	uint32_t	time;
+	int64_t	time;
 } TPacketGCTime;
 
 enum
@@ -2155,7 +2155,7 @@ typedef struct SPacketGCRefineInformaion
 	DWORD	src_vnum;
 	DWORD	result_vnum;
 	BYTE	material_count;
-	int		cost;
+	YANG	cost;
 	int		prob;
 	TRefineMaterial materials[REFINE_MATERIAL_MAX_NUM];
 } TPacketGCRefineInformation;
@@ -2522,7 +2522,7 @@ typedef struct SPacketGCSpecialFlag
 {
 	BYTE header;
 	char cFlag[SPECIAL_FLAG_MAX_LEN + 1];
-	long long llValue;
+	int64_t llValue;
 } TPacketGCSpecialFlag;
 
 #ifdef ENABLE_IKASHOP_RENEWAL
@@ -2884,7 +2884,7 @@ namespace ikashop
 		DWORD ownerid;
 		DWORD itemid;
 		bool searching;
-		long long seenprice;
+		int64_t seenprice;
 	};
 
 	struct TSubPacketCGShopSearchItem
@@ -3043,7 +3043,7 @@ struct TSubPacketGCCaptchaImage
 
 struct TSubPacketGCCaptchaMeta
 {
-	DWORD captchaExpireTime;
+	int64_t captchaExpireTime;
 	BYTE attemptCount;
 };
 
