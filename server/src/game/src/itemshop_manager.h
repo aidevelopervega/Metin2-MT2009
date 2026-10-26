@@ -4,13 +4,21 @@ class CItemShopManager : public singleton<CItemShopManager>
 	typedef std::set<DWORD> PLAYER_SET;
 public:
 	struct PlayerAccountBalance {
-		DWORD dwDragonCoins;
-		DWORD dwDragonMarks;
+		int64_t dwDragonCoins = 0;
+		int64_t dwDragonMarks = 0;
 	};
 
 	enum ECurrency {
 		CURRENCY_DRAGON_COIN = 1,
 		CURRENCY_DRAGON_MARK = 2,
+	};
+
+	enum ETransactionState {
+		TX_STATE_INITIATED = 0,
+		TX_STATE_CHARGED = 1,
+		TX_STATE_DELIVERED = 2,
+		TX_STATE_REFUNDED = 3,
+		TX_STATE_NEEDS_MANUAL_REVIEW = 4,
 	};
 
 
@@ -45,7 +53,7 @@ public:
 	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
 	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
 	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity);
-	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr);
+	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr, uint64_t txId = 0);
 	void RefreshItemShop(LPCHARACTER ch);
 	void OpenItemShop(LPCHARACTER ch, bool refresh = false);
 	void CloseItemShop(LPCHARACTER ch);
@@ -61,11 +69,21 @@ public:
 
 	void UpdateAuctionBuyAmount(DWORD dwItemIndex, DWORD dwBuyAmount);
 
+	bool EnsureTransactionJournalSchema();
+	int RecoverIncompleteTransactions();
+	uint64_t GetLastTransactionId() const { return m_ullLastTxId; }
+	void SetCrashAfterChargeForTest(bool bEnable) { m_bCrashAfterChargeForTest = bEnable; }
+	void SetCrashAfterDeliveryBeforeJournalForTest(bool bEnable) { m_bCrashAfterDeliveryBeforeJournalForTest = bEnable; }
+
 private:
 	std::map<DWORD, TItemShopItem> m_map_ItemShopItems;
 	std::map<DWORD, TItemShopItem> m_map_ItemShopTimeAuctions;
 
 	PLAYER_SET	m_map_AuctionViewer;
+
+	uint64_t m_ullLastTxId = 0;
+	bool m_bCrashAfterChargeForTest = false;
+	bool m_bCrashAfterDeliveryBeforeJournalForTest = false;
 
 	DWORD GetTimeAuctionProgress(TItemShopItem item);
 	void GetPacketDataFromItem(struct TItemShopItemClient& pack, int& i, TItemShopItem item);

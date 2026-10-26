@@ -38,7 +38,7 @@ bool CItemShopManager::Initialize(TItemShopItem* pTable, int iSize)
 
 	for (int i = 0; i < iSize; ++i, ++t)
 	{
-		sys_log(0, "mamy item %d o vnumie %d promotionPrice %d", t->dwIndex, t->dwVnum, t->promotion.dwPrice);
+		sys_log(0, "mamy item %d o vnumie %d promotionPrice %lld", t->dwIndex, t->dwVnum, static_cast<long long>(t->promotion.dwPrice));
 		TItemShopItem item;
 		thecore_memcpy(&item, t, sizeof(TItemShopItem));
 
@@ -65,6 +65,15 @@ bool CItemShopManager::Initialize(TItemShopItem* pTable, int iSize)
 			str_to_number(item_index, row[col++]);
 			str_to_number(buy_count, row[col++]);
 			UpdateAuctionBuyAmount(item_index, buy_count);
+		}
+	}
+
+	if (EnsureTransactionJournalSchema())
+	{
+		const int recovered = RecoverIncompleteTransactions();
+		if (recovered > 0)
+		{
+			sys_log(0, "ItemShop: Recovered %d incomplete transaction(s) from itemshop_tx_journal", recovered);
 		}
 	}
 
@@ -376,7 +385,7 @@ void CItemShopManager::SendBalance(LPCHARACTER ch, PlayerAccountBalance balance)
 	TPacketGCItemShopBalance pack2;
 	memset(&pack2, 0, sizeof(pack2));
 
-	ch->ChatDebug("current balance dc: %d, dm: %d", balance.dwDragonCoins, balance.dwDragonMarks);
+	ch->ChatDebug("current balance dc: %lld, dm: %lld", static_cast<long long>(balance.dwDragonCoins), static_cast<long long>(balance.dwDragonMarks));
 	pack2.dwDragonCoins = balance.dwDragonCoins;
 	pack2.dwDragonMarks = balance.dwDragonMarks;
 
@@ -585,13 +594,13 @@ CItemShopManager::PlayerAccountBalance CItemShopManager::GetPlayerAccountBalance
 		return balance;
 
 	DWORD account_id = ch->GetDesc()->GetAccountTable().id;
-	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("SELECT cash, cash_mark FROM account WHERE id=%d", account_id));
+	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("SELECT cash, cash_mark FROM account WHERE id=%u", static_cast<unsigned int>(account_id)));
 	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows < 1)
 		return balance;
 
 	if (pkMsg->Get()->uiNumRows > 1)
 	{
-		sys_err("MORE THAN 1 account with id %d ???? FATAL ERROR!!!!! ", account_id);
+		sys_err("MORE THAN 1 account with id %u ???? FATAL ERROR!!!!! ", static_cast<unsigned int>(account_id));
 		return balance;
 	}
 
@@ -603,11 +612,9 @@ CItemShopManager::PlayerAccountBalance CItemShopManager::GetPlayerAccountBalance
 	str_to_number(rawCoins, row[0]);
 	str_to_number(rawMarks, row[1]);
 	if (rawCoins < 0) rawCoins = 0;
-	if (rawCoins > INT32_MAX) rawCoins = INT32_MAX;
 	if (rawMarks < 0) rawMarks = 0;
-	if (rawMarks > INT32_MAX) rawMarks = INT32_MAX;
-	balance.dwDragonCoins = static_cast<DWORD>(rawCoins);
-	balance.dwDragonMarks = static_cast<DWORD>(rawMarks);
+	balance.dwDragonCoins = static_cast<int64_t>(rawCoins);
+	balance.dwDragonMarks = static_cast<int64_t>(rawMarks);
 
 	return balance;
 }
@@ -752,7 +759,7 @@ void CItemShopManager::RefreshAuctionViewers(DWORD auctionIndex)
 
 bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks)
 {
-	if (amount < -static_cast<int64_t>(INT32_MAX) || amount > static_cast<int64_t>(INT32_MAX))
+	if (amount == INT64_MIN || currentBalance.dwDragonCoins < 0 || currentBalance.dwDragonMarks < 0)
 		return false;
 
 	if (chargeType == ERequestCharge_Cash)
@@ -766,19 +773,19 @@ bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amo
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_COINS"));
 				return false;
 			}
-			if (addMarks && static_cast<uint64_t>(currentBalance.dwDragonMarks) + cost > static_cast<uint64_t>(INT32_MAX))
+			if (addMarks && static_cast<uint64_t>(currentBalance.dwDragonMarks) + cost > static_cast<uint64_t>(INT64_MAX))
 				return false;
 
-			currentBalance.dwDragonCoins -= static_cast<DWORD>(cost);
+			currentBalance.dwDragonCoins -= static_cast<int64_t>(cost);
 			if (addMarks)
-				currentBalance.dwDragonMarks += static_cast<DWORD>(cost);
+				currentBalance.dwDragonMarks += static_cast<int64_t>(cost);
 		}
 		else
 		{
 			const uint64_t credit = static_cast<uint64_t>(amount);
-			if (static_cast<uint64_t>(currentBalance.dwDragonCoins) + credit > static_cast<uint64_t>(INT32_MAX))
+			if (static_cast<uint64_t>(currentBalance.dwDragonCoins) + credit > static_cast<uint64_t>(INT64_MAX))
 				return false;
-			currentBalance.dwDragonCoins += static_cast<DWORD>(credit);
+			currentBalance.dwDragonCoins += static_cast<int64_t>(credit);
 		}
 	}
 	else if (chargeType == ERequestCharge_Marks)
@@ -792,14 +799,14 @@ bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amo
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_MARKS"));
 				return false;
 			}
-			currentBalance.dwDragonMarks -= static_cast<DWORD>(cost);
+			currentBalance.dwDragonMarks -= static_cast<int64_t>(cost);
 		}
 		else
 		{
 			const uint64_t credit = static_cast<uint64_t>(amount);
-			if (static_cast<uint64_t>(currentBalance.dwDragonMarks) + credit > static_cast<uint64_t>(INT32_MAX))
+			if (static_cast<uint64_t>(currentBalance.dwDragonMarks) + credit > static_cast<uint64_t>(INT64_MAX))
 				return false;
-			currentBalance.dwDragonMarks += static_cast<DWORD>(credit);
+			currentBalance.dwDragonMarks += static_cast<int64_t>(credit);
 		}
 	}
 	else
@@ -817,9 +824,9 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 	}
 	if (chargeType != ERequestCharge_Cash && chargeType != ERequestCharge_Marks)
 		return false;
-	if (amount < -static_cast<int64_t>(INT32_MAX) || amount > static_cast<int64_t>(INT32_MAX))
+	if (amount == INT64_MIN)
 		return false;
-	if (customSecondAmount < -1 || customSecondAmount > static_cast<int64_t>(INT32_MAX))
+	if (customSecondAmount < -1)
 		return false;
 
 	if (checkBalance) {
@@ -841,19 +848,24 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 	{
 		if (amount < 0)
 		{
-			const uint32_t cost = static_cast<uint32_t>(-amount);
-			const uint32_t secondCredit = (customSecondAmount >= 0) ? static_cast<uint32_t>(customSecondAmount) : cost;
+			const uint64_t cost = static_cast<uint64_t>(-amount);
+			const uint64_t secondCredit = (customSecondAmount >= 0) ? static_cast<uint64_t>(customSecondAmount) : cost;
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash = cash - %u, cash_mark = cash_mark + %u "
-				"WHERE id = %u AND cash >= %u AND CAST(cash_mark AS SIGNED) >= 0 "
-				"AND CAST(cash_mark AS SIGNED) + %u <= %d LIMIT 1",
-				cost, secondCredit, static_cast<unsigned int>(aid), cost, secondCredit, INT32_MAX));
+				"UPDATE account SET cash = cash - %llu, cash_mark = cash_mark + %llu "
+				"WHERE id = %u AND cash >= %llu AND cash_mark >= 0 "
+				"AND cash_mark <= %lld - %llu LIMIT 1",
+				static_cast<unsigned long long>(cost),
+				static_cast<unsigned long long>(secondCredit),
+				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(cost),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(secondCredit)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
 			{
 				if (pkMsg && pkMsg->uiSQLErrno == 0 && pkMsg->Get() && pkMsg->Get()->uiAffectedRows == 0)
 				{
 					PlayerAccountBalance latest = GetPlayerAccountBalance(ch);
-					if (latest.dwDragonCoins < cost)
+					if (latest.dwDragonCoins < static_cast<int64_t>(cost))
 						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_COINS"));
 				}
 				return false;
@@ -861,12 +873,15 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 		}
 		else
 		{
-			const uint32_t credit = static_cast<uint32_t>(amount);
+			const uint64_t credit = static_cast<uint64_t>(amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash = cash + %u "
-				"WHERE id = %u AND CAST(cash AS SIGNED) >= 0 "
-				"AND CAST(cash AS SIGNED) + %u <= %d LIMIT 1",
-				credit, static_cast<unsigned int>(aid), credit, INT32_MAX));
+				"UPDATE account SET cash = cash + %llu "
+				"WHERE id = %u AND cash >= 0 "
+				"AND cash <= %lld - %llu LIMIT 1",
+				static_cast<unsigned long long>(credit),
+				static_cast<unsigned int>(aid),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(credit)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
 				return false;
 		}
@@ -875,17 +890,19 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 	{
 		if (amount < 0)
 		{
-			const uint32_t cost = static_cast<uint32_t>(-amount);
+			const uint64_t cost = static_cast<uint64_t>(-amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash_mark = cash_mark - %u "
-				"WHERE id = %u AND cash_mark >= %u LIMIT 1",
-				cost, static_cast<unsigned int>(aid), cost));
+				"UPDATE account SET cash_mark = cash_mark - %llu "
+				"WHERE id = %u AND cash_mark >= %llu LIMIT 1",
+				static_cast<unsigned long long>(cost),
+				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(cost)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
 			{
 				if (pkMsg && pkMsg->uiSQLErrno == 0 && pkMsg->Get() && pkMsg->Get()->uiAffectedRows == 0)
 				{
 					PlayerAccountBalance latest = GetPlayerAccountBalance(ch);
-					if (latest.dwDragonMarks < cost)
+					if (latest.dwDragonMarks < static_cast<int64_t>(cost))
 						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_NO_DRAGON_MARKS"));
 				}
 				return false;
@@ -893,12 +910,15 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 		}
 		else
 		{
-			const uint32_t credit = static_cast<uint32_t>(amount);
+			const uint64_t credit = static_cast<uint64_t>(amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash_mark = cash_mark + %u "
-				"WHERE id = %u AND CAST(cash_mark AS SIGNED) >= 0 "
-				"AND CAST(cash_mark AS SIGNED) + %u <= %d LIMIT 1",
-				credit, static_cast<unsigned int>(aid), credit, INT32_MAX));
+				"UPDATE account SET cash_mark = cash_mark + %llu "
+				"WHERE id = %u AND cash_mark >= 0 "
+				"AND cash_mark <= %lld - %llu LIMIT 1",
+				static_cast<unsigned long long>(credit),
+				static_cast<unsigned int>(aid),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(credit)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
 				return false;
 		}
@@ -908,6 +928,285 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 		SendBalance(ch);
 
 	return true;
+}
+
+bool CItemShopManager::EnsureTransactionJournalSchema()
+{
+	std::unique_ptr<SQLMsg> pkProbe(DBManager::instance().AccountQuery(
+		"SELECT 1 FROM itemshop_tx_journal LIMIT 1"));
+	if (pkProbe && pkProbe->uiSQLErrno == 0)
+		return true;
+
+	std::unique_ptr<SQLMsg> pkCreate(DBManager::instance().AccountQuery(
+		"CREATE TABLE IF NOT EXISTS `itemshop_tx_journal` ("
+		"  `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,"
+		"  `aid` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `pid` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `login` varchar(30) NOT NULL DEFAULT '',"
+		"  `item_index` int(11) NOT NULL DEFAULT 0,"
+		"  `vnum` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `quantity` int(11) NOT NULL DEFAULT 1,"
+		"  `item_count` int(11) unsigned NOT NULL DEFAULT 1,"
+		"  `charge_type` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `cash_delta` bigint(20) NOT NULL DEFAULT 0,"
+		"  `mark_delta` bigint(20) NOT NULL DEFAULT 0,"
+		"  `money_before_buy` bigint(20) NOT NULL DEFAULT 0,"
+		"  `is_vip` tinyint(1) NOT NULL DEFAULT 0,"
+		"  `vip_type` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `vip_hours` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `is_time_auction` tinyint(1) NOT NULL DEFAULT 0,"
+		"  `auction_reserved_count` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `state` enum('INITIATED','CHARGED','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',"
+		"  `delivered_item_ids` varchar(255) NOT NULL DEFAULT '',"
+		"  `created_at` datetime NOT NULL DEFAULT current_timestamp(),"
+		"  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),"
+		"  PRIMARY KEY (`tx_id`),"
+		"  KEY `idx_itemshop_tx_state` (`state`),"
+		"  KEY `idx_itemshop_tx_aid` (`aid`),"
+		"  KEY `idx_itemshop_tx_pid` (`pid`)"
+		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC"));
+	return (pkCreate && pkCreate->uiSQLErrno == 0);
+}
+
+int CItemShopManager::RecoverIncompleteTransactions()
+{
+	std::unique_ptr<SQLMsg> pkSelect(DBManager::instance().AccountQuery(
+		"SELECT tx_id, aid, pid, item_index, vnum, quantity, item_count, charge_type, "
+		"cash_delta, mark_delta, money_before_buy, is_vip, is_time_auction, auction_reserved_count, state "
+		"FROM itemshop_tx_journal "
+		"WHERE state IN ('INITIATED', 'CHARGED') "
+		"ORDER BY tx_id ASC"));
+	if (!pkSelect || pkSelect->uiSQLErrno != 0 || !pkSelect->Get())
+		return -1;
+
+	if (pkSelect->Get()->uiNumRows == 0)
+		return 0;
+
+	struct IncompleteTxRow
+	{
+		uint64_t txId = 0;
+		DWORD aid = 0;
+		DWORD pid = 0;
+		int itemIndex = 0;
+		DWORD vnum = 0;
+		int quantity = 0;
+		DWORD itemCount = 0;
+		BYTE chargeType = 0;
+		int64_t cashDelta = 0;
+		int64_t markDelta = 0;
+		int64_t moneyBeforeBuy = 0;
+		int isVip = 0;
+		int isTimeAuction = 0;
+		DWORD auctionReservedCount = 0;
+		std::string state;
+	};
+
+	std::vector<IncompleteTxRow> pendingRows;
+	pendingRows.reserve(pkSelect->Get()->uiNumRows);
+
+	MYSQL_ROW row = nullptr;
+	while ((row = mysql_fetch_row(pkSelect->Get()->pSQLResult)) != nullptr)
+	{
+		int col = 0;
+		IncompleteTxRow tx{};
+		if (row[col]) str_to_number(tx.txId, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.aid, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.pid, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.itemIndex, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.vnum, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.quantity, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.itemCount, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.chargeType, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.cashDelta, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.markDelta, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.moneyBeforeBuy, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.isVip, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.isTimeAuction, row[col]);
+		++col;
+		if (row[col]) str_to_number(tx.auctionReservedCount, row[col]);
+		++col;
+		if (row[col]) tx.state = row[col];
+		pendingRows.push_back(tx);
+	}
+
+	int recoveredCount = 0;
+	for (const IncompleteTxRow& tx : pendingRows)
+	{
+		if (tx.state == "INITIATED")
+		{
+			std::unique_ptr<SQLMsg> pkAbort(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'ABORTED_BEFORE_CHARGE' "
+				"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
+				static_cast<unsigned long long>(tx.txId)));
+			if (pkAbort && pkAbort->uiSQLErrno == 0 && pkAbort->Get() && pkAbort->Get()->uiAffectedRows == 1)
+			{
+				if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
+				{
+					DBManager::instance().DirectQuery(
+						"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
+						"WHERE item_index = %u",
+						static_cast<unsigned int>(tx.auctionReservedCount),
+						static_cast<unsigned int>(tx.auctionReservedCount),
+						static_cast<unsigned int>(tx.itemIndex));
+				}
+				++recoveredCount;
+			}
+			continue;
+		}
+
+		if (tx.state != "CHARGED")
+			continue;
+
+		// Check if item_award already received the items for this tx_id right before crash
+		uint64_t awardRows = 0;
+		uint64_t awardSumCount = 0;
+		uint64_t awardTakenRows = 0;
+		if (tx.isVip == 0)
+		{
+			std::unique_ptr<SQLMsg> pkAwardCheck(DBManager::instance().DirectQuery(
+				"SELECT COUNT(*), COALESCE(SUM(count), 0), "
+				"COALESCE(SUM(CASE WHEN taken_time IS NOT NULL THEN 1 ELSE 0 END), 0) "
+				"FROM item_award WHERE why = 'ITEMSHOP_TX_%llu'",
+				static_cast<unsigned long long>(tx.txId)));
+			if (pkAwardCheck && pkAwardCheck->uiSQLErrno == 0 && pkAwardCheck->Get() && pkAwardCheck->Get()->uiNumRows == 1)
+			{
+				MYSQL_ROW aRow = mysql_fetch_row(pkAwardCheck->Get()->pSQLResult);
+				if (aRow)
+				{
+					if (aRow[0]) str_to_number(awardRows, aRow[0]);
+					if (aRow[1]) str_to_number(awardSumCount, aRow[1]);
+					if (aRow[2]) str_to_number(awardTakenRows, aRow[2]);
+				}
+			}
+		}
+
+		// Subcase A: Full item_award delivery had already completed before crash -> finalize as DELIVERED (0 double-delivery, 0 false refund)
+		if (tx.isVip == 0 && tx.itemCount > 0 && awardSumCount >= static_cast<uint64_t>(tx.itemCount))
+		{
+			std::unique_ptr<SQLMsg> pkFinalize(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'RECOVERED_AWARD' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(tx.txId)));
+			if (pkFinalize && pkFinalize->uiSQLErrno == 0 && pkFinalize->Get() && pkFinalize->Get()->uiAffectedRows == 1)
+				++recoveredCount;
+			continue;
+		}
+
+		// Subcase B: Partial item_award row was already claimed by the player -> mark NEEDS_MANUAL_REVIEW
+		if (awardRows > 0 && awardTakenRows > 0)
+		{
+			std::unique_ptr<SQLMsg> pkReview(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_AWARD_TAKEN' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(tx.txId)));
+			if (pkReview && pkReview->uiSQLErrno == 0 && pkReview->Get() && pkReview->Get()->uiAffectedRows == 1)
+				++recoveredCount;
+			continue;
+		}
+
+		// Subcase C: Clean up any untaken partial item_award rows before refunding
+		if (awardRows > 0)
+		{
+			std::unique_ptr<SQLMsg> pkCleanAward(DBManager::instance().DirectQuery(
+				"DELETE FROM item_award WHERE why = 'ITEMSHOP_TX_%llu' AND taken_time IS NULL",
+				static_cast<unsigned long long>(tx.txId)));
+			if (!pkCleanAward || pkCleanAward->uiSQLErrno != 0)
+			{
+				DBManager::instance().AccountQuery(
+					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_AWARD_DELETE_FAILED' "
+					"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+					static_cast<unsigned long long>(tx.txId));
+				continue;
+			}
+		}
+
+		// Perform atomic, idempotent refund on AccountDB
+		std::unique_ptr<SQLMsg> pkBegin(DBManager::instance().AccountQuery("START TRANSACTION"));
+		if (!pkBegin || pkBegin->uiSQLErrno != 0)
+			continue;
+
+		std::unique_ptr<SQLMsg> pkClaimRefund(DBManager::instance().AccountQuery(
+			"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'CRASH_REFUNDED' "
+			"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+			static_cast<unsigned long long>(tx.txId)));
+		if (!pkClaimRefund || pkClaimRefund->uiSQLErrno != 0 || !pkClaimRefund->Get() || pkClaimRefund->Get()->uiAffectedRows != 1)
+		{
+			DBManager::instance().AccountQuery("ROLLBACK");
+			continue;
+		}
+
+		bool refundAccountOk = false;
+		if (tx.chargeType == ERequestCharge_Cash)
+		{
+			const uint64_t refundCash = (tx.cashDelta < 0) ? static_cast<uint64_t>(-tx.cashDelta) : 0ULL;
+			const uint64_t rollbackMarks = (tx.markDelta > 0) ? static_cast<uint64_t>(tx.markDelta) : 0ULL;
+			std::unique_ptr<SQLMsg> pkRefundAcc(DBManager::instance().AccountQuery(
+				"UPDATE account SET cash = cash + %llu, "
+				"cash_mark = CASE WHEN cash_mark >= %llu THEN cash_mark - %llu ELSE 0 END "
+				"WHERE id = %u LIMIT 1",
+				static_cast<unsigned long long>(refundCash),
+				static_cast<unsigned long long>(rollbackMarks),
+				static_cast<unsigned long long>(rollbackMarks),
+				static_cast<unsigned int>(tx.aid)));
+			refundAccountOk = (pkRefundAcc && pkRefundAcc->uiSQLErrno == 0 && pkRefundAcc->Get() && pkRefundAcc->Get()->uiAffectedRows == 1);
+		}
+		else if (tx.chargeType == ERequestCharge_Marks)
+		{
+			const uint64_t refundMarks = (tx.markDelta < 0) ? static_cast<uint64_t>(-tx.markDelta) : 0ULL;
+			std::unique_ptr<SQLMsg> pkRefundAcc(DBManager::instance().AccountQuery(
+				"UPDATE account SET cash_mark = cash_mark + %llu WHERE id = %u LIMIT 1",
+				static_cast<unsigned long long>(refundMarks),
+				static_cast<unsigned int>(tx.aid)));
+			refundAccountOk = (pkRefundAcc && pkRefundAcc->uiSQLErrno == 0 && pkRefundAcc->Get() && pkRefundAcc->Get()->uiAffectedRows == 1);
+		}
+
+		if (!refundAccountOk)
+		{
+			DBManager::instance().AccountQuery("ROLLBACK");
+			DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'ACCOUNT_REFUND_FAILED' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(tx.txId));
+			sys_err("[CRITICAL][ITEMSHOP_RECOVERY_MANUAL_REVIEW] Failed to refund account for tx_id=%llu (aid=%u, pid=%u)",
+				static_cast<unsigned long long>(tx.txId),
+				static_cast<unsigned int>(tx.aid),
+				static_cast<unsigned int>(tx.pid));
+			continue;
+		}
+
+		std::unique_ptr<SQLMsg> pkCommit(DBManager::instance().AccountQuery("COMMIT"));
+		if (!pkCommit || pkCommit->uiSQLErrno != 0)
+		{
+			DBManager::instance().AccountQuery("ROLLBACK");
+			continue;
+		}
+
+		if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
+		{
+			DBManager::instance().DirectQuery(
+				"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
+				"WHERE item_index = %u",
+				static_cast<unsigned int>(tx.auctionReservedCount),
+				static_cast<unsigned int>(tx.auctionReservedCount),
+				static_cast<unsigned int>(tx.itemIndex));
+		}
+
+		++recoveredCount;
+	}
+
+	return recoveredCount;
 }
 
 bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
@@ -965,16 +1264,16 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		quantity = 1;
 	}
 
-	const uint64_t unitPrice = static_cast<uint64_t>(GetItemPrice(item));
-	const uint64_t totalPriceU64 = unitPrice * static_cast<uint64_t>(quantity);
-	if (unitPrice > static_cast<uint64_t>(INT32_MAX) || totalPriceU64 > static_cast<uint64_t>(INT32_MAX))
+	const int64_t rawUnitPrice = GetItemPrice(item);
+	if (rawUnitPrice < 0 || static_cast<uint64_t>(rawUnitPrice) > static_cast<uint64_t>(INT64_MAX) / static_cast<uint64_t>(quantity))
 	{
-		sys_err("ItemShop::BuyItem price overflow blocked (pid=%u, itemIndex=%d, unitPrice=%llu, quantity=%d, totalPrice=%llu)",
+		sys_err("ItemShop::BuyItem price overflow blocked (pid=%u, itemIndex=%d, unitPrice=%lld, quantity=%d)",
 			static_cast<uint32_t>(ch->GetPlayerID()), itemIndex,
-			static_cast<unsigned long long>(unitPrice), quantity,
-			static_cast<unsigned long long>(totalPriceU64));
+			static_cast<long long>(rawUnitPrice), quantity);
 		return false;
 	}
+	const uint64_t unitPrice = static_cast<uint64_t>(rawUnitPrice);
+	const uint64_t totalPriceU64 = unitPrice * static_cast<uint64_t>(quantity);
 	const int64_t llPrice = static_cast<int64_t>(totalPriceU64);
 
 	const uint64_t totalItemCountU64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
@@ -987,7 +1286,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	}
 
 	PlayerAccountBalance balance = GetPlayerAccountBalance(ch);
-	DWORD money_before_buy;
+	int64_t money_before_buy = 0;
 
 	ERequestChargeType chargeType;
 	if (item.bCurrency == CURRENCY_DRAGON_COIN)
@@ -1032,9 +1331,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
 	{
-		if (static_cast<uint64_t>(balance.dwDragonMarks) + static_cast<uint64_t>(dragonMarkAmount) > static_cast<uint64_t>(INT32_MAX))
+		if (static_cast<uint64_t>(balance.dwDragonMarks) + static_cast<uint64_t>(dragonMarkAmount) > static_cast<uint64_t>(INT64_MAX))
 			return false;
-		balance.dwDragonMarks += static_cast<DWORD>(dragonMarkAmount);
+		balance.dwDragonMarks += dragonMarkAmount;
 	}
 
 	const bool isTimeAuction = IsItemTimeAuction(item);
@@ -1140,7 +1439,63 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 	};
 
-	ch->ChatDebug("Buy item index %d (quantity %d) with price %lld", itemIndex, quantity, static_cast<long long>(llPrice));
+	const DWORD aid = ch->GetDesc()->GetAccountTable().id;
+	const char* rawLogin = ch->GetDesc()->GetAccountTable().login;
+	char szEscapedLogin[LOGIN_MAX_LEN * 2 + 1];
+	DBManager::instance().EscapeString(szEscapedLogin, sizeof(szEscapedLogin), rawLogin, std::strlen(rawLogin));
+
+	const int64_t cashDelta = (chargeType == ERequestCharge_Cash) ? -llPrice : 0;
+	const int64_t markDelta = (chargeType == ERequestCharge_Cash)
+		? ((isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN) ? dragonMarkAmount : llPrice)
+		: -llPrice;
+	const BYTE vipType = isVIPEffect ? static_cast<BYTE>(itemTable->alValues[0]) : 0;
+	const DWORD vipHours = isVIPEffect ? static_cast<DWORD>(itemTable->alValues[1]) : 0;
+	const DWORD journalItemCount = isVIPEffect ? 0U : static_cast<DWORD>(totalItemCountU64);
+
+	std::unique_ptr<SQLMsg> pkInitJournal(DBManager::instance().AccountQuery(
+		"INSERT INTO itemshop_tx_journal "
+		"(aid, pid, login, item_index, vnum, quantity, item_count, charge_type, cash_delta, mark_delta, money_before_buy, "
+		"is_vip, vip_type, vip_hours, is_time_auction, auction_reserved_count, state, delivered_item_ids, created_at, updated_at) "
+		"VALUES (%u, %u, '%s', %d, %u, %d, %u, %u, %lld, %lld, %lld, %d, %u, %u, %d, %u, 'INITIATED', '', NOW(), NOW())",
+		static_cast<unsigned int>(aid),
+		static_cast<unsigned int>(ch->GetPlayerID()),
+		szEscapedLogin,
+		itemIndex,
+		static_cast<unsigned int>(item.dwVnum),
+		quantity,
+		static_cast<unsigned int>(journalItemCount),
+		static_cast<unsigned int>(chargeType),
+		static_cast<long long>(cashDelta),
+		static_cast<long long>(markDelta),
+		static_cast<long long>(money_before_buy),
+		isVIPEffect ? 1 : 0,
+		static_cast<unsigned int>(vipType),
+		static_cast<unsigned int>(vipHours),
+		isTimeAuction ? 1 : 0,
+		static_cast<unsigned int>(auctionReservedInDB ? auctionItemCount : 0U)));
+	if (!pkInitJournal || pkInitJournal->uiSQLErrno != 0 || !pkInitJournal->Get() || pkInitJournal->Get()->ullInsertID == 0)
+	{
+		sys_err("ItemShop::BuyItem failed to record INITIATED journal entry (pid=%u, aid=%u, itemIndex=%d)",
+			static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(aid), itemIndex);
+		rollbackAuctionInDB();
+		return false;
+	}
+	const uint64_t txId = pkInitJournal->Get()->ullInsertID;
+	m_ullLastTxId = txId;
+
+	ch->ChatDebug("Buy item index %d (quantity %d) with price %lld (tx_id=%llu)",
+		itemIndex, quantity, static_cast<long long>(llPrice), static_cast<unsigned long long>(txId));
+
+	std::unique_ptr<SQLMsg> pkBeginTx(DBManager::instance().AccountQuery("START TRANSACTION"));
+	if (!pkBeginTx || pkBeginTx->uiSQLErrno != 0)
+	{
+		DBManager::instance().AccountQuery(
+			"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'TX_BEGIN_FAILED' "
+			"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
+			static_cast<unsigned long long>(txId));
+		rollbackAuctionInDB();
+		return false;
+	}
 
 	bool paymentOk = false;
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
@@ -1148,10 +1503,39 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	else
 		paymentOk = AddCash(ch, chargeType, -llPrice, false);
 
+	if (paymentOk)
+	{
+		std::unique_ptr<SQLMsg> pkMarkCharged(DBManager::instance().AccountQuery(
+			"UPDATE itemshop_tx_journal SET state = 'CHARGED' "
+			"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
+			static_cast<unsigned long long>(txId)));
+		if (!pkMarkCharged || pkMarkCharged->uiSQLErrno != 0 || !pkMarkCharged->Get() || pkMarkCharged->Get()->uiAffectedRows != 1)
+			paymentOk = false;
+	}
+
+	if (paymentOk)
+	{
+		std::unique_ptr<SQLMsg> pkCommitTx(DBManager::instance().AccountQuery("COMMIT"));
+		if (!pkCommitTx || pkCommitTx->uiSQLErrno != 0)
+			paymentOk = false;
+	}
+
 	if (!paymentOk)
 	{
+		DBManager::instance().AccountQuery("ROLLBACK");
+		DBManager::instance().AccountQuery(
+			"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'CHARGE_ABORTED' "
+			"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
+			static_cast<unsigned long long>(txId));
 		rollbackAuctionInDB();
 		SendBalance(ch);
+		return false;
+	}
+
+	if (m_bCrashAfterChargeForTest)
+	{
+		sys_log(0, "ItemShop::BuyItem simulated crash immediately after CHARGED (tx_id=%llu)",
+			static_cast<unsigned long long>(txId));
 		return false;
 	}
 
@@ -1189,7 +1573,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			ch->ChatDebug("add item %u %u", itemVnum, max_item_stack);
 			bool deliveredToAward = false;
 			uint64_t awardInsertId = 0;
-			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, max_item_stack, &deliveredToAward, &awardInsertId);
+			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, max_item_stack, &deliveredToAward, &awardInsertId, txId);
 			if (newItem)
 			{
 				createdItems.push_back(newItem);
@@ -1211,7 +1595,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			ch->ChatDebug("add item %u %u", itemVnum, r);
 			bool deliveredToAward = false;
 			uint64_t awardInsertId = 0;
-			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, r, &deliveredToAward, &awardInsertId);
+			LPITEM newItem = GiveItem(ch, itemIndex, itemVnum, r, &deliveredToAward, &awardInsertId, txId);
 			if (newItem)
 			{
 				createdItems.push_back(newItem);
@@ -1255,39 +1639,68 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			}
 		}
 
-		const DWORD aid = ch->GetDesc()->GetAccountTable().id;
 		bool refundOk = false;
-		if (chargeType == ERequestCharge_Cash)
+		for (int attempt = 0; attempt < 2 && !refundOk; ++attempt)
 		{
-			const uint32_t refundCash = static_cast<uint32_t>(llPrice);
-			const uint32_t rollbackMarks = (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
-				? static_cast<uint32_t>(dragonMarkAmount)
-				: refundCash;
-			for (int attempt = 0; attempt < 2 && !refundOk; ++attempt)
+			std::unique_ptr<SQLMsg> pkBeginRefund(DBManager::instance().AccountQuery("START TRANSACTION"));
+			if (!pkBeginRefund || pkBeginRefund->uiSQLErrno != 0)
+				continue;
+
+			std::unique_ptr<SQLMsg> pkClaimRefund(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'DELIVERY_FAILED_REFUNDED' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(txId)));
+			if (!pkClaimRefund || pkClaimRefund->uiSQLErrno != 0 || !pkClaimRefund->Get() || pkClaimRefund->Get()->uiAffectedRows != 1)
 			{
-				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
-					"UPDATE account SET cash = cash + %u, "
-					"cash_mark = CASE WHEN cash_mark >= %u THEN cash_mark - %u ELSE 0 END "
-					"WHERE id = %u LIMIT 1",
-					refundCash, rollbackMarks, rollbackMarks, static_cast<unsigned int>(aid)));
-				refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+				DBManager::instance().AccountQuery("ROLLBACK");
+				continue;
 			}
-		}
-		else if (chargeType == ERequestCharge_Marks)
-		{
-			const uint32_t refundMarks = static_cast<uint32_t>(llPrice);
-			for (int attempt = 0; attempt < 2 && !refundOk; ++attempt)
+
+			bool accUpdated = false;
+			if (chargeType == ERequestCharge_Cash)
 			{
+				const uint64_t refundCash = static_cast<uint64_t>(llPrice);
+				const uint64_t rollbackMarks = (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
+					? static_cast<uint64_t>(dragonMarkAmount)
+					: refundCash;
 				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
-					"UPDATE account SET cash_mark = cash_mark + %u WHERE id = %u LIMIT 1",
-					refundMarks, static_cast<unsigned int>(aid)));
-				refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+					"UPDATE account SET cash = cash + %llu, "
+					"cash_mark = CASE WHEN cash_mark >= %llu THEN cash_mark - %llu ELSE 0 END "
+					"WHERE id = %u LIMIT 1",
+					static_cast<unsigned long long>(refundCash),
+					static_cast<unsigned long long>(rollbackMarks),
+					static_cast<unsigned long long>(rollbackMarks),
+					static_cast<unsigned int>(aid)));
+				accUpdated = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			}
+			else if (chargeType == ERequestCharge_Marks)
+			{
+				const uint64_t refundMarks = static_cast<uint64_t>(llPrice);
+				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
+					"UPDATE account SET cash_mark = cash_mark + %llu WHERE id = %u LIMIT 1",
+					static_cast<unsigned long long>(refundMarks),
+					static_cast<unsigned int>(aid)));
+				accUpdated = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			}
+
+			if (accUpdated)
+			{
+				std::unique_ptr<SQLMsg> pkCommitRefund(DBManager::instance().AccountQuery("COMMIT"));
+				refundOk = (pkCommitRefund && pkCommitRefund->uiSQLErrno == 0);
+			}
+			if (!refundOk)
+			{
+				DBManager::instance().AccountQuery("ROLLBACK");
 			}
 		}
 
 		if (!refundOk)
 		{
-			sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Account refund failed after delivery failure (pid=%u, aid=%u, itemIndex=%d, vnum=%u, qty=%d, price=%lld, chargeType=%d, moneyBefore=%u)",
+			DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'DELIVERY_AND_REFUND_FAILED' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(txId));
+			sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Account refund failed after delivery failure (pid=%u, aid=%u, itemIndex=%d, vnum=%u, qty=%d, price=%lld, chargeType=%d, moneyBefore=%lld)",
 				static_cast<unsigned int>(ch->GetPlayerID()),
 				static_cast<unsigned int>(aid),
 				itemIndex,
@@ -1295,10 +1708,10 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 				quantity,
 				static_cast<long long>(llPrice),
 				static_cast<int>(chargeType),
-				static_cast<unsigned int>(money_before_buy));
+				static_cast<long long>(money_before_buy));
 			LogManager::instance().Query(
 				"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
-				"VALUES (%u, %u, %d, %u, %d, %lld, %d, NULL, NOW(), %u)",
+				"VALUES (%u, %u, %d, %u, %d, %lld, %d, NULL, NOW(), %lld)",
 				ch->GetPlayerID(),
 				aid,
 				-itemIndex,
@@ -1306,7 +1719,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 				0,
 				static_cast<long long>(llPrice),
 				static_cast<int>(chargeType) + 1,
-				money_before_buy);
+				static_cast<long long>(money_before_buy));
 		}
 
 		rollbackAuctionInDB();
@@ -1319,6 +1732,24 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		if (createdItem)
 			ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
 	}
+
+	if (m_bCrashAfterDeliveryBeforeJournalForTest)
+	{
+		sys_log(0, "ItemShop::BuyItem simulated crash after delivery before DELIVERED journal update (tx_id=%llu)",
+			static_cast<unsigned long long>(txId));
+		return true;
+	}
+
+	std::string deliveredSummary = isVIPEffect ? "VIP" : itemId;
+	if (!awardInsertIds.empty())
+	{
+		deliveredSummary = "AWARD:" + std::to_string(awardInsertIds.front());
+	}
+	DBManager::instance().AccountQuery(
+		"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = '%s' "
+		"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+		deliveredSummary.c_str(),
+		static_cast<unsigned long long>(txId));
 
 	if (isTimeAuction)
 	{
@@ -1371,7 +1802,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	const long long llLogPrice = static_cast<long long>(llPrice);
 	LogManager::instance().Query(
 		"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
-		"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %u)",
+		"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %lld)",
 		ch->GetPlayerID(),
 		ch->GetDesc()->GetAccountTable().id,
 		itemIndex,
@@ -1380,11 +1811,11 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		llLogPrice,
 		static_cast<int>(chargeType) + 1,
 		itemId.c_str(),
-		money_before_buy);
+		static_cast<long long>(money_before_buy));
 	return true;
 }
 
-LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward, uint64_t* outAwardInsertId)
+LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward, uint64_t* outAwardInsertId, uint64_t txId)
 {
 	(void)itemIndex;
 	if (outDeliveredToAward)
@@ -1426,9 +1857,15 @@ LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum,
 	char szEscapedLogin[LOGIN_MAX_LEN * 2 + 1];
 	DBManager::instance().EscapeString(szEscapedLogin, sizeof(szEscapedLogin), rawLogin, std::strlen(rawLogin));
 
+	char szWhy[64];
+	if (txId > 0)
+		std::snprintf(szWhy, sizeof(szWhy), "ITEMSHOP_TX_%llu", static_cast<unsigned long long>(txId));
+	else
+		strlcpy(szWhy, "ITEMSHOP_BUY", sizeof(szWhy));
+
 	std::unique_ptr<SQLMsg> pkAwardMsg(DBManager::instance().DirectQuery(
 		"INSERT INTO item_award (login, vnum, count, given_time, why, mall) VALUES ('%s', %u, %u, NOW(), '%s', %u)",
-		szEscapedLogin, static_cast<unsigned int>(itemVnum), static_cast<unsigned int>(itemCount), "ITEMSHOP_BUY", 1u));
+		szEscapedLogin, static_cast<unsigned int>(itemVnum), static_cast<unsigned int>(itemCount), szWhy, 1u));
 	if (!pkAwardMsg || pkAwardMsg->uiSQLErrno != 0 || !pkAwardMsg->Get() || pkAwardMsg->Get()->uiAffectedRows != 1)
 	{
 		sys_err("ItemShop::GiveItem failed to insert into item_award (pid=%u, vnum=%u, count=%u)",
@@ -1441,7 +1878,7 @@ LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum,
 	if (outDeliveredToAward)
 		*outDeliveredToAward = true;
 	if (outAwardInsertId)
-		*outAwardInsertId = pkAwardMsg->Get()->uiInsertID;
+		*outAwardInsertId = pkAwardMsg->Get()->ullInsertID;
 
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_ITEM_AWARD"));
 	return nullptr;

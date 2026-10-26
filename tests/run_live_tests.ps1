@@ -92,5 +92,21 @@ if ($res -ne 0) {
     throw "Canlı veritabanı testinde başarısız assertion (Çıkış kodu: $res)!"
 }
 
+$GameExe = "$RootDir\server\src\game\game_r41023.exe"
+if (-not (Test-Path $GameExe)) {
+    $GameExe = "$RootDir\server\files\share\bin\game_r41023.exe"
+}
+if (-not (Test-Path $GameExe)) {
+    $GameExe = "$RootDir\build\windows-gcc-ucrt\server\src\game\game_r41023.exe"
+}
+if (Test-Path $GameExe) {
+    Write-Host "`nÇalıştırılıyor (Gerçek CItemShopManager Akışı): $GameExe --test-itemshop..." -ForegroundColor Green
+    & "$GameExe" --test-itemshop --host "$HostName" --port "$Port" --user "$User" --password "$Password" --db "$Database"
+    $gameRes = $LASTEXITCODE
+    if ($gameRes -ne 0) {
+        throw "Gerçek CItemShopManager canlı testinde başarısız assertion (Çıkış kodu: $gameRes)!"
+    }
+}
+
 Write-Host "`n[BAŞARILI] Canlı veritabanı testi tamamlandı!" -ForegroundColor Green
 exit 0

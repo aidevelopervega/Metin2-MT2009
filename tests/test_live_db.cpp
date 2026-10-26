@@ -2388,6 +2388,94 @@ int main(int argc, char* argv[])
 			}
 			playerSql.Quit();
 		}
+
+		// 16b. 64-Bit SQL Migration & > 2^32 Persistence Verification (20261027_x64_protocol_and_itemshop_journal.sql)
+		{
+			CAsyncSQL migSql;
+			if (migSql.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port)) {
+				migSql.DirectQuery("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';");
+				migSql.DirectQuery("DROP TABLE IF EXISTS `mig_account`, `mig_pricelist`, `mig_marriage`, `mig_vouchers`, `mig_itemshop_log`;");
+
+				// 1. Create legacy 32-bit tables and seed pre-migration data
+				migSql.DirectQuery(
+					"CREATE TABLE `mig_account` ("
+					"  `id` int(11) unsigned NOT NULL PRIMARY KEY,"
+					"  `cash` int(10) DEFAULT 0,"
+					"  `cash_mark` int(10) DEFAULT 0"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+				migSql.DirectQuery(
+					"CREATE TABLE `mig_pricelist` ("
+					"  `owner_id` int(11) unsigned NOT NULL,"
+					"  `item_vnum` int(11) unsigned NOT NULL,"
+					"  `price` int(10) unsigned NOT NULL DEFAULT 0,"
+					"  UNIQUE KEY `list_id` (`owner_id`, `item_vnum`)"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+				migSql.DirectQuery(
+					"CREATE TABLE `mig_marriage` ("
+					"  `pid1` int(10) unsigned NOT NULL,"
+					"  `pid2` int(10) unsigned NOT NULL,"
+					"  `time` int(10) unsigned NOT NULL DEFAULT 0,"
+					"  PRIMARY KEY (`pid1`, `pid2`)"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+				migSql.DirectQuery(
+					"CREATE TABLE `mig_vouchers` ("
+					"  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+					"  `code` varchar(20) NOT NULL,"
+					"  `cash` int(11) unsigned NOT NULL DEFAULT 0"
+					") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+				migSql.DirectQuery("INSERT INTO `mig_account` VALUES (1, 150000, 25000);");
+				migSql.DirectQuery("INSERT INTO `mig_pricelist` VALUES (1001, 19, 999999999);");
+				migSql.DirectQuery("INSERT INTO `mig_marriage` VALUES (1001, 1002, 1700000000);");
+				migSql.DirectQuery("INSERT INTO `mig_vouchers` (`code`, `cash`) VALUES ('LEGACY2009', 5000);");
+
+				// Verify legacy 32-bit column rejects > 2^32 under STRICT_TRANS_TABLES
+				auto rLegacyOverflow = migSql.DirectQuery("UPDATE `mig_account` SET `cash` = 6000000000 WHERE `id` = 1;");
+				LIVE_ASSERT(rLegacyOverflow != nullptr && rLegacyOverflow->IsError(),
+					"x64 SQL Migration: Pre-migration int(10) column rejects 6,000,000,000 under STRICT_TRANS_TABLES");
+
+				// 2. Apply ALTER TABLE migrations to bigint(20)
+				auto rAlt1 = migSql.DirectQuery(
+					"ALTER TABLE `mig_account` MODIFY COLUMN `cash` bigint(20) NOT NULL DEFAULT 0, "
+					"MODIFY COLUMN `cash_mark` bigint(20) NOT NULL DEFAULT 0;");
+				auto rAlt2 = migSql.DirectQuery(
+					"ALTER TABLE `mig_pricelist` MODIFY COLUMN `price` bigint(20) NOT NULL DEFAULT 0;");
+				auto rAlt3 = migSql.DirectQuery(
+					"ALTER TABLE `mig_marriage` MODIFY COLUMN `time` bigint(20) NOT NULL DEFAULT 0;");
+				auto rAlt4 = migSql.DirectQuery(
+					"ALTER TABLE `mig_vouchers` MODIFY COLUMN `cash` bigint(20) unsigned NOT NULL DEFAULT 0;");
+				LIVE_ASSERT(rAlt1 && !rAlt1->IsError() && rAlt2 && !rAlt2->IsError() && rAlt3 && !rAlt3->IsError() && rAlt4 && !rAlt4->IsError(),
+					"x64 SQL Migration: ALTER TABLE to bigint(20) succeeded cleanly under STRICT_TRANS_TABLES");
+
+				// 3. Verify pre-existing rows were preserved losslessly and > 2^32 values now persist cleanly
+				auto rUpd64 = migSql.DirectQuery("UPDATE `mig_account` SET `cash` = 6000000000, `cash_mark` = 4500000000 WHERE `id` = 1;");
+				auto rUpdPrice64 = migSql.DirectQuery("UPDATE `mig_pricelist` SET `price` = 75000000000 WHERE `owner_id` = 1001 AND `item_vnum` = 19;");
+				auto rUpdTime64 = migSql.DirectQuery("UPDATE `mig_marriage` SET `time` = 4102444800 WHERE `pid1` = 1001 AND `pid2` = 1002;");
+				auto rUpdVoucher64 = migSql.DirectQuery("UPDATE `mig_vouchers` SET `cash` = 5000000000 WHERE `code` = 'LEGACY2009';");
+				LIVE_ASSERT(rUpd64 && !rUpd64->IsError() && rUpdPrice64 && !rUpdPrice64->IsError() && rUpdTime64 && !rUpdTime64->IsError() && rUpdVoucher64 && !rUpdVoucher64->IsError(),
+					"x64 SQL Migration: Post-migration bigint(20) columns accept > 2^32 values (6B cash, 75B YANG price, Year-2100 timestamp)");
+
+				auto rVerify64 = migSql.DirectQuery(
+					"SELECT a.cash, a.cash_mark, p.price, m.time, v.cash "
+					"FROM mig_account a, mig_pricelist p, mig_marriage m, mig_vouchers v "
+					"WHERE a.id = 1 AND p.owner_id = 1001 AND m.pid1 = 1001 AND v.code = 'LEGACY2009';");
+				LIVE_ASSERT(rVerify64 && !rVerify64->IsError() && rVerify64->Get() && rVerify64->Get()->uiNumRows == 1,
+					"x64 SQL Migration: Joined query over migrated 64-bit tables returned 1 row");
+				if (rVerify64 && rVerify64->Get() && rVerify64->Get()->uiNumRows == 1) {
+					MYSQL_ROW vRow = mysql_fetch_row(rVerify64->Get()->pSQLResult);
+					long long vCash = (vRow && vRow[0]) ? std::strtoll(vRow[0], nullptr, 10) : 0;
+					long long vMark = (vRow && vRow[1]) ? std::strtoll(vRow[1], nullptr, 10) : 0;
+					long long vPrice = (vRow && vRow[2]) ? std::strtoll(vRow[2], nullptr, 10) : 0;
+					long long vTime = (vRow && vRow[3]) ? std::strtoll(vRow[3], nullptr, 10) : 0;
+					unsigned long long vVoucher = (vRow && vRow[4]) ? strtoull(vRow[4], nullptr, 10) : 0;
+					LIVE_ASSERT(vCash == 6000000000LL && vMark == 4500000000LL && vPrice == 75000000000LL && vTime == 4102444800LL && vVoucher == 5000000000ULL,
+						"x64 SQL Migration: Round-trip mysql_fetch_row verified exact 64-bit values without truncation");
+				}
+
+				migSql.DirectQuery("DROP TABLE IF EXISTS `mig_account`, `mig_pricelist`, `mig_marriage`, `mig_vouchers`;");
+				migSql.Quit();
+			}
+		}
 	}
 
 	// --------------------------------------------------------------------------
