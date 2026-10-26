@@ -748,22 +748,24 @@ void CInputLogin::Entergame(LPDESC d, [[maybe_unused]] const char * data)
 	// PREMIUM
 	if (ch->IsActivePremiumSubscription())
 	{
-		int remain = ch->GetPremiumSubscriptionRemainSeconds();
+		int64_t remain = ch->GetPremiumSubscriptionRemainSeconds();
 		if (remain > 0)
 		{
-			ch->AddAffect(AFFECT_PREMIUM_SUBSCRIPTION, POINT_NONE, 0, 0, remain, 0, true);
+			const int32_t remain32 = static_cast<int32_t>(std::min<int64_t>(remain, INT32_MAX));
+			ch->AddAffect(AFFECT_PREMIUM_SUBSCRIPTION, POINT_NONE, 0, 0, remain32, 0, true);
 		}
 	}
 
 	for (int i = 0; i <= PREMIUM_MAX_NUM; ++i)
 	{
-		int remain = ch->GetPremiumRemainSeconds(i);
+		int64_t remain = ch->GetPremiumRemainSeconds(i);
 
 		if (remain <= 0)
 			continue;
 
-		ch->AddAffect(AFFECT_PREMIUM_START + i, POINT_NONE, 0, 0, remain, 0, true);
-		sys_log(0, "PREMIUM: %s type %d %dmin", ch->GetName(), i, remain);
+		const int32_t remain32 = static_cast<int32_t>(std::min<int64_t>(remain, INT32_MAX));
+		ch->AddAffect(AFFECT_PREMIUM_START + i, POINT_NONE, 0, 0, remain32, 0, true);
+		sys_log(0, "PREMIUM: %s type %d %lldmin", ch->GetName(), i, static_cast<long long>(remain));
 	}
 
 	if (ch->IsGM() == true)

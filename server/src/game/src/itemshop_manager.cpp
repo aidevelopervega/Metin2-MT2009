@@ -111,7 +111,7 @@ TItemShopItem CItemShopManager::GetItem(int index)
 	return TItemShopItem{};
 }
 
-DWORD CItemShopManager::GetItemPrice(TItemShopItem item)
+int64_t CItemShopManager::GetItemPrice(TItemShopItem item)
 {
 	if (IsProperItem(item))
 	{
@@ -134,9 +134,9 @@ bool CItemShopManager::IsItemPromotion(TItemShopItem item)
 {
 	if (IsProperItem(item))
 	{
-		DWORD start_time = item.promotion.dwStartTime;
-		DWORD end_time = item.promotion.dwEndTime;
-		DWORD current_time = get_global_time();
+		int64_t start_time = item.promotion.dwStartTime;
+		int64_t end_time = item.promotion.dwEndTime;
+		int64_t current_time = get_global_time();
 		return current_time >= start_time && current_time < end_time;
 	}
 	return false;
@@ -146,8 +146,8 @@ bool CItemShopManager::IsItemTimeAuction(TItemShopItem item)
 {
 	if (IsProperItem(item))
 	{
-		DWORD start_time = item.timeAuction.dwStartTime;
-		DWORD end_time = item.timeAuction.dwEndTime;
+		int64_t start_time = item.timeAuction.dwStartTime;
+		int64_t end_time = item.timeAuction.dwEndTime;
 		return start_time > 0 && end_time > 0;
 	}
 	return false;
@@ -157,9 +157,9 @@ bool CItemShopManager::IsTimeAuctionActive(TItemShopItem item)
 {
 	if (IsProperItem(item))
 	{
-		DWORD start_time = item.timeAuction.dwStartTime;
-		DWORD end_time = item.timeAuction.dwEndTime;
-		DWORD current_time = get_global_time();
+		int64_t start_time = item.timeAuction.dwStartTime;
+		int64_t end_time = item.timeAuction.dwEndTime;
+		int64_t current_time = get_global_time();
 		return current_time >= start_time && current_time < end_time;
 	}
 	return false;
@@ -330,18 +330,18 @@ bool CItemShopManager::CanSendItem(LPCHARACTER buyer, TItemShopItem item)
 
 bool CItemShopManager::CanSendTimeAuction(TItemShopItem item)
 {
-	DWORD start_time = item.timeAuction.dwStartTime;
-	DWORD end_time = item.timeAuction.dwEndTime;
-	DWORD current_time = get_global_time();
+	int64_t start_time = item.timeAuction.dwStartTime;
+	int64_t end_time = item.timeAuction.dwEndTime;
+	int64_t current_time = get_global_time();
 
 	if (current_time < start_time)
 	{
-		DWORD deltaTime = start_time - current_time;
+		int64_t deltaTime = start_time - current_time;
 		return deltaTime < 86400; // 1 day
 	}
 
 	if (current_time > end_time) {
-		DWORD deltaTime = current_time - end_time;
+		int64_t deltaTime = current_time - end_time;
 		return deltaTime < 3600; // 1 hour
 	}
 
@@ -429,7 +429,7 @@ void CItemShopManager::SendLatestTimeAuction(LPCHARACTER ch)
 	if (!ch || !ch->GetDesc())
 		return;
 
-	DWORD latestEndTime = 0;
+	int64_t latestEndTime = 0;
 	for (auto it : m_map_ItemShopTimeAuctions)
 	{
 		auto item = it.second;

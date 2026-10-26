@@ -11,10 +11,10 @@ typedef struct _CCI
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
 	DWORD	dwPID;
 	BYTE	bEmpire;
-	long	lMapIndex;
+	int32_t	lMapIndex;
 	BYTE	bChannel;
 
-	int	iPremium;
+	int64_t	iPremium;
 
 	LPDESC	pkDesc;
 } CCI;

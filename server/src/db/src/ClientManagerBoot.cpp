@@ -247,7 +247,7 @@ bool CClientManager::InitializeRefineTable()
 			}
 		}
 
-		sys_log(0, "REFINE: id %u cost %d prob %d mat1 %u cnt1 %d", prt->id, prt->cost, prt->prob, prt->materials[0].vnum, prt->materials[0].count);
+		sys_log(0, "REFINE: id %u cost %lld prob %d mat1 %u cnt1 %d", prt->id, static_cast<long long>(prt->cost), prt->prob, prt->materials[0].vnum, prt->materials[0].count);
 
 		prt++;
 	}

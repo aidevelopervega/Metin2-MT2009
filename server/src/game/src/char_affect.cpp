@@ -243,14 +243,14 @@ int CHARACTER::ProcessAffect()
 		pkAff = FindAffect(AFFECT_PREMIUM_SUBSCRIPTION);
 		if (pkAff)
 		{
-			int remain = m_iPremiumSubscriptionTime;
+			int64_t remain = m_iPremiumSubscriptionTime;
 			if (remain < 0)
 			{
 				RemoveAffect(AFFECT_PREMIUM_SUBSCRIPTION);
 				bDiff = true;
 			}
 			else
-				pkAff->lDuration = remain + 1;
+				pkAff->lDuration = static_cast<int32_t>(std::min<int64_t>(remain + 1, INT32_MAX));
 		}
 	}
 
@@ -263,7 +263,7 @@ int CHARACTER::ProcessAffect()
 		if (!pkAff)
 			continue;
 
-		int remain = GetPremiumRemainSeconds(i);
+		int64_t remain = GetPremiumRemainSeconds(i);
 
 		if (remain < 0)
 		{
@@ -271,7 +271,7 @@ int CHARACTER::ProcessAffect()
 			bDiff = true;
 		}
 		else
-			pkAff->lDuration = remain + 1;
+			pkAff->lDuration = static_cast<int32_t>(std::min<int64_t>(remain + 1, INT32_MAX));
 	}
 
 	////////// HAIR_AFFECT

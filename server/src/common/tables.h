@@ -324,8 +324,8 @@ enum ERequestChargeType
 typedef struct SRequestChargeCash
 {
 	DWORD		dwAID;		// id(primary key) - Account Table
-	int32_t		lAmount;
-	int32_t		lSecondAmount;
+	int64_t		lAmount;
+	int64_t		lSecondAmount;
 	ERequestChargeType	eChargeType;
 } TRequestChargeCash;
 
@@ -372,8 +372,8 @@ typedef struct SAccountTable
 	char		social_id[SOCIAL_ID_MAX_LEN + 1];
 	char		status[ACCOUNT_STATUS_MAX_LEN + 1];
 	BYTE		bEmpire;
-	int			iPremium;
-	int			iMarriagePremiumChannelPass;
+	int64_t		iPremium;
+	int64_t		iMarriagePremiumChannelPass;
 	BYTE		bDestChannel;
 	char		hwid[HWID_MAX_LEN + 1];
 	TSimplePlayer	players[PLAYER_PER_ACCOUNT];
@@ -430,7 +430,7 @@ struct	THorseInfo
 	BYTE	bRiding;
 	short	sStamina;
 	short	sHealth;
-	DWORD	dwHorseHealthDropTime;
+	int64_t	dwHorseHealthDropTime;
 };
 
 typedef struct SPlayerTable
@@ -492,7 +492,7 @@ typedef struct SPlayerTable
 
 	DWORD	logoff_interval;
 
-	int		aiPremiumTimes[PREMIUM_MAX_NUM];
+	int64_t		aiPremiumTimes[PREMIUM_MAX_NUM];
 } TPlayerTable;
 
 struct TPacketDGGuildWarNotice
@@ -621,9 +621,9 @@ typedef struct SSkillTable
 
 typedef struct SItemShopPromotion
 {
-	DWORD dwPrice;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwPrice;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopPromotion;
 
 typedef struct SItemShopTimeAuction
@@ -631,8 +631,8 @@ typedef struct SItemShopTimeAuction
 	DWORD dwCurrentBuyAmount; // progress if sent to client
 	DWORD dwMaxBuyAmount;
 	DWORD dwAccountLimit;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopTimeAuction;
 
 typedef struct SItemShopItem
@@ -640,7 +640,7 @@ typedef struct SItemShopItem
 	DWORD dwIndex;
 	DWORD dwVnum;
 	DWORD dwCount;
-	DWORD dwPrice;
+	int64_t dwPrice;
 	BYTE bCurrency;
 	BYTE bMinLevel;
 	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
@@ -653,8 +653,8 @@ typedef struct SItemShopUpdateAuctionItem
 	DWORD dwIndex;
 	DWORD dwProgress;
 	DWORD dwAccountLimit;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopUpdateAuctionItem;
 
 typedef struct SShopItemTable
@@ -684,7 +684,7 @@ typedef struct SSpecialFlagTable
 	DWORD		dwPID;
 	DWORD		dwAID;
 	char		szFlag[SPECIAL_FLAG_MAX_LEN + 1];
-	long long	llValue;
+	int64_t		llValue;
 } TSpecialFlagTable;
 
 
@@ -1078,7 +1078,7 @@ typedef struct SRefineTable
 	//DWORD result_vnum;
 	DWORD id;
 	BYTE material_count;
-	int cost;
+	YANG cost;
 	int prob;
 	TRefineMaterial materials[REFINE_MATERIAL_MAX_NUM];
 } TRefineTable;
@@ -1096,7 +1096,7 @@ typedef struct SCraftingItem
 	DWORD vnum;
 	DWORD itemVnum;
 	ITEM_COUNT count;
-	int price;
+	YANG price;
 	int chance;
 	TRefineMaterial materials[CRAFTING_MATERIAL_MAX_NUM];
 	DWORD reqProgress;
@@ -1138,7 +1138,7 @@ typedef struct SSpecialShopItem
 	ITEM_COUNT count;
 	int	rarePct;
 	BYTE priceType;
-	int price;
+	YANG price;
 	TRefineMaterial items[SPECIAL_SHOP_MAX_ITEM_COUNT];
 	int randomItemCount;
 	int randomItemGroup;
@@ -1152,7 +1152,7 @@ typedef struct SSpecialShopItemClient
 	ITEM_COUNT count;
 	int	rarePct;
 	BYTE priceType;
-	int price;
+	YANG price;
 	TRefineMaterial items[SPECIAL_SHOP_MAX_ITEM_COUNT];
 	TSpecialShopLimit limits[SPECIAL_SHOP_MAX_LIMIT];
 } TSpecialShopItemClient;
@@ -1160,7 +1160,7 @@ typedef struct SSpecialShopItemClient
 struct TSpecialShopMetaData
 {
 	DWORD seed;
-	DWORD lastUpdate;
+	int64_t lastUpdate;
 	int	arg1;
 };
 
@@ -1235,8 +1235,8 @@ typedef struct SPacketGDAuthLogin
 	char	szLogin[LOGIN_MAX_LEN + 1];
 	char	szSocialID[SOCIAL_ID_MAX_LEN + 1];
 	DWORD	adwClientKey[4];
-	int		iPremiumTimes[PREMIUM_MAX_NUM];
-	int		iPremium;
+	int64_t	iPremiumTimes[PREMIUM_MAX_NUM];
+	int64_t	iPremium;
 	char	szHwid[HWID_MAX_LEN + 1];
 } TPacketGDAuthLogin;
 
@@ -1253,14 +1253,14 @@ typedef struct SPacketGiveGuildPriv
 	BYTE type;
 	int value;
 	DWORD guild_id;
-	time_t duration_sec;
+	int64_t duration_sec;
 } TPacketGiveGuildPriv;
 typedef struct SPacketGiveEmpirePriv
 {
 	BYTE type;
 	int value;
 	BYTE empire;
-	time_t duration_sec;
+	int64_t duration_sec;
 } TPacketGiveEmpirePriv;
 typedef struct SPacketGiveCharacterPriv
 {
@@ -1293,7 +1293,7 @@ typedef struct SPacketDGChangeGuildPriv
 	int value;
 	DWORD guild_id;
 	BYTE bLog;
-	time_t end_time_sec;
+	int64_t end_time_sec;
 } TPacketDGChangeGuildPriv;
 
 typedef struct SPacketDGChangeEmpirePriv
@@ -1302,7 +1302,7 @@ typedef struct SPacketDGChangeEmpirePriv
 	int value;
 	BYTE empire;
 	BYTE bLog;
-	time_t end_time_sec;
+	int64_t end_time_sec;
 } TPacketDGChangeEmpirePriv;
 
 typedef struct SPacketMoneyLog
@@ -1395,7 +1395,7 @@ typedef struct SPacketMarriageAdd
 {
 	DWORD dwPID1;
 	DWORD dwPID2;
-	time_t tMarryTime;
+	int64_t tMarryTime;
 	char szName1[CHARACTER_NAME_MAX_LEN + 1];
 	char szName2[CHARACTER_NAME_MAX_LEN + 1];
 } TPacketMarriageAdd;
@@ -1551,7 +1551,7 @@ typedef struct tUpdateHorseName
 typedef struct SSetPremiumPass
 {
 	DWORD	dwAid;
-	DWORD	dwPremiumTime;
+	int64_t	dwPremiumTime;
 } TPacketSetPremiumPass;
 
 typedef struct tDC
@@ -1605,7 +1605,7 @@ namespace ikashop
 
 	struct TPriceInfo
 	{
-		long long yang = 0;
+		int64_t yang = 0;
 #ifdef ENABLE_CHEQUE_SYSTEM
 		int cheque = 0;
 #endif
@@ -1614,10 +1614,10 @@ namespace ikashop
 			return GetTotalYangAmount() < rItem.GetTotalYangAmount();
 		}
 
-		long long GetTotalYangAmount() const{
-			long long total = yang;
+		int64_t GetTotalYangAmount() const{
+			int64_t total = yang;
 #ifdef ENABLE_CHEQUE_SYSTEM
-			total += (long long) YANG_PER_CHEQUE * (long long) cheque;
+			total += (int64_t) YANG_PER_CHEQUE * (int64_t) cheque;
 #endif
 			return total;
 		}
@@ -1674,7 +1674,7 @@ namespace ikashop
 
 	struct TValutesInfo
 	{
-		long long yang = 0;
+		int64_t yang = 0;
 
 		void operator +=(const TValutesInfo& r){
 			yang += r.yang;
@@ -1787,7 +1787,7 @@ namespace ikashop
 		DWORD ownerid;
 		DWORD itemid;
 		DWORD guestid;
-		long long seenprice;
+		int64_t seenprice;
 	};
 
 	struct TSubPacketGDEditItem {
@@ -1888,7 +1888,7 @@ namespace ikashop
 	struct TSubPacketGDAuctionOfferSeen {
 		DWORD ownerid;
 		DWORD buyerid;
-		long long price;
+		int64_t price;
 	};
 
 #ifdef EXTEND_IKASHOP_PRO
@@ -2085,7 +2085,7 @@ namespace ikashop
 	struct TSubPacketDGAuctionOfferSeen {
 		DWORD ownerid;
 		DWORD buyerid;
-		long long price;
+		int64_t price;
 	};
 
 #ifdef EXTEND_IKASHOP_PRO

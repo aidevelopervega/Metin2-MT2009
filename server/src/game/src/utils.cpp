@@ -436,7 +436,7 @@ std::vector<VECTOR> find_intermediate_points(VECTOR pos1, VECTOR pos2, int count
 	return points;
 }
 
-DWORD get_time_until(DWORD targetHour, DWORD targetMinutes, DWORD baseTimestamp) {
+DWORD get_time_until(DWORD targetHour, DWORD targetMinutes, int64_t baseTimestamp) {
 	if (targetHour >= 24 || targetMinutes >= 60) {
 		return 0;
 	}

@@ -4536,7 +4536,7 @@ void CClientManager::SetLoginPremiumPass([[maybe_unused]] CPeer* peer, TPacketSe
 	CLoginData* pkLD = GetLoginDataByAID(data->dwAid);
 	if (pkLD)
 	{
-		pkLD->GetAccountRef().iMarriagePremiumChannelPass = static_cast<int>(data->dwPremiumTime);
+		pkLD->GetAccountRef().iMarriagePremiumChannelPass = data->dwPremiumTime;
 	}
 }
 
@@ -4611,7 +4611,7 @@ TSpecialShopMetaData CClientManager::GetSpecialShopMetaCache(DWORD shop_vnum)
 	{
 		TSpecialShopMetaData new_meta{};
 		new_meta.seed = static_cast<DWORD>(number(1, 9999999));
-		new_meta.lastUpdate = static_cast<DWORD>(time(0));
+		new_meta.lastUpdate = static_cast<int64_t>(time(0));
 		m_map_SpecialShopMetaData[shop_vnum] = new_meta;
 		return new_meta;
 	}
@@ -4625,7 +4625,7 @@ void CClientManager::RecvSpecialShopSeed(CPeer* peer, TPacketGDSpecialShopSeed* 
 	memcpy(&meta, &data->meta, sizeof(TSpecialShopMetaData));
 	m_map_SpecialShopMetaData[data->shopVnum] = meta;
 
-	sys_log(0, "RecvSpecialShopSeed %d %d %d", data->shopVnum, meta.seed, meta.lastUpdate);
+	sys_log(0, "RecvSpecialShopSeed %u %u %lld", static_cast<unsigned int>(data->shopVnum), static_cast<unsigned int>(meta.seed), static_cast<long long>(meta.lastUpdate));
 
 	for (auto& p : m_peerList)
 	{
@@ -4668,10 +4668,13 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 	if (!packet)
 		return;
 
-	if (packet->lAmount == INT32_MIN || packet->lSecondAmount == INT32_MIN)
+	if (packet->lAmount == INT64_MIN || packet->lSecondAmount == INT64_MIN)
 	{
-		sys_err("ChargeCash: invalid INT32_MIN amount (type : %d, amount : %d, second : %d, aid : %u)",
-			packet->eChargeType, packet->lAmount, packet->lSecondAmount, static_cast<unsigned int>(packet->dwAID));
+		sys_err("ChargeCash: invalid INT64_MIN amount (type : %d, amount : %lld, second : %lld, aid : %u)",
+			packet->eChargeType,
+			static_cast<long long>(packet->lAmount),
+			static_cast<long long>(packet->lSecondAmount),
+			static_cast<unsigned int>(packet->dwAID));
 		return;
 	}
 
@@ -4681,51 +4684,67 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 	{
 		if (packet->lAmount >= 0)
 		{
-			const uint32_t credit = static_cast<uint32_t>(packet->lAmount);
+			const uint64_t credit = static_cast<uint64_t>(packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash` = `cash` + %u "
-				"where id = %u and CAST(`cash` AS SIGNED) >= 0 and CAST(`cash` AS SIGNED) + %u <= %d limit 1",
-				credit, static_cast<unsigned int>(packet->dwAID), credit, INT32_MAX);
+				"update account set `cash` = `cash` + %llu "
+				"where id = %u and CAST(`cash` AS SIGNED) >= 0 and CAST(`cash` AS SIGNED) <= %lld - %llu limit 1",
+				static_cast<unsigned long long>(credit),
+				static_cast<unsigned int>(packet->dwAID),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(credit));
 		}
 		else
 		{
-			const uint32_t cost = static_cast<uint32_t>(-packet->lAmount);
-			const uint32_t secondCredit = (packet->lSecondAmount < 0)
-				? static_cast<uint32_t>(-packet->lSecondAmount)
-				: static_cast<uint32_t>(packet->lSecondAmount);
+			const uint64_t cost = static_cast<uint64_t>(-packet->lAmount);
+			const uint64_t secondCredit = (packet->lSecondAmount < 0)
+				? static_cast<uint64_t>(-packet->lSecondAmount)
+				: static_cast<uint64_t>(packet->lSecondAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash` = `cash` - %u, `cash_mark` = `cash_mark` + %u "
-				"where id = %u and `cash` >= %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) + %u <= %d limit 1",
-				cost, secondCredit, static_cast<unsigned int>(packet->dwAID), cost, secondCredit, INT32_MAX);
+				"update account set `cash` = `cash` - %llu, `cash_mark` = `cash_mark` + %llu "
+				"where id = %u and `cash` >= %llu and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
+				static_cast<unsigned long long>(cost),
+				static_cast<unsigned long long>(secondCredit),
+				static_cast<unsigned int>(packet->dwAID),
+				static_cast<unsigned long long>(cost),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(secondCredit));
 		}
 	}
 	else if (ERequestCharge_Marks == packet->eChargeType)
 	{
 		if (packet->lAmount >= 0)
 		{
-			const uint32_t credit = static_cast<uint32_t>(packet->lAmount);
+			const uint64_t credit = static_cast<uint64_t>(packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash_mark` = `cash_mark` + %u "
-				"where id = %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) + %u <= %d limit 1",
-				credit, static_cast<unsigned int>(packet->dwAID), credit, INT32_MAX);
+				"update account set `cash_mark` = `cash_mark` + %llu "
+				"where id = %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
+				static_cast<unsigned long long>(credit),
+				static_cast<unsigned int>(packet->dwAID),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(credit));
 		}
 		else
 		{
-			const uint32_t cost = static_cast<uint32_t>(-packet->lAmount);
+			const uint32_t aid = static_cast<uint32_t>(packet->dwAID);
+			const uint64_t cost = static_cast<uint64_t>(-packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
-				"update account set `cash_mark` = `cash_mark` - %u "
-				"where id = %u and `cash_mark` >= %u limit 1",
-				cost, static_cast<unsigned int>(packet->dwAID), cost);
+				"update account set `cash_mark` = `cash_mark` - %llu "
+				"where id = %u and `cash_mark` >= %llu limit 1",
+				static_cast<unsigned long long>(cost),
+				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(cost));
 		}
 	}
 	else
 	{
-		sys_err("Invalid request charge type (type : %d, amount : %d, aid : %u)", packet->eChargeType, packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+		sys_err("Invalid request charge type (type : %d, amount : %lld, aid : %u)",
+			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned int>(packet->dwAID));
 		return;
 	}
 	
 	if (g_test_server)
-		sys_err("Request Charge (type : %d, amount : %d, aid : %u)", packet->eChargeType, packet->lAmount, static_cast<unsigned int>(packet->dwAID));
+		sys_err("Request Charge (type : %d, amount : %lld, aid : %u)",
+			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned int>(packet->dwAID));
 	
 	CDBManager::Instance().AsyncQuery(szQuery, SQL_ACCOUNT);
 }
@@ -4747,7 +4766,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	DWORD id = 0;
 	DWORD max_use_count = 0;
 	DWORD use_count = 0;
-	DWORD cash = 0;
+	uint64_t cash = 0;
 
 	auto pMsg = CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON);
 
@@ -4783,9 +4802,10 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	//else if (max_use_count > 0 && use_count >= max_use_count)
 	else if (use_count >= max_use_count)
 		bResponse = USE_VOUCHER_ALREADY_USED;
-	else if (cash > static_cast<DWORD>(INT32_MAX))
+	else if (cash > static_cast<uint64_t>(INT64_MAX))
 	{
-		sys_err("UseCodeVoucher: cash value overflow (%u > INT32_MAX, code: %s)", static_cast<unsigned int>(cash), p->code);
+		sys_err("UseCodeVoucher: cash value overflow (%llu > INT64_MAX, code: %s)",
+			static_cast<unsigned long long>(cash), p->code);
 		bResponse = USE_VOUCHER_NO_CODE;
 	}
 
@@ -4799,7 +4819,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 			TRequestChargeCash packet{};
 			packet.dwAID = p->dwAID;
 			packet.eChargeType = ERequestChargeType::ERequestCharge_Cash;
-			packet.lAmount = static_cast<int32_t>(cash);
+			packet.lAmount = static_cast<int64_t>(cash);
 			ChargeCash(&packet);
 		}
 	}

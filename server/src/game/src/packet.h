@@ -378,7 +378,7 @@ typedef struct SPacketGGLogin
 	BYTE	bEmpire;
 	int32_t	lMapIndex;
 	BYTE	bChannel;
-	int32_t	lPremium;
+	int64_t	lPremium;
 } TPacketGGLogin;
 
 typedef struct SPacketGGLogout

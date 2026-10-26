@@ -116,7 +116,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 			"horse_level = %d, "
 			"horse_riding = %d, "
 			"horse_hp = %d, "
-			"horse_hp_droptime = %u, "
+			"horse_hp_droptime = %lld, "
 			"horse_stamina = %d, "
 			"horse_skill_point = %d, "
 #ifdef ENABLE_CHEQUE_SYSTEM
@@ -163,7 +163,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 		pkTab->horse.bLevel,
 		pkTab->horse.bRiding,
 		pkTab->horse.sHealth,
-		static_cast<unsigned int>(pkTab->horse.dwHorseHealthDropTime),
+		static_cast<long long>(pkTab->horse.dwHorseHealthDropTime),
 		pkTab->horse.sStamina,
 		pkTab->horse_skill_point
 #ifdef ENABLE_CHEQUE_SYSTEM
@@ -549,17 +549,17 @@ bool CreatePlayerTableFromRes(MYSQL_RES * res, TPlayerTable * pkTab)
 	str_to_number(pkTab->parts[PART_ACCE], row[col++]);
 #endif
 
-	if (row[col])
-		thecore_memcpy(pkTab->skills, row[col], sizeof(pkTab->skills));
-	else
-		memset(&pkTab->skills, 0, sizeof(pkTab->skills));
+	const unsigned long* lengths = mysql_fetch_lengths(res);
+
+	memset(&pkTab->skills, 0, sizeof(pkTab->skills));
+	if (row[col] && lengths && lengths[col] > 0)
+		thecore_memcpy(pkTab->skills, row[col], std::min<size_t>(sizeof(pkTab->skills), static_cast<size_t>(lengths[col])));
 
 	col++;
 
-	if (row[col])
-		thecore_memcpy(pkTab->quickslot, row[col], sizeof(pkTab->quickslot));
-	else
-		memset(pkTab->quickslot, 0, sizeof(pkTab->quickslot));
+	memset(pkTab->quickslot, 0, sizeof(pkTab->quickslot));
+	if (row[col] && lengths && lengths[col] > 0)
+		thecore_memcpy(pkTab->quickslot, row[col], std::min<size_t>(sizeof(pkTab->quickslot), static_cast<size_t>(lengths[col])));
 
 	col++;
 

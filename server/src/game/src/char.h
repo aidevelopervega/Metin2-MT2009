@@ -1763,15 +1763,15 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		friend class CFuncShoot;
 
 	public:
-		int				GetPremiumRemainSeconds(BYTE bType) const;
+		int64_t			GetPremiumRemainSeconds(BYTE bType) const;
 		bool			IsActivePremiumSubscription() const;
-		int				GetPremiumSubscriptionRemainSeconds() const;
+		int64_t			GetPremiumSubscriptionRemainSeconds() const;
 
 		bool			CanEnterPremiumChannel();
 
 	private:
-		int				m_aiPremiumTimes[PREMIUM_MAX_NUM];
-		int				m_iPremiumSubscriptionTime;
+		int64_t			m_aiPremiumTimes[PREMIUM_MAX_NUM];
+		int64_t			m_iPremiumSubscriptionTime;
 
 		// CHANGE_ITEM_ATTRIBUTES
 		static const char		msc_szLastChangeItemAttrFlag[];

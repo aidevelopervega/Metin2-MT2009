@@ -138,7 +138,7 @@ void CSpecialShopManager::SetShopSeed(DWORD shop_vnum, DWORD seed)
 
 void CSpecialShopManager::SetShopMeta(DWORD shop_vnum, TSpecialShopMetaData meta, bool send_db)
 {
-	sys_log(0, "specialshopVnum %d, meta seed: %d update: %d", shop_vnum, meta.seed, meta.lastUpdate);
+	sys_log(0, "specialshopVnum %d, meta seed: %d update: %lld", shop_vnum, meta.seed, static_cast<long long>(meta.lastUpdate));
 	m_map_SpecialShopMetaData[shop_vnum] = meta;
 	UpdateAllGuests(shop_vnum);
 	if (send_db)
@@ -451,14 +451,14 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 		auto reputationLimit = GetLimit(vnum, SPECIAL_SHOP_LIMIT_REPUTATION);
 		if (reputationLimit.type != SPECIAL_SHOP_LIMIT_NONE)
 		{
-			int destRep = playerReputation - item->price;
+			int64_t destRep = static_cast<int64_t>(playerReputation) - item->price;
 			if (destRep < reputationLimit.value)
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_PRICE_NO_REPUTATION"));
 				return;
 			}
 		}
-		ch->SetReputation(seller->GetFraction(), playerReputation - item->price);
+		ch->SetReputation(seller->GetFraction(), static_cast<int>(static_cast<int64_t>(playerReputation) - item->price));
 	}
 
 	for (auto reqItem : items) {

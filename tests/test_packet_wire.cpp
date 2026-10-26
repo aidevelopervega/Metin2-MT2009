@@ -135,16 +135,31 @@ static_assert(offsetof(TSimplePlayer, y) == 56, "TSimplePlayer.y offset mismatch
 static_assert(offsetof(TSimplePlayer, lAddr) == 60, "TSimplePlayer.lAddr offset mismatch");
 static_assert(offsetof(TSimplePlayer, wPort) == 64, "TSimplePlayer.wPort offset mismatch");
 
-static_assert(sizeof(TRequestChargeCash) == 16, "TRequestChargeCash size mismatch");
+static_assert(sizeof(TRequestChargeCash) == 24, "TRequestChargeCash size mismatch");
 static_assert(offsetof(TRequestChargeCash, dwAID) == 0, "TRequestChargeCash.dwAID offset mismatch");
 static_assert(offsetof(TRequestChargeCash, lAmount) == 4, "TRequestChargeCash.lAmount offset mismatch");
-static_assert(offsetof(TRequestChargeCash, lSecondAmount) == 8, "TRequestChargeCash.lSecondAmount offset mismatch");
-static_assert(offsetof(TRequestChargeCash, eChargeType) == 12, "TRequestChargeCash.eChargeType offset mismatch");
-static_assert(sizeof(TItemShopPromotion) == 12, "TItemShopPromotion size mismatch");
-static_assert(sizeof(TItemShopTimeAuction) == 20, "TItemShopTimeAuction size mismatch");
-static_assert(sizeof(TItemShopItem) == 62, "TItemShopItem size mismatch");
+static_assert(offsetof(TRequestChargeCash, lSecondAmount) == 12, "TRequestChargeCash.lSecondAmount offset mismatch");
+static_assert(offsetof(TRequestChargeCash, eChargeType) == 20, "TRequestChargeCash.eChargeType offset mismatch");
+static_assert(sizeof(TItemShopPromotion) == 24, "TItemShopPromotion size mismatch");
+static_assert(sizeof(TItemShopTimeAuction) == 28, "TItemShopTimeAuction size mismatch");
+static_assert(sizeof(TItemShopItem) == 86, "TItemShopItem size mismatch");
 static_assert(offsetof(TItemShopItem, dwPrice) == 12, "TItemShopItem.dwPrice offset mismatch");
-static_assert(offsetof(TItemShopItem, alSockets) == 18, "TItemShopItem.alSockets offset mismatch");
+static_assert(offsetof(TItemShopItem, alSockets) == 22, "TItemShopItem.alSockets offset mismatch");
+static_assert(sizeof(TItemShopUpdateAuctionItem) == 28, "TItemShopUpdateAuctionItem size mismatch");
+static_assert(sizeof(TSpecialFlagTable) == 49, "TSpecialFlagTable size mismatch");
+static_assert(sizeof(TRefineTable) == 57, "TRefineTable size mismatch");
+static_assert(sizeof(TCraftingItem) == 113, "TCraftingItem size mismatch");
+static_assert(sizeof(TSpecialShopItem) == 75, "TSpecialShopItem size mismatch");
+static_assert(sizeof(TSpecialShopItemClient) == 67, "TSpecialShopItemClient size mismatch");
+static_assert(sizeof(TSpecialShopMetaData) == 16, "TSpecialShopMetaData size mismatch");
+static_assert(sizeof(TPacketGDAuthLogin) == 410, "TPacketGDAuthLogin size mismatch");
+static_assert(sizeof(TPacketGiveGuildPriv) == 17, "TPacketGiveGuildPriv size mismatch");
+static_assert(sizeof(TPacketGiveEmpirePriv) == 14, "TPacketGiveEmpirePriv size mismatch");
+static_assert(sizeof(TPacketDGChangeGuildPriv) == 18, "TPacketDGChangeGuildPriv size mismatch");
+static_assert(sizeof(TPacketDGChangeEmpirePriv) == 15, "TPacketDGChangeEmpirePriv size mismatch");
+static_assert(sizeof(TPacketMarriageAdd) == 66, "TPacketMarriageAdd size mismatch");
+static_assert(sizeof(TPacketSetPremiumPass) == 12, "TPacketSetPremiumPass size mismatch");
+static_assert(sizeof(TPacketGGLogin) == 44, "TPacketGGLogin size mismatch");
 
 int main()
 {
@@ -744,6 +759,51 @@ int main()
                         cgLogin2.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64 &&
                         cgLogin3.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64,
                 "x64 protocol version contract (MT2_PROTOCOL_VERSION_X64=0x20090064) is embedded across GD/GG/CG setup & login packets");
+        }
+        {
+            TRequestChargeCash req{};
+            req.dwAID = 777;
+            req.lAmount = 5000000000LL;
+            req.lSecondAmount = -3000000000LL;
+            req.eChargeType = ERequestCharge_Cash;
+            TRequestChargeCash reqIn{};
+            std::memcpy(&reqIn, &req, sizeof(req));
+            WIRE_ASSERT(reqIn.lAmount == 5000000000LL && reqIn.lSecondAmount == -3000000000LL,
+                "TRequestChargeCash round-trips 64-bit positive/negative cash amounts (> 2^32) without truncation");
+
+            TItemShopItem shopItem{};
+            shopItem.dwIndex = 42;
+            shopItem.dwPrice = 8500000000LL;
+            shopItem.promotion.dwPrice = 4250000000LL;
+            shopItem.promotion.dwStartTime = 2200000000LL;
+            shopItem.promotion.dwEndTime = 2300000000LL;
+            shopItem.timeAuction.dwStartTime = 2400000000LL;
+            shopItem.timeAuction.dwEndTime = 2500000000LL;
+            TItemShopItem shopItemIn{};
+            std::memcpy(&shopItemIn, &shopItem, sizeof(shopItem));
+            WIRE_ASSERT(shopItemIn.dwPrice == 8500000000LL &&
+                        shopItemIn.promotion.dwPrice == 4250000000LL &&
+                        shopItemIn.promotion.dwEndTime == 2300000000LL &&
+                        shopItemIn.timeAuction.dwEndTime == 2500000000LL,
+                "TItemShopItem round-trips 64-bit prices and Y2038+ timestamps without 32-bit truncation");
+
+            TPacketGDAuthLogin authLogin{};
+            authLogin.dwID = 1001;
+            authLogin.iPremium = 2500000000LL;
+            authLogin.iPremiumTimes[0] = 2600000000LL;
+            TPacketGDAuthLogin authLoginIn{};
+            std::memcpy(&authLoginIn, &authLogin, sizeof(authLogin));
+            WIRE_ASSERT(authLoginIn.iPremium == 2500000000LL && authLoginIn.iPremiumTimes[0] == 2600000000LL,
+                "TPacketGDAuthLogin round-trips 64-bit premium subscription and premium timestamps");
+
+            TRefineTable refineTab{};
+            refineTab.id = 99;
+            refineTab.cost = 12000000000LL;
+            TSpecialShopItemClient specItem{};
+            specItem.vnum = 299;
+            specItem.price = 99000000000LL;
+            WIRE_ASSERT(refineTab.cost == 12000000000LL && specItem.price == 99000000000LL,
+                "TRefineTable and TSpecialShopItemClient preserve 64-bit YANG costs/prices (> 2^32)");
         }
     }
 

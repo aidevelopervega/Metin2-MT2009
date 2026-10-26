@@ -170,7 +170,10 @@ void CInputDB::LoginSuccess(DWORD dwHandle, const char *data)
 
 	if (g_bPremiumChannel && (get_global_time() > pTab->iPremium && get_global_time() > pTab->iMarriagePremiumChannelPass))
 	{
-		sys_log(0, "CInputDB::LoginSuccess - Premium is not active (%d, marriagePremiumChannelPass: %d, current_time: %d).", pTab->iPremium, pTab->iMarriagePremiumChannelPass, get_global_time());
+		sys_log(0, "CInputDB::LoginSuccess - Premium is not active (%lld, marriagePremiumChannelPass: %lld, current_time: %d).",
+			static_cast<long long>(pTab->iPremium),
+			static_cast<long long>(pTab->iMarriagePremiumChannelPass),
+			get_global_time());
 		TLogoutPacket pack;
 
 		strlcpy(pack.login, pTab->login, sizeof(pack.login));

@@ -265,7 +265,7 @@ void DBManager::SendAuthLogin(LPDESC d)
 	SendLoginPing(r.login);
 }
 
-void DBManager::LoginPrepare(LPDESC d, DWORD * pdwClientKey, const char* c_pszHwid, int * paiPremiumTimes)
+void DBManager::LoginPrepare(LPDESC d, DWORD * pdwClientKey, const char* c_pszHwid, int64_t * paiPremiumTimes)
 {
 	const TAccountTable & r = d->GetAccountTable();
 
@@ -345,7 +345,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 					char szStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
 					char szHardwareStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
 					DWORD dwID = 0;
-					int iPremium = 0;
+					int64_t iPremium = 0;
 
 					struct SStoredSecretGuard
 					{
@@ -412,7 +412,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 
 					str_to_number(iPremium, row[col++]);
 
-					int aiPremiumTimes[PREMIUM_MAX_NUM];
+					int64_t aiPremiumTimes[PREMIUM_MAX_NUM];
 					memset(&aiPremiumTimes, 0, sizeof(aiPremiumTimes));
 
 					char szCreateDate[256] = "00000000";
@@ -428,7 +428,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 						str_to_number(aiPremiumTimes[PREMIUM_SHOP], row[col++]);
 
 						{
-							long retValue = 0;
+							int64_t retValue = 0;
 							str_to_number(retValue, row[col++]);
 
 							time_t create_time = retValue;
@@ -437,7 +437,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 							if (tm1)
 								strftime(szCreateDate, 255, "%Y%m%d", tm1);
 
-							sys_log(0, "Create_Time %ld %s", retValue, szCreateDate);
+							sys_log(0, "Create_Time %lld %s", static_cast<long long>(retValue), szCreateDate);
 							sys_log(0, "Block Time %d ", strncmp(szCreateDate, g_stBlockDate.c_str(), 8));
 						}
 					}

@@ -34,12 +34,12 @@ class CLoginData
 
 	time_t		GetLastPlayTime() { return m_lastPlayTime; }
 
-	void            SetPremium(int * paiPremiumTimes);
-	int             GetPremium(BYTE type);
-	int *           GetPremiumPtr();
+	void            SetPremium(int64_t * paiPremiumTimes);
+	int64_t         GetPremium(BYTE type);
+	int64_t *       GetPremiumPtr();
 
-	int				GetPremiumSubscription() { return m_iPremium; }
-	void            SetPremiumSubscription(int premium);
+	int64_t			GetPremiumSubscription() { return m_iPremium; }
+	void            SetPremiumSubscription(int64_t premium);
 
 	DWORD		GetLastPlayerID() const { return m_dwLastPlayerID; }
 	void		SetLastPlayerID(DWORD id) { m_dwLastPlayerID = id; }
@@ -55,13 +55,13 @@ class CLoginData
 	bool		m_bPlay;
 	bool		m_bDeleted;
 	bool		m_bWarpHandoffPending;
-	int			m_iPremium;
+	int64_t		m_iPremium;
 
 	char		m_szHwid[HWID_MAX_LEN + 1];
 	DWORD		m_dwClientVersion;
 
 	time_t		m_lastPlayTime;
-	int		m_aiPremiumTimes[PREMIUM_MAX_NUM];
+	int64_t		m_aiPremiumTimes[PREMIUM_MAX_NUM];
 
 	DWORD		m_dwLastPlayerID;
 
@@ -69,4 +69,3 @@ class CLoginData
 };
 
 #endif
-

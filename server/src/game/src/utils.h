@@ -88,7 +88,7 @@ extern const char* seconds_to_smart_time(DWORD second);
 
 extern bool is_time_between_hours(DWORD fromHour, DWORD toHour);
 extern std::vector<VECTOR> find_intermediate_points(VECTOR pos1, VECTOR pos2, int count);
-extern DWORD get_time_until(DWORD targetHour, DWORD targetMinutes=0, DWORD baseTimestamp=0);
+extern DWORD get_time_until(DWORD targetHour, DWORD targetMinutes=0, int64_t baseTimestamp=0);
 extern std::vector<int> generate_unique_numbers(DWORD number_count, DWORD max_number_count, DWORD seed);
 extern bool is_empty_page_grid(BYTE* grid, WORD bCell, BYTE bSize, int iExceptionCell, DWORD dwGridWidth, DWORD dwGridHeight, BYTE bPageCount, bool check_inventory=false, BYTE customGridSize=INVENTORY_DEFAULT_MAX_NUM);
 extern std::string decrypt_aes_hash(const std::string& cipherText, const std::string& key);

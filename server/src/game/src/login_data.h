@@ -27,9 +27,9 @@ class CLoginData
 		void		SetDeleted(bool bSet);
 		bool		IsDeleted();
 
-		void		SetPremium(int * paiPremiumTimes);
-		int			GetPremium(BYTE type);
-		int *		GetPremiumPtr();
+		void		SetPremium(int64_t * paiPremiumTimes);
+		int64_t		GetPremium(BYTE type);
+		int64_t *	GetPremiumPtr();
 
 		void		SetHWID(const char* c_pszHwid) { strlcpy(m_szHwid, c_pszHwid, sizeof(m_szHwid)); }
 		const char* GetHWID() { return m_szHwid; }
@@ -43,7 +43,7 @@ class CLoginData
 		char			m_szHwid[HWID_MAX_LEN+1];
 		bool			m_bDeleted;
 		std::string		m_stLogin;
-		int				m_aiPremiumTimes[PREMIUM_MAX_NUM];
+		int64_t			m_aiPremiumTimes[PREMIUM_MAX_NUM];
 };
 
 #endif

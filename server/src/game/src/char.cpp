@@ -1841,7 +1841,7 @@ void CHARACTER::SetPlayerProto(const TPlayerTable * t)
 	if (GetDesc())
 		m_iPremiumSubscriptionTime = GetDesc()->GetAccountTable().iPremium;
 
-	sys_log(0, "PLAYER_LOAD: %s PREMIUM %d %d, LOGGOFF_INTERVAL %u PTR: %p", t->name, m_aiPremiumTimes[0], m_aiPremiumTimes[1], t->logoff_interval, this);
+	sys_log(0, "PLAYER_LOAD: %s PREMIUM %lld %lld, LOGGOFF_INTERVAL %u PTR: %p", t->name, static_cast<long long>(m_aiPremiumTimes[0]), static_cast<long long>(m_aiPremiumTimes[1]), t->logoff_interval, this);
 
 	if (GetGMLevel() != GM_PLAYER)
 	{
@@ -7121,10 +7121,10 @@ bool CHARACTER::CanEnterPremiumChannel()
 		else
 			otherCh = pMarriage->ch2;
 
-		DWORD premium_time = 0;
+		int64_t premium_time = 0;
 		if (otherCh)
 		{
-			premium_time = get_global_time() + otherCh->GetPremiumSubscriptionRemainSeconds();
+			premium_time = static_cast<int64_t>(get_global_time()) + otherCh->GetPremiumSubscriptionRemainSeconds();
 		}
 		else
 		{
@@ -7135,7 +7135,7 @@ bool CHARACTER::CanEnterPremiumChannel()
 				premium_time = pkCCI->iPremium;
 		}
 
-		if (GetDesc() && premium_time > get_global_time())
+		if (GetDesc() && premium_time > static_cast<int64_t>(get_global_time()))
 		{
 			TPacketSetPremiumPass p{};
 			p.dwAid = GetDesc()->GetAccountTable().id;
@@ -7158,7 +7158,7 @@ bool CHARACTER::IsActivePremiumSubscription() const
 	return GetPremiumSubscriptionRemainSeconds() > 0;
 }
 
-int CHARACTER::GetPremiumRemainSeconds(BYTE bType) const
+int64_t CHARACTER::GetPremiumRemainSeconds(BYTE bType) const
 {
 	if (bType >= PREMIUM_MAX_NUM)
 		return 0;
@@ -7166,15 +7166,15 @@ int CHARACTER::GetPremiumRemainSeconds(BYTE bType) const
 	if (IsActivePremiumSubscription())
 		return GetPremiumSubscriptionRemainSeconds();
 
-	return m_aiPremiumTimes[bType] - get_global_time();
+	return m_aiPremiumTimes[bType] - static_cast<int64_t>(get_global_time());
 }
 
-int CHARACTER::GetPremiumSubscriptionRemainSeconds() const
+int64_t CHARACTER::GetPremiumSubscriptionRemainSeconds() const
 {
 	if (!test_server && IsGM())
-		return get_global_time() + 365 * 3600 * 24;
+		return static_cast<int64_t>(get_global_time()) + 365LL * 3600LL * 24LL;
 
-	return m_iPremiumSubscriptionTime - get_global_time();
+	return m_iPremiumSubscriptionTime - static_cast<int64_t>(get_global_time());
 }
 
 bool CHARACTER::WarpToPID(DWORD dwPID)

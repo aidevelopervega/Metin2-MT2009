@@ -4983,7 +4983,7 @@ ACMD(do_special_shop_meta)
 
 		const long long deltaTimeLL = std::max<long long>(0, static_cast<long long>(get_global_time()) - static_cast<long long>(meta.lastUpdate));
 		const DWORD deltaTime = static_cast<DWORD>(std::min<long long>(deltaTimeLL, static_cast<long long>(UINT32_MAX)));
-		ch->ChatPacket(CHAT_TYPE_INFO, "special shop (vnum %u) seed %u update time %u (delta %u)", shopVnum, meta.seed, meta.lastUpdate, deltaTime);
+		ch->ChatPacket(CHAT_TYPE_INFO, "special shop (vnum %u) seed %u update time %lld (delta %u)", shopVnum, meta.seed, static_cast<long long>(meta.lastUpdate), deltaTime);
 		ch->ChatPacket(CHAT_TYPE_INFO, "current duration: %s", seconds_to_smart_time(deltaTime));
 
 		if (shopVnum == 101) // deviltower

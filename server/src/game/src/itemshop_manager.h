@@ -25,7 +25,7 @@ public:
 	bool IsAuctionExist(int index);
 	TItemShopItem GetItem(int index);
 	TItemShopItem GetTimeAuctionItem(int index);
-	DWORD GetItemPrice(TItemShopItem item);
+	int64_t GetItemPrice(TItemShopItem item);
 	BYTE GetItemCurrency(TItemShopItem item);
 	bool IsItemPromotion(TItemShopItem item);
 	bool IsItemTimeAuction(TItemShopItem item);
