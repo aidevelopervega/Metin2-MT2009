@@ -154,7 +154,7 @@ CREATE TABLE `itemshop` (
   `currency` tinyint(4) NOT NULL DEFAULT 0,
   `item_id` int(10) unsigned DEFAULT NULL,
   `date` datetime NOT NULL DEFAULT current_timestamp(),
-  `money_before_buy` int(10) unsigned NOT NULL DEFAULT 0,
+  `money_before_buy` bigint(20) NOT NULL DEFAULT 0,
   KEY `idx_itemshop_pid` (`pid`),
   KEY `idx_itemshop_account_id` (`account_id`),
   KEY `idx_itemshop_date` (`date`)
@@ -183,7 +183,7 @@ CREATE TABLE `itemshop_log` (
   `account_id` int(11) DEFAULT NULL,
   `vnum` int(11) DEFAULT NULL,
   `count` int(11) DEFAULT NULL,
-  `price` int(11) DEFAULT NULL,
+  `price` bigint(20) DEFAULT NULL,
   `id` int(11) DEFAULT NULL,
   `category` int(11) DEFAULT NULL,
   `channel` smallint(6) DEFAULT NULL,

@@ -863,7 +863,7 @@ bool CHARACTER::DoRefine(LPITEM item, bool bMoneyOnly, BYTE refineType)
 		return false;
 
 	DWORD result_vnum = item->GetRefinedVnum();
-	int cost = ComputeRefineFee(prt->cost);
+	YANG cost = ComputeRefineFee(prt->cost);
 
 	if (result_vnum == 0)
 	{
@@ -958,11 +958,11 @@ bool CHARACTER::DoRefine(LPITEM item, bool bMoneyOnly, BYTE refineType)
 			pkNewItem->AddToCharacter(this, TItemPos(INVENTORY, bCell));
 			ITEM_MANAGER::instance().FlushDelayedSave(pkNewItem);
 
-			sys_log(0, "Refine Success %d", cost);
+			sys_log(0, "Refine Success %lld", static_cast<long long>(cost));
 			pkNewItem->AttrLog();
-			sys_log(0, "PayPee %d", cost);
+			sys_log(0, "PayPee %lld", static_cast<long long>(cost));
 			PayRefineFee(cost);
-			sys_log(0, "PayPee End %d", cost);
+			sys_log(0, "PayPee End %lld", static_cast<long long>(cost));
 
 			if (pkNewItem->GetType() == ITEM_ROD ||
 				pkNewItem->GetType() == ITEM_HERB_KNIFE ||
@@ -1106,7 +1106,7 @@ bool CHARACTER::DoRefineWithScroll(LPITEM item)
 	}
 
 	int prob = number(1, 100);
-	int cost = prt->cost;
+	YANG cost = prt->cost;
 	int success_prob = prt->prob;
 	bool bDestroyWhenFail = false;
 	bool bLevelReductionOnFail = true;

@@ -5,7 +5,7 @@ namespace mining
 {
 	LPEVENT CreateMiningEvent(LPCHARACTER ch, LPCHARACTER load, int count);
 	DWORD GetRawOreFromLoad(DWORD dwLoadVnum);
-	bool OreRefine(LPCHARACTER ch, LPCHARACTER npc, LPITEM item, int cost, int pct, LPITEM metinstone_item);
+	bool OreRefine(LPCHARACTER ch, LPCHARACTER npc, LPITEM item, YANG cost, int pct, LPITEM metinstone_item);
 	int GetMiningSkillBonus(LPCHARACTER);
 	int GetFractionCount();
 

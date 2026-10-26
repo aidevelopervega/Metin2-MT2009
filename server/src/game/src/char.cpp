@@ -7269,24 +7269,44 @@ bool CHARACTER::IsRefineThroughGuild() const
 	return GetRefineGuild() != NULL;
 }
 
-int CHARACTER::ComputeRefineFee(int iCost, int iMultiply) const
+YANG CHARACTER::ComputeRefineFee(YANG iCost, int iMultiply) const
 {
+	if (iCost <= 0)
+		return 0;
+
+	auto clampRefineCost = [](YANG val) -> YANG {
+		if (val < 0)
+			return 0;
+		if (val >= GOLD_MAX)
+			return GOLD_MAX - 1;
+		return val;
+	};
+
 	CGuild* pGuild = GetRefineGuild();
 	if (pGuild)
 	{
 		iMultiply = iMultiply * 80 / 100;
+		if (iMultiply <= 0)
+			return 0;
+
+		const YANG maxBase = (GOLD_MAX - 1) / static_cast<YANG>(iMultiply);
+		const YANG baseMultiplied = (iCost > maxBase) ? (GOLD_MAX - 1) : (iCost * static_cast<YANG>(iMultiply));
 
 		if (pGuild == GetGuild())
-			return iCost * iMultiply * 9 / 10;
+			return clampRefineCost((baseMultiplied * 9) / 10);
 
 		LPCHARACTER chRefineNPC = CHARACTER_MANAGER::instance().Find(m_dwRefineNPCVID);
 		if (chRefineNPC && chRefineNPC->GetEmpire() != GetEmpire())
-			return iCost * iMultiply * 3;
+		{
+			if (baseMultiplied > (GOLD_MAX - 1) / 3)
+				return GOLD_MAX - 1;
+			return clampRefineCost(baseMultiplied * 3);
+		}
 
-		return iCost * iMultiply;
+		return clampRefineCost(baseMultiplied);
 	}
 	else
-		return iCost;
+		return clampRefineCost(iCost);
 }
 
 void CHARACTER::PayRefineFee(YANG iTotalMoney)

@@ -1792,7 +1792,7 @@ namespace quest
 			return 1;
 		}
 
-		int cost = (int) lua_tonumber(L, 1);
+		YANG cost = static_cast<YANG>(lua_tonumber(L, 1));
 		int pct = (int)lua_tonumber(L, 2);
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
@@ -1815,7 +1815,7 @@ namespace quest
 			return 1;
 		}
 
-		int cost = (int) lua_tonumber(L, 1);
+		YANG cost = static_cast<YANG>(lua_tonumber(L, 1));
 		int pct = (int)lua_tonumber(L, 2);
 		int metinstone_cell = (int)lua_tonumber(L, 3);
 

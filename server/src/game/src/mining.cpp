@@ -434,7 +434,7 @@ namespace mining
 		return event_create(mining_event, event_info, PASSES_PER_SEC(2 * count));
 	}
 
-	bool OreRefine(LPCHARACTER ch, LPCHARACTER npc, LPITEM item, int cost, int pct, LPITEM metinstone_item)
+	bool OreRefine(LPCHARACTER ch, LPCHARACTER npc, LPITEM item, YANG cost, int pct, LPITEM metinstone_item)
 	{
 		if (!ch || !npc)
 			return false;
@@ -458,7 +458,7 @@ namespace mining
 
 		ch->SetRefineNPC(npc);
 		item->SetCount(item->GetCount() - ORE_COUNT_FOR_REFINE);
-		int iCost = ch->ComputeRefineFee(cost, 1);
+		YANG iCost = ch->ComputeRefineFee(cost, 1);
 
 		if (ch->GetGold() < iCost)
 			return false;

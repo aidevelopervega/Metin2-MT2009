@@ -227,7 +227,7 @@ CREATE TABLE `itemshop_items` (
   `index` int(10) NOT NULL,
   `vnum` int(10) NOT NULL,
   `count` smallint(4) NOT NULL,
-  `price` int(10) NOT NULL,
+  `price` bigint(20) NOT NULL,
   `currency` enum('DRAGON_COIN','DRAGON_MARK') NOT NULL DEFAULT 'DRAGON_COIN',
   `minLevel` int(10) NOT NULL DEFAULT 0,
   `socket0` int(10) NOT NULL DEFAULT 0,
@@ -408,7 +408,7 @@ DROP TABLE IF EXISTS `itemshop_promotions`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `itemshop_promotions` (
   `item_index` int(10) NOT NULL,
-  `price` int(11) NOT NULL,
+  `price` bigint(20) NOT NULL,
   `start_time` datetime NOT NULL DEFAULT current_timestamp(),
   `end_time` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`item_index`) USING BTREE
@@ -565,7 +565,7 @@ CREATE TABLE `vouchers` (
   `code` varchar(20) NOT NULL,
   `max_use_count` int(11) unsigned NOT NULL DEFAULT 1,
   `use_count` int(11) unsigned NOT NULL DEFAULT 0,
-  `cash` int(11) unsigned NOT NULL DEFAULT 0,
+  `cash` bigint(20) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -139,8 +139,8 @@ CREATE TABLE `account` (
   `answer1` varchar(56) DEFAULT NULL,
   `question2` varchar(56) DEFAULT NULL,
   `answer2` varchar(56) DEFAULT NULL,
-  `cash` int(10) DEFAULT 0,
-  `cash_mark` int(10) DEFAULT 0,
+  `cash` bigint(20) NOT NULL DEFAULT 0,
+  `cash_mark` bigint(20) NOT NULL DEFAULT 0,
   `web_user_id` varchar(255) DEFAULT NULL,
   `hwid` varchar(255) DEFAULT '',
   PRIMARY KEY (`id`) USING BTREE,
@@ -286,6 +286,42 @@ set autocommit=0;
 /*!40000 ALTER TABLE `string` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
+
+--
+-- Table structure for table `itemshop_tx_journal`
+--
+
+DROP TABLE IF EXISTS `itemshop_tx_journal`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `itemshop_tx_journal` (
+  `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `aid` int(11) unsigned NOT NULL DEFAULT 0,
+  `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `login` varchar(30) NOT NULL DEFAULT '',
+  `item_index` int(11) NOT NULL DEFAULT 0,
+  `vnum` int(11) unsigned NOT NULL DEFAULT 0,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `item_count` int(11) unsigned NOT NULL DEFAULT 1,
+  `charge_type` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `cash_delta` bigint(20) NOT NULL DEFAULT 0,
+  `mark_delta` bigint(20) NOT NULL DEFAULT 0,
+  `money_before_buy` bigint(20) NOT NULL DEFAULT 0,
+  `is_vip` tinyint(1) NOT NULL DEFAULT 0,
+  `vip_type` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `vip_hours` int(11) unsigned NOT NULL DEFAULT 0,
+  `is_time_auction` tinyint(1) NOT NULL DEFAULT 0,
+  `auction_reserved_count` int(11) unsigned NOT NULL DEFAULT 0,
+  `state` enum('INITIATED','CHARGED','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',
+  `delivered_item_ids` varchar(255) NOT NULL DEFAULT '',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`tx_id`),
+  KEY `idx_itemshop_tx_state` (`state`),
+  KEY `idx_itemshop_tx_aid` (`aid`),
+  KEY `idx_itemshop_tx_pid` (`pid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

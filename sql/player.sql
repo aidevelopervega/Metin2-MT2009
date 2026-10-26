@@ -685,7 +685,7 @@ CREATE TABLE `marriage` (
   `pid1` int(10) unsigned NOT NULL DEFAULT 0,
   `pid2` int(10) unsigned NOT NULL DEFAULT 0,
   `love_point` int(11) unsigned DEFAULT NULL,
-  `time` int(10) unsigned NOT NULL DEFAULT 0,
+  `time` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`pid1`,`pid2`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -841,7 +841,7 @@ DROP TABLE IF EXISTS `myshop_pricelist`;
 CREATE TABLE `myshop_pricelist` (
   `owner_id` int(11) unsigned NOT NULL DEFAULT 0,
   `item_vnum` int(11) unsigned NOT NULL DEFAULT 0,
-  `price` int(10) unsigned NOT NULL DEFAULT 0,
+  `price` bigint(20) NOT NULL DEFAULT 0,
   UNIQUE KEY `list_id` (`owner_id`,`item_vnum`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -973,7 +973,7 @@ CREATE TABLE `player` (
   `horse_hp` smallint(4) NOT NULL DEFAULT 0,
   `horse_stamina` smallint(4) NOT NULL DEFAULT 0,
   `horse_level` tinyint(2) unsigned NOT NULL DEFAULT 0,
-  `horse_hp_droptime` int(10) unsigned NOT NULL DEFAULT 0,
+  `horse_hp_droptime` bigint(20) NOT NULL DEFAULT 0,
   `horse_riding` tinyint(1) NOT NULL DEFAULT 0,
   `horse_skill_point` smallint(3) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
@@ -1048,7 +1048,7 @@ CREATE TABLE `player_deleted` (
   `horse_hp` smallint(4) NOT NULL DEFAULT 0,
   `horse_stamina` smallint(4) NOT NULL DEFAULT 0,
   `horse_level` tinyint(2) unsigned NOT NULL DEFAULT 0,
-  `horse_hp_droptime` int(10) unsigned NOT NULL DEFAULT 0,
+  `horse_hp_droptime` bigint(20) NOT NULL DEFAULT 0,
   `horse_riding` tinyint(1) NOT NULL DEFAULT 0,
   `horse_skill_point` smallint(3) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
