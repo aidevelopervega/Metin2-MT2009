@@ -3175,7 +3175,7 @@ void CInputDB::AddMonarchMoney([[maybe_unused]] LPDESC d, const char * data )
 	if (ch)
 	{
 		if (number(1, 100) > 95)
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("현재 %s 국고에는 %u 의 돈이 있습니다"), EMPIRE_NAME(Empire), CMonarch::instance().GetMoney(Empire));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("현재 %s 국고에는 %u 의 돈이 있습니다"), EMPIRE_NAME(Empire), (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(Empire), (int64_t)UINT_MAX)));
 	}
 }
 
@@ -3195,7 +3195,7 @@ void CInputDB::DecMonarchMoney([[maybe_unused]] LPDESC d, const char * data)
 
 	if (ch)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s still has %d Yang available."), EMPIRE_NAME(Empire), CMonarch::instance().GetMoney(Empire));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s still has %d Yang available."), EMPIRE_NAME(Empire), (int)MAX((int64_t)INT_MIN, MIN(CMonarch::instance().GetMoney(Empire), (int64_t)INT_MAX)));
 	}
 }
 

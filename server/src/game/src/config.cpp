@@ -387,9 +387,9 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 			if ('\0' != line[0])
 			{
-				char buf[256];
-				one_argument(line, buf, sizeof(buf));
-				str_to_number(mysql_db_port[PLAYER_SQL_INDEX], buf);
+				char portBuf[256];
+				one_argument(line, portBuf, sizeof(portBuf));
+				str_to_number(mysql_db_port[PLAYER_SQL_INDEX], portBuf);
 			}
 
 			if (!*db_host[PLAYER_SQL_INDEX] || !*db_user[PLAYER_SQL_INDEX] || !*db_pwd[PLAYER_SQL_INDEX] || !*db_db[PLAYER_SQL_INDEX])
@@ -411,9 +411,9 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 			if ('\0' != line[0])
 			{
-				char buf[256];
-				one_argument(line, buf, sizeof(buf));
-				str_to_number(mysql_db_port[COMMON_SQL_INDEX], buf);
+				char portBuf[256];
+				one_argument(line, portBuf, sizeof(portBuf));
+				str_to_number(mysql_db_port[COMMON_SQL_INDEX], portBuf);
 			}
 
 			if (!*db_host[COMMON_SQL_INDEX] || !*db_user[COMMON_SQL_INDEX] || !*db_pwd[COMMON_SQL_INDEX] || !*db_db[COMMON_SQL_INDEX])
@@ -433,9 +433,9 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 			if (line[0])
 			{
-				char buf[256];
-				one_argument(line, buf, sizeof(buf));
-				str_to_number(mysql_db_port[ACCOUNT_SQL_INDEX], buf);
+				char portBuf[256];
+				one_argument(line, portBuf, sizeof(portBuf));
+				str_to_number(mysql_db_port[ACCOUNT_SQL_INDEX], portBuf);
 			}
 
 			if (!*db_host[ACCOUNT_SQL_INDEX] || !*db_user[ACCOUNT_SQL_INDEX] || !*db_pwd[ACCOUNT_SQL_INDEX] || !*db_db[ACCOUNT_SQL_INDEX])
@@ -455,9 +455,9 @@ static bool __LoadConnectConfigFile(const char* configName)
 
 			if ('\0' != line[0])
 			{
-				char buf[256];
-				one_argument(line, buf, sizeof(buf));
-				str_to_number(log_port, buf);
+				char portBuf[256];
+				one_argument(line, portBuf, sizeof(portBuf));
+				str_to_number(log_port, portBuf);
 			}
 
 			if (!*log_host || !*log_user || !*log_pwd || !*log_db)
@@ -629,15 +629,15 @@ static bool __LoadConnectConfigFile(const char* configName)
 		for (int job = 0; job < JOB_MAX_NUM * 2; ++job)
 		{
 			snprintf(szQuery, sizeof(szQuery), "SELECT mValue from locale where mKey='SKILL_POWER_BY_LEVEL_TYPE%d' ORDER BY CAST(mValue AS unsigned)", job);
-			auto pMsg(AccountDB::instance().DirectQuery(szQuery));
+			auto pJobMsg(AccountDB::instance().DirectQuery(szQuery));
 
-			if (pMsg->Get()->uiNumRows == 0)
+			if (!pJobMsg || !pJobMsg->Get() || pJobMsg->Get()->uiNumRows == 0)
 			{
 				CTableBySkill::instance().SetSkillPowerByLevelFromType(job, aiBaseSkillPowerByLevelTable);
 				continue;
 			}
 
-			row = mysql_fetch_row(pMsg->Get()->pSQLResult);
+			row = mysql_fetch_row(pJobMsg->Get()->pSQLResult);
 			cnt = 0;
 			p = row[0];
 			int aiSkillTable[SKILL_MAX_LEVEL + 1];

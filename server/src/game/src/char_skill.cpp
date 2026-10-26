@@ -150,9 +150,9 @@ bool TSkillUseInfo::HitOnce(DWORD dwVnum)
 	return false;
 }
 
-bool TSkillUseInfo::UseSkill(bool isGrandMaster, DWORD vid, DWORD dwCooltime, int splashcount, int hitcount, int range)
+bool TSkillUseInfo::UseSkill(bool in_isGrandMaster, DWORD vid, DWORD dwCooltime, int splashcount, int hitcount, int range)
 {
-	this->isGrandMaster = isGrandMaster;
+	this->isGrandMaster = in_isGrandMaster;
 	DWORD dwCur = get_dword_time();
 
 	if (bUsed && dwNextSkillUsableTime > dwCur)
@@ -1544,11 +1544,11 @@ struct FuncSplashDamage
 					m_pkSk->SetDurationVar("iq", m_pkChr->GetPoint(POINT_IQ));
 
 					iDur = (int)m_pkSk->kDurationPoly2.Eval();
-					int bonus = m_pkChr->GetPoint(POINT_PARTY_BUFFER_BONUS);
+					int fireBonus = m_pkChr->GetPoint(POINT_PARTY_BUFFER_BONUS);
 
-					if (bonus != 0)
+					if (fireBonus != 0)
 					{
-						iDur += bonus / 3;
+						iDur += fireBonus / 3;
 					}
 					m_pkChr->ChatDebug("fire chance %d", iDur);
 					if (number(1, 100) <= iDur)

@@ -163,11 +163,11 @@ namespace quest
 			}
 			else if (type_name == "arg")
 			{
-				string s;
-				getline(inf, s);
+				string argLine;
+				getline(inf, argLine);
 				m_mapOwnArgQuest[event_index][quest_index][state_index][index].arg.clear();
 
-				for (string::iterator it = s.begin(); it != s.end(); ++it)
+				for (string::iterator it = argLine.begin(); it != argLine.end(); ++it)
 				{
 					m_mapOwnArgQuest[event_index][quest_index][state_index][index].arg+=*it;
 				}
@@ -897,8 +897,8 @@ namespace quest
 
 	struct FuncMissChatEvent
 	{
-		FuncMissChatEvent(vector<AArgScript*>& rAvailScript)
-			: rAvailScript(rAvailScript)
+		FuncMissChatEvent(vector<AArgScript*>& in_rAvailScript)
+			: rAvailScript(in_rAvailScript)
 			{}
 
 		void operator()([[maybe_unused]] PC::QuestInfoIterator& itPCQuest, NPC::ArgQuestMapType::iterator& itQuestMap)
@@ -920,8 +920,8 @@ namespace quest
 
 	struct FuncMatchChatEvent
 	{
-		FuncMatchChatEvent(vector<AArgScript*>& rAvailScript)
-			: rAvailScript(rAvailScript)
+		FuncMatchChatEvent(vector<AArgScript*>& in_rAvailScript)
+			: rAvailScript(in_rAvailScript)
 			{}
 
 		void operator()(PC::QuestInfoIterator& itPCQuest, NPC::ArgQuestMapType::iterator& itQuestMap)

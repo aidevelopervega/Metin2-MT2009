@@ -89,7 +89,7 @@ namespace quest
 		return returnBool;
 	}
 
-	FPartyChat::FPartyChat(int ChatType, const char* str) : iChatType(ChatType), str(str)
+	FPartyChat::FPartyChat(int ChatType, const char* in_str) : iChatType(ChatType), str(in_str)
 	{
 	}
 

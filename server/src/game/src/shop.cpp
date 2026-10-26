@@ -432,9 +432,9 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	if (m_pkPC && m_pkPC->IsPC())
 	{
 		int itemCount = 0;
-		for (auto it : m_itemVector)
+		for (const auto& shopItem : m_itemVector)
 		{
-			if (it.pkItem)
+			if (shopItem.pkItem)
 			{
 				itemCount++;
 				break;

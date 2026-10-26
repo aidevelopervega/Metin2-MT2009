@@ -177,7 +177,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
 				return 0;
 			}
 		}
@@ -185,8 +185,8 @@ namespace quest
 		int	money_need = 5000000;
 		if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 		{
-			int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, money_need);
+			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 			return 0;
 		}
 
@@ -229,7 +229,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
 				return 0;
 			}
 		}
@@ -237,8 +237,8 @@ namespace quest
 		int	money_need = 5000000;
 		if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 		{
-			int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, money_need);
+			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 			return 0;
 		}
 
@@ -307,7 +307,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
 				return 0;
 			}
 		}
@@ -393,7 +393,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
 				return 0;
 			}
 		}
@@ -412,8 +412,8 @@ namespace quest
 
 			if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 			{
-				int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, money_need);
+				unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 				return 0;
 			}
 			guard_leader = castle_spawn_guard(ch->GetEmpire(), group_vnum, region_index);
@@ -440,14 +440,14 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
 				return 0;
 			}
 		}
 
 		if (castle_frog_to_empire_money(ch))
 		{
-			int empire_money = CMonarch::instance().GetMoney(ch->GetEmpire());
+			int empire_money = (int)MAX((int64_t)INT_MIN, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)INT_MAX));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("TEST: The Gold Bar has been paid back to your kingdom's safe."));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("TEST: In your kingdom's safe there are: %d"), empire_money);
 			castle_save();
@@ -482,7 +482,7 @@ namespace quest
 
 		if (!ch->IsMCOK(CHARACTER::MI_WARP))
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_WARP));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_WARP));
 			return 0;
 		}
 
@@ -490,8 +490,8 @@ namespace quest
 
 		if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 		{
-			int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, WarpPrice);
+			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 			return 0;
 		}
 
@@ -525,7 +525,7 @@ namespace quest
 				PIXEL_POSITION pos;
 
 				if (!SECTREE_MANAGER::instance().GetCenterPositionOfMap(pkCCI->lMapIndex, pos))
-					ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find map (index %d)", pkCCI->lMapIndex);
+					ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find map (index %d)", (int)pkCCI->lMapIndex);
 				else
 				{
 					//ch->ChatPacket(CHAT_TYPE_INFO, "You warp to (%d, %d)", pos.x, pos.y);
@@ -590,7 +590,7 @@ namespace quest
 			for (int n = 1; n < 4; ++n)
 			{
 				if (n == ch->GetEmpire())
-					ch->ChatPacket(CHAT_TYPE_INFO,LC_TEXT("[%sMonarch] : %s Yang owned %lld"), EMPIRE_NAME(n), p->name[n], p->money[n]);
+					ch->ChatPacket(CHAT_TYPE_INFO,LC_TEXT("[%sMonarch] : %s Yang owned %lld"), EMPIRE_NAME(n), p->name[n], (long long)p->money[n]);
 				else
 					ch->ChatPacket(CHAT_TYPE_INFO,LC_TEXT("[%sMonarch] : %s"), EMPIRE_NAME(n), p->name[n]);
 			}
@@ -629,7 +629,7 @@ namespace quest
 
 		if (!ch->IsMCOK(CHARACTER::MI_TRANSFER))
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_TRANSFER));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_TRANSFER));
 			return 0;
 		}
 
@@ -637,8 +637,8 @@ namespace quest
 
 		if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 		{
-			int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, WarpPrice);
+			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 			return 0;
 		}
 
@@ -807,7 +807,7 @@ namespace quest
 
 		if (ch->IsMCOK(CHARACTER::MI_TRANSFER) == false)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_TRANSFER));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_TRANSFER));
 			return 0;
 		}
 
@@ -815,8 +815,8 @@ namespace quest
 
 		if (CMonarch::instance().IsMoneyOk(ciTransferCost, ch->GetEmpire()) == false)
 		{
-			int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, ciTransferCost);
+			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)ciTransferCost);
 			return 0;
 		}
 

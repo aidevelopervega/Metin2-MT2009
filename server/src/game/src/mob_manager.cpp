@@ -257,8 +257,8 @@ void CMobManager::IncRegenCount(BYTE bRegenType, DWORD dwVnum, int iCount, int i
 						return;
 					const std::vector<DWORD> & c_rdwMembers = pkGroup->GetMemberVector();
 
-					for (DWORD i=0; i<c_rdwMembers.size(); i++)
-						m_mapRegenCount[c_rdwMembers[i]] += iCount * 86400. / iTime / v.size();
+					for (DWORD j=0; j<c_rdwMembers.size(); j++)
+						m_mapRegenCount[c_rdwMembers[j]] += iCount * 86400. / iTime / v.size();
 				}
 			}
 			break;
@@ -423,7 +423,7 @@ bool CMobManager::LoadGroup(const char * c_pszFileName)
 			if (loader.GetTokenVector(buf, &pTok))
 			{
 				sys_log(0, "               %s %s", pTok->at(0).c_str(), pTok->at(1).c_str());
-				DWORD vnum = 0;
+				vnum = 0;
 				str_to_number(vnum, pTok->at(1).c_str());
 				pkGroup->AddMember(vnum);
 				continue;

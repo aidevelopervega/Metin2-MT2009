@@ -132,7 +132,7 @@ my_ulonglong STDCALL mysql_num_rows(MYSQL_RES *)
 
 unsigned int STDCALL mysql_errno(MYSQL *)
 {
-	return s_mock_force_errno;
+	return static_cast<unsigned int>(s_mock_force_errno);
 }
 
 const char * STDCALL mysql_error(MYSQL *)

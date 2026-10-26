@@ -26,7 +26,7 @@
 inline void stl_lowers(std::string& rstRet)
 {
 	for (size_t i = 0; i < rstRet.length(); ++i)
-		rstRet[i] = tolower(rstRet[i]);
+		rstRet[i] = static_cast<char>(tolower(static_cast<unsigned char>(rstRet[i])));
 }
 
 struct stringhash

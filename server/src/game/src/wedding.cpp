@@ -49,14 +49,14 @@ namespace marriage
 	}
 
 	// Map instance
-	WeddingMap::WeddingMap(DWORD dwMapIndex, DWORD dwPID1, DWORD dwPID2) :
+	WeddingMap::WeddingMap(DWORD dwMapIndex, DWORD in_dwPID1, DWORD in_dwPID2) :
 		m_dwMapIndex(dwMapIndex),
 		m_pEndEvent(NULL),
 		m_isDark(false),
 		m_isSnow(false),
 		m_isMusic(false),
-		dwPID1(dwPID1),
-		dwPID2(dwPID2)
+		dwPID1(in_dwPID1),
+		dwPID2(in_dwPID2)
 	{
 	}
 

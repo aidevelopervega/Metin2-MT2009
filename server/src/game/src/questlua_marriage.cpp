@@ -74,7 +74,7 @@ namespace quest
 	{
 		lua_State * L;
 		int m_count;
-		FBuildLuaWeddingMapList(lua_State * L) : L(L), m_count(1)
+		FBuildLuaWeddingMapList(lua_State * in_L) : L(in_L), m_count(1)
 		{
 			lua_newtable(L);
 		}

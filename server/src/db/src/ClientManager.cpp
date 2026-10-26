@@ -1055,10 +1055,15 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 							{
 								if (LIMIT_REAL_TIME == item_table->aLimits[i].bType)
 								{
-									if (0 == item_table->aLimits[i].lValue)
-										dwSocket0 = time(0) + 60 * 60 * 24 * 7;
+									const time_t now = time(0);
+									const int64_t duration = (0 == item_table->aLimits[i].lValue) ? (60LL * 60 * 24 * 7) : static_cast<int64_t>(item_table->aLimits[i].lValue);
+									const int64_t expireTime = static_cast<int64_t>(now) + duration;
+									if (expireTime <= 0)
+										dwSocket0 = 0;
+									else if (expireTime > static_cast<int64_t>(UINT32_MAX))
+										dwSocket0 = UINT32_MAX;
 									else
-										dwSocket0 = time(0) + item_table->aLimits[i].lValue;
+										dwSocket0 = static_cast<DWORD>(expireTime);
 
 									break;
 								}
@@ -1066,8 +1071,10 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 								{
 									if (0 == item_table->aLimits[i].lValue)
 										dwSocket0 = 60 * 60 * 24 * 7;
+									else if (item_table->aLimits[i].lValue < 0)
+										dwSocket0 = 0;
 									else
-										dwSocket0 = item_table->aLimits[i].lValue;
+										dwSocket0 = static_cast<DWORD>(item_table->aLimits[i].lValue);
 
 									break;
 								}
@@ -1115,13 +1122,18 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 					}
 
 					auto pmsg(CDBManager::instance().DirectQuery(szQuery));
+					if (!pmsg || !pmsg->Get())
+					{
+						sys_err("SAFEBOX Query DirectQuery failed: [%s]", szQuery);
+						break;
+					}
 					SQLResult * pRes = pmsg->Get();
 					sys_log(0, "SAFEBOX Query : [%s]", szQuery);
 
 					if (pRes->uiAffectedRows == 0 || pRes->uiInsertID == 0 || pRes->uiAffectedRows == (uint32_t)-1)
 						break;
 
-					item.id = pmsg->Get()->uiInsertID;
+					item.id = static_cast<DWORD>(pRes->uiInsertID);
 					item.window = pi->ip[0] == 0 ? SAFEBOX : MALL,
 					item.pos = iPos;
 					item.count = pItemAward->dwCount;

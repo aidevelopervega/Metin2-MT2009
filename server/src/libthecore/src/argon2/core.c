@@ -217,8 +217,10 @@ uint32_t index_alpha(const argon2_instance_t *instance,
                     position->index - 1;
             } else {
                 reference_area_size =
-                    position->slice * instance->segment_length +
-                    ((position->index == 0) ? (-1) : 0);
+                    position->slice * instance->segment_length;
+                if (position->index == 0) {
+                    reference_area_size--;
+                }
             }
         }
     } else {
@@ -229,8 +231,10 @@ uint32_t index_alpha(const argon2_instance_t *instance,
                                   1;
         } else {
             reference_area_size = instance->lane_length -
-                                  instance->segment_length +
-                                  ((position->index == 0) ? (-1) : 0);
+                                  instance->segment_length;
+            if (position->index == 0) {
+                reference_area_size--;
+            }
         }
     }
 
@@ -246,13 +250,13 @@ uint32_t index_alpha(const argon2_instance_t *instance,
 
     if (0 != position->pass) {
         start_position = (position->slice == ARGON2_SYNC_POINTS - 1)
-                             ? 0
-                             : (position->slice + 1) * instance->segment_length;
+                             ? 0U
+                             : (position->slice + 1U) * instance->segment_length;
     }
 
     /* 1.2.6. Computing absolute position */
-    absolute_position = (start_position + relative_position) %
-                        instance->lane_length; /* absolute position */
+    absolute_position = (uint32_t)((start_position + relative_position) %
+                        instance->lane_length); /* absolute position */
     return absolute_position;
 }
 

@@ -153,19 +153,19 @@ void CHARACTER_MANAGER::DestroyCharacter(LPCHARACTER ch, const char* file, size_
 
 		str_lower(ch->GetName(), szName, sizeof(szName));
 
-		NAME_MAP::iterator it = m_map_pkPCChr.find(szName);
+		NAME_MAP::iterator itPC = m_map_pkPCChr.find(szName);
 
-		if (m_map_pkPCChr.end() != it)
-			m_map_pkPCChr.erase(it);
+		if (m_map_pkPCChr.end() != itPC)
+			m_map_pkPCChr.erase(itPC);
 	}
 
 	if (0 != ch->GetPlayerID())
 	{
-		itertype(m_map_pkChrByPID) it = m_map_pkChrByPID.find(ch->GetPlayerID());
+		itertype(m_map_pkChrByPID) itPID = m_map_pkChrByPID.find(ch->GetPlayerID());
 
-		if (m_map_pkChrByPID.end() != it)
+		if (m_map_pkChrByPID.end() != itPID)
 		{
-			m_map_pkChrByPID.erase(it);
+			m_map_pkChrByPID.erase(itPID);
 		}
 	}
 

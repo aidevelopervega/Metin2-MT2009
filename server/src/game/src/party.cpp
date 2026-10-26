@@ -1467,9 +1467,9 @@ void CParty::Update()
 
 	if (bResendAll)
 	{
-		for (TMemberMap::iterator it = m_memberMap.begin(); it != m_memberMap.end(); ++it)
-			if (it->second.pCharacter)
-				SendPartyInfoOneToAll(it->second.pCharacter);
+		for (TMemberMap::iterator itResend = m_memberMap.begin(); itResend != m_memberMap.end(); ++itResend)
+			if (itResend->second.pCharacter)
+				SendPartyInfoOneToAll(itResend->second.pCharacter);
 	}
 }
 

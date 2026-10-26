@@ -89,7 +89,7 @@ EVENTFUNC( DragonLair_Collapse_Event )
 	if (0 == pInfo->step)
 	{
 		char buf[512];
-		snprintf(buf, 512, LC_TEXT("You managed to defeat the dragon in %d seconds!"), pInfo->pLair->GetEstimatedTime());
+		snprintf(buf, 512, LC_TEXT("You managed to defeat the dragon in %d seconds!"), (int)pInfo->pLair->GetEstimatedTime());
 		SendNoticeMap(buf, pInfo->InstanceMapIndex, true);
 
 		pInfo->step++;
@@ -122,7 +122,7 @@ EVENTFUNC( DragonLair_Collapse_Event )
 CDragonLair::CDragonLair(DWORD guildID, long BaseMapID, long PrivateMapID)
 	: GuildID_(guildID), BaseMapIndex_(BaseMapID), PrivateMapIndex_(PrivateMapID)
 {
-	StartTime_ = get_global_time();
+	StartTime_ = (DWORD)get_global_time();
 }
 
 CDragonLair::~CDragonLair()
@@ -131,14 +131,14 @@ CDragonLair::~CDragonLair()
 
 DWORD CDragonLair::GetEstimatedTime() const
 {
-	return get_global_time() - StartTime_;
+	return (DWORD)get_global_time() - StartTime_;
 }
 
 void CDragonLair::OnDragonDead(LPCHARACTER pDragon)
 {
 	sys_log(0, "DragonLair: 도라곤이 죽어써효");
 
-	LogManager::instance().DragonSlayLog(  GuildID_, pDragon->GetMobTable().dwVnum, StartTime_, get_global_time() );
+	LogManager::instance().DragonSlayLog(  GuildID_, pDragon->GetMobTable().dwVnum, StartTime_, (DWORD)get_global_time() );
 }
 
 CDragonLairManager::CDragonLairManager()

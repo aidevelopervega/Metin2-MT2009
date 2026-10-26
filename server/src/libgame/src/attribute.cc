@@ -72,7 +72,7 @@ void CAttribute::Alloc()
 
 	    for (DWORD y = 0; y < height; ++y)
 		for (DWORD x = 0; x < width; ++x)
-		    wordPtr[y][x] = defaultAttr;
+		    wordPtr[y][x] = static_cast<WORD>(defaultAttr);
 
 	    break;
 
@@ -85,7 +85,7 @@ void CAttribute::Alloc()
 
 	    for (DWORD y = 0; y < height; ++y)
 		for (DWORD x = 0; x < width; ++x)
-		    bytePtr[y][x] = defaultAttr;
+		    bytePtr[y][x] = static_cast<BYTE>(defaultAttr);
 
 	    break;
     }
@@ -101,8 +101,8 @@ CAttribute::CAttribute(DWORD * attr, DWORD dwWidth, DWORD dwHeight)
 {
     Initialize(dwWidth, dwHeight);
 
-    int i;
-    int size = width * height;
+    size_t i;
+    size_t size = static_cast<size_t>(width) * static_cast<size_t>(height);
 
     for (i = 0; i < size; ++i)
 	if (attr[0] != attr[i])
@@ -112,14 +112,14 @@ CAttribute::CAttribute(DWORD * attr, DWORD dwWidth, DWORD dwHeight)
 	defaultAttr = attr[0];
     else
     {
-	int allAttr = 0;
+	DWORD allAttr = 0;
 
 	for (i = 0; i < size; ++i)
 	    allAttr |= attr[i];
 
-	if (!(allAttr & 0xffffff00))
+	if (!(allAttr & 0xffffff00U))
 	    dataType = D_BYTE;
-	else if (!(allAttr & 0xffff0000))
+	else if (!(allAttr & 0xffff0000U))
 	    dataType = D_WORD;
 	else
 	    dataType = D_DWORD;
@@ -127,7 +127,7 @@ CAttribute::CAttribute(DWORD * attr, DWORD dwWidth, DWORD dwHeight)
 	Alloc();
 
 	if (dataType == D_DWORD)
-	    thecore_memcpy(data, attr, sizeof(DWORD) * width * height);
+	    thecore_memcpy(data, attr, sizeof(DWORD) * size);
 	else
 	{
 	    DWORD * pdw = (DWORD *) attr;
@@ -136,13 +136,13 @@ CAttribute::CAttribute(DWORD * attr, DWORD dwWidth, DWORD dwHeight)
 	    {
 		for (DWORD y = 0; y < height; ++y)
 		    for (DWORD x = 0; x < width; ++x)
-			bytePtr[y][x] = *(pdw++);
+			bytePtr[y][x] = static_cast<BYTE>(*(pdw++));
 	    }
 	    else if (dataType == D_WORD)
 	    {
 		for (DWORD y = 0; y < height; ++y)
 		    for (DWORD x = 0; x < width; ++x)
-			wordPtr[y][x] = *(pdw++);
+			wordPtr[y][x] = static_cast<WORD>(*(pdw++));
 	    }
 	}
     }
@@ -183,13 +183,13 @@ void CAttribute::Set(DWORD x, DWORD y, DWORD attr)
 
     if (bytePtr)
     {
-	SET_BIT(bytePtr[y][x], attr);
+	SET_BIT(bytePtr[y][x], static_cast<BYTE>(attr));
 	return;
     }
 
     if (wordPtr)
     {
-	SET_BIT(wordPtr[y][x], attr);
+	SET_BIT(wordPtr[y][x], static_cast<WORD>(attr));
 	return;
     }
 
@@ -206,13 +206,13 @@ void CAttribute::Remove(DWORD x, DWORD y, DWORD attr)
 
     if (bytePtr)
     {
-	REMOVE_BIT(bytePtr[y][x], attr);
+	REMOVE_BIT(bytePtr[y][x], static_cast<BYTE>(attr));
 	return;
     }
 
     if (wordPtr)
     {
-	REMOVE_BIT(wordPtr[y][x], attr);
+	REMOVE_BIT(wordPtr[y][x], static_cast<WORD>(attr));
 	return;
     }
 

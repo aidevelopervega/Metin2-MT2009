@@ -42,15 +42,15 @@ bool CStmt::Prepare(CAsyncSQL * sql, const char * c_pszQuery)
 	m_pkStmt = mysql_stmt_init(sql->GetSQLHandle());
 	m_stQuery = c_pszQuery;
 
-	if (mysql_stmt_prepare(m_pkStmt, m_stQuery.c_str(), m_stQuery.length()))
+	if (mysql_stmt_prepare(m_pkStmt, m_stQuery.c_str(), static_cast<unsigned long>(m_stQuery.length())))
 	{
 		Error("mysql_stmt_prepare");
 		return false;
 	}
 
-	int iParamCount = 0;
+	size_t iParamCount = 0;
 
-	for (unsigned int i = 0; i < m_stQuery.length(); ++i)
+	for (size_t i = 0; i < m_stQuery.length(); ++i)
 		if (c_pszQuery[i] == '?')
 			++iParamCount;
 
@@ -86,7 +86,7 @@ bool CStmt::BindParam(enum_field_types type, void * p, int iMaxLen)
 
 	bind->buffer_type	= type;
 	bind->buffer	= (void *) p;
-	bind->buffer_length	= iMaxLen;
+	bind->buffer_length	= iMaxLen > 0 ? static_cast<unsigned long>(iMaxLen) : 0UL;
 	bind->length	= m_puiParamLen + m_uiParamCount;
 
 	if (++m_uiParamCount == m_vec_param.size())
@@ -113,7 +113,7 @@ bool CStmt::BindResult(enum_field_types type, void * p, int iMaxLen)
 
 	bind->buffer_type	= type;
 	bind->buffer	= (void *) p;
-	bind->buffer_length	= iMaxLen;
+	bind->buffer_length	= iMaxLen > 0 ? static_cast<unsigned long>(iMaxLen) : 0UL;
 	return true;
 }
 
@@ -131,7 +131,7 @@ int CStmt::Execute()
 
 		if (bind->buffer_type == MYSQL_TYPE_STRING)
 		{
-			*(m_puiParamLen + i) = strlen((const char *) bind->buffer);
+			*(m_puiParamLen + i) = static_cast<unsigned long>(strlen((const char *) bind->buffer));
 			sys_log(0, "param %u len %u buf %s", i, static_cast<unsigned int>(*(m_puiParamLen + i)), (const char *) bind->buffer);
 		}
 	}
@@ -148,7 +148,8 @@ int CStmt::Execute()
 		return 0;
 	}
 
-	iRows = mysql_stmt_num_rows(m_pkStmt);
+	my_ulonglong ullRows = mysql_stmt_num_rows(m_pkStmt);
+	iRows = (ullRows > static_cast<my_ulonglong>(INT_MAX)) ? INT_MAX : static_cast<int>(ullRows);
 	return true;
 }
 

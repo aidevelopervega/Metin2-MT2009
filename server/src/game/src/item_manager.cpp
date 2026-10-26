@@ -611,11 +611,11 @@ TItemTable * ITEM_MANAGER::GetTable(DWORD vnum)
 	if (const auto it = m_mapItemProto.find(vnum); it != m_mapItemProto.end())
 		return it->second;
 	// dragon soul vnum range
-	else if (const auto it = m_mapItemProto.find(vnum - (vnum % 100));
-			it != m_mapItemProto.end()
-			&& it->second->dwVnumRange
-			&& it->second->dwVnum <= vnum && vnum <= it->second->dwVnum + it->second->dwVnumRange)
-		return it->second;
+	else if (const auto rangeIt = m_mapItemProto.find(vnum - (vnum % 100));
+			rangeIt != m_mapItemProto.end()
+			&& rangeIt->second->dwVnumRange
+			&& rangeIt->second->dwVnum <= vnum && vnum <= rangeIt->second->dwVnum + rangeIt->second->dwVnumRange)
+		return rangeIt->second;
 	return nullptr;
 	#else
 	int rnum = RealNumber(vnum);
@@ -919,12 +919,11 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 
 	// Drop Item Group
 	{
-		itertype(m_map_pkDropItemGroup) it;
-		it = m_map_pkDropItemGroup.find(pkChr->GetRaceNum());
+		itertype(m_map_pkDropItemGroup) itDrop = m_map_pkDropItemGroup.find(pkChr->GetRaceNum());
 
-		if (it != m_map_pkDropItemGroup.end())
+		if (itDrop != m_map_pkDropItemGroup.end())
 		{
-			typeof(it->second->GetVector()) v = it->second->GetVector();
+			typeof(itDrop->second->GetVector()) v = itDrop->second->GetVector();
 
 			for (DWORD i = 0; i < v.size(); ++i)
 			{
@@ -973,12 +972,11 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 
 	// MobDropItem Group
 	{
-		itertype(m_map_pkMobItemGroup) it;
-		it = m_map_pkMobItemGroup.find(pkChr->GetRaceNum());
+		itertype(m_map_pkMobItemGroup) itMob = m_map_pkMobItemGroup.find(pkChr->GetRaceNum());
 
-		if ( it != m_map_pkMobItemGroup.end() )
+		if ( itMob != m_map_pkMobItemGroup.end() )
 		{
-			CMobItemGroup* pGroup = it->second;
+			CMobItemGroup* pGroup = itMob->second;
 
 			// MOB_DROP_ITEM_BUG_FIX
 
@@ -1003,14 +1001,13 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 
 	// Level Item Group
 	{
-		itertype(m_map_pkLevelItemGroup) it;
-		it = m_map_pkLevelItemGroup.find(pkChr->GetRaceNum());
+		itertype(m_map_pkLevelItemGroup) itLevel = m_map_pkLevelItemGroup.find(pkChr->GetRaceNum());
 
-		if ( it != m_map_pkLevelItemGroup.end() )
+		if ( itLevel != m_map_pkLevelItemGroup.end() )
 		{
-			if ( it->second->GetLevelLimit() <= (DWORD)iLevel )
+			if ( itLevel->second->GetLevelLimit() <= (DWORD)iLevel )
 			{
-				typeof(it->second->GetVector()) v = it->second->GetVector();
+				typeof(itLevel->second->GetVector()) v = itLevel->second->GetVector();
 
 				for ( DWORD i=0; i < v.size(); i++ )
 				{
@@ -1030,12 +1027,11 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 		if (pkKiller->GetPremiumRemainSeconds(PREMIUM_ITEM) > 0 ||
 				pkKiller->IsEquipUniqueGroup(UNIQUE_GROUP_DOUBLE_ITEM))
 		{
-			itertype(m_map_pkGloveItemGroup) it;
-			it = m_map_pkGloveItemGroup.find(pkChr->GetRaceNum());
+			itertype(m_map_pkGloveItemGroup) itGlove = m_map_pkGloveItemGroup.find(pkChr->GetRaceNum());
 
-			if (it != m_map_pkGloveItemGroup.end())
+			if (itGlove != m_map_pkGloveItemGroup.end())
 			{
-				typeof(it->second->GetVector()) v = it->second->GetVector();
+				typeof(itGlove->second->GetVector()) v = itGlove->second->GetVector();
 
 				for (DWORD i = 0; i < v.size(); ++i)
 				{
@@ -1059,11 +1055,11 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 
 	if (pkChr->GetMobDropItemVnum())
 	{
-		itertype(m_map_dwEtcItemDropProb) it = m_map_dwEtcItemDropProb.find(pkChr->GetMobDropItemVnum());
+		itertype(m_map_dwEtcItemDropProb) itEtc = m_map_dwEtcItemDropProb.find(pkChr->GetMobDropItemVnum());
 
-		if (it != m_map_dwEtcItemDropProb.end())
+		if (itEtc != m_map_dwEtcItemDropProb.end())
 		{
-			int iPercent = (it->second * iDeltaPercent) / 100;
+			int iPercent = (itEtc->second * iDeltaPercent) / 100;
 
 			if (iPercent >= number(1, iRandRange))
 			{
@@ -1098,10 +1094,10 @@ bool ITEM_MANAGER::CreateDropItem(LPCHARACTER pkChr, LPCHARACTER pkKiller, std::
 
 	CreateQuestDropItem(pkChr, pkKiller, vec_item, iDeltaPercent, iRandRange);
 
-	for (itertype(vec_item) it = vec_item.begin(); it != vec_item.end(); ++it)
+	for (itertype(vec_item) itVec = vec_item.begin(); itVec != vec_item.end(); ++itVec)
 	{
-		LPITEM item = *it;
-		DBManager::instance().SendMoneyLog(MONEY_LOG_DROP, item->GetVnum(), item->GetCount());
+		LPITEM dropItem = *itVec;
+		DBManager::instance().SendMoneyLog(MONEY_LOG_DROP, dropItem->GetVnum(), dropItem->GetCount());
 	}
 
 	return vec_item.size();

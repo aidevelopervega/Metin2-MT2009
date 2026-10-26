@@ -68,8 +68,10 @@ double CPoly::Eval()
 			case NUM:
 				save[iSp++]=*posn++; break;
 			case ID:
+				if (*pos < 0 || static_cast<size_t>(*pos) >= lSymbol.size() || !lSymbol[static_cast<size_t>(*pos)])
+					return 0;
 				save[iSp++]=
-					lSymbol[ *pos ]->dVal;
+					lSymbol[ static_cast<size_t>(*pos) ]->dVal;
 				pos++;
 				break;
 			case PLU:
@@ -211,11 +213,10 @@ int CPoly::Analyze(const char * pszStr)
 
 void CPoly::Clear()
 {
-    int i;
     tokenBase.clear();
     numBase.clear();
 
-    for (i = 0;i < STSize; ++i)
+    for (size_t i = 0; i < lSymbol.size(); ++i)
     {
 	if (lSymbol[i]) delete lSymbol[i];
 	lSymbol[i]=NULL;
@@ -262,7 +263,7 @@ void CPoly::expr()
 
 void CPoly::error()
 {
-    iErrorPos=uiLookPos;
+    iErrorPos=static_cast<int>(uiLookPos);
     ErrorOccur=true;
 }
 
@@ -275,12 +276,12 @@ int CPoly::lexan()
     {
 	if (strData[uiLookPos] == ' ' || strData[uiLookPos] == '\t')
 	    ;
-	else if (isdigit(strData[uiLookPos]))
+	else if (isdigit(static_cast<unsigned char>(strData[uiLookPos])))
 	{
 	    t = 0;
 	    for (;uiLookPos<strData.size();uiLookPos++)
 	    {
-		if (isdigit(strData[uiLookPos]))
+		if (isdigit(static_cast<unsigned char>(strData[uiLookPos])))
 		    t = t * 10 + strData[uiLookPos] - '0';
 		else
 		    break;
@@ -293,7 +294,7 @@ int CPoly::lexan()
 		uiLookPos++;
 		for (;uiLookPos<strData.size();uiLookPos++,tt*=0.1)
 		{
-		    if (isdigit(strData[uiLookPos]))
+		    if (isdigit(static_cast<unsigned char>(strData[uiLookPos])))
 			iNumToken+=tt*(strData[uiLookPos]-'0');
 		    else
 			break;
@@ -302,10 +303,10 @@ int CPoly::lexan()
 	    iNumToken+=iToken;
 	    return NUM;
 	}
-	else if (isalpha(strData[uiLookPos]))
+	else if (isalpha(static_cast<unsigned char>(strData[uiLookPos])))
 	{
 	    string localSymbol("");
-	    while (uiLookPos<strData.size() && isalpha(strData[uiLookPos]))
+	    while (uiLookPos<strData.size() && isalpha(static_cast<unsigned char>(strData[uiLookPos])))
 	    {
 		localSymbol+=strData[uiLookPos];
 		uiLookPos++;
@@ -315,12 +316,12 @@ int CPoly::lexan()
 	    {
 		iToken=insert(localSymbol,ID);
 	    }
-	    return lSymbol[(iToken)]->token;
+	    return lSymbol[static_cast<size_t>(iToken)]->token;
 	}
 	else
 	{
 	    iToken=0;
-	    return strData[uiLookPos++];
+	    return static_cast<unsigned char>(strData[uiLookPos++]);
 	}
 	uiLookPos++;
     }
@@ -483,10 +484,11 @@ int CPoly::find(const string & s)
 	while (l <= r)
 	{
 		m = (l + r) >> 1;
+		const size_t symIdx = static_cast<size_t>(SymbolIndex[static_cast<size_t>(m)]);
 
-		if (lSymbol[SymbolIndex[m]]->strlex == s)
-			return SymbolIndex[m];
-		else if (lSymbol[SymbolIndex[m]]->strlex < s)
+		if (lSymbol[symIdx]->strlex == s)
+			return static_cast<int>(symIdx);
+		else if (lSymbol[symIdx]->strlex < s)
 			l = m + 1;
 		else
 			r = m - 1;
@@ -501,7 +503,8 @@ int CPoly::insert(const string & s, int tok)
 	lSymbol.push_back(new CSymTable(tok,s));
 	for (i=0;i<STSize;i++)
 	{
-		if (s<lSymbol[SymbolIndex[i]]->strlex)
+		const size_t symIdx = static_cast<size_t>(SymbolIndex[static_cast<size_t>(i)]);
+		if (s<lSymbol[symIdx]->strlex)
 		{
 			SymbolIndex.emplace(SymbolIndex.begin()+i,STSize);
 			bAdded=true;
@@ -520,8 +523,8 @@ int CPoly::SetVar(const string & strName, double dVar)
 {
     if (ErrorOccur) return false;
     int index = find(strName);
-    if (index == -1) return false;
-    CSymTable * stVar = lSymbol[(index)];
+    if (index < 0 || static_cast<size_t>(index) >= lSymbol.size()) return false;
+    CSymTable * stVar = lSymbol[static_cast<size_t>(index)];
     stVar->dVal = dVar;
     return true;
 }
@@ -530,8 +533,8 @@ double CPoly::GetVar(const std::string & strName)
 {
     if (ErrorOccur) return false;
     int index = find(strName);
-    if (index == -1) return false;
-    CSymTable * stVar = lSymbol[(index)];
+    if (index < 0 || static_cast<size_t>(index) >= lSymbol.size()) return false;
+    CSymTable * stVar = lSymbol[static_cast<size_t>(index)];
     if (!stVar)
         return -1;
     return stVar->dVal;

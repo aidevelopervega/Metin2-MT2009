@@ -88,7 +88,7 @@ unsigned int get_string_crc(const std::string & str)
 	return h;
 }
 
-static const char *getF ([[maybe_unused]] lua_State *L, void *ud, size_t *size) {
+static const char *getF ([[maybe_unused]] lua_State *L_state, void *ud, size_t *size) {
 	LoadF *lf = (LoadF *)ud;
 
 	if (feof(lf->f))
@@ -206,7 +206,7 @@ bool check_syntax(const string& str, const string& module)
 	return true;
 }
 
-int none_c_function([[maybe_unused]] lua_State* L)
+int none_c_function([[maybe_unused]] lua_State* L_state)
 {
 	return 0;
 }

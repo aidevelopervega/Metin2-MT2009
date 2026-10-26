@@ -266,6 +266,9 @@ LPFDWATCH fdwatch_new(int nfiles)
 {
     LPFDWATCH fdw;
 
+    if (nfiles <= 0)
+	return NULL;
+
 #ifdef __WIN32__
     if (!win32_init())
 	return NULL;
@@ -277,8 +280,8 @@ LPFDWATCH fdwatch_new(int nfiles)
     FD_ZERO(&fdw->rfd_set);
     FD_ZERO(&fdw->wfd_set);
 
-    CREATE(fdw->select_fds, socket_t, nfiles);
-    CREATE(fdw->select_rfdidx, int, nfiles);
+    CREATE(fdw->select_fds, socket_t, (size_t)nfiles);
+    CREATE(fdw->select_rfdidx, int, (size_t)nfiles);
     for (int i = 0; i < nfiles; ++i)
     {
         fdw->select_rfdidx[i] = -1;
@@ -286,8 +289,8 @@ LPFDWATCH fdwatch_new(int nfiles)
 
     fdw->nselect_fds = 0;
 
-    CREATE(fdw->fd_rw, int, nfiles);
-    CREATE(fdw->fd_data, void*, nfiles);
+    CREATE(fdw->fd_rw, int, (size_t)nfiles);
+    CREATE(fdw->fd_data, void*, (size_t)nfiles);
 
     return (fdw);
 }

@@ -40,8 +40,8 @@ class void_binder
 		F f;
 		typename F::argument_type value;
 	public:
-		void_binder(const F& f, const typename F::argument_type x)
-			: f(f), value(x) {}
+		void_binder(const F& in_f, const typename F::argument_type x)
+			: f(in_f), value(x) {}
 		void operator()() const {
 			return f(value);
 		}

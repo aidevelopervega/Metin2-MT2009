@@ -29,6 +29,6 @@ ACMD(do_oxevent_log)
 
 ACMD(do_oxevent_get_attender)
 {
-	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Number of other participants : %d"), COXEventManager::instance().GetAttenderCount());
+	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Number of other participants : %d"), (int)COXEventManager::instance().GetAttenderCount());
 }
 

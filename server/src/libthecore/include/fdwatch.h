@@ -3,8 +3,8 @@
 
 #ifndef __WIN32__
 
-    typedef struct fdwatch	FDWATCH;
-    typedef struct fdwatch *	LPFDWATCH;
+    typedef struct SFDWatch	FDWATCH;
+    typedef struct SFDWatch *	LPFDWATCH;
 
     enum EFdwatch
     {
@@ -19,7 +19,7 @@
     typedef struct kevent *	LPKEVENT;
     typedef int			KQUEUE;
 
-    struct fdwatch
+    struct SFDWatch
     {
 	KQUEUE		kq;
 
@@ -37,8 +37,8 @@
 
 #else
 
-    typedef struct fdwatch	FDWATCH;
-    typedef struct fdwatch *	LPFDWATCH;
+    typedef struct SFDWatch	FDWATCH;
+    typedef struct SFDWatch *	LPFDWATCH;
 
     enum EFdwatch
     {
@@ -49,7 +49,7 @@
 	FDW_EOF			= 8,
     };
 
-    struct fdwatch
+    struct SFDWatch
     {
 	fd_set rfd_set;
 	fd_set wfd_set;

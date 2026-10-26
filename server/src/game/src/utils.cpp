@@ -333,7 +333,7 @@ bool WildCaseCmp(const char *w, const char *s)
 			default:
 				if (*w != *s)
 				{
-					if (tolower(*w) != tolower(*s))
+					if (tolower(static_cast<unsigned char>(*w)) != tolower(static_cast<unsigned char>(*s)))
 						return false;
 				}
 
@@ -366,25 +366,25 @@ SParsedTime parse_time(DWORD left_seconds) {
 void seconds_to_dh(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_HOUR - 1);
-	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DH"), parsed_time.days, parsed_time.hours);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DH"), (int)parsed_time.days, (int)parsed_time.hours);
 }
 
 void seconds_to_dhm(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DHM"), parsed_time.days, parsed_time.hours, parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_DHM"), (int)parsed_time.days, (int)parsed_time.hours, (int)parsed_time.minutes);
 }
 
 void seconds_to_hm(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_HM"), parsed_time.hours, parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_HM"), (int)parsed_time.hours, (int)parsed_time.minutes);
 }
 
 void seconds_to_min(DWORD seconds, char* info, size_t info_size)
 {
 	SParsedTime parsed_time = parse_time(seconds + SECONDS_IN_MINUTE - 1);
-	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_M"), parsed_time.minutes);
+	snprintf(info, info_size, LC_TEXT("WAIT_DELAY_M"), (int)parsed_time.minutes);
 }
 
 const char* seconds_to_smart_time(DWORD seconds)

@@ -429,9 +429,9 @@ bool CExchange::CheckSpace()
 			if (wBasePos >= DRAGON_SOUL_INVENTORY_MAX_NUM)
 				return false;
 
-			for (int i = 0; i < DRAGON_SOUL_BOX_SIZE; i++)
+			for (int boxIdx = 0; boxIdx < DRAGON_SOUL_BOX_SIZE; boxIdx++)
 			{
-				WORD wPos = wBasePos + i;
+				WORD wPos = static_cast<WORD>(wBasePos + boxIdx);
 				if (0 == s_vDSGrid[wPos]) // @fixme159 (wBasePos to wPos)
 				{
 					bool bEmpty = true;

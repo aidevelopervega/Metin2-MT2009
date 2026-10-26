@@ -5644,15 +5644,15 @@ bool CHARACTER::MoveItem(TItemPos Cell, TItemPos DestCell, ITEM_COUNT count)
 				DestCell.window_type, DestCell.cell, count);
 
 			item->SetCount(item->GetCount() - count);
-			LPITEM item2 = ITEM_MANAGER::instance().CreateItem(item->GetVnum(), count);
+			LPITEM splitItem = ITEM_MANAGER::instance().CreateItem(item->GetVnum(), count);
 
 			// copy socket -- by mhh
-			FN_copy_item_socket(item2, item);
+			FN_copy_item_socket(splitItem, item);
 
-			item2->AddToCharacter(this, DestCell);
+			splitItem->AddToCharacter(this, DestCell);
 
 			char szBuf[51+1];
-			snprintf(szBuf, sizeof(szBuf), "%u %u %u %u ", static_cast<unsigned int>(item2->GetID()), static_cast<unsigned int>(item2->GetCount()), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetCount() + item2->GetCount()));
+			snprintf(szBuf, sizeof(szBuf), "%u %u %u %u ", static_cast<unsigned int>(splitItem->GetID()), static_cast<unsigned int>(splitItem->GetCount()), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetCount() + splitItem->GetCount()));
 			LogManager::instance().ItemLog(this, item, "ITEM_SPLIT", szBuf);
 		}
 	}
@@ -5667,8 +5667,8 @@ namespace NPartyPickupDistribute
 		LPITEM item;
 		LPCHARACTER owner;
 
-		FFindOwnership(LPITEM item)
-			: item(item), owner(NULL)
+		FFindOwnership(LPITEM in_item)
+			: item(in_item), owner(NULL)
 		{
 		}
 
@@ -5685,8 +5685,8 @@ namespace NPartyPickupDistribute
 		int		total;
 		int		x, y;
 
-		FCountNearMember(LPCHARACTER center )
-			: center(center), total(0), x(center->GetX()), y(center->GetY())
+		FCountNearMember(LPCHARACTER in_center)
+			: center(in_center), total(0), x(in_center->GetX()), y(in_center->GetY())
 		{
 		}
 
@@ -5707,8 +5707,8 @@ namespace NPartyPickupDistribute
 		int		x, y;
 		YANG	iMoney;
 
-		FMoneyDistributor(LPCHARACTER center, YANG iMoney)
-			: total(0), c(center), x(center->GetX()), y(center->GetY()), iMoney(iMoney)
+		FMoneyDistributor(LPCHARACTER center, YANG in_iMoney)
+			: total(0), c(center), x(center->GetX()), y(center->GetY()), iMoney(in_iMoney)
 		{
 		}
 
@@ -5798,14 +5798,14 @@ void ChatPacketRecieveItem(LPCHARACTER ch, LPITEM item, ITEM_COUNT count)
 		if (count < 2)
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s received (Horse Inventory)"), item->GetName());
 		else
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s %d received (Horse Inventory)"), item->GetName(), count);
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s %d received (Horse Inventory)"), item->GetName(), (int)count);
 	}
 	else
 	{
 		if (count < 2)
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s received"), item->GetName());
 		else
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s %d received"), item->GetName(), count);
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s %d received"), item->GetName(), (int)count);
 	}
 
 }
@@ -7140,7 +7140,7 @@ LPITEM CHARACTER::GiveItemToPlayerSpecialGroup(DWORD dwVnum, DWORD dwCount, int 
 		PointChange(POINT_EXP, dwCount);
 		if (bNotify) {
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("A mysterious light comes out of the box."));
-			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have received %d experience points."), dwCount);
+			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have received %d experience points."), (int)dwCount);
 		}
 		bSuccess = true;
 	}
@@ -7148,7 +7148,7 @@ LPITEM CHARACTER::GiveItemToPlayerSpecialGroup(DWORD dwVnum, DWORD dwCount, int 
 
 	case CSpecialItemGroup::MOB:
 	{
-		sys_log(0, "CSpecialItemGroup::MOB %d", dwCount);
+		sys_log(0, "CSpecialItemGroup::MOB %d", (int)dwCount);
 		int x = GetX() + number(-500, 500);
 		int y = GetY() + number(-500, 500);
 
@@ -7221,7 +7221,7 @@ LPITEM CHARACTER::GiveItemToPlayerSpecialGroup(DWORD dwVnum, DWORD dwCount, int 
 				if (bNotify)
 				{
 					if (dwCount > 1)
-						ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Receive: %s - %d"), pkItem->GetName(), dwCount);
+						ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Receive: %s - %d"), pkItem->GetName(), (int)dwCount);
 					else
 						ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The box contains %s."), pkItem->GetName());
 				}

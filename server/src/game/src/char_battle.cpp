@@ -1461,24 +1461,24 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 
 		for (i = 0; i < INVENTORY_DEFAULT_MAX_NUM; ++i)
 		{
-			auto pkItem = GetInventoryItem(i);
+			pkItem = GetInventoryItem(static_cast<WORD>(i));
 			if (!pkItem || (isQuestRunning && pkItem->GetType() == ITEM_QUEST)) // @fixme198 (item_quest items can be used without being consumed)
 				continue;
-			vec_bSlots.push_back(i);
+			vec_bSlots.push_back(static_cast<BYTE>(i));
 		}
 
 		if (!vec_bSlots.empty())
 		{
 			msl::random_shuffle(vec_bSlots.begin(), vec_bSlots.end());
 
-			int iQty = MIN(vec_bSlots.size(), r.iInventoryQty);
+			int iQty = MIN(static_cast<int>(vec_bSlots.size()), r.iInventoryQty);
 
 			if (iQty)
 				iQty = number(1, iQty);
 
 			for (i = 0; i < iQty; ++i)
 			{
-				pkItem = GetInventoryItem(vec_bSlots[i]);
+				pkItem = GetInventoryItem(vec_bSlots[static_cast<size_t>(i)]);
 
 				if (!pkItem)
 					continue;
@@ -1489,7 +1489,7 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 				if (pkItem->GetType() == ITEM_COSTUME)
 					continue;
 
-				SyncQuickslot(QUICKSLOT_TYPE_ITEM, vec_bSlots[i], 255);
+				SyncQuickslot(QUICKSLOT_TYPE_ITEM, vec_bSlots[static_cast<size_t>(i)], 255);
 				vec_item.emplace_back(pkItem->RemoveFromCharacter(), INVENTORY);
 			}
 		}
@@ -1502,8 +1502,8 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 		std::vector<BYTE> vec_bSlots;
 
 		for (i = 0; i < WEAR_MAX_NUM; ++i)
-			if (GetWear(i))
-				vec_bSlots.emplace_back(i);
+			if (GetWear(static_cast<BYTE>(i)))
+				vec_bSlots.emplace_back(static_cast<BYTE>(i));
 
 		if (!vec_bSlots.empty())
 		{
@@ -1511,16 +1511,16 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 			int iQty;
 
 			if (isDropAllEquipments)
-				iQty = vec_bSlots.size();
+				iQty = static_cast<int>(vec_bSlots.size());
 			else
-				iQty = MIN(vec_bSlots.size(), number(1, r.iEquipmentQty));
+				iQty = MIN(static_cast<int>(vec_bSlots.size()), number(1, r.iEquipmentQty));
 
 			if (iQty)
 				iQty = number(1, iQty);
 
 			for (i = 0; i < iQty; ++i)
 			{
-				pkItem = GetWear(vec_bSlots[i]);
+				pkItem = GetWear(vec_bSlots[static_cast<size_t>(i)]);
 
 				if (IS_SET(pkItem->GetAntiFlag(), ITEM_ANTIFLAG_GIVE | ITEM_ANTIFLAG_PKDROP))
 					continue;
@@ -1528,7 +1528,7 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 				if (pkItem->GetType() == ITEM_COSTUME)
 					continue;
 
-				SyncQuickslot(QUICKSLOT_TYPE_ITEM, vec_bSlots[i], 255);
+				SyncQuickslot(QUICKSLOT_TYPE_ITEM, vec_bSlots[static_cast<size_t>(i)], 255);
 				vec_item.emplace_back(pkItem->RemoveFromCharacter(), EQUIPMENT);
 			}
 		}
@@ -1536,8 +1536,6 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 
 	if (bDropAntiDropUniqueItem)
 	{
-		LPITEM pkItem;
-
 		pkItem = GetWear(WEAR_UNIQUE1);
 
 		if (pkItem && pkItem->GetVnum() == UNIQUE_ITEM_SKIP_ITEM_DROP_PENALTY)
@@ -1560,12 +1558,10 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 		pos.x = GetX();
 		pos.y = GetY();
 
-		unsigned int i;
-
-		for (i = 0; i < vec_item.size(); ++i)
+		for (size_t idx = 0; idx < vec_item.size(); ++idx)
 		{
-			LPITEM item = vec_item[i].first;
-			int window = vec_item[i].second;
+			LPITEM item = vec_item[idx].first;
+			int window = vec_item[idx].second;
 
 			if (item)
 			{
@@ -2304,8 +2300,8 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 			{
 				if (test_server)
 				{
-					pAttacker->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s block! (%d%%)"), GetName(), GetPoint(POINT_BLOCK));
-					ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s block! (%d%%)"), GetName(), GetPoint(POINT_BLOCK));
+					pAttacker->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s block! (%d%%)"), GetName(), (int)GetPoint(POINT_BLOCK));
+					ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s block! (%d%%)"), GetName(), (int)GetPoint(POINT_BLOCK));
 				}
 
 				SendDamagePacket(pAttacker, 0, DAMAGE_BLOCK);
@@ -2323,8 +2319,8 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 			{
 				if (test_server)
 				{
-					pAttacker->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s avoid! (%d%%)"), GetName(), GetPoint(POINT_DODGE));
-					ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s avoid! (%d%%)"), GetName(), GetPoint(POINT_DODGE));
+					pAttacker->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s avoid! (%d%%)"), GetName(), (int)GetPoint(POINT_DODGE));
+					ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s avoid! (%d%%)"), GetName(), (int)GetPoint(POINT_DODGE));
 				}
 
 				SendDamagePacket(pAttacker, 0, DAMAGE_DODGE);
@@ -2875,7 +2871,7 @@ bool CHARACTER::Damage(LPCHARACTER pAttacker, int dam, EDamageType type, DWORD d
 
 		if (m_bDetailLog && pAttacker)
 		{
-			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s[%d]s Attack Position: %d %d"), pAttacker->GetName(), (DWORD) pAttacker->GetVID(), pAttacker->GetX(), pAttacker->GetY());
+			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s[%d]s Attack Position: %d %d"), pAttacker->GetName(), (int)(DWORD) pAttacker->GetVID(), (int)pAttacker->GetX(), (int)pAttacker->GetY());
 		}
 	}
 
@@ -3170,8 +3166,8 @@ namespace NPartyExpDistribute
 		LPCHARACTER center;
 		LPCHARACTER leader;
 
-		FPartyTotaler(LPCHARACTER center, LPCHARACTER leader)
-			: total(0), member_count(0), x(center->GetX()), y(center->GetY()), center(center), leader(leader)
+		FPartyTotaler(LPCHARACTER in_center, LPCHARACTER in_leader)
+			: total(0), member_count(0), x(in_center->GetX()), y(in_center->GetY()), center(in_center), leader(in_leader)
 		{};
 
 		void operator () (LPCHARACTER ch)
@@ -3202,8 +3198,8 @@ namespace NPartyExpDistribute
 		int		m_iMode;
 		int		m_iMemberCount;
 
-		FPartyDistributor(LPCHARACTER center, int member_count, int total, DWORD iExp, int iMode)
-			: total(total), c(center), x(center->GetX()), y(center->GetY()), map_index(center->GetMapIndex()), _iExp(iExp), m_iMode(iMode), m_iMemberCount(member_count)
+		FPartyDistributor(LPCHARACTER center, int member_count, int in_total, DWORD iExp, int iMode)
+			: total(in_total), c(center), x(center->GetX()), y(center->GetY()), map_index(center->GetMapIndex()), _iExp(iExp), m_iMode(iMode), m_iMemberCount(member_count)
 			{
 				if (m_iMemberCount == 0)
 					m_iMemberCount = 1;
@@ -3369,8 +3365,8 @@ LPCHARACTER CHARACTER::DistributeExp()
 
 		if (pAttacker->GetParty())
 		{
-			std::map<LPPARTY, TDamageInfo>::iterator it = map_party_damage.find(pAttacker->GetParty());
-			if (it == map_party_damage.end())
+			std::map<LPPARTY, TDamageInfo>::iterator itParty = map_party_damage.find(pAttacker->GetParty());
+			if (itParty == map_party_damage.end())
 			{
 				TDamageInfo di;
 				di.iDam = iDam;
@@ -3380,7 +3376,7 @@ LPCHARACTER CHARACTER::DistributeExp()
 			}
 			else
 			{
-				it->second.iDam += iDam;
+				itParty->second.iDam += iDam;
 			}
 		}
 		else
@@ -3397,10 +3393,10 @@ LPCHARACTER CHARACTER::DistributeExp()
 		}
 	}
 
-	for (std::map<LPPARTY, TDamageInfo>::iterator it = map_party_damage.begin(); it != map_party_damage.end(); ++it)
+	for (std::map<LPPARTY, TDamageInfo>::iterator itParty = map_party_damage.begin(); itParty != map_party_damage.end(); ++itParty)
 	{
-		damage_info_table.emplace_back(it->second);
-		//sys_log(0, "__ pq_damage_party [%u] %d", it->second.pParty->GetLeaderPID(), it->second.iDam);
+		damage_info_table.emplace_back(itParty->second);
+		//sys_log(0, "__ pq_damage_party [%u] %d", itParty->second.pParty->GetLeaderPID(), itParty->second.iDam);
 	}
 
 	SetExp(0);
@@ -3430,12 +3426,12 @@ LPCHARACTER CHARACTER::DistributeExp()
 	{
 		TDamageInfoTable::iterator di = damage_info_table.begin();
 		{
-			TDamageInfoTable::iterator it;
+			TDamageInfoTable::iterator itTable;
 
-			for (it = damage_info_table.begin(); it != damage_info_table.end();++it)
+			for (itTable = damage_info_table.begin(); itTable != damage_info_table.end(); ++itTable)
 			{
-				if (it->iDam > di->iDam)
-					di = it;
+				if (itTable->iDam > di->iDam)
+					di = itTable;
 			}
 		}
 
@@ -3463,11 +3459,11 @@ LPCHARACTER CHARACTER::DistributeExp()
 	}
 
 	{
-		TDamageInfoTable::iterator it;
+		TDamageInfoTable::iterator itTable;
 
-		for (it = damage_info_table.begin(); it != damage_info_table.end(); ++it)
+		for (itTable = damage_info_table.begin(); itTable != damage_info_table.end(); ++itTable)
 		{
-			TDamageInfo & di = *it;
+			TDamageInfo & di = *itTable;
 
 			float fPercent = (float) di.iDam / iTotalDam;
 

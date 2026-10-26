@@ -24,14 +24,14 @@ namespace marriage
 
 		TWeddingInfo * pWeddingInfo;
 
-		TMarriage(DWORD pid1, DWORD pid2, int _love_point, time_t _marry_time, const char* name1, const char* name2) :
+		TMarriage(DWORD pid1, DWORD pid2, int _love_point, time_t _marry_time, const char* _name1, const char* _name2) :
 			m_pid1(pid1),
 			m_pid2(pid2),
 			love_point(_love_point),
 			marry_time(_marry_time),
 			is_married(false),
-			name1(name1),
-			name2(name2),
+			name1(_name1),
+			name2(_name2),
 			pWeddingInfo(NULL),
 			eventNearCheck(NULL)
 		{

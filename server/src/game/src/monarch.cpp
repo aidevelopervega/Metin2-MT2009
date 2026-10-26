@@ -72,7 +72,7 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 
 	if (!ch->IsMCOK(CHARACTER::MI_HEAL))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%d \xc3\xca \xc8\xc4\xbf\xa1 \xb1\xba\xc1\xd6\xc0\xc7 \xc3\xe0\xba\xb9\xc0\xbb \xbb\xe7\xbf\xeb\xc7\xd2 \xbc\xf6 \xc0\xd6\xbd\xc0\xb4\xcf\xb4\xd9"), ch->GetMCLTime(CHARACTER::MI_HEAL));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%d \xc3\xca \xc8\xc4\xbf\xa1 \xb1\xba\xc1\xd6\xc0\xc7 \xc3\xe0\xba\xb9\xc0\xbb \xbb\xe7\xbf\xeb\xc7\xd2 \xbc\xf6 \xc0\xd6\xbd\xc0\xb4\xcf\xb4\xd9"), (int)ch->GetMCLTime(CHARACTER::MI_HEAL));
 
 		return 0;
 	}
@@ -96,7 +96,7 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 	ch->SetMC(CHARACTER::MI_HEAL);
 
 	if (test_server)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]\xc7\xf6\xc0\xe7 \xb1\xb9\xb0\xed : %d "), GetMoney(Empire) - iPrice);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]\xc7\xf6\xc0\xe7 \xb1\xb9\xb0\xed : %d "), (int)MAX((int64_t)INT_MIN, MIN(GetMoney(Empire) - iPrice, (int64_t)INT_MAX)));
 	return 1;
 }
 

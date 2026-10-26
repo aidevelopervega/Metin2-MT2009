@@ -59,7 +59,7 @@ void log_set_expiration_days(unsigned int days)
 
 int log_get_expiration_days(void)
 {
-	return log_keep_days;
+	return (int)log_keep_days;
 }
 
 int log_init(void)
@@ -122,10 +122,10 @@ void _sys_err(const char *func, int line, const char *format, ...)
 	len = snprintf(buf, sizeof(buf)-2, "SYSERR: %-15.15s :: %s: ", time_s + 4, func);
 	buf[sizeof(buf)-1] = '\0';
 
-	if (len < 1024)
+	if (len > 0 && len < 1024)
 	{
 		va_start(args, format);
-		vsnprintf(buf + len, 1024 - len, format, args);
+		vsnprintf(buf + len, (size_t)(1024 - len), format, args);
 		va_end(args);
 	}
 
@@ -155,10 +155,10 @@ void _sys_err(const char *func, int line, const char *format, ...)
 	len = snprintf(buf, sizeof(buf)-2, "SYSERR: %-15.15s :: %s: ", time_s + 4, func);
 	buf[sizeof(buf)-1] = '\0';
 
-	if (len < 1024)
+	if (len > 0 && len < 1024)
 	{
 		va_start(args, format);
-		vsnprintf(buf + len, 1024 - len, format, args);
+		vsnprintf(buf + len, (size_t)(1024 - len), format, args);
 		va_end(args);
 	}
 
@@ -312,7 +312,7 @@ void log_file_delete_old(const char *filename)
 	if (!S_ISDIR(sb.st_mode))
 		return;
 
-	new_tm = *tm_calc(NULL, -log_keep_days);
+	new_tm = *tm_calc(NULL, -((int)log_keep_days));
 	sprintf(buf, "%04d%02d%02d", new_tm.tm_year + 1900, new_tm.tm_mon + 1, new_tm.tm_mday);
 	num1 = atoi(buf);
 #ifndef __WIN32__
@@ -338,7 +338,7 @@ void log_file_delete_old(const char *filename)
 				if (*name == '.')
 					continue;
 
-				if (!isdigit(*name))
+				if (!isdigit((unsigned char)*name))
 					continue;
 
 				num2 = atoi(name);
@@ -364,7 +364,7 @@ void log_file_delete_old(const char *filename)
 		{
 			do
 			{
-				if (!isdigit(*fdata.cFileName))
+				if (!isdigit((unsigned char)*fdata.cFileName))
 					continue;
 
 				num2 = atoi(fdata.cFileName);
@@ -378,6 +378,7 @@ void log_file_delete_old(const char *filename)
 				}
 			}
 			while (FindNextFile(hFind, &fdata));
+			FindClose(hFind);
 		}
 	}
 #endif

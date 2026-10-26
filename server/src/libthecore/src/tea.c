@@ -287,7 +287,7 @@ int TEA_Encrypt(DWORD *dest, const DWORD *src, const DWORD * key, int size)
     if (size % 8 != 0)
     {
 	resize = size + 8 - (size % 8);
-	memset((char *) src + size, 0, resize - size);
+	memset((char *) src + size, 0, (size_t)(resize - size));
     }
     else
 	resize = size;

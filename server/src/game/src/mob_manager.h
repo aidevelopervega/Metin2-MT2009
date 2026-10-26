@@ -6,9 +6,9 @@ typedef struct SMobSplashAttackInfo
 	DWORD	dwTiming;
 	DWORD	dwHitDistance;
 
-	SMobSplashAttackInfo(DWORD dwTiming, DWORD dwHitDistance)
-		: dwTiming(dwTiming)
-		, dwHitDistance(dwHitDistance)
+	SMobSplashAttackInfo(DWORD in_dwTiming, DWORD in_dwHitDistance)
+		: dwTiming(in_dwTiming)
+		, dwHitDistance(in_dwHitDistance)
 		{}
 } TMobSplashAttackInfo;
 

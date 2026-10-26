@@ -7,7 +7,7 @@
 #define SAFE_RELEASE(p)		{ if (p) { (p)->Release();		(p) = NULL;  } }
 
 #define LOWER(c)	(((c)>='A'  && (c) <= 'Z') ? ((c)+('a'-'A')) : (c))
-#define UPPER(c)	(((c)>='a'  && (c) <= 'z') ? ((c)+('A'-'a')) : (c))
+#define UPPER(c)	(((c)>='a'  && (c) <= 'z') ? ((c)-('a'-'A')) : (c))
 
 #define str_cmp strcasecmp
 #define STRNCPY(dst, src, len)          do {strncpy(dst, src, len); dst[len] = '\0'; } while(0)

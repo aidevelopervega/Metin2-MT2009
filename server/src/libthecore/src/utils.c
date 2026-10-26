@@ -238,6 +238,12 @@ void parse_token(char *src, char *token, char *value)
 
     *token = '\0';
 
+    if (*tmp != ':' || *(tmp + 1) == '\0')
+    {
+	*value = '\0';
+	return;
+    }
+
     for (tmp += 2; *tmp; tmp++)
     {
 	if (*tmp == '\n' || *tmp == '\r')
@@ -336,7 +342,7 @@ int MINMAX(int min, int value, int max)
 
 DWORD thecore_random()
 {
-    return msl::random_int<int>(0);
+    return (DWORD)msl::random_int<int>(0);
 }
 
 int number_ex(int from, int to, const char *file, int line)
@@ -353,7 +359,7 @@ int number_ex(int from, int to, const char *file, int line)
 
 	int returnValue = 0;
 
-	if ((to - from + 1) != 0)
+	if (((int64_t)to - (int64_t)from + 1LL) != 0)
 		returnValue = msl::random_int<int>(from, to);
 	else
 		sys_err("number(): devided by 0");
@@ -383,7 +389,7 @@ void thecore_msleep(DWORD dwMillisecond)
 {
     static struct timeval tv_sleep;
     tv_sleep.tv_sec = dwMillisecond / 1000;
-    tv_sleep.tv_usec = dwMillisecond * 1000;
+    tv_sleep.tv_usec = (dwMillisecond % 1000) * 1000;
     thecore_sleep(&tv_sleep);
 }
 
@@ -402,7 +408,8 @@ void core_dump_unix(const char *who, WORD line)
 
 void thecore_sleep(struct timeval* timeout)
 {
-    Sleep(timeout->tv_sec * 1000 + timeout->tv_usec / 1000);
+    const long ms = timeout->tv_sec * 1000L + timeout->tv_usec / 1000L;
+    Sleep(ms > 0 ? (DWORD)ms : 0U);
 }
 
 void thecore_msleep(DWORD dwMillisecond)
@@ -415,8 +422,8 @@ void gettimeofday(struct timeval* t, struct timezone* dummy)
     (void) dummy;
     DWORD millisec = GetTickCount();
 
-    t->tv_sec = (millisec / 1000);
-    t->tv_usec = (millisec % 1000) * 1000;
+    t->tv_sec = (long)(millisec / 1000U);
+    t->tv_usec = (long)((millisec % 1000U) * 1000U);
 }
 
 void core_dump_unix(const char *who, WORD line)
@@ -435,20 +442,20 @@ float get_float_time()
     return ((float) tv.tv_sec + ((float) tv.tv_usec / 1000000.0f));
 }
 
-static DWORD get_boot_sec()
+static time_t get_boot_sec()
 {
 	static struct timeval tv_boot = {0L, 0L};
 
 	if (tv_boot.tv_sec == 0)
 		gettimeofday(&tv_boot, NULL);
 
-	return tv_boot.tv_sec;
+	return (time_t)tv_boot.tv_sec;
 }
 
 DWORD get_dword_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    tv.tv_sec -= get_boot_sec();
-    return (tv.tv_sec * 1000 + tv.tv_usec / 1000);
+    const time_t sec_diff = (time_t)tv.tv_sec - get_boot_sec();
+    return (DWORD)((uint64_t)sec_diff * 1000ULL + (uint64_t)(tv.tv_usec / 1000));
 }

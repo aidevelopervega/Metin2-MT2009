@@ -73,7 +73,7 @@ bool DBManager::Connect(const char * host, const int port, const char * user, co
 
 bool DBManager::ConnectAccount(const char* host, const int port, const char* user, const char* pwd, const char* db)
 {
-	if (!m_sql_account.Setup(host, user, pwd, db, g_stLocale.c_str(), false, port))
+	if (!m_sql_account.Setup(host, user, pwd, db, g_stLocale.c_str(), true, port))
 	{
 		sys_err("cannot open sql connection to ACCOUNT DATABASE host %s", host);
 	}

@@ -861,9 +861,9 @@ void CHARACTER::EncodeInsertPacket(LPENTITY entity)
 
 		if (false)
 		{
-			LPCHARACTER ch = (LPCHARACTER) entity;
+			LPCHARACTER pkChr = (LPCHARACTER) entity;
 
-			if (GetEmpire() == ch->GetEmpire() || ch->GetGMLevel() > GM_PLAYER || m_bCharType == CHAR_TYPE_NPC)
+			if (GetEmpire() == pkChr->GetEmpire() || pkChr->GetGMLevel() > GM_PLAYER || m_bCharType == CHAR_TYPE_NPC)
 			{
 				goto show_all_info;
 			}
@@ -896,9 +896,9 @@ void CHARACTER::EncodeInsertPacket(LPENTITY entity)
 
 	if (iDur)
 	{
-		TPacketGCMove pack;
-		EncodeMovePacket(pack, GetVID(), FUNC_MOVE, 0, m_posDest.x, m_posDest.y, iDur, 0, (BYTE) (GetRotation() / 5));
-		d->Packet(pack);
+		TPacketGCMove movePack;
+		EncodeMovePacket(movePack, GetVID(), FUNC_MOVE, 0, m_posDest.x, m_posDest.y, iDur, 0, (BYTE) (GetRotation() / 5));
+		d->Packet(movePack);
 
 		TPacketGCWalkMode p;
 		p.vid = GetVID();
@@ -910,13 +910,13 @@ void CHARACTER::EncodeInsertPacket(LPENTITY entity)
 
 	if (entity->IsType(ENTITY_CHARACTER) && GetDesc())
 	{
-		LPCHARACTER ch = (LPCHARACTER) entity;
-		if (ch->IsWalking())
+		LPCHARACTER pkChr = (LPCHARACTER) entity;
+		if (pkChr->IsWalking())
 		{
 			TPacketGCWalkMode p;
-			p.vid = ch->GetVID();
+			p.vid = pkChr->GetVID();
 			p.header = HEADER_GC_WALK_MODE;
-			p.mode = ch->m_bNowWalking ? WALKMODE_WALK : WALKMODE_RUN;
+			p.mode = pkChr->m_bNowWalking ? WALKMODE_WALK : WALKMODE_RUN;
 			GetDesc()->Packet(p);
 		}
 	}
@@ -1868,7 +1868,7 @@ public:
 	int damageMin;
 	int damageMax;
 
-	CAreaOfEffectDamageInRadius(LPCHARACTER me, int radius, int damageMin, int damageMax) : m_me(me), radius(radius), damageMin(damageMin), damageMax(damageMax)
+	CAreaOfEffectDamageInRadius(LPCHARACTER me, int in_radius, int in_damageMin, int in_damageMax) : m_me(me), radius(in_radius), damageMin(in_damageMin), damageMax(in_damageMax)
 	{
 	}
 
@@ -8082,7 +8082,7 @@ bool CHARACTER::WonExchange(const std::string & option, int value)
 		const auto totalYang = static_cast<YANG>(value) * YANG_PER_CHEQUE;
 		if (GetGold() < totalYang)
 		{
-			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You don't have enough yangs for the exchange. Required %s, owned %d."), FormatNumberWithDots(totalYang).c_str(), GetGold());
+			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You don't have enough yangs for the exchange. Required %s, owned %d."), FormatNumberWithDots(totalYang).c_str(), (int)MIN(GetGold(), (YANG)INT_MAX));
 			return false;
 		}
 		if (GetCheque() + value > CHEQUE_MAX)
@@ -8650,7 +8650,7 @@ void CHARACTER::RefineAcceMaterials()
 			pkItem->AttrLog();
 
 			if (lVal == 4)
-				ChatPacket(CHAT_TYPE_INFO, LC_TEXT("New absorption rate: %d%"), dwAbs);
+				ChatPacket(CHAT_TYPE_INFO, LC_TEXT("New absorption rate: %d%"), (int)dwAbs);
 			else
 				ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Success."));
 

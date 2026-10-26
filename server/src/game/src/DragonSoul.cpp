@@ -596,7 +596,7 @@ bool DSManager::DoRefineGrade(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL
 	ch->ChangeGold(-fee);
 	int left_count = need_count;
 
-	for (std::set <LPITEM>::iterator it = set_items.begin(); it != set_items.end(); it++)
+	for (it = set_items.begin(); it != set_items.end(); it++)
 	{
 		LPITEM pItem = *it;
 		int n = pItem->GetCount();
@@ -669,7 +669,7 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 	}
 
 	std::string stGroupName;
-	int count = set_items.size();
+	int count = static_cast<int>(set_items.size());
 	int need_count = 0;
 	int fee = 0;
 	std::vector <float> vec_probs;
@@ -739,7 +739,7 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 
 	ch->ChangeGold(-fee);
 	int left_count = need_count;
-	for (std::set <LPITEM>::iterator it = set_items.begin(); it != set_items.end(); it++)
+	for (it = set_items.begin(); it != set_items.end(); it++)
 	{
 		LPITEM pItem = *it;
 		int n = pItem->GetCount();

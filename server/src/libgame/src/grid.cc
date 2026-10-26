@@ -20,15 +20,19 @@
 
 CGrid::CGrid(int w, int h) : m_iWidth(w), m_iHeight(h)
 {
-    m_pGrid = new char[m_iWidth * m_iHeight];
-    memset(m_pGrid, 0, sizeof(char) * m_iWidth * m_iHeight);
+    const size_t gridSize = (m_iWidth > 0 && m_iHeight > 0) ? (static_cast<size_t>(m_iWidth) * static_cast<size_t>(m_iHeight)) : 0;
+    m_pGrid = new char[gridSize];
+    memset(m_pGrid, 0, sizeof(char) * gridSize);
 }
 
 CGrid::CGrid(CGrid * pkGrid, int w, int h) : m_iWidth(w), m_iHeight(h)
 {
-    m_pGrid = new char[m_iWidth * m_iHeight];
+    const size_t gridSize = (m_iWidth > 0 && m_iHeight > 0) ? (static_cast<size_t>(m_iWidth) * static_cast<size_t>(m_iHeight)) : 0;
+    m_pGrid = new char[gridSize];
+    memset(m_pGrid, 0, sizeof(char) * gridSize);
     int iSize = std::min(w * h, pkGrid->m_iWidth * pkGrid->m_iHeight);
-    thecore_memcpy(m_pGrid, pkGrid->m_pGrid, sizeof(char) * iSize);
+    if (iSize > 0)
+	thecore_memcpy(m_pGrid, pkGrid->m_pGrid, sizeof(char) * static_cast<size_t>(iSize));
 }
 
 CGrid::~CGrid()
@@ -38,7 +42,8 @@ CGrid::~CGrid()
 
 void CGrid::Clear()
 {
-    memset(m_pGrid, 0, sizeof(char) * m_iWidth * m_iHeight);
+    const size_t gridSize = (m_iWidth > 0 && m_iHeight > 0) ? (static_cast<size_t>(m_iWidth) * static_cast<size_t>(m_iHeight)) : 0;
+    memset(m_pGrid, 0, sizeof(char) * gridSize);
 }
 
 int CGrid::FindBlank(int w, int h)
@@ -140,5 +145,5 @@ void CGrid::Print()
 
 unsigned int CGrid::GetSize()
 {
-    return m_iWidth * m_iHeight;
+    return (m_iWidth > 0 && m_iHeight > 0) ? static_cast<unsigned int>(m_iWidth * m_iHeight) : 0U;
 }

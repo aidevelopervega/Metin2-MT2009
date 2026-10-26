@@ -61,29 +61,31 @@ void ConvertEmpireText(DWORD dwEmpireID, char* szText, size_t len, int iPct)
 		{
 			if (*pbText & 0x80)
 			{
-				static char s_cChinaTable[][3] = {"!","@","#"};
-				int n = number(0, 4);
-				pbText[0] = s_cChinaTable[n][0];
-				pbText[1] = s_cChinaTable[n][1];
-
-				++pbText;
-				--len;
+				static const char s_cChinaTable[3] = {'!', '@', '#'};
+				int n = number(0, 2);
+				pbText[0] = static_cast<BYTE>(s_cChinaTable[n]);
+				if (len >= 2 && pbText[1] != '\0')
+				{
+					pbText[1] = static_cast<BYTE>(s_cChinaTable[n]);
+					++pbText;
+					--len;
+				}
 			}
 			else
 			{
 				if (*pbText >= 'a' && *pbText <= 'z')
 				{
-					*pbText = rkTextConvTable.acLower[*pbText - 'a'];
+					*pbText = static_cast<BYTE>(rkTextConvTable.acLower[*pbText - 'a']);
 				}
 				else if (*pbText >= 'A' && *pbText <= 'Z')
 				{
-					*pbText = rkTextConvTable.acUpper[*pbText - 'A'];
+					*pbText = static_cast<BYTE>(rkTextConvTable.acUpper[*pbText - 'A']);
 				}
 			}
 		}
 		else
 		{
-			if (*pbText & 0x80)
+			if ((*pbText & 0x80) && len >= 2 && pbText[1] != '\0')
 			{
 				++pbText;
 				--len;

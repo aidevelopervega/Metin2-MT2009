@@ -360,7 +360,7 @@ int main()
         }
 
         // 2. Simulate shutdown draining loop processing responses
-        int pendingCaches = activePlayers.size() + activeItems.size();
+        int pendingCaches = static_cast<int>(activePlayers.size() + activeItems.size());
         for (auto it = activePlayers.begin(); it != activePlayers.end(); )
         {
             CTestPlayerCache* pc = it->second;

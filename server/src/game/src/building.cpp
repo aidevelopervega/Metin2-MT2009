@@ -770,15 +770,15 @@ CLand * CManager::FindLand(long lMapIndex, long x, long y)
 	while (it != m_map_pkLand.end())
 	{
 		CLand * pkLand = (it++)->second;
-		const TLand & r = pkLand->GetData();
+		const TLand & landData = pkLand->GetData();
 
-		if (r.lMapIndex != lMapIndex)
+		if (landData.lMapIndex != lMapIndex)
 			continue;
 
-		if (x < r.x || y < r.y)
+		if (x < landData.x || y < landData.y)
 			continue;
 
-		if (x > r.x + r.width || y > r.y + r.height)
+		if (x > landData.x + landData.width || y > landData.y + landData.height)
 			continue;
 
 		return pkLand;

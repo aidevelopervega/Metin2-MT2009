@@ -233,7 +233,7 @@ int DES_Encrypt(DWORD *DstBuffer, const DWORD * SrcBuffer, const DWORD *KeyAddre
     buffer[0] = IVector[0];
     buffer[1] = IVector[1];
 
-    for (i = 0; i < (Length >> 2); i = i+2)
+    for (i = 0; i + 1 < (Length >> 2); i = i+2)
     {
 	// do EBC encryption of (Initial_Vector XOR Data)
 	buffer[0] ^= SrcBuffer[i];
@@ -245,7 +245,7 @@ int DES_Encrypt(DWORD *DstBuffer, const DWORD * SrcBuffer, const DWORD *KeyAddre
 	DstBuffer[i+1] = buffer[1];
     }
 
-    return Length;
+    return (int)Length;
 }
 
 //************ DES CBC mode decryption **************
@@ -257,7 +257,7 @@ int DES_Decrypt(DWORD *DstBuffer, const DWORD * SrcBuffer, const DWORD *KeyAddre
     ivectorL = IVector[0];
     ivectorR = IVector[1];
 
-    for (i = 0; i < (Length >> 2); i = i + 2)
+    for (i = 0; i + 1 < (Length >> 2); i = i + 2)
     {
 	buffer[0] = oldSrcL = SrcBuffer[i];
 	buffer[1] = oldSrcR = SrcBuffer[i+1];
@@ -274,5 +274,5 @@ int DES_Decrypt(DWORD *DstBuffer, const DWORD * SrcBuffer, const DWORD *KeyAddre
 	ivectorR = oldSrcR;
     }
 
-    return Length;
+    return (int)Length;
 }

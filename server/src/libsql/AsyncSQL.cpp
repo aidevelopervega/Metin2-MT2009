@@ -574,7 +574,7 @@ bool CAsyncSQL::Connect()
 	mysql_options(&m_hDB, MYSQL_OPT_RECONNECT, &reconnect);
 #endif
 
-	if (!mysql_real_connect(&m_hDB, m_stHost.c_str(), m_stUser.c_str(), m_stPassword.c_str(), m_stDB.c_str(), m_iPort, NULL, CLIENT_MULTI_STATEMENTS))
+	if (!mysql_real_connect(&m_hDB, m_stHost.c_str(), m_stUser.c_str(), m_stPassword.c_str(), m_stDB.c_str(), static_cast<unsigned int>(m_iPort), NULL, CLIENT_MULTI_STATEMENTS))
 	{
 		fprintf(stderr, "mysql_real_connect failed: %s\n", mysql_error(&m_hDB));
 		return false;
@@ -717,11 +717,15 @@ std::unique_ptr<SQLMsg> CAsyncSQL::DirectQuery(const char * c_pszQuery)
 	if (m_ulThreadID != mysql_thread_id(&m_hDB))
 	{
 		sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
-		while (!QueryLocaleSet());
+		for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
+		{
+			if (!m_bConnected)
+				break;
+		}
 		m_ulThreadID = mysql_thread_id(&m_hDB);
 	}
 
-	if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
+	if (mysql_real_query(&m_hDB, p->stQuery.c_str(), static_cast<unsigned long>(p->stQuery.length())))
 	{
 		char buf[1024];
 
@@ -1026,7 +1030,7 @@ int CAsyncSQL::CopyQuery()
 	}
 
 	m_queryQueueBytes = 0;
-	int count = m_queue_query_copy.size();
+	int count = static_cast<int>(std::min<size_t>(m_queue_query_copy.size(), static_cast<size_t>(INT_MAX)));
 
 	MUTEX_UNLOCK(m_mtxQuery.get());
 	return count;
@@ -1213,11 +1217,15 @@ void CAsyncSQL::ChildLoop()
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
 			{
 				sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
-				while (!QueryLocaleSet());
+				for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
+				{
+					if (!m_bConnected)
+						break;
+				}
 				m_ulThreadID = mysql_thread_id(&m_hDB);
 			}
 
-			if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
+			if (mysql_real_query(&m_hDB, p->stQuery.c_str(), static_cast<unsigned long>(p->stQuery.length())))
 			{
 				p->uiSQLErrno = mysql_errno(&m_hDB);
 
@@ -1289,11 +1297,15 @@ void CAsyncSQL::ChildLoop()
 		if (m_ulThreadID != mysql_thread_id(&m_hDB))
 		{
 			sys_log(0, "MySQL connection was reconnected. querying locale set"); // @warme012
-			while (!QueryLocaleSet());
+			for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
+			{
+				if (!m_bConnected)
+					break;
+			}
 			m_ulThreadID = mysql_thread_id(&m_hDB);
 		}
 
-		if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
+		if (mysql_real_query(&m_hDB, p->stQuery.c_str(), static_cast<unsigned long>(p->stQuery.length())))
 		{
 			p->uiSQLErrno = mysql_errno(&m_hDB);
 
@@ -1459,9 +1471,9 @@ size_t CAsyncSQL::EscapeString(char* dst, size_t dstSize, const char *src, size_
 
 	unsigned long res = 0;
 #if !defined(MARIADB_BASE_VERSION) && defined(LIBMYSQL_VERSION_ID) && LIBMYSQL_VERSION_ID >= 50706
-	res = mysql_real_escape_string_quote(GetSQLHandle(), dst, src, srcSize, '\'');
+	res = mysql_real_escape_string_quote(GetSQLHandle(), dst, src, static_cast<unsigned long>(srcSize), '\'');
 #else
-	res = mysql_real_escape_string(GetSQLHandle(), dst, src, srcSize);
+	res = mysql_real_escape_string(GetSQLHandle(), dst, src, static_cast<unsigned long>(srcSize));
 #endif
 
 	if (res == static_cast<unsigned long>(-1))
@@ -1495,11 +1507,15 @@ bool CAsyncSQL::ResendQuery(SQLMsg * p)
 	if (m_ulThreadID != mysql_thread_id(&m_hDB))
 	{
 		sys_log(0, "MySQL connection was reconnected. querying locale set");
-		while (!QueryLocaleSet());
+		for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
+		{
+			if (!m_bConnected)
+				break;
+		}
 		m_ulThreadID = mysql_thread_id(&m_hDB);
 	}
 
-	return mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()) == 0;
+	return mysql_real_query(&m_hDB, p->stQuery.c_str(), static_cast<unsigned long>(p->stQuery.length())) == 0;
 }
 
 bool CAsyncSQL::IsConnectionLossError(unsigned int uiErrno)
@@ -1521,9 +1537,9 @@ uint32_t CAsyncSQL::ComputeSpoolChecksum(uint64_t ullSeqID, const std::string & 
 		hash ^= byte;
 		hash *= 16777619u;
 	}
-	for (unsigned char ch : stPayload)
+	for (char ch : stPayload)
 	{
-		hash ^= ch;
+		hash ^= static_cast<unsigned char>(ch);
 		hash *= 16777619u;
 	}
 	return hash;
@@ -2274,7 +2290,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
 			{
-				while (!QueryLocaleSet())
+				for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
 				{
 					if (!m_bConnected)
 						break;
@@ -2282,7 +2298,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				m_ulThreadID = mysql_thread_id(&m_hDB);
 			}
 
-			if (mysql_real_query(&m_hDB, p->stQuery.c_str(), p->stQuery.length()))
+			if (mysql_real_query(&m_hDB, p->stQuery.c_str(), static_cast<unsigned long>(p->stQuery.length())))
 			{
 				p->uiSQLErrno = mysql_errno(&m_hDB);
 				const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);
@@ -2338,7 +2354,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
 			{
-				while (!QueryLocaleSet())
+				for (int retry = 0; retry < 3 && !QueryLocaleSet(); ++retry)
 				{
 					if (!m_bConnected)
 						break;
@@ -2346,7 +2362,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				m_ulThreadID = mysql_thread_id(&m_hDB);
 			}
 
-			if (mysql_real_query(&m_hDB, entry.stQuery.c_str(), entry.stQuery.length()))
+			if (mysql_real_query(&m_hDB, entry.stQuery.c_str(), static_cast<unsigned long>(entry.stQuery.length())))
 			{
 				unsigned int err = mysql_errno(&m_hDB);
 				const bool bNoBackslash = m_bNoBackslashEscapes.load(std::memory_order_relaxed);

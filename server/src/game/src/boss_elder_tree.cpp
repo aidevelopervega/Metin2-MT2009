@@ -148,10 +148,10 @@ EVENTFUNC(boss_elder_tree_event)
 				if (spawn)
 				{
 					spawn->SetAggressive();
-					boss_elder_tree_healer_event_info* info = AllocEventInfo<boss_elder_tree_healer_event_info>();
-					info->ch = spawn;
-					info->boss_ch = ch;
-					spawn->m_pkAIEvent = event_create(boss_elder_tree_post_healer_event, info, PASSES_PER_SEC(1));
+					boss_elder_tree_healer_event_info* healer_info = AllocEventInfo<boss_elder_tree_healer_event_info>();
+					healer_info->ch = spawn;
+					healer_info->boss_ch = ch;
+					spawn->m_pkAIEvent = event_create(boss_elder_tree_post_healer_event, healer_info, PASSES_PER_SEC(1));
 				}
 			}
 		}

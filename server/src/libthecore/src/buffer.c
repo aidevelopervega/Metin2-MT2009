@@ -10,7 +10,7 @@ void buffer_realloc(LPBUFFER& buffer, int length);
 
 static int buffer_get_pool_index(int size) {
 	int i;
-	for (i = 0; i < 32; ++i) {
+	for (i = 0; i < 31; ++i) {
 		if ((1 << i) >= size) {
 			return i;
 		}
@@ -19,7 +19,7 @@ static int buffer_get_pool_index(int size) {
 }
 static int buffer_get_exac_pool_index(int size) {
 	int i;
-	for (i = 0; i < 32; ++i) {
+	for (i = 0; i < 31; ++i) {
 		if ((1 << i) == size) {
 			return i;
 		}
@@ -61,7 +61,7 @@ static bool buffer_larger_pool_free (int n)
 }
 bool safe_create(char** pdata, int number)
 {
-	if (!((*pdata) = (char *) calloc (number, sizeof(char))))
+	if (number < 0 || !((*pdata) = (char *) calloc ((size_t)number, sizeof(char))))
 	{
 		sys_err("calloc failed [%d] %s", errno, strerror(errno));
 		return false;
@@ -98,7 +98,7 @@ LPBUFFER buffer_new(int size)
 		{
 			if (!buffer_larger_pool_free(pool_index))
 				buffer_pool_free();
-			CREATE(buffer->mem_data, char, size);
+			CREATE(buffer->mem_data, char, (size_t)size);
 			sys_err ("buffer pool free success.");
 		}
 	}
@@ -134,7 +134,7 @@ void buffer_delete(LPBUFFER buffer)
 
 DWORD buffer_size(LPBUFFER buffer)
 {
-	return (buffer->length);
+	return (buffer && buffer->length > 0) ? (DWORD)buffer->length : 0;
 }
 
 void buffer_reset(LPBUFFER buffer)
@@ -155,13 +155,15 @@ void buffer_write(LPBUFFER& buffer, const void *src, int length)
 	if (buffer->write_point_pos + length >= buffer->mem_size)
 		buffer_realloc(buffer, buffer->mem_size + length + MIN(10240, length));
 
-	thecore_memcpy(buffer->write_point, src, length);
+	thecore_memcpy(buffer->write_point, src, (size_t)length);
 	buffer_write_proceed(buffer, length);
 }
 
 void buffer_read(LPBUFFER buffer, void * buf, int bytes)
 {
-	thecore_memcpy(buf, buffer->read_point, bytes);
+	if (!buffer || !buf || bytes <= 0)
+		return;
+	thecore_memcpy(buf, buffer->read_point, (size_t)bytes);
 	buffer_read_proceed(buffer, bytes);
 }
 
@@ -208,7 +210,7 @@ void buffer_read_proceed(LPBUFFER buffer, int length)
 	{
 		if (buffer->read_point + length - buffer->mem_data > buffer->mem_size)
 		{
-			sys_err("buffer_read_proceed: buffer overflow! length %d read_point %d", length, buffer->read_point - buffer->mem_data);
+			sys_err("buffer_read_proceed: buffer overflow! length %d read_point %td", length, buffer->read_point - buffer->mem_data);
 			abort();
 		}
 
@@ -264,9 +266,10 @@ void buffer_realloc(LPBUFFER& buffer, int length)
 
 	temp = buffer_new (length);
 	sys_log(0, "reallocating buffer to %d, current %d", temp->mem_size, buffer->mem_size);
-	thecore_memcpy(temp->mem_data, buffer->mem_data, buffer->mem_size);
+	if (buffer->mem_size > 0)
+		thecore_memcpy(temp->mem_data, buffer->mem_data, (size_t)buffer->mem_size);
 
-	read_point_pos = buffer->read_point - buffer->mem_data;
+	read_point_pos = (int)(buffer->read_point - buffer->mem_data);
 
 	temp->write_point = temp->mem_data + buffer->write_point_pos;
 	temp->write_point_pos = buffer->write_point_pos;

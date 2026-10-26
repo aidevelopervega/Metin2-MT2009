@@ -20,7 +20,7 @@ namespace
 {
 	struct FGuildNameSender
 	{
-		FGuildNameSender(DWORD id, const char* guild_name) : id(id), name(guild_name)
+		FGuildNameSender(DWORD in_id, const char* guild_name) : id(in_id), name(guild_name)
 		{
 			p.header = HEADER_GC_GUILD;
 			p.subheader = GUILD_SUBHEADER_GC_GUILD_NAME;

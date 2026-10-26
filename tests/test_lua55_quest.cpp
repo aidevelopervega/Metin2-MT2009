@@ -500,19 +500,19 @@ int main()
         static int s_monkey_count = 0;
         s_goto_count = 0; s_bgm_count = 0; s_ox_count = 0; s_monkey_count = 0;
 
-        lua_register(L, "get_locale_base_path", [](lua_State* L) -> int {
-            lua_pushstring(L, s_base_dir);
+        lua_register(L, "get_locale_base_path", [](lua_State* ls) -> int {
+            lua_pushstring(ls, s_base_dir);
             return 1;
         });
-        lua_register(L, "is_test_server", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0);
+        lua_register(L, "is_test_server", [](lua_State* ls) -> int {
+            lua_pushnumber(ls, 0);
             return 1;
         });
         lua_register(L, "syschat", [](lua_State*) -> int { return 0; });
         lua_register(L, "cmdchat", [](lua_State*) -> int { return 0; });
-        lua_register(L, "get_lctext", [](lua_State* L) -> int {
-            const char* s = lua_tostring(L, 1);
-            lua_pushstring(L, s ? s : "");
+        lua_register(L, "get_lctext", [](lua_State* ls) -> int {
+            const char* s = lua_tostring(ls, 1);
+            lua_pushstring(ls, s ? s : "");
             return 1;
         });
         lua_register(L, "raw_script", [](lua_State*) -> int { return 0; });

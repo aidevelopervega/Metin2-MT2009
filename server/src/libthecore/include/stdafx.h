@@ -86,8 +86,60 @@ struct timespec
 #endif
 
 // C runtime library adjustments
-#define strlcat(dst, src, size) strcat_s(dst, size, src)
-#define strlcpy(dst, src, size) strncpy_s(dst, size, src, _TRUNCATE)
+static inline size_t strlcpy(char *dst, const char *src, size_t dsize)
+{
+	if (!src)
+	{
+		if (dst && dsize > 0)
+			*dst = '\0';
+		return 0;
+	}
+	const char *osrc = src;
+	size_t nleft = dsize;
+	if (nleft != 0)
+	{
+		while (--nleft != 0)
+		{
+			if ((*dst++ = *src++) == '\0')
+				break;
+		}
+	}
+	if (nleft == 0)
+	{
+		if (dsize != 0)
+			*dst = '\0';
+		while (*src++)
+			;
+	}
+	return (size_t)(src - osrc - 1);
+}
+
+static inline size_t strlcat(char *dst, const char *src, size_t dsize)
+{
+	if (!dst || !src)
+		return 0;
+	const char *odst = dst;
+	const char *osrc = src;
+	size_t n = dsize;
+	size_t dlen;
+	while (n-- != 0 && *dst != '\0')
+		dst++;
+	dlen = (size_t)(dst - odst);
+	n = dsize - dlen;
+	if (n-- == 0)
+		return dlen + strlen(src);
+	while (*src != '\0')
+	{
+		if (n != 0)
+		{
+			*dst++ = *src;
+			n--;
+		}
+		src++;
+	}
+	*dst = '\0';
+	return dlen + (size_t)(src - osrc);
+}
 #define strtoull(str, endptr, base) _strtoui64(str, endptr, base)
 #define strcasecmp(s1, s2) stricmp(s1, s2)
 #define strncasecmp(s1, s2, n) strnicmp(s1, s2, n)

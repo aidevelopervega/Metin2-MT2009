@@ -372,16 +372,16 @@ namespace mining
 
 	EVENTFUNC(mining_event)
 	{
-		mining_event_info* info = dynamic_cast<mining_event_info*>( event->info );
+		mining_event_info* event_info = dynamic_cast<mining_event_info*>( event->info );
 
-		if ( info == NULL )
+		if ( event_info == NULL )
 		{
 			sys_err( "mining_event_info> <Factor> Null pointer" );
 			return 0;
 		}
 
-		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(info->pid);
-		LPCHARACTER load = CHARACTER_MANAGER::instance().Find(info->vid_load);
+		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(event_info->pid);
+		LPCHARACTER load = CHARACTER_MANAGER::instance().Find(event_info->vid_load);
 
 		if (!ch)
 			return 0;
@@ -427,11 +427,11 @@ namespace mining
 
 	LPEVENT CreateMiningEvent(LPCHARACTER ch, LPCHARACTER load, int count)
 	{
-		mining_event_info* info = AllocEventInfo<mining_event_info>();
-		info->pid = ch->GetPlayerID();
-		info->vid_load = load->GetVID();
+		mining_event_info* event_info = AllocEventInfo<mining_event_info>();
+		event_info->pid = ch->GetPlayerID();
+		event_info->vid_load = load->GetVID();
 
-		return event_create(mining_event, info, PASSES_PER_SEC(2 * count));
+		return event_create(mining_event, event_info, PASSES_PER_SEC(2 * count));
 	}
 
 	bool OreRefine(LPCHARACTER ch, LPCHARACTER npc, LPITEM item, int cost, int pct, LPITEM metinstone_item)

@@ -2973,7 +2973,7 @@ namespace ikashop
 			}
 		}
 
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Searching ended. Found %d shops."), foundShops.size());
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Searching ended. Found %d shops."), (int)foundShops.size());
 
 		if (foundShops.size() > 0)
 		{

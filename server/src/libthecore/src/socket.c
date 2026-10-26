@@ -13,16 +13,18 @@ int socket_udp_read(socket_t desc, char * read_point, size_t space_left, struct 
     /*
        ssize_t recvfrom(int s, void * buf, size_t len, int flags, struct sockaddr * from, socklen_t * fromlen);
      */
+    const int chunk_len = (space_left > (size_t)INT_MAX) ? INT_MAX : (int)space_left;
     ssize_t ret;
-    ret = recvfrom(desc, read_point, space_left, 0, from, fromlen);
-    return (ret);
+    ret = recvfrom(desc, read_point, chunk_len, 0, from, fromlen);
+    return (int)ret;
 }
 
 int socket_read(socket_t desc, char* read_point, size_t space_left)
 {
     int	ret;
+    const int chunk_len = (space_left > (size_t)INT_MAX) ? INT_MAX : (int)space_left;
 
-    ret = recv(desc, read_point, space_left, 0);
+    ret = (int)recv(desc, read_point, chunk_len, 0);
 
     if (ret > 0)
 	return ret;
@@ -65,7 +67,7 @@ int socket_read(socket_t desc, char* read_point, size_t space_left)
 
 int socket_write_tcp(socket_t desc, const char *txt, int length)
 {
-    int bytes_written = send(desc, txt, length, 0);
+    int bytes_written = (int)send(desc, txt, length, 0);
 
     if (bytes_written > 0)
 	return (bytes_written);
@@ -110,7 +112,8 @@ int socket_write(socket_t desc, const char *data, size_t length)
 
     do
     {
-	if ((bytes_written = socket_write_tcp(desc, data, total)) < 0)
+	const int chunk_len = (total > (size_t)INT_MAX) ? INT_MAX : (int)total;
+	if ((bytes_written = socket_write_tcp(desc, data, chunk_len)) < 0)
 	{
 #ifdef EWOULDBLOCK
 	    if (errno == EWOULDBLOCK)
@@ -126,7 +129,7 @@ int socket_write(socket_t desc, const char *data, size_t length)
 	else
 	{
 	    data        += bytes_written;
-	    total       -= bytes_written;
+	    total       -= (size_t)bytes_written;
 	}
     }
     while (total > 0);
@@ -238,7 +241,7 @@ socket_t socket_connect(const char* host, WORD port)
 
     memset(&server_addr, 0, sizeof(server_addr));
 
-    if (isdigit(*host))
+    if (isdigit((unsigned char)*host))
 	server_addr.sin_addr.s_addr = inet_addr(host);
     else
     {
@@ -350,13 +353,13 @@ void socket_block(socket_t s)
 void socket_nonblock(socket_t s)
 {
     unsigned long val = 1;
-    ioctlsocket(s, FIONBIO, &val);
+    ioctlsocket(s, (long)FIONBIO, &val);
 }
 
 void socket_block(socket_t s)
 {
     unsigned long val = 0;
-    ioctlsocket(s, FIONBIO, &val);
+    ioctlsocket(s, (long)FIONBIO, &val);
 }
 #endif
 

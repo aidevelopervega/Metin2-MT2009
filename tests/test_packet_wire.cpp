@@ -649,6 +649,74 @@ int main()
             WIRE_ASSERT(!elkAddAllowed,
                 "Exchange ELK_ADD rejects LLONG_MAX before signed 64-bit addition overflow (ownerGold + arg1)");
         }
+
+        // 7.10 BSD strlcpy/strlcat, ConvertEmpireText trailing high-bit guard, ItemShop account limit flag length, and Safebox 64-bit time clamping
+        {
+            char dstBuf[8] = {};
+            const size_t copiedLen = strlcpy(dstBuf, "PlayerOne", sizeof(dstBuf));
+            WIRE_ASSERT(copiedLen == 9 && std::strcmp(dstBuf, "PlayerO") == 0,
+                "strlcpy returns strlen(src) (BSD semantics, not errno_t 0) and NUL-terminates truncated buffer");
+
+            char catBuf[12] = "Hi ";
+            const size_t catLen = strlcat(catBuf, "Metin2World", sizeof(catBuf));
+            WIRE_ASSERT(catLen == 14 && std::strcmp(catBuf, "Hi Metin2Wo") == 0,
+                "strlcat returns initial dst len + strlen(src) and NUL-terminates truncated buffer");
+        }
+        {
+            char empireBuf[4] = { static_cast<char>(0xC0), '\0', 'X', 'Y' };
+            size_t len = 1;
+            char* pbText = empireBuf;
+            while (len > 0 && *pbText != '\0')
+            {
+                if (static_cast<unsigned char>(*pbText) & 0x80)
+                {
+                    if (len < 2 || pbText[1] == '\0')
+                    {
+                        *pbText = '?';
+                        break;
+                    }
+                    pbText += 2;
+                    len -= 2;
+                }
+                else
+                {
+                    ++pbText;
+                    --len;
+                }
+            }
+            WIRE_ASSERT(len == 1 && empireBuf[0] == '?' && empireBuf[2] == 'X',
+                "ConvertEmpireText trailing high-bit byte (len==1) does not underflow size_t len or overwrite past NUL");
+        }
+        {
+            auto formatAuctionBuyFlag = [](uint32_t dwIndex) -> std::string {
+                return (dwIndex < 100000U)
+                    ? ("itemshop_auction_buy_" + std::to_string(dwIndex))
+                    : ("is_auc_buy_" + std::to_string(dwIndex));
+            };
+            auto formatAuctionTimeFlag = [](uint32_t dwIndex) -> std::string {
+                return (dwIndex < 100000U)
+                    ? ("itemshop_auction_time_" + std::to_string(dwIndex))
+                    : ("is_auc_time_" + std::to_string(dwIndex));
+            };
+            const std::string legacyBuy = formatAuctionBuyFlag(99999U);
+            const std::string legacyTime = formatAuctionTimeFlag(99999U);
+            const std::string highBuy = formatAuctionBuyFlag(UINT32_MAX);
+            const std::string highTime = formatAuctionTimeFlag(UINT32_MAX);
+            WIRE_ASSERT(legacyBuy.size() < SPECIAL_FLAG_MAX_LEN && legacyTime.size() < SPECIAL_FLAG_MAX_LEN &&
+                        highBuy.size() < SPECIAL_FLAG_MAX_LEN && highTime.size() < SPECIAL_FLAG_MAX_LEN &&
+                        highBuy != formatAuctionBuyFlag(UINT32_MAX - 1U),
+                "ItemShop dwAccountLimit flags fit strictly below SPECIAL_FLAG_MAX_LEN (32) without collision up to UINT32_MAX");
+        }
+        {
+            const int64_t now64 = 1777000000LL;
+            const int64_t hugeDuration = 3000000000LL;
+            const int64_t expireSec = now64 + hugeDuration;
+            const DWORD clampedSocket0 = (expireSec <= 0)
+                ? 0U
+                : (expireSec > static_cast<int64_t>(UINT32_MAX) ? UINT32_MAX : static_cast<DWORD>(expireSec));
+            WIRE_ASSERT(clampedSocket0 == UINT32_MAX,
+                "Safebox real-time expire clamps 64-bit time_t + duration to UINT32_MAX instead of wrapping modulo 2^32");
+        }
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

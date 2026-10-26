@@ -1161,9 +1161,9 @@ void CHARACTER::StateHorse()
 		SetRotation(number(0, 359));
 
 		float fx, fy;
-		float fDist = number(200, 400);
+		float fMoveDist = static_cast<float>(number(200, 400));
 
-		GetDeltaByDegree(GetRotation(), fDist, &fx, &fy);
+		GetDeltaByDegree(GetRotation(), fMoveDist, &fx, &fy);
 
 		if (!(SECTREE_MANAGER::instance().IsAttackablePosition(GetMapIndex(), GetX() + (int) fx, GetY() + (int) fy)
 					&& SECTREE_MANAGER::instance().IsAttackablePosition(GetMapIndex(), GetX() + (int) fx/2, GetY() + (int) fy/2)))

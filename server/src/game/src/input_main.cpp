@@ -588,8 +588,8 @@ struct FEmpireChatPacket
 	int iMapIndex;
 	int namelen;
 
-	FEmpireChatPacket(packet_chat& p, const char* chat_msg, int len, BYTE bEmpire, int iMapIndex, int iNameLen)
-		: p(p), orig_msg(chat_msg), orig_len(len), bEmpire(bEmpire), iMapIndex(iMapIndex), namelen(iNameLen)
+	FEmpireChatPacket(packet_chat& in_p, const char* chat_msg, int len, BYTE in_bEmpire, int in_iMapIndex, int iNameLen)
+		: p(in_p), orig_msg(chat_msg), orig_len(len), bEmpire(in_bEmpire), iMapIndex(in_iMapIndex), namelen(iNameLen)
 	{
 		memset( converted_msg, 0, sizeof(converted_msg) );
 	}
@@ -618,7 +618,8 @@ struct FEmpireChatPacket
 			if (len >= sizeof(converted_msg))
 				len = sizeof(converted_msg) - 1;
 
-			ConvertEmpireText(bEmpire, converted_msg + namelen, len - namelen, 10 + 2 * d->GetCharacter()->GetSkillPower(SKILL_LANGUAGE1 + bEmpire - 1));
+			if (len > static_cast<size_t>(namelen))
+				ConvertEmpireText(bEmpire, converted_msg + namelen, len - static_cast<size_t>(namelen), 10 + 2 * d->GetCharacter()->GetSkillPower(SKILL_LANGUAGE1 + bEmpire - 1));
 			d->Packet(converted_msg, orig_len);
 		}
 	}
@@ -1670,8 +1671,6 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 	
 	{
 		// mt2009 cheatwarden
-		const float fDist = DISTANCE_SQRT((ch->GetX() - pinfo->lX) / 100, (ch->GetY() - pinfo->lY) / 100);
-
 		if (((false == ch->IsRiding() && fDist > 25) || fDist > 40) && OXEVENT_MAP_INDEX != ch->GetMapIndex())
 		{
 			sys_log(0, "MOVE: %s trying to move too far (dist: %.1fm) Riding(%d)", ch->GetName(), fDist, ch->IsRiding());
@@ -1707,7 +1706,6 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 
 		// #define ENABLE_TP_SPEED_CHECK
 		#ifdef ENABLE_TP_SPEED_CHECK
-		const float fDist = DISTANCE_SQRT((ch->GetX() - pinfo->lX) / 100, (ch->GetY() - pinfo->lY) / 100);
 		if (((false == ch->IsRiding() && fDist > 25) || fDist > 60) && OXEVENT_MAP_INDEX != ch->GetMapIndex()) // @fixme106 (changed 40 to 60)
 		{
 			#ifdef ENABLE_HACK_TELEPORT_LOG // @warme006
@@ -1770,10 +1768,10 @@ void CInputMain::Move(LPCHARACTER ch, const char * data)
 			int checkTimeBonus = ch->playerData->m_iMoveCheckTimeBonus;
 			if (dwCurTime - ch->playerData->m_moveCheckerTime > static_cast<DWORD>(1500 + checkTimeBonus))
 			{
-				PIXEL_POSITION pos = ch->playerData->last_checked_position;
+				PIXEL_POSITION lastCheckedPos = ch->playerData->last_checked_position;
 				int moveBonusPoint = ch->playerData->m_iMoveBonusPoint;
 				int moveBonusPointThisRound = ch->playerData->m_iMoveBonusPointNextRound;
-				const int checkDistance = DISTANCE_APPROX((ch->GetX() - pos.x), (ch->GetY() - pos.y));
+				const int checkDistance = DISTANCE_APPROX((ch->GetX() - lastCheckedPos.x), (ch->GetY() - lastCheckedPos.y));
 				ch->playerData->last_checked_position = ch->GetXYZ();
 				ch->playerData->m_moveCheckerTime = dwCurTime;
 				ch->playerData->m_iMoveBonusPointNextRound = 0;
@@ -2996,7 +2994,7 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 					if (pGuild->OfferExp(ch, offer))
 					{
-						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] %u experience points used."), offer);
+						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] %u experience points used."), (unsigned int)offer);
 					}
 					else
 					{
@@ -3090,9 +3088,9 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 		case GUILD_SUBHEADER_CG_USE_SKILL:
 			{
-				const TPacketCGGuildUseSkill* p = reinterpret_cast<const TPacketCGGuildUseSkill*>(c_pData);
+				const TPacketCGGuildUseSkill* pSkill = reinterpret_cast<const TPacketCGGuildUseSkill*>(c_pData);
 
-				pGuild->UseSkill(p->dwVnum, ch, p->dwPID);
+				pGuild->UseSkill(pSkill->dwVnum, ch, pSkill->dwPID);
 			}
 			return SubPacketLen;
 
@@ -3344,8 +3342,6 @@ void CInputMain::Refine(LPCHARACTER ch, const char* c_pData)
 	}
 	else if (p->type == REFINE_TYPE_MONEY_ONLY)
 	{
-		const LPITEM item = ch->GetInventoryItem(p->pos);
-
 		if (NULL != item)
 		{
 			if (IsEliteRefine(item->GetRefineSet()))

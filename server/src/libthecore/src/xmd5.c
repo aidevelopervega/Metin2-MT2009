@@ -94,7 +94,7 @@ lutil_md5_file (const char *filename, char *buf)
 #else
     while ((i = _read(f,buffer,sizeof buffer)) > 0)
 #endif
-                MD5Update(&ctx,buffer,i);
+                MD5Update(&ctx,buffer,(unsigned int)i);
     j = errno;
 #ifndef __WIN32__
     close(f);

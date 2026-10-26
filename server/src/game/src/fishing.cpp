@@ -226,7 +226,7 @@ namespace fishing
 			if (rod->GetRefinedVnum() > 0 && rod->GetSocket(0) < rod->GetValue(2) && number(1, rod->GetValue(1)) == 1)
 			{
 				rod->SetSocket(0, rod->GetSocket(0) + 1, true, "SOCKET_FISHING");
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Your fishing points have increased! (%d/%d)"), rod->GetSocket(0), rod->GetValue(2));
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Your fishing points have increased! (%d/%d)"), (int)rod->GetSocket(0), (int)rod->GetValue(2));
 				if (rod->GetSocket(0) == rod->GetValue(2))
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have reached the maximum number of fishing points."));

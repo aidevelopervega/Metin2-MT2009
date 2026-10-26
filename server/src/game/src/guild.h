@@ -137,11 +137,11 @@ typedef struct SGuildWar
 	BYTE type;
 	DWORD map_index;
 
-	SGuildWar(BYTE type)
+	SGuildWar(BYTE in_type)
 		: war_start_time(0),
 	score(0),
 	state(GUILD_WAR_RECV_DECLARE),
-	type(type),
+	type(in_type),
 	map_index(0)
 	{
 	}

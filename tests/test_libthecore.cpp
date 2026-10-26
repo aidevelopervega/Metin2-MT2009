@@ -82,12 +82,12 @@ int main()
 
         const char* peekData = (const char*)buffer_read_peek(buf);
         TEST_ASSERT(peekData != NULL, "buffer_read_peek must return non-null");
-        TEST_ASSERT(memcmp(peekData, msg, msgLen) == 0, "Peek data must match written data");
+        TEST_ASSERT(memcmp(peekData, msg, static_cast<size_t>(msgLen)) == 0, "Peek data must match written data");
         TEST_ASSERT((int)buffer_size(buf) == msgLen, "Peek must not consume buffer content");
 
         char readBuf[64] = { 0 };
         buffer_read(buf, readBuf, msgLen);
-        TEST_ASSERT(memcmp(readBuf, msg, msgLen) == 0, "buffer_read data must match original");
+        TEST_ASSERT(memcmp(readBuf, msg, static_cast<size_t>(msgLen)) == 0, "buffer_read data must match original");
         TEST_ASSERT(buffer_size(buf) == 0, "Buffer size must be 0 after reading all data");
 
         // Auto expansion test

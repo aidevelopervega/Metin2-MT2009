@@ -187,7 +187,7 @@ CUBE_DATA::CUBE_DATA()
 	this->gold = 0;
 }
 
-bool CUBE_DATA::can_make_item (LPITEM *items, WORD npc_vnum)
+bool CUBE_DATA::can_make_item (LPITEM *items, WORD in_npc_vnum)
 {
 	DWORD	i, end_index;
 	DWORD	need_vnum;
@@ -195,10 +195,10 @@ bool CUBE_DATA::can_make_item (LPITEM *items, WORD npc_vnum)
 	int		found_npc = false;
 
 	// check npc_vnum
-	end_index = this->npc_vnum.size();
+	end_index = static_cast<DWORD>(this->npc_vnum.size());
 	for (i=0; i<end_index; ++i)
 	{
-		if (npc_vnum == this->npc_vnum[i])
+		if (in_npc_vnum == this->npc_vnum[i])
 			found_npc = true;
 	}
 	if (false==found_npc)	return false;

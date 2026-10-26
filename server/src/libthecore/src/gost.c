@@ -41,7 +41,7 @@ int GOST_Encrypt(DWORD * DstBuffer, const DWORD * SrcBuffer, const DWORD * KeyAd
     N1 = IVector[0];
     N2 = IVector[1];
 
-    for (i = 0; i < (Length >> 2); i = i+2)
+    for (i = 0; i + 1 < (Length >> 2); i = i+2)
     {
 	DWORD n1, n2; // As named in the GOST
 
@@ -97,7 +97,7 @@ int GOST_Encrypt(DWORD * DstBuffer, const DWORD * SrcBuffer, const DWORD * KeyAd
 	N2             = DstBuffer[i+1];
     }
 
-    return Length;
+    return (int)Length;
 }
 
 
@@ -110,7 +110,7 @@ int GOST_Decrypt(DWORD * DstBuffer, const DWORD * SrcBuffer, const DWORD * KeyAd
     N1 = IVector[0];
     N2 = IVector[1];
 
-    for (i = 0; i < (Length >> 2); i = i + 2)
+    for (i = 0; i + 1 < (Length >> 2); i = i + 2)
     {
 	DWORD n1, n2; // As named in the GOST
 
@@ -170,5 +170,5 @@ int GOST_Decrypt(DWORD * DstBuffer, const DWORD * SrcBuffer, const DWORD * KeyAd
 	DstBuffer[i+1] = dwTmp;
     }
 
-    return Length;
+    return (int)Length;
 }

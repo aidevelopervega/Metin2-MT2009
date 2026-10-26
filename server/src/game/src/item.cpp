@@ -669,16 +669,16 @@ void CItem::ModifyPoints(bool bAdd)
 				if (ITEM_METIN == p->bType)
 				{
 					//m_pOwner->PointChange(p->alValues[0], bAdd ? p->alValues[1] : -p->alValues[1]);
-					for (int i = 0; i < ITEM_APPLY_MAX_NUM; ++i)
+					for (int j = 0; j < ITEM_APPLY_MAX_NUM; ++j)
 					{
-						auto point = p->aApplies[i];
+						auto point = p->aApplies[j];
 						if (point.bType == POINT_NONE)
 							continue;
 
 						if (m_pOwner->IsUtilityPoint(point.bType))
 							continue;
 
-						m_pOwner->PointChange(point.bType, bAdd ? p->aApplies[i].lValue : -p->aApplies[i].lValue);
+						m_pOwner->PointChange(point.bType, bAdd ? p->aApplies[j].lValue : -p->aApplies[j].lValue);
 					}
 				}
 			}

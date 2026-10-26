@@ -18,11 +18,17 @@ int check_han(const char *str)
 
     for (i = 0; str[i]; i += 2)
     {
-	if (isnhspace(str[i]))
+	if (isnhspace((unsigned char)str[i]))
 	    return 0;
 
-	if (isalpha(str[i]) || isdigit(str[i]))
+	if (isalpha((unsigned char)str[i]) || isdigit((unsigned char)str[i]))
+	{
+	    --i;
 	    continue;
+	}
+
+	if (!str[i + 1])
+	    return 0;
 
 	code = str[i];
 	code += 256;
@@ -56,7 +62,7 @@ const char *first_han(const BYTE *str)
 	"Äa", "?", "?", "?", ""
     };
 
-    len = strlen((const char*) str);
+    len = (int)strlen((const char*) str);
 
     if (len < 2)
 	return p;
@@ -88,14 +94,14 @@ int under_han(const void * orig)
     BYTE high, low;
     int len;
 
-    len = strlen((const char*) str);
+    len = (int)strlen((const char*) str);
 
     if (len < 2)
 	return 0;
 
     if (str[len - 1] == ')')
     {
-	while (str[len] != '(')
+	while (len > 0 && str[len] != '(')
 	    len--;
     }
 

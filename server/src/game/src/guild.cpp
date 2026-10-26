@@ -23,18 +23,18 @@
 #include "../../common/PulseManager.h"
 #endif
 
-SGuildMember::SGuildMember(LPCHARACTER ch, BYTE grade, DWORD offer_exp)
-: pid(ch->GetPlayerID()), grade(grade), is_general(0), job(ch->GetJob()), level(ch->GetLevel()), offer_exp(offer_exp), name(ch->GetName())
+SGuildMember::SGuildMember(LPCHARACTER ch, BYTE in_grade, DWORD in_offer_exp)
+: pid(ch->GetPlayerID()), grade(in_grade), is_general(0), job(ch->GetJob()), level(ch->GetLevel()), offer_exp(in_offer_exp), name(ch->GetName())
 {}
-SGuildMember::SGuildMember(DWORD pid, BYTE grade, BYTE is_general, BYTE job, BYTE level, DWORD offer_exp, char* name)
-: pid(pid), grade(grade), is_general(is_general), job(job), level(level), offer_exp(offer_exp), name(name)
+SGuildMember::SGuildMember(DWORD in_pid, BYTE in_grade, BYTE in_is_general, BYTE in_job, BYTE in_level, DWORD in_offer_exp, char* in_name)
+: pid(in_pid), grade(in_grade), is_general(in_is_general), job(in_job), level(in_level), offer_exp(in_offer_exp), name(in_name)
 {}
 
 namespace
 {
 	struct FGuildNameSender
 	{
-		FGuildNameSender(DWORD id, const char* guild_name) : id(id), name(guild_name)
+		FGuildNameSender(DWORD in_id, const char* guild_name) : id(in_id), name(guild_name)
 		{
 			p.header = HEADER_GC_GUILD;
 			p.subheader = GUILD_SUBHEADER_GC_GUILD_NAME;
@@ -764,10 +764,10 @@ namespace
 		BYTE grade;
 		TPacketGuild p;
 
-		FSendChangeGrade(DWORD guild_id, BYTE grade) : grade(grade)
+		FSendChangeGrade(DWORD guild_id, BYTE in_grade) : grade(in_grade)
 		{
 			p.dwGuild = guild_id;
-			p.dwInfo = grade;
+			p.dwInfo = in_grade;
 		}
 
 		void operator()()
@@ -1303,7 +1303,7 @@ void CGuild::UseSkill(DWORD dwVnum, LPCHARACTER ch, DWORD pid)
 	abSkillUsable[dwRealVnum] = false;
 
 	if (test_server)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("<Guild> %d Skills used (%d, %d) to %u"), dwVnum, GetSP(), iNeededSP, pid);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("<Guild> %d Skills used (%d, %d) to %u"), (int)dwVnum, GetSP(), iNeededSP, (unsigned int)pid);
 
 	switch (dwVnum)
 	{
@@ -1350,9 +1350,9 @@ void CGuild::UseSkill(DWORD dwVnum, LPCHARACTER ch, DWORD pid)
 
 				for (itertype(m_memberOnline) it = m_memberOnline.begin(); it != m_memberOnline.end(); ++it)
 				{
-					LPCHARACTER victim = *it;
-					victim->RemoveAffect(dwVnum);
-					ch->ComputeSkill(dwVnum, victim, m_data.abySkill[dwRealVnum]);
+					LPCHARACTER memberChr = *it;
+					memberChr->RemoveAffect(dwVnum);
+					ch->ComputeSkill(dwVnum, memberChr, m_data.abySkill[dwRealVnum]);
 				}
 			}
 			break;
@@ -1577,8 +1577,8 @@ namespace
 	{
 		const char* c_pszText;
 
-		FGuildChat(const char* c_pszText)
-			: c_pszText(c_pszText)
+		FGuildChat(const char* in_c_pszText)
+			: c_pszText(in_c_pszText)
 			{}
 
 		void operator()(LPCHARACTER ch)

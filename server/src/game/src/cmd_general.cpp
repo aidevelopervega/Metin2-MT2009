@@ -1402,7 +1402,7 @@ ACMD(do_monarch_warpto)
 
 	if (!ch->IsMCOK(CHARACTER::MI_WARP))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_WARP));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_WARP));
 		return;
 	}
 
@@ -1410,8 +1410,8 @@ ACMD(do_monarch_warpto)
 
 	if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 	{
-		int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, WarpPrice);
+		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 		return;
 	}
 
@@ -1454,7 +1454,7 @@ ACMD(do_monarch_warpto)
 			PIXEL_POSITION pos;
 
 			if (!SECTREE_MANAGER::instance().GetCenterPositionOfMap(pkCCI->lMapIndex, pos))
-				ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find map (index %d)", pkCCI->lMapIndex);
+				ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find map (index %d)", (int)pkCCI->lMapIndex);
 			else
 			{
 				//ch->ChatPacket(CHAT_TYPE_INFO, "You warp to (%d, %d)", pos.x, pos.y);
@@ -1517,7 +1517,7 @@ ACMD(do_monarch_transfer)
 
 	if (!ch->IsMCOK(CHARACTER::MI_TRANSFER))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_TRANSFER));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_TRANSFER));
 		return;
 	}
 
@@ -1525,8 +1525,8 @@ ACMD(do_monarch_transfer)
 
 	if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 	{
-		int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, WarpPrice);
+		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 		return;
 	}
 
@@ -1620,7 +1620,7 @@ ACMD(do_monarch_info)
 		for (int n = 1; n < 4; ++n)
 		{
 			if (n == ch->GetEmpire())
-				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[%sMonarch] : %s Yang owned %lld"), EMPIRE_NAME(n), p->name[n], p->money[n]);
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[%sMonarch] : %s Yang owned %lld"), EMPIRE_NAME(n), p->name[n], (long long)p->money[n]);
 			else
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[%sMonarch] : %s"), EMPIRE_NAME(n), p->name[n]);
 
@@ -1779,21 +1779,21 @@ ACMD(do_monarch_mob)
 
 	if (!ch->IsMCOK(CHARACTER::MI_SUMMON))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), ch->GetMCLTime(CHARACTER::MI_SUMMON));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Cooldown time for approximately %d seconds"), (int)ch->GetMCLTime(CHARACTER::MI_SUMMON));
 		return;
 	}
 
 	if (!CMonarch::instance().IsMoneyOk(SummonPrice, ch->GetEmpire()))
 	{
-		int NationMoney = CMonarch::instance().GetMoney(ch->GetEmpire());
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, SummonPrice);
+		unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)SummonPrice);
 		return;
 	}
 
 	const CMob * pkMob;
 	DWORD vnum = 0;
 
-	if (isdigit(*arg1))
+	if (isdigit(static_cast<unsigned char>(*arg1)))
 	{
 		str_to_number(vnum, arg1);
 
@@ -1962,7 +1962,7 @@ static bool FN_hair_affect_string(LPCHARACTER ch, char *buf, size_t bufsiz)
 		return false;
 
 	// set apply string
-	offset = snprintf(buf, bufsiz, FN_point_string(aff->bApplyOn), aff->lApplyValue);
+	offset = snprintf(buf, bufsiz, FN_point_string(aff->bApplyOn), (int)aff->lApplyValue);
 
 	if (offset < 0 || static_cast<size_t>(offset) >= bufsiz)
 		offset = static_cast<int>(bufsiz) - 1;

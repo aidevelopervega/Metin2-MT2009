@@ -81,10 +81,10 @@
  * Convert value x (0..63) to corresponding Base64 character.
  */
 static int b64_byte_to_char(unsigned x) {
-    return (LT(x, 26) & (x + 'A')) |
+    return (int)((LT(x, 26) & (x + 'A')) |
            (GE(x, 26) & LT(x, 52) & (x + ('a' - 26))) |
-           (GE(x, 52) & LT(x, 62) & (x + ('0' - 52))) | (EQ(x, 62) & '+') |
-           (EQ(x, 63) & '/');
+           (GE(x, 52) & LT(x, 62) & (x - (52U - '0'))) | (EQ(x, 62) & '+') |
+           (EQ(x, 63) & '/'));
 }
 
 /*
@@ -93,12 +93,13 @@ static int b64_byte_to_char(unsigned x) {
  */
 static unsigned b64_char_to_byte(int c) {
     unsigned x;
+    unsigned uc = (unsigned)c;
 
-    x = (GE(c, 'A') & LE(c, 'Z') & (c - 'A')) |
-        (GE(c, 'a') & LE(c, 'z') & (c - ('a' - 26))) |
-        (GE(c, '0') & LE(c, '9') & (c - ('0' - 52))) | (EQ(c, '+') & 62) |
-        (EQ(c, '/') & 63);
-    return x | (EQ(x, 0) & (EQ(c, 'A') ^ 0xFF));
+    x = (GE(uc, 'A') & LE(uc, 'Z') & (uc - 'A')) |
+        (GE(uc, 'a') & LE(uc, 'z') & (uc - ('a' - 26U))) |
+        (GE(uc, '0') & LE(uc, '9') & (uc + (52U - '0'))) | (EQ(uc, '+') & 62U) |
+        (EQ(uc, '/') & 63U);
+    return x | (EQ(x, 0) & (EQ(uc, 'A') ^ 0xFFU));
 }
 
 /*

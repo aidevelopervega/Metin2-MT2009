@@ -3839,7 +3839,7 @@ ACMD(do_break_marriage)
 	str_to_number(pids.pid1, arg1);
 	str_to_number(pids.pid2, arg2);
 
-	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Broken contract between player %d and player %d."), pids.pid1, pids.pid2);
+	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Broken contract between player %d and player %d."), (int)pids.pid1, (int)pids.pid2);
 	db_clientdesc->DBPacket(HEADER_GD_BREAK_MARRIAGE, 0, &pids, sizeof(pids));
 }
 
@@ -3873,7 +3873,7 @@ struct FCountInMap
 ACMD(do_threeway_war_info)
 {
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Information for the Kingdoms"));
-	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Choose the Map Information of the Holy Land %d Entrance %d %d %d"), GetSungziMapIndex(), GetPassMapIndex(1), GetPassMapIndex(2), GetPassMapIndex(3));
+	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Choose the Map Information of the Holy Land %d Entrance %d %d %d"), (int)GetSungziMapIndex(), (int)GetPassMapIndex(1), (int)GetPassMapIndex(2), (int)GetPassMapIndex(3));
 	ch->ChatPacket(CHAT_TYPE_INFO, "ThreewayPhase %d", CThreeWayWar::instance().GetRegenFlag());
 
 	for (int n = 1; n < 4; ++n)

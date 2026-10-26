@@ -273,8 +273,8 @@ struct FWarpToPosition
 	long lMapIndex;
 	long x;
 	long y;
-	FWarpToPosition(long lMapIndex, long x, long y)
-		: lMapIndex(lMapIndex), x(x), y(y)
+	FWarpToPosition(long in_lMapIndex, long in_x, long in_y)
+		: lMapIndex(in_lMapIndex), x(in_x), y(in_y)
 		{}
 
 	void operator()(LPENTITY ent)
@@ -307,8 +307,8 @@ struct FWarpToPositionForce
 	long lMapIndex;
 	long x;
 	long y;
-	FWarpToPositionForce(long lMapIndex, long x, long y)
-		: lMapIndex(lMapIndex), x(x), y(y)
+	FWarpToPositionForce(long in_lMapIndex, long in_x, long in_y)
+		: lMapIndex(in_lMapIndex), x(in_x), y(in_y)
 		{}
 
 	void operator()(LPENTITY ent)
@@ -1030,8 +1030,8 @@ struct FSetQuestFlagAll
 {
 	std::string szFlag;
 	int iValue;
-	FSetQuestFlagAll(std::string szFlag, int iValue)
-		: szFlag(szFlag), iValue(iValue)
+	FSetQuestFlagAll(std::string in_szFlag, int in_iValue)
+		: szFlag(in_szFlag), iValue(in_iValue)
 	{}
 
 	void operator()(LPENTITY ent)
@@ -1275,8 +1275,8 @@ struct FAddAffect
 	BYTE bPoint;
 	long lValue;
 	long lDuration;
-	FAddAffect(DWORD dwAffectType, BYTE bPoint, long lValue, long lDuration)
-		: dwAffectType(dwAffectType), bPoint(bPoint), lValue(lValue), lDuration(lDuration)
+	FAddAffect(DWORD in_dwAffectType, BYTE in_bPoint, long in_lValue, long in_lDuration)
+		: dwAffectType(in_dwAffectType), bPoint(in_bPoint), lValue(in_lValue), lDuration(in_lDuration)
 	{}
 
 	void operator()(LPENTITY ent)
@@ -1296,8 +1296,8 @@ struct FRemoveAffect
 {
 	DWORD dwAffectType;
 	BYTE bPoint;
-	FRemoveAffect(DWORD dwAffectType, BYTE bPoint)
-		: dwAffectType(dwAffectType), bPoint(bPoint)
+	FRemoveAffect(DWORD in_dwAffectType, BYTE in_bPoint)
+		: dwAffectType(in_dwAffectType), bPoint(in_bPoint)
 	{}
 
 	void operator()(LPENTITY ent)
@@ -1346,8 +1346,8 @@ void CDungeon::RemoveAffectAll(long lFromMapIndex, DWORD dwAffectType, BYTE bPoi
 struct FAddPlayerStat
 {
 	DWORD dwFlag;
-	FAddPlayerStat(DWORD dwFlag)
-		: dwFlag(dwFlag)
+	FAddPlayerStat(DWORD in_dwFlag)
+		: dwFlag(in_dwFlag)
 	{}
 
 	void operator()(LPENTITY ent)
@@ -1488,8 +1488,8 @@ struct FNearPosition
 	int dist;
 	bool ret;
 
-	FNearPosition(long x, long y, int d) :
-		x(x), y(y), dist(d), ret(true)
+	FNearPosition(long in_x, long in_y, int d) :
+		x(in_x), y(in_y), dist(d), ret(true)
 	{
 	}
 

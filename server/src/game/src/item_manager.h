@@ -193,10 +193,10 @@ class CMobItemGroup
 			int iCount;
 			int iRarePct;
 
-			SMobItemGroupInfo(DWORD dwItemVnum, int iCount, int iRarePct)
-				: dwItemVnum(dwItemVnum),
-			iCount(iCount),
-			iRarePct(iRarePct)
+			SMobItemGroupInfo(DWORD in_dwItemVnum, int in_iCount, int in_iRarePct)
+				: dwItemVnum(in_dwItemVnum),
+			iCount(in_iCount),
+			iRarePct(in_iRarePct)
 			{
 			}
 		};
@@ -232,13 +232,13 @@ class CMobItemGroup
 		{
 			int n = number(1, m_vecProbs.back());
 			itertype(m_vecProbs) it = lower_bound(m_vecProbs.begin(), m_vecProbs.end(), n);
-			return std::distance(m_vecProbs.begin(), it);
+			return static_cast<int>(std::distance(m_vecProbs.begin(), it));
 		}
 		// END_OF_MOB_DROP_ITEM_BUG_FIX
 
 		const SMobItemGroupInfo& GetOne() const
 		{
-			return m_vecItems[GetOneIndex()];
+			return m_vecItems[static_cast<size_t>(GetOneIndex())];
 		}
 
 		std::vector<SMobItemGroupInfo> GetItems()
@@ -268,8 +268,8 @@ class CDropItemGroup
 		int	iCount;
 		bool bSpecialGroup;
 
-		SDropItemGroupInfo(DWORD dwVnum, DWORD dwPct, int iCount, bool bSpecialGroup = false)
-			: dwVnum(dwVnum), dwPct(dwPct), iCount(iCount), bSpecialGroup(bSpecialGroup)
+		SDropItemGroupInfo(DWORD in_dwVnum, DWORD in_dwPct, int in_iCount, bool in_bSpecialGroup = false)
+			: dwVnum(in_dwVnum), dwPct(in_dwPct), iCount(in_iCount), bSpecialGroup(in_bSpecialGroup)
 			{}
 	};
 
@@ -307,8 +307,8 @@ class CLevelItemGroup
 		DWORD dwPct;
 		int iCount;
 
-		SLevelItemGroupInfo(DWORD dwVnum, DWORD dwPct, int iCount)
-			: dwVNum(dwVnum), dwPct(dwPct), iCount(iCount)
+		SLevelItemGroupInfo(DWORD in_dwVnum, DWORD in_dwPct, int in_iCount)
+			: dwVNum(in_dwVnum), dwPct(in_dwPct), iCount(in_iCount)
 		{ }
 	};
 
@@ -343,8 +343,8 @@ class CBuyerThiefGlovesItemGroup
 		DWORD	dwPct;
 		int	iCount;
 
-		SThiefGroupInfo(DWORD dwVnum, DWORD dwPct, int iCount)
-			: dwVnum(dwVnum), dwPct(dwPct), iCount(iCount)
+		SThiefGroupInfo(DWORD in_dwVnum, DWORD in_dwPct, int in_iCount)
+			: dwVnum(in_dwVnum), dwPct(in_dwPct), iCount(in_iCount)
 			{}
 	};
 

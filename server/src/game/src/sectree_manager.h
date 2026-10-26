@@ -18,8 +18,8 @@ typedef struct SMapRegion
 struct TAreaInfo
 {
 	int sx, sy, ex, ey, dir;
-	TAreaInfo(int sx, int sy, int ex, int ey, int dir)
-		: sx(sx), sy(sy), ex(ex), ey(ey), dir(dir)
+	TAreaInfo(int in_sx, int in_sy, int in_ex, int in_ey, int in_dir)
+		: sx(in_sx), sy(in_sy), ex(in_ex), ey(in_ey), dir(in_dir)
 		{}
 };
 
@@ -28,8 +28,8 @@ struct npc_info
 	BYTE bType;
 	const char* name;
 	long x, y;
-	npc_info(BYTE bType, const char* name, long x, long y)
-		: bType(bType), name(name), x(x), y(y)
+	npc_info(BYTE in_bType, const char* in_name, long in_x, long in_y)
+		: bType(in_bType), name(in_name), x(in_x), y(in_y)
 		{}
 };
 

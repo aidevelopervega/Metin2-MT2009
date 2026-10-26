@@ -178,47 +178,52 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 		if (!IsTimeAuctionActive(item))
 			return false;
 
+		const uint64_t item_count_u64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
+		if (item.dwCount == 0 || item_count_u64 == 0 || item_count_u64 > static_cast<uint64_t>(INT32_MAX))
+			return false;
+		const DWORD item_count = static_cast<DWORD>(item_count_u64);
+
+		// account limit start (enforced for both finite and infinite global stock auctions)
+		const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
+		std::string auction_buy_flag;
+		std::string auction_buy_time_flag;
+		long long buyer_buy_count = 0;
+		if (MAX_BUY_PER_ACCOUNT > 0)
+		{
+			auction_buy_flag = (item.dwIndex < 100000U)
+				? ("itemshop_auction_buy_" + std::to_string(item.dwIndex))
+				: ("is_auc_buy_" + std::to_string(item.dwIndex));
+			auction_buy_time_flag = (item.dwIndex < 100000U)
+				? ("itemshop_auction_time_" + std::to_string(item.dwIndex))
+				: ("is_auc_time_" + std::to_string(item.dwIndex));
+			buyer_buy_count = buyer->GetAccountFlag(auction_buy_flag);
+			const long long buyer_buy_time = buyer->GetAccountFlag(auction_buy_time_flag);
+			if (buyer_buy_count < 0 || buyer_buy_time <= 0 || static_cast<long long>(get_global_time()) > buyer_buy_time)
+			{
+				buyer_buy_count = 0;
+			}
+
+			if (static_cast<uint64_t>(buyer_buy_count) >= static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
+			{
+				buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_ACCOUNT_LIMIT"), (int)item.timeAuction.dwAccountLimit);
+				return false;
+			}
+
+			if (static_cast<uint64_t>(buyer_buy_count) + item_count_u64 > static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
+			{
+				buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_PURCHASE_WOULD_EXCEED_LIMIT"));
+				return false;
+			}
+		}
+		// account limit end
+
 		bool isInfinite = item.timeAuction.dwMaxBuyAmount == 0;
 		if (!isInfinite) {
 			if (item.timeAuction.dwCurrentBuyAmount >= item.timeAuction.dwMaxBuyAmount)
 				return false;
 
-			const uint64_t item_count_u64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
-			if (item.dwCount == 0 || item_count_u64 == 0 || item_count_u64 > static_cast<uint64_t>(INT32_MAX))
-				return false;
 			if (item_count_u64 > static_cast<uint64_t>(item.timeAuction.dwMaxBuyAmount))
 				return false;
-			const DWORD item_count = static_cast<DWORD>(item_count_u64);
-
-			// account limit start
-			const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
-			std::string auction_buy_flag;
-			std::string auction_buy_time_flag;
-			long long buyer_buy_count = 0;
-			if (MAX_BUY_PER_ACCOUNT > 0)
-			{
-				auction_buy_flag = "itemshop_auction_buy_" + std::to_string(item.dwIndex);
-				auction_buy_time_flag = "itemshop_auction_time_" + std::to_string(item.dwIndex);
-				buyer_buy_count = buyer->GetAccountFlag(auction_buy_flag);
-				const long long buyer_buy_time = buyer->GetAccountFlag(auction_buy_time_flag);
-				if (buyer_buy_count < 0 || buyer_buy_time <= 0 || static_cast<long long>(get_global_time()) > buyer_buy_time)
-				{
-					buyer_buy_count = 0;
-				}
-
-				if (static_cast<uint64_t>(buyer_buy_count) >= static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
-				{
-					buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_ACCOUNT_LIMIT"), item.timeAuction.dwAccountLimit);
-					return false;
-				}
-
-				if (static_cast<uint64_t>(buyer_buy_count) + item_count_u64 > static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
-				{
-					buyer->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_PURCHASE_WOULD_EXCEED_LIMIT"));
-					return false;
-				}
-			}
-			// account limit end
 
 			std::unique_ptr<SQLMsg> pkUpdateMsg(DBManager::instance().DirectQuery(
 				"UPDATE itemshop_time_auction SET buy_count = buy_count + %u "
@@ -241,12 +246,6 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 					str_to_number(new_buy_count, row[0]);
 			}
 
-			if (MAX_BUY_PER_ACCOUNT > 0)
-			{
-				buyer->SetAccountFlag(auction_buy_flag, static_cast<int>(static_cast<DWORD>(buyer_buy_count) + item_count));
-				buyer->SetAccountFlag(auction_buy_time_flag, item.timeAuction.dwEndTime);
-			}
-
 			DWORD current_progress = GetTimeAuctionProgress(item);
 			item.timeAuction.dwCurrentBuyAmount = new_buy_count;
 			DWORD new_progress = GetTimeAuctionProgress(item);
@@ -261,6 +260,18 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 
 				P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
 				UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
+			}
+		}
+
+		if (MAX_BUY_PER_ACCOUNT > 0)
+		{
+			const long long updatedCount = buyer_buy_count + static_cast<long long>(item_count);
+			const long long updatedEndTime = static_cast<long long>(item.timeAuction.dwEndTime);
+			buyer->SetAccountFlag(auction_buy_flag, updatedCount);
+			buyer->SetAccountFlag(auction_buy_time_flag, updatedEndTime);
+			if (buyer->HasPlayerData())
+			{
+				buyer->playerData->SaveSpecialFlag(buyer->GetPlayerID(), buyer->GetAID());
 			}
 		}
 
@@ -662,7 +673,7 @@ void CItemShopManager::CloseItemShop(LPCHARACTER ch)
 
 void CItemShopManager::SendUseCodeVoucher(LPCHARACTER ch, const char* code)
 {
-	if (!ch)
+	if (!ch || !ch->GetDesc() || !code || !db_clientdesc || db_clientdesc->GetSocket() == INVALID_SOCKET)
 		return;
 
 	if (ch->HasPlayerData() && !ch->playerData->IsItemShopBrowse())
@@ -800,7 +811,7 @@ bool CItemShopManager::CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amo
 
 bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance, int64_t customSecondAmount)
 {
-	if (NULL == ch || NULL == ch->GetDesc() || NULL == db_clientdesc)
+	if (NULL == ch || NULL == ch->GetDesc() || NULL == db_clientdesc || db_clientdesc->GetSocket() == INVALID_SOCKET)
 	{
 		return false;
 	}
@@ -901,7 +912,7 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 
 bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 {
-	if (!ch || !ch->GetDesc() || !db_clientdesc)
+	if (!ch || !ch->GetDesc() || !db_clientdesc || db_clientdesc->GetSocket() == INVALID_SOCKET)
 		return false;
 
 	if (!PulseManager::Instance().IncreaseClock(ch->GetPlayerID(), ePulse::ItemShopBuy, std::chrono::milliseconds(1000)))
@@ -1003,7 +1014,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	}
 
 
-	if (NULL == ch->GetDesc() || NULL == db_clientdesc)
+	if (NULL == ch->GetDesc() || NULL == db_clientdesc || db_clientdesc->GetSocket() == INVALID_SOCKET)
 		return false;
 
 	int64_t dragonMarkAmount = 0;
@@ -1042,41 +1053,49 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			return false;
 		}
 
+		if (item.dwCount == 0 || totalItemCountU64 == 0 || totalItemCountU64 > static_cast<uint64_t>(INT32_MAX))
+		{
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_AUCTION_NOT_AVAILABLE"));
+			return false;
+		}
+		auctionItemCount = static_cast<DWORD>(totalItemCountU64);
+
+		const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
+		if (MAX_BUY_PER_ACCOUNT > 0)
+		{
+			auction_buy_flag = (item.dwIndex < 100000U)
+				? ("itemshop_auction_buy_" + std::to_string(item.dwIndex))
+				: ("is_auc_buy_" + std::to_string(item.dwIndex));
+			auction_buy_time_flag = (item.dwIndex < 100000U)
+				? ("itemshop_auction_time_" + std::to_string(item.dwIndex))
+				: ("is_auc_time_" + std::to_string(item.dwIndex));
+			buyer_buy_count = ch->GetAccountFlag(auction_buy_flag);
+			const long long buyer_buy_time = ch->GetAccountFlag(auction_buy_time_flag);
+			if (buyer_buy_count < 0 || buyer_buy_time <= 0 || static_cast<long long>(get_global_time()) > buyer_buy_time)
+			{
+				buyer_buy_count = 0;
+			}
+
+			if (static_cast<uint64_t>(buyer_buy_count) >= static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
+			{
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_ACCOUNT_LIMIT"), (int)item.timeAuction.dwAccountLimit);
+				return false;
+			}
+
+			if (static_cast<uint64_t>(buyer_buy_count) + totalItemCountU64 > static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
+			{
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_PURCHASE_WOULD_EXCEED_LIMIT"));
+				return false;
+			}
+		}
+
 		if (!isAuctionInfinite)
 		{
 			if (item.timeAuction.dwCurrentBuyAmount >= item.timeAuction.dwMaxBuyAmount ||
-				item.dwCount == 0 || totalItemCountU64 == 0 ||
-				totalItemCountU64 > static_cast<uint64_t>(INT32_MAX) ||
 				totalItemCountU64 > static_cast<uint64_t>(item.timeAuction.dwMaxBuyAmount))
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_AUCTION_NOT_AVAILABLE"));
 				return false;
-			}
-			auctionItemCount = static_cast<DWORD>(totalItemCountU64);
-
-			const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
-			if (MAX_BUY_PER_ACCOUNT > 0)
-			{
-				auction_buy_flag = "itemshop_auction_buy_" + std::to_string(item.dwIndex);
-				auction_buy_time_flag = "itemshop_auction_time_" + std::to_string(item.dwIndex);
-				buyer_buy_count = ch->GetAccountFlag(auction_buy_flag);
-				const long long buyer_buy_time = ch->GetAccountFlag(auction_buy_time_flag);
-				if (buyer_buy_count < 0 || buyer_buy_time <= 0 || static_cast<long long>(get_global_time()) > buyer_buy_time)
-				{
-					buyer_buy_count = 0;
-				}
-
-				if (static_cast<uint64_t>(buyer_buy_count) >= static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
-				{
-					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_ACCOUNT_LIMIT"), item.timeAuction.dwAccountLimit);
-					return false;
-				}
-
-				if (static_cast<uint64_t>(buyer_buy_count) + totalItemCountU64 > static_cast<uint64_t>(MAX_BUY_PER_ACCOUNT))
-				{
-					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_TIME_AUCTION_PURCHASE_WOULD_EXCEED_LIMIT"));
-					return false;
-				}
 			}
 
 			std::unique_ptr<SQLMsg> pkAuctionReserve(DBManager::instance().DirectQuery(
@@ -1098,13 +1117,18 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	auto rollbackAuctionInDB = [&]() {
 		if (auctionReservedInDB)
 		{
-			std::unique_ptr<SQLMsg> pkAuctionRollback(DBManager::instance().DirectQuery(
-				"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
-				"WHERE item_index = %u",
-				static_cast<unsigned int>(auctionItemCount),
-				static_cast<unsigned int>(auctionItemCount),
-				static_cast<unsigned int>(item.dwIndex)));
-			if (!pkAuctionRollback || pkAuctionRollback->uiSQLErrno != 0 || !pkAuctionRollback->Get() || pkAuctionRollback->Get()->uiAffectedRows != 1)
+			bool auctionRbOk = false;
+			for (int attempt = 0; attempt < 2 && !auctionRbOk; ++attempt)
+			{
+				std::unique_ptr<SQLMsg> pkAuctionRollback(DBManager::instance().DirectQuery(
+					"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
+					"WHERE item_index = %u",
+					static_cast<unsigned int>(auctionItemCount),
+					static_cast<unsigned int>(auctionItemCount),
+					static_cast<unsigned int>(item.dwIndex)));
+				auctionRbOk = (pkAuctionRollback && pkAuctionRollback->uiSQLErrno == 0 && pkAuctionRollback->Get() && pkAuctionRollback->Get()->uiAffectedRows == 1);
+			}
+			if (!auctionRbOk)
 			{
 				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to rollback itemshop_time_auction (pid=%u, aid=%u, itemIndex=%u, auctionItemCount=%u)",
 					static_cast<unsigned int>(ch->GetPlayerID()),
@@ -1214,10 +1238,15 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 		for (uint64_t awardId : awardInsertIds)
 		{
-			std::unique_ptr<SQLMsg> pkAwardDelete(DBManager::instance().DirectQuery(
-				"DELETE FROM item_award WHERE id = %llu AND taken_time IS NULL",
-				static_cast<unsigned long long>(awardId)));
-			if (!pkAwardDelete || pkAwardDelete->uiSQLErrno != 0 || !pkAwardDelete->Get() || pkAwardDelete->Get()->uiAffectedRows != 1)
+			bool awardDelOk = false;
+			for (int attempt = 0; attempt < 2 && !awardDelOk; ++attempt)
+			{
+				std::unique_ptr<SQLMsg> pkAwardDelete(DBManager::instance().DirectQuery(
+					"DELETE FROM item_award WHERE id = %llu AND taken_time IS NULL",
+					static_cast<unsigned long long>(awardId)));
+				awardDelOk = (pkAwardDelete && pkAwardDelete->uiSQLErrno == 0 && pkAwardDelete->Get() && pkAwardDelete->Get()->uiAffectedRows == 1);
+			}
+			if (!awardDelOk)
 			{
 				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to delete partial item_award row (pid=%u, aid=%u, awardId=%llu)",
 					static_cast<unsigned int>(ch->GetPlayerID()),
@@ -1234,20 +1263,26 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			const uint32_t rollbackMarks = (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
 				? static_cast<uint32_t>(dragonMarkAmount)
 				: refundCash;
-			std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash = cash + %u, "
-				"cash_mark = CASE WHEN cash_mark >= %u THEN cash_mark - %u ELSE 0 END "
-				"WHERE id = %u LIMIT 1",
-				refundCash, rollbackMarks, rollbackMarks, static_cast<unsigned int>(aid)));
-			refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			for (int attempt = 0; attempt < 2 && !refundOk; ++attempt)
+			{
+				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
+					"UPDATE account SET cash = cash + %u, "
+					"cash_mark = CASE WHEN cash_mark >= %u THEN cash_mark - %u ELSE 0 END "
+					"WHERE id = %u LIMIT 1",
+					refundCash, rollbackMarks, rollbackMarks, static_cast<unsigned int>(aid)));
+				refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			}
 		}
 		else if (chargeType == ERequestCharge_Marks)
 		{
 			const uint32_t refundMarks = static_cast<uint32_t>(llPrice);
-			std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
-				"UPDATE account SET cash_mark = cash_mark + %u WHERE id = %u LIMIT 1",
-				refundMarks, static_cast<unsigned int>(aid)));
-			refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			for (int attempt = 0; attempt < 2 && !refundOk; ++attempt)
+			{
+				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
+					"UPDATE account SET cash_mark = cash_mark + %u WHERE id = %u LIMIT 1",
+					refundMarks, static_cast<unsigned int>(aid)));
+				refundOk = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
+			}
 		}
 
 		if (!refundOk)
@@ -1279,15 +1314,30 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		return false;
 	}
 
-	if (auctionReservedInDB)
+	for (LPITEM createdItem : createdItems)
+	{
+		if (createdItem)
+			ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
+	}
+
+	if (isTimeAuction)
 	{
 		const DWORD MAX_BUY_PER_ACCOUNT = item.timeAuction.dwAccountLimit;
 		if (MAX_BUY_PER_ACCOUNT > 0)
 		{
-			ch->SetAccountFlag(auction_buy_flag, buyer_buy_count + static_cast<long long>(auctionItemCount));
-			ch->SetAccountFlag(auction_buy_time_flag, item.timeAuction.dwEndTime);
+			const long long updatedCount = buyer_buy_count + static_cast<long long>(auctionItemCount);
+			const long long updatedEndTime = static_cast<long long>(item.timeAuction.dwEndTime);
+			ch->SetAccountFlag(auction_buy_flag, updatedCount);
+			ch->SetAccountFlag(auction_buy_time_flag, updatedEndTime);
+			if (ch->HasPlayerData())
+			{
+				ch->playerData->SaveSpecialFlag(ch->GetPlayerID(), ch->GetAID());
+			}
 		}
+	}
 
+	if (auctionReservedInDB)
+	{
 		DWORD new_buy_count = item.timeAuction.dwCurrentBuyAmount + auctionItemCount;
 		std::unique_ptr<SQLMsg> pkAuctionSelect(DBManager::instance().DirectQuery(
 			"SELECT buy_count FROM itemshop_time_auction WHERE item_index=%u",
@@ -1355,19 +1405,18 @@ LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum,
 		return nullptr;
 	}
 
-	if (ch->HasSlotForItem(itemVnum))
+	if (ch->HasSlotForItem(itemVnum) && db_clientdesc && db_clientdesc->GetSocket() != INVALID_SOCKET)
 	{
 		LPITEM pkItem = ch->AutoGiveItem(itemVnum, static_cast<ITEM_COUNT>(itemCount), -1, true, true);
 		if (pkItem)
 		{
-			if (pkItem->GetOwner() != ch)
+			if (pkItem->GetOwner() != ch || pkItem->GetID() == 0)
 			{
 				ITEM_MANAGER::instance().RemoveItem(pkItem, "ITEMSHOP_UNOWNED_FALLBACK");
 				pkItem = nullptr;
 			}
 			else
 			{
-				ITEM_MANAGER::instance().FlushDelayedSave(pkItem);
 				return pkItem;
 			}
 		}

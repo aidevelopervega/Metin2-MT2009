@@ -190,10 +190,10 @@ int CInputP2P::Guild([[maybe_unused]] LPDESC d, const char* c_pData, size_t uiBy
 				if (uiBytes < sizeof(TPacketGGGuildChat))
 					return -1;
 
-				TPacketGGGuildChat * p = (TPacketGGGuildChat *) c_pData;
+				TPacketGGGuildChat * pChat = (TPacketGGGuildChat *) c_pData;
 
 				if (g)
-					g->P2PChat(p->szText);
+					g->P2PChat(pChat->szText);
 
 				return sizeof(TPacketGGGuildChat);
 			}

@@ -149,10 +149,10 @@ namespace quest
 		struct ::packet_script packet_script;
 		int len;
 
-		FCinematicSender(const char* str)
-			: str(str)
+		FCinematicSender(const char* in_str)
+			: str(in_str)
 		{
-			len = strlen(str);
+			len = static_cast<int>(strlen(in_str));
 
 			packet_script.header = HEADER_GC_SCRIPT;
 			packet_script.skin = CQuestManager::QUEST_SKIN_CINEMATIC;

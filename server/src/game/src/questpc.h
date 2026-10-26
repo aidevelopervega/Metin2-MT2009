@@ -21,10 +21,10 @@ namespace quest
 		DWORD value1;
 		int value2;
 
-		RewardData(RewardType t, DWORD value1, int value2 = 0) :
+		RewardData(RewardType t, DWORD in_value1, int in_value2 = 0) :
 			type(t),
-			value1(value1),
-			value2(value2)
+			value1(in_value1),
+			value2(in_value2)
 		{
 		}
 	};
