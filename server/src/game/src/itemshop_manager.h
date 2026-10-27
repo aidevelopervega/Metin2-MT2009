@@ -53,7 +53,7 @@ public:
 	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
 	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
 	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity);
-	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr, uint64_t txId = 0);
+	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr, uint64_t txId = 0, DWORD slotIndex = 0);
 	void RefreshItemShop(LPCHARACTER ch);
 	void OpenItemShop(LPCHARACTER ch, bool refresh = false);
 	void CloseItemShop(LPCHARACTER ch);
@@ -73,6 +73,7 @@ public:
 	int RecoverIncompleteTransactions();
 	uint64_t GetLastTransactionId() const { return m_ullLastTxId; }
 	void SetCrashAfterChargeForTest(bool bEnable) { m_bCrashAfterChargeForTest = bEnable; }
+	void SetHardExitAfterChargeForTest(bool bEnable) { m_bHardExitAfterChargeForTest = bEnable; }
 	void SetCrashAfterDeliveryBeforeJournalForTest(bool bEnable) { m_bCrashAfterDeliveryBeforeJournalForTest = bEnable; }
 
 private:
@@ -83,6 +84,7 @@ private:
 
 	uint64_t m_ullLastTxId = 0;
 	bool m_bCrashAfterChargeForTest = false;
+	bool m_bHardExitAfterChargeForTest = false;
 	bool m_bCrashAfterDeliveryBeforeJournalForTest = false;
 
 	DWORD GetTimeAuctionProgress(TItemShopItem item);
