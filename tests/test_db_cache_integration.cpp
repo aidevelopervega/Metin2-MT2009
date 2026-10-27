@@ -8,6 +8,7 @@
 #include "ItemIDRangeManager.h"
 #include "IkarusShopCache.h"
 #include "Monarch.h"
+#include "ProtoReader.h"
 #include <functional>
 #include <iostream>
 #include <vector>
@@ -1251,6 +1252,21 @@ int main()
             liveLogSql.Quit();
             livePlayerSql.Quit();
         }
+    }
+
+    // =========================================================================
+    // SENARYO 12: ProtoReader ITEM_SOUL / ITEM_PASSIVE ve 32-Bit Unsigned Flag Dogrulamasi
+    // =========================================================================
+    std::cout << "[RUN] Senaryo 12: ProtoReader ITEM_SOUL/ITEM_PASSIVE ve 32-bit unsigned flag dogrulamasi..." << std::endl;
+    {
+        TEST_ASSERT(get_Item_Type_Value("ITEM_SOUL") == 38,
+                    "Senaryo 12: get_Item_Type_Value('ITEM_SOUL') == 38");
+        TEST_ASSERT(get_Item_Type_Value("ITEM_PASSIVE") == 39,
+                    "Senaryo 12: get_Item_Type_Value('ITEM_PASSIVE') == 39");
+        TEST_ASSERT(get_Item_AntiFlag_Value("ANTI_FEMALE|ANTI_PET20|ANTI_PET21") == (1u | (1u << 19) | (1u << 20)),
+                    "Senaryo 12: get_Item_AntiFlag_Value computes unsigned bitmask for high bits (19, 20)");
+        TEST_ASSERT(get_Item_Flag_Value("ITEM_TUNABLE|ITEM_APPLICABLE") == (1u | (1u << 18)),
+                    "Senaryo 12: get_Item_Flag_Value computes unsigned bitmask for bit 18");
     }
 
     std::cout << "\n==================================================" << std::endl;

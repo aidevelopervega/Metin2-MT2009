@@ -180,26 +180,26 @@ int get_Item_SubType_Value(int type_value, std::string inputString)
     return static_cast<int>(std::distance(vecSubtype.begin(), itSubtype));
 }
 
-int get_Item_AntiFlag_Value(string inputString)
+uint32_t get_Item_AntiFlag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arAntiFlag[] = {"ANTI_FEMALE", "ANTI_MALE", "ANTI_MUSA", "ANTI_ASSASSIN", "ANTI_SURA", "ANTI_MUDANG",
 							"ANTI_GET", "ANTI_DROP", "ANTI_SELL", "ANTI_EMPIRE_A", "ANTI_EMPIRE_B", "ANTI_EMPIRE_C",
 							"ANTI_SAVE", "ANTI_GIVE", "ANTI_PKDROP", "ANTI_STACK", "ANTI_MYSHOP", "ANTI_SAFEBOX", "ANTI_WOLFMAN",
 							"ANTI_PET20", "ANTI_PET21"};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, "|");
 	for(size_t i=0;i<_countof(arAntiFlag);i++) {
 		string tempString = arAntiFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -212,25 +212,25 @@ int get_Item_AntiFlag_Value(string inputString)
 	return retValue;
 }
 
-int get_Item_Flag_Value(string inputString)
+uint32_t get_Item_Flag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arFlag[] = {"ITEM_TUNABLE", "ITEM_SAVE", "ITEM_STACKABLE", "COUNT_PER_1GOLD", "ITEM_SLOW_QUERY", "ITEM_UNIQUE",
 			"ITEM_MAKECOUNT", "ITEM_IRREMOVABLE", "CONFIRM_WHEN_USE", "QUEST_USE", "QUEST_USE_MULTIPLE",
 			"QUEST_GIVE", "ITEM_QUEST", "LOG", "STACKABLE", "SLOW_QUERY", "REFINEABLE", "IRREMOVABLE", "ITEM_APPLICABLE"};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, "|");
 	for(size_t i=0;i<_countof(arFlag);i++) {
 		string tempString = arFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -243,25 +243,25 @@ int get_Item_Flag_Value(string inputString)
 	return retValue;
 }
 
-int get_Item_WearFlag_Value(string inputString)
+uint32_t get_Item_WearFlag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arWearrFlag[] = {"WEAR_BODY", "WEAR_HEAD", "WEAR_FOOTS", "WEAR_WRIST", "WEAR_WEAPON", "WEAR_NECK", "WEAR_EAR", "WEAR_SHIELD", "WEAR_UNIQUE",
 					"WEAR_ARROW", "WEAR_HAIR", "WEAR_ABILITY", "WEAR_PENDANT", "WEAR_GLOVE"
 	};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, "|");
 	for(size_t i=0;i<_countof(arWearrFlag);i++) {
 		string tempString = arWearrFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -274,23 +274,23 @@ int get_Item_WearFlag_Value(string inputString)
 	return retValue;
 }
 
-int get_Item_Immune_Value(string inputString)
+uint32_t get_Item_Immune_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arImmune[] = {"PARA","CURSE","STUN","SLEEP","SLOW","POISON","TERROR"};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, "|");
 	for(size_t i=0;i<_countof(arImmune);i++) {
 		string tempString = arImmune[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -476,24 +476,24 @@ int get_Mob_Size_Value(string inputString)
 	return retInt;
 }
 
-int get_Mob_AIFlag_Value(string inputString)
+uint32_t get_Mob_AIFlag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arAIFlag[] = {"AGGR","NOMOVE","COWARD","NOATTSHINSU","NOATTCHUNJO","NOATTJINNO","ATTMOB","BERSERK","STONESKIN","GODSPEED","DEATHBLOW","REVIVE",
 	};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, ",");
 	for (size_t i =0;i<_countof(arAIFlag);i++) {
 		string tempString = arAIFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -505,24 +505,24 @@ int get_Mob_AIFlag_Value(string inputString)
 
 	return retValue;
 }
-int get_Mob_RaceFlag_Value(string inputString)
+uint32_t get_Mob_RaceFlag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arRaceFlag[] = {"ANIMAL","UNDEAD","DEVIL","HUMAN","ORC","MILGYO","INSECT","FIRE","ICE","DESERT","TREE",
 		"ATT_ELEC","ATT_FIRE","ATT_ICE","ATT_WIND","ATT_EARTH","ATT_DARK","ZODIAC"};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, ",");
 	for(size_t i =0;i<_countof(arRaceFlag);i++) {
 		string tempString = arRaceFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -534,23 +534,23 @@ int get_Mob_RaceFlag_Value(string inputString)
 
 	return retValue;
 }
-int get_Mob_ImmuneFlag_Value(string inputString)
+uint32_t get_Mob_ImmuneFlag_Value(string inputString)
 {
 #ifdef ENABLE_NUMERIC_FIELD
 	if (_IsNumericString(inputString))
-		return std::stoi(inputString);
+		return static_cast<uint32_t>(std::stoull(inputString));
 #endif
 	string arImmuneFlag[] = {"STUN","SLOW","FALL","CURSE","POISON","TERROR", "REFLECT"};
 
-	int retValue = 0;
+	uint32_t retValue = 0;
 	string* arInputString = StringSplit(inputString, ",");
 	for(size_t i =0;i<_countof(arImmuneFlag);i++) {
 		string tempString = arImmuneFlag[i];
 		for (size_t j=0; j<30 ; j++)
 		{
 			string tempString2 = arInputString[j];
-			if (tempString2.compare(tempString)==0) {
-				retValue |= (1 << static_cast<int>(i));
+			if (tempString2.compare(tempString)==0 && i < 32) {
+				retValue |= (1u << static_cast<uint32_t>(i));
 			}
 
 			if(tempString2.compare("") == 0)
@@ -594,16 +594,16 @@ bool Set_Proto_Mob_Table(TMobTable *mobTable, cCsvTable &csvTable,std::map<int,c
 	int sizeValue = get_Mob_Size_Value(csvTable.AsStringByIndex(col++));
 	mobTable->bSize = static_cast<BYTE>(sizeValue);
 	//AI_FLAG
-	int aiFlagValue = get_Mob_AIFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwAIFlag = static_cast<DWORD>(aiFlagValue);
+	uint32_t aiFlagValue = get_Mob_AIFlag_Value(csvTable.AsStringByIndex(col++));
+	mobTable->dwAIFlag = aiFlagValue;
 	//mount_capacity;
 	col++;
 	//RACE_FLAG
-	int raceFlagValue = get_Mob_RaceFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwRaceFlag = static_cast<DWORD>(raceFlagValue);
+	uint32_t raceFlagValue = get_Mob_RaceFlag_Value(csvTable.AsStringByIndex(col++));
+	mobTable->dwRaceFlag = raceFlagValue;
 	//IMMUNE_FLAG
-	int immuneFlagValue = get_Mob_ImmuneFlag_Value(csvTable.AsStringByIndex(col++));
-	mobTable->dwImmuneFlag = static_cast<DWORD>(immuneFlagValue);
+	uint32_t immuneFlagValue = get_Mob_ImmuneFlag_Value(csvTable.AsStringByIndex(col++));
+	mobTable->dwImmuneFlag = immuneFlagValue;
 
 	str_to_number(mobTable->bEmpire, csvTable.AsStringByIndex(col++));  //col = 11
 
@@ -683,16 +683,16 @@ bool Set_Proto_Item_Table(TItemTable *itemTable, cCsvTable &csvTable,std::map<in
 			dataArray[i] = get_Item_SubType_Value(static_cast<int>(dataArray[i-1]), csvTable.AsStringByIndex(col));
 			validCheck = dataArray[i];
 		} else if (i==5) {
-			dataArray[i] = get_Item_AntiFlag_Value(csvTable.AsStringByIndex(col));
+			dataArray[i] = static_cast<int64_t>(get_Item_AntiFlag_Value(csvTable.AsStringByIndex(col)));
 			validCheck = dataArray[i];
 		} else if (i==6) {
-			dataArray[i] = get_Item_Flag_Value(csvTable.AsStringByIndex(col));
+			dataArray[i] = static_cast<int64_t>(get_Item_Flag_Value(csvTable.AsStringByIndex(col)));
 			validCheck = dataArray[i];
 		} else if (i==7) {
-			dataArray[i] = get_Item_WearFlag_Value(csvTable.AsStringByIndex(col));
+			dataArray[i] = static_cast<int64_t>(get_Item_WearFlag_Value(csvTable.AsStringByIndex(col)));
 			validCheck = dataArray[i];
 		} else if (i==8) {
-			dataArray[i] = get_Item_Immune_Value(csvTable.AsStringByIndex(col));
+			dataArray[i] = static_cast<int64_t>(get_Item_Immune_Value(csvTable.AsStringByIndex(col)));
 			validCheck = dataArray[i];
 		} else if (i==14) {
 			dataArray[i] = get_Item_LimitType_Value(csvTable.AsStringByIndex(col));

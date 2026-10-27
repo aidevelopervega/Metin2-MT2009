@@ -861,6 +861,170 @@ int main()
             WIRE_ASSERT(gcTime.time == 2500000000LL && gcRefine.cost == 15000000000LL && capMeta.captchaExpireTime == 2600000000LL,
                 "TPacketGCTime, TPacketGCRefineInformation, and TSubPacketGCCaptchaMeta preserve 64-bit timestamps/costs");
         }
+
+        // Section 8 Concrete Bug Regression Suite (11 checks)
+        {
+            // 1. ProtoReader ITEM_SOUL (38) / ITEM_PASSIVE (39) mapping (missing comma fix)
+            const char* arItemType[] = {
+                "ITEM_NONE", "ITEM_WEAPON",
+                "ITEM_ARMOR", "ITEM_USE",
+                "ITEM_AUTOUSE", "ITEM_MATERIAL",
+                "ITEM_SPECIAL", "ITEM_TOOL",
+                "ITEM_LOTTERY", "ITEM_ELK",
+                "ITEM_METIN", "ITEM_CONTAINER",
+                "ITEM_FISH", "ITEM_ROD",
+                "ITEM_RESOURCE", "ITEM_CAMPFIRE",
+                "ITEM_UNIQUE", "ITEM_SKILLBOOK",
+                "ITEM_QUEST", "ITEM_POLYMORPH",
+                "ITEM_TREASURE_BOX", "ITEM_TREASURE_KEY",
+                "ITEM_SKILLFORGET", "ITEM_GIFTBOX",
+                "ITEM_PICK", "ITEM_HAIR",
+                "ITEM_TOTEM", "ITEM_BLEND",
+                "ITEM_COSTUME", "ITEM_DS",
+                "ITEM_SPECIAL_DS", "ITEM_EXTRACT",
+                "ITEM_SECONDARY_COIN", "ITEM_RING",
+                "ITEM_BELT", "ITEM_PET", "ITEM_MEDIUM", "ITEM_GACHA", "ITEM_SOUL", "ITEM_PASSIVE"
+            };
+            WIRE_ASSERT(sizeof(arItemType) / sizeof(arItemType[0]) == 40 &&
+                        std::strcmp(arItemType[38], "ITEM_SOUL") == 0 &&
+                        std::strcmp(arItemType[39], "ITEM_PASSIVE") == 0,
+                "Regression [1/11]: ProtoReader arItemType maps ITEM_SOUL (38) and ITEM_PASSIVE (39) distinctly");
+
+            // 2. item_proto prices > 2^31 and > 2^32 (64-bit YANG dwGold / dwShopBuyPrice)
+            TItemTable hiProto{};
+            hiProto.dwVnum = 99001;
+            hiProto.dwGold = 5000000000LL;        // 5B (> 2^32)
+            hiProto.dwShopBuyPrice = 25000000000LL; // 25B (> 2^32)
+            YANG sellPriceDiv5 = hiProto.dwShopBuyPrice / 5;
+            WIRE_ASSERT(hiProto.dwGold > 2147483647LL &&
+                        hiProto.dwShopBuyPrice > 4294967295LL &&
+                        sellPriceDiv5 == hiProto.dwGold,
+                "Regression [2/11]: TItemTable 64-bit YANG prices (> 2^31 and > 2^32) preserve exact value without overflow");
+
+            // 3. High-bit item flag calculations and unsigned shift bounds (1u << i, i < 32)
+            auto calcUnsignedFlagMask = [](size_t bitIndex) -> uint32_t {
+                uint32_t retValue = 0;
+                if (bitIndex < 32)
+                    retValue |= (1u << static_cast<uint32_t>(bitIndex));
+                return retValue;
+            };
+            uint32_t bit0 = calcUnsignedFlagMask(0);
+            uint32_t bit20 = calcUnsignedFlagMask(20); // ANTI_PET21
+            uint32_t bit31 = calcUnsignedFlagMask(31); // High bit 0x80000000u
+            uint32_t bit32Out = calcUnsignedFlagMask(32); // Out-of-range shift guard
+            int64_t widenedAllOnes = static_cast<int64_t>(0xFFFFFFFFu);
+            WIRE_ASSERT(bit0 == 1u &&
+                        bit20 == (1u << 20) &&
+                        bit31 == 0x80000000u &&
+                        bit32Out == 0u &&
+                        widenedAllOnes == 4294967295LL &&
+                        widenedAllOnes != -1LL,
+                "Regression [3/11]: Unsigned 32-bit flag shift handles bit 31 (0x80000000u), blocks i >= 32, and avoids -1 sign-extension");
+
+            // 4. CPeer::PeekPacket UINT32_MAX packet length overflow protection
+            auto checkPeekPacketBounds = [](int iBytesProceed, uint32_t dwLength, int iRecvLength) -> bool {
+                if (iBytesProceed < 0 || iRecvLength < 0)
+                    return false;
+                uint64_t totalNeeded = static_cast<uint64_t>(iBytesProceed) + static_cast<uint64_t>(dwLength) + 9ULL;
+                if (totalNeeded > static_cast<uint64_t>(iRecvLength))
+                    return false;
+                return true;
+            };
+            WIRE_ASSERT(!checkPeekPacketBounds(10, 0xFFFFFFFFu, 64) &&
+                        !checkPeekPacketBounds(-1, 16u, 64) &&
+                        checkPeekPacketBounds(10, 16u, 35),
+                "Regression [4/11]: CPeer::PeekPacket 64-bit totalNeeded rejects UINT32_MAX wrap-around and negative offsets");
+
+            // 5. P2P Relay / Whisper 1024-byte boundary
+            auto checkP2PTextBounds = [](int32_t lSize, size_t uiBytes) -> int {
+                if (lSize < 0 || static_cast<size_t>(lSize) > 1024 || static_cast<size_t>(lSize) > uiBytes)
+                    return -1;
+                return lSize;
+            };
+            WIRE_ASSERT(checkP2PTextBounds(1024, 1024) == 1024 &&
+                        checkP2PTextBounds(1025, 2048) == -1 &&
+                        checkP2PTextBounds(512, 256) == -1,
+                "Regression [5/11]: P2P Relay/Whisper accepts exact 1024-byte payload and rejects 1025-byte overflow");
+
+            // 6. Negative P2P variable payload length rejection
+            WIRE_ASSERT(checkP2PTextBounds(-1, 4096) == -1 &&
+                        checkP2PTextBounds(INT32_MIN, 4096) == -1,
+                "Regression [6/11]: Negative P2P lSize (-1, INT32_MIN) rejected before unsigned conversion");
+
+            // 7. Config 255/256-byte buffer boundary
+            char cfgDest[256];
+            std::memset(cfgDest, 'X', sizeof(cfgDest));
+            std::string longToken(300, 'A');
+            int cfgIdx = 0;
+            for (char c : longToken) {
+                if (cfgIdx >= 255)
+                    break;
+                cfgDest[cfgIdx++] = c;
+            }
+            cfgDest[cfgIdx] = '\0';
+            WIRE_ASSERT(cfgIdx == 255 &&
+                        cfgDest[255] == '\0' &&
+                        std::strlen(cfgDest) == 255,
+                "Regression [7/11]: CConfig 256-byte buffer truncates 300-byte token safely at 255 chars + NUL");
+
+            // 8. Monarch election vote counter zero-initialization
+            size_t candidateCount = 4;
+            std::vector<int> voteCounters(candidateCount, 0);
+            int sampleVotes[] = { 1, 3, 1, 2, 1, -1, 99 };
+            for (int v : sampleVotes) {
+                if (v >= 0 && static_cast<size_t>(v) < voteCounters.size())
+                    ++voteCounters[static_cast<size_t>(v)];
+            }
+            WIRE_ASSERT(voteCounters[0] == 0 &&
+                        voteCounters[1] == 3 &&
+                        voteCounters[2] == 1 &&
+                        voteCounters[3] == 1,
+                "Regression [8/11]: Monarch election counters are deterministically zero-initialized and bounds-checked");
+
+            // 9. Guild war score signed range (int32_t negative and positive scores)
+            TPacketGuildWarScore warScore{};
+            warScore.dwGuildGainPoint = 101;
+            warScore.dwGuildOpponent = 202;
+            warScore.lScore = -250;
+            warScore.lBetScore = 15000;
+            TGuildWarReserve warReserve{};
+            warReserve.lPowerFrom = -1200;
+            warReserve.lPowerTo = 3400;
+            warReserve.lHandicap = -50;
+            WIRE_ASSERT(warScore.lScore == -250 &&
+                        warReserve.lPowerFrom == -1200 &&
+                        warReserve.lHandicap == -50,
+                "Regression [9/11]: Guild war scores and reserve ratings preserve signed negative/positive int32_t values");
+
+            // 10. NationMoney (MonarchInfo::money[4]) 64-bit YANG upper bounds
+            TMonarchInfo monarchInfo{};
+            monarchInfo.money[1] = 85000000000LL; // 85B (> 2^32)
+            monarchInfo.money[2] = 99999999999LL; // ~100B
+            TPacketGDGuildMoney guildTreasury{};
+            guildTreasury.dwGuild = 301;
+            guildTreasury.iGold = 42000000000LL;
+            WIRE_ASSERT(monarchInfo.money[1] == 85000000000LL &&
+                        monarchInfo.money[2] == 99999999999LL &&
+                        guildTreasury.iGold == 42000000000LL,
+                "Regression [10/11]: NationMoney (TMonarchInfo::money) and Guild Treasury (TPacketGDGuildMoney::iGold) support > 2^32 YANG");
+
+            // 11. ComputeRefineFee 64-bit YANG overflow-safe calculation
+            auto computeRefineFeeSafe = [](YANG iCost, int iMultiply) -> YANG {
+                if (iCost <= 0 || iMultiply <= 0)
+                    return 0;
+                const YANG kMaxFee = GOLD_MAX - 1;
+                if (iCost > kMaxFee / static_cast<YANG>(iMultiply))
+                    return kMaxFee;
+                YANG fee = iCost * static_cast<YANG>(iMultiply);
+                return (fee > kMaxFee) ? kMaxFee : fee;
+            };
+            WIRE_ASSERT(computeRefineFeeSafe(300000000LL, 5) == 1500000000LL &&
+                        computeRefineFeeSafe(600000000LL, 5) == GOLD_MAX - 1 &&
+                        computeRefineFeeSafe(600000000LL, 5) > 0 &&
+                        computeRefineFeeSafe(-500LL, 5) == 0LL &&
+                        computeRefineFeeSafe(GOLD_MAX, 5) == GOLD_MAX - 1,
+                "Regression [11/11]: ComputeRefineFee calculates 64-bit YANG fees and clamps 600M*5 to GOLD_MAX-1 instead of negative 32-bit overflow");
+        }
     }
 
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;

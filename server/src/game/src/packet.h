@@ -2361,7 +2361,7 @@ typedef struct SPacketGCHybridCryptKeys
 
 	DWORD GetStreamSize()
 	{
-		return sizeof(bHeader) + sizeof(WORD) + sizeof(int) + KeyStreamLen;
+		return static_cast<DWORD>(sizeof(bHeader) + sizeof(WORD) + sizeof(int)) + (KeyStreamLen > 0 ? static_cast<DWORD>(KeyStreamLen) : 0u);
 	}
 
 	BYTE* GetStreamData()
@@ -2369,7 +2369,7 @@ typedef struct SPacketGCHybridCryptKeys
 		if( m_pStream )
 			delete[] m_pStream;
 
-		uDynamicPacketSize = (WORD)GetStreamSize();
+		uDynamicPacketSize = static_cast<WORD>(GetStreamSize());
 
 		m_pStream = new BYTE[ uDynamicPacketSize ];
 
@@ -2378,7 +2378,7 @@ typedef struct SPacketGCHybridCryptKeys
 		memcpy( m_pStream+3, &KeyStreamLen, 4 );
 
 		if( KeyStreamLen > 0 )
-			memcpy( m_pStream+7, pDataKeyStream, KeyStreamLen );
+			memcpy( m_pStream+7, pDataKeyStream, static_cast<size_t>(KeyStreamLen) );
 
 		return m_pStream;
 	}
@@ -2406,7 +2406,7 @@ typedef struct SPacketGCPackageSDB
 
 	DWORD GetStreamSize()
 	{
-		return sizeof(bHeader) + sizeof(WORD) + sizeof(int) + iStreamLen;
+		return static_cast<DWORD>(sizeof(bHeader) + sizeof(WORD) + sizeof(int)) + (iStreamLen > 0 ? static_cast<DWORD>(iStreamLen) : 0u);
 	}
 
 	BYTE* GetStreamData()
@@ -2414,7 +2414,7 @@ typedef struct SPacketGCPackageSDB
 		if( m_pStream )
 			delete[] m_pStream;
 
-		uDynamicPacketSize =  GetStreamSize();
+		uDynamicPacketSize = static_cast<WORD>(GetStreamSize());
 
 		m_pStream = new BYTE[ uDynamicPacketSize ];
 
@@ -2423,7 +2423,7 @@ typedef struct SPacketGCPackageSDB
 		memcpy( m_pStream+3, &iStreamLen, 4 );
 
 		if( iStreamLen > 0 )
-			memcpy( m_pStream+7, m_pDataSDBStream, iStreamLen );
+			memcpy( m_pStream+7, m_pDataSDBStream, static_cast<size_t>(iStreamLen) );
 
 		return m_pStream;
 	}

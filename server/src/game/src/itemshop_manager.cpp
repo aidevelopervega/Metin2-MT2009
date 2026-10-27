@@ -88,34 +88,32 @@ void CItemShopManager::Destroy()
 
 bool CItemShopManager::IsItemExist(int index)
 {
-	auto it = m_map_ItemShopItems.find(index);
-
-	if (it != m_map_ItemShopItems.end()) {
-		return true;
-	}
-	else {
+	if (index < 0)
 		return false;
-	}
+
+	auto it = m_map_ItemShopItems.find(static_cast<DWORD>(index));
+	return it != m_map_ItemShopItems.end();
 }
 
 bool CItemShopManager::IsAuctionExist(int index)
 {
-	auto it = m_map_ItemShopTimeAuctions.find(index);
-
-	if (it != m_map_ItemShopTimeAuctions.end()) {
-		return true;
-	}
-	else {
+	if (index < 0)
 		return false;
-	}
+
+	auto it = m_map_ItemShopTimeAuctions.find(static_cast<DWORD>(index));
+	return it != m_map_ItemShopTimeAuctions.end();
 }
 
 TItemShopItem CItemShopManager::GetItem(int index)
 {
+	if (index < 0)
+		return TItemShopItem{};
+
+	const DWORD dwIndex = static_cast<DWORD>(index);
 	if (IsItemExist(index))
-		return m_map_ItemShopItems[index];
+		return m_map_ItemShopItems[dwIndex];
 	else if (IsAuctionExist(index)) {
-		return m_map_ItemShopTimeAuctions[index];
+		return m_map_ItemShopTimeAuctions[dwIndex];
 	}
 	return TItemShopItem{};
 }
@@ -292,7 +290,7 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 
 void CItemShopManager::UpdateAuctionBuyAmount(DWORD dwItemIndex, DWORD dwBuyAmount)
 {
-	if (IsAuctionExist(dwItemIndex)) {
+	if (IsAuctionExist(static_cast<int>(dwItemIndex))) {
 		auto item = m_map_ItemShopTimeAuctions[dwItemIndex];
 		item.timeAuction.dwCurrentBuyAmount = dwBuyAmount;
 		m_map_ItemShopTimeAuctions[dwItemIndex] = item;
@@ -425,7 +423,7 @@ void CItemShopManager::SendHappyHour(LPCHARACTER ch)
 	TPacketGCItemShopHappyHour pack2;
 	memset(&pack2, 0, sizeof(pack2));
 
-	pack2.dwHappyHourValue = value;
+	pack2.dwHappyHourValue = static_cast<DWORD>(value);
 	pack2.dwEndTime = dwEndTime;
 
 	pack.size = sizeof(pack) + sizeof(pack2);
@@ -474,7 +472,7 @@ void CItemShopManager::SendItemShopData(LPCHARACTER ch)
 	if (!desc)
 		return;
 
-	int itemCount = 0;
+	size_t itemCount = 0;
 	for (const auto& pair : m_map_ItemShopItems)
 		if (CanSendItem(ch, pair.second))
 			itemCount++;
@@ -482,11 +480,11 @@ void CItemShopManager::SendItemShopData(LPCHARACTER ch)
 	TPacketGCItemShop pack{};
 	pack.header = HEADER_GC_ITEMSHOP;
 	pack.subheader = SUBHEADER_ITEMSHOP_REFRESH;
-	pack.size = sizeof(pack) + sizeof(TPacketGCItemShopRefresh) + sizeof(TItemShopItem) * itemCount;
+	pack.size = static_cast<int>(sizeof(pack) + sizeof(TPacketGCItemShopRefresh) + sizeof(TItemShopItem) * itemCount);
 
 	TPacketGCItemShopRefresh subpack{};
 	memset(&subpack, 0, sizeof(subpack));
-	subpack.count = itemCount;
+	subpack.count = static_cast<WORD>(itemCount);
 
 	TEMP_BUFFER buff;
 	buff.write(&pack, sizeof(pack));
@@ -501,7 +499,7 @@ void CItemShopManager::SendItemShopData(LPCHARACTER ch)
 	}
 
 	desc->Packet(buff.read_peek(), buff.size());
-	ch->ChatDebug("%d items sent", itemCount);
+	ch->ChatDebug("%d items sent", static_cast<int>(itemCount));
 }
 
 void CItemShopManager::SendAuctionData(LPCHARACTER ch)
@@ -513,7 +511,7 @@ void CItemShopManager::SendAuctionData(LPCHARACTER ch)
 	if (!desc)
 		return;
 
-	int itemCount = 0;
+	size_t itemCount = 0;
 	for (const auto& pair : m_map_ItemShopTimeAuctions)
 		if (CanSendTimeAuction(pair.second))
 			itemCount++;
@@ -521,11 +519,11 @@ void CItemShopManager::SendAuctionData(LPCHARACTER ch)
 	TPacketGCItemShop pack{};
 	pack.header = HEADER_GC_ITEMSHOP;
 	pack.subheader = SUBHEADER_ITEMSHOP_OPEN_AUCTIONS;
-	pack.size = sizeof(pack) + sizeof(TPacketGCItemShopRefresh) + sizeof(TItemShopItem) * itemCount;
+	pack.size = static_cast<int>(sizeof(pack) + sizeof(TPacketGCItemShopRefresh) + sizeof(TItemShopItem) * itemCount);
 
 	TPacketGCItemShopRefresh subpack{};
 	memset(&subpack, 0, sizeof(subpack));
-	subpack.count = itemCount;
+	subpack.count = static_cast<WORD>(itemCount);
 
 	TEMP_BUFFER buff;
 	buff.write(&pack, sizeof(pack));
@@ -544,7 +542,7 @@ void CItemShopManager::SendAuctionData(LPCHARACTER ch)
 	}
 
 	desc->Packet(buff.read_peek(), buff.size());
-	ch->ChatDebug("%d time auctions sent", itemCount);
+	ch->ChatDebug("%d time auctions sent", static_cast<int>(itemCount));
 }
 
 void CItemShopManager::SendAuctionUpdate(LPCHARACTER ch, DWORD index)
