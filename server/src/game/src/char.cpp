@@ -3244,12 +3244,26 @@ void CHARACTER::ChangeGold(YANG gold, bool isUpdate)
 			playerData->AddTotalGoldSession(gold);
 	}
 
-	YANG totalMoney = GetGold() + gold;
-	if (totalMoney < 0)
-		totalMoney = 0;
+	YANG curGold = GetGold();
+	if (curGold < 0)
+		curGold = 0;
 
-	if (totalMoney > GOLD_MAX)
-		totalMoney = GOLD_MAX;
+	YANG totalMoney = 0;
+	if (gold >= 0)
+	{
+		const YANG maxGold = GOLD_MAX - 1;
+		if (curGold >= maxGold || gold >= maxGold - curGold)
+			totalMoney = maxGold;
+		else
+			totalMoney = curGold + gold;
+	}
+	else
+	{
+		if (gold == std::numeric_limits<YANG>::min() || curGold <= -gold)
+			totalMoney = 0;
+		else
+			totalMoney = curGold + gold;
+	}
 
 	SetGold(totalMoney);
 	if (GetDesc())
@@ -3294,8 +3308,15 @@ bool CHARACTER::IsUtilityPoint(BYTE point)
 	}
 }
 
-void CHARACTER::PointChange(BYTE type, int amount, bool bAmount, bool bBroadcast)
+void CHARACTER::PointChange(BYTE type, int64_t llAmount, bool bAmount, bool bBroadcast)
 {
+	if (type == POINT_GOLD)
+	{
+		ChangeGold(llAmount);
+		return;
+	}
+
+	int amount = static_cast<int>(std::clamp<int64_t>(llAmount, INT_MIN, INT_MAX));
 	int val = 0;
 
 	//sys_log(0, "PointChange %d %d | %d -> %d cHP %d mHP %d", type, amount, GetPoint(type), GetPoint(type)+amount, GetHP(), GetMaxHP());
@@ -7259,6 +7280,9 @@ bool CHARACTER::WarpToPID(DWORD dwPID)
 // ADD_REFINE_BUILDING
 CGuild* CHARACTER::GetRefineGuild() const
 {
+	if (m_dwRefineNPCVID == 0 || !CHARACTER_MANAGER::instance_ptr())
+		return NULL;
+
 	LPCHARACTER chRefineNPC = CHARACTER_MANAGER::instance().Find(m_dwRefineNPCVID);
 
 	return (chRefineNPC ? chRefineNPC->GetGuild() : NULL);

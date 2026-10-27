@@ -267,12 +267,18 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	}
 
 	YANG dwPrice = r_item.price;
+	if (dwPrice < 0 || dwPrice >= GOLD_MAX)
+		return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 
 #ifdef ENABLE_SHOP_USE_CHEQUE
 	DWORD dwCheque = r_item.cheque;
 #endif
 	if (!IsPCShop() && it->second)	// if other empire, price is triple
+	{
+		if (dwPrice > (GOLD_MAX - 1) / 3)
+			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 		dwPrice *= 3;
+	}
 
 	if (GetVnum() == 9 && quest::CQuestManager::instance().GetEventFlag("valentine_event")) // marriage items
 	{
@@ -280,19 +286,19 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	}
 
 #ifdef ENABLE_SHOP_USE_CHEQUE
-	if ((int)dwPrice > 0 && (int)dwCheque > 0) // Yang-Cheque
+	if (dwPrice > 0 && static_cast<int>(dwCheque) > 0) // Yang-Cheque
 	{
-		if (ch->GetGold() < (int)dwPrice || ch->GetCheque() < (int)dwCheque)
+		if (ch->GetGold() < dwPrice || ch->GetCheque() < static_cast<int>(dwCheque))
 			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY_CHEQUE;
 	}
-	else if ((int)dwPrice > 0 && (int)dwCheque <= 0) // Yang
+	else if (dwPrice > 0 && static_cast<int>(dwCheque) <= 0) // Yang
 	{
-		if (ch->GetGold() < (int)dwPrice)
+		if (ch->GetGold() < dwPrice)
 			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 	}
-	else if ((int)dwPrice <= 0 && (int)dwCheque > 0) // cheque
+	else if (dwPrice <= 0 && static_cast<int>(dwCheque) > 0) // cheque
 	{
-		if (ch->GetCheque() < (int)dwCheque)
+		if (ch->GetCheque() < static_cast<int>(dwCheque))
 			return SHOP_SUBHEADER_GC_NOT_ENOUGH_CHEQUE;
 	}
 #else
@@ -302,6 +308,12 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 		return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 	}
 #endif
+
+	if (m_pkPC)
+	{
+		if (m_pkPC->GetGold() < 0 || dwPrice >= GOLD_MAX - m_pkPC->GetGold())
+			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
+	}
 
 	LPITEM item;
 

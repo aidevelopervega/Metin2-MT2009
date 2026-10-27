@@ -1978,7 +1978,7 @@ namespace quest
 
 	ALUA(pc_get_premium_remain_sec)
 	{
-		int	remain_seconds	= 0;
+		int64_t	remain_seconds	= 0;
 		int	premium_type	= 0;
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 
@@ -2006,9 +2006,9 @@ namespace quest
 				return 0;
 		}
 
-		remain_seconds = ch->GetPremiumRemainSeconds(premium_type);
+		remain_seconds = ch->GetPremiumRemainSeconds(static_cast<BYTE>(premium_type));
 
-		lua_pushnumber(L, remain_seconds);
+		lua_pushnumber(L, static_cast<lua_Number>(remain_seconds));
 		return 1;
 	}
 

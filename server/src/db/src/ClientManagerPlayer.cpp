@@ -1348,15 +1348,15 @@ void CClientManager::QUERY_ADD_AFFECT([[maybe_unused]] CPeer * peer, TPacketGDAd
 	   */
 	snprintf(queryStr, sizeof(queryStr),
 			"REPLACE INTO affect%s (dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum) "
-			"VALUES(%u, %u, %u, %d, %u, %d, %d, %u)",
+			"VALUES(%u, %u, %u, %d, %u, %lld, %lld, %u)",
 			GetTablePostfix(),
 			static_cast<unsigned int>(p->dwPID),
 			static_cast<unsigned int>(p->elem.dwType),
 			p->elem.bApplyOn,
 			p->elem.lApplyValue,
 			static_cast<unsigned int>(p->elem.dwFlag),
-			p->elem.lDuration,
-			p->elem.lSPCost,
+			static_cast<long long>(p->elem.lDuration),
+			static_cast<long long>(p->elem.lSPCost),
 			static_cast<unsigned int>(p->elem.dwItemVnum));
 
 	CDBManager::instance().AsyncQuery(queryStr);

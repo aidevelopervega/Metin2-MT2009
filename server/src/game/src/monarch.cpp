@@ -51,14 +51,13 @@ struct FHealMyEmpire
 
 int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 {
-	if (price <= 0 || price > 2000000000)
+	if (!ch || price <= 0 || price >= GOLD_MAX)
 		return 0;
 
-	const int iPrice = static_cast<int>(price);
 	BYTE Empire = ch->GetEmpire();
 	DWORD pid = ch->GetPlayerID();
 
-	sys_log(0, "HealMyEmpire[%d] pid:%u price %d", Empire, static_cast<unsigned int>(pid), iPrice);
+	sys_log(0, "HealMyEmpire[%d] pid:%u price %lld", Empire, static_cast<unsigned int>(pid), static_cast<long long>(price));
 
 	if (IsMonarch(pid, Empire) == 0)
 	{
@@ -77,9 +76,11 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 		return 0;
 	}
 
-	if (!IsMoneyOk(iPrice, Empire))
+	if (!IsMoneyOk(price, Empire))
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("\xb1\xb9\xb0\xed\xbf\xa1 \xb5\xb7\xc0\xcc \xba\xce\xc1\xb7\xc7\xd5\xb4\xcf\xb4\xd9. \xc7\xf6\xc0\xe7 : %u \xc7\xca\xbf\xe4\xb1\xdd\xbe\xd7 : %u"), static_cast<unsigned int>(GetMoney(Empire)), static_cast<unsigned int>(iPrice));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("\xb1\xb9\xb0\xed\xbf\xa1 \xb5\xb7\xc0\xcc \xba\xce\xc1\xb7\xc7\xd5\xb4\xcf\xb4\xd9. \xc7\xf6\xc0\xe7 : %u \xc7\xca\xbf\xe4\xb1\xdd\xbe\xd7 : %u"),
+			static_cast<unsigned int>(std::min<YANG>(GetMoney(Empire), static_cast<YANG>(UINT_MAX))),
+			static_cast<unsigned int>(std::min<YANG>(price, static_cast<YANG>(UINT_MAX))));
 		return 0;
 	}
 
@@ -90,13 +91,14 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 	SECTREE_MANAGER::instance().for_each(iMapIndex, f);
 
 
-	SendtoDBDecMoney(iPrice, Empire, ch);
+	SendtoDBDecMoney(price, Empire, ch);
 
 
 	ch->SetMC(CHARACTER::MI_HEAL);
 
 	if (test_server)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]\xc7\xf6\xc0\xe7 \xb1\xb9\xb0\xed : %d "), (int)MAX((int64_t)INT_MIN, MIN(GetMoney(Empire) - iPrice, (int64_t)INT_MAX)));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[TEST_ONLY]\xc7\xf6\xc0\xe7 \xb1\xb9\xb0\xed : %d "),
+			static_cast<int>(std::clamp<int64_t>(GetMoney(Empire) - price, static_cast<int64_t>(INT_MIN), static_cast<int64_t>(INT_MAX))));
 	return 1;
 }
 
@@ -113,71 +115,71 @@ bool CMonarch::IsMonarch(DWORD pid, BYTE bEmpire)
 	return (m_MonarchInfo.pid[bEmpire] == pid);
 }
 
-bool CMonarch::IsMoneyOk(int price, BYTE bEmpire)
+bool CMonarch::IsMoneyOk(YANG price, BYTE bEmpire)
 {
-	return (GetMoney(bEmpire) >= price);
+	return (price >= 0 && GetMoney(bEmpire) >= price);
 }
 
 bool CMonarch::SendtoDBAddMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch)
 {
-	if (Money <= 0 || Money > 2000000000)
+	if (bEmpire >= _countof(m_MonarchInfo.money) || !ch || !ch->GetDesc())
 		return false;
 
-	const YANG totalMoney = static_cast<YANG>(GetMoney(bEmpire)) + Money;
-	if (totalMoney > 2000000000 || totalMoney < 0)
+	if (Money <= 0 || Money >= GOLD_MAX)
 		return false;
 
-	int nEmpire = bEmpire;
-	int nMoney = static_cast<int>(Money);
-	db_clientdesc->DBPacketHeader(HEADER_GD_ADD_MONARCH_MONEY, ch->GetDesc()->GetHandle(), sizeof(int) + sizeof(int));
-	db_clientdesc->Packet(&nEmpire, sizeof(int));
-	db_clientdesc->Packet(&nMoney, sizeof(int));
+	const YANG curMoney = GetMoney(bEmpire);
+	if (curMoney < 0 || Money >= GOLD_MAX - curMoney)
+		return false;
+
+	TPacketGDMonarchMoney pack{};
+	pack.iEmpire = static_cast<int32_t>(bEmpire);
+	pack.llMoney = Money;
+	db_clientdesc->DBPacket(HEADER_GD_ADD_MONARCH_MONEY, ch->GetDesc()->GetHandle(), &pack, sizeof(pack));
 	return true;
 }
 
-bool CMonarch::SendtoDBDecMoney(int Money, BYTE bEmpire, LPCHARACTER ch)
+bool CMonarch::SendtoDBDecMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch)
+{
+	if (bEmpire >= _countof(m_MonarchInfo.money) || !ch || !ch->GetDesc())
+		return false;
+
+	if (Money <= 0 || GetMoney(bEmpire) < Money)
+		return false;
+
+	TPacketGDMonarchMoney pack{};
+	pack.iEmpire = static_cast<int32_t>(bEmpire);
+	pack.llMoney = Money;
+	db_clientdesc->DBPacket(HEADER_GD_DEC_MONARCH_MONEY, ch->GetDesc()->GetHandle(), &pack, sizeof(pack));
+	return true;
+}
+
+bool CMonarch::AddMoney(YANG Money, BYTE bEmpire)
 {
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return false;
 
-	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) - static_cast<YANG>(Money) < 0)
+	const YANG curMoney = GetMoney(bEmpire);
+	if (Money <= 0 || curMoney >= GOLD_MAX - 1 || Money > (GOLD_MAX - 1) - curMoney)
 		return false;
 
-
-	int nEmpire = bEmpire;
-
-	db_clientdesc->DBPacketHeader(HEADER_GD_DEC_MONARCH_MONEY, ch->GetDesc()->GetHandle(), sizeof(int) + sizeof(int));
-	db_clientdesc->Packet(&nEmpire, sizeof(int));
-	db_clientdesc->Packet(&Money, sizeof(int));
+	m_MonarchInfo.money[bEmpire] = curMoney + Money;
 	return true;
 }
 
-bool CMonarch::AddMoney(int Money, BYTE bEmpire)
+bool CMonarch::DecMoney(YANG Money, BYTE bEmpire)
 {
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return false;
 
-
-	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) + static_cast<YANG>(Money) > 2000000000)
-		return false;
-
-	m_MonarchInfo.money[bEmpire] += Money;
-	return true;
-}
-
-bool CMonarch::DecMoney(int Money, BYTE bEmpire)
-{
-	if (bEmpire >= _countof(m_MonarchInfo.money))
-		return false;
-
-	if (Money <= 0 || static_cast<YANG>(GetMoney(bEmpire)) - static_cast<YANG>(Money) < 0)
+	if (Money <= 0 || GetMoney(bEmpire) < Money)
 		return false;
 
 	m_MonarchInfo.money[bEmpire] -= Money;
 	return true;
 }
 
-int CMonarch::GetMoney(BYTE bEmpire)
+YANG CMonarch::GetMoney(BYTE bEmpire)
 {
 	if (bEmpire >= _countof(m_MonarchInfo.money))
 		return 0;
@@ -185,9 +187,9 @@ int CMonarch::GetMoney(BYTE bEmpire)
 	const YANG money = m_MonarchInfo.money[bEmpire];
 	if (money < 0)
 		return 0;
-	if (money > 2000000000)
-		return 2000000000;
-	return static_cast<int>(money);
+	if (money >= GOLD_MAX)
+		return GOLD_MAX - 1;
+	return money;
 }
 
 TMonarchInfo* CMonarch::GetMonarch()

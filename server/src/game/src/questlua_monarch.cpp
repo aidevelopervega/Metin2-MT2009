@@ -96,18 +96,22 @@ namespace quest
 	ALUA(takemonarchmoney)
 	{
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
+		if (!ch || !ch->GetDesc())
+			return 0;
 
-		int nMoney = (int)lua_tonumber(L,1);
-		int nPID = ch->GetPlayerID();
-		int nEmpire = ch->GetEmpire();
-		nMoney = nMoney * 10000;
+		YANG llMoney = static_cast<YANG>(lua_tonumber(L, 1));
+		if (llMoney <= 0 || llMoney > (GOLD_MAX - 1) / 10000)
+			return 0;
+		llMoney *= 10000;
 
-		sys_log(0 ,"[MONARCH] Take Money Empire(%d) pid(%d) Money(%d)", ch->GetEmpire(), ch->GetPlayerID(), nMoney);
+		TPacketGDTakeMonarchMoney pack{};
+		pack.iEmpire = ch->GetEmpire();
+		pack.dwPID = ch->GetPlayerID();
+		pack.llMoney = llMoney;
 
-		db_clientdesc->DBPacketHeader(HEADER_GD_TAKE_MONARCH_MONEY, ch->GetDesc()->GetHandle(), sizeof(int) * 3);
-		db_clientdesc->Packet(&nEmpire, sizeof(int));
-		db_clientdesc->Packet(&nPID, sizeof(int));
-		db_clientdesc->Packet(&nMoney, sizeof(int));
+		sys_log(0, "[MONARCH] Take Money Empire(%d) pid(%u) Money(%lld)", pack.iEmpire, pack.dwPID, static_cast<long long>(pack.llMoney));
+
+		db_clientdesc->DBPacket(HEADER_GD_TAKE_MONARCH_MONEY, ch->GetDesc()->GetHandle(), &pack, sizeof(pack));
 		return 1;
 	}
 
@@ -185,7 +189,7 @@ namespace quest
 		int	money_need = 5000000;
 		if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 		{
-			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 			return 0;
 		}
@@ -237,7 +241,7 @@ namespace quest
 		int	money_need = 5000000;
 		if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 		{
-			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 			return 0;
 		}
@@ -412,7 +416,7 @@ namespace quest
 
 			if (!CMonarch::instance().IsMoneyOk(money_need, ch->GetEmpire()))
 			{
-				unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+				unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)money_need);
 				return 0;
 			}
@@ -447,7 +451,7 @@ namespace quest
 
 		if (castle_frog_to_empire_money(ch))
 		{
-			int empire_money = (int)MAX((int64_t)INT_MIN, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)INT_MAX));
+			int empire_money = static_cast<int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), static_cast<int64_t>(INT_MIN), static_cast<int64_t>(INT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("TEST: The Gold Bar has been paid back to your kingdom's safe."));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("TEST: In your kingdom's safe there are: %d"), empire_money);
 			castle_save();
@@ -490,7 +494,7 @@ namespace quest
 
 		if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 		{
-			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 			return 0;
 		}
@@ -637,7 +641,7 @@ namespace quest
 
 		if (!CMonarch::instance().IsMoneyOk(WarpPrice, ch->GetEmpire()))
 		{
-			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)WarpPrice);
 			return 0;
 		}
@@ -815,7 +819,7 @@ namespace quest
 
 		if (CMonarch::instance().IsMoneyOk(ciTransferCost, ch->GetEmpire()) == false)
 		{
-			unsigned int NationMoney = (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(ch->GetEmpire()), (int64_t)UINT_MAX));
+			unsigned int NationMoney = static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(ch->GetEmpire()), 0LL, static_cast<int64_t>(UINT_MAX)));
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Lack of Taxes. Current Capital : %u Needed Capital : %u"), NationMoney, (unsigned int)ciTransferCost);
 			return 0;
 		}

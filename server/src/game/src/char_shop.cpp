@@ -198,12 +198,14 @@ void CHARACTER::OpenMyShop(const char* c_pszSign, TShopItemTable* pTable, BYTE b
 
 	for (int n = 0; n < bItemCount; ++n)
 	{
+		if ((pTable + n)->price < 1 || (pTable + n)->price >= GOLD_MAX || nTotalMoney >= GOLD_MAX - static_cast<YANG>((pTable + n)->price)) { ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot trade because you are carrying more than 2 billion Yang.")); return; }
 		nTotalMoney += static_cast<YANG>((pTable + n)->price);
 #ifdef ENABLE_CHEQUE_SYSTEM
 		nTotalCheque += static_cast<YANG>((pTable + n)->cheque);
 #endif
 	}
 
+	if (GetGold() < 0 || nTotalMoney >= GOLD_MAX - GetGold()) { sys_err("[OVERFLOW_GOLD] Overflow (GOLD_MAX) id %u name %s", GetPlayerID(), GetName()); ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot trade because you are carrying more than 2 billion Yang.")); return; }
 	nTotalMoney += GetGold();
 #ifdef ENABLE_CHEQUE_SYSTEM
 	nTotalCheque += static_cast<YANG>(GetCheque());
@@ -302,7 +304,7 @@ void CHARACTER::OpenMyShop(const char* c_pszSign, TShopItemTable* pTable, BYTE b
 				return;
 			}
 
-			if (shopItem->price < 1 || shopItem->price > GOLD_MAX)
+			if (shopItem->price < 1 || shopItem->price >= GOLD_MAX)
 			{
 				ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_ITEM_WRONG_PRICE%s"), pkItem->GetName());
 				return;
@@ -422,7 +424,7 @@ void CHARACTER::CloseMyShop()
 
 BYTE CHARACTER::GetShopUnlockedProgress()
 {
-	return GetSpecialFlag(SHOP_SLOT_UNLOCK_PROGRESS_FLAG);
+	return static_cast<BYTE>(std::clamp<int64_t>(GetSpecialFlag(SHOP_SLOT_UNLOCK_PROGRESS_FLAG), 0LL, 255LL));
 }
 
 bool CHARACTER::CanOpenShop()

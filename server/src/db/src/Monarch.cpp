@@ -118,6 +118,8 @@ bool CMonarch::DelCandidacy(const char * name)
 
 bool CMonarch::IsMonarch(int Empire, DWORD pid)
 {
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+		return false;
 	if (m_MonarchInfo.pid[Empire] != pid)
 		return false;
 	return true;
@@ -125,10 +127,14 @@ bool CMonarch::IsMonarch(int Empire, DWORD pid)
 
 bool CMonarch::AddMoney(int Empire, int64_t Money)
 {
-	if (m_MonarchInfo.money[Empire] + Money > 2000000000)
-		return true;
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM || Money <= 0)
+		return false;
 
-	m_MonarchInfo.money[Empire] += Money;
+	const int64_t curMoney = std::max<int64_t>(0, m_MonarchInfo.money[Empire]);
+	if (curMoney >= GOLD_MAX - 1 || Money > (GOLD_MAX - 1) - curMoney)
+		return false;
+
+	m_MonarchInfo.money[Empire] = curMoney + Money;
 
 	int64_t Money64 = m_MonarchInfo.money[Empire];
 
@@ -142,7 +148,10 @@ bool CMonarch::AddMoney(int Empire, int64_t Money)
 
 bool CMonarch::DecMoney(int Empire, int64_t Money)
 {
-	if (m_MonarchInfo.money[Empire] - Money <  0)
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM || Money <= 0)
+		return false;
+
+	if (m_MonarchInfo.money[Empire] < Money)
 		return false;
 	m_MonarchInfo.money[Empire] -= Money;
 
@@ -157,6 +166,9 @@ bool CMonarch::DecMoney(int Empire, int64_t Money)
 
 bool CMonarch::TakeMoney(int Empire, DWORD pid, int64_t Money)
 {
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM || Money <= 0)
+		return false;
+
 	if (IsMonarch(Empire, pid) == false)
 		return false;
 

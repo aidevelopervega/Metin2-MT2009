@@ -265,7 +265,7 @@ bool CExchange::AddGold(YANG gold)
 	if (gold <= 0)
 		return false;
 
-	if (gold > EXCHANGE_GOLD_MAX)
+	if (gold >= EXCHANGE_GOLD_MAX || gold >= GOLD_MAX)
 		return false;
 
 	if (GetOwner()->GetGold() < gold)
@@ -308,7 +308,7 @@ bool CExchange::AddCheque(long cheque)
 
 bool CExchange::Check(int * piItemCount)
 {
-	if (GetOwner()->GetGold() < m_lGold)
+	if (m_lGold < 0 || GetOwner()->GetGold() < m_lGold || (m_lGold > 0 && GetCompany() && GetCompany()->GetOwner() && (GetCompany()->GetOwner()->GetGold() < 0 || m_lGold >= GOLD_MAX - GetCompany()->GetOwner()->GetGold())))
 		return false;
 
 #ifdef ENABLE_CHEQUE_SYSTEM

@@ -232,9 +232,17 @@ namespace ikashop
 
 		YANG total_val = 0;
 		for (auto item : itemsmap)
-			total_val += item.second->price.GetTotalYangAmount();
+		{
+			if (item.first == dwItemID)
+				continue;
+			const YANG itemYang = item.second->price.GetTotalYangAmount();
+			if (itemYang < 0 || total_val >= GOLD_MAX - itemYang)
+				return false;
+			total_val += itemYang;
+		}
 
-		if (total_val - it->second->price.GetTotalYangAmount() + price.GetTotalYangAmount() > GOLD_MAX)
+		const YANG newYang = price.GetTotalYangAmount();
+		if (newYang <= 0 || total_val >= GOLD_MAX - newYang)
 			return false;
 
 		// skipping locked items

@@ -340,6 +340,8 @@ void CShopManager::Sell(LPCHARACTER ch, BYTE bCell, ITEM_COUNT bCount)
 		bCount = item->GetCount();
 
 	dwPrice = item->GetShopBuyPrice();
+	if (dwPrice < 0)
+		return;
 
 	if (IS_SET(item->GetFlag(), ITEM_FLAG_COUNT_PER_1GOLD))
 	{
@@ -349,7 +351,16 @@ void CShopManager::Sell(LPCHARACTER ch, BYTE bCell, ITEM_COUNT bCount)
 			dwPrice = bCount / dwPrice;
 	}
 	else
+	{
+		if (bCount > 0 && dwPrice > (GOLD_MAX - 1) / bCount)
+		{
+			sys_err("[OVERFLOW_GOLD] Sell multiplication overflow id %u name %s unit_price %lld count %u",
+				ch->GetPlayerID(), ch->GetName(), static_cast<long long>(dwPrice), static_cast<unsigned int>(bCount));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot trade because you are carrying more than 2 billion Yang."));
+			return;
+		}
 		dwPrice *= bCount;
+	}
 
 	bool isGoldBar = item->GetVnum() >= 80003 && item->GetVnum() <= 80008;
 
@@ -387,9 +398,7 @@ void CShopManager::Sell(LPCHARACTER ch, BYTE bCell, ITEM_COUNT bCount)
 	if (test_server)
 		sys_log(0, "Sell Item price id %d %s itemid %d", ch->GetPlayerID(), ch->GetName(), item->GetID());
 
-	const YANG nTotalMoney = static_cast<YANG>(ch->GetGold()) + static_cast<YANG>(dwPrice);
-
-	if (GOLD_MAX <= nTotalMoney)
+	if (ch->GetGold() < 0 || dwPrice >= GOLD_MAX - ch->GetGold())
 	{
 		sys_err("[OVERFLOW_GOLD] id %u name %s gold %lld", ch->GetPlayerID(), ch->GetName(), ch->GetGold());
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot trade because you are carrying more than 2 billion Yang."));

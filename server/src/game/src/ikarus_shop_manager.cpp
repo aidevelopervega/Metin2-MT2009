@@ -4018,7 +4018,8 @@ namespace ikashop
 		int64_t claimingCheque = 0;
 #endif
 
-		if(claimingValute.yang + static_cast<int64_t>(ch->GetGold()) >= GOLD_MAX)
+		if(claimingValute.yang <= 0 || ch->GetGold() < 0) return false;
+		if(ch->GetGold() >= GOLD_MAX || claimingValute.yang >= GOLD_MAX - static_cast<int64_t>(ch->GetGold()))
 		{
 #ifdef ENABLE_CHEQUE_SYSTEM
 			// checking about yang & cheque overflow
@@ -4063,7 +4064,7 @@ namespace ikashop
 
 #ifdef ENABLE_CHEQUE_SYSTEM
 		if (claimingYang != 0)
-			ch->PointChange(POINT_GOLD, claimingYang);
+			ch->ChangeGold(claimingYang);
 		if (claimingCheque != 0)
 			ch->PointChange(POINT_CHEQUE, claimingCheque);
 #else

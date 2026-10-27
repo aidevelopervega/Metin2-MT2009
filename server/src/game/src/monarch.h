@@ -15,13 +15,13 @@ class CMonarch : public singleton<CMonarch>
 		void SetMonarchInfo(TMonarchInfo * pInfo);
 
 		bool IsMonarch(DWORD pid, BYTE bEmpire);
-		bool IsMoneyOk(int price, BYTE bEmpire);
+		bool IsMoneyOk(YANG price, BYTE bEmpire);
 		bool SendtoDBAddMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch);
-		bool SendtoDBDecMoney(int Money, BYTE bEmpire, LPCHARACTER ch);
+		bool SendtoDBDecMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch);
 
-		bool AddMoney(int Money, BYTE bEmpire);
-		bool DecMoney(int Money, BYTE bEmpire);
-		int GetMoney(BYTE bEmpire);
+		bool AddMoney(YANG Money, BYTE bEmpire);
+		bool DecMoney(YANG Money, BYTE bEmpire);
+		YANG GetMoney(BYTE bEmpire);
 
 		TMonarchInfo* GetMonarch();
 

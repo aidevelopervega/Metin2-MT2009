@@ -1528,6 +1528,19 @@ typedef struct tChangeMonarchLordACK
 	char szDate[32];
 } TPacketChangeMonarchLordACK;
 
+typedef struct SPacketGDMonarchMoney
+{
+	int32_t iEmpire;
+	YANG llMoney;
+} TPacketGDMonarchMoney, TPacketDGMonarchMoney;
+
+typedef struct SPacketGDTakeMonarchMoney
+{
+	int32_t iEmpire;
+	DWORD dwPID;
+	YANG llMoney;
+} TPacketGDTakeMonarchMoney;
+
 typedef struct tChangeGuildMaster
 {
 	DWORD dwGuildID;

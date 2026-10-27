@@ -3163,54 +3163,56 @@ bool CInputDB::Process(LPDESC d, const void * orig, int bytes, int & r_iBytesPro
 
 void CInputDB::AddMonarchMoney([[maybe_unused]] LPDESC d, const char * data )
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
+	const auto* p = reinterpret_cast<const TPacketDGMonarchMoney*>(data);
+	const int Empire = p->iEmpire;
+	const YANG Money = p->llMoney;
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+		return;
 
-	int Money = *(int *) data;
-	data += sizeof(int);
+	CMonarch::instance().AddMoney(Money, static_cast<BYTE>(Empire));
 
-	CMonarch::instance().AddMoney(Money, Empire);
-
-	DWORD pid = CMonarch::instance().GetMonarchPID(Empire);
+	DWORD pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 
 	if (ch)
 	{
 		if (number(1, 100) > 95)
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("현재 %s 국고에는 %u 의 돈이 있습니다"), EMPIRE_NAME(Empire), (unsigned int)MAX(0LL, MIN(CMonarch::instance().GetMoney(Empire), (int64_t)UINT_MAX)));
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("현재 %s 국고에는 %u 의 돈이 있습니다"), EMPIRE_NAME(Empire),
+				static_cast<unsigned int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(static_cast<BYTE>(Empire)), 0LL, static_cast<int64_t>(UINT_MAX))));
 	}
 }
 
 void CInputDB::DecMonarchMoney([[maybe_unused]] LPDESC d, const char * data)
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
+	const auto* p = reinterpret_cast<const TPacketDGMonarchMoney*>(data);
+	const int Empire = p->iEmpire;
+	const YANG Money = p->llMoney;
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+		return;
 
-	int Money = *(int *) data;
-	data += sizeof(int);
+	CMonarch::instance().DecMoney(Money, static_cast<BYTE>(Empire));
 
-	CMonarch::instance().DecMoney(Money, Empire);
-
-	DWORD pid = CMonarch::instance().GetMonarchPID(Empire);
+	DWORD pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 
 	if (ch)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s still has %d Yang available."), EMPIRE_NAME(Empire), (int)MAX((int64_t)INT_MIN, MIN(CMonarch::instance().GetMoney(Empire), (int64_t)INT_MAX)));
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("%s still has %d Yang available."), EMPIRE_NAME(Empire),
+			static_cast<int>(std::clamp<int64_t>(CMonarch::instance().GetMoney(static_cast<BYTE>(Empire)), static_cast<int64_t>(INT_MIN), static_cast<int64_t>(INT_MAX))));
 	}
 }
 
 void CInputDB::TakeMonarchMoney(LPDESC d, const char * data)
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
+	const auto* p = reinterpret_cast<const TPacketDGMonarchMoney*>(data);
+	const int Empire = p->iEmpire;
+	const YANG Money = p->llMoney;
+	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
+		return;
 
-	int Money = *(int *) data;
-	data += sizeof(int);
-
-	if (!CMonarch::instance().DecMoney(Money, Empire))
+	if (!CMonarch::instance().DecMoney(Money, static_cast<BYTE>(Empire)))
 	{
 		if (!d)
 			return;

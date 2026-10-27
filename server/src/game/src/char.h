@@ -629,7 +629,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 
 		void			ComputePoints();
 		void			ComputeBattlePoints();
-		void			PointChange(BYTE type, int amount, bool bAmount = false, bool bBroadcast = false);
+		void			PointChange(BYTE type, int64_t amount, bool bAmount = false, bool bBroadcast = false);
 		void			PointsPacket();
 		void			CheckMaximumPoints();
 		bool			IsUtilityPoint(BYTE point);

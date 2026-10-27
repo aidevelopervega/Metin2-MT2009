@@ -1840,9 +1840,9 @@ ACMD(do_set)
 
 	if (set_fields[i].type == NUMBER)
 	{
-		int	amount = 0;
+		int64_t amount = 0;
 		str_to_number(amount, arg3);
-		ch->ChatPacket(CHAT_TYPE_INFO, "%s's %s set to [%d]", tch->GetName(), set_fields[i].cmd, amount);
+		ch->ChatPacket(CHAT_TYPE_INFO, "%s's %s set to [%lld]", tch->GetName(), set_fields[i].cmd, static_cast<long long>(amount));
 	}
 }
 
@@ -3976,9 +3976,11 @@ ACMD(do_check_monarch_money)
 
 	int empire = 0;
 	str_to_number(empire, arg1);
-	int NationMoney = CMonarch::instance().GetMoney(empire);
+	if (empire < 0 || empire >= EMPIRE_MAX_NUM)
+		return;
+	const YANG NationMoney = CMonarch::instance().GetMoney(static_cast<BYTE>(empire));
 
-	ch->ChatPacket(CHAT_TYPE_INFO, "국고: %d 원", NationMoney);
+	ch->ChatPacket(CHAT_TYPE_INFO, "국고: %lld 원", static_cast<long long>(NationMoney));
 }
 
 ACMD(do_reset_subskill)
