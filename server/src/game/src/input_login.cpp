@@ -128,6 +128,7 @@ void CInputLogin::Login(LPDESC d, const char * data)
 	failurePacket.header = HEADER_GC_LOGIN_FAILURE;
 	strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
 	d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+	d->DelayedDisconnect(3);
 }
 
 void CInputLogin::LoginByKey(LPDESC d, const char * data)
@@ -1234,7 +1235,7 @@ int CInputLogin::Analyze(LPDESC d, BYTE bHeader, const char* c_pData)
 
 		default:
 			sys_err("login phase does not handle this packet! header %d", bHeader);
-			//d->SetPhase(PHASE_CLOSE);
+			d->SetPhase(PHASE_CLOSE);
 			return (0);
 	}
 

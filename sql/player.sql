@@ -28,8 +28,8 @@ CREATE TABLE `affect` (
   `bApplyOn` tinyint(4) unsigned NOT NULL DEFAULT 0,
   `lApplyValue` int(11) NOT NULL DEFAULT 0,
   `dwFlag` int(10) unsigned NOT NULL DEFAULT 0,
-  `lDuration` int(10) NOT NULL DEFAULT 0,
-  `lSPCost` int(10) NOT NULL DEFAULT 0,
+  `lDuration` bigint(20) NOT NULL DEFAULT 0,
+  `lSPCost` bigint(20) NOT NULL DEFAULT 0,
   `itemVnum` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`dwPID`,`bType`,`bApplyOn`,`lApplyValue`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -286,7 +286,7 @@ CREATE TABLE `guild_war_reservation` (
   `guild2` int(10) unsigned NOT NULL DEFAULT 0,
   `time` datetime NOT NULL DEFAULT current_timestamp(),
   `type` tinyint(2) unsigned NOT NULL DEFAULT 0,
-  `warprice` int(10) unsigned NOT NULL DEFAULT 0,
+  `warprice` bigint(20) unsigned NOT NULL DEFAULT 0,
   `initscore` int(10) unsigned NOT NULL DEFAULT 0,
   `started` tinyint(1) NOT NULL DEFAULT 0,
   `bet_from` int(10) unsigned NOT NULL DEFAULT 0,
@@ -601,6 +601,7 @@ CREATE TABLE `item_award` (
   `attrvalue6` smallint(6) NOT NULL DEFAULT 0,
   `mall` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `idx_item_award_why` (`why`) USING BTREE,
   KEY `given_time_idx` (`given_time`) USING BTREE,
   KEY `taken_time_idx` (`taken_time`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -762,7 +763,7 @@ CREATE TABLE `monarch` (
   `empire` int(10) unsigned NOT NULL DEFAULT 0,
   `pid` int(10) unsigned DEFAULT NULL,
   `windate` datetime DEFAULT NULL,
-  `money` bigint(20) unsigned DEFAULT NULL,
+  `money` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`empire`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1111,7 +1112,7 @@ CREATE TABLE `player_special_flag` (
   `pid` int(10) NOT NULL DEFAULT 0,
   `aid` int(10) NOT NULL DEFAULT 0,
   `flag` varchar(32) NOT NULL DEFAULT '',
-  `value` bigint(18) NOT NULL DEFAULT 0,
+  `value` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`pid`,`flag`,`aid`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;

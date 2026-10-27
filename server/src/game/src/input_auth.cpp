@@ -292,6 +292,7 @@ int CInputAuth::Analyze(LPDESC d, BYTE bHeader, const char * c_pData)
 
 		default:
 			sys_err("This phase does not handle this header %d (0x%x)(phase: AUTH)", bHeader, bHeader);
+			d->SetPhase(PHASE_CLOSE);
 			break;
 	}
 

@@ -2586,6 +2586,13 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_SETUP:
+				if (dwLength < sizeof(TPacketGDSetup))
+				{
+					sys_err("HEADER_GD_SETUP: rejected peer %p with legacy/short packet size %u (expected %zu)",
+						peer, static_cast<unsigned int>(dwLength), sizeof(TPacketGDSetup));
+					peer->Close();
+					break;
+				}
 				QUERY_SETUP(peer, dwHandle, data);
 				break;
 
@@ -4245,16 +4252,19 @@ void CClientManager::Candidacy(CPeer *  peer, DWORD dwHandle, const char* data)
 
 void CClientManager::AddMonarchMoney(CPeer * peer, DWORD dwHandle, const char * data)
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
-
-	int Money = *(int *) data;
-	data += sizeof(int);
+	const auto* req = reinterpret_cast<const TPacketGDMonarchMoney*>(data);
+	const int Empire = req->iEmpire;
+	const YANG Money = req->llMoney;
 
 	if (g_test_server)
-		sys_log(0, "[MONARCH] Add money Empire(%d) Money(%d)", Empire, Money);
+		sys_log(0, "[MONARCH] Add money Empire(%d) Money(%lld)", Empire, static_cast<long long>(Money));
 
-	CMonarch::instance().AddMoney(Empire, Money);
+	if (!CMonarch::instance().AddMoney(Empire, Money))
+		return;
+
+	TPacketDGMonarchMoney resp{};
+	resp.iEmpire = Empire;
+	resp.llMoney = Money;
 
 	for (itertype(m_peerList) it = m_peerList.begin(); it != m_peerList.end(); ++it)
 	{
@@ -4263,33 +4273,25 @@ void CClientManager::AddMonarchMoney(CPeer * peer, DWORD dwHandle, const char * 
 		if (!p->GetChannel())
 			continue;
 
-		if (p == peer)
-		{
-			p->EncodeHeader(HEADER_DG_ADD_MONARCH_MONEY, dwHandle, sizeof(int) + sizeof(int));
-			p->Encode(Empire);
-			p->Encode(Money);
-		}
-		else
-		{
-			p->EncodeHeader(HEADER_DG_ADD_MONARCH_MONEY, 0, sizeof(int) + sizeof(int));
-			p->Encode(Empire);
-			p->Encode(Money);
-		}
-
+		p->EncodeHeader(HEADER_DG_ADD_MONARCH_MONEY, (p == peer) ? dwHandle : 0, sizeof(resp));
+		p->Encode(&resp, sizeof(resp));
 	}
 }
 void CClientManager::DecMonarchMoney(CPeer * peer, DWORD dwHandle, const char * data)
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
-
-	int Money = *(int *) data;
-	data += sizeof(int);
+	const auto* req = reinterpret_cast<const TPacketGDMonarchMoney*>(data);
+	const int Empire = req->iEmpire;
+	const YANG Money = req->llMoney;
 
 	if (g_test_server)
-		sys_log(0, "[MONARCH] Dec money Empire(%d) Money(%d)", Empire, Money);
+		sys_log(0, "[MONARCH] Dec money Empire(%d) Money(%lld)", Empire, static_cast<long long>(Money));
 
-	CMonarch::instance().DecMoney(Empire, Money);
+	if (!CMonarch::instance().DecMoney(Empire, Money))
+		return;
+
+	TPacketDGMonarchMoney resp{};
+	resp.iEmpire = Empire;
+	resp.llMoney = Money;
 
 	for (itertype(m_peerList) it = m_peerList.begin(); it != m_peerList.end(); ++it)
 	{
@@ -4298,48 +4300,29 @@ void CClientManager::DecMonarchMoney(CPeer * peer, DWORD dwHandle, const char * 
 		if (!p->GetChannel())
 			continue;
 
-		if (p == peer)
-		{
-			p->EncodeHeader(HEADER_DG_DEC_MONARCH_MONEY, dwHandle, sizeof(int) + sizeof(int));
-			p->Encode(Empire);
-			p->Encode(Money);
-		}
-		else
-		{
-			p->EncodeHeader(HEADER_DG_DEC_MONARCH_MONEY, 0, sizeof(int) + sizeof(int));
-			p->Encode(Empire);
-			p->Encode(Money);
-		}
+		p->EncodeHeader(HEADER_DG_DEC_MONARCH_MONEY, (p == peer) ? dwHandle : 0, sizeof(resp));
+		p->Encode(&resp, sizeof(resp));
 	}
 }
 
 void CClientManager::TakeMonarchMoney(CPeer * peer, DWORD dwHandle, const char * data)
 {
-	int Empire = *(int *) data;
-	data += sizeof(int);
-
-	DWORD pid = *(DWORD *) data;
-	data += sizeof(int);
-
-	int Money = *(int *) data;
-	data += sizeof(int);
+	const auto* req = reinterpret_cast<const TPacketGDTakeMonarchMoney*>(data);
+	const int Empire = req->iEmpire;
+	const DWORD pid = req->dwPID;
+	YANG Money = req->llMoney;
 
 	if (g_test_server)
-		sys_log(0, "[MONARCH] Take money Empire(%d) Money(%d)", Empire, Money);
+		sys_log(0, "[MONARCH] Take money Empire(%d) Money(%lld)", Empire, static_cast<long long>(Money));
 
-	if (CMonarch::instance().TakeMoney(Empire, pid, Money) == true)
-	{
-		peer->EncodeHeader(HEADER_DG_TAKE_MONARCH_MONEY, dwHandle, sizeof(int) + sizeof(int));
-		peer->Encode(Empire);
-		peer->Encode(Money);
-	}
-	else
-	{
+	if (!CMonarch::instance().TakeMoney(Empire, pid, Money))
 		Money = 0;
-		peer->EncodeHeader(HEADER_DG_TAKE_MONARCH_MONEY, dwHandle, sizeof(int) + sizeof(int));
-		peer->Encode(Empire);
-		peer->Encode(Money);
-	}
+
+	TPacketDGMonarchMoney resp{};
+	resp.iEmpire = Empire;
+	resp.llMoney = Money;
+	peer->EncodeHeader(HEADER_DG_TAKE_MONARCH_MONEY, dwHandle, sizeof(resp));
+	peer->Encode(&resp, sizeof(resp));
 }
 
 void CClientManager::ComeToVote([[maybe_unused]] CPeer * peer, [[maybe_unused]] DWORD dwHandle, [[maybe_unused]] const char * data)

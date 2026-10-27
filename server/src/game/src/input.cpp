@@ -71,6 +71,13 @@ bool CInputProcessor::Process(LPDESC lpDesc, const void * c_pvOrig, int iBytes, 
 		return true;
 	}
 
+	if (!lpDesc->GetInputProcessor() || lpDesc->IsPhase(PHASE_CLOSE) || lpDesc->m_pkDisconnectEvent != NULL)
+	{
+		r_iBytesProceed = iBytes;
+		m_iBufferLeft = 0;
+		return true;
+	}
+
 	for (m_iBufferLeft = iBytes; m_iBufferLeft > 0;)
 	{
 		BYTE bHeader = (BYTE) *(c_pData);
@@ -84,11 +91,51 @@ bool CInputProcessor::Process(LPDESC lpDesc, const void * c_pvOrig, int iBytes, 
 					bHeader, bLastHeader, iLastPacketLen, m_iBufferLeft, lpDesc->GetSocket());
 			//printdata((BYTE *) c_pvOrig, m_iBufferLeft);
 			lpDesc->SetPhase(PHASE_CLOSE);
+			r_iBytesProceed = iBytes;
+			m_iBufferLeft = 0;
 			return true;
 		}
 
 		if (m_iBufferLeft < iPacketLen)
+		{
+			if (GetType() == INPROC_LOGIN && bHeader == HEADER_CG_LOGIN2 &&
+			    m_iBufferLeft == static_cast<int>(sizeof(TPacketCGLogin2) - sizeof(uint32_t)))
+			{
+				sys_log(0, "CInputProcessor::Process : rejected legacy-sized Login2 (%d bytes, expected %d) from %s",
+					m_iBufferLeft, iPacketLen, lpDesc->GetHostName());
+				LoginFailure(lpDesc, "VERSION");
+				lpDesc->DelayedDisconnect(3);
+				r_iBytesProceed = iBytes;
+				m_iBufferLeft = 0;
+				return true;
+			}
+
+			if (GetType() == INPROC_AUTH && bHeader == HEADER_CG_LOGIN3 &&
+			    (m_iBufferLeft == static_cast<int>(sizeof(TPacketCGLogin3) - sizeof(uint32_t)) ||
+			     m_iBufferLeft == 130 || m_iBufferLeft == 136))
+			{
+				sys_log(0, "CInputProcessor::Process : rejected legacy-sized Login3 (%d bytes, expected %d) from %s",
+					m_iBufferLeft, iPacketLen, lpDesc->GetHostName());
+				LoginFailure(lpDesc, "VERSION");
+				lpDesc->DelayedDisconnect(3);
+				r_iBytesProceed = iBytes;
+				m_iBufferLeft = 0;
+				return true;
+			}
+
+			if (GetType() == INPROC_P2P && bHeader == HEADER_GG_SETUP &&
+			    m_iBufferLeft == static_cast<int>(sizeof(TPacketGGSetup) - sizeof(uint32_t)))
+			{
+				sys_err("CInputProcessor::Process : rejected legacy-sized P2P Setup (%d bytes, expected %d) from %s",
+					m_iBufferLeft, iPacketLen, lpDesc->GetHostName());
+				lpDesc->SetPhase(PHASE_CLOSE);
+				r_iBytesProceed = iBytes;
+				m_iBufferLeft = 0;
+				return true;
+			}
+
 			return true;
+		}
 
 		if (bHeader)
 		{
@@ -163,6 +210,13 @@ bool CInputProcessor::Process(LPDESC lpDesc, const void * c_pvOrig, int iBytes, 
 
 		iLastPacketLen = iPacketLen;
 		bLastHeader	= bHeader;
+
+		if (!lpDesc->GetInputProcessor() || lpDesc->IsPhase(PHASE_CLOSE) || lpDesc->m_pkDisconnectEvent != NULL)
+		{
+			r_iBytesProceed = iBytes;
+			m_iBufferLeft = 0;
+			return true;
+		}
 
 		if (GetType() != lpDesc->GetInputProcessor()->GetType())
 			return false;

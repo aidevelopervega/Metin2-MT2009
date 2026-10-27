@@ -70,6 +70,9 @@ void CPeer::SetUserCount(DWORD dwCount)
 
 bool CPeer::PeekPacket(int & iBytesProceed, BYTE & header, DWORD & dwHandle, DWORD & dwLength, const char ** data)
 {
+	if (m_state == STATE_CLOSE)
+		return false;
+
 	const int iRecvLen = GetRecvLength();
 	if (iBytesProceed < 0 || iRecvLen < iBytesProceed + 9)
 		return false;
