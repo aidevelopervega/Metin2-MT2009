@@ -8,26 +8,30 @@
 
 | Sabit / Alan | Eski Değer (Legacy x86) | Yeni Değer (x64 Wire Protocol) | Tanım Konumu |
 | :--- | :--- | :--- | :--- |
-| `MT2_PROTOCOL_VERSION_LEGACY_X86` | `0x00000000U` veya rastgele `adwClientKey[3]` | `0x20090032U` | `server/src/common/tables.h` |
-| `MT2_PROTOCOL_VERSION_X64` | Yok | `0x20090064U` | `server/src/common/tables.h` |
+| `MT2_PROTOCOL_VERSION_LEGACY_X86` | Yok (sürüm alanı yoktu) | `0x20090032U` | `server/src/common/tables.h` |
+| `MT2_PROTOCOL_VERSION_X64` | Yok | `0x20090064U` (`537460836U`) | `server/src/common/tables.h` |
 | `MT2_PROTOCOL_VERSION_CURRENT` | Yok | `MT2_PROTOCOL_VERSION_X64` (`0x20090064U`) | `server/src/common/tables.h` |
-| `TPacketCGLogin3::adwClientKey[3]` | TEA anahtarının 4. `uint32_t` kelimesi | `MT2_PROTOCOL_VERSION_X64` (`0x20090064U`) | `input_auth.cpp:259` |
-| `TPacketCGLogin2::adwClientKey[3]` | TEA anahtarının 4. `uint32_t` kelimesi | `MT2_PROTOCOL_VERSION_X64` (`0x20090064U`) | `input_login.cpp:175` |
+| `TPacketCGLogin3::dwProtocolVersion` | Yok (`TPacketCGLogin3 = 321 B` / eski `130 B`) | `MT2_PROTOCOL_VERSION_X64` (`TPacketCGLogin3 = 328 B`, ofset `52`) | `packet.h`, `input_auth.cpp:259` |
+| `TPacketCGLogin2::dwProtocolVersion` | Yok (`TPacketCGLogin2 = 52 B`) | `MT2_PROTOCOL_VERSION_X64` (`TPacketCGLogin2 = 56 B`, ofset `51`) | `packet.h`, `input_login.cpp:175` |
 | `HEADER_GD_SETUP::dwProtocolVersion` | Yok (`TPacketGDSetup = 67 B`) | `MT2_PROTOCOL_VERSION_X64` (`TPacketGDSetup = 71 B`, ofset `67`) | `tables.h`, `ClientManager.cpp:2505` |
 | `HEADER_GG_SETUP::dwProtocolVersion` | Yok (`TPacketGGSetup = 7 B`) | `MT2_PROTOCOL_VERSION_X64` (`TPacketGGSetup = 11 B`, ofset `7`) | `packet.h`, `input_p2p.cpp:58` |
 
-### Erken Protokol Reddi Davranışı
-1. **AUTH (`HEADER_CG_LOGIN3` — `input_auth.cpp:259`):**
-   - `pinfo->adwClientKey[3] != MT2_PROTOCOL_VERSION_X64` ise veritabanı sorgusu çalıştırılmadan `LoginFailure(d, "WRONGVER")` (`TPacketGCLoginFailure`, `szStatus = "WRONGVER"`) gönderilir ve bağlantı kapatılır.
-2. **GAME LOGIN (`HEADER_CG_LOGIN2` — `input_login.cpp:175`):**
-   - `pinfo->adwClientKey[3] != MT2_PROTOCOL_VERSION_X64` ise `HEADER_GD_LOGIN_BY_KEY` sorgusu gönderilmeden `LoginFailure(d, "WRONGVER")` gönderilir ve bağlantı kapatılır.
-3. **Client Tarafında Yapılacak Sürüm Değişikliği:**
+### Erken Protokol Reddi ve Framing Güvenliği (`"VERSION"` vs `"WRONGVER"`)
+1. **Eski Boyutlu Paket Yakalama ve Tampon Boşaltma (`"VERSION"` — `input.cpp:139-168`):**
+   - Eski 32-bit istemciler `HEADER_CG_LOGIN3` paketini `130`, `136` veya `321` bayt (yeni `328` bayt yerine), `HEADER_CG_LOGIN2` paketini ise `52` bayt (yeni `56` bayt yerine) olarak gönderir.
+   - `CInputProcessor::Process` (`input.cpp`), `HEADER_CG_LOGIN3` (`< 328 B`) veya `HEADER_CG_LOGIN2` (`< 56 B`) için tam paket boyutunu beklerken bilinen eski paket boyutlarından (`130`, `136`, `321` veya `52` bayt) birini ve geçerli sonlandırılmış `login` dizgesini tespit ederse (veya eski paket + ardışık ek baytlar gelmişse), girdi tamponundaki mevcut tüm baytları (`m_iBufferLeft`) tüketir, `LoginFailure(d, "VERSION")` (`TPacketGCLoginFailure`, `szStatus = "VERSION"`) gönderir ve bağlantıyı `PHASE_CLOSE` ile kapatır.
+   - Gerçek TCP parçalanması (ör. `328` baytlık yeni x64 `Login3` paketinin `24 B + 304 B` olarak iki parçada gelmesi) ise eski boyut imzasıyla eşleşmediğinden sıfır kayıpla birleştirilir (`tests/test_server_smoke_client.exe --protocol-framing-audit` `4/4 PASS`).
+2. **Yeni Boyutlu (`328 B` / `56 B`) Pakette Yanlış Sürüm Reddi (`"WRONGVER"` — `input_auth.cpp:259` & `input_login.cpp:175`):**
+   - `TPacketCGLogin3` (`328 B`) veya `TPacketCGLogin2` (`56 B`) tam boyutta ulaştığında `pinfo->dwProtocolVersion != MT2_PROTOCOL_VERSION_X64` (`0x20090064U`) ise hiçbir SQL sorgusu çalıştırılmadan ve `dwLoginKey` tüketilmeden `LoginFailure(d, "WRONGVER")` gönderilir ve bağlantı kapatılır.
+3. **DB (`HEADER_GD_SETUP`) ve P2P (`HEADER_GG_SETUP`) Sürüm ve Kısa Paket Koruması (`Peer.cpp` & `ClientManager.cpp`):**
+   - `CPeer::PeekPacket` (`Peer.cpp:150`) `HEADER_GD_SETUP` için `dwLength != sizeof(TPacketGDSetup)` (`71 B`) olan kısa veya bozuk çerçeveleri işleyicilere ulaşmadan reddeder; `CClientManager::QUERY_SETUP` ve `CInputP2P::Setup` ise `dwProtocolVersion != MT2_PROTOCOL_VERSION_X64` olan sunucu düğümlerini reddeder.
+4. **Client Tarafında Yapılacak Sürüm Değişikliği:**
    - `client/src/UserInterface/Packet.h` içine `#define MT2_PROTOCOL_VERSION_X64 0x20090064U` eklenecek.
-   - `CPythonNetworkStream::SendLoginPacketNew` (`HEADER_CG_LOGIN3`) ve `CPythonNetworkStream::SendDirectEnterPacket` / `SendLoginPacket` (`HEADER_CG_LOGIN2`) içinde `adwClientKey[3] = MT2_PROTOCOL_VERSION_X64;` atanacak.
+   - `TPacketCGLogin2` (`56 B`, ofset `51`) ve `TPacketCGLogin3` (`328 B`, ofset `52`) yapılarına `uint32_t dwProtocolVersion;` alanı eklenecek ve gönderim sırasında `MT2_PROTOCOL_VERSION_X64` atanacak.
 
 ---
 
-## 2. TEMEL WIRE TÜR EŞLEMELERİ (`#pragma pack(1)` Küçük Sonlu / Little-Endian)
+## 2. TEMEL WIRE TÜR EŞLEMELERİ, 64-BİT EKONOMİ TAVANI (`GOLD_MAX`) VE KİMLİK MİMARİSİ
 
 | Alan Anlamı | Eski Client Türü (`Packet.h`) | Yeni x64 Wire Türü | Boyut Değişimi |
 | :--- | :--- | :--- | :--- |
@@ -35,10 +39,22 @@
 | Platforma bağımlı işaretsiz 32-bit (`DWORD`, `unsigned long`) | `DWORD` (`unsigned long`) | `uint32_t` (`DWORD`) | `4 B -> 4 B` |
 | Oyun içi para / fiyat / maliyet / hazine (`YANG`, `gold`, `price`, `cost`, `lMoney`) | `int` / `long` / `DWORD` / `int64_t` (karışık) | `int64_t` (`YANG`) | `4 B -> 8 B` (önceden 32-bit kalan paketlerde) |
 | Karakter puanları (`points[POINT_MAX_NUM]`, `amount`, `value`) | `long` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` |
-| Sunucu zaman damgaları (`TPacketGCTime::time`, `TItemShop*Time`, `captchaExpireTime`) | `time_t` (`4 B` x86) / `DWORD` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` |
-| ItemShop bakiyesi ve fiyatları (`dwDragonCoins`, `dwDragonMarks`, `dwPrice`) | `uint32_t` / `int32_t` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` |
+| Karakter etki süreleri (`TPacketAffectElement::lDuration`, `lSPCost`) | `long` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` (`TPacketGCAffectAdd`: `23 B -> 31 B`) |
+| Sunucu zaman damgaları (`TPacketGCTime::time`, `TItemShop*Time`, `expireTime`) | `time_t` (`4 B` x86) / `DWORD` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` |
+| ItemShop bakiyesi ve fiyatları (`llCoin`, `llMark`, `llCoinPrice`, `llMarkPrice`) | `uint32_t` / `int32_t` (`4 B`) | `int64_t` (`8 B`) | `4 B -> 8 B` |
 | Eşya soket ve limit değerleri (`alSockets[]`, `TItemLimit::lValue`) | `long` (`4 B`) | `int32_t` (`4 B`) | `4 B -> 4 B` |
 | Harita indeksi ve koordinatlar (`lMapIndex`, `x`, `y`, `z`, `lX`, `lY`, `lZ`) | `long` (`4 B`) | `int32_t` (`4 B`) | `4 B -> 4 B` |
+
+### 2.1. 64-Bit Ekonomi Tavanı (`GOLD_MAX`) ve Kimlik (`ID`) Sınırları
+* **`GOLD_MAX` ve `EXCHANGE_GOLD_MAX` (`server/src/common/length.h`):**
+  - Eski `2,000,000,000LL` (`~2 Milyar` Yang) sınırı **`1,000,000,000,000LL` (`1 Trilyon` Yang = $10^{12}$)** seviyesine yükseltilmiştir.
+  - Bu sınır hem `> 2^31` ve `> 2^32` Yang işlemlerini (`CHARACTER::PointChange(POINT_GOLD)`, `ChangeGold`, `ComputeRefineFee`, NPC/PC Dükkanları, Ikarus Offline Shop, Takas/Exchange, Depo/Safebox ve İmparatorluk Hazinesi `CMonarch`) tam 64-bit kapasitede destekler hem de Lua `double` ($2^{53} \approx 9 \times 10^{15}$) tam sayı duyarlılığı ile `INT64_MAX` ($\approx 9.22 \times 10^{18}$) çarpma/toplama taşma sınırının güvenli bölgesinde kalır.
+* **Sunucu İçi İmparatorluk Hazinesi (`TMonarchInfo` & `TPacketGDTakeMonarchMoney` — `server/src/common/tables.h`):**
+  - `TMonarchInfo::money[4]` alanı `int[4]` (`16 B`) yerine `YANG[4]` (`int64_t[4]`, `32 B`) yapılmıştır (`sizeof(TMonarchInfo) == 144 B`).
+  - `TPacketGDTakeMonarchMoney::llMoney` alanı `int` (`4 B`) yerine `YANG` (`int64_t`, `8 B`) yapılmıştır (`sizeof(TPacketGDTakeMonarchMoney) == 16 B`); `player.monarch.money` sütunu `bigint(20)` olarak güncellenmiştir.
+* **Kimlik (`ID`) Türleri Sözleşmesi:**
+  - **64-Bit Kimlikler (`uint64_t` / `bigint(20) unsigned`):** `account.itemshop_tx_journal.tx_id` (`TRANSACTION_ID`) ve `player.guild.token` (`GUILD_TOKEN`).
+  - **İşlevsel Tasarım Gereği 32-Bit İşaretsiz (`uint32_t` / `DWORD`, maks. `4,294,967,295`) Kalan Kimlikler:** `ACCOUNT_ID` (`AID`), `PLAYER_ID` (`PID`), `VID` (oturum içi geçici varlık kimliği), `ITEM_ID` (`CItemIDRangeManager` 32-bit aralık tablosu), `GUILD_ID`, `SHOP_ID` ve `AUCTION_ID`. Client tarafında bu kimlikler `uint32_t` (`DWORD`) olarak korunacaktır.
 
 ---
 

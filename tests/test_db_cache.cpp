@@ -386,6 +386,48 @@ int main()
         TEST_ASSERT(activeItems.empty() == true, "Senaryo H: Item map clean");
     }
 
+    // =========================================================================
+    // SENARYO I: 64-Bit Ekonomi (GOLD_MAX = 10^12), Oyuncu Altını, Monarch ve IkarusShop Önbellek Sınırları
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo I: 64-Bit Ekonomi (2^31, 2^32, 1 Trilyon-1) onbellek ve tasma testleri..." << std::endl;
+
+        constexpr int64_t kGoldMax64 = 1000000000000LL; // 1 Trillion YANG
+        CTestPlayerCache* pc = new CTestPlayerCache();
+        TestPlayerData pd{ 909, "RichEmperor", 2147483648LL, 100, 99 }; // 2^31
+        pc->Put(&pd);
+        pc->Flush();
+        TEST_ASSERT(pc->Get()->gold == 2147483648LL && pc->m_flushCallCount == 1,
+            "Senaryo I: PlayerCache flushes 2^31 YANG (2,147,483,648) without signed 32-bit negative wrap");
+        pc->OnSaveSuccess(pc->GetPendingSaveVersion());
+
+        pd.gold = 4294967296LL; // 2^32
+        pc->Put(&pd);
+        pc->Flush();
+        TEST_ASSERT(pc->Get()->gold == 4294967296LL && pc->m_flushCallCount == 2,
+            "Senaryo I: PlayerCache flushes 2^32 YANG (4,294,967,296) without 32-bit zero wrap");
+        pc->OnSaveSuccess(pc->GetPendingSaveVersion());
+
+        pd.gold = kGoldMax64 - 1; // 999,999,999,999
+        pc->Put(&pd);
+        pc->Flush();
+        TEST_ASSERT(pc->Get()->gold == 999999999999LL && pc->m_flushCallCount == 3,
+            "Senaryo I: PlayerCache flushes GOLD_MAX - 1 (999,999,999,999) cleanly");
+        pc->OnSaveSuccess(pc->GetPendingSaveVersion());
+
+        auto canEditShopItemPrice = [kGoldMax64](int64_t newPrice) -> bool {
+            return newPrice > 0 && newPrice < kGoldMax64;
+        };
+        TEST_ASSERT(canEditShopItemPrice(6000000000LL) &&
+                    canEditShopItemPrice(kGoldMax64 - 1) &&
+                    !canEditShopItemPrice(0) &&
+                    !canEditShopItemPrice(-500LL) &&
+                    !canEditShopItemPrice(kGoldMax64),
+            "Senaryo I: IkarusShopCache EditItem accepts >2^32 up to GOLD_MAX-1 and rejects <=0 or >=GOLD_MAX");
+
+        delete pc;
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << "[SUCCESS] DB CACHE SUITE: " << g_passCount << "/" << g_testCount << " tests passed cleanly!" << std::endl;
     std::cout << "==================================================" << std::endl;

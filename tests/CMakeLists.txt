@@ -115,6 +115,17 @@ target_include_directories(test_auth_security PRIVATE ${TEST_COMMON_INCLUDES})
 target_link_libraries(test_auth_security PRIVATE thecore)
 add_test(NAME test_auth_security COMMAND test_auth_security)
 
+# 11. test_live_db (Live MariaDB 12.3 LTS verification suite - built by CMake, run against live DB)
+add_executable(test_live_db test_live_db.cpp)
+target_include_directories(test_live_db PRIVATE ${TEST_COMMON_INCLUDES})
+target_link_libraries(test_live_db PRIVATE sql_lib thecore Database::Client)
+
+# 12. test_server_smoke_client (Live protocol & framing smoke client - built by CMake)
+add_executable(test_server_smoke_client test_server_smoke_client.cpp)
+if(WIN32)
+    target_link_libraries(test_server_smoke_client PRIVATE ws2_32)
+endif()
+
 if(WIN32)
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala
     find_file(MT2_TEST_MARIADB_DLL
@@ -136,5 +147,7 @@ if(WIN32)
         )
         add_dependencies(test_db_cache_integration copy_test_dlls)
         add_dependencies(test_libsql copy_test_dlls)
+        add_dependencies(test_live_db copy_test_dlls)
     endif()
 endif()
+

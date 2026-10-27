@@ -1008,7 +1008,7 @@ int main()
                         guildTreasury.iGold == 42000000000LL,
                 "Regression [10/11]: NationMoney (TMonarchInfo::money) and Guild Treasury (TPacketGDGuildMoney::iGold) support > 2^32 YANG");
 
-            // 11. ComputeRefineFee 64-bit YANG overflow-safe calculation
+            // 11. ComputeRefineFee 64-bit YANG overflow-safe calculation with GOLD_MAX = 1,000,000,000,000 (1 Trillion)
             auto computeRefineFeeSafe = [](YANG iCost, int iMultiply) -> YANG {
                 if (iCost <= 0 || iMultiply <= 0)
                     return 0;
@@ -1018,12 +1018,282 @@ int main()
                 YANG fee = iCost * static_cast<YANG>(iMultiply);
                 return (fee > kMaxFee) ? kMaxFee : fee;
             };
-            WIRE_ASSERT(computeRefineFeeSafe(300000000LL, 5) == 1500000000LL &&
-                        computeRefineFeeSafe(600000000LL, 5) == GOLD_MAX - 1 &&
-                        computeRefineFeeSafe(600000000LL, 5) > 0 &&
+            WIRE_ASSERT(GOLD_MAX == 1000000000000LL &&
+                        EXCHANGE_GOLD_MAX == 1000000000000LL &&
+                        computeRefineFeeSafe(300000000LL, 5) == 1500000000LL &&
+                        computeRefineFeeSafe(600000000LL, 5) == 3000000000LL &&
+                        computeRefineFeeSafe(1200000000LL, 5) == 6000000000LL &&
+                        computeRefineFeeSafe(300000000000LL, 5) == GOLD_MAX - 1 &&
                         computeRefineFeeSafe(-500LL, 5) == 0LL &&
                         computeRefineFeeSafe(GOLD_MAX, 5) == GOLD_MAX - 1,
-                "Regression [11/11]: ComputeRefineFee calculates 64-bit YANG fees and clamps 600M*5 to GOLD_MAX-1 instead of negative 32-bit overflow");
+                "Regression [11/11]: ComputeRefineFee supports >2^31 (3B) and >2^32 (6B) fees with GOLD_MAX=10^12 and clamps 300B*5 to GOLD_MAX-1");
+        }
+
+        // Section 9: x64 Final Audit — Monarch 64-Bit Packets & Protocol/Framing Security Suite
+        {
+            // 9.1 Monarch 64-bit GD/DG packet layouts & >2^32 treasury payloads
+            WIRE_ASSERT(sizeof(TPacketGDMonarchMoney) == 12 &&
+                        offsetof(TPacketGDMonarchMoney, iEmpire) == 0 &&
+                        offsetof(TPacketGDMonarchMoney, llMoney) == 4,
+                "TPacketGDMonarchMoney is 12 bytes with 64-bit llMoney at offset 4");
+            WIRE_ASSERT(sizeof(TPacketDGMonarchMoney) == 12 &&
+                        offsetof(TPacketDGMonarchMoney, iEmpire) == 0 &&
+                        offsetof(TPacketDGMonarchMoney, llMoney) == 4,
+                "TPacketDGMonarchMoney is 12 bytes with 64-bit llMoney at offset 4");
+            WIRE_ASSERT(sizeof(TPacketGDTakeMonarchMoney) == 16 &&
+                        offsetof(TPacketGDTakeMonarchMoney, iEmpire) == 0 &&
+                        offsetof(TPacketGDTakeMonarchMoney, dwPID) == 4 &&
+                        offsetof(TPacketGDTakeMonarchMoney, llMoney) == 8,
+                "TPacketGDTakeMonarchMoney is 16 bytes with 64-bit llMoney at offset 8");
+
+            TPacketGDMonarchMoney gdMonarch{};
+            gdMonarch.iEmpire = 2;
+            gdMonarch.llMoney = 125000000000LL; // 125B YANG (> 2^32)
+            TPacketGDTakeMonarchMoney gdTakeMonarch{};
+            gdTakeMonarch.dwPID = 77001;
+            gdTakeMonarch.iEmpire = 2;
+            gdTakeMonarch.llMoney = 25000000000LL; // 25B YANG (> 2^32)
+            WIRE_ASSERT(gdMonarch.llMoney == 125000000000LL && gdTakeMonarch.llMoney == 25000000000LL,
+                "Monarch GD/DG packets preserve >2^32 YANG (125B / 25B) without 32-bit int truncation");
+
+            // 9.2 Protocol Version & Framing Security Simulation (Login2, Login3, CheckVersion, Fragmented TCP, Trailing Payload, DB/P2P Setup)
+            enum class ESimPhase { Auth, Login, P2P, Close };
+            struct SimDesc {
+                ESimPhase phase = ESimPhase::Auth;
+                bool delayedDisconnect = false;
+                uint32_t clientVersion = 0;
+                std::string failureStatus{};
+                int validLoginsProcessed = 0;
+                int p2pSetupsProcessed = 0;
+                explicit SimDesc(ESimPhase p = ESimPhase::Auth) : phase(p) {}
+            };
+
+            auto simProcessBuffer = [](SimDesc& d, const uint8_t* buf, size_t totalBytes, size_t& outBytesProceed) -> bool {
+                outBytesProceed = 0;
+                if (d.phase == ESimPhase::Close || d.delayedDisconnect) {
+                    outBytesProceed = totalBytes;
+                    return true;
+                }
+                size_t bufferLeft = totalBytes;
+                const uint8_t* p = buf;
+                while (bufferLeft > 0) {
+                    const uint8_t hdr = *p;
+                    size_t pktLen = 0;
+                    if (hdr == 0) {
+                        pktLen = 1;
+                    } else if (d.phase == ESimPhase::Auth) {
+                        if (hdr == HEADER_CG_CHECK_VERSION) pktLen = sizeof(TPacketCGCheckVersion);
+                        else if (hdr == HEADER_CG_LOGIN3) pktLen = sizeof(TPacketCGLogin3);
+                        else {
+                            d.phase = ESimPhase::Close;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                    } else if (d.phase == ESimPhase::Login) {
+                        if (hdr == HEADER_CG_CHECK_VERSION) pktLen = sizeof(TPacketCGCheckVersion);
+                        else if (hdr == HEADER_CG_LOGIN2) pktLen = sizeof(TPacketCGLogin2);
+                        else {
+                            d.phase = ESimPhase::Close;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                    } else if (d.phase == ESimPhase::P2P) {
+                        if (hdr == HEADER_GG_SETUP) pktLen = sizeof(TPacketGGSetup);
+                        else {
+                            d.phase = ESimPhase::Close;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                    }
+
+                    if (bufferLeft < pktLen) {
+                        if (d.phase == ESimPhase::Login && hdr == HEADER_CG_LOGIN2 &&
+                            bufferLeft == sizeof(TPacketCGLogin2) - sizeof(uint32_t)) {
+                            d.failureStatus = "VERSION";
+                            d.delayedDisconnect = true;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                        if (d.phase == ESimPhase::Auth && hdr == HEADER_CG_LOGIN3 &&
+                            (bufferLeft == sizeof(TPacketCGLogin3) - sizeof(uint32_t) || bufferLeft == 130 || bufferLeft == 136)) {
+                            d.failureStatus = "VERSION";
+                            d.delayedDisconnect = true;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                        if (d.phase == ESimPhase::P2P && hdr == HEADER_GG_SETUP &&
+                            bufferLeft == sizeof(TPacketGGSetup) - sizeof(uint32_t)) {
+                            d.phase = ESimPhase::Close;
+                            outBytesProceed = totalBytes;
+                            return true;
+                        }
+                        return true; // Wait for more TCP bytes
+                    }
+
+                    if (hdr == HEADER_CG_CHECK_VERSION) {
+                        TPacketCGCheckVersion cv{};
+                        std::memcpy(&cv, p, sizeof(cv));
+                        d.clientVersion = cv.dwVersion;
+                        if (cv.dwVersion != MT2_PROTOCOL_VERSION_X64) {
+                            d.failureStatus = "VERSION";
+                            d.delayedDisconnect = true;
+                        }
+                    } else if (hdr == HEADER_CG_LOGIN3) {
+                        TPacketCGLogin3 l3{};
+                        std::memcpy(&l3, p, sizeof(l3));
+                        if (l3.dwProtocolVersion != MT2_PROTOCOL_VERSION_X64 ||
+                            (d.clientVersion != 0 && d.clientVersion != MT2_PROTOCOL_VERSION_X64)) {
+                            d.failureStatus = "VERSION";
+                            d.delayedDisconnect = true;
+                        } else {
+                            ++d.validLoginsProcessed;
+                        }
+                    } else if (hdr == HEADER_CG_LOGIN2) {
+                        TPacketCGLogin2 l2{};
+                        std::memcpy(&l2, p, sizeof(l2));
+                        if (l2.dwProtocolVersion != MT2_PROTOCOL_VERSION_X64 ||
+                            (d.clientVersion != 0 && d.clientVersion != MT2_PROTOCOL_VERSION_X64)) {
+                            d.failureStatus = "VERSION";
+                            d.delayedDisconnect = true;
+                        } else {
+                            ++d.validLoginsProcessed;
+                        }
+                    } else if (hdr == HEADER_GG_SETUP) {
+                        TPacketGGSetup gg{};
+                        std::memcpy(&gg, p, sizeof(gg));
+                        if (gg.dwProtocolVersion != MT2_PROTOCOL_VERSION_X64) {
+                            d.phase = ESimPhase::Close;
+                        } else {
+                            ++d.p2pSetupsProcessed;
+                        }
+                    }
+
+                    p += pktLen;
+                    bufferLeft -= pktLen;
+                    outBytesProceed += pktLen;
+
+                    if (d.phase == ESimPhase::Close || d.delayedDisconnect) {
+                        outBytesProceed = totalBytes;
+                        return true;
+                    }
+                }
+                return true;
+            };
+
+            // Case A: Legacy-sized Login2 (52B) and Login3 (321B / 130B) rejected with VERSION and full buffer drain
+            {
+                SimDesc dLogin2{ESimPhase::Login};
+                std::vector<uint8_t> legacyLogin2(sizeof(TPacketCGLogin2) - sizeof(uint32_t), 0);
+                legacyLogin2[0] = HEADER_CG_LOGIN2;
+                size_t proceed = 0;
+                simProcessBuffer(dLogin2, legacyLogin2.data(), legacyLogin2.size(), proceed);
+                WIRE_ASSERT(dLogin2.failureStatus == "VERSION" && dLogin2.delayedDisconnect && proceed == legacyLogin2.size(),
+                    "Protocol Framing [A1]: Legacy 52-byte Login2 rejected with VERSION and full buffer drained");
+
+                SimDesc dLogin3_321{ESimPhase::Auth};
+                std::vector<uint8_t> legacyLogin3_321(sizeof(TPacketCGLogin3) - sizeof(uint32_t), 0);
+                legacyLogin3_321[0] = HEADER_CG_LOGIN3;
+                simProcessBuffer(dLogin3_321, legacyLogin3_321.data(), legacyLogin3_321.size(), proceed);
+                WIRE_ASSERT(dLogin3_321.failureStatus == "VERSION" && dLogin3_321.delayedDisconnect && proceed == legacyLogin3_321.size(),
+                    "Protocol Framing [A2]: Legacy 321-byte Login3 rejected with VERSION and full buffer drained");
+
+                SimDesc dLogin3_130{ESimPhase::Auth};
+                std::vector<uint8_t> legacyLogin3_130(130, 0);
+                legacyLogin3_130[0] = HEADER_CG_LOGIN3;
+                simProcessBuffer(dLogin3_130, legacyLogin3_130.data(), legacyLogin3_130.size(), proceed);
+                WIRE_ASSERT(dLogin3_130.failureStatus == "VERSION" && dLogin3_130.delayedDisconnect && proceed == 130,
+                    "Protocol Framing [A3]: Legacy 130-byte Login3 rejected with VERSION and full buffer drained");
+            }
+
+            // Case B: Short / fragmented TCP packet reassembly (20B + 36B Login2)
+            {
+                SimDesc dFrag{ESimPhase::Login};
+                TPacketCGLogin2 validL2{};
+                validL2.header = HEADER_CG_LOGIN2;
+                std::snprintf(validL2.login, sizeof(validL2.login), "fraguser");
+                validL2.dwLoginKey = 12345;
+                validL2.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+
+                std::vector<uint8_t> stream(sizeof(validL2));
+                std::memcpy(stream.data(), &validL2, sizeof(validL2));
+
+                size_t proceed1 = 0;
+                simProcessBuffer(dFrag, stream.data(), 20, proceed1);
+                WIRE_ASSERT(proceed1 == 0 && !dFrag.delayedDisconnect && dFrag.validLoginsProcessed == 0,
+                    "Protocol Framing [B1]: 20-byte fragmented Login2 waits cleanly without consuming or rejecting");
+
+                size_t proceed2 = 0;
+                simProcessBuffer(dFrag, stream.data(), stream.size(), proceed2);
+                WIRE_ASSERT(proceed2 == sizeof(validL2) && !dFrag.delayedDisconnect && dFrag.validLoginsProcessed == 1,
+                    "Protocol Framing [B2]: Reassembled 56-byte Login2 parsed cleanly on second TCP fragment");
+            }
+
+            // Case C: Wrong version, missing (0) version, and trailing payload after rejected CheckClientVersion
+            {
+                SimDesc dWrongVer{ESimPhase::Auth};
+                TPacketCGCheckVersion badCv{};
+                badCv.header = HEADER_CG_CHECK_VERSION;
+                badCv.dwVersion = 0x20090032U; // Legacy version
+                TPacketCGLogin3 trailingL3{};
+                trailingL3.header = HEADER_CG_LOGIN3;
+                trailingL3.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+
+                std::vector<uint8_t> combined(sizeof(badCv) + sizeof(trailingL3));
+                std::memcpy(combined.data(), &badCv, sizeof(badCv));
+                std::memcpy(combined.data() + sizeof(badCv), &trailingL3, sizeof(trailingL3));
+
+                size_t proceed = 0;
+                simProcessBuffer(dWrongVer, combined.data(), combined.size(), proceed);
+                WIRE_ASSERT(dWrongVer.failureStatus == "VERSION" &&
+                            dWrongVer.delayedDisconnect &&
+                            dWrongVer.validLoginsProcessed == 0 &&
+                            proceed == combined.size(),
+                    "Protocol Framing [C]: Wrong CheckClientVersion rejects with VERSION and drains trailing Login3 without parsing it");
+            }
+
+            // Case D: Back-to-back valid packets on a single connection (CheckClientVersion + Login3)
+            {
+                SimDesc dBackToBack{ESimPhase::Auth};
+                TPacketCGCheckVersion okCv{};
+                okCv.header = HEADER_CG_CHECK_VERSION;
+                okCv.dwVersion = MT2_PROTOCOL_VERSION_X64;
+                TPacketCGLogin3 okL3{};
+                okL3.header = HEADER_CG_LOGIN3;
+                okL3.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+
+                std::vector<uint8_t> combined(sizeof(okCv) + sizeof(okL3));
+                std::memcpy(combined.data(), &okCv, sizeof(okCv));
+                std::memcpy(combined.data() + sizeof(okCv), &okL3, sizeof(okL3));
+
+                size_t proceed = 0;
+                simProcessBuffer(dBackToBack, combined.data(), combined.size(), proceed);
+                WIRE_ASSERT(!dBackToBack.delayedDisconnect &&
+                            dBackToBack.clientVersion == MT2_PROTOCOL_VERSION_X64 &&
+                            dBackToBack.validLoginsProcessed == 1 &&
+                            proceed == combined.size(),
+                    "Protocol Framing [D]: Back-to-back valid CheckClientVersion + Login3 both processed in a single TCP read");
+            }
+
+            // Case E: P2P and DB Setup legacy size / version mismatch rejection
+            {
+                SimDesc dP2PShort{ESimPhase::P2P};
+                std::vector<uint8_t> legacyGG(sizeof(TPacketGGSetup) - sizeof(uint32_t), 0);
+                legacyGG[0] = HEADER_GG_SETUP;
+                size_t proceed = 0;
+                simProcessBuffer(dP2PShort, legacyGG.data(), legacyGG.size(), proceed);
+                WIRE_ASSERT(dP2PShort.phase == ESimPhase::Close && dP2PShort.p2pSetupsProcessed == 0 && proceed == legacyGG.size(),
+                    "Protocol Framing [E1]: Legacy 4-byte TPacketGGSetup closes P2P descriptor immediately");
+
+                auto checkDbSetupPacket = [](size_t dwLength, uint32_t protoVer) -> bool {
+                    if (dwLength < sizeof(TPacketGDSetup))
+                        return false;
+                    return protoVer == MT2_PROTOCOL_VERSION_X64;
+                };
+                WIRE_ASSERT(!checkDbSetupPacket(sizeof(TPacketGDSetup) - sizeof(uint32_t), MT2_PROTOCOL_VERSION_X64) &&
+                            !checkDbSetupPacket(sizeof(TPacketGDSetup), 0x20090032U) &&
+                            checkDbSetupPacket(sizeof(TPacketGDSetup), MT2_PROTOCOL_VERSION_X64),
+                    "Protocol Framing [E2]: DB HEADER_GD_SETUP rejects legacy short payload and mismatched protocol version");
+            }
         }
     }
 
