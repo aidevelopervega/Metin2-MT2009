@@ -51,7 +51,7 @@ DROP TABLE IF EXISTS `change_name`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `change_name` (
-  `pid` int(20) NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `old_name` varchar(30) DEFAULT NULL,
   `new_name` varchar(30) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
@@ -108,10 +108,10 @@ DROP TABLE IF EXISTS `ikarusshop_log`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikarusshop_log` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `who` int(10) unsigned NOT NULL DEFAULT 0,
-  `itemid` int(10) unsigned NOT NULL DEFAULT 0,
+  `who` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `itemid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `what` varchar(64) NOT NULL DEFAULT '',
-  `shop_owner` int(10) unsigned NOT NULL DEFAULT 0,
+  `shop_owner` bigint(20) unsigned NOT NULL DEFAULT 0,
   `extra` text NOT NULL,
   `vnum` int(10) unsigned NOT NULL DEFAULT 0,
   `count` int(10) unsigned NOT NULL DEFAULT 0,
@@ -145,14 +145,14 @@ DROP TABLE IF EXISTS `itemshop`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `itemshop` (
-  `pid` int(10) unsigned NOT NULL DEFAULT 0,
-  `account_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `account_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `item_index` int(11) NOT NULL DEFAULT 0,
   `vnum` int(10) unsigned NOT NULL DEFAULT 0,
   `count` int(11) NOT NULL DEFAULT 0,
   `price` bigint(20) NOT NULL DEFAULT 0,
   `currency` tinyint(4) NOT NULL DEFAULT 0,
-  `item_id` int(10) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `date` datetime NOT NULL DEFAULT current_timestamp(),
   `money_before_buy` bigint(20) NOT NULL DEFAULT 0,
   KEY `idx_itemshop_pid` (`pid`),
@@ -180,11 +180,11 @@ DROP TABLE IF EXISTS `itemshop_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `itemshop_log` (
-  `account_id` int(11) DEFAULT NULL,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
   `vnum` int(11) DEFAULT NULL,
   `count` int(11) DEFAULT NULL,
   `price` bigint(20) DEFAULT NULL,
-  `id` int(11) DEFAULT NULL,
+  `id` bigint(20) unsigned DEFAULT NULL,
   `category` int(11) DEFAULT NULL,
   `channel` smallint(6) DEFAULT NULL,
   `date` datetime DEFAULT NULL
@@ -212,7 +212,7 @@ DROP TABLE IF EXISTS `log`;
 CREATE TABLE `log` (
   `type` varbinary(20) DEFAULT NULL COMMENT 'contains: CHARACTER, ITEM',
   `time` datetime DEFAULT NULL,
-  `who` int(11) unsigned DEFAULT NULL,
+  `who` bigint(20) unsigned DEFAULT NULL,
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
   `what` bigint(20) DEFAULT NULL,
@@ -243,7 +243,7 @@ DROP TABLE IF EXISTS `log_chat`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `log_chat` (
   `where` int(10) unsigned NOT NULL,
-  `who_id` int(10) unsigned NOT NULL,
+  `who_id` bigint(20) unsigned NOT NULL,
   `type` enum('NORMAL','WHISPER','PARTY','GUILD','SHOUT','OFFLINE_WHISPER') NOT NULL,
   `msg` varbinary(512) NOT NULL,
   `when` datetime NOT NULL
@@ -270,9 +270,9 @@ DROP TABLE IF EXISTS `log_chat_priv`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `log_chat_priv` (
   `where` int(10) unsigned NOT NULL,
-  `who_id` int(10) unsigned NOT NULL,
+  `who_id` bigint(20) unsigned NOT NULL,
   `who_name` varchar(25) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `whom_id` int(10) unsigned DEFAULT NULL,
+  `whom_id` bigint(20) unsigned DEFAULT NULL,
   `whom_name` varchar(25) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `type` enum('NORMAL','WHISPER','PARTY','GUILD','SHOUT','OFFLINE_WHISPER') NOT NULL,
   `msg` varbinary(512) NOT NULL,
@@ -299,7 +299,7 @@ DROP TABLE IF EXISTS `log_commands`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `log_commands` (
-  `userid` int(11) DEFAULT NULL,
+  `userid` bigint(20) unsigned DEFAULT NULL,
   `port` int(11) DEFAULT NULL,
   `command` varbinary(1024) DEFAULT NULL,
   `date` datetime DEFAULT current_timestamp()
@@ -332,7 +332,7 @@ CREATE TABLE `log_dungeon` (
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
   `how` varbinary(50) DEFAULT NULL,
-  `id` int(11) unsigned DEFAULT NULL
+  `id` bigint(20) unsigned DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -359,9 +359,9 @@ CREATE TABLE `log_level` (
   `level` int(11) DEFAULT NULL,
   `time` time DEFAULT NULL,
   `playtime` int(11) DEFAULT NULL,
-  `account_id` int(11) DEFAULT NULL,
-  `pid` int(11) DEFAULT NULL,
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -414,14 +414,14 @@ DROP TABLE IF EXISTS `new_money_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `new_money_log` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `char_id` int(11) DEFAULT NULL,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `char_id` bigint(20) unsigned DEFAULT NULL,
   `player_name` varchar(255) DEFAULT NULL,
   `type` varchar(255) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `add_info` varchar(255) DEFAULT NULL,
   `vnum` int(11) DEFAULT NULL,
-  `with_id` int(11) DEFAULT NULL,
+  `with_id` bigint(20) unsigned DEFAULT NULL,
   `with_name` varchar(255) DEFAULT NULL,
   `transaction_gold` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   `pgold_before_transaction` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
@@ -449,11 +449,11 @@ DROP TABLE IF EXISTS `offline_shop`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `offline_shop` (
-  `owner_pid` int(11) DEFAULT NULL,
-  `shop_id` int(11) DEFAULT NULL,
+  `owner_pid` bigint(20) unsigned DEFAULT NULL,
+  `shop_id` bigint(20) unsigned DEFAULT NULL,
   `type` varchar(50) DEFAULT NULL,
-  `buyer_pid` int(11) DEFAULT NULL,
-  `item_id` int(11) DEFAULT NULL,
+  `buyer_pid` bigint(20) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `vnum` int(11) DEFAULT NULL,
   `count` int(11) DEFAULT NULL,
   `gold` bigint(20) DEFAULT NULL,
@@ -481,7 +481,7 @@ DROP TABLE IF EXISTS `okay_event`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `okay_event` (
-  `pid` int(11) DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `name` varchar(11) DEFAULT NULL,
   `points` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
@@ -514,8 +514,8 @@ CREATE TABLE `loginlog` (
   `type` varchar(20) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `channel` tinyint(4) DEFAULT NULL,
-  `account_id` int(11) unsigned DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `mapIndex` int(11) DEFAULT NULL,
   `x` int(11) DEFAULT NULL,
   `y` int(11) DEFAULT NULL,
@@ -527,14 +527,14 @@ CREATE TABLE `loginlog` (
 
 DROP TABLE IF EXISTS `loginlog2`;
 CREATE TABLE `loginlog2` (
-  `id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `type` varchar(16) DEFAULT NULL,
   `login_time` datetime DEFAULT NULL,
   `logout_time` datetime DEFAULT NULL,
   `playtime` time DEFAULT NULL,
   `channel` tinyint(4) DEFAULT NULL,
-  `account_id` int(11) unsigned DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `ip` varchar(32) DEFAULT NULL,
   `hwid` varchar(255) DEFAULT NULL,
   KEY `idx_acc_pid` (`account_id`, `pid`)
@@ -542,10 +542,10 @@ CREATE TABLE `loginlog2` (
 
 DROP TABLE IF EXISTS `levellog`;
 CREATE TABLE `levellog` (
-  `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `level` int(11) unsigned NOT NULL DEFAULT 0,
   `time` datetime DEFAULT NULL,
-  `account_id` int(11) unsigned DEFAULT NULL,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
   `playtime` int(11) DEFAULT NULL,
   PRIMARY KEY (`pid`, `level`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -555,13 +555,13 @@ CREATE TABLE `quest_state_log` (
   `quest_name` varchar(64) DEFAULT NULL,
   `quest_state` varchar(64) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL
+  `pid` bigint(20) unsigned DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `quest_reward_log`;
 CREATE TABLE `quest_reward_log` (
   `quest_name` varchar(64) DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `level` int(11) unsigned DEFAULT NULL,
   `type` tinyint(4) unsigned DEFAULT NULL,
   `value1` bigint(20) DEFAULT NULL,
@@ -571,7 +571,7 @@ CREATE TABLE `quest_reward_log` (
 
 DROP TABLE IF EXISTS `gold_session_log`;
 CREATE TABLE `gold_session_log` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `total_gold` bigint(20) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `duration` int(11) DEFAULT NULL
@@ -587,9 +587,9 @@ CREATE TABLE `money_log` (
 
 DROP TABLE IF EXISTS `item_meta_log`;
 CREATE TABLE `item_meta_log` (
-  `itemid` int(11) unsigned DEFAULT NULL,
+  `itemid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
-  `who` int(11) unsigned DEFAULT NULL,
+  `who` bigint(20) unsigned DEFAULT NULL,
   `what` varchar(64) DEFAULT NULL,
   `value` varchar(128) DEFAULT NULL,
   `vnum` int(11) unsigned DEFAULT NULL
@@ -599,9 +599,9 @@ DROP TABLE IF EXISTS `exchange_log`;
 CREATE TABLE `exchange_log` (
   `type` varchar(32) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
-  `pid1` int(11) unsigned DEFAULT NULL,
-  `pid2` int(11) unsigned DEFAULT NULL,
-  `item_id` int(11) unsigned DEFAULT NULL,
+  `pid1` bigint(20) unsigned DEFAULT NULL,
+  `pid2` bigint(20) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `vnum` int(11) unsigned DEFAULT NULL,
   `count` bigint(20) DEFAULT NULL,
   `pos` varchar(64) DEFAULT NULL
@@ -609,7 +609,7 @@ CREATE TABLE `exchange_log` (
 
 DROP TABLE IF EXISTS `request_info_log`;
 CREATE TABLE `request_info_log` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `type` tinyint(4) unsigned DEFAULT NULL,
   `arg1` varchar(255) DEFAULT NULL,
@@ -620,27 +620,27 @@ DROP TABLE IF EXISTS `goldlog`;
 CREATE TABLE `goldlog` (
   `date` date DEFAULT NULL,
   `time` time DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
-  `what` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
+  `what` bigint(20) unsigned DEFAULT NULL,
   `how` varchar(32) DEFAULT NULL,
   `hint` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `cube`;
 CREATE TABLE `cube` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
   `item_vnum` int(11) unsigned DEFAULT NULL,
-  `item_uid` int(11) unsigned DEFAULT NULL,
+  `item_uid` bigint(20) unsigned DEFAULT NULL,
   `item_count` int(11) DEFAULT NULL,
   `success` tinyint(4) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `speed_hack`;
 CREATE TABLE `speed_hack` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
@@ -649,7 +649,7 @@ CREATE TABLE `speed_hack` (
 
 DROP TABLE IF EXISTS `command_log`;
 CREATE TABLE `command_log` (
-  `userid` int(11) unsigned DEFAULT NULL,
+  `userid` bigint(20) unsigned DEFAULT NULL,
   `server` int(11) DEFAULT NULL,
   `ip` varchar(32) DEFAULT NULL,
   `port` int(11) unsigned DEFAULT NULL,
@@ -660,9 +660,9 @@ CREATE TABLE `command_log` (
 
 DROP TABLE IF EXISTS `refinelog`;
 CREATE TABLE `refinelog` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `item_name` varchar(64) DEFAULT NULL,
-  `item_id` int(11) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `step` int(11) DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `is_success` tinyint(4) DEFAULT NULL,
@@ -671,7 +671,7 @@ CREATE TABLE `refinelog` (
 
 DROP TABLE IF EXISTS `dragon_slay_log`;
 CREATE TABLE `dragon_slay_log` (
-  `guild_id` int(11) unsigned DEFAULT NULL,
+  `guild_id` bigint(20) unsigned DEFAULT NULL,
   `vnum` int(11) unsigned DEFAULT NULL,
   `start_time` datetime DEFAULT NULL,
   `end_time` datetime DEFAULT NULL
@@ -680,9 +680,9 @@ CREATE TABLE `dragon_slay_log` (
 DROP TABLE IF EXISTS `chat_log`;
 CREATE TABLE `chat_log` (
   `where` int(10) unsigned NOT NULL,
-  `who_id` int(10) unsigned NOT NULL,
+  `who_id` bigint(20) unsigned NOT NULL,
   `who_name` varchar(25) NOT NULL,
-  `whom_id` int(10) unsigned DEFAULT NULL,
+  `whom_id` bigint(20) unsigned DEFAULT NULL,
   `whom_name` varchar(25) DEFAULT NULL,
   `type` varchar(32) NOT NULL,
   `msg` varbinary(512) NOT NULL,
@@ -692,8 +692,8 @@ CREATE TABLE `chat_log` (
 
 DROP TABLE IF EXISTS `captcha_log`;
 CREATE TABLE `captcha_log` (
-  `pid` int(11) unsigned DEFAULT NULL,
-  `invoker_pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
+  `invoker_pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `action` varchar(32) DEFAULT NULL,
   `code` varchar(32) DEFAULT NULL,
@@ -703,15 +703,15 @@ CREATE TABLE `captcha_log` (
 DROP TABLE IF EXISTS `voucher_code_log`;
 CREATE TABLE `voucher_code_log` (
   `code` varchar(64) DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
-  `account_id` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
+  `account_id` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `report_player_log`;
 CREATE TABLE `report_player_log` (
-  `who_pid` int(11) unsigned DEFAULT NULL,
-  `target_pid` int(11) unsigned DEFAULT NULL,
+  `who_pid` bigint(20) unsigned DEFAULT NULL,
+  `target_pid` bigint(20) unsigned DEFAULT NULL,
   `target_name` varchar(32) DEFAULT NULL,
   `reason` varchar(32) DEFAULT NULL,
   `time` datetime DEFAULT NULL
@@ -720,7 +720,7 @@ CREATE TABLE `report_player_log` (
 DROP TABLE IF EXISTS `fish_log`;
 CREATE TABLE `fish_log` (
   `time` datetime DEFAULT NULL,
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `item_vnum` int(11) unsigned DEFAULT NULL,
   `count` int(11) DEFAULT NULL,
   `rod_level` int(11) DEFAULT NULL,
@@ -729,12 +729,12 @@ CREATE TABLE `fish_log` (
 
 DROP TABLE IF EXISTS `acce`;
 CREATE TABLE `acce` (
-  `pid` int(11) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   `x` int(11) unsigned DEFAULT NULL,
   `y` int(11) unsigned DEFAULT NULL,
   `item_vnum` int(11) unsigned DEFAULT NULL,
-  `item_uid` int(11) unsigned DEFAULT NULL,
+  `item_uid` bigint(20) unsigned DEFAULT NULL,
   `item_count` int(11) DEFAULT NULL,
   `item_abs_chance` int(11) DEFAULT NULL,
   `success` tinyint(4) DEFAULT NULL

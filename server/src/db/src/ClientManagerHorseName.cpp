@@ -15,20 +15,20 @@ void CClientManager::UpdateHorseName(TPacketUpdateHorseName* data, CPeer* peer)
 
 	char szQuery[512];
 
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO horse_name VALUES(%u, '%s')", static_cast<unsigned int>(data->dwPlayerID), szEscapedName);
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO horse_name VALUES(%llu, '%s')", static_cast<unsigned long long>(data->dwPlayerID), szEscapedName);
 
 	auto pmsg_insert(CDBManager::instance().DirectQuery(szQuery));
 
 	ForwardPacket(HEADER_DG_UPDATE_HORSE_NAME, data, sizeof(TPacketUpdateHorseName), 0, peer);
 }
 
-void CClientManager::AckHorseName(DWORD dwPID, CPeer* peer)
+void CClientManager::AckHorseName(uint64_t dwPID, CPeer* peer)
 {
 	if (!peer)
 		return;
 
 	char szQuery[512];
-	snprintf(szQuery, sizeof(szQuery), "SELECT name FROM horse_name WHERE id = %u", static_cast<unsigned int>(dwPID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT name FROM horse_name WHERE id = %llu", static_cast<unsigned long long>(dwPID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 
@@ -51,4 +51,3 @@ void CClientManager::AckHorseName(DWORD dwPID, CPeer* peer)
 	peer->EncodeHeader(HEADER_DG_ACK_HORSE_NAME, 0, sizeof(TPacketUpdateHorseName));
 	peer->Encode(&packet, sizeof(TPacketUpdateHorseName));
 }
-

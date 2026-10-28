@@ -11,9 +11,9 @@ CHorseNameManager::CHorseNameManager()
 	m_mapHorseNames.clear();
 }
 
-const char* CHorseNameManager::GetHorseName(DWORD dwPlayerID)
+const char* CHorseNameManager::GetHorseName(uint64_t dwPlayerID)
 {
-	std::map<DWORD, std::string>::iterator iter;
+	std::map<uint64_t, std::string>::iterator iter;
 
 	iter = m_mapHorseNames.find(dwPlayerID);
 
@@ -27,15 +27,15 @@ const char* CHorseNameManager::GetHorseName(DWORD dwPlayerID)
 	}
 }
 
-void CHorseNameManager::UpdateHorseName(DWORD dwPlayerID, const char* szHorseName, bool broadcast)
+void CHorseNameManager::UpdateHorseName(uint64_t dwPlayerID, const char* szHorseName, bool broadcast)
 {
 	if ( szHorseName == NULL )
 	{
-		sys_err("HORSE_NAME: NULL NAME (%u)", dwPlayerID);
+		sys_err("HORSE_NAME: NULL NAME (%llu)", static_cast<unsigned long long>(dwPlayerID));
 		szHorseName = "";
 	}
 
-	sys_log(0, "HORSENAME: update %u %s", dwPlayerID, szHorseName);
+	sys_log(0, "HORSENAME: update %llu %s", static_cast<unsigned long long>(dwPlayerID), szHorseName);
 
 	m_mapHorseNames[dwPlayerID] = szHorseName;
 
@@ -45,7 +45,7 @@ void CHorseNameManager::UpdateHorseName(DWORD dwPlayerID, const char* szHorseNam
 	}
 }
 
-void CHorseNameManager::BroadcastHorseName(DWORD dwPlayerID, const char* szHorseName)
+void CHorseNameManager::BroadcastHorseName(uint64_t dwPlayerID, const char* szHorseName)
 {
 	TPacketUpdateHorseName packet;
 	packet.dwPlayerID = dwPlayerID;
@@ -53,4 +53,3 @@ void CHorseNameManager::BroadcastHorseName(DWORD dwPlayerID, const char* szHorse
 
 	db_clientdesc->DBPacket(HEADER_GD_UPDATE_HORSE_NAME, 0, &packet, sizeof(TPacketUpdateHorseName));
 }
-

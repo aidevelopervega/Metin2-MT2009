@@ -53,8 +53,8 @@
   - `TMonarchInfo::money[4]` alanı `int[4]` (`16 B`) yerine `YANG[4]` (`int64_t[4]`, `32 B`) yapılmıştır (`sizeof(TMonarchInfo) == 144 B`).
   - `TPacketGDTakeMonarchMoney::llMoney` alanı `int` (`4 B`) yerine `YANG` (`int64_t`, `8 B`) yapılmıştır (`sizeof(TPacketGDTakeMonarchMoney) == 16 B`); `player.monarch.money` sütunu `bigint(20)` olarak güncellenmiştir.
 * **Kimlik (`ID`) Türleri Sözleşmesi:**
-  - **64-Bit Kimlikler (`uint64_t` / `bigint(20) unsigned`):** `account.itemshop_tx_journal.tx_id` (`TRANSACTION_ID`) ve `player.guild.token` (`GUILD_TOKEN`).
-  - **İşlevsel Tasarım Gereği 32-Bit İşaretsiz (`uint32_t` / `DWORD`, maks. `4,294,967,295`) Kalan Kimlikler:** `ACCOUNT_ID` (`AID`), `PLAYER_ID` (`PID`), `VID` (oturum içi geçici varlık kimliği), `ITEM_ID` (`CItemIDRangeManager` 32-bit aralık tablosu), `GUILD_ID`, `SHOP_ID` ve `AUCTION_ID`. Client tarafında bu kimlikler `uint32_t` (`DWORD`) olarak korunacaktır.
+  - **64-Bit Kalıcı Kimlikler (`uint64_t` / `bigint(20) unsigned`):** `ACCOUNT_ID` (`AID`), `PLAYER_ID` (`PID`), `ITEM_ID` (`TItemIDRangeTable` 64-bit aralık tablosu), `GUILD_ID`, `SHOP_ID`, `AUCTION_ID`, `OFFER_ID`, `account.itemshop_tx_journal.tx_id` (`TRANSACTION_ID`) ve `player.guild.token` (`GUILD_TOKEN`).
+  - **Oturum İçi Geçici Varlık Kimliği (`uint32_t` / `DWORD`):** `VID` (`CHARACTER_MANAGER::AllocVID()`, `0` ve yaşayan varlık çakışma korumalı 32-bit çalışma zamanı kimliği).
 
 ---
 
@@ -215,26 +215,29 @@ Aşağıdaki ortak paketlerde eski `long` / `DWORD` alanları, 64-bit derleyicil
 
 | Paket / Yapı | Opcode |Sabitlenen Alanlar | Paket Boyutu (`sizeof`) |
 | :--- | :--- | :--- | :--- |
-| `TPacketCGLogin2` | `HEADER_CG_LOGIN2 (109)` | `dwLoginKey` (`uint32_t`), `adwClientKey[4]` (`uint32_t[4]`, `[3] = MT2_PROTOCOL_VERSION_X64`) | `53 B` |
-| `TPacketCGLogin3` | `HEADER_CG_LOGIN3 (111)` | `adwClientKey[4]` (`uint32_t[4]`, `[3] = MT2_PROTOCOL_VERSION_X64`) | `64 B` |
+| `TPacketCGLogin2` | `HEADER_CG_LOGIN2 (109)` | `dwLoginKey` (`uint32_t`), `adwClientKey[4]` (`uint32_t[4]`), `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`) | `56 B` |
+| `TPacketCGLogin3` | `HEADER_CG_LOGIN3 (111)` | `adwClientKey[4]` (`uint32_t[4]`), `hwid[256]`, `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`) | `325 B` (TEA `328 B`) |
 | `TPacketGCAuthSuccess` | `HEADER_GC_AUTH_SUCCESS (150)` | `dwLoginKey` (`uint32_t`), `bResult` (`BYTE`) | `6 B` |
-| `TPacketGCCharacterAdditionalInfo` | `HEADER_GC_CHAR_ADDITIONAL_INFO (136)` | `dwVID`, `dwEmpire`, `dwGuildID`, `dwLevel`, `sAlignment`, `bPKMode`, `dwMountVnum` | `49 B` |
-| `TPacketGCCharacterUpdate` | `HEADER_GC_CHARACTER_UPDATE (19)` | `dwVID`, `awPart[CHR_EQUIPPART_NUM]`, `bMovingSpeed`, `bAttackSpeed`, `bStateFlag`, `dwAffectFlag[2]`, `dwGuildID`, `sAlignment`, `bPKMode`, `dwMountVnum` | `46 B` |
+| `TPacketGCLoginSuccess` | `HEADER_GC_LOGIN_SUCCESS (6 / 32)` | `players[4]` (`TSimplePlayer::dwID` `uint64_t`), `guild_id[4]` (`uint64_t[4]`), `handle` (`uint32_t`), `random_key` (`uint32_t`) | `385 B` |
+| `TPacketGCCharacterCreateSuccess` | `HEADER_GC_CHARACTER_CREATE_SUCCESS (8)` | `bAccountCharacterSlot` (`BYTE`), `player` (`TSimplePlayer`, `dwID` `uint64_t`) | `73 B` |
+| `TPacketGCCharacterAdditionalInfo` | `HEADER_GC_CHAR_ADDITIONAL_INFO (136)` | `dwVID` (`uint32_t`), `dwEmpire` (`BYTE`), `dwGuildID` (`uint64_t`), `dwLevel` (`uint32_t`), `sAlignment` (`int16_t`), `bPKMode` (`BYTE`), `dwMountVnum` (`uint32_t`) | `66 B` |
+| `TPacketGCCharacterUpdate` | `HEADER_GC_CHARACTER_UPDATE (19)` | `dwVID`, `awPart[CHR_EQUIPPART_NUM]`, `bMovingSpeed`, `bAttackSpeed`, `bStateFlag`, `dwAffectFlag[2]`, `dwGuildID` (`uint64_t`), `sAlignment`, `bPKMode`, `dwMountVnum` | `48 B` |
 | `TPacketGCItemSet` | `HEADER_GC_ITEM_SET (21)` | `Cell`, `vnum` (`uint32_t`), `count` (`uint16_t`), `flags` (`uint32_t`), `anti_flags` (`uint32_t`), `highlight` (`bool`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `54 B` |
 | `TPacketGCItemUpdate` | `HEADER_GC_ITEM_UPDATE (25)` | `Cell`, `count` (`uint16_t`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `41 B` |
 | `TShopItemData` | `HEADER_GC_SHOP (38)` | `vnum` (`uint32_t`), `price` (`YANG` / `int64_t`), `count` (`uint16_t`), `display_pos` (`BYTE`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `48 B` |
 | `TShopItemTable` | `HEADER_CG_MYSHOP (55)` | `vnum` (`uint32_t`), `count` (`uint16_t`), `pos` (`TItemPos`), `price` (`YANG` / `int64_t`), `display_pos` (`BYTE`) | `18 B` |
 | `TPacketCGExchange` | `HEADER_CG_EXCHANGE (27)` | `sub_header` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`BYTE`), `Pos` (`TItemPos`) | `13 B` |
 | `TPacketGCExchange` | `HEADER_GC_EXCHANGE (42)` | `sub_header` (`BYTE`), `is_me` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`TItemPos`), `arg3` (`uint32_t`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `50 B` |
-| `TPacketGCLandList` | `HEADER_GC_LAND_LIST (130)` | `TLandPacketElement`: `dwID` (`uint32_t`), `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint32_t`) | `3 B + N * 24 B` |
-| `building::TLand` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID` (`uint32_t`), `lMapIndex`, `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint32_t`), `bGuildLevelLimit` (`BYTE`), `dwPrice` (`YANG` / `int64_t`) | `37 B` |
+| `TPacketGCLandList` | `HEADER_GC_LAND_LIST (130)` | `TLandPacketElement`: `dwID` (`uint32_t`), `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint64_t`) | `3 B + N * 28 B` |
+| `building::TLand` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID` (`uint32_t`), `lMapIndex`, `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint64_t`), `bGuildLevelLimit` (`BYTE`), `dwPrice` (`YANG` / `int64_t`) | `41 B` |
 | `building::TObjectMaterial` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwItemVnum` (`uint32_t`), `dwCount` (`ITEM_COUNT` / `uint32_t`) | `8 B` |
 | `building::TObjectProto` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwVnum` (`uint32_t`), `dwPrice` (`YANG`), `kMaterials[5]` (`40 B`), `dwUpgradeVnum`, `dwUpgradeLimitTime` (`uint32_t`), `lLife`, `lRegion[4]` (`int32_t`), `dwNPCVnum` (`uint32_t`), `lNPCX`, `lNPCY` (`int32_t`), `dwGroupVnum`, `dwDependOnGroupVnum` (`uint32_t`) | `100 B` |
 | `building::TObject` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID`, `dwLandID`, `dwVnum` (`uint32_t`), `lMapIndex`, `x`, `y` (`int32_t`), `xRot`, `yRot`, `zRot` (`float`), `lLife` (`int32_t`) | `40 B` |
 | `TPacketGCAffectAdd` & `CAffect` | `HEADER_GC_AFFECT_ADD (126)` | `TPacketAffectElement` & `CAffect`: `dwType` (`uint32_t`), `bApplyOn` (`BYTE`), `lApplyValue` (`int32_t`), `dwFlag` (`uint32_t`), `lDuration` (`int64_t`), `lSPCost` (`int64_t`), `dwItemVnum` (`uint32_t`) | `34 B` |
+| `TPacketGCTargetCreate` | `HEADER_GC_TARGET_CREATE (125)` | `lID` (`int32_t`), `szName[33]`, `dwVID` (`uint32_t`), `bType` (`BYTE`), `bEmpire` (`BYTE`), `STargetDebuff::duration` (`int64_t`) | `43 B` |
 | `TPacketGCAffectRemove` | `HEADER_GC_AFFECT_REMOVE (127)` | `dwType` (`uint32_t`), `bApplyOn` (`BYTE`) | `6 B` |
-| `TPacketGCQuestConfirm` | `HEADER_GC_QUEST_CONFIRM (46)` | `msg[64]`, `timeout` (`int32_t`), `requestPID` (`uint32_t`) | `73 B` |
-| `TPacketGCGuildWar` | `HEADER_GC_GUILD` alt paketi | `dwGuildSelf` (`uint32_t`), `dwGuildOpp` (`uint32_t`), `bType` (`BYTE`), `bWarState` (`BYTE`) | `10 B` |
+| `TPacketGCQuestConfirm` | `HEADER_GC_QUEST_CONFIRM (46)` | `msg[64]`, `timeout` (`int32_t`), `requestPID` (`uint64_t`) | `78 B` |
+| `TPacketGCGuildWar` | `HEADER_GC_GUILD` alt paketi | `dwGuildSelf` (`uint64_t`), `dwGuildOpp` (`uint64_t`), `bType` (`BYTE`), `bWarState` (`BYTE`) | `18 B` |
 
 ---
 

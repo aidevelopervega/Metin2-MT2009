@@ -39,10 +39,10 @@ namespace quest
 	// NOTE: Copied from SPacketGGMonarchTransfer for event data
 	EVENTINFO(monarch_transfer2_event_info)
 	{
-		BYTE	bHeader;
-		DWORD	dwTargetPID;
-		long	x;
-		long	y;
+		BYTE		bHeader;
+		uint64_t	dwTargetPID;
+		long		x;
+		long		y;
 
 		monarch_transfer2_event_info()
 		: bHeader( 0 )
@@ -109,7 +109,7 @@ namespace quest
 		pack.dwPID = ch->GetPlayerID();
 		pack.llMoney = llMoney;
 
-		sys_log(0, "[MONARCH] Take Money Empire(%d) pid(%u) Money(%lld)", pack.iEmpire, pack.dwPID, static_cast<long long>(pack.llMoney));
+		sys_log(0, "[MONARCH] Take Money Empire(%d) pid(%llu) Money(%lld)", pack.iEmpire, static_cast<unsigned long long>(pack.dwPID), static_cast<long long>(pack.llMoney));
 
 		db_clientdesc->DBPacket(HEADER_GD_TAKE_MONARCH_MONEY, ch->GetDesc()->GetHandle(), &pack, sizeof(pack));
 		return 1;
@@ -147,7 +147,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -181,7 +181,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -233,7 +233,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -311,7 +311,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -397,7 +397,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -444,7 +444,7 @@ namespace quest
 			if (!ch->IsGM())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("You do not have the emperor qualification."));
-				sys_err("No Monarch pid %d ", (int)ch->GetPlayerID());
+				sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return 0;
 			}
 		}
@@ -952,4 +952,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("oh", Monarch_functions);
 	}
 }
-

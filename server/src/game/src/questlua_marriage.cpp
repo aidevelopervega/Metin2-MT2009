@@ -33,7 +33,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		marriage::CManager::instance().RequestRemove(ch->GetPlayerID(), pMarriage->GetOther(ch->GetPlayerID()));
@@ -46,7 +46,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		pMarriage->SetMarried();
@@ -85,9 +85,9 @@ namespace quest
 				return;
 
 			lua_newtable(L);
-			lua_pushnumber(L, pMarriage->m_pid1);
+			m2_lua_pushuint64(L, pMarriage->m_pid1);
 			lua_rawseti(L, -2, 1);
-			lua_pushnumber(L, pMarriage->m_pid2);
+			m2_lua_pushuint64(L, pMarriage->m_pid2);
 			lua_rawseti(L, -2, 2);
 			lua_pushstring(L, pMarriage->name1.c_str());
 			lua_rawseti(L, -2, 3);
@@ -111,20 +111,20 @@ namespace quest
 			return 0;
 		}
 
-		DWORD pid1 = (DWORD) lua_tonumber(L, 1);
-		DWORD pid2 = (DWORD) lua_tonumber(L, 2);
+		uint64_t pid1 = m2_lua_touint64(L, 1);
+		uint64_t pid2 = m2_lua_touint64(L, 2);
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(pid1);
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->GetOther(pid1) != pid2)
 		{
-			sys_err("not married %u %u", pid1, pid2);
+			sys_err("not married %llu %llu", static_cast<unsigned long long>(pid1), static_cast<unsigned long long>(pid2));
 			return 0;
 		}
 		//PREVENT_HACK
@@ -142,7 +142,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 
@@ -161,7 +161,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -183,7 +183,7 @@ namespace quest
 
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -207,7 +207,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -225,7 +225,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -257,7 +257,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -281,7 +281,7 @@ namespace quest
 		marriage::TMarriage* pMarriage = marriage::CManager::instance().Get(ch->GetPlayerID());
 		if (!pMarriage)
 		{
-			sys_err("pid[%d:%s] is not exist couple", ch->GetPlayerID(), ch->GetName());
+			sys_err("pid[%llu:%s] is not exist couple", static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 			return 0;
 		}
 		if (pMarriage->pWeddingInfo)
@@ -347,4 +347,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("marriage", marriage_functions);
 	}
 }
-

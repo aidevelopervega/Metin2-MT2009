@@ -367,12 +367,12 @@ namespace quest
 		CQuestManager& q = CQuestManager::instance();
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 
-		DWORD dwItemID = 0;
+		uint64_t dwItemID = 0;
 		const char* how = "";
 		const char* hint = "";
 		bool isAddMetaData = false;
 
-		if ( lua_isnumber(L, 1) ) dwItemID = (DWORD)lua_tonumber(L, 1);
+		if ( lua_isnumber(L, 1) ) dwItemID = m2_lua_touint64(L, 1);
 		if ( lua_isstring(L, 2) ) how = lua_tostring(L, 2);
 		if ( lua_tostring(L, 3) ) hint = lua_tostring(L, 3);
 		if ( lua_isboolean(L, 4) ) isAddMetaData = lua_toboolean(L, 4);
@@ -550,7 +550,7 @@ namespace quest
 
 	ALUA(_give_char_privilege)
 	{
-		int pid = CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID();
+		uint64_t pid = CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID();
 		int type = (int)lua_tonumber(L, 1);
 		int value = (int)lua_tonumber(L, 2);
 
@@ -592,7 +592,7 @@ namespace quest
 
 	ALUA(_give_guild_privilege)
 	{
-		int guild_id = (int)lua_tonumber(L,1);
+		uint64_t guild_id = m2_lua_touint64(L, 1);
 		int type = (int)lua_tonumber(L, 2);
 		int value = (int)lua_tonumber(L, 3);
 		int time = (int)lua_tonumber( L, 4 );
@@ -603,8 +603,8 @@ namespace quest
 			return 0;
 		}
 
-		sys_log(0, "_give_guild_privileage(empire=%d, type=%d, value=%d, time=%d)",
-				guild_id, type, value, time);
+		sys_log(0, "_give_guild_privileage(empire=%llu, type=%d, value=%d, time=%d)",
+				static_cast<unsigned long long>(guild_id), type, value, time);
 
 		CPrivManager::instance().RequestGiveGuildPriv(guild_id,type,value,time);
 
@@ -656,7 +656,7 @@ namespace quest
 
 	ALUA(_get_guild_privilege_string)
 	{
-		int guild = (int) lua_tonumber(L,1);
+		uint64_t guild = m2_lua_touint64(L, 1);
 		ostringstream os;
 		bool found = false;
 
@@ -686,16 +686,16 @@ namespace quest
 	{
 		if ( !lua_isstring( L, 1 ) ) {
 			sys_err( "_get_guildid_byname() - invalud argument" );
-			lua_pushnumber( L, 0 );
+			m2_lua_pushuint64( L, 0 );
 			return 1;
 		}
 
 		const char* pszGuildName = lua_tostring( L, 1 );
 		CGuild* pFindGuild = CGuildManager::instance().FindGuildByName( pszGuildName );
 		if ( pFindGuild )
-			lua_pushnumber( L, pFindGuild->GetID() );
+			m2_lua_pushuint64( L, pFindGuild->GetID() );
 		else
-			lua_pushnumber( L, 0 );
+			m2_lua_pushuint64( L, 0 );
 
 		return 1;
 	}
@@ -707,7 +707,7 @@ namespace quest
 			lua_pushnumber(L,0);
 			return 1;
 		}
-		int guild = (int)lua_tonumber(L,1);
+		uint64_t guild = m2_lua_touint64(L, 1);
 		int type = (int)lua_tonumber(L,2);
 		int value = CPrivManager::instance().GetPrivByGuild(guild,type);
 		lua_pushnumber(L, value);
@@ -1040,7 +1040,7 @@ namespace quest
 					BYTE bEmpire =  ch->GetEmpire();
 					if ( bEmpire == 0 )
 					{
-						sys_err( "Unkonwn Empire %s %d ", ch->GetName(), ch->GetPlayerID() );
+						sys_err( "Unkonwn Empire %s %llu ", ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()) );
 						return;
 					}
 
@@ -1633,6 +1633,13 @@ namespace quest
 							// lua_pushstring(L, "NULL");
 							lua_pushnil(L);
 						}
+						else if (field->type == MYSQL_TYPE_LONGLONG)
+						{
+							if (field->flags & UNSIGNED_FLAG)
+								m2_lua_pushuint64(L, static_cast<uint64_t>(strtoull(row[i], NULL, 10)));
+							else
+								lua_pushinteger(L, static_cast<lua_Integer>(strtoll(row[i], NULL, 10)));
+						}
 						else if (IS_NUM(field->type))
 						{
 							double val = NAN;
@@ -2120,4 +2127,3 @@ namespace quest
 		}
 	}
 }
-

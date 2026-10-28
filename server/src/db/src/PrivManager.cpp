@@ -77,7 +77,7 @@ void CPrivManager::Update()
 	}
 }
 
-void CPrivManager::AddCharPriv(DWORD pid, BYTE type, int value)
+void CPrivManager::AddCharPriv(uint64_t pid, BYTE type, int value)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -105,14 +105,14 @@ void CPrivManager::AddCharPriv(DWORD pid, BYTE type, int value)
 	m_aPrivChar[type].emplace(pid, p);
 
 	// TODO send packet
-	sys_log(0, "AddCharPriv %d %d %d", pid, type, value);
+	sys_log(0, "AddCharPriv %llu %d %d", static_cast<unsigned long long>(pid), type, value);
 	SendChangeCharPriv(pid, type, value);
 }
 
 //
 
 //
-void CPrivManager::AddGuildPriv(DWORD guild_id, BYTE type, int value, time_t duration_sec)
+void CPrivManager::AddGuildPriv(uint64_t guild_id, BYTE type, int value, time_t duration_sec)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -137,7 +137,8 @@ void CPrivManager::AddGuildPriv(DWORD guild_id, BYTE type, int value, time_t dur
 	SendChangeGuildPriv(guild_id, type, value, end);
 	// END_OF_ADD_GUILD_PRIV_TIME
 
-	sys_log(0, "Guild Priv guild(%d) type(%d) value(%d) duration_sec(%d)", guild_id, type, value, duration_sec);
+	sys_log(0, "Guild Priv guild(%llu) type(%d) value(%d) duration_sec(%lld)",
+			static_cast<unsigned long long>(guild_id), type, value, static_cast<long long>(duration_sec));
 }
 
 void CPrivManager::AddEmpirePriv(BYTE empire, BYTE type, int value, time_t duration_sec)
@@ -167,12 +168,12 @@ void CPrivManager::AddEmpirePriv(BYTE empire, BYTE type, int value, time_t durat
 	SendChangeEmpirePriv(empire, type, value, end);
 	// END_OF_ADD_EMPIRE_PRIV_TIME
 
-	sys_log(0, "Empire Priv empire(%d) type(%d) value(%d) duration_sec(%d)", empire, type, value, duration_sec);
+	sys_log(0, "Empire Priv empire(%d) type(%d) value(%d) duration_sec(%lld)", empire, type, value, static_cast<long long>(duration_sec));
 }
 
 struct FSendChangeGuildPriv
 {
-	FSendChangeGuildPriv(DWORD guild_id, BYTE type, int value, time_t end_time_sec)
+	FSendChangeGuildPriv(uint64_t guild_id, BYTE type, int value, time_t end_time_sec)
 	{
 		p.guild_id = guild_id;
 		p.type = type;
@@ -218,7 +219,7 @@ struct FSendChangeEmpirePriv
 
 struct FSendChangeCharPriv
 {
-	FSendChangeCharPriv(DWORD pid, BYTE type, int value)
+	FSendChangeCharPriv(uint64_t pid, BYTE type, int value)
 	{
 		p.pid = pid;
 		p.type = type;
@@ -235,7 +236,7 @@ struct FSendChangeCharPriv
 };
 
 // ADD_GUILD_PRIV_TIME
-void CPrivManager::SendChangeGuildPriv(DWORD guild_id, BYTE type, int value, time_t end_time_sec)
+void CPrivManager::SendChangeGuildPriv(uint64_t guild_id, BYTE type, int value, time_t end_time_sec)
 {
 	CClientManager::instance().for_each_peer(FSendChangeGuildPriv(guild_id, type, value, end_time_sec));
 }
@@ -248,7 +249,7 @@ void CPrivManager::SendChangeEmpirePriv(BYTE empire, BYTE type, int value, time_
 }
 // END_OF_ADD_EMPIRE_PRIV_TIME
 
-void CPrivManager::SendChangeCharPriv(DWORD pid, BYTE type, int value)
+void CPrivManager::SendChangeCharPriv(uint64_t pid, BYTE type, int value)
 {
 	CClientManager::instance().for_each_peer(FSendChangeCharPriv(pid, type, value));
 }
@@ -280,4 +281,3 @@ void CPrivManager::SendPrivOnSetup(CPeer* peer)
 		}
 	}
 }
-

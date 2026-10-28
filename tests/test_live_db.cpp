@@ -2640,6 +2640,70 @@ int main(int argc, char* argv[])
 						"x64 SQL Migration: Round-trip mysql_fetch_row verified exact 64-bit values across all migrated tables");
 				}
 
+				// 7. Upgrade persistent ID columns (AID, PID, ITEM_ID, GUILD_ID, SHOP_ID, AUCTION_ID, OFFER_ID) to bigint(20) unsigned
+				//    and verify > 2^32 (5,000,000,001) and > 2^53 (9,007,199,254,740,993) persistence + AUTO_INCREMENT
+				{
+					auto rIdMig1 = migSql.DirectQuery("ALTER TABLE `mig_account` MODIFY COLUMN `id` bigint(20) unsigned NOT NULL;");
+					auto rIdMig2 = migSql.DirectQuery("ALTER TABLE `mig_pricelist` MODIFY COLUMN `owner_id` bigint(20) unsigned NOT NULL;");
+					auto rIdMig3 = migSql.DirectQuery(
+						"ALTER TABLE `mig_marriage` MODIFY COLUMN `pid1` bigint(20) unsigned NOT NULL, "
+						"MODIFY COLUMN `pid2` bigint(20) unsigned NOT NULL;");
+					auto rIdMig4 = migSql.DirectQuery("ALTER TABLE `mig_affect` MODIFY COLUMN `dwPID` bigint(20) unsigned NOT NULL DEFAULT 0;");
+					auto rIdMig5 = migSql.DirectQuery("ALTER TABLE `mig_special_flag` MODIFY COLUMN `pid` bigint(20) unsigned NOT NULL DEFAULT 0;");
+					auto rIdMig6 = migSql.DirectQuery("ALTER TABLE `mig_item_award` MODIFY COLUMN `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT;");
+					auto rIdMig7 = migSql.DirectQuery(
+						"ALTER TABLE `mig_tx_journal` MODIFY COLUMN `account_id` bigint(20) unsigned NOT NULL, "
+						"MODIFY COLUMN `pid` bigint(20) unsigned NOT NULL DEFAULT 0, "
+						"MODIFY COLUMN `scroll_item_id` bigint(20) unsigned NOT NULL DEFAULT 0;");
+					migSql.DirectQuery("DROP TABLE IF EXISTS `mig_item`;");
+					auto rIdMig8 = migSql.DirectQuery(
+						"CREATE TABLE `mig_item` ("
+						"  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+						"  `owner_id` bigint(20) unsigned NOT NULL DEFAULT 0,"
+						"  `vnum` int(10) unsigned NOT NULL DEFAULT 0"
+						") ENGINE=InnoDB AUTO_INCREMENT=9007199254740993 DEFAULT CHARSET=utf8mb4;");
+
+					LIVE_ASSERT(rIdMig1 && !rIdMig1->IsError() && rIdMig2 && !rIdMig2->IsError() &&
+					            rIdMig3 && !rIdMig3->IsError() && rIdMig4 && !rIdMig4->IsError() &&
+					            rIdMig5 && !rIdMig5->IsError() && rIdMig6 && !rIdMig6->IsError() &&
+					            rIdMig7 && !rIdMig7->IsError() && rIdMig8 && !rIdMig8->IsError(),
+						"x64 SQL Migration [64-Bit Persistent IDs]: Migrated AID/PID/ITEM_ID columns to bigint(20) unsigned");
+
+					auto rInsAcc64 = migSql.DirectQuery(
+						"INSERT INTO `mig_account` (`id`, `cash`, `cash_mark`, `premium_expire`) "
+						"VALUES (5000000001, 10000, 500, '2099-12-31 23:59:59');");
+					auto rInsItem64 = migSql.DirectQuery(
+						"INSERT INTO `mig_item` (`owner_id`, `vnum`) VALUES (5000000001, 189);");
+					auto rInsJrn64 = migSql.DirectQuery(
+						"INSERT INTO `mig_tx_journal` (`account_id`, `pid`, `login`, `vnum`, `scroll_item_id`, `state`, `delivered_item_ids`) "
+						"VALUES (5000000001, 5000000099, 'hero64', 189, 9007199254740993, 'DELIVERED', '9007199254740993');");
+
+					LIVE_ASSERT(rInsAcc64 && !rInsAcc64->IsError() && rInsItem64 && !rInsItem64->IsError() &&
+					            rInsItem64->Get() && rInsItem64->Get()->ullInsertID == 9007199254740993ULL &&
+					            rInsItem64->Get()->uiInsertID == 0 &&
+					            rInsJrn64 && !rInsJrn64->IsError(),
+						"x64 SQL Migration [64-Bit Persistent IDs]: Inserted AID=5,000,000,001 (>2^32), PID=5,000,000,099 (>2^32), and AUTO_INCREMENT ITEM_ID=9,007,199,254,740,993 (>2^53)");
+
+					auto rSelId64 = migSql.DirectQuery(
+						"SELECT i.id, i.owner_id, j.account_id, j.pid, j.scroll_item_id "
+						"FROM `mig_item` i JOIN `mig_tx_journal` j ON i.owner_id = j.account_id "
+						"WHERE i.id = 9007199254740993;");
+					LIVE_ASSERT(rSelId64 && !rSelId64->IsError() && rSelId64->Get() && rSelId64->Get()->uiNumRows == 1,
+						"x64 SQL Migration [64-Bit Persistent IDs]: Joined query on >2^53 ITEM_ID and >2^32 AID/PID returned 1 row");
+					if (rSelId64 && rSelId64->Get() && rSelId64->Get()->uiNumRows == 1) {
+						MYSQL_ROW idRow = mysql_fetch_row(rSelId64->Get()->pSQLResult);
+						unsigned long long fItemId = (idRow && idRow[0]) ? strtoull(idRow[0], nullptr, 10) : 0;
+						unsigned long long fOwnerId = (idRow && idRow[1]) ? strtoull(idRow[1], nullptr, 10) : 0;
+						unsigned long long fAccId = (idRow && idRow[2]) ? strtoull(idRow[2], nullptr, 10) : 0;
+						unsigned long long fPid = (idRow && idRow[3]) ? strtoull(idRow[3], nullptr, 10) : 0;
+						unsigned long long fScrollId = (idRow && idRow[4]) ? strtoull(idRow[4], nullptr, 10) : 0;
+						LIVE_ASSERT(fItemId == 9007199254740993ULL && fOwnerId == 5000000001ULL &&
+						            fAccId == 5000000001ULL && fPid == 5000000099ULL && fScrollId == 9007199254740993ULL,
+							"x64 SQL Migration [64-Bit Persistent IDs]: Round-trip verified exact >2^32 and >2^53 IDs without truncation");
+					}
+					migSql.DirectQuery("DROP TABLE IF EXISTS `mig_item`;");
+				}
+
 				migSql.DirectQuery(
 					"DROP TABLE IF EXISTS `mig_account`, `mig_pricelist`, `mig_marriage`, `mig_vouchers`, "
 					"`mig_affect`, `mig_special_flag`, `mig_war_res`, `mig_item_proto`, `mig_refine_proto`, "

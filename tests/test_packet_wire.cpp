@@ -34,7 +34,7 @@ static int g_failCount = 0;
 // ------------------------------------------------------------------------------
 // Compile-Time Size Checks (Guarantees layout invariant across compilers/LP64)
 // ------------------------------------------------------------------------------
-static_assert(sizeof(building::TLand) == 37, "building::TLand packed size mismatch");
+static_assert(sizeof(building::TLand) == 41, "building::TLand packed size mismatch");
 static_assert(sizeof(building::TObjectMaterial) == 8, "building::TObjectMaterial packed size mismatch");
 static_assert(sizeof(building::TObjectProto) == 100, "building::TObjectProto packed size mismatch");
 static_assert(sizeof(building::TObject) == 40, "building::TObject packed size mismatch");
@@ -53,7 +53,7 @@ static_assert(sizeof(TPacketGCItemGroundAdd) == 26, "TPacketGCItemGroundAdd size
 static_assert(sizeof(TPacketCGFlyTargeting) == 13, "TPacketCGFlyTargeting size mismatch");
 static_assert(sizeof(TPacketGCFlyTargeting) == 17, "TPacketGCFlyTargeting size mismatch");
 static_assert(sizeof(TPacketGCWarp) == 15, "TPacketGCWarp size mismatch");
-static_assert(sizeof(TPacketGCQuestConfirm) == 74, "TPacketGCQuestConfirm size mismatch");
+static_assert(sizeof(TPacketGCQuestConfirm) == 78, "TPacketGCQuestConfirm size mismatch");
 static_assert(sizeof(TPacketGCTime) == 9, "TPacketGCTime size mismatch (x64 64-bit time)");
 static_assert(sizeof(TPacketCGSafeboxMoney) == 10, "TPacketCGSafeboxMoney size mismatch (x64 64-bit YANG)");
 static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9, "TPacketGCSafeboxMoneyChange size mismatch (x64 64-bit YANG)");
@@ -69,8 +69,8 @@ static_assert(offsetof(struct packet_script, size) == 1, "packet_script.size off
 static_assert(offsetof(struct packet_script, skin) == 3, "packet_script.skin offset mismatch");
 static_assert(offsetof(struct packet_script, src_size) == 4, "packet_script.src_size offset mismatch");
 
-static_assert(sizeof(TPlayerItem) == 52, "TPlayerItem size mismatch");
-static_assert(sizeof(TSimplePlayer) == 67, "TSimplePlayer size mismatch");
+static_assert(sizeof(TPlayerItem) == 60, "TPlayerItem size mismatch");
+static_assert(sizeof(TSimplePlayer) == 71, "TSimplePlayer size mismatch");
 static_assert(sizeof(TItemLimit) == 5, "TItemLimit size mismatch");
 static_assert(sizeof(TItemApply) == 5, "TItemApply size mismatch");
 static_assert(sizeof(TPacketAffectElement) == 25, "TPacketAffectElement size mismatch");
@@ -84,7 +84,7 @@ static_assert(sizeof(TPacketCGLogin3) == 325, "TPacketCGLogin3 size mismatch");
 static_assert(offsetof(TPacketCGLogin3, dwProtocolVersion) == 321, "TPacketCGLogin3.dwProtocolVersion offset mismatch");
 static_assert(sizeof(TMapLocation) == 147, "TMapLocation size mismatch");
 
-static_assert(sizeof(TPacketGCLoginSuccess) == 353, "TPacketGCLoginSuccess size mismatch");
+static_assert(sizeof(TPacketGCLoginSuccess) == 385, "TPacketGCLoginSuccess size mismatch");
 static_assert(sizeof(TPacketCGPlayerSelect) == 2, "TPacketCGPlayerSelect size mismatch");
 static_assert(sizeof(TPacketCGEnterGame) == 1, "TPacketCGEnterGame size mismatch");
 static_assert(sizeof(TPacketCGOnClick) == 5, "TPacketCGOnClick size mismatch");
@@ -94,8 +94,8 @@ static_assert(sizeof(TPacketGCMainCharacter3_BGM) == 73, "TPacketGCMainCharacter
 static_assert(sizeof(TPacketGCMainCharacter4_BGM_VOL) == 77, "TPacketGCMainCharacter4_BGM_VOL size mismatch");
 static_assert(sizeof(TPacketGCPoints) == 1417, "TPacketGCPoints size mismatch (x64 64-bit points)");
 static_assert(sizeof(TPacketGCSkillLevel) == 1591, "TPacketGCSkillLevel size mismatch");
-static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 62, "TPacketGCCharacterAdditionalInfo size mismatch");
-static_assert(sizeof(TPacketGCCharacterUpdate) == 44, "TPacketGCCharacterUpdate size mismatch");
+static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 66, "TPacketGCCharacterAdditionalInfo size mismatch");
+static_assert(sizeof(TPacketGCCharacterUpdate) == 48, "TPacketGCCharacterUpdate size mismatch");
 static_assert(sizeof(TPacketGCCharacterDelete) == 5, "TPacketGCCharacterDelete size mismatch");
 static_assert(sizeof(TPacketGCAffectAdd) == 26, "TPacketGCAffectAdd size mismatch");
 static_assert(sizeof(TPacketGCAffectRemove) == 6, "TPacketGCAffectRemove size mismatch");
@@ -140,36 +140,36 @@ static_assert(offsetof(TPacketGCWarp, wPort) == 13, "TPacketGCWarp.wPort offset 
 
 static_assert(offsetof(TPacketGCTime, time) == 1, "TPacketGCTime.time offset mismatch");
 
-static_assert(offsetof(TSimplePlayer, x) == 52, "TSimplePlayer.x offset mismatch");
-static_assert(offsetof(TSimplePlayer, y) == 56, "TSimplePlayer.y offset mismatch");
-static_assert(offsetof(TSimplePlayer, lAddr) == 60, "TSimplePlayer.lAddr offset mismatch");
-static_assert(offsetof(TSimplePlayer, wPort) == 64, "TSimplePlayer.wPort offset mismatch");
+static_assert(offsetof(TSimplePlayer, x) == 56, "TSimplePlayer.x offset mismatch");
+static_assert(offsetof(TSimplePlayer, y) == 60, "TSimplePlayer.y offset mismatch");
+static_assert(offsetof(TSimplePlayer, lAddr) == 64, "TSimplePlayer.lAddr offset mismatch");
+static_assert(offsetof(TSimplePlayer, wPort) == 68, "TSimplePlayer.wPort offset mismatch");
 
-static_assert(sizeof(TRequestChargeCash) == 24, "TRequestChargeCash size mismatch");
+static_assert(sizeof(TRequestChargeCash) == 28, "TRequestChargeCash size mismatch");
 static_assert(offsetof(TRequestChargeCash, dwAID) == 0, "TRequestChargeCash.dwAID offset mismatch");
-static_assert(offsetof(TRequestChargeCash, lAmount) == 4, "TRequestChargeCash.lAmount offset mismatch");
-static_assert(offsetof(TRequestChargeCash, lSecondAmount) == 12, "TRequestChargeCash.lSecondAmount offset mismatch");
-static_assert(offsetof(TRequestChargeCash, eChargeType) == 20, "TRequestChargeCash.eChargeType offset mismatch");
+static_assert(offsetof(TRequestChargeCash, lAmount) == 8, "TRequestChargeCash.lAmount offset mismatch");
+static_assert(offsetof(TRequestChargeCash, lSecondAmount) == 16, "TRequestChargeCash.lSecondAmount offset mismatch");
+static_assert(offsetof(TRequestChargeCash, eChargeType) == 24, "TRequestChargeCash.eChargeType offset mismatch");
 static_assert(sizeof(TItemShopPromotion) == 24, "TItemShopPromotion size mismatch");
 static_assert(sizeof(TItemShopTimeAuction) == 28, "TItemShopTimeAuction size mismatch");
 static_assert(sizeof(TItemShopItem) == 86, "TItemShopItem size mismatch");
 static_assert(offsetof(TItemShopItem, dwPrice) == 12, "TItemShopItem.dwPrice offset mismatch");
 static_assert(offsetof(TItemShopItem, alSockets) == 22, "TItemShopItem.alSockets offset mismatch");
 static_assert(sizeof(TItemShopUpdateAuctionItem) == 28, "TItemShopUpdateAuctionItem size mismatch");
-static_assert(sizeof(TSpecialFlagTable) == 49, "TSpecialFlagTable size mismatch");
+static_assert(sizeof(TSpecialFlagTable) == 57, "TSpecialFlagTable size mismatch");
 static_assert(sizeof(TRefineTable) == 57, "TRefineTable size mismatch");
 static_assert(sizeof(TCraftingItem) == 113, "TCraftingItem size mismatch");
 static_assert(sizeof(TSpecialShopItem) == 75, "TSpecialShopItem size mismatch");
 static_assert(sizeof(TSpecialShopItemClient) == 67, "TSpecialShopItemClient size mismatch");
 static_assert(sizeof(TSpecialShopMetaData) == 16, "TSpecialShopMetaData size mismatch");
-static_assert(sizeof(TPacketGDAuthLogin) == 410, "TPacketGDAuthLogin size mismatch");
-static_assert(sizeof(TPacketGiveGuildPriv) == 17, "TPacketGiveGuildPriv size mismatch");
+static_assert(sizeof(TPacketGDAuthLogin) == 414, "TPacketGDAuthLogin size mismatch");
+static_assert(sizeof(TPacketGiveGuildPriv) == 21, "TPacketGiveGuildPriv size mismatch");
 static_assert(sizeof(TPacketGiveEmpirePriv) == 14, "TPacketGiveEmpirePriv size mismatch");
-static_assert(sizeof(TPacketDGChangeGuildPriv) == 18, "TPacketDGChangeGuildPriv size mismatch");
+static_assert(sizeof(TPacketDGChangeGuildPriv) == 22, "TPacketDGChangeGuildPriv size mismatch");
 static_assert(sizeof(TPacketDGChangeEmpirePriv) == 15, "TPacketDGChangeEmpirePriv size mismatch");
-static_assert(sizeof(TPacketMarriageAdd) == 66, "TPacketMarriageAdd size mismatch");
-static_assert(sizeof(TPacketSetPremiumPass) == 12, "TPacketSetPremiumPass size mismatch");
-static_assert(sizeof(TPacketGGLogin) == 44, "TPacketGGLogin size mismatch");
+static_assert(sizeof(TPacketMarriageAdd) == 74, "TPacketMarriageAdd size mismatch");
+static_assert(sizeof(TPacketSetPremiumPass) == 16, "TPacketSetPremiumPass size mismatch");
+static_assert(sizeof(TPacketGGLogin) == 48, "TPacketGGLogin size mismatch");
 
 int main()
 {
@@ -335,7 +335,7 @@ int main()
         WIRE_ASSERT(inPlayer.y == 256800, "SimplePlayer Y match");
         WIRE_ASSERT(inPlayer.lAddr == 0x7F000001, "SimplePlayer lAddr match");
         WIRE_ASSERT(inPlayer.wPort == 13000, "SimplePlayer wPort match");
-        WIRE_ASSERT(buffer.size() == 67, "SimplePlayer size is strictly 67 bytes");
+        WIRE_ASSERT(buffer.size() == 71, "SimplePlayer size is strictly 71 bytes");
     }
 
     // 7. packet_script (Quest dialog / NPC script packet) Wire Test
@@ -1045,11 +1045,11 @@ int main()
                         offsetof(TPacketDGMonarchMoney, iEmpire) == 0 &&
                         offsetof(TPacketDGMonarchMoney, llMoney) == 4,
                 "TPacketDGMonarchMoney is 12 bytes with 64-bit llMoney at offset 4");
-            WIRE_ASSERT(sizeof(TPacketGDTakeMonarchMoney) == 16 &&
+            WIRE_ASSERT(sizeof(TPacketGDTakeMonarchMoney) == 20 &&
                         offsetof(TPacketGDTakeMonarchMoney, iEmpire) == 0 &&
                         offsetof(TPacketGDTakeMonarchMoney, dwPID) == 4 &&
-                        offsetof(TPacketGDTakeMonarchMoney, llMoney) == 8,
-                "TPacketGDTakeMonarchMoney is 16 bytes with 64-bit llMoney at offset 8");
+                        offsetof(TPacketGDTakeMonarchMoney, llMoney) == 12,
+                "TPacketGDTakeMonarchMoney is 20 bytes with 64-bit dwPID at offset 4 and llMoney at offset 12");
 
             TPacketGDMonarchMoney gdMonarch{};
             gdMonarch.iEmpire = 2;
@@ -1300,9 +1300,9 @@ int main()
                     "Protocol Framing [E2]: DB HEADER_GD_SETUP rejects legacy short payload and mismatched protocol version");
             }
 
-            // Case F: G2 & G4 Hardening (building.h LP64/LLP64 parity, CInputDB unsigned dwSize, VID wraparound, ItemIDRange collision & exhaustion)
+            // Case F: G2 & G4 Hardening (building.h LP64/LLP64 parity, CInputDB unsigned dwSize, VID wraparound, ItemIDRange collision & exhaustion, 64-bit persistent IDs >2^32 & >2^53)
             {
-                // F1: building.h packed layout & 64-bit YANG price round-trip
+                // F1: building.h packed layout & 64-bit YANG price + 64-bit GUILD_ID round-trip
                 building::TLand outLand{};
                 outLand.dwID = 501;
                 outLand.lMapIndex = 41;
@@ -1310,15 +1310,18 @@ int main()
                 outLand.y = 256800;
                 outLand.width = 2000;
                 outLand.height = 2000;
-                outLand.dwGuildID = 77;
+                outLand.dwGuildID = 9007199254740993ULL; // > 2^53 GUILD_ID
                 outLand.bGuildLevelLimit = 20;
                 outLand.dwPrice = 5000000000LL; // 5B Yang (> 2^32)
                 std::vector<uint8_t> landBuf(sizeof(building::TLand));
                 std::memcpy(landBuf.data(), &outLand, sizeof(building::TLand));
                 building::TLand inLand{};
                 std::memcpy(&inLand, landBuf.data(), sizeof(building::TLand));
-                WIRE_ASSERT(sizeof(building::TLand) == 37 && inLand.dwPrice == 5000000000LL && inLand.lMapIndex == 41,
-                    "G4.1: building::TLand is strictly 37 packed bytes and preserves >2^32 YANG price");
+                WIRE_ASSERT(sizeof(building::TLand) == 41 &&
+                            inLand.dwGuildID == 9007199254740993ULL &&
+                            inLand.dwPrice == 5000000000LL &&
+                            inLand.lMapIndex == 41,
+                    "G4.1: building::TLand is strictly 41 packed bytes and preserves >2^53 GUILD_ID and >2^32 YANG price");
 
                 // F2: CInputDB::Process unsigned dwSize (>= 2^31) guard
                 auto canProcessDbPacket = [](int iBufferLeft, uint32_t dwSize) -> bool {
@@ -1327,7 +1330,6 @@ int main()
                     const uint64_t totalNeeded = 9ULL + static_cast<uint64_t>(dwSize);
                     return static_cast<uint64_t>(iBufferLeft) >= totalNeeded;
                 };
-                // Previously dwSize = 0xFFFFFFF0U cast to signed int was -16, causing (iBufferLeft - 9 < -16) == false and rewinding pointer!
                 WIRE_ASSERT(!canProcessDbPacket(64, 0xFFFFFFF0U) &&
                             !canProcessDbPacket(64, 0x80000000U) &&
                             canProcessDbPacket(64, 55U),
@@ -1346,22 +1348,63 @@ int main()
                 WIRE_ASSERT(simAllocVID(vidCounter, 1U) == 2U,
                     "G2.1: AllocVID skips 0 on 32-bit wraparound and skips active VID=1 in map");
 
-                // F4: ItemIDRange collision polarity & GainItemID exhaustion guard
-                auto checkRangeCollision = [](uint32_t aMin, uint32_t aMax, uint32_t bMin, uint32_t bMax) -> bool {
+                // F4: ItemIDRange collision polarity & GainItemID exhaustion guard with 64-bit >2^32 and >2^53 ranges
+                auto checkRangeCollision = [](uint64_t aMin, uint64_t aMax, uint64_t bMin, uint64_t bMax) -> bool {
                     return aMin > 0 && aMax > 0 && aMin <= bMax && aMax >= bMin;
                 };
-                WIRE_ASSERT(checkRangeCollision(10000001U, 20000000U, 10000001U, 20000000U) &&
-                            !checkRangeCollision(10000001U, 20000000U, 20000001U, 30000000U),
-                    "G2.2: CheckItemIDRangeCollision returns true on overlapping range and false on disjoint range");
+                WIRE_ASSERT(checkRangeCollision(5000000001ULL, 5010000000ULL, 5000000001ULL, 5010000000ULL) &&
+                            !checkRangeCollision(5000000001ULL, 5010000000ULL, 5010000001ULL, 5020000000ULL),
+                    "G2.2: CheckItemIDRangeCollision returns true on overlapping >2^32 range and false on disjoint >2^32 range");
 
-                TItemIDRangeTable exhaustedRange{100U, 101U, 101U};
-                auto simGainItemID = [](TItemIDRangeTable& r) -> uint32_t {
+                TItemIDRangeTable exhaustedRange{9007199254740992ULL, 9007199254740993ULL, 9007199254740993ULL};
+                auto simGainItemID = [](TItemIDRangeTable& r) -> uint64_t {
                     if (r.dwUsableItemIDMin == 0 || r.dwUsableItemIDMin > r.dwMax)
-                        return 0U;
+                        return 0ULL;
                     return r.dwUsableItemIDMin++;
                 };
-                WIRE_ASSERT(simGainItemID(exhaustedRange) == 101U && simGainItemID(exhaustedRange) == 0U,
-                    "G2.2: GainItemID returns last valid ID (dwMax) and returns 0 once exhausted instead of overflowing into next range");
+                WIRE_ASSERT(simGainItemID(exhaustedRange) == 9007199254740993ULL && simGainItemID(exhaustedRange) == 0ULL,
+                    "G2.2: GainItemID returns exact >2^53 ID (9,007,199,254,740,993) and returns 0 once exhausted");
+
+                // F5: Full 64-bit persistent ID round-trip across AID, PID, ITEM_ID, GUILD_ID, SHOP_ID, AUCTION_ID, OFFER_ID (>2^32 and >2^53)
+                const uint64_t idOver32 = 5000000001ULL;        // > 2^32
+                const uint64_t idOver53 = 9007199254740993ULL;  // 2^53 + 1 (exact 64-bit integer precision check)
+
+                TPlayerItem item64{};
+                item64.id = idOver53;
+                item64.owner = idOver32;
+                item64.vnum = 299;
+                TPlayerItem item64In{};
+                std::memcpy(&item64In, &item64, sizeof(item64));
+                WIRE_ASSERT(item64In.id == idOver53 && item64In.owner == idOver32,
+                    "G2.3: TPlayerItem preserves >2^53 ITEM_ID and >2^32 OWNER_ID");
+
+                TPacketGCLoginSuccess loginSucc64{};
+                loginSucc64.bHeader = HEADER_GC_LOGIN_SUCCESS_NEWSLOT;
+                loginSucc64.players[0].dwID = idOver53;
+                loginSucc64.guild_id[0] = idOver32;
+                TPacketGCLoginSuccess loginSucc64In{};
+                std::memcpy(&loginSucc64In, &loginSucc64, sizeof(loginSucc64));
+                WIRE_ASSERT(loginSucc64In.players[0].dwID == idOver53 && loginSucc64In.guild_id[0] == idOver32,
+                    "G2.4: TPacketGCLoginSuccess preserves >2^53 PID and >2^32 GUILD_ID");
+
+                TPacketGDAuthLogin auth64{};
+                auth64.dwID = idOver53;
+                TPacketMarriageAdd mar64{};
+                mar64.dwPID1 = idOver32;
+                mar64.dwPID2 = idOver53;
+                ikashop::TShopItem shopItem64{};
+                shopItem64.id = idOver53;
+                shopItem64.owner = idOver32;
+                ikashop::TOfferInfo offer64{};
+                offer64.offerid = idOver53;
+                offer64.ownerid = idOver32;
+                offer64.itemid = idOver53 + 2ULL;
+                offer64.buyerid = idOver32 + 2ULL;
+                WIRE_ASSERT(auth64.dwID == idOver53 &&
+                            mar64.dwPID1 == idOver32 && mar64.dwPID2 == idOver53 &&
+                            shopItem64.id == idOver53 && shopItem64.owner == idOver32 &&
+                            offer64.offerid == idOver53 && offer64.itemid == idOver53 + 2ULL,
+                    "G2.5: Auth, Marriage, and IkarusShop packets preserve >2^32 and >2^53 AID/PID/ITEM_ID/SHOP_ID/OFFER_ID");
             }
         }
     }
@@ -1369,4 +1412,3 @@ int main()
     std::cout << "[SUCCESS] WIRE PROTOCOL SUITE: " << g_passCount << " assertions passed cleanly!" << std::endl;
     return 0;
 }
-

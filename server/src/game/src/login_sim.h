@@ -16,10 +16,10 @@ class CLoginSim
 			bCheck = false;
 		}
 
-		void AddPlayer(DWORD dwID)
+		void AddPlayer(uint64_t dwID)
 		{
 			vecID.emplace_back(dwID);
-			sys_log(0, "AddPlayer %u", dwID);
+			sys_log(0, "AddPlayer %llu", static_cast<unsigned long long>(dwID));
 		}
 
 		bool IsCheck()
@@ -65,10 +65,9 @@ class CLoginSim
 		TPlayerLoadPacket load;
 		TLogoutPacket logout;
 
-		std::vector<DWORD> vecID;
+		std::vector<uint64_t> vecID;
 		unsigned int vecIdx;
 		bool bCheck;
 };
 
 #endif
-

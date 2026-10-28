@@ -49,7 +49,7 @@ namespace marriage
 	}
 
 	// Map instance
-	WeddingMap::WeddingMap(DWORD dwMapIndex, DWORD in_dwPID1, DWORD in_dwPID2) :
+	WeddingMap::WeddingMap(DWORD dwMapIndex, uint64_t in_dwPID1, uint64_t in_dwPID2) :
 		m_dwMapIndex(dwMapIndex),
 		m_pEndEvent(NULL),
 		m_isDark(false),
@@ -323,7 +323,7 @@ namespace marriage
 		return it->second;
 	}
 
-	DWORD WeddingManager::__CreateWeddingMap(DWORD dwPID1, DWORD dwPID2)
+	DWORD WeddingManager::__CreateWeddingMap(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		SECTREE_MANAGER& rkSecTreeMgr = SECTREE_MANAGER::instance();
 
@@ -331,7 +331,7 @@ namespace marriage
 
 		if (!dwMapIndex)
 		{
-			sys_err("CreateWeddingMap(pid1=%d, pid2=%d) / CreatePrivateMap(%d) FAILED", dwPID1, dwPID2, WEDDING_MAP_INDEX);
+			sys_err("CreateWeddingMap(pid1=%llu, pid2=%llu) / CreatePrivateMap(%d) FAILED", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2), WEDDING_MAP_INDEX);
 			return 0;
 		}
 
@@ -349,11 +349,11 @@ namespace marriage
 
 		if (!regen_do(st_weddingMapRegenFileName.c_str(), dwMapIndex, pkSectreeMap->m_setting.iBaseX, pkSectreeMap->m_setting.iBaseY, NULL, true))
 		{
-			sys_err("CreateWeddingMap(pid1=%d, pid2=%d) / regen_do(fileName=%s, mapIndex=%d, basePos=(%d, %d)) FAILED", dwPID1, dwPID2, st_weddingMapRegenFileName.c_str(), dwMapIndex, pkSectreeMap->m_setting.iBaseX, pkSectreeMap->m_setting.iBaseY);
+			sys_err("CreateWeddingMap(pid1=%llu, pid2=%llu) / regen_do(fileName=%s, mapIndex=%d, basePos=(%d, %d)) FAILED", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2), st_weddingMapRegenFileName.c_str(), dwMapIndex, pkSectreeMap->m_setting.iBaseX, pkSectreeMap->m_setting.iBaseY);
 		}
 		else
 		{
-			sys_log(0, "CreateWeddingMap(pid1=%d, pid2=%d) / regen_do(fileName=%s, mapIndex=%d, basePos=(%d, %d)) ok", dwPID1, dwPID2, st_weddingMapRegenFileName.c_str(), dwMapIndex, pkSectreeMap->m_setting.iBaseX, pkSectreeMap->m_setting.iBaseY);
+			sys_log(0, "CreateWeddingMap(pid1=%llu, pid2=%llu) / regen_do(fileName=%s, mapIndex=%d, basePos=(%d, %d)) ok", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2), st_weddingMapRegenFileName.c_str(), dwMapIndex, pkSectreeMap->m_setting.iBaseX, pkSectreeMap->m_setting.iBaseY);
 		}
 		// END_OF_LOCALE_SERVICE
 
@@ -380,7 +380,7 @@ namespace marriage
 		return true;
 	}
 
-	void WeddingManager::Request(DWORD dwPID1, DWORD dwPID2)
+	void WeddingManager::Request(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		if (map_allow_find(WEDDING_MAP_INDEX))
 		{
@@ -388,7 +388,7 @@ namespace marriage
 
 			if (!dwMapIndex)
 			{
-				sys_err("cannot create wedding map for %u, %u", dwPID1, dwPID2);
+				sys_err("cannot create wedding map for %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 				return;
 			}
 
@@ -401,4 +401,3 @@ namespace marriage
 		}
 	}
 }
-

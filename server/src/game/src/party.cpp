@@ -69,7 +69,7 @@ bool CPartyManager::SetParty(LPCHARACTER ch)
 	return true;
 }
 
-void CPartyManager::P2PLogin(DWORD pid, const char* name)
+void CPartyManager::P2PLogin(uint64_t pid, const char* name)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(pid);
 
@@ -78,7 +78,7 @@ void CPartyManager::P2PLogin(DWORD pid, const char* name)
 
 	it->second->UpdateOnlineState(pid, name);
 }
-void CPartyManager::P2PLogout(DWORD pid)
+void CPartyManager::P2PLogout(uint64_t pid)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(pid);
 
@@ -88,7 +88,7 @@ void CPartyManager::P2PLogout(DWORD pid)
 	it->second->UpdateOfflineState(pid);
 }
 
-void CPartyManager::P2PJoinParty(DWORD leader, DWORD pid, BYTE role)
+void CPartyManager::P2PJoinParty(uint64_t leader, uint64_t pid, BYTE role)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(leader);
 
@@ -103,11 +103,11 @@ void CPartyManager::P2PJoinParty(DWORD leader, DWORD pid, BYTE role)
 	}
 	else
 	{
-		sys_err("No such party with leader [%d]", leader);
+		sys_err("No such party with leader [%llu]", static_cast<unsigned long long>(leader));
 	}
 }
 
-void CPartyManager::P2PQuitParty(DWORD pid)
+void CPartyManager::P2PQuitParty(uint64_t pid)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(pid);
 
@@ -117,11 +117,11 @@ void CPartyManager::P2PQuitParty(DWORD pid)
 	}
 	else
 	{
-		sys_err("No such party with member [%d]", pid);
+		sys_err("No such party with member [%llu]", static_cast<unsigned long long>(pid));
 	}
 }
 
-LPPARTY CPartyManager::P2PCreateParty(DWORD pid)
+LPPARTY CPartyManager::P2PCreateParty(uint64_t pid)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(pid);
 	if (it != m_map_pkParty.end())
@@ -138,7 +138,7 @@ LPPARTY CPartyManager::P2PCreateParty(DWORD pid)
 	return pParty;
 }
 
-void CPartyManager::P2PDeleteParty(DWORD pid)
+void CPartyManager::P2PDeleteParty(uint64_t pid)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(pid);
 
@@ -148,7 +148,7 @@ void CPartyManager::P2PDeleteParty(DWORD pid)
 		M2_DELETE(it->second);
 	}
 	else
-		sys_err("PARTY P2PDeleteParty Cannot find party [%u]", pid);
+		sys_err("PARTY P2PDeleteParty Cannot find party [%llu]", static_cast<unsigned long long>(pid));
 }
 
 LPPARTY CPartyManager::CreateParty(LPCHARACTER pLeader)
@@ -165,7 +165,7 @@ LPPARTY CPartyManager::CreateParty(LPCHARACTER pLeader)
 
 		db_clientdesc->DBPacket(HEADER_GD_PARTY_CREATE, 0, p);
 
-		sys_log(0, "PARTY: Create %s pid %u", pLeader->GetName(), pLeader->GetPlayerID());
+		sys_log(0, "PARTY: Create %s pid %llu", pLeader->GetName(), static_cast<unsigned long long>(pLeader->GetPlayerID()));
 		pParty->SetPCParty(true);
 		pParty->Join(pLeader->GetPlayerID());
 
@@ -198,7 +198,7 @@ void CPartyManager::DeleteParty(LPPARTY pParty)
 	M2_DELETE(pParty);
 }
 
-void CPartyManager::SetPartyMember(DWORD dwPID, LPPARTY pParty)
+void CPartyManager::SetPartyMember(uint64_t dwPID, LPPARTY pParty)
 {
 	TPartyMap::iterator it = m_map_pkParty.find(dwPID);
 
@@ -224,7 +224,7 @@ void CPartyManager::SetPartyMember(DWORD dwPID, LPPARTY pParty)
 
 EVENTINFO(party_update_event_info)
 {
-	DWORD pid;
+	uint64_t pid;
 
 	party_update_event_info()
 	: pid( 0 )
@@ -247,7 +247,7 @@ EVENTFUNC(party_update_event)
 		return 0;
 	}
 
-	DWORD pid = info->pid;
+	uint64_t pid = info->pid;
 	LPCHARACTER leader = CHARACTER_MANAGER::instance().FindByPID(pid);
 
 	if (leader && leader->GetDesc())
@@ -395,7 +395,7 @@ void CParty::ChatPacketToAllMember(BYTE type, const char* format, ...)
 	}
 }
 
-DWORD CParty::GetLeaderPID()
+uint64_t CParty::GetLeaderPID()
 {
 	return m_dwLeaderPID;
 }
@@ -405,7 +405,7 @@ DWORD CParty::GetMemberCount()
 	return m_memberMap.size();
 }
 
-void CParty::P2PJoin(DWORD dwPID)
+void CParty::P2PJoin(uint64_t dwPID)
 {
 	TMemberMap::iterator it = m_memberMap.find(dwPID);
 
@@ -430,7 +430,7 @@ void CParty::P2PJoin(DWORD dwPID)
 
 			if (ch)
 			{
-				sys_log(0, "PARTY: Join %s pid %u leader %u", ch->GetName(), dwPID, m_dwLeaderPID);
+				sys_log(0, "PARTY: Join %s pid %llu leader %llu", ch->GetName(), static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(m_dwLeaderPID));
 				Member.strName = ch->GetName();
 
 				if (Member.bRole == PARTY_ROLE_LEADER)
@@ -444,11 +444,11 @@ void CParty::P2PJoin(DWORD dwPID)
 				else if (pcci->bChannel == g_bChannel)
 					Member.strName = pcci->szName;
 				else
-					sys_err("member is not in same channel PID: %u channel %d, this channel %d", dwPID, pcci->bChannel, g_bChannel);
+					sys_err("member is not in same channel PID: %llu channel %d, this channel %d", static_cast<unsigned long long>(dwPID), pcci->bChannel, g_bChannel);
 			}
 		}
 
-		sys_log(2, "PARTY[%d] MemberCountChange %d -> %d", GetLeaderPID(), GetMemberCount(), GetMemberCount()+1);
+		sys_log(2, "PARTY[%llu] MemberCountChange %d -> %d", static_cast<unsigned long long>(GetLeaderPID()), GetMemberCount(), GetMemberCount()+1);
 
 		m_memberMap.emplace(dwPID, Member);
 
@@ -473,7 +473,7 @@ void CParty::P2PJoin(DWORD dwPID)
 	}
 }
 
-void CParty::Join(DWORD dwPID)
+void CParty::Join(uint64_t dwPID)
 {
 	P2PJoin(dwPID);
 
@@ -487,7 +487,7 @@ void CParty::Join(DWORD dwPID)
 	}
 }
 
-void CParty::P2PQuit(DWORD dwPID)
+void CParty::P2PQuit(uint64_t dwPID)
 {
 	TMemberMap::iterator it = m_memberMap.find(dwPID);
 
@@ -508,7 +508,7 @@ void CParty::P2PQuit(DWORD dwPID)
 
 	m_memberMap.erase(it);
 
-	sys_log(2, "PARTY[%d] MemberCountChange %d -> %d", GetLeaderPID(), GetMemberCount(), GetMemberCount() - 1);
+	sys_log(2, "PARTY[%llu] MemberCountChange %d -> %d", static_cast<unsigned long long>(GetLeaderPID()), GetMemberCount(), GetMemberCount() - 1);
 
 	if (bRole < PARTY_ROLE_MAX_NUM)
 	{
@@ -532,7 +532,7 @@ void CParty::P2PQuit(DWORD dwPID)
 		CPartyManager::instance().DeleteParty(this);
 }
 
-void CParty::Quit(DWORD dwPID)
+void CParty::Quit(uint64_t dwPID)
 {
 	// Always PC
 	P2PQuit(dwPID);
@@ -578,7 +578,7 @@ void CParty::Link(LPCHARACTER pkChr)
 	if (it->second.bRole == PARTY_ROLE_LEADER)
 		m_pkChrLeader = pkChr;
 
-	sys_log(2, "PARTY[%d] %s linked to party", GetLeaderPID(), pkChr->GetName());
+	sys_log(2, "PARTY[%llu] %s linked to party", static_cast<unsigned long long>(GetLeaderPID()), pkChr->GetName());
 
 	it->second.pCharacter = pkChr;
 	pkChr->SetParty(this);
@@ -611,7 +611,7 @@ void CParty::Link(LPCHARACTER pkChr)
 	}
 }
 
-void CParty::RequestSetMemberLevel(DWORD pid, BYTE level)
+void CParty::RequestSetMemberLevel(uint64_t pid, BYTE level)
 {
 	TPacketPartySetMemberLevel p;
 	p.dwLeaderPID = GetLeaderPID();
@@ -620,14 +620,14 @@ void CParty::RequestSetMemberLevel(DWORD pid, BYTE level)
 	db_clientdesc->DBPacket(HEADER_GD_PARTY_SET_MEMBER_LEVEL, 0, p);
 }
 
-void CParty::P2PSetMemberLevel(DWORD pid, BYTE level)
+void CParty::P2PSetMemberLevel(uint64_t pid, BYTE level)
 {
 	if (!m_bPCParty)
 		return;
 
 	TMemberMap::iterator it;
 
-	sys_log(0, "PARTY P2PSetMemberLevel leader %d pid %d level %d", GetLeaderPID(), pid, level);
+	sys_log(0, "PARTY P2PSetMemberLevel leader %llu pid %llu level %d", static_cast<unsigned long long>(GetLeaderPID()), static_cast<unsigned long long>(pid), level);
 
 	it = m_memberMap.find(pid);
 	if (it != m_memberMap.end())
@@ -685,7 +685,7 @@ void CParty::Unlink(LPCHARACTER pkChr)
 	pkChr->SetParty(NULL);
 }
 
-void CParty::SendPartyRemoveOneToAll(DWORD pid)
+void CParty::SendPartyRemoveOneToAll(uint64_t pid)
 {
 	TMemberMap::iterator it;
 
@@ -700,7 +700,7 @@ void CParty::SendPartyRemoveOneToAll(DWORD pid)
 	}
 }
 
-void CParty::SendPartyJoinOneToAll(DWORD pid)
+void CParty::SendPartyJoinOneToAll(uint64_t pid)
 {
 	const TMember& r = m_memberMap[pid];
 
@@ -798,7 +798,7 @@ void CParty::SendPartyLinkAllToOne(LPCHARACTER ch)
 	}
 }
 
-void CParty::SendPartyInfoOneToAll(DWORD pid)
+void CParty::SendPartyInfoOneToAll(uint64_t pid)
 {
 	TMemberMap::iterator it = m_memberMap.find(pid);
 
@@ -860,7 +860,7 @@ void CParty::SendPartyInfoAllToOne(LPCHARACTER ch)
 	{
 		if (!it->second.pCharacter)
 		{
-			DWORD pid = it->first;
+			uint64_t pid = it->first;
 			memset(&p, 0, sizeof(p));
 			p.header = HEADER_GC_PARTY_UPDATE;
 			p.pid = pid;
@@ -975,7 +975,7 @@ LPCHARACTER CParty::GetLeaderCharacter()
 	return m_memberMap[GetLeaderPID()].pCharacter;
 }
 
-bool CParty::SetRole(DWORD dwPID, BYTE bRole, bool bSet)
+bool CParty::SetRole(uint64_t dwPID, BYTE bRole, bool bSet)
 {
 	TMemberMap::iterator it = m_memberMap.find(dwPID);
 
@@ -1035,7 +1035,7 @@ bool CParty::SetRole(DWORD dwPID, BYTE bRole, bool bSet)
 	return true;
 }
 
-BYTE CParty::GetRole(DWORD pid)
+BYTE CParty::GetRole(uint64_t pid)
 {
 	TMemberMap::iterator it = m_memberMap.find(pid);
 
@@ -1045,7 +1045,7 @@ BYTE CParty::GetRole(DWORD pid)
 		return it->second.bRole;
 }
 
-bool CParty::IsRole(DWORD pid, BYTE bRole)
+bool CParty::IsRole(uint64_t pid, BYTE bRole)
 {
 	TMemberMap::iterator it = m_memberMap.find(pid);
 
@@ -1072,7 +1072,7 @@ void CParty::RemoveBonus()
 	}
 }
 
-void CParty::RemoveBonusForOne(DWORD pid)
+void CParty::RemoveBonusForOne(uint64_t pid)
 {
 	TMemberMap::iterator it = m_memberMap.find(pid);
 
@@ -1114,7 +1114,7 @@ void CParty::HealParty()
 	m_dwPartyHealTime = get_dword_time();
 }
 
-void CParty::SummonToLeader(DWORD pid)
+void CParty::SummonToLeader(uint64_t pid)
 {
 	int xy[12][2] =
 	{
@@ -1473,7 +1473,7 @@ void CParty::Update()
 	}
 }
 
-void CParty::UpdateOnlineState(DWORD dwPID, const char* name)
+void CParty::UpdateOnlineState(uint64_t dwPID, const char* name)
 {
 	TMember& r = m_memberMap[dwPID];
 
@@ -1490,7 +1490,7 @@ void CParty::UpdateOnlineState(DWORD dwPID, const char* name)
 			it->second.pCharacter->GetDesc()->Packet(&p, sizeof(p));
 	}
 }
-void CParty::UpdateOfflineState(DWORD dwPID)
+void CParty::UpdateOfflineState(uint64_t dwPID)
 {
 	//const TMember& r = m_memberMap[dwPID];
 
@@ -1578,7 +1578,7 @@ int CParty::GetExpBonusPercent()
 	return m_iExpBonus + m_iLongTimeExpBonus + m_iEveryClassExpBonus;
 }
 
-bool CParty::IsNearLeader(DWORD pid)
+bool CParty::IsNearLeader(uint64_t pid)
 {
 	TMemberMap::iterator it = m_memberMap.find(pid);
 
@@ -1657,7 +1657,7 @@ int CParty::GetExpDistributionMode()
 	return m_iExpDistributionMode;
 }
 
-void CParty::SetExpCentralizeCharacter(DWORD dwPID)
+void CParty::SetExpCentralizeCharacter(uint64_t dwPID)
 {
 	TMemberMap::iterator it = m_memberMap.find(dwPID);
 
@@ -1805,4 +1805,3 @@ bool CParty::IsPartyInAnyDungeon()
 	}
 	return false;
 }
-

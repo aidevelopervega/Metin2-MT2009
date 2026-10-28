@@ -34,39 +34,39 @@ namespace ikashop
 
 	//SHOPS
 	std::string CreateShopCacheUpdateItemQuery(const TShopItem& rItemPrice);
-	std::string CreateShopCacheDeleteShopQuery(DWORD dwOwner);
-	std::string CreateShopCacheDeleteShopItemQuery(DWORD dwOwner);
-	std::string CreateShopCacheInsertShopQuery(DWORD dwOwnerID, DWORD dwDuration, const char* name
+	std::string CreateShopCacheDeleteShopQuery(uint64_t dwOwner);
+	std::string CreateShopCacheDeleteShopItemQuery(uint64_t dwOwner);
+	std::string CreateShopCacheInsertShopQuery(uint64_t dwOwnerID, DWORD dwDuration, const char* name
 #ifdef ENABLE_IKASHOP_ENTITIES
 		, const TShopSpawn& spawn
 #endif
 		, BYTE unlockCount, bool isPremium
 	);
-	std::string CreateShopCacheUpdateDurationQuery(DWORD dwOwnerID, DWORD dwDuration);
-	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] DWORD dwOwnerID, DWORD dwItemID);
+	std::string CreateShopCacheUpdateDurationQuery(uint64_t dwOwnerID, DWORD dwDuration);
+	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] uint64_t dwOwnerID, uint64_t dwItemID);
 
 	//SAFEBOX
-	std::string CreateSafeboxCacheDeleteItemQuery(DWORD dwItem);
-	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] DWORD dwOwner, [[maybe_unused]] DWORD dwItemID, const TShopPlayerItem& item);
-	std::string CreateSafeboxCacheUpdateValutes(DWORD dwOwner, const TValutesInfo& val);
-	std::string CreateSafeboxCacheInsertSafeboxValutesQuery(DWORD dwOwnerID);
-	std::string CreateSafeboxCacheUpdateValutesByAdding(DWORD dwOwner, const TValutesInfo& val);
-	std::string CreateSafeboxCacheLoadItemsQuery(DWORD dwOwnerID);
-	std::string CreateSafeboxCacheLoadValutesQuery(DWORD dwOwnerID);
+	std::string CreateSafeboxCacheDeleteItemQuery(uint64_t dwItem);
+	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] uint64_t dwOwner, [[maybe_unused]] uint64_t dwItemID, const TShopPlayerItem& item);
+	std::string CreateSafeboxCacheUpdateValutes(uint64_t dwOwner, const TValutesInfo& val);
+	std::string CreateSafeboxCacheInsertSafeboxValutesQuery(uint64_t dwOwnerID);
+	std::string CreateSafeboxCacheUpdateValutesByAdding(uint64_t dwOwner, const TValutesInfo& val);
+	std::string CreateSafeboxCacheLoadItemsQuery(uint64_t dwOwnerID);
+	std::string CreateSafeboxCacheLoadValutesQuery(uint64_t dwOwnerID);
 
 	//OFFERS
 	std::string CreateOfferCacheInsertOfferQuery(const TOfferInfo& rOffer);
-	std::string CreateOfferCacheUpdateNotifiedQuery(DWORD dwOfferID);
-	std::string CreateOfferCacheUpdateAcceptedQuery(DWORD dwOfferID);
-	std::string CreateOfferCacheRemoveOfferByShopOwner(DWORD dwShopOwner);
-	std::string CreateOfferCacheDeleteOfferQuery(DWORD dwOfferID);
+	std::string CreateOfferCacheUpdateNotifiedQuery(uint64_t dwOfferID);
+	std::string CreateOfferCacheUpdateAcceptedQuery(uint64_t dwOfferID);
+	std::string CreateOfferCacheRemoveOfferByShopOwner(uint64_t dwShopOwner);
+	std::string CreateOfferCacheDeleteOfferQuery(uint64_t dwOfferID);
 
 	//AUCTION
 
 	std::string CreateAuctionCacheAddAuctionQuery(const TAuctionInfo& auction);
 	std::string CreateAuctionCacheAddOfferQuery(const TAuctionOfferInfo& auctionOffer);
-	//std::string CreateAuctionCacheDeleteAuction(DWORD dwOwnerID);
-	std::string CreateAuctionCacheDeleteAuctionOffers(DWORD dwOwnerID);
+	//std::string CreateAuctionCacheDeleteAuction(uint64_t dwOwnerID);
+	std::string CreateAuctionCacheDeleteAuctionOffers(uint64_t dwOwnerID);
 	std::string CreateAuctionCacheUpdateDurationQuery(const TAuctionInfo& info);
 
 	/*
@@ -81,7 +81,7 @@ namespace ikashop
 	{
 	}
 
-	CShopCache::SHOP_HANDLE CShopCache::Get(DWORD dwOwnerID) const
+	CShopCache::SHOP_HANDLE CShopCache::Get(uint64_t dwOwnerID) const
 	{
 		// searching shop cache
 		auto it = m_shopsMap.find(dwOwnerID);
@@ -118,7 +118,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::RemoveItem(DWORD dwOwnerID, DWORD dwItemID)
+	bool CShopCache::RemoveItem(uint64_t dwOwnerID, uint64_t dwItemID)
 	{
 		// searching for shop cache
 		auto cache = Get(dwOwnerID);
@@ -144,7 +144,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopCache::DeleteItem(DWORD owner, DWORD itemid)
+	void CShopCache::DeleteItem(uint64_t owner, uint64_t itemid)
 	{
 		// removing from table
 		auto query = fmt::format("DELETE FROM `item` WHERE `id`={}", itemid);
@@ -155,7 +155,7 @@ namespace ikashop
 			shop->itemsmap.erase(itemid);
 	}
 
-	bool CShopCache::SellItem(DWORD dwOwnerID, DWORD dwItemID, bool updateQuery)
+	bool CShopCache::SellItem(uint64_t dwOwnerID, uint64_t dwItemID, bool updateQuery)
 	{
 		// searching for shop cache
 		auto cache = Get(dwOwnerID);
@@ -184,7 +184,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::LockSellItem(DWORD dwOwnerID, DWORD dwItemID, long long TotalPriceSeen) //patch seen price check
+	bool CShopCache::LockSellItem(uint64_t dwOwnerID, uint64_t dwItemID, long long TotalPriceSeen) //patch seen price check
 	{
 		// searching shop cache
 		auto cache = Get(dwOwnerID);
@@ -210,7 +210,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::UnlockSellItem(DWORD dwOwnerID, DWORD dwItemID)//topatch
+	bool CShopCache::UnlockSellItem(uint64_t dwOwnerID, uint64_t dwItemID)//topatch
 	{
 		// searching shop cache
 		auto cache = Get(dwOwnerID);
@@ -232,7 +232,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::EditItem(DWORD dwOwnerID, DWORD dwItemID, const TPriceInfo& price)
+	bool CShopCache::EditItem(uint64_t dwOwnerID, uint64_t dwItemID, const TPriceInfo& price)
 	{
 		// searching shop cache
 		auto cache = Get(dwOwnerID);
@@ -272,7 +272,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::CloseShop(DWORD dwOwnerID)
+	bool CShopCache::CloseShop(uint64_t dwOwnerID)
 	{
 		// searching shop cache
 		auto it = m_shopsMap.find(dwOwnerID);
@@ -287,7 +287,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::CreateShop(DWORD dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
+	bool CShopCache::CreateShop(uint64_t dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
 #ifdef ENABLE_IKASHOP_ENTITIES
 		, const TShopSpawn& spawn, const TShopItem * items
 #endif
@@ -327,7 +327,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::ChangeShopName(DWORD dwOwnerID, const char* szName)
+	bool CShopCache::ChangeShopName(uint64_t dwOwnerID, const char* szName)
 	{
 		// searching shop cache
 		auto cache = Get(dwOwnerID);
@@ -340,7 +340,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::PutItem(DWORD dwOwnerID, DWORD dwItemID, const TShopCacheItemInfo& item)
+	bool CShopCache::PutItem(uint64_t dwOwnerID, uint64_t dwItemID, const TShopCacheItemInfo& item)
 	{
 		// searching shop cache
 		auto cache = Get(dwOwnerID);
@@ -357,7 +357,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopCache::PutShop(DWORD dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
+	bool CShopCache::PutShop(uint64_t dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
 #ifdef ENABLE_IKASHOP_ENTITIES
 		, const TShopSpawn& spawn
 #endif
@@ -412,7 +412,7 @@ namespace ikashop
 	void CShopCache::ShopDurationProcess()
 	{
 		//expired check
-		std::set<DWORD> expiredShops;
+		std::set<uint64_t> expiredShops;
 
 		for (auto& [owner, shop] : m_shopsMap)
 		{
@@ -425,7 +425,7 @@ namespace ikashop
 		}
 
 		//item expired check
-		std::vector<std::pair<DWORD, DWORD>> item_vec;
+		std::vector<std::pair<uint64_t, uint64_t>> item_vec;
 		const time_t now = std::time(nullptr);
 
 		for (auto& [owner, shop] : m_shopsMap)
@@ -460,13 +460,13 @@ namespace ikashop
 		}
 	}
 
-	void CShopCache::UpdateDurationQuery(DWORD dwOwnerID, const TShopCacheInfo& rShop)
+	void CShopCache::UpdateDurationQuery(uint64_t dwOwnerID, const TShopCacheInfo& rShop)
 	{
 		std::string query = CreateShopCacheUpdateDurationQuery(dwOwnerID, rShop.duration);
 		CDBManager::instance().ReturnQuery(query.c_str(), QID_OFFLINESHOP_SHOP_UPDATE_DURATION, 0 , NULL);
 	}
 
-	CShopCache::ITEM_CACHE_HANDLE CShopCache::GetItem(DWORD owner, DWORD item)
+	CShopCache::ITEM_CACHE_HANDLE CShopCache::GetItem(uint64_t owner, uint64_t item)
 	{
 		if(auto shop = Get(owner))
 			if(auto iter = shop->itemsmap.find(item); iter != shop->itemsmap.end())
@@ -476,7 +476,7 @@ namespace ikashop
 
 #ifdef ENABLE_IKASHOP_ENTITIES
 #ifdef EXTEND_IKASHOP_PRO
-	bool CShopCache::MoveShopEntity(DWORD owner, const TShopSpawn& spawn)
+	bool CShopCache::MoveShopEntity(uint64_t owner, const TShopSpawn& spawn)
 	{
 		auto shop = Get(owner);
 		if(!shop)
@@ -494,7 +494,7 @@ namespace ikashop
 #endif
 #endif
 
-	bool CShopCache::SetLockedSlotState(DWORD owner, BYTE unlockCount, bool isPremium)
+	bool CShopCache::SetLockedSlotState(uint64_t owner, BYTE unlockCount, bool isPremium)
 	{
 		auto shop = Get(owner);
 		if (!shop)
@@ -515,7 +515,7 @@ namespace ikashop
 	{
 	}
 
-	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::Get(DWORD dwOwnerID) const
+	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::Get(uint64_t dwOwnerID) const
 	{
 		auto it = m_safeboxMap.find(dwOwnerID);
 		if(it == m_safeboxMap.end())
@@ -523,7 +523,7 @@ namespace ikashop
 		return it->second;
 	}
 
-	bool CSafeboxCache::PutSafebox(DWORD dwOwnerID, const TSafeboxCacheInfo& safebox)
+	bool CSafeboxCache::PutSafebox(uint64_t dwOwnerID, const TSafeboxCacheInfo& safebox)
 	{
 		// searching for duplicates
 		if(m_safeboxMap.contains(dwOwnerID))
@@ -533,7 +533,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::PutItem(DWORD dwOwnerID, DWORD dwItem, const TShopPlayerItem& item)
+	bool CSafeboxCache::PutItem(uint64_t dwOwnerID, uint64_t dwItem, const TShopPlayerItem& item)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwnerID);
@@ -550,7 +550,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::DeleteItem(DWORD dwOwnerID, DWORD dwItemID)
+	bool CSafeboxCache::DeleteItem(uint64_t dwOwnerID, uint64_t dwItemID)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwnerID);
@@ -572,7 +572,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::LockItem(DWORD dwOwner, DWORD dwItemID)
+	bool CSafeboxCache::LockItem(uint64_t dwOwner, uint64_t dwItemID)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwner);
@@ -594,7 +594,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::RemoveLockedItem(DWORD dwOwner, DWORD dwItemID)
+	bool CSafeboxCache::RemoveLockedItem(uint64_t dwOwner, uint64_t dwItemID)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwner);
@@ -617,7 +617,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::UnlockItem(DWORD dwOwner, DWORD dwItemID)
+	bool CSafeboxCache::UnlockItem(uint64_t dwOwner, uint64_t dwItemID)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwner);
@@ -639,7 +639,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::AddItem(DWORD dwOwnerID, DWORD dwItemID, const TShopPlayerItem& item)
+	bool CSafeboxCache::AddItem(uint64_t dwOwnerID, uint64_t dwItemID, const TShopPlayerItem& item)
 	{
 		// saving item into query info
 		auto queryItem = new SQueryInfoSafeboxAddItem(item);
@@ -653,7 +653,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CSafeboxCache::AddValutes(DWORD dwOwnerID, const TValutesInfo& val)
+	bool CSafeboxCache::AddValutes(uint64_t dwOwnerID, const TValutesInfo& val)
 	{
 		// searching safebox cache
 		auto cache = Get(dwOwnerID);
@@ -672,13 +672,13 @@ namespace ikashop
 		return true;
 	}
 
-	void CSafeboxCache::AddValutesAsQuery(DWORD dwOwnerID, const TValutesInfo& val)
+	void CSafeboxCache::AddValutesAsQuery(uint64_t dwOwnerID, const TValutesInfo& val)
 	{
 		std::string query=CreateSafeboxCacheUpdateValutesByAdding(dwOwnerID,val);
 		CDBManager::instance().ReturnQuery(query.c_str(), QID_OFFLINESHOP_SAFEBOX_UPDATE_VALUTES_ADDING, 0, NULL);
 	}
 
-	bool CSafeboxCache::RemoveValutes(DWORD dwOwnerID, const TValutesInfo& val)
+	bool CSafeboxCache::RemoveValutes(uint64_t dwOwnerID, const TValutesInfo& val)
 	{
 		// searching cache
 		auto cache = Get(dwOwnerID);
@@ -693,7 +693,7 @@ namespace ikashop
 		return true;
 	}
 
-	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::CreateSafebox(DWORD dwOwnerID)
+	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::CreateSafebox(uint64_t dwOwnerID)
 	{
 		// inserting into db an empty safebox
 		std::string query = CreateSafeboxCacheInsertSafeboxValutesQuery(dwOwnerID);
@@ -703,7 +703,7 @@ namespace ikashop
 		return (m_safeboxMap[dwOwnerID] = std::make_shared<TSafeboxCacheInfo>());
 	}
 
-	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::LoadSafebox(DWORD dwPID)
+	CSafeboxCache::SAFEBOX_HANDLE CSafeboxCache::LoadSafebox(uint64_t dwPID)
 	{
 		// searching inside cache
 		auto cache = Get(dwPID);
@@ -735,7 +735,7 @@ namespace ikashop
 		msg = CDBManager::instance().DirectQuery(itemquery.c_str());
 		if (!msg || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 		{
-			sys_err("CANNOT LOAD SHOP SAFEBOX ITEMS : pid(%u) errno(%u)", dwPID, msg ? msg->uiSQLErrno : 0);
+			sys_err("CANNOT LOAD SHOP SAFEBOX ITEMS : pid(%llu) errno(%u)", static_cast<unsigned long long>(dwPID), msg ? msg->uiSQLErrno : 0);
 			return nullptr;
 		}
 
@@ -763,13 +763,15 @@ namespace ikashop
 #endif
 			auto result = str_to_json(row[col++]);
 			if(!result){
-				sys_err("CANNOT EXTRACT JSON FROM SHOP SAFEBOX ITEM : pid(%u) item_id(%u)", dwPID, item.id);
+				sys_err("CANNOT EXTRACT JSON FROM SHOP SAFEBOX ITEM : pid(%llu) item_id(%llu)",
+						static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(item.id));
 				continue;
 			}
 
 			auto expirationResult = jsonHelper::getValue<int>(result.value(), "expiration");
 			if(!expirationResult){
-				sys_err("CANNOT EXTRACT JSON EXPIRATION FROM SHOP SAFEBOX ITEM : pid(%u) item_id(%u)", dwPID, item.id);
+				sys_err("CANNOT EXTRACT JSON EXPIRATION FROM SHOP SAFEBOX ITEM : pid(%llu) item_id(%llu)",
+						static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(item.id));
 				continue;
 			}
 
@@ -792,7 +794,7 @@ namespace ikashop
 	//patch 08-03-2020
 	void CSafeboxCache::ItemExpirationProcess() {
 		// making temp vector
-		std::vector<std::pair<DWORD, DWORD>> vec;
+		std::vector<std::pair<uint64_t, uint64_t>> vec;
 		const auto now = std::time(nullptr);
 
 		// iterating checking item expiration
@@ -840,7 +842,7 @@ namespace ikashop
 		return true;
 	}
 
-	COfferCache::OFFER_HANDLE COfferCache::Get(DWORD dwOfferID) const
+	COfferCache::OFFER_HANDLE COfferCache::Get(uint64_t dwOfferID) const
 	{
 		auto it = m_mapOffersByBuyer.find(dwOfferID);
 		if(it == m_mapOffersByBuyer.end())
@@ -855,7 +857,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool COfferCache::NotifiedOffer(DWORD dwOfferID)
+	bool COfferCache::NotifiedOffer(uint64_t dwOfferID)
 	{
 		// searching offer cache
 		auto cache = Get(dwOfferID);
@@ -870,7 +872,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool COfferCache::CancelOffer(DWORD dwOfferID, DWORD dwOwnerID) //ikashop-updated 04/08/19 reminder
+	bool COfferCache::CancelOffer(uint64_t dwOfferID, uint64_t dwOwnerID) //ikashop-updated 04/08/19 reminder
 	{
 		// searching offer cache
 		auto cache = Get(dwOfferID);
@@ -898,7 +900,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool COfferCache::AcceptOffer(DWORD dwOfferID)
+	bool COfferCache::AcceptOffer(uint64_t dwOfferID)
 	{
 		// searching offer cache
 		auto cache = Get(dwOfferID);
@@ -908,7 +910,7 @@ namespace ikashop
 		return CancelOffer(dwOfferID, cache->ownerid);
 	}
 
-	bool COfferCache::RemoveOffersByShopOwner(DWORD dwShopOwnerID)
+	bool COfferCache::RemoveOffersByShopOwner(uint64_t dwShopOwnerID)
 	{
 		// searching offer vector
 		auto it = m_findOffersByShop.find(dwShopOwnerID);
@@ -934,7 +936,7 @@ namespace ikashop
 			peer->Encode(offer.get(), sizeof(*offer));
 	}
 
-	std::vector<COfferCache::OFFER_HANDLE> COfferCache::GetOffersByShopOwner(DWORD dwOwnerID) const
+	std::vector<COfferCache::OFFER_HANDLE> COfferCache::GetOffersByShopOwner(uint64_t dwOwnerID) const
 	{
 		auto it = m_findOffersByShop.find(dwOwnerID);
 		if(it == m_findOffersByShop.end())
@@ -942,7 +944,7 @@ namespace ikashop
 		return it->second;
 	}
 
-	std::vector<COfferCache::OFFER_HANDLE> COfferCache::GetOffersByItemID(DWORD dwOwnerID, DWORD dwItemID) const
+	std::vector<COfferCache::OFFER_HANDLE> COfferCache::GetOffersByItemID(uint64_t dwOwnerID, uint64_t dwItemID) const
 	{
 		// searching offers vector
 		auto it = m_findOffersByShop.find(dwOwnerID);
@@ -1013,7 +1015,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CAuctionCache::ExpiredAuction(DWORD dwOwnerID)
+	bool CAuctionCache::ExpiredAuction(uint64_t dwOwnerID)
 	{
 		// removing from cache
 		m_mapAuction.erase(dwOwnerID);
@@ -1034,8 +1036,8 @@ namespace ikashop
 		if(m_mapAuction.empty())
 			return false;
 
-		std::vector<DWORD> expired_auctions;
-		std::vector<DWORD> expired_items;
+		std::vector<uint64_t> expired_auctions;
+		std::vector<uint64_t> expired_items;
 
 		const time_t now = time(0);
 
@@ -1071,7 +1073,7 @@ namespace ikashop
 		CDBManager::instance().ReturnQuery(query.c_str(), QID_OFFLINESHOP_AUCTION_UPDATE_DURATION, 0 , NULL);
 	}
 
-	CAuctionCache::AUCTION_OFFER_HANDLE CAuctionCache::GetBestBuyerOffer(DWORD dwOwnerID)
+	CAuctionCache::AUCTION_OFFER_HANDLE CAuctionCache::GetBestBuyerOffer(uint64_t dwOwnerID)
 	{
 		// searching vector
 		auto it = m_mapAuctionOffer.find(dwOwnerID);
@@ -1084,7 +1086,7 @@ namespace ikashop
 		return itbest != offerlist.end() ? *itbest : nullptr;
 	}
 
-	CAuctionCache::AUCTION_HANDLE CAuctionCache::Get(DWORD dwOwnerID)
+	CAuctionCache::AUCTION_HANDLE CAuctionCache::Get(uint64_t dwOwnerID)
 	{
 		auto it = m_mapAuction.find(dwOwnerID);
 		if(it == m_mapAuction.end())
@@ -1092,7 +1094,7 @@ namespace ikashop
 		return it->second;
 	}
 
-	std::vector<CAuctionCache::AUCTION_OFFER_HANDLE> CAuctionCache::GetOffers(DWORD dwOwnerID)
+	std::vector<CAuctionCache::AUCTION_OFFER_HANDLE> CAuctionCache::GetOffers(uint64_t dwOwnerID)
 	{
 		auto it = m_mapAuctionOffer.find(dwOwnerID);
 		if(it == m_mapAuctionOffer.end())
@@ -1152,17 +1154,17 @@ namespace ikashop
 		return fmt::format("UPDATE `item` SET `ikashop_data`='{}' WHERE `id`={}", escape, item.id);
 	}
 
-	std::string CreateShopCacheDeleteShopQuery(DWORD dwOwner)
+	std::string CreateShopCacheDeleteShopQuery(uint64_t dwOwner)
 	{
 		return fmt::format("DELETE FROM `ikashop_offlineshop` WHERE `owner` = {}", dwOwner);
 	}
 
-	std::string CreateShopCacheDeleteShopItemQuery(DWORD dwOwner)
+	std::string CreateShopCacheDeleteShopItemQuery(uint64_t dwOwner)
 	{
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '' WHERE `window` = 'IKASHOP_OFFLINESHOP' AND `owner_id` = {}", dwOwner);
 	}
 
-	std::string CreateShopCacheInsertShopQuery(DWORD dwOwnerID, DWORD dwDuration, const char* name
+	std::string CreateShopCacheInsertShopQuery(uint64_t dwOwnerID, DWORD dwDuration, const char* name
 #ifdef ENABLE_IKASHOP_ENTITIES
 		, const TShopSpawn& spawn
 #endif
@@ -1188,17 +1190,17 @@ namespace ikashop
 		);
 	}
 
-	std::string CreateShopCacheUpdateDurationQuery(DWORD dwOwnerID, DWORD dwDuration)
+	std::string CreateShopCacheUpdateDurationQuery(uint64_t dwOwnerID, DWORD dwDuration)
 	{
 		return fmt::format("UPDATE `ikashop_offlineshop` SET `duration` = '{}' WHERE `owner` = {};", dwDuration, dwOwnerID);
 	}
 
-	std::string CreateSafeboxCacheDeleteItemQuery(DWORD dwItem)
+	std::string CreateSafeboxCacheDeleteItemQuery(uint64_t dwItem)
 	{
 		return fmt::format("DELETE FROM `item` WHERE `id` = {}", dwItem);
 	}
 
-	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] DWORD dwOwner, [[maybe_unused]] DWORD dwItemID, const TShopPlayerItem& item)
+	std::string CreateSafeboxCacheInsertItemQuery([[maybe_unused]] uint64_t dwOwner, [[maybe_unused]] uint64_t dwItemID, const TShopPlayerItem& item)
 	{
 		// making json value
 		rapidjson::Document jsonValue;
@@ -1222,27 +1224,27 @@ namespace ikashop
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '{}' WHERE `id` = {}", escape, item.id);
 	}
 
-	std::string CreateSafeboxCacheUpdateValutes(DWORD dwOwner, const TValutesInfo& val)
+	std::string CreateSafeboxCacheUpdateValutes(uint64_t dwOwner, const TValutesInfo& val)
 	{
 		return fmt::format("UPDATE `ikashop_safebox` SET `gold` = {} WHERE `owner` = {};", val.yang, dwOwner);
 	}
 
-	std::string CreateSafeboxCacheUpdateValutesByAdding(DWORD dwOwner, const TValutesInfo& val)
+	std::string CreateSafeboxCacheUpdateValutesByAdding(uint64_t dwOwner, const TValutesInfo& val)
 	{
 		return fmt::format("UPDATE `ikashop_safebox` SET `gold` = `gold`+{}  WHERE `owner` = {};", val.yang, dwOwner);
 	}
 
-	std::string CreateSafeboxCacheInsertSafeboxValutesQuery(DWORD dwOwnerID)
+	std::string CreateSafeboxCacheInsertSafeboxValutesQuery(uint64_t dwOwnerID)
 	{
 		return fmt::format("INSERT INTO `ikashop_safebox` (`owner`,`gold`,`cheque`) VALUES({} , 0,0);", dwOwnerID);
 	}
 
-	std::string CreateSafeboxCacheLoadValutesQuery(DWORD dwOwnerID)
+	std::string CreateSafeboxCacheLoadValutesQuery(uint64_t dwOwnerID)
 	{
 		return fmt::format("SELECT `gold` from `ikashop_safebox` WHERE `owner` = {};", dwOwnerID);
 	}
 
-	std::string CreateSafeboxCacheLoadItemsQuery(DWORD dwOwnerID)
+	std::string CreateSafeboxCacheLoadItemsQuery(uint64_t dwOwnerID)
 	{
 		std::string query = "SELECT `id`, `vnum`, `count` ";
 		for (int i = 0; i < ITEM_SOCKET_MAX_NUM; i++)
@@ -1272,27 +1274,27 @@ namespace ikashop
 				rOffer.ownerid, rOffer.buyerid, rOffer.itemid, rOffer.price.yang, rOffer.notified?1:0, rOffer.accepted?1:0, szEscapeString);
 	}
 
-	std::string CreateOfferCacheUpdateNotifiedQuery(DWORD dwOfferID)
+	std::string CreateOfferCacheUpdateNotifiedQuery(uint64_t dwOfferID)
 	{
 		return fmt::format("UPDATE `ikashop_private_offer` SET `notified` = 1 WHERE `id` = {};", dwOfferID);
 	}
 
-	std::string CreateOfferCacheUpdateAcceptedQuery(DWORD dwOfferID)
+	std::string CreateOfferCacheUpdateAcceptedQuery(uint64_t dwOfferID)
 	{
 		return fmt::format("DELETE FROM `ikashop_private_offer` WHERE `id` = {};", dwOfferID);
 	}
 
-	std::string CreateOfferCacheRemoveOfferByShopOwner(DWORD dwShopOwner)
+	std::string CreateOfferCacheRemoveOfferByShopOwner(uint64_t dwShopOwner)
 	{
 		return fmt::format("DELETE from `ikashop_private_offer`  WHERE `seller` = {};", dwShopOwner);
 	}
 
-	std::string CreateOfferCacheDeleteOfferQuery(DWORD dwOfferID)
+	std::string CreateOfferCacheDeleteOfferQuery(uint64_t dwOfferID)
 	{
 		return fmt::format("DELETE from `ikashop_private_offer`  WHERE `id` = {};", dwOfferID);
 	}
 
-	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] DWORD dwOwnerID, DWORD dwItemID)
+	std::string CreateShopCacheDeleteItemQuery([[maybe_unused]] uint64_t dwOwnerID, uint64_t dwItemID)
 	{
 		return fmt::format("UPDATE `item` SET `ikashop_data` = '' WHERE `id` = {}", dwItemID);
 	}
@@ -1337,7 +1339,7 @@ namespace ikashop
 			auctionOffer.ownerid, auctionOffer.buyerid, szEscapeName, auctionOffer.price.yang);
 	}
 
-	std::string CreateAuctionCacheDeleteAuctionOffers(DWORD dwOwnerID)
+	std::string CreateAuctionCacheDeleteAuctionOffers(uint64_t dwOwnerID)
 	{
 		return fmt::format("DELETE FROM `ikashop_auction_offer` WHERE `seller` = {};", dwOwnerID);
 	}
@@ -1350,6 +1352,3 @@ namespace ikashop
 
 
 #endif
-
-
-

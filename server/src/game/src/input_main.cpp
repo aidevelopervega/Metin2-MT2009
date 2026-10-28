@@ -359,7 +359,7 @@ int CInputMain::Whisper(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 	LPDESC pkDesc = NULL;
 	BYTE bOpponentEmpire = 0;
-	DWORD bOpponentPID = 0;
+	uint64_t bOpponentPID = 0;
 
 	if (test_server)
 	{
@@ -2404,9 +2404,9 @@ void CInputMain::SafeboxCheckout(LPCHARACTER ch, const char * c_pData, bool bMal
 		ITEM_MANAGER::instance().FlushDelayedSave(pkItem);
 	}
 
-	DWORD dwID = pkItem->GetID();
-	db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_FLUSH, 0, sizeof(DWORD));
-	db_clientdesc->Packet(&dwID, sizeof(DWORD));
+	uint64_t dwID = pkItem->GetID();
+	db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_FLUSH, 0, sizeof(uint64_t));
+	db_clientdesc->Packet(&dwID, sizeof(uint64_t));
 
 	char szHint[128];
 	snprintf(szHint, sizeof(szHint), "%s %u", pkItem->GetName(), static_cast<unsigned int>(pkItem->GetCount()));
@@ -2517,8 +2517,8 @@ void CInputMain::PartySetState(LPCHARACTER ch, const char* c_pData)
 		return;
 	}
 
-	DWORD pid = p->pid;
-	sys_log(0, "PARTY SetRole pid %d to role %d state %s", pid, p->byRole, p->flag ? "on" : "off");
+	uint64_t pid = p->pid;
+	sys_log(0, "PARTY SetRole pid %llu to role %d state %s", static_cast<unsigned long long>(pid), p->byRole, p->flag ? "on" : "off");
 
 	switch (p->byRole)
 	{
@@ -2700,7 +2700,7 @@ void CInputMain::AnswerMakeGuild(LPCHARACTER ch, const char* c_pData)
 		return;
 	}
 
-	DWORD dwGuildID = gm.CreateGuild(cp);
+	uint64_t dwGuildID = gm.CreateGuild(cp);
 	if (dwGuildID)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] [%s] guild has been created."), cp.name);
@@ -2766,7 +2766,7 @@ size_t GetSubPacketSize(const GUILD_SUBHEADER_CG& header)
 		case GUILD_SUBHEADER_CG_DEPOSIT_MONEY:				return sizeof(YANG);
 		case GUILD_SUBHEADER_CG_WITHDRAW_MONEY:				return sizeof(YANG);
 		case GUILD_SUBHEADER_CG_ADD_MEMBER:					return sizeof(DWORD);
-		case GUILD_SUBHEADER_CG_REMOVE_MEMBER:				return sizeof(DWORD);
+		case GUILD_SUBHEADER_CG_REMOVE_MEMBER:				return sizeof(uint64_t);
 		case GUILD_SUBHEADER_CG_CHANGE_GRADE_NAME:			return 10;
 		case GUILD_SUBHEADER_CG_CHANGE_GRADE_AUTHORITY:		return sizeof(BYTE) + sizeof(BYTE);
 		case GUILD_SUBHEADER_CG_OFFER:						return sizeof(DWORD);
@@ -2774,10 +2774,10 @@ size_t GetSubPacketSize(const GUILD_SUBHEADER_CG& header)
 		case GUILD_SUBHEADER_CG_POST_COMMENT:				return 1;
 		case GUILD_SUBHEADER_CG_DELETE_COMMENT:				return sizeof(DWORD);
 		case GUILD_SUBHEADER_CG_REFRESH_COMMENT:			return 0;
-		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GRADE:		return sizeof(DWORD) + sizeof(BYTE);
+		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GRADE:		return sizeof(uint64_t) + sizeof(BYTE);
 		case GUILD_SUBHEADER_CG_USE_SKILL:					return sizeof(TPacketCGGuildUseSkill);
-		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GENERAL:		return sizeof(DWORD) + sizeof(BYTE);
-		case GUILD_SUBHEADER_CG_GUILD_INVITE_ANSWER:		return sizeof(DWORD) + sizeof(BYTE);
+		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GENERAL:		return sizeof(uint64_t) + sizeof(BYTE);
+		case GUILD_SUBHEADER_CG_GUILD_INVITE_ANSWER:		return sizeof(uint64_t) + sizeof(BYTE);
 	}
 
 	return 0;
@@ -2885,7 +2885,7 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 					return SubPacketLen;
 				}
 
-				const DWORD pid = *reinterpret_cast<const DWORD*>(c_pData);
+				const uint64_t pid = *reinterpret_cast<const uint64_t*>(c_pData);
 				const TGuildMember* m = pGuild->GetMember(ch->GetPlayerID());
 
 				if (NULL == m)
@@ -2912,7 +2912,7 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 					if (g_bGuildInviteLimit)
 					{
-						DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%u, %lld)", static_cast<unsigned int>(pGuild->GetID()), static_cast<long long>(get_global_time()));
+						DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%llu, %lld)", static_cast<unsigned long long>(pGuild->GetID()), static_cast<long long>(get_global_time()));
 					}
 				}
 				else
@@ -3077,8 +3077,8 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GRADE:
 			{
-				const DWORD pid = *reinterpret_cast<const DWORD*>(c_pData);
-				const BYTE grade = *(c_pData + sizeof(DWORD));
+				const uint64_t pid = *reinterpret_cast<const uint64_t*>(c_pData);
+				const BYTE grade = *(c_pData + sizeof(uint64_t));
 				const TGuildMember* m = pGuild->GetMember(ch->GetPlayerID());
 
 				if (NULL == m)
@@ -3105,8 +3105,8 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 		case GUILD_SUBHEADER_CG_CHANGE_MEMBER_GENERAL:
 			{
-				const DWORD pid = *reinterpret_cast<const DWORD*>(c_pData);
-				const BYTE is_general = *(c_pData + sizeof(DWORD));
+				const uint64_t pid = *reinterpret_cast<const uint64_t*>(c_pData);
+				const BYTE is_general = *(c_pData + sizeof(uint64_t));
 				const TGuildMember* m = pGuild->GetMember(ch->GetPlayerID());
 
 				if (NULL == m)
@@ -3128,8 +3128,8 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 
 		case GUILD_SUBHEADER_CG_GUILD_INVITE_ANSWER:
 			{
-				const DWORD guild_id = *reinterpret_cast<const DWORD*>(c_pData);
-				const BYTE accept = *(c_pData + sizeof(DWORD));
+				const uint64_t guild_id = *reinterpret_cast<const uint64_t*>(c_pData);
+				const BYTE accept = *(c_pData + sizeof(uint64_t));
 
 				CGuild * g = CGuildManager::instance().FindGuild(guild_id);
 
@@ -4248,4 +4248,3 @@ int CInputDead::Analyze(LPDESC d, BYTE bHeader, const char * c_pData)
 
 	return (iExtraLen);
 }
-

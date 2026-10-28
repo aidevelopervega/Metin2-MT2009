@@ -201,7 +201,7 @@ std::unique_ptr<SQLMsg> CDBManager::DirectQuery(const char * c_pszQuery, int iSl
 extern CPacketInfo g_query_info;
 extern int g_query_count[2];
 
-void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, IDENT dwIdent, void * udata, int iSlot)
+void CDBManager::ReturnQuery(const char * c_pszQuery, int iType, uint64_t dwIdent, void * udata, int iSlot)
 {
 	assert(iSlot < SQL_MAX_NUM);
 	if (!c_pszQuery || !*c_pszQuery || iSlot < 0 || iSlot >= SQL_MAX_NUM || !m_mainSQL[iSlot])
@@ -283,4 +283,3 @@ void CDBManager::QueryLocaleSet()
 			m_asyncSQL[n]->QueryLocaleSet();
 	}
 }
-

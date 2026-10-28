@@ -39,7 +39,7 @@ namespace quest
 	{
 		CQuestManager& q = CQuestManager::instance();
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
-		DWORD dwMyGuild = 0;
+		uint64_t dwMyGuild = 0;
 		if (ch->GetGuild())
 			dwMyGuild = ch->GetGuild()->GetID();
 
@@ -90,7 +90,7 @@ namespace quest
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 
-		if (ch->GetGuild() && ch->GetGuild()->UnderWar((DWORD) lua_tonumber(L, 1)))
+		if (ch->GetGuild() && ch->GetGuild()->UnderWar(m2_lua_touint64(L, 1)))
 			lua_pushboolean(L, true);
 		else
 			lua_pushboolean(L, false);
@@ -106,7 +106,7 @@ namespace quest
 			return 0;
 		}
 
-		CGuild * pkGuild = CGuildManager::instance().FindGuild((DWORD) lua_tonumber(L, 1));
+		CGuild * pkGuild = CGuildManager::instance().FindGuild(m2_lua_touint64(L, 1));
 
 		if (pkGuild)
 			lua_pushstring(L, pkGuild->GetName());
@@ -120,7 +120,7 @@ namespace quest
 	{
 		luaL_checknumber(L, 1);
 
-		CGuild * pkGuild = CGuildManager::instance().FindGuild((DWORD) lua_tonumber(L, 1));
+		CGuild * pkGuild = CGuildManager::instance().FindGuild(m2_lua_touint64(L, 1));
 
 		if (pkGuild)
 			lua_pushnumber(L, pkGuild->GetLevel());
@@ -142,7 +142,7 @@ namespace quest
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 
 		if (ch->GetGuild())
-			ch->GetGuild()->GuildWarEntryAccept((DWORD) lua_tonumber(L, 1), ch);
+			ch->GetGuild()->GuildWarEntryAccept(m2_lua_touint64(L, 1), ch);
 
 		return 0;
 	}
@@ -152,9 +152,9 @@ namespace quest
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 
 		if (ch->GetGuild())
-			lua_pushnumber(L, ch->GetGuild()->UnderAnyWar());
+			m2_lua_pushuint64(L, ch->GetGuild()->UnderAnyWar());
 		else
-			lua_pushnumber(L, 0);
+			m2_lua_pushuint64(L, 0);
 
 		return 1;
 	}
@@ -167,7 +167,7 @@ namespace quest
 			return 1;
 		}
 
-		CGuild * pkGuild = CGuildManager::instance().FindGuild((DWORD) lua_tonumber(L, 1));
+		CGuild * pkGuild = CGuildManager::instance().FindGuild(m2_lua_touint64(L, 1));
 
 		if (pkGuild)
 			lua_pushstring(L, pkGuild->GetName());
@@ -193,7 +193,7 @@ namespace quest
 
 		p.dwWarID = (DWORD) lua_tonumber(L, 1);
 		strlcpy(p.szLogin, ch->GetDesc()->GetAccountTable().login, sizeof(p.szLogin));
-		p.dwGuild = (DWORD) lua_tonumber(L, 2);
+		p.dwGuild = m2_lua_touint64(L, 2);
 		p.dwGold = (YANG) lua_tonumber(L, 3);
 
 		if (p.dwGold <= 0 || p.dwGold >= GOLD_MAX)
@@ -202,8 +202,8 @@ namespace quest
 			return 0;
 		}
 
-		sys_log(0, "GUILD_WAR_BET: %s login %s war_id %u guild %u gold %lld",
-				ch->GetName(), p.szLogin, p.dwWarID, p.dwGuild, p.dwGold);
+		sys_log(0, "GUILD_WAR_BET: %s login %s war_id %u guild %llu gold %lld",
+				ch->GetName(), p.szLogin, p.dwWarID, static_cast<unsigned long long>(p.dwGuild), p.dwGold);
 
 		db_clientdesc->DBPacket(HEADER_GD_GUILD_WAR_BET, 0, &p, sizeof(p));
 		return 0;
@@ -253,7 +253,7 @@ namespace quest
 
 			lua_newtable(L);
 
-			sys_log(0, "con.size(): %u %u %u handi %d", p->dwID, p->dwGuildFrom, p->dwGuildTo, p->lHandicap);
+			sys_log(0, "con.size(): %u %llu %llu handi %d", p->dwID, static_cast<unsigned long long>(p->dwGuildFrom), static_cast<unsigned long long>(p->dwGuildTo), p->lHandicap);
 
 			// stack : table1 table2
 			lua_pushnumber(L, p->dwID);
@@ -262,17 +262,17 @@ namespace quest
 
 			// stack : table1 table2
 			if (p->lPowerFrom > p->lPowerTo)
-				lua_pushnumber(L, p->dwGuildFrom);
+				m2_lua_pushuint64(L, p->dwGuildFrom);
 			else
-				lua_pushnumber(L, p->dwGuildTo);
+				m2_lua_pushuint64(L, p->dwGuildTo);
 			// stack : table1 table2 guildfrom
 			lua_rawseti(L, -2, 2);
 
 			// stack : table1 table2
 			if (p->lPowerFrom > p->lPowerTo)
-				lua_pushnumber(L, p->dwGuildTo);
+				m2_lua_pushuint64(L, p->dwGuildTo);
 			else
-				lua_pushnumber(L, p->dwGuildFrom);
+				m2_lua_pushuint64(L, p->dwGuildFrom);
 			// stack : table1 table2 guildto
 			lua_rawseti(L, -2, 3);
 
@@ -427,7 +427,7 @@ namespace quest
 
 		CGuild* pGuild = ch->GetGuild();
 
-		lua_pushnumber(L, (pGuild!=NULL)?pGuild->GetID():0);
+		m2_lua_pushuint64(L, (pGuild!=NULL)?pGuild->GetID():0);
 		return 1;
 	}
 
@@ -726,4 +726,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("guild", guild_functions);
 	}
 }
-

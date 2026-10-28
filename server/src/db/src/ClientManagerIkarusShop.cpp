@@ -10,7 +10,7 @@
 #include "ClientManager.h"
 
 
-std::string CreateIkarusShopSelectShopItemsQuery(DWORD owner=0);
+std::string CreateIkarusShopSelectShopItemsQuery(uint64_t owner=0);
 std::string CreateIkarusShopSelectAuctionsQuery();
 
 template <class T>
@@ -21,7 +21,7 @@ const T& Decode(const char*& data){
 }
 
 
-bool CClientManager::InitializeIkarusShopTable([[maybe_unused]] DWORD owner)
+bool CClientManager::InitializeIkarusShopTable([[maybe_unused]] uint64_t owner)
 {
 	if(!InitializeIkarusShopShopTable())
 		return false;
@@ -40,7 +40,7 @@ bool CClientManager::InitializeIkarusShopTable([[maybe_unused]] DWORD owner)
 	return true;
 }
 
-bool CClientManager::InitializeIkarusShopShopTable(DWORD owner)
+bool CClientManager::InitializeIkarusShopShopTable(uint64_t owner)
 {
 	// executing select query on shops table
 	auto msg = CDBManager::instance().DirectQuery("SELECT s.`owner` , s.`duration`, s.`name`, p.`name`"
@@ -87,13 +87,13 @@ bool CClientManager::InitializeIkarusShopShopTable(DWORD owner)
 #endif
 			, unlockCount, isPremium
 		))
-			sys_err("cannot execute putsShop -> double shop id?! %u ", owner);
+			sys_err("cannot execute putsShop -> double shop id?! %llu ", static_cast<unsigned long long>(owner));
 	}
 
 	return true;
 }
 
-bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
+bool CClientManager::InitializeIkarusShopShopItemsTable(uint64_t owner)
 {
 	// executing query selecting items on window IKASHOP_OFFLINESHOP
 	std::string query = CreateIkarusShopSelectShopItemsQuery(owner);
@@ -134,7 +134,8 @@ bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
 		std::string jsonStr = row[col++];
 		auto jsonOptional = str_to_json(jsonStr.c_str());
 		if (!jsonOptional) {
-			sys_err("INVALID JSON ON SHOP ITEM %d (owner %d)  json value (%s)", item.id, item.owner, jsonStr.c_str());
+			sys_err("INVALID JSON ON SHOP ITEM %llu (owner %llu)  json value (%s)",
+					static_cast<unsigned long long>(item.id), static_cast<unsigned long long>(item.owner), jsonStr.c_str());
 			continue;
 		}
 
@@ -143,7 +144,8 @@ bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
 		// fetching price yang
 		auto priceYang = jsonHelper::getValue<int64_t>(json, "yang");
 		if (!priceYang) {
-			sys_err("INVALID JSON ON SHOP ITEM %d (owner %d) CANNOT EXTRACT PRICE YANG   json value (%s)", item.id, item.owner, jsonStr.c_str());
+			sys_err("INVALID JSON ON SHOP ITEM %llu (owner %llu) CANNOT EXTRACT PRICE YANG   json value (%s)",
+					static_cast<unsigned long long>(item.id), static_cast<unsigned long long>(item.owner), jsonStr.c_str());
 			continue;
 		}
 		item.price.yang = *priceYang;
@@ -152,7 +154,8 @@ bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
 #ifdef ENABLE_CHEQUE_SYSTEM
 		auto priceCheque = jsonHelper::getValue<int>(json, "cheque");
 		if (!priceCheque) {
-			sys_err("INVALID JSON ON SHOP ITEM %d (owner %d) CANNOT EXTRACT PRICE CHEQUE   json value (%s)", item.id, item.owner, jsonStr.c_str());
+			sys_err("INVALID JSON ON SHOP ITEM %llu (owner %llu) CANNOT EXTRACT PRICE CHEQUE   json value (%s)",
+					static_cast<unsigned long long>(item.id), static_cast<unsigned long long>(item.owner), jsonStr.c_str());
 			continue;
 		}
 		item.price.cheque = *priceCheque;
@@ -172,7 +175,8 @@ bool CClientManager::InitializeIkarusShopShopItemsTable(DWORD owner)
 				continue; 
 
 			if (!m_offlineshopShopCache.PutItem(item.owner, item.id, item/*, isSold*/))
-				sys_err("cannot execute putitem !? owner %d , item %d", item.owner, item.id);
+				sys_err("cannot execute putitem !? owner %llu , item %llu",
+						static_cast<unsigned long long>(item.owner), static_cast<unsigned long long>(item.id));
 		}
 		
 	}
@@ -254,7 +258,8 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 		str_to_cstring(info.ownername, row[col++]);
 
 		if(!jsonResult){
-			sys_err("FAILED FETCH JSON AUCTION : pid(%d) item(%d) playername(%s)", info.owner, info.id, info.ownername);
+			sys_err("FAILED FETCH JSON AUCTION : pid(%llu) item(%llu) playername(%s)",
+					static_cast<unsigned long long>(info.owner), static_cast<unsigned long long>(info.id), info.ownername);
 			continue;
 		}
 
@@ -264,7 +269,8 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 		// fetching json duration
 		auto extractedDuration = jsonHelper::getValue<int>(jsonValue, "duration");
 		if(!extractedDuration){
-			sys_err("FAILED FETCH JSON AUCTION DURATION : pid(%d) item(%d) playername(%s)", info.owner, info.id, info.ownername);
+			sys_err("FAILED FETCH JSON AUCTION DURATION : pid(%llu) item(%llu) playername(%s)",
+					static_cast<unsigned long long>(info.owner), static_cast<unsigned long long>(info.id), info.ownername);
 			continue;
 		}
 		info.duration = static_cast<DWORD>(*extractedDuration);
@@ -272,7 +278,8 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 		// fetching json starting price
 		auto extractedPrice = jsonHelper::getValue<int64_t>(jsonValue, "price");
 		if(!extractedPrice){
-			sys_err("FAILED FETCH JSON AUCTION STARTING PRICE : pid(%d) item(%d) playername(%s)", info.owner, info.id, info.ownername);
+			sys_err("FAILED FETCH JSON AUCTION STARTING PRICE : pid(%llu) item(%llu) playername(%s)",
+					static_cast<unsigned long long>(info.owner), static_cast<unsigned long long>(info.id), info.ownername);
 			continue;
 		}
 		info.price.yang = *extractedPrice;
@@ -280,7 +287,8 @@ bool CClientManager::InitializeIkarusShopAuctionTable()
 		// fetching json expiration
 		auto extractedExpiration = jsonHelper::getValue<int>(jsonValue, "expiration");
 		if (!extractedExpiration) {
-			sys_err("FAILED FETCH JSON AUCTION EXPIRATION : pid(%d) item(%d) playername(%s)", info.owner, info.id, info.ownername);
+			sys_err("FAILED FETCH JSON AUCTION EXPIRATION : pid(%llu) item(%llu) playername(%s)",
+					static_cast<unsigned long long>(info.owner), static_cast<unsigned long long>(info.id), info.ownername);
 			continue;
 		}
 		info.expiration = static_cast<ikashop::ExpirationType>(*extractedExpiration);
@@ -478,7 +486,10 @@ bool CClientManager::RecvIkarusShopLockBuyItem(CPeer* peer, const char* data)
 	auto shop = m_offlineshopShopCache.Get(subpack.ownerid);
 	if(!shop)
 	{
-		sys_err("cannot find buy target item %u (owner %u , buyer %u) ", subpack.itemid, subpack.ownerid, subpack.guestid);
+		sys_err("cannot find buy target item %llu (owner %llu , buyer %llu) ",
+				static_cast<unsigned long long>(subpack.itemid),
+				static_cast<unsigned long long>(subpack.ownerid),
+				static_cast<unsigned long long>(subpack.guestid));
 		return false;
 	}
 
@@ -486,7 +497,10 @@ bool CClientManager::RecvIkarusShopLockBuyItem(CPeer* peer, const char* data)
 	auto itemIter = shop->itemsmap.find(subpack.itemid);
 	if(itemIter == shop->itemsmap.end())
 	{
-		sys_err("cannot find buy target item %u (owner %u , buyer %u) ", subpack.itemid, subpack.ownerid, subpack.guestid);
+		sys_err("cannot find buy target item %llu (owner %llu , buyer %llu) ",
+				static_cast<unsigned long long>(subpack.itemid),
+				static_cast<unsigned long long>(subpack.ownerid),
+				static_cast<unsigned long long>(subpack.guestid));
 		return false;
 	}
 
@@ -514,7 +528,10 @@ bool CClientManager::RecvIkarusShopLockBuyItem(CPeer* peer, const char* data)
 	}
 
 	else
-		sys_err("cannot find buy target item %u (owner %u , buyer %u) ", subpack.itemid, subpack.ownerid, subpack.guestid);
+		sys_err("cannot find buy target item %llu (owner %llu , buyer %llu) ",
+				static_cast<unsigned long long>(subpack.itemid),
+				static_cast<unsigned long long>(subpack.ownerid),
+				static_cast<unsigned long long>(subpack.guestid));
 	return true;
 }
 
@@ -522,8 +539,8 @@ bool CClientManager::RecvIkarusShopBuyItemPacket(CPeer* peer, const char* data)
 {
 	const auto& subpack = Decode<ikashop::TSubPacketGDBuyItem>(data);
 
-	DWORD dwOwner = subpack.ownerid;
-	DWORD dwItem  = subpack.itemid;
+	uint64_t dwOwner = subpack.ownerid;
+	uint64_t dwItem  = subpack.itemid;
 	bool success = subpack.success;	
 	int tax_pct = MINMAX(0,subpack.tax,99);
 
@@ -568,7 +585,7 @@ bool CClientManager::RecvIkarusShopBuyItemPacket(CPeer* peer, const char* data)
 #endif
 
 	if(!m_offlineshopShopCache.SellItem(dwOwner, dwItem))
-		sys_err("some problem with sell : %u %u ",dwOwner, dwItem);
+		sys_err("some problem with sell : %llu %llu ", static_cast<unsigned long long>(dwOwner), static_cast<unsigned long long>(dwItem));
 
 	return true;
 }
@@ -590,7 +607,8 @@ bool CClientManager::RecvIkarusShopEditItemPacket(const char* data)
 	}
 
 	else
-		sys_err("cannot edit item %u , shop %u ",subpack.itemid , subpack.ownerid);
+		sys_err("cannot edit item %llu , shop %llu ",
+				static_cast<unsigned long long>(subpack.itemid), static_cast<unsigned long long>(subpack.ownerid));
 	return true;
 }
 
@@ -604,7 +622,8 @@ bool CClientManager::RecvIkarusShopRemoveItemPacket(CPeer* peer, const char* dat
 	if (!shopCache)
 	{
 #ifdef DEBUG_REMOVE_ITEM_PACKET
-		sys_log(0, "DEBUG_REMOVE_ITEM_PACKET: NO SHOP CACHE owner %d itemid %d ", subpack.ownerid, subpack.itemid);
+		sys_log(0, "DEBUG_REMOVE_ITEM_PACKET: NO SHOP CACHE owner %llu itemid %llu ",
+				static_cast<unsigned long long>(subpack.ownerid), static_cast<unsigned long long>(subpack.itemid));
 #endif
 		return false;
 	}
@@ -614,7 +633,8 @@ bool CClientManager::RecvIkarusShopRemoveItemPacket(CPeer* peer, const char* dat
 	if (it == shopCache->itemsmap.end())
 	{
 #ifdef DEBUG_REMOVE_ITEM_PACKET
-		sys_log(0, "DEBUG_REMOVE_ITEM_PACKET: NO ITEM CACHE owner %d itemid %d ", subpack.ownerid, subpack.itemid);
+		sys_log(0, "DEBUG_REMOVE_ITEM_PACKET: NO ITEM CACHE owner %llu itemid %llu ",
+				static_cast<unsigned long long>(subpack.ownerid), static_cast<unsigned long long>(subpack.itemid));
 #endif
 		return false;
 	}
@@ -636,7 +656,8 @@ bool CClientManager::RecvIkarusShopRemoveItemPacket(CPeer* peer, const char* dat
 		SendIkarusShopRemoveItemPacket(subpack.ownerid, subpack.itemid, peer);
 
 	else
-		sys_err("cannot remove item %u shop %u item ?!", subpack.ownerid, subpack.itemid);
+		sys_err("cannot remove item %llu shop %llu item ?!",
+				static_cast<unsigned long long>(subpack.ownerid), static_cast<unsigned long long>(subpack.itemid));
 
 	return true;
 }
@@ -691,7 +712,8 @@ bool CClientManager::RecvIkarusShopForceHardClose([[maybe_unused]] CPeer* peer, 
 #ifdef ENABLE_MT2009_DISABLE_IKASHOP_DEFAULT_SAFEBOX
 	if (shopCache->itemsmap.size() > 0)
 	{
-		sys_err("HARD CLOSE OFFLINESHOP WITH ITEM COUNT > 0 (%d) owner %d ", shopCache->itemsmap.size(), subpack.ownerid);
+		sys_err("HARD CLOSE OFFLINESHOP WITH ITEM COUNT > 0 (%zu) owner %llu ",
+				shopCache->itemsmap.size(), static_cast<unsigned long long>(subpack.ownerid));
 		return false;
 	}
 #else
@@ -745,7 +767,8 @@ bool CClientManager::RecvIkarusShopChangeName(const char* data)
 		auto msg = CDBManager::instance().DirectQuery(query.c_str());
 		if (!msg || !msg->Get() || msg->uiSQLErrno != 0)
 		{
-			sys_err("CANNOT UPDATE SHOP NAME, SKIPPING: Owner (%u) name %s ", subpack.ownerid, subpack.name);
+			sys_err("CANNOT UPDATE SHOP NAME, SKIPPING: Owner (%llu) name %s ",
+					static_cast<unsigned long long>(subpack.ownerid), subpack.name);
 			return false;
 		}
 
@@ -834,7 +857,10 @@ bool CClientManager::RecvIkarusShopOfferAccepted(const char* data)
 	auto item = m_offlineshopShopCache.GetItem(offerCache->ownerid, offerCache->itemid);
 	if(!item)
 	{
-		sys_err("cannot find shop item shop(%u), item(%u), offer(%u) ", offerCache->ownerid, offerCache->itemid, subpack.offerid);
+		sys_err("cannot find shop item shop(%llu), item(%llu), offer(%llu) ",
+				static_cast<unsigned long long>(offerCache->ownerid),
+				static_cast<unsigned long long>(offerCache->itemid),
+				static_cast<unsigned long long>(subpack.offerid));
 		return false;
 	}
 
@@ -844,7 +870,10 @@ bool CClientManager::RecvIkarusShopOfferAccepted(const char* data)
 
 	// editing shop price
 	if (!m_offlineshopShopCache.EditItem(offerCache->ownerid, offerCache->itemid, offerCache->price)) {
-		sys_err("cannot edit shop item shop(%u), item(%u), offer(%u) ", offerCache->ownerid, offerCache->itemid, subpack.offerid);
+		sys_err("cannot edit shop item shop(%llu), item(%llu), offer(%llu) ",
+				static_cast<unsigned long long>(offerCache->ownerid),
+				static_cast<unsigned long long>(offerCache->itemid),
+				static_cast<unsigned long long>(subpack.offerid));
 		return false;
 	}
 
@@ -867,7 +896,9 @@ bool CClientManager::RecvIkarusShopOfferAccepted(const char* data)
 
 	// selling item
 	if (!m_offlineshopShopCache.SellItem(offerCache->ownerid, offerCache->itemid, false))
-		sys_err("cannot sell item %u, shop %u ", offerCache->itemid, offerCache->ownerid);
+		sys_err("cannot sell item %llu, shop %llu ",
+				static_cast<unsigned long long>(offerCache->itemid),
+				static_cast<unsigned long long>(offerCache->ownerid));
 
 	m_offlineshopSafeboxCache.AddItem(offerCache->buyerid, item->id, *item);
 
@@ -998,7 +1029,8 @@ bool CClientManager::RecvIkarusShopAuctionCreate(const char* data)
 		SendIkarusShopAuctionCreate(subpack.auction);
 	}
 	else
-		sys_err("cannot create auction: %u , %u , %s ",subpack.auction.owner , subpack.auction.duration, subpack.auction.ownername);
+		sys_err("cannot create auction: %llu , %u , %s ",
+				static_cast<unsigned long long>(subpack.auction.owner), subpack.auction.duration, subpack.auction.ownername);
 
 	return true;
 }
@@ -1067,7 +1099,7 @@ bool CClientManager::RecvIkarusShopAuctionAddOffer(const char* data)
 
 bool CClientManager::RecvIkarusShopAuctionCancel(const char* data)
 {
-	const auto& ownerid = Decode<DWORD>(data);
+	const auto& ownerid = Decode<uint64_t>(data);
 	// checking auction does exists and has no offers
 	auto auction = m_offlineshopAuctionCache.Get(ownerid);
 	if(auction && m_offlineshopAuctionCache.GetOffers(ownerid).empty()){
@@ -1132,7 +1164,7 @@ bool CClientManager::RecvIkarusShopNotificationSeen(const char* data)
 
 bool CClientManager::RecvIkarusShopRestoreDuration(const char* data)
 {
-	const auto& owner = Decode<DWORD>(data);
+	const auto& owner = Decode<uint64_t>(data);
 	auto shop = m_offlineshopShopCache.Get(owner);
 	if(!shop 
 		|| shop->duration != 0
@@ -1158,7 +1190,7 @@ bool CClientManager::RecvIkarusShopRestoreDuration(const char* data)
 	{
 		if(peer->GetChannel() != 0)
 		{
-			peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, sizeof(pack) + sizeof(DWORD));
+			peer->EncodeHeader(HEADER_DG_NEW_OFFLINESHOP, 0, sizeof(pack) + sizeof(uint64_t));
 			peer->Encode(pack);
 			peer->Encode(owner);
 		}
@@ -1288,7 +1320,7 @@ bool CClientManager::RecvIkarusShopLoadExpiredShop(const char* data)
 }
 
 
-bool CClientManager::SendIkarusShopBuyLockedItemPacket(CPeer* peer, DWORD dwOwner, DWORD dwGuest, DWORD dwItem)
+bool CClientManager::SendIkarusShopBuyLockedItemPacket(CPeer* peer, uint64_t dwOwner, uint64_t dwGuest, uint64_t dwItem)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_LOCKED_BUY_ITEM;
@@ -1306,7 +1338,7 @@ bool CClientManager::SendIkarusShopBuyLockedItemPacket(CPeer* peer, DWORD dwOwne
 	return true;
 }
 
-bool CClientManager::SendIkarusShopBuyItemPacket(DWORD dwOwner, DWORD dwGuest, DWORD dwItem, CPeer* requester)
+bool CClientManager::SendIkarusShopBuyItemPacket(uint64_t dwOwner, uint64_t dwGuest, uint64_t dwItem, CPeer* requester)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_BUY_ITEM;
@@ -1331,7 +1363,7 @@ bool CClientManager::SendIkarusShopBuyItemPacket(DWORD dwOwner, DWORD dwGuest, D
 	return true;
 }
 
-bool CClientManager::SendIkarusShopEditItemPacket(DWORD dwOwner, DWORD dwItem, const ikashop::TPriceInfo& price)
+bool CClientManager::SendIkarusShopEditItemPacket(uint64_t dwOwner, uint64_t dwItem, const ikashop::TPriceInfo& price)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_EDIT_ITEM;
@@ -1355,7 +1387,7 @@ bool CClientManager::SendIkarusShopEditItemPacket(DWORD dwOwner, DWORD dwItem, c
 	return true;
 }
 
-bool CClientManager::SendIkarusShopRemoveItemPacket(DWORD dwOwner, DWORD dwItem, CPeer* requester)
+bool CClientManager::SendIkarusShopRemoveItemPacket(uint64_t dwOwner, uint64_t dwItem, CPeer* requester)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_REMOVE_ITEM;
@@ -1379,7 +1411,7 @@ bool CClientManager::SendIkarusShopRemoveItemPacket(DWORD dwOwner, DWORD dwItem,
 	return true;
 }
 
-bool CClientManager::SendIkarusShopAddItemPacket(DWORD dwOwner, DWORD dwItemID, const ikashop::TShopItem& rInfo)
+bool CClientManager::SendIkarusShopAddItemPacket(uint64_t dwOwner, uint64_t dwItemID, const ikashop::TShopItem& rInfo)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_ADD_ITEM;
@@ -1401,7 +1433,7 @@ bool CClientManager::SendIkarusShopAddItemPacket(DWORD dwOwner, DWORD dwItemID, 
 	return true;
 }
 
-bool CClientManager::SendIkarusShopForceClose(DWORD dwOwnerID)
+bool CClientManager::SendIkarusShopForceClose(uint64_t dwOwnerID)
 {
 	TPacketDGNewIkarusShop pack{};
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_SHOP_FORCE_CLOSE;
@@ -1442,7 +1474,7 @@ bool CClientManager::SendIkarusShopCreateNew(const ikashop::TShopInfo& shop, con
 	return true;
 }
 
-bool CClientManager::SendIkarusShopChangeName(DWORD dwOwnerID, const char* szName)
+bool CClientManager::SendIkarusShopChangeName(uint64_t dwOwnerID, const char* szName)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_SHOP_CHANGE_NAME;
@@ -1464,7 +1496,7 @@ bool CClientManager::SendIkarusShopChangeName(DWORD dwOwnerID, const char* szNam
 	return true;
 }
 
-bool CClientManager::SendIkarusShopShopExpired(DWORD dwOwnerID)
+bool CClientManager::SendIkarusShopShopExpired(uint64_t dwOwnerID)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_SHOP_EXPIRED;
@@ -1507,7 +1539,7 @@ bool CClientManager::SendIkarusShopOfferCreate(const ikashop::TOfferInfo& offer)
 	return true;
 }
 
-bool CClientManager::SendIkarusShopOfferNotified(DWORD dwOwnerID, DWORD dwOfferID)
+bool CClientManager::SendIkarusShopOfferNotified(uint64_t dwOwnerID, uint64_t dwOfferID)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_OFFER_NOTIFIED;
@@ -1529,7 +1561,7 @@ bool CClientManager::SendIkarusShopOfferNotified(DWORD dwOwnerID, DWORD dwOfferI
 	return true;
 }
 
-bool CClientManager::SendIkarusShopOfferAccepted(DWORD dwOwnerID, DWORD dwOfferID)
+bool CClientManager::SendIkarusShopOfferAccepted(uint64_t dwOwnerID, uint64_t dwOfferID)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_OFFER_ACCEPT;
@@ -1551,7 +1583,7 @@ bool CClientManager::SendIkarusShopOfferAccepted(DWORD dwOwnerID, DWORD dwOfferI
 }
 
 //ikashop-updated 05/08/19
-void CClientManager::SendIkarusShopOfferCancel(DWORD dwOwnerID, DWORD dwOfferID, bool isRemovingItem)
+void CClientManager::SendIkarusShopOfferCancel(uint64_t dwOwnerID, uint64_t dwOfferID, bool isRemovingItem)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_OFFER_CANCEL;
@@ -1574,7 +1606,7 @@ void CClientManager::SendIkarusShopOfferCancel(DWORD dwOwnerID, DWORD dwOfferID,
 	
 }
 
-void CClientManager::SendIkarusShopSafeboxAddItem(DWORD dwOwnerID, DWORD dwItem, const ikashop::TShopPlayerItem& item)
+void CClientManager::SendIkarusShopSafeboxAddItem(uint64_t dwOwnerID, uint64_t dwItem, const ikashop::TShopPlayerItem& item)
 {
 	TPacketDGNewIkarusShop pack{};
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_SAFEBOX_ADD_ITEM;
@@ -1594,7 +1626,7 @@ void CClientManager::SendIkarusShopSafeboxAddItem(DWORD dwOwnerID, DWORD dwItem,
 	}
 }
 
-void CClientManager::SendIkarusShopSafeboxAddValutes(DWORD dwOwnerID, const ikashop::TValutesInfo& valute)
+void CClientManager::SendIkarusShopSafeboxAddValutes(uint64_t dwOwnerID, const ikashop::TValutesInfo& valute)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_SAFEBOX_ADD_VALUTES;
@@ -1614,7 +1646,7 @@ void CClientManager::SendIkarusShopSafeboxAddValutes(DWORD dwOwnerID, const ikas
 }
 
 //patch 08-03-2020
-void CClientManager::SendIkarusShopSafeboxExpiredItem(DWORD dwOwnerID, DWORD itemID) {
+void CClientManager::SendIkarusShopSafeboxExpiredItem(uint64_t dwOwnerID, uint64_t itemID) {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader = ikashop::SUBHEADER_DG_SAFEBOX_EXPIRED_ITEM;
 
@@ -1632,7 +1664,7 @@ void CClientManager::SendIkarusShopSafeboxExpiredItem(DWORD dwOwnerID, DWORD ite
 	}
 }
 
-void CClientManager::SendIkarusShopSafeboxGetItemConfirm(CPeer* peer, DWORD dwOwnerID, DWORD itemID)
+void CClientManager::SendIkarusShopSafeboxGetItemConfirm(CPeer* peer, uint64_t dwOwnerID, uint64_t itemID)
 {
 	TPacketDGNewIkarusShop pack{};
 	pack.bSubHeader = ikashop::SUBHEADER_DG_SAFEBOX_GET_ITEM_CONFIRM;
@@ -1685,7 +1717,7 @@ void CClientManager::SendIkarusShopAuctionAddOffer(const ikashop::TAuctionOfferI
 	}
 }
 
-void CClientManager::SendIkarusShopAuctionExpired(DWORD dwOwnerID)
+void CClientManager::SendIkarusShopAuctionExpired(uint64_t dwOwnerID)
 {
 	TPacketDGNewIkarusShop pack;
 	pack.bSubHeader	= ikashop::SUBHEADER_DG_AUCTION_EXPIRED;
@@ -1765,7 +1797,7 @@ void CClientManager::IkarusShopResultCreateShopQuery([[maybe_unused]] CPeer* pee
 void CClientManager::IkarusShopResultOfferAddQuery([[maybe_unused]] CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo)
 {
 	auto* qi = static_cast<ikashop::SQueryInfoOfferAdd *>(pQueryInfo->pvData);
-	qi->offerid = static_cast<DWORD>(msg->Get()->uiInsertID);
+	qi->offerid = msg->Get()->ullInsertID;
 	m_offlineshopOfferCache.Puts(*qi);
 	SendIkarusShopOfferCreate(*qi);
 	delete(qi);
@@ -1841,7 +1873,7 @@ void CClientManager::IkarusShopDurationProcess()
 	m_offlineshopSafeboxCache.ItemExpirationProcess();
 }
 
-void CClientManager::IkarusShopExpiredShop(DWORD dwID
+void CClientManager::IkarusShopExpiredShop(uint64_t dwID
 )
 {
 	auto cache = m_offlineshopShopCache.Get(dwID);
@@ -1874,7 +1906,7 @@ void CClientManager::IkarusShopExpiredShop(DWORD dwID
 	SendIkarusShopShopExpired(dwID);
 }
 
-void CClientManager::IkarusShopExpiredAuction(DWORD ownerid)
+void CClientManager::IkarusShopExpiredAuction(uint64_t ownerid)
 {
 	//searching auction into cache
 	auto auction = m_offlineshopAuctionCache.Get(ownerid);
@@ -1901,7 +1933,7 @@ void CClientManager::IkarusShopExpiredAuction(DWORD ownerid)
 #ifdef EXTEND_IKASHOP_PRO
 		AppendIkarusShopNotification(ikashop::ENotificationType::SELLER_AUCTION_SOLD, ownerid, auction->vnum, winoffer->buyername, fmt::format("{}", winoffer->price.yang));
 		
-		std::set<DWORD> notifiedIds;
+		std::set<uint64_t> notifiedIds;
 		AppendIkarusShopNotification(ikashop::ENotificationType::BUYER_AUCTION_BUY, winoffer->buyerid, auction->vnum, "", fmt::format("{}", winoffer->price.yang));
 		notifiedIds.emplace(winoffer->buyerid);
 
@@ -1938,13 +1970,13 @@ void CClientManager::IkarusShopExpiredAuction(DWORD ownerid)
 	m_offlineshopSafeboxCache.AddItem(winnerid, auction->id, *auction);
 }
 
-void CClientManager::IkarusShopLoadShopSafebox(CPeer* peer, DWORD dwID)
+void CClientManager::IkarusShopLoadShopSafebox(CPeer* peer, uint64_t dwID)
 {
 	// getting safebox
 	auto safebox = m_offlineshopSafeboxCache.LoadSafebox(dwID);
 	if (!safebox)
 	{
-		sys_err("cannot load shop safebox for pid %d ",dwID);
+		sys_err("cannot load shop safebox for pid %llu ", static_cast<unsigned long long>(dwID));
 		return;
 	}
 
@@ -1970,14 +2002,14 @@ void CClientManager::IkarusShopLoadShopSafebox(CPeer* peer, DWORD dwID)
 }
 
 #ifdef EXTEND_IKASHOP_PRO
-void CClientManager::IkarusShopLoadNotifications(CPeer* peer, DWORD owner)
+void CClientManager::IkarusShopLoadNotifications(CPeer* peer, uint64_t owner)
 {
 	auto query = fmt::format("SELECT `id`, `type`, `who`, `what`, `format`, `seen`, UNIX_TIMESTAMP(`datetime`) FROM `ikashop_notification` WHERE `owner` = {} ORDER BY `datetime` ASC LIMIT 200", owner);
 	auto msg = CDBManager::instance().DirectQuery(query.c_str());
 
 	if(!msg || !msg->Get() || msg->uiSQLErrno != 0)
 	{
-		sys_err("CANNOT LOAD NOTIFICATION FOR OWNER %u, errorno %d", owner, (int) msg->uiSQLErrno);
+		sys_err("CANNOT LOAD NOTIFICATION FOR OWNER %llu, errorno %d", static_cast<unsigned long long>(owner), (int) msg->uiSQLErrno);
 		return;
 	}
 
@@ -2015,7 +2047,7 @@ void CClientManager::IkarusShopLoadNotifications(CPeer* peer, DWORD owner)
 	}
 }
 
-void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType type, DWORD owner, DWORD what, const std::string& who, const std::string& format)
+void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType type, uint64_t owner, DWORD what, const std::string& who, const std::string& format)
 {
 	// escaping who
 	static char escapeWho[500];
@@ -2040,7 +2072,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 	auto msg = CDBManager::instance().DirectQuery(query.c_str());
 	if(!msg || !msg->Get() || msg->uiSQLErrno != 0)
 	{
-		sys_err("CANNOT INSERT NOTIFICATION INTO TABLE, SKIPPING: Owner (%u)  Type (%d)", owner, (int)type);
+		sys_err("CANNOT INSERT NOTIFICATION INTO TABLE, SKIPPING: Owner (%llu)  Type (%d)", static_cast<unsigned long long>(owner), (int)type);
 		return;
 	}
 	
@@ -2049,7 +2081,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 
 	ikashop::TSubPacketDGNotificationForward subpack{};
 	subpack.datetime = static_cast<int64_t>(std::time(nullptr));
-	subpack.id = static_cast<DWORD>(msg->Get()->uiInsertID);
+	subpack.id = msg->Get()->ullInsertID;
 	subpack.seenflag = false;
 	subpack.type = type;
 	subpack.what = what;
@@ -2071,7 +2103,7 @@ void CClientManager::AppendIkarusShopNotification(ikashop::ENotificationType typ
 #endif
 
 //patch 08-03-2020
-void CClientManager::IkarusShopExpiredAuctionItem(DWORD dwOwnerID) {
+void CClientManager::IkarusShopExpiredAuctionItem(uint64_t dwOwnerID) {
 	// searching auction into cache
 	auto auction = m_offlineshopAuctionCache.Get(dwOwnerID);
 	if(!auction)
@@ -2104,7 +2136,7 @@ void CClientManager::IkarusShopExpiredAuctionItem(DWORD dwOwnerID) {
 }
 
 //updated 15-01-2020
-bool CClientManager::IsUsingIkarusShopSystem(DWORD dwID)
+bool CClientManager::IsUsingIkarusShopSystem(uint64_t dwID)
 {
 	// searching shop
 	if (m_offlineshopShopCache.Get(dwID))
@@ -2117,7 +2149,7 @@ bool CClientManager::IsUsingIkarusShopSystem(DWORD dwID)
 }
 
 //patch offerlist loading fix
-void CClientManager::RemoveOfferOnShopItem(DWORD dwOwnerID, DWORD dwItemID)
+void CClientManager::RemoveOfferOnShopItem(uint64_t dwOwnerID, uint64_t dwItemID)
 {
 	for(auto& offer : m_offlineshopOfferCache.GetOffersByItemID(dwOwnerID, dwItemID))
 	{
@@ -2141,7 +2173,7 @@ void CClientManager::RemoveOfferOnShopItem(DWORD dwOwnerID, DWORD dwItemID)
 	}
 }
 
-void CClientManager::RemoveOfferOnShop(DWORD dwOwnerID)
+void CClientManager::RemoveOfferOnShop(uint64_t dwOwnerID)
 {
 	for(auto& offer : m_offlineshopOfferCache.GetOffersByShopOwner(dwOwnerID))
 	{
@@ -2165,14 +2197,15 @@ void CClientManager::RemoveOfferOnShop(DWORD dwOwnerID)
 }
 
 #ifdef ENABLE_IKASHOP_LOGS
-void CClientManager::IkarusShopLog(DWORD who, DWORD itemid, std::string_view what, DWORD shopOwner, const std::string& extra, DWORD vnum, DWORD count, int64_t yang, int cheque)
+void CClientManager::IkarusShopLog(uint64_t who, uint64_t itemid, std::string_view what, uint64_t shopOwner, const std::string& extra, DWORD vnum, DWORD count, int64_t yang, int cheque)
 {
 	std::vector<char> escapedWhat(what.size() * 2 + 1, '\0');
 	if (!what.empty())
 	{
 		if (CDBManager::instance().EscapeString(escapedWhat.data(), what.data(), static_cast<unsigned long>(what.size()), SQL_LOG) == 0)
 		{
-			sys_err("IkarusShopLog: Failed to escape 'what' string on SQL_LOG (who=%u, itemid=%u)", who, itemid);
+			sys_err("IkarusShopLog: Failed to escape 'what' string on SQL_LOG (who=%llu, itemid=%llu)",
+				static_cast<unsigned long long>(who), static_cast<unsigned long long>(itemid));
 			return;
 		}
 	}
@@ -2182,7 +2215,8 @@ void CClientManager::IkarusShopLog(DWORD who, DWORD itemid, std::string_view wha
 	{
 		if (CDBManager::instance().EscapeString(escapedExtra.data(), extra.data(), static_cast<unsigned long>(extra.size()), SQL_LOG) == 0)
 		{
-			sys_err("IkarusShopLog: Failed to escape 'extra' string on SQL_LOG (who=%u, itemid=%u)", who, itemid);
+			sys_err("IkarusShopLog: Failed to escape 'extra' string on SQL_LOG (who=%llu, itemid=%llu)",
+				static_cast<unsigned long long>(who), static_cast<unsigned long long>(itemid));
 			return;
 		}
 	}
@@ -2208,7 +2242,7 @@ void CClientManager::IkarusShopLog(DWORD who, DWORD itemid, std::string_view wha
 }
 #endif
 
-std::string CreateIkarusShopSelectShopItemsQuery(DWORD owner)
+std::string CreateIkarusShopSelectShopItemsQuery(uint64_t owner)
 {
 	std::string query = "SELECT `id`, `owner_id`, `pos`, `vnum`, `count`, ";
 	for (int i = 0; i < ITEM_SOCKET_MAX_NUM; i++)

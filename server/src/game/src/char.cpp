@@ -4575,8 +4575,8 @@ void CHARACTER::SetParty(LPPARTY pkParty)
 // PARTY_JOIN_BUG_FIX
 EVENTINFO(TPartyJoinEventInfo)
 {
-	DWORD	dwGuestPID;
-	DWORD	dwLeaderPID;
+	uint64_t	dwGuestPID;
+	uint64_t	dwLeaderPID;
 
 	TPartyJoinEventInfo()
 	: dwGuestPID( 0 )
@@ -4939,13 +4939,14 @@ void CHARACTER::PartyInviteAccept(LPCHARACTER pchInvitee)
 	}
 }
 
-void CHARACTER::PartyInviteDeny(DWORD dwPID)
+void CHARACTER::PartyInviteDeny(uint64_t dwPID)
 {
 	EventMap::iterator itFind = m_PartyInviteEventMap.find(dwPID);
 
 	if (itFind == m_PartyInviteEventMap.end())
 	{
-		sys_log(1, "PartyInviteDeny to not exist event(inviter PID: %d, invitee PID: %d)", GetPlayerID(), dwPID);
+		sys_log(1, "PartyInviteDeny to not exist event(inviter PID: %llu, invitee PID: %llu)",
+				static_cast<unsigned long long>(GetPlayerID()), static_cast<unsigned long long>(dwPID));
 		return;
 	}
 
@@ -6222,9 +6223,9 @@ void CHARACTER::QuerySafeboxSize()
 		DBManager::instance().ReturnQuery(QID_SAFEBOX_SIZE,
 				GetPlayerID(),
 				NULL,
-				"SELECT size FROM safebox%s WHERE account_id = %u",
+				"SELECT size FROM safebox%s WHERE account_id = %llu",
 				get_table_postfix(),
-				GetDesc()->GetAccountTable().id);
+				static_cast<unsigned long long>(GetDesc()->GetAccountTable().id));
 	}
 }
 
@@ -7113,7 +7114,7 @@ int CHARACTER::GetMarriageBonus(DWORD dwItemVnum, bool bSum)
 	return pMarriage->GetBonus(dwItemVnum, bSum, this);
 }
 
-void CHARACTER::ConfirmWithMsg(const char* szMsg, int iTimeout, DWORD dwRequestPID)
+void CHARACTER::ConfirmWithMsg(const char* szMsg, int iTimeout, uint64_t dwRequestPID)
 {
 	if (!IsPC())
 		return;
@@ -7121,7 +7122,7 @@ void CHARACTER::ConfirmWithMsg(const char* szMsg, int iTimeout, DWORD dwRequestP
 	TPacketGCQuestConfirm p;
 
 	p.header = HEADER_GC_QUEST_CONFIRM;
-	p.requestPID = dwRequestPID;
+	p.requestPID = static_cast<DWORD>(dwRequestPID);
 	p.timeout = iTimeout;
 	strlcpy(p.msg, szMsg, sizeof(p.msg));
 
@@ -7152,7 +7153,7 @@ bool CHARACTER::CanEnterPremiumChannel()
 		}
 		else
 		{
-			DWORD otherPid = pMarriage->GetOther(GetPlayerID());
+			uint64_t otherPid = pMarriage->GetOther(GetPlayerID());
 
 			CCI* pkCCI = P2P_MANAGER::instance().FindByPID(otherPid);
 			if (pkCCI)
@@ -7201,7 +7202,7 @@ int64_t CHARACTER::GetPremiumSubscriptionRemainSeconds() const
 	return m_iPremiumSubscriptionTime - static_cast<int64_t>(get_global_time());
 }
 
-bool CHARACTER::WarpToPID(DWORD dwPID)
+bool CHARACTER::WarpToPID(uint64_t dwPID)
 {
 	if (!IsGM() && !CanWarp())
 	{
@@ -7787,13 +7788,13 @@ void CHARACTER::SendGuildName(CGuild* pGuild)
 	pack.header		= HEADER_GC_GUILD;
 	pack.subheader	= GUILD_SUBHEADER_GC_GUILD_NAME;
 	pack.size		= sizeof(TPacketGCGuildName);
-	pack.guildID	= pGuild->GetID();
+	pack.guildID	= static_cast<DWORD>(pGuild->GetID());
 	memcpy(pack.guildName, pGuild->GetName(), GUILD_NAME_MAX_LEN);
 
 	desc->Packet(pack);
 }
 
-void CHARACTER::SendGuildName(DWORD dwGuildID)
+void CHARACTER::SendGuildName(uint64_t dwGuildID)
 {
 	SendGuildName(CGuildManager::instance().FindGuild(dwGuildID));
 }
@@ -9640,7 +9641,7 @@ void CHARACTER::SendCaptchaWrongAttempt()
 	}
 }
 
-void CHARACTER::SendCaptchaGameMasterFeedback(DWORD pid, BYTE type, const char * code, int elapsedTime)
+void CHARACTER::SendCaptchaGameMasterFeedback(uint64_t pid, BYTE type, const char * code, int elapsedTime)
 {
 	TPacketGCCaptcha p{};
 	p.header = HEADER_GC_CAPTCHA;
@@ -9648,7 +9649,7 @@ void CHARACTER::SendCaptchaGameMasterFeedback(DWORD pid, BYTE type, const char *
 	p.size = sizeof(TPacketGCCaptcha) + sizeof(TSubPacketGCCaptchaGMFeedback);
 
 	TSubPacketGCCaptchaGMWho who{};
-	who.pid = pid;
+	who.pid = static_cast<DWORD>(pid);
 
 	TSubPacketGCCaptchaGMFeedback sub{};
 	sub.type = type;
@@ -9694,5 +9695,3 @@ bool CHARACTER::IsHorseInventory(TItemPos cell) const
 {
 	return cell.window_type == INVENTORY && cell.cell >= INVENTORY_DEFAULT_MAX_NUM && cell.cell < INVENTORY_MAX_NUM;
 }
-
-

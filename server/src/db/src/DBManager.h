@@ -22,7 +22,7 @@ class CQueryInfo
 {
     public:
 	int	iType;
-	DWORD	dwIdent;
+	uint64_t	dwIdent;
 	void *	pvData;
 };
 
@@ -54,7 +54,7 @@ class CDBManager : public singleton<CDBManager>
 
 	int			Connect(int iSlot, const char * host, int port, const char* dbname, const char* user, const char* pass);
 
-	void			ReturnQuery(const char * c_pszQuery, int iType, DWORD dwIdent, void * pvData, int iSlot = SQL_PLAYER);
+	void			ReturnQuery(const char * c_pszQuery, int iType, uint64_t dwIdent, void * pvData, int iSlot = SQL_PLAYER);
 	void			AsyncQuery(const char * c_pszQuery, int iSlot = SQL_PLAYER);
 	std::unique_ptr<SQLMsg>		DirectQuery(const char * c_pszQuery, int iSlot = SQL_PLAYER);
 
@@ -140,4 +140,3 @@ class CDBManager : public singleton<CDBManager>
 };
 
 #endif
-

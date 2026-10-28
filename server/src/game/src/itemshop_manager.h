@@ -1,7 +1,7 @@
 
 class CItemShopManager : public singleton<CItemShopManager>
 {
-	typedef std::set<DWORD> PLAYER_SET;
+	typedef std::set<uint64_t> PLAYER_SET;
 public:
 	struct PlayerAccountBalance {
 		int64_t dwDragonCoins = 0;
@@ -53,7 +53,7 @@ public:
 	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
 	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
 	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint64_t requestId = 0);
-	uint64_t LookupTransactionByRequestId(DWORD aid, uint64_t requestId, std::string* outState = nullptr);
+	uint64_t LookupTransactionByRequestId(uint64_t aid, uint64_t requestId, std::string* outState = nullptr);
 	bool PersistInventoryItemSynchronously(LPITEM item);
 	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr, uint64_t txId = 0, DWORD slotIndex = 0);
 	void RefreshItemShop(LPCHARACTER ch);
@@ -98,4 +98,3 @@ private:
 	DWORD GetTimeAuctionProgress(TItemShopItem item);
 	void GetPacketDataFromItem(struct TItemShopItemClient& pack, int& i, TItemShopItem item);
 };
-

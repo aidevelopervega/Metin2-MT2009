@@ -137,7 +137,7 @@ EVENTFUNC(target_event)
 		return MINMAX(passes_per_sec / 2, iDist / (1500 / passes_per_sec), passes_per_sec * 5);
 }
 
-TargetInfo* CTargetManager::CreateTarget(DWORD dwPID,
+TargetInfo* CTargetManager::CreateTarget(uint64_t dwPID,
 		DWORD dwQuestIndex,
 		const char * c_pszTargetName,
 		int iType,
@@ -147,14 +147,14 @@ TargetInfo* CTargetManager::CreateTarget(DWORD dwPID,
 		const char * c_pszTargetDesc,
 		int iSendFlag)
 {
-	sys_log(0, "CreateTarget : target pid %u quest %u name %s arg %d %d %d",
-			dwPID, dwQuestIndex, c_pszTargetName, iType, iArg1, iArg2);
+	sys_log(0, "CreateTarget : target pid %llu quest %u name %s arg %d %d %d",
+			static_cast<unsigned long long>(dwPID), dwQuestIndex, c_pszTargetName, iType, iArg1, iArg2);
 
 	LPCHARACTER pkChr = CHARACTER_MANAGER::instance().FindByPID(dwPID);
 
 	if (!pkChr)
 	{
-		sys_err("Cannot find character ptr by PID %u", dwPID);
+		sys_err("Cannot find character ptr by PID %llu", static_cast<unsigned long long>(dwPID));
 		return NULL;
 	}
 
@@ -244,7 +244,7 @@ TargetInfo* CTargetManager::CreateTarget(DWORD dwPID,
 	return newInfo;
 }
 
-void CTargetManager::DeleteTarget(DWORD dwPID, DWORD dwQuestIndex, const char * c_pszTargetName)
+void CTargetManager::DeleteTarget(uint64_t dwPID, DWORD dwQuestIndex, const char * c_pszTargetName)
 {
 	itertype(m_map_kListEvent) it = m_map_kListEvent.find(dwPID);
 
@@ -288,7 +288,7 @@ void CTargetManager::DeleteTarget(DWORD dwPID, DWORD dwQuestIndex, const char * 
 	}
 }
 
-LPEVENT CTargetManager::GetTargetEvent(DWORD dwPID, DWORD dwQuestIndex, const char * c_pszTargetName)
+LPEVENT CTargetManager::GetTargetEvent(uint64_t dwPID, DWORD dwQuestIndex, const char * c_pszTargetName)
 {
 	itertype(m_map_kListEvent) it = m_map_kListEvent.find(dwPID);
 
@@ -321,7 +321,7 @@ LPEVENT CTargetManager::GetTargetEvent(DWORD dwPID, DWORD dwQuestIndex, const ch
 	return NULL;
 }
 
-TargetInfo * CTargetManager::GetTargetInfo(DWORD dwPID, int iType, int iArg1)
+TargetInfo * CTargetManager::GetTargetInfo(uint64_t dwPID, int iType, int iArg1)
 {
 	itertype(m_map_kListEvent) it = m_map_kListEvent.find(dwPID);
 
@@ -354,7 +354,7 @@ TargetInfo * CTargetManager::GetTargetInfo(DWORD dwPID, int iType, int iArg1)
 	return NULL;
 }
 
-void CTargetManager::Logout(DWORD dwPID)
+void CTargetManager::Logout(uint64_t dwPID)
 {
 	itertype(m_map_kListEvent) it = m_map_kListEvent.find(dwPID);
 
@@ -368,4 +368,3 @@ void CTargetManager::Logout(DWORD dwPID)
 
 	m_map_kListEvent.erase(it);
 }
-

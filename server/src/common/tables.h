@@ -323,7 +323,7 @@ enum ERequestChargeType
 
 typedef struct SRequestChargeCash
 {
-	DWORD		dwAID;		// id(primary key) - Account Table
+	uint64_t	dwAID;		// id(primary key) - Account Table
 	int64_t		lAmount;
 	int64_t		lSecondAmount;
 	ERequestChargeType	eChargeType;
@@ -331,21 +331,21 @@ typedef struct SRequestChargeCash
 
 struct TRequestUseCodeVoucher
 {
-	DWORD		dwPID;
-	DWORD		dwAID;
+	uint64_t	dwPID;
+	uint64_t	dwAID;
 	char		code[CODE_VOUCHER_MAX_LEN+1];
 };
 
 struct TRequestUseCodeVoucherResponse
 {
-	DWORD		dwPID;
+	uint64_t	dwPID;
 	char		szCode[CODE_VOUCHER_MAX_LEN + 1];
 	BYTE		bResponse;
 };
 
 typedef struct SSimplePlayer
 {
-	DWORD		dwID;
+	uint64_t	dwID;
 	char		szName[CHARACTER_NAME_MAX_LEN + 1];
 	BYTE		byJob;
 	BYTE		byLevel;
@@ -366,7 +366,7 @@ typedef struct SSimplePlayer
 
 typedef struct SAccountTable
 {
-	DWORD		id;
+	uint64_t	id;
 	char		login[LOGIN_MAX_LEN + 1];
 	char		passwd[PASSWD_MAX_LEN + 1];
 	char		social_id[SOCIAL_ID_MAX_LEN + 1];
@@ -398,7 +398,7 @@ typedef struct TPlayerItemAttribute
 
 typedef struct SPlayerItem // reflect all the changes in this structure in UserInterface/Packet.h
 {
-	DWORD	id;
+	uint64_t	id;
 	BYTE	window;
 	WORD	pos;
 	ITEM_COUNT	count;
@@ -408,7 +408,7 @@ typedef struct SPlayerItem // reflect all the changes in this structure in UserI
 
 	TPlayerItemAttribute    aAttr[ITEM_ATTRIBUTE_MAX_NUM];
 
-	DWORD	owner;
+	uint64_t	owner;
 } TPlayerItem;
 
 typedef struct SQuickslot
@@ -435,7 +435,7 @@ struct	THorseInfo
 
 typedef struct SPlayerTable
 {
-	DWORD	id;
+	uint64_t	id;
 
 	char	name[CHARACTER_NAME_MAX_LEN + 1];
 	char	ip[IP_ADDRESS_LENGTH + 1];
@@ -681,8 +681,8 @@ typedef struct SShopTable
 
 typedef struct SSpecialFlagTable
 {
-	DWORD		dwPID;
-	DWORD		dwAID;
+	uint64_t	dwPID;
+	uint64_t	dwAID;
 	char		szFlag[SPECIAL_FLAG_MAX_LEN + 1];
 	int64_t		llValue;
 } TSpecialFlagTable;
@@ -693,7 +693,7 @@ typedef struct SSpecialFlagTable
 
 typedef struct SQuestTable
 {
-	DWORD		dwPID;
+	uint64_t	dwPID;
 	char		szName[QUEST_NAME_MAX_LEN + 1];
 	char		szState[QUEST_STATE_MAX_LEN + 1];
 	int32_t		lValue;
@@ -779,8 +779,8 @@ typedef struct SLoginPacket
 
 typedef struct SPlayerLoadPacket
 {
-	DWORD	account_id;
-	DWORD	player_id;
+	uint64_t	account_id;
+	uint64_t	player_id;
 	BYTE	account_index;
 } TPlayerLoadPacket;
 
@@ -788,7 +788,7 @@ typedef struct SPlayerCreatePacket
 {
 	char		login[LOGIN_MAX_LEN + 1];
 	char		passwd[PASSWD_MAX_LEN + 1];
-	DWORD		account_id;
+	uint64_t	account_id;
 	BYTE		account_index;
 	TPlayerTable	player_table;
 } TPlayerCreatePacket;
@@ -796,7 +796,7 @@ typedef struct SPlayerCreatePacket
 typedef struct SPlayerDeletePacket
 {
 	char	login[LOGIN_MAX_LEN + 1];
-	DWORD	player_id;
+	uint64_t	player_id;
 	BYTE	account_index;
 	//char	name[CHARACTER_NAME_MAX_LEN + 1];
 	char	private_code[8];
@@ -816,7 +816,7 @@ typedef struct SPlayerCountPacket
 #ifdef ENABLE_MOVE_CHANNEL
 typedef struct SMoveChannel
 {
-	DWORD	dwAID;
+	uint64_t	dwAID;
 	BYTE	bChannel;
 	int32_t	lDestX;
 	int32_t	lDestY;
@@ -835,7 +835,7 @@ typedef struct SRespondMoveChannel
 
 typedef struct SSafeboxTable
 {
-	DWORD	dwID;
+	uint64_t	dwID;
 	BYTE	bSize;
 	YANG	dwGold;
 	WORD	wItemCount;
@@ -843,20 +843,20 @@ typedef struct SSafeboxTable
 
 typedef struct SSafeboxChangeSizePacket
 {
-	DWORD	dwID;
+	uint64_t	dwID;
 	BYTE	bSize;
 } TSafeboxChangeSizePacket;
 
 typedef struct SSafeboxLoadPacket
 {
-	DWORD	dwID;
+	uint64_t	dwID;
 	char	szLogin[LOGIN_MAX_LEN + 1];
 	char	szPassword[SAFEBOX_PASSWORD_MAX_LEN + 1];
 } TSafeboxLoadPacket;
 
 typedef struct SSafeboxChangePasswordPacket
 {
-	DWORD	dwID;
+	uint64_t	dwID;
 	char	szOldPassword[SAFEBOX_PASSWORD_MAX_LEN + 1];
 	char	szNewPassword[SAFEBOX_PASSWORD_MAX_LEN + 1];
 } TSafeboxChangePasswordPacket;
@@ -868,7 +868,7 @@ typedef struct SSafeboxChangePasswordPacketAnswer
 
 typedef struct SEmpireSelectPacket
 {
-	DWORD	dwAccountID;
+	uint64_t	dwAccountID;
 	BYTE	bEmpire;
 } TEmpireSelectPacket;
 
@@ -928,7 +928,7 @@ typedef struct SPacketDGDirectEnter
 
 typedef struct SPacketGuildSkillUpdate
 {
-	DWORD guild_id;
+	uint64_t guild_id;
 	int amount;
 	BYTE skill_levels[12];
 	BYTE skill_point;
@@ -937,14 +937,14 @@ typedef struct SPacketGuildSkillUpdate
 
 typedef struct SPacketGuildExpUpdate
 {
-	DWORD guild_id;
+	uint64_t guild_id;
 	int amount;
 } TPacketGuildExpUpdate;
 
 typedef struct SPacketGuildChangeMemberData
 {
-	DWORD guild_id;
-	DWORD pid;
+	uint64_t guild_id;
+	uint64_t pid;
 	DWORD offer;
 	BYTE level;
 	BYTE grade;
@@ -968,78 +968,78 @@ typedef struct TPacketAffectElement
 
 typedef struct SPacketGDAddAffect
 {
-	DWORD			dwPID;
+	uint64_t		dwPID;
 	TPacketAffectElement	elem;
 } TPacketGDAddAffect;
 
 typedef struct SPacketGDRemoveAffect
 {
-	DWORD	dwPID;
+	uint64_t	dwPID;
 	DWORD	dwType;
 	BYTE	bApplyOn;
 } TPacketGDRemoveAffect;
 
 typedef struct SPacketPartyCreate
 {
-	DWORD	dwLeaderPID;
+	uint64_t	dwLeaderPID;
 } TPacketPartyCreate;
 
 typedef struct SPacketPartyDelete
 {
-	DWORD	dwLeaderPID;
+	uint64_t	dwLeaderPID;
 } TPacketPartyDelete;
 
 typedef struct SPacketPartyAdd
 {
-	DWORD	dwLeaderPID;
-	DWORD	dwPID;
+	uint64_t	dwLeaderPID;
+	uint64_t	dwPID;
 	BYTE	bState;
 } TPacketPartyAdd;
 
 typedef struct SPacketPartyRemove
 {
-	DWORD	dwLeaderPID;
-	DWORD	dwPID;
+	uint64_t	dwLeaderPID;
+	uint64_t	dwPID;
 } TPacketPartyRemove;
 
 typedef struct SPacketPartyStateChange
 {
-	DWORD	dwLeaderPID;
-	DWORD	dwPID;
+	uint64_t	dwLeaderPID;
+	uint64_t	dwPID;
 	BYTE	bRole;
 	BYTE	bFlag;
 } TPacketPartyStateChange;
 
 typedef struct SPacketPartySetMemberLevel
 {
-	DWORD	dwLeaderPID;
-	DWORD	dwPID;
+	uint64_t	dwLeaderPID;
+	uint64_t	dwPID;
 	BYTE	bLevel;
 } TPacketPartySetMemberLevel;
 
 typedef struct SPacketGDBoot
 {
-    DWORD	dwItemIDRange[2];
+	uint64_t	dwItemIDRange[2];
 	char	szIP[16];
 } TPacketGDBoot;
 
 typedef struct SPacketGuild
 {
-	DWORD	dwGuild;
-	DWORD	dwInfo;
+	uint64_t	dwGuild;
+	uint64_t	dwInfo;
 } TPacketGuild;
 
 typedef struct SPacketGDGuildAddMember
 {
-	DWORD	dwPID;
-	DWORD	dwGuild;
+	uint64_t	dwPID;
+	uint64_t	dwGuild;
 	BYTE	bGrade;
 } TPacketGDGuildAddMember;
 
 typedef struct SPacketDGGuildMember
 {
-	DWORD	dwPID;
-	DWORD	dwGuild;
+	uint64_t	dwPID;
+	uint64_t	dwGuild;
 	BYTE	bGrade;
 	BYTE	isGeneral;
 	BYTE	bJob;
@@ -1052,16 +1052,16 @@ typedef struct SPacketGuildWar
 {
 	BYTE	bType;
 	BYTE	bWar;
-	DWORD	dwGuildFrom;
-	DWORD	dwGuildTo;
+	uint64_t	dwGuildFrom;
+	uint64_t	dwGuildTo;
 	YANG	lWarPrice;
 	int32_t	lInitialScore;
 } TPacketGuildWar;
 
 typedef struct SPacketGuildWarScore
 {
-	DWORD dwGuildGainPoint;
-	DWORD dwGuildOpponent;
+	uint64_t dwGuildGainPoint;
+	uint64_t dwGuildOpponent;
 	int32_t lScore;
 	int32_t lBetScore;
 } TPacketGuildWarScore;
@@ -1172,7 +1172,7 @@ typedef struct SSpecialShopTable
 
 typedef struct SNameReservationTable
 {
-	DWORD dwOwner;
+	uint64_t dwOwner;
 	char name[CHARACTER_NAME_MAX_LEN + 1];
 } TNameReservationTable;
 
@@ -1183,19 +1183,19 @@ typedef struct SBanwordTable
 
 typedef struct SPacketGDChangeName
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[CHARACTER_NAME_MAX_LEN + 1];
 } TPacketGDChangeName;
 
 typedef struct SPacketDGChangeName
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[CHARACTER_NAME_MAX_LEN + 1];
 } TPacketDGChangeName;
 
 typedef struct SPacketGuildLadder
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	int32_t lLadderPoint;
 	int32_t lWin;
 	int32_t lDraw;
@@ -1204,33 +1204,33 @@ typedef struct SPacketGuildLadder
 
 typedef struct SPacketGuildLadderPoint
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	int32_t lChange;
 } TPacketGuildLadderPoint;
 
 typedef struct SPacketGuildUseSkill
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	DWORD dwSkillVnum;
 	DWORD dwCooltime;
 } TPacketGuildUseSkill;
 
 typedef struct SPacketGuildSkillUsableChange
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	DWORD dwSkillVnum;
 	BYTE bUsable;
 } TPacketGuildSkillUsableChange;
 
 typedef struct SPacketGDLoginKey
 {
-	DWORD dwAccountID;
+	uint64_t dwAccountID;
 	DWORD dwLoginKey;
 } TPacketGDLoginKey;
 
 typedef struct SPacketGDAuthLogin
 {
-	DWORD	dwID;
+	uint64_t	dwID;
 	DWORD	dwLoginKey;
 	char	szLogin[LOGIN_MAX_LEN + 1];
 	char	szSocialID[SOCIAL_ID_MAX_LEN + 1];
@@ -1252,7 +1252,7 @@ typedef struct SPacketGiveGuildPriv
 {
 	BYTE type;
 	int value;
-	DWORD guild_id;
+	uint64_t guild_id;
 	int64_t duration_sec;
 } TPacketGiveGuildPriv;
 typedef struct SPacketGiveEmpirePriv
@@ -1266,12 +1266,12 @@ typedef struct SPacketGiveCharacterPriv
 {
 	BYTE type;
 	int value;
-	DWORD pid;
+	uint64_t pid;
 } TPacketGiveCharacterPriv;
 typedef struct SPacketRemoveGuildPriv
 {
 	BYTE type;
-	DWORD guild_id;
+	uint64_t guild_id;
 } TPacketRemoveGuildPriv;
 typedef struct SPacketRemoveEmpirePriv
 {
@@ -1283,7 +1283,7 @@ typedef struct SPacketDGChangeCharacterPriv
 {
 	BYTE type;
 	int value;
-	DWORD pid;
+	uint64_t pid;
 	BYTE bLog;
 } TPacketDGChangeCharacterPriv;
 
@@ -1291,7 +1291,7 @@ typedef struct SPacketDGChangeGuildPriv
 {
 	BYTE type;
 	int value;
-	DWORD guild_id;
+	uint64_t guild_id;
 	BYTE bLog;
 	int64_t end_time_sec;
 } TPacketDGChangeGuildPriv;
@@ -1314,25 +1314,25 @@ typedef struct SPacketMoneyLog
 
 typedef struct SPacketGDGuildMoney
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	YANG iGold;
 } TPacketGDGuildMoney;
 
 typedef struct SPacketDGGuildMoneyChange
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	YANG iTotalGold;
 } TPacketDGGuildMoneyChange;
 
 typedef struct SPacketDGGuildMoneyWithdraw
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	YANG iChangeGold;
 } TPacketDGGuildMoneyWithdraw;
 
 typedef struct SPacketGDGuildMoneyWithdrawGiveReply
 {
-	DWORD dwGuild;
+	uint64_t dwGuild;
 	YANG iChangeGold;
 	BYTE bGiveSuccess;
 } TPacketGDGuildMoneyWithdrawGiveReply;
@@ -1345,7 +1345,7 @@ typedef struct SPacketSetEventFlag
 
 typedef struct SPacketLoginOnSetup
 {
-	DWORD   dwID;
+	uint64_t dwID;
 	char    szLogin[LOGIN_MAX_LEN + 1];
 	char    szSocialID[SOCIAL_ID_MAX_LEN + 1];
 	char    szHost[MAX_HOST_LENGTH + 1];
@@ -1364,11 +1364,17 @@ typedef struct SPacketGDCreateObject
 	float	zRot;
 } TPacketGDCreateObject;
 
+typedef struct SPacketGDUpdateLand
+{
+	DWORD		dwLandID;
+	uint64_t	dwGuildID;
+} TPacketGDUpdateLand;
+
 typedef struct SGuildReserve
 {
-	DWORD       dwID;
-	DWORD       dwGuildFrom;
-	DWORD       dwGuildTo;
+	uint64_t    dwID;
+	uint64_t    dwGuildFrom;
+	uint64_t    dwGuildTo;
 	DWORD       dwTime;
 	BYTE        bType;
 	YANG        lWarPrice;
@@ -1383,18 +1389,18 @@ typedef struct SGuildReserve
 
 typedef struct SPacketGDGuildWarBet
 {
-	DWORD	dwWarID;
+	uint64_t	dwWarID;
 	char	szLogin[LOGIN_MAX_LEN + 1];
 	YANG	dwGold;
-	DWORD	dwGuild;
+	uint64_t	dwGuild;
 } TPacketGDGuildWarBet;
 
 // Marriage
 
 typedef struct SPacketMarriageAdd
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 	int64_t tMarryTime;
 	char szName1[CHARACTER_NAME_MAX_LEN + 1];
 	char szName2[CHARACTER_NAME_MAX_LEN + 1];
@@ -1402,46 +1408,46 @@ typedef struct SPacketMarriageAdd
 
 typedef struct SPacketMarriageUpdate
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 	INT  iLovePoint;
 	BYTE  byMarried;
 } TPacketMarriageUpdate;
 
 typedef struct SPacketMarriageRemove
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 } TPacketMarriageRemove;
 
 typedef struct SPacketWeddingRequest
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 } TPacketWeddingRequest;
 
 typedef struct SPacketWeddingReady
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 	DWORD dwMapIndex;
 } TPacketWeddingReady;
 
 typedef struct SPacketWeddingStart
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 } TPacketWeddingStart;
 
 typedef struct SPacketWeddingEnd
 {
-	DWORD dwPID1;
-	DWORD dwPID2;
+	uint64_t dwPID1;
+	uint64_t dwPID2;
 } TPacketWeddingEnd;
 
 typedef struct SPacketMyshopPricelistHeader
 {
-	DWORD	dwOwnerID;
+	uint64_t	dwOwnerID;
 	BYTE	byCount;
 } TPacketMyshopPricelistHeader;
 
@@ -1453,7 +1459,7 @@ typedef struct SItemPriceInfo
 
 typedef struct SItemPriceListTable
 {
-	DWORD	dwOwnerID;
+	uint64_t	dwOwnerID;
 	BYTE	byCount;
 
 	TItemPriceInfo	aPriceInfo[SHOP_PRICELIST_MAX_NUM];
@@ -1494,7 +1500,7 @@ typedef struct SPacketReloadAdmin
 
 typedef struct TMonarchInfo
 {
-	DWORD pid[4];
+	uint64_t pid[4];
 	YANG money[4];
 	char name[4][32];
 	char date[4][32];
@@ -1502,14 +1508,14 @@ typedef struct TMonarchInfo
 
 typedef struct TMonarchElectionInfo
 {
-	DWORD pid;
-	DWORD selectedpid;
+	uint64_t pid;
+	uint64_t selectedpid;
 	char date[32];
 } MonarchElectionInfo;
 
 typedef struct tMonarchCandidacy
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[32];
 	char date[32];
 } MonarchCandidacy;
@@ -1517,13 +1523,13 @@ typedef struct tMonarchCandidacy
 typedef struct tChangeMonarchLord
 {
 	BYTE bEmpire;
-	DWORD dwPID;
+	uint64_t dwPID;
 } TPacketChangeMonarchLord;
 
 typedef struct tChangeMonarchLordACK
 {
 	BYTE bEmpire;
-	DWORD dwPID;
+	uint64_t dwPID;
 	char szName[32];
 	char szDate[32];
 } TPacketChangeMonarchLordACK;
@@ -1537,33 +1543,33 @@ typedef struct SPacketGDMonarchMoney
 typedef struct SPacketGDTakeMonarchMoney
 {
 	int32_t iEmpire;
-	DWORD dwPID;
+	uint64_t dwPID;
 	YANG llMoney;
 } TPacketGDTakeMonarchMoney;
 
 typedef struct tChangeGuildMaster
 {
-	DWORD dwGuildID;
-	DWORD idFrom;
-	DWORD idTo;
+	uint64_t dwGuildID;
+	uint64_t idFrom;
+	uint64_t idTo;
 } TPacketChangeGuildMaster;
 
 typedef struct tItemIDRange
 {
-	DWORD dwMin;
-	DWORD dwMax;
-	DWORD dwUsableItemIDMin;
+	uint64_t dwMin;
+	uint64_t dwMax;
+	uint64_t dwUsableItemIDMin;
 } TItemIDRangeTable;
 
 typedef struct tUpdateHorseName
 {
-	DWORD dwPlayerID;
+	uint64_t dwPlayerID;
 	char szHorseName[CHARACTER_NAME_MAX_LEN + 1];
 } TPacketUpdateHorseName;
 
 typedef struct SSetPremiumPass
 {
-	DWORD	dwAid;
+	uint64_t	dwAid;
 	int64_t	dwPremiumTime;
 } TPacketSetPremiumPass;
 
@@ -1574,7 +1580,7 @@ typedef struct tDC
 
 typedef struct tNeedLoginLogInfo
 {
-	DWORD dwPlayerID;
+	uint64_t dwPlayerID;
 } TPacketNeedLoginLogInfo;
 
 typedef struct tItemAwardInformer
@@ -1586,7 +1592,7 @@ typedef struct tItemAwardInformer
 
 typedef struct tDeleteAwardID
 {
-	DWORD dwID;
+	uint64_t dwID;
 } TPacketDeleteAwardID;
 
 typedef struct SChannelStatus
@@ -1658,10 +1664,10 @@ namespace ikashop
 
 	struct TOfferInfo 
 	{
-		DWORD offerid;
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD buyerid;
+		uint64_t offerid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t buyerid;
 		TPriceInfo price;
 		bool notified;
 		bool accepted;
@@ -1678,8 +1684,8 @@ namespace ikashop
 
 	struct TAuctionOfferInfo {
 		TPriceInfo price;
-		DWORD ownerid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t buyerid;
 		char buyername[CHARACTER_NAME_MAX_LEN + 1];
 		bool seenflag;
 		int64_t datetime;
@@ -1700,7 +1706,7 @@ namespace ikashop
 
 	struct TShopInfo 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 		DWORD duration;
 		char name[OFFLINE_SHOP_NAME_MAX_LEN + 1];
 		char ownerName[PLAYER_NAME_MAX_LEN + 1];
@@ -1733,7 +1739,7 @@ namespace ikashop
 
 	struct TNotificationInfo
 	{
-		DWORD id;
+		uint64_t id;
 		ENotificationType type;
 		DWORD what;
 		char who[OFFLINE_SHOP_NAME_MAX_LEN + 1];
@@ -1789,38 +1795,38 @@ namespace ikashop
 	};
 
 	struct TSubPacketGDBuyItem {
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD guestid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t guestid;
 		bool success;
 		int tax;
 	};
 
 	struct TSubPacketGDLockBuyItem {
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD guestid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t guestid;
 		int64_t seenprice;
 	};
 
 	struct TSubPacketGDEditItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
 	struct TSubPacketGDRemoveItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGDAddItem {
-		DWORD ownerid;
+		uint64_t ownerid;
 		TShopItem sitem;
 	};
 
 	struct TSubPacketGDShopForceClose {
-		DWORD ownerid;
+		uint64_t ownerid;
 		bool gm;
 	};
 
@@ -1830,63 +1836,63 @@ namespace ikashop
 	};
 
 	struct TSubPacketGDShopChangeName {
-		DWORD ownerid;
+		uint64_t ownerid;
 		char name[OFFLINE_SHOP_NAME_MAX_LEN + 1];
 	};
 
 	struct TSubPacketGDOwnerOnline {
-		DWORD ownerid;
+		uint64_t ownerid;
 		bool isOnline;
 	};
 
 	struct TSubPacketGDOfferCreate {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		DWORD vnum;
 		DWORD count;
 		TOfferInfo offer;
 	};
 
 	struct TSubPacketGDOfferCancel {
-		DWORD offerid;
-		DWORD ownerid;
-		DWORD requester;
+		uint64_t offerid;
+		uint64_t ownerid;
+		uint64_t requester;
 	};
 
 	struct TSubPacketGDOfferNotified {
-		DWORD ownerid;
-		DWORD offerid;
+		uint64_t ownerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketGDOfferAccept {
-		DWORD ownerid;
-		DWORD offerid;
+		uint64_t ownerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketGDSafeboxGetItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGDSafeboxAddItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TShopPlayerItem item;
 	};
 
 	struct TSubPacketGDSafeboxGetItemFeedback {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		bool result;
 	};
 
 	struct TSubPacketGDSafeboxGetValutes {
-		DWORD ownerid;
+		uint64_t ownerid;
 		TValutesInfo valute;
 	};
 
 	struct TSubPacketGDLoadExpiredShop {
-		DWORD owner;
+		uint64_t owner;
 	};
 
 	//AUCTION
@@ -1899,28 +1905,28 @@ namespace ikashop
 	};
 
 	struct TSubPacketGDAuctionOfferSeen {
-		DWORD ownerid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t buyerid;
 		int64_t price;
 	};
 
 #ifdef EXTEND_IKASHOP_PRO
 	struct TSubPacketGDNotificationSeen
 	{
-		DWORD owner;
-		DWORD id;
+		uint64_t owner;
+		uint64_t id;
 	};
 #ifdef ENABLE_IKASHOP_ENTITIES
 	struct TSubPacketGDMoveShopEntity
 	{
-		DWORD owner;
+		uint64_t owner;
 		TShopSpawn spawn;
 	};
 #endif
 #endif
 
 	struct TSubPacketGDLockedSlotState {
-		DWORD ownerid;
+		uint64_t ownerid;
 		BYTE unlockCount;
 		bool isPremium;
 	};
@@ -1978,38 +1984,38 @@ namespace ikashop
 	};
 
 	struct TSubPacketDGBuyItem {
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t buyerid;
 		bool requester;
 	};
 
 	struct TSubPacketDGLockedBuyItem {
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t buyerid;
 	};
 
 	struct TSubPacketDGEditItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
 	struct TSubPacketDGRemoveItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		bool requester = false;
 	};
 
 	struct TSubPacketDGAddItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TShopItem item;
 	};
 
 	struct TSubPacketDGShopForceClose {
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketDGShopCreateNew {
@@ -2018,30 +2024,30 @@ namespace ikashop
 	};
 
 	struct TSubPacketDGShopChangeName {
-		DWORD ownerid;
+		uint64_t ownerid;
 		char name[OFFLINE_SHOP_NAME_MAX_LEN + 1];
 	};
 
 	struct TSubPacketDGOfferCreate {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TOfferInfo offer;
 	};
 
 	struct TSubPacketDGOfferCancel {
-		DWORD offerid;
-		DWORD ownerid;
+		uint64_t offerid;
+		uint64_t ownerid;
 		bool removing;
 	};
 
 	struct TSubPacketDGOfferNotified {
-		DWORD ownerid;
-		DWORD offerid;
+		uint64_t ownerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketDGOfferAccept {
-		DWORD ownerid;
-		DWORD offerid;
+		uint64_t ownerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketDGLoadTables {
@@ -2052,34 +2058,34 @@ namespace ikashop
 	};
 
 	struct TSubPacketDGShopExpired {
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketDGSafeboxAddItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		TShopPlayerItem item;
 	};
 
 	struct TSubPacketDGSafeboxAddValutes {
-		DWORD ownerid;
+		uint64_t ownerid;
 		TValutesInfo valute;
 	};
 
 	struct TSubPacketDGSafeboxLoad {
-		DWORD ownerid;
+		uint64_t ownerid;
 		TValutesInfo valute;
 		DWORD itemcount;
 	};
 
 	struct TSubPacketDGSafeboxExpiredItem {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketDGSafeboxGetItemConfirm {
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 	};
 
 	//AUCTION
@@ -2092,30 +2098,30 @@ namespace ikashop
 	};
 
 	struct TSubPacketDGAuctionExpired {
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketDGAuctionOfferSeen {
-		DWORD ownerid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t buyerid;
 		int64_t price;
 	};
 
 #ifdef EXTEND_IKASHOP_PRO
 	struct TSubPacketDGNotificationLoad 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 		DWORD count;
 	};
 
 	struct TSubPacketDGNotificationForward : public TNotificationInfo
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 #ifdef ENABLE_IKASHOP_ENTITIES
 	struct TSubPacketDGMoveShopEntity
 	{
-		DWORD owner;
+		uint64_t owner;
 		TShopSpawn spawn;
 	};
 #endif
@@ -2123,20 +2129,20 @@ namespace ikashop
 
 	struct TSubPacketDGOwnerOnline
 	{
-		DWORD	owner;
+		uint64_t	owner;
 		bool	isOnline;
 	};
 
 	struct TSubPacketDGLockedSlotState
 	{
-		DWORD	owner;
+		uint64_t	owner;
 		BYTE	unlockCount;
 		bool	isPremium;
 	};
 
 	struct TSubPacketDGLoadExpiredShop
 	{
-		DWORD	owner;
+		uint64_t	owner;
 		DWORD	itemCount;
 	};
 }
@@ -2157,12 +2163,12 @@ struct TPacketDGSpecialShopSeed
 
 struct TPacketGDUsage
 {
-	DWORD invokerPid;
+	uint64_t invokerPid;
 };
 
 struct TPacketDGUsage
 {
-	DWORD invokerPid;
+	uint64_t invokerPid;
 	DWORD usageCur;
 	DWORD usageAvg;
 	DWORD usageMax;
@@ -2170,4 +2176,3 @@ struct TPacketDGUsage
 
 #pragma pack()
 #endif
-

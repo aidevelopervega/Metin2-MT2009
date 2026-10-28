@@ -23,7 +23,7 @@ namespace quest
 		TMonarchInfo* info = CMonarch::instance().GetMonarch();
 
 		lua_pushstring(L, info->name[idx]);
-		lua_pushnumber(L, info->pid[idx]);
+		m2_lua_pushuint64(L, info->pid[idx]);
 		lua_pushstring(L, info->date[idx]);
 		lua_pushnumber(L, info->money[idx]);
 
@@ -39,7 +39,7 @@ namespace quest
 
 		TPacketChangeMonarchLord info;
 		info.bEmpire = (BYTE)lua_tonumber(L, 1);
-		info.dwPID = (DWORD)lua_tonumber(L, 2);
+		info.dwPID = m2_lua_touint64(L, 2);
 
 		db_clientdesc->DBPacket(HEADER_GD_CHANGE_MONARCH_LORD, 0, &info, sizeof(info));
 
@@ -59,4 +59,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("mgmt", mgmt_functions);
 	}
 }
-

@@ -5,9 +5,10 @@
 class CItemIDRangeManager : public singleton<CItemIDRangeManager>
 {
 	private :
-		const static DWORD cs_dwMaxItemID = 4290000000UL;
-		const static DWORD cs_dwMinimumRange = 10000000UL;
-		const static DWORD cs_dwMinimumRemainCount = 10000UL;
+		const static uint64_t cs_dwMaxItemID = 18446744000000000000ULL;
+		const static uint64_t cs_dwDefaultPrebuildMaxItemID = 4290000000ULL;
+		const static uint64_t cs_dwMinimumRange = 10000000ULL;
+		const static uint64_t cs_dwMinimumRemainCount = 10000ULL;
 
 		std::list<TItemIDRangeTable> m_listData;
 
@@ -15,11 +16,10 @@ class CItemIDRangeManager : public singleton<CItemIDRangeManager>
 		CItemIDRangeManager();
 
 		void Build();
-		bool BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable& range);
-		void UpdateRange(DWORD dwMin, DWORD dwMax);
+		bool BuildRange(uint64_t dwMin, uint64_t dwMax, TItemIDRangeTable& range);
+		void UpdateRange(uint64_t dwMin, uint64_t dwMax);
 
 		TItemIDRangeTable GetRange();
 };
 
 #endif
-

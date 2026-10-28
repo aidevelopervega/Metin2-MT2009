@@ -588,14 +588,14 @@ CItemShopManager::PlayerAccountBalance CItemShopManager::GetPlayerAccountBalance
 	if (!ch->GetDesc())
 		return balance;
 
-	DWORD account_id = ch->GetDesc()->GetAccountTable().id;
-	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("SELECT cash, cash_mark FROM account WHERE id=%u", static_cast<unsigned int>(account_id)));
+	uint64_t account_id = ch->GetDesc()->GetAccountTable().id;
+	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("SELECT cash, cash_mark FROM account WHERE id=%llu", static_cast<unsigned long long>(account_id)));
 	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows < 1)
 		return balance;
 
 	if (pkMsg->Get()->uiNumRows > 1)
 	{
-		sys_err("MORE THAN 1 account with id %u ???? FATAL ERROR!!!!! ", static_cast<unsigned int>(account_id));
+		sys_err("MORE THAN 1 account with id %llu ???? FATAL ERROR!!!!! ", static_cast<unsigned long long>(account_id));
 		return balance;
 	}
 
@@ -827,12 +827,12 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 			return false;
 	}
 
-	const DWORD aid = ch->GetDesc()->GetAccountTable().id;
+	const uint64_t aid = ch->GetDesc()->GetAccountTable().id;
 	if (amount == 0)
 	{
 		std::unique_ptr<SQLMsg> pkCheck(DBManager::instance().AccountQuery(
-			"SELECT id FROM account WHERE id = %u LIMIT 1",
-			static_cast<unsigned int>(aid)));
+			"SELECT id FROM account WHERE id = %llu LIMIT 1",
+			static_cast<unsigned long long>(aid)));
 		if (!pkCheck || pkCheck->uiSQLErrno != 0 || !pkCheck->Get() || pkCheck->Get()->uiNumRows != 1)
 			return false;
 	}
@@ -844,11 +844,11 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 			const uint64_t secondCredit = (customSecondAmount >= 0) ? static_cast<uint64_t>(customSecondAmount) : cost;
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash = cash - %llu, cash_mark = cash_mark + %llu "
-				"WHERE id = %u AND cash >= %llu AND cash_mark >= 0 "
+				"WHERE id = %llu AND cash >= %llu AND cash_mark >= 0 "
 				"AND cash_mark <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(cost),
 				static_cast<unsigned long long>(secondCredit),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<unsigned long long>(cost),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(secondCredit)));
@@ -868,10 +868,10 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 			const uint64_t credit = static_cast<uint64_t>(amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash = cash + %llu "
-				"WHERE id = %u AND cash >= 0 "
+				"WHERE id = %llu AND cash >= 0 "
 				"AND cash <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(credit),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(credit)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
@@ -885,9 +885,9 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 			const uint64_t cost = static_cast<uint64_t>(-amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash_mark = cash_mark - %llu "
-				"WHERE id = %u AND cash_mark >= %llu LIMIT 1",
+				"WHERE id = %llu AND cash_mark >= %llu LIMIT 1",
 				static_cast<unsigned long long>(cost),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<unsigned long long>(cost)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
 			{
@@ -905,10 +905,10 @@ bool CItemShopManager::AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, 
 			const uint64_t credit = static_cast<uint64_t>(amount);
 			std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash_mark = cash_mark + %llu "
-				"WHERE id = %u AND cash_mark >= 0 "
+				"WHERE id = %llu AND cash_mark >= 0 "
 				"AND cash_mark <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(credit),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(credit)));
 			if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows != 1)
@@ -992,8 +992,8 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 		std::unique_ptr<SQLMsg> pkCreate(DBManager::instance().AccountQuery(
 			"CREATE TABLE IF NOT EXISTS `itemshop_tx_journal` ("
 			"  `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,"
-			"  `aid` int(11) unsigned NOT NULL DEFAULT 0,"
-			"  `pid` int(11) unsigned NOT NULL DEFAULT 0,"
+			"  `aid` bigint(20) unsigned NOT NULL DEFAULT 0,"
+			"  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,"
 			"  `req_id` bigint(20) unsigned DEFAULT NULL,"
 			"  `login` varchar(30) NOT NULL DEFAULT '',"
 			"  `item_index` int(11) NOT NULL DEFAULT 0,"
@@ -1023,6 +1023,25 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 	}
 	else
 	{
+		std::unique_ptr<SQLMsg> pkCheckAidBigint(DBManager::instance().AccountQuery(
+			"SELECT COUNT(*) FROM information_schema.COLUMNS "
+			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'itemshop_tx_journal' "
+			"AND COLUMN_NAME IN ('aid', 'pid') AND DATA_TYPE = 'bigint'"));
+		uint64_t bigintIdCols = 0;
+		if (pkCheckAidBigint && pkCheckAidBigint->uiSQLErrno == 0 && pkCheckAidBigint->Get() && pkCheckAidBigint->Get()->uiNumRows == 1)
+		{
+			MYSQL_ROW bRow = mysql_fetch_row(pkCheckAidBigint->Get()->pSQLResult);
+			if (bRow && bRow[0])
+				str_to_number(bigintIdCols, bRow[0]);
+		}
+		if (bigintIdCols < 2)
+		{
+			DBManager::instance().AccountQuery(
+				"ALTER TABLE `itemshop_tx_journal` "
+				"MODIFY COLUMN `aid` bigint(20) unsigned NOT NULL DEFAULT 0, "
+				"MODIFY COLUMN `pid` bigint(20) unsigned NOT NULL DEFAULT 0");
+		}
+
 		std::unique_ptr<SQLMsg> pkCheckEnum(DBManager::instance().AccountQuery(
 			"SELECT COUNT(*) FROM information_schema.COLUMNS "
 			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'itemshop_tx_journal' "
@@ -1103,7 +1122,7 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 	return true;
 }
 
-uint64_t CItemShopManager::LookupTransactionByRequestId(DWORD aid, uint64_t requestId, std::string* outState)
+uint64_t CItemShopManager::LookupTransactionByRequestId(uint64_t aid, uint64_t requestId, std::string* outState)
 {
 	if (outState)
 		outState->clear();
@@ -1111,8 +1130,8 @@ uint64_t CItemShopManager::LookupTransactionByRequestId(DWORD aid, uint64_t requ
 		return 0;
 
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
-		"SELECT tx_id, state FROM itemshop_tx_journal WHERE aid = %u AND req_id = %llu LIMIT 1",
-		static_cast<unsigned int>(aid),
+		"SELECT tx_id, state FROM itemshop_tx_journal WHERE aid = %llu AND req_id = %llu LIMIT 1",
+		static_cast<unsigned long long>(aid),
 		static_cast<unsigned long long>(requestId)));
 	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows != 1)
 		return 0;
@@ -1164,7 +1183,7 @@ bool CItemShopManager::PersistInventoryItemSynchronously(LPITEM item)
 		"(id, owner_id, `window`, pos, count, vnum, socket0, socket1, socket2, "
 		"attrtype0, attrvalue0, attrtype1, attrvalue1, attrtype2, attrvalue2, attrtype3, attrvalue3, "
 		"attrtype4, attrvalue4, attrtype5, attrvalue5, attrtype6, attrvalue6) "
-		"VALUES (%u, %u, '%s', %u, %u, %u, %lld, %lld, %lld, "
+		"VALUES (%llu, %llu, '%s', %u, %u, %u, %lld, %lld, %lld, "
 		"%u, %d, %u, %d, %u, %d, %u, %d, %u, %d, %u, %d, %u, %d) "
 		"ON DUPLICATE KEY UPDATE "
 		"owner_id = VALUES(owner_id), `window` = VALUES(`window`), pos = VALUES(pos), "
@@ -1178,8 +1197,8 @@ bool CItemShopManager::PersistInventoryItemSynchronously(LPITEM item)
 		"attrtype5 = VALUES(attrtype5), attrvalue5 = VALUES(attrvalue5), "
 		"attrtype6 = VALUES(attrtype6), attrvalue6 = VALUES(attrvalue6)",
 		get_table_postfix(),
-		static_cast<unsigned int>(item->GetID()),
-		static_cast<unsigned int>(item->GetOwner()->GetPlayerID()),
+		static_cast<unsigned long long>(item->GetID()),
+		static_cast<unsigned long long>(item->GetOwner()->GetPlayerID()),
 		szWindow,
 		static_cast<unsigned int>(item->GetCell()),
 		static_cast<unsigned int>(item->GetCount()),
@@ -1215,8 +1234,8 @@ int CItemShopManager::RecoverIncompleteTransactions()
 	struct IncompleteTxRow
 	{
 		uint64_t txId = 0;
-		DWORD aid = 0;
-		DWORD pid = 0;
+		uint64_t aid = 0;
+		uint64_t pid = 0;
 		int itemIndex = 0;
 		DWORD vnum = 0;
 		int quantity = 0;
@@ -1384,9 +1403,9 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		if (tx.isVip == 0 && ExtractSafeIdListFromInvPending(tx.deliveredItemIds, csvInvIds, invIdCount))
 		{
 			std::unique_ptr<SQLMsg> pkInvCheck(DBManager::instance().DirectQuery(
-				"SELECT COUNT(*), COALESCE(SUM(count), 0) FROM item WHERE id IN (%s) AND owner_id = %u",
+				"SELECT COUNT(*), COALESCE(SUM(count), 0) FROM item WHERE id IN (%s) AND owner_id = %llu",
 				csvInvIds.c_str(),
-				static_cast<unsigned int>(tx.pid)));
+				static_cast<unsigned long long>(tx.pid)));
 			if (pkInvCheck && pkInvCheck->uiSQLErrno == 0 && pkInvCheck->Get() && pkInvCheck->Get()->uiNumRows == 1)
 			{
 				MYSQL_ROW iRow = mysql_fetch_row(pkInvCheck->Get()->pSQLResult);
@@ -1455,9 +1474,9 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		if (invRows > 0 && !csvInvIds.empty())
 		{
 			std::unique_ptr<SQLMsg> pkCleanInv(DBManager::instance().DirectQuery(
-				"DELETE FROM item WHERE id IN (%s) AND owner_id = %u",
+				"DELETE FROM item WHERE id IN (%s) AND owner_id = %llu",
 				csvInvIds.c_str(),
-				static_cast<unsigned int>(tx.pid)));
+				static_cast<unsigned long long>(tx.pid)));
 			if (!pkCleanInv || pkCleanInv->uiSQLErrno != 0)
 			{
 				DBManager::instance().AccountQuery(
@@ -1554,11 +1573,11 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			std::unique_ptr<SQLMsg> pkRefundAcc(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash = cash + %llu, "
 				"cash_mark = CASE WHEN cash_mark >= %llu THEN cash_mark - %llu ELSE 0 END "
-				"WHERE id = %u AND cash >= 0 AND cash <= %lld - %llu LIMIT 1",
+				"WHERE id = %llu AND cash >= 0 AND cash <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(refundCash),
 				static_cast<unsigned long long>(rollbackMarks),
 				static_cast<unsigned long long>(rollbackMarks),
-				static_cast<unsigned int>(tx.aid),
+				static_cast<unsigned long long>(tx.aid),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(refundCash)));
 			refundAccountOk = (pkRefundAcc && pkRefundAcc->uiSQLErrno == 0 && pkRefundAcc->Get() && pkRefundAcc->Get()->uiAffectedRows == 1);
@@ -1568,9 +1587,9 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			const uint64_t refundMarks = static_cast<uint64_t>(-tx.markDelta);
 			std::unique_ptr<SQLMsg> pkRefundAcc(DBManager::instance().AccountQuery(
 				"UPDATE account SET cash_mark = cash_mark + %llu "
-				"WHERE id = %u AND cash_mark >= 0 AND cash_mark <= %lld - %llu LIMIT 1",
+				"WHERE id = %llu AND cash_mark >= 0 AND cash_mark <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(refundMarks),
-				static_cast<unsigned int>(tx.aid),
+				static_cast<unsigned long long>(tx.aid),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(refundMarks)));
 			refundAccountOk = (pkRefundAcc && pkRefundAcc->uiSQLErrno == 0 && pkRefundAcc->Get() && pkRefundAcc->Get()->uiAffectedRows == 1);
@@ -1586,10 +1605,10 @@ int CItemShopManager::RecoverIncompleteTransactions()
 					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'ACCOUNT_REFUND_FAILED' "
 					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 					static_cast<unsigned long long>(tx.txId));
-				sys_err("[CRITICAL][ITEMSHOP_RECOVERY_MANUAL_REVIEW] Failed to refund account for tx_id=%llu (aid=%u, pid=%u)",
+				sys_err("[CRITICAL][ITEMSHOP_RECOVERY_MANUAL_REVIEW] Failed to refund account for tx_id=%llu (aid=%llu, pid=%llu)",
 					static_cast<unsigned long long>(tx.txId),
-					static_cast<unsigned int>(tx.aid),
-					static_cast<unsigned int>(tx.pid));
+					static_cast<unsigned long long>(tx.aid),
+					static_cast<unsigned long long>(tx.pid));
 			}
 			releaseTxLock();
 			continue;
@@ -1624,7 +1643,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 	if (quantity < 1 || quantity > 10)
 		return false;
 
-	const DWORD aid = ch->GetDesc()->GetAccountTable().id;
+	const uint64_t aid = ch->GetDesc()->GetAccountTable().id;
 	if (aid == 0)
 		return false;
 
@@ -1640,9 +1659,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 			{
 				RecoverIncompleteTransactions();
 			}
-			sys_log(0, "ItemShop::BuyItem suppressed duplicate requestId=%llu for aid=%u (existing tx_id=%llu, state=%s)",
+			sys_log(0, "ItemShop::BuyItem suppressed duplicate requestId=%llu for aid=%llu (existing tx_id=%llu, state=%s)",
 				static_cast<unsigned long long>(requestId),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<unsigned long long>(existingTxId),
 				existingState.c_str());
 			return false;
@@ -1683,8 +1702,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 	const int64_t rawUnitPrice = GetItemPrice(item);
 	if (rawUnitPrice < 0 || static_cast<uint64_t>(rawUnitPrice) > static_cast<uint64_t>(INT64_MAX) / static_cast<uint64_t>(quantity))
 	{
-		sys_err("ItemShop::BuyItem price overflow blocked (pid=%u, itemIndex=%d, unitPrice=%lld, quantity=%d)",
-			static_cast<uint32_t>(ch->GetPlayerID()), itemIndex,
+		sys_err("ItemShop::BuyItem price overflow blocked (pid=%llu, itemIndex=%d, unitPrice=%lld, quantity=%d)",
+			static_cast<unsigned long long>(ch->GetPlayerID()), itemIndex,
 			static_cast<long long>(rawUnitPrice), quantity);
 		return false;
 	}
@@ -1695,8 +1714,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 	const uint64_t totalItemCountU64 = static_cast<uint64_t>(item.dwCount) * static_cast<uint64_t>(quantity);
 	if (!isVIPEffect && (item.dwCount == 0 || totalItemCountU64 == 0 || totalItemCountU64 > static_cast<uint64_t>(INT32_MAX)))
 	{
-		sys_err("ItemShop::BuyItem invalid item count blocked (pid=%u, itemIndex=%d, dwCount=%u, quantity=%d)",
-			static_cast<uint32_t>(ch->GetPlayerID()), itemIndex,
+		sys_err("ItemShop::BuyItem invalid item count blocked (pid=%llu, itemIndex=%d, dwCount=%u, quantity=%d)",
+			static_cast<unsigned long long>(ch->GetPlayerID()), itemIndex,
 			static_cast<uint32_t>(item.dwCount), quantity);
 		return false;
 	}
@@ -1756,8 +1775,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 	{
 		uint64_t pendingForAid = 0;
 		std::unique_ptr<SQLMsg> pkPendingCheck(DBManager::instance().AccountQuery(
-			"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
-			static_cast<unsigned int>(aid)));
+			"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %llu AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
+			static_cast<unsigned long long>(aid)));
 		if (pkPendingCheck && pkPendingCheck->uiSQLErrno == 0 && pkPendingCheck->Get() && pkPendingCheck->Get()->uiNumRows == 1)
 		{
 			MYSQL_ROW pRow = mysql_fetch_row(pkPendingCheck->Get()->pSQLResult);
@@ -1769,8 +1788,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 			RecoverIncompleteTransactions();
 			pendingForAid = 0;
 			std::unique_ptr<SQLMsg> pkRecheck(DBManager::instance().AccountQuery(
-				"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
-				static_cast<unsigned int>(aid)));
+				"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %llu AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
+				static_cast<unsigned long long>(aid)));
 			if (!pkRecheck || pkRecheck->uiSQLErrno != 0 || !pkRecheck->Get() || pkRecheck->Get()->uiNumRows != 1)
 				return false;
 			MYSQL_ROW rRow = mysql_fetch_row(pkRecheck->Get()->pSQLResult);
@@ -1778,9 +1797,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				str_to_number(pendingForAid, rRow[0]);
 			if (pendingForAid > 0)
 			{
-				sys_err("ItemShop::BuyItem blocked duplicate purchase while incomplete transaction exists (aid=%u, pid=%u, pending=%llu)",
-					static_cast<unsigned int>(aid),
-					static_cast<unsigned int>(ch->GetPlayerID()),
+				sys_err("ItemShop::BuyItem blocked duplicate purchase while incomplete transaction exists (aid=%llu, pid=%llu, pending=%llu)",
+					static_cast<unsigned long long>(aid),
+					static_cast<unsigned long long>(ch->GetPlayerID()),
 					static_cast<unsigned long long>(pendingForAid));
 				return false;
 			}
@@ -1880,9 +1899,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 			}
 			if (!auctionRbOk)
 			{
-				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to rollback itemshop_time_auction (pid=%u, aid=%u, itemIndex=%u, auctionItemCount=%u)",
-					static_cast<unsigned int>(ch->GetPlayerID()),
-					static_cast<unsigned int>(ch->GetDesc()->GetAccountTable().id),
+				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to rollback itemshop_time_auction (pid=%llu, aid=%llu, itemIndex=%u, auctionItemCount=%u)",
+					static_cast<unsigned long long>(ch->GetPlayerID()),
+					static_cast<unsigned long long>(ch->GetDesc()->GetAccountTable().id),
 					static_cast<unsigned int>(item.dwIndex),
 					static_cast<unsigned int>(auctionItemCount));
 			}
@@ -1912,9 +1931,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 		"INSERT INTO itemshop_tx_journal "
 		"(aid, pid, req_id, login, item_index, vnum, quantity, item_count, charge_type, cash_delta, mark_delta, money_before_buy, "
 		"is_vip, vip_type, vip_hours, is_time_auction, auction_reserved_count, state, delivered_item_ids, created_at, updated_at) "
-		"VALUES (%u, %u, %s, '%s', %d, %u, %d, %u, %u, %lld, %lld, %lld, %d, %u, %u, %d, %u, 'INITIATED', '', NOW(), NOW())",
-		static_cast<unsigned int>(aid),
-		static_cast<unsigned int>(ch->GetPlayerID()),
+		"VALUES (%llu, %llu, %s, '%s', %d, %u, %d, %u, %u, %lld, %lld, %lld, %d, %u, %u, %d, %u, 'INITIATED', '', NOW(), NOW())",
+		static_cast<unsigned long long>(aid),
+		static_cast<unsigned long long>(ch->GetPlayerID()),
 		szReqIdSql,
 		szEscapedLogin,
 		itemIndex,
@@ -1938,8 +1957,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 			if (existingTxId > 0)
 				m_ullLastTxId = existingTxId;
 		}
-		sys_err("ItemShop::BuyItem failed to record INITIATED journal entry (pid=%u, aid=%u, itemIndex=%d, reqId=%llu)",
-			static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(aid), itemIndex, static_cast<unsigned long long>(requestId));
+		sys_err("ItemShop::BuyItem failed to record INITIATED journal entry (pid=%llu, aid=%llu, itemIndex=%d, reqId=%llu)",
+			static_cast<unsigned long long>(ch->GetPlayerID()), static_cast<unsigned long long>(aid), itemIndex, static_cast<unsigned long long>(requestId));
 		rollbackAuctionInDB();
 		return false;
 	}
@@ -2188,8 +2207,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
 				if (db_clientdesc && db_clientdesc->GetSocket() != INVALID_SOCKET)
 				{
-					DWORD dwItemID = createdItem->GetID();
-					db_clientdesc->DBPacket(HEADER_GD_ITEM_FLUSH, 0, &dwItemID, sizeof(DWORD));
+					uint64_t dwItemID = createdItem->GetID();
+					db_clientdesc->DBPacket(HEADER_GD_ITEM_FLUSH, 0, &dwItemID, sizeof(dwItemID));
 				}
 			}
 		}
@@ -2201,15 +2220,15 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 		{
 			if (createdItem)
 			{
-				const DWORD dwCreatedId = createdItem->GetID();
+				const uint64_t dwCreatedId = createdItem->GetID();
 				ITEM_MANAGER::instance().RemoveItem(createdItem, "ITEMSHOP_ROLLBACK");
 				if (dwCreatedId > 0)
 				{
 					DBManager::instance().DirectQuery(
-						"DELETE FROM item%s WHERE id = %u AND owner_id = %u",
+						"DELETE FROM item%s WHERE id = %llu AND owner_id = %llu",
 						get_table_postfix(),
-						static_cast<unsigned int>(dwCreatedId),
-						static_cast<unsigned int>(ch->GetPlayerID()));
+						static_cast<unsigned long long>(dwCreatedId),
+						static_cast<unsigned long long>(ch->GetPlayerID()));
 				}
 			}
 		}
@@ -2225,9 +2244,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 			}
 			if (!awardDelOk)
 			{
-				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to delete partial item_award row (pid=%u, aid=%u, awardId=%llu)",
-					static_cast<unsigned int>(ch->GetPlayerID()),
-					static_cast<unsigned int>(ch->GetDesc()->GetAccountTable().id),
+				sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Failed to delete partial item_award row (pid=%llu, aid=%llu, awardId=%llu)",
+					static_cast<unsigned long long>(ch->GetPlayerID()),
+					static_cast<unsigned long long>(ch->GetDesc()->GetAccountTable().id),
 					static_cast<unsigned long long>(awardId));
 			}
 		}
@@ -2263,11 +2282,11 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
 					"UPDATE account SET cash = cash + %llu, "
 					"cash_mark = CASE WHEN cash_mark >= %llu THEN cash_mark - %llu ELSE 0 END "
-					"WHERE id = %u AND cash >= 0 AND cash <= %lld - %llu LIMIT 1",
+					"WHERE id = %llu AND cash >= 0 AND cash <= %lld - %llu LIMIT 1",
 					static_cast<unsigned long long>(refundCash),
 					static_cast<unsigned long long>(rollbackMarks),
 					static_cast<unsigned long long>(rollbackMarks),
-					static_cast<unsigned int>(aid),
+					static_cast<unsigned long long>(aid),
 					static_cast<long long>(INT64_MAX),
 					static_cast<unsigned long long>(refundCash)));
 				accUpdated = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
@@ -2277,9 +2296,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				const uint64_t refundMarks = static_cast<uint64_t>(llPrice);
 				std::unique_ptr<SQLMsg> pkRefund(DBManager::instance().AccountQuery(
 					"UPDATE account SET cash_mark = cash_mark + %llu "
-					"WHERE id = %u AND cash_mark >= 0 AND cash_mark <= %lld - %llu LIMIT 1",
+					"WHERE id = %llu AND cash_mark >= 0 AND cash_mark <= %lld - %llu LIMIT 1",
 					static_cast<unsigned long long>(refundMarks),
-					static_cast<unsigned int>(aid),
+					static_cast<unsigned long long>(aid),
 					static_cast<long long>(INT64_MAX),
 					static_cast<unsigned long long>(refundMarks)));
 				accUpdated = (pkRefund && pkRefund->uiSQLErrno == 0 && pkRefund->Get() && pkRefund->Get()->uiAffectedRows == 1);
@@ -2303,9 +2322,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'DELIVERY_AND_REFUND_FAILED' "
 				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
 				static_cast<unsigned long long>(txId));
-			sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Account refund failed after delivery failure (pid=%u, aid=%u, itemIndex=%d, vnum=%u, qty=%d, price=%lld, chargeType=%d, moneyBefore=%lld)",
-				static_cast<unsigned int>(ch->GetPlayerID()),
-				static_cast<unsigned int>(aid),
+			sys_err("[CRITICAL][ITEMSHOP_ROLLBACK_FAILED] Account refund failed after delivery failure (pid=%llu, aid=%llu, itemIndex=%d, vnum=%u, qty=%d, price=%lld, chargeType=%d, moneyBefore=%lld)",
+				static_cast<unsigned long long>(ch->GetPlayerID()),
+				static_cast<unsigned long long>(aid),
 				itemIndex,
 				static_cast<unsigned int>(item.dwVnum),
 				quantity,
@@ -2314,9 +2333,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 				static_cast<long long>(money_before_buy));
 			LogManager::instance().Query(
 				"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
-				"VALUES (%u, %u, %d, %u, %d, %lld, %d, NULL, NOW(), %lld)",
-				ch->GetPlayerID(),
-				aid,
+				"VALUES (%llu, %llu, %d, %u, %d, %lld, %d, NULL, NOW(), %lld)",
+				static_cast<unsigned long long>(ch->GetPlayerID()),
+				static_cast<unsigned long long>(aid),
 				-itemIndex,
 				item.dwVnum,
 				0,
@@ -2432,9 +2451,9 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint
 	const long long llLogPrice = static_cast<long long>(llPrice);
 	LogManager::instance().Query(
 		"INSERT INTO itemshop (pid, account_id, item_index, vnum, count, price, currency, item_id, date, money_before_buy) "
-		"VALUES (%u, %u, %d, %u, %d, %lld, %d, %s, NOW(), %lld)",
-		ch->GetPlayerID(),
-		ch->GetDesc()->GetAccountTable().id,
+		"VALUES (%llu, %llu, %d, %u, %d, %lld, %d, %s, NOW(), %lld)",
+		static_cast<unsigned long long>(ch->GetPlayerID()),
+		static_cast<unsigned long long>(ch->GetDesc()->GetAccountTable().id),
 		itemIndex,
 		item.dwVnum,
 		quantity,
@@ -2458,10 +2477,10 @@ LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum,
 
 	if (itemCount == 0 || itemCount > static_cast<DWORD>(INT32_MAX))
 	{
-		sys_err("ItemShop::GiveItem invalid itemCount=%u (max=%d, pid=%u, vnum=%u)",
+		sys_err("ItemShop::GiveItem invalid itemCount=%u (max=%d, pid=%llu, vnum=%u)",
 			static_cast<unsigned int>(itemCount),
 			INT32_MAX,
-			static_cast<unsigned int>(ch->GetPlayerID()),
+			static_cast<unsigned long long>(ch->GetPlayerID()),
 			static_cast<unsigned int>(itemVnum));
 		return nullptr;
 	}
@@ -2505,8 +2524,8 @@ LPITEM CItemShopManager::GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum,
 		szEscapedLogin, static_cast<unsigned int>(itemVnum), static_cast<unsigned int>(itemCount), szWhySql, 1u));
 	if (!pkAwardMsg || pkAwardMsg->uiSQLErrno != 0 || !pkAwardMsg->Get() || pkAwardMsg->Get()->uiAffectedRows != 1)
 	{
-		sys_err("ItemShop::GiveItem failed to insert into item_award (pid=%u, vnum=%u, count=%u)",
-			static_cast<unsigned int>(ch->GetPlayerID()),
+		sys_err("ItemShop::GiveItem failed to insert into item_award (pid=%llu, vnum=%u, count=%u)",
+			static_cast<unsigned long long>(ch->GetPlayerID()),
 			static_cast<unsigned int>(itemVnum),
 			static_cast<unsigned int>(itemCount));
 		return nullptr;
@@ -2532,7 +2551,7 @@ bool CItemShopManager::AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationIn
 	if (premiumType >= PREMIUM_MAX_NUM || durationInHours == 0)
 		return false;
 
-	DWORD aid = ch->GetDesc()->GetAccountTable().id;
+	uint64_t aid = ch->GetDesc()->GetAccountTable().id;
 
 	std::string premiumColumnStr[PREMIUM_MAX_NUM] = {
 		"silver_expire",
@@ -2556,12 +2575,11 @@ bool CItemShopManager::AddVIP(LPCHARACTER ch, BYTE premiumType, DWORD durationIn
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery("%s", query.c_str()));
 	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiAffectedRows == 0)
 	{
-		sys_err("ItemShop::AddVIP failed to update account (aid=%u, premiumType=%u, hours=%u)",
-			static_cast<unsigned int>(aid), static_cast<unsigned int>(premiumType), static_cast<unsigned int>(durationInHours));
+		sys_err("ItemShop::AddVIP failed to update account (aid=%llu, premiumType=%u, hours=%u)",
+			static_cast<unsigned long long>(aid), static_cast<unsigned int>(premiumType), static_cast<unsigned int>(durationInHours));
 		return false;
 	}
 
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("ITEMSHOP_BUY_VIP_INFO"));
 	return true;
 }
-

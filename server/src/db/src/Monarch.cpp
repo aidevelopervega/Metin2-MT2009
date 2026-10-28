@@ -14,7 +14,7 @@ CMonarch::~CMonarch()
 {
 }
 
-bool CMonarch::VoteMonarch(DWORD pid, DWORD selectdpid)
+bool CMonarch::VoteMonarch(uint64_t pid, uint64_t selectdpid)
 {
 	MAP_MONARCHELECTION::iterator it = m_map_MonarchElection.find(pid);
 
@@ -27,7 +27,8 @@ bool CMonarch::VoteMonarch(DWORD pid, DWORD selectdpid)
 
 		char szQuery[256];
 		snprintf(szQuery, sizeof(szQuery),
-				"INSERT INTO monarch_election(pid, selectedpid, electiondata) VALUES(%u, %u, now())", static_cast<unsigned int>(pid), static_cast<unsigned int>(selectdpid));
+				"INSERT INTO monarch_election(pid, selectedpid, electiondata) VALUES(%llu, %llu, now())",
+				static_cast<unsigned long long>(pid), static_cast<unsigned long long>(selectdpid));
 
 		CDBManager::instance().AsyncQuery(szQuery);
 		return 1;
@@ -60,11 +61,13 @@ void CMonarch::ElectMonarch()
 		++s[uIdx];
 
 		if (g_test_server)
-			sys_log (0, "[MONARCH_VOTE] pid(%d) come to vote candidacy pid(%d)", it->second->pid, m_vec_MonarchCandidacy[uIdx].pid);
+			sys_log (0, "[MONARCH_VOTE] pid(%llu) come to vote candidacy pid(%llu)",
+					static_cast<unsigned long long>(it->second->pid),
+					static_cast<unsigned long long>(m_vec_MonarchCandidacy[uIdx].pid));
 	}
 }
 
-bool CMonarch::IsCandidacy(DWORD pid)
+bool CMonarch::IsCandidacy(uint64_t pid)
 {
 	VEC_MONARCHCANDIDACY::iterator it = m_vec_MonarchCandidacy.begin();
 
@@ -77,7 +80,7 @@ bool CMonarch::IsCandidacy(DWORD pid)
 	return true;
 }
 
-bool CMonarch::AddCandidacy(DWORD pid, const char * name)
+bool CMonarch::AddCandidacy(uint64_t pid, const char * name)
 {
 	if (IsCandidacy(pid) == false)
 		return false;
@@ -90,7 +93,7 @@ bool CMonarch::AddCandidacy(DWORD pid, const char * name)
 
 	char szQuery[256];
 	snprintf(szQuery, sizeof(szQuery),
-			"INSERT INTO monarch_candidacy(pid, date) VALUES(%u, now())", static_cast<unsigned int>(pid));
+			"INSERT INTO monarch_candidacy(pid, date) VALUES(%llu, now())", static_cast<unsigned long long>(pid));
 
 	CDBManager::instance().AsyncQuery(szQuery);
 	return true;
@@ -105,7 +108,7 @@ bool CMonarch::DelCandidacy(const char * name)
 		{
 			char szQuery[256];
 			snprintf(szQuery, sizeof(szQuery),
-					"DELETE FROM monarch_candidacy WHERE pid=%u ", static_cast<unsigned int>(it->pid));
+					"DELETE FROM monarch_candidacy WHERE pid=%llu ", static_cast<unsigned long long>(it->pid));
 			CDBManager::instance().AsyncQuery(szQuery);
 
 			m_vec_MonarchCandidacy.erase (it);
@@ -116,7 +119,7 @@ bool CMonarch::DelCandidacy(const char * name)
 
 }
 
-bool CMonarch::IsMonarch(int Empire, DWORD pid)
+bool CMonarch::IsMonarch(int Empire, uint64_t pid)
 {
 	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM)
 		return false;
@@ -164,7 +167,7 @@ bool CMonarch::DecMoney(int Empire, int64_t Money)
 	return true;
 }
 
-bool CMonarch::TakeMoney(int Empire, DWORD pid, int64_t Money)
+bool CMonarch::TakeMoney(int Empire, uint64_t pid, int64_t Money)
 {
 	if (Empire < 0 || Empire >= EMPIRE_MAX_NUM || Money <= 0)
 		return false;
@@ -213,7 +216,8 @@ bool CMonarch::LoadMonarch()
 		strlcpy(p->date[Empire], row[idx++], sizeof(p->date[Empire]));
 
 		if (g_test_server)
-        	sys_log(0, "[LOAD_MONARCH] Empire %d pid %d money %lld windate %s", Empire, p->pid[Empire], p->money[Empire], p->date[Empire]);
+		sys_log(0, "[LOAD_MONARCH] Empire %d pid %llu money %lld windate %s",
+					Empire, static_cast<unsigned long long>(p->pid[Empire]), p->money[Empire], p->date[Empire]);
     }
 
     return true;
@@ -251,11 +255,13 @@ bool CMonarch::SetMonarch(const char * name)
 		p->money[Empire] = atoll(row[idx++]);
 
 		if (g_test_server)
-			sys_log(0, "[Set_MONARCH] Empire %d pid %u money %lld windate %s", Empire, p->pid[Empire], p->money[Empire], p->date[Empire]);
+			sys_log(0, "[Set_MONARCH] Empire %d pid %llu money %lld windate %s",
+					Empire, static_cast<unsigned long long>(p->pid[Empire]), p->money[Empire], p->date[Empire]);
 	}
 
 	snprintf(szQuery, sizeof(szQuery),
-					"REPLACE INTO monarch (empire, pid, windate, money) VALUES(%d, %u, now(), %lld)", Empire, static_cast<unsigned int>(p->pid[Empire]), p->money[Empire]);
+					"REPLACE INTO monarch (empire, pid, windate, money) VALUES(%d, %llu, now(), %lld)",
+					Empire, static_cast<unsigned long long>(p->pid[Empire]), p->money[Empire]);
 
 	CDBManager::instance().AsyncQuery(szQuery, SQL_PLAYER);
 	return true;
@@ -304,7 +310,7 @@ bool CMonarch::DelMonarch(const char * name)
 	return false;
 }
 
-int CMonarch::GetCandidacyIndex(DWORD pid)
+int CMonarch::GetCandidacyIndex(uint64_t pid)
 {
 	itertype(m_vec_MonarchCandidacy) it = m_vec_MonarchCandidacy.begin();
 
@@ -316,4 +322,3 @@ int CMonarch::GetCandidacyIndex(DWORD pid)
 
 	return -1;
 }
-

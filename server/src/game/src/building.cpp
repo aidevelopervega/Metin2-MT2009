@@ -199,7 +199,7 @@ void CObject::ApplySpecialEffect()
 				m_pProto->dwVnum == BUILDING_INCREASE_GUILD_MEMBER_COUNT_LARGE)
 		{
 			CLand* pLand = GetLand();
-			DWORD guild_id = 0;
+			uint64_t guild_id = 0;
 			if (pLand)
 				guild_id = pLand->GetOwner();
 			CGuild* pGuild = CGuildManager::instance().FindGuild(guild_id);
@@ -237,7 +237,7 @@ void CObject::RemoveSpecialEffect()
 				m_pProto->dwVnum == BUILDING_INCREASE_GUILD_MEMBER_COUNT_LARGE)
 		{
 			CLand* pLand = GetLand();
-			DWORD guild_id = 0;
+			uint64_t guild_id = 0;
 			if (pLand)
 				guild_id = pLand->GetOwner();
 			CGuild* pGuild = CGuildManager::instance().FindGuild(guild_id);
@@ -264,7 +264,7 @@ void CObject::RegenNPC()
 	if (!m_pkLand)
 		return;
 
-	DWORD dwGuildID = m_pkLand->GetOwner();
+	uint64_t dwGuildID = m_pkLand->GetOwner();
 	CGuild* pGuild = CGuildManager::instance().FindGuild(dwGuildID);
 
 	if (!pGuild)
@@ -600,7 +600,7 @@ void CLand::RequestDeleteObjectByVID(DWORD dwVID)
 	sys_log(0, "RequestDeleteObject vid %u id %u", dwVID, dwID);
 }
 
-void CLand::SetOwner(DWORD dwGuild)
+void CLand::SetOwner(uint64_t dwGuild)
 {
 	if (m_data.dwGuildID != dwGuild)
 	{
@@ -609,15 +609,14 @@ void CLand::SetOwner(DWORD dwGuild)
 	}
 }
 
-void CLand::RequestUpdate(DWORD dwGuild)
+void CLand::RequestUpdate(uint64_t dwGuild)
 {
-	DWORD a[2];
+	TPacketGDUpdateLand pack{};
+	pack.dwLandID = GetID();
+	pack.dwGuildID = dwGuild;
 
-	a[0] = GetID();
-	a[1] = dwGuild;
-
-	db_clientdesc->DBPacket(HEADER_GD_UPDATE_LAND, 0, &a[0], sizeof(DWORD) * 2);
-	sys_log(0, "RequestUpdate id %u guild %u", a[0], a[1]);
+	db_clientdesc->DBPacket(HEADER_GD_UPDATE_LAND, 0, &pack, sizeof(pack));
+	sys_log(0, "RequestUpdate id %u guild %llu", pack.dwLandID, static_cast<unsigned long long>(pack.dwGuildID));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -725,7 +724,7 @@ void CManager::UpdateLand(TLand * pTable)
 	e.height = pTable->height;
 	e.dwGuildID = pTable->dwGuildID;
 
-	sys_log(0, "BUILDING: UpdateLand %u pos %dx%d guild %u", e.dwID, e.x, e.y, e.dwGuildID);
+	sys_log(0, "BUILDING: UpdateLand %u pos %dx%d guild %llu", e.dwID, e.x, e.y, static_cast<unsigned long long>(e.dwGuildID));
 
 	CGuild *guild = CGuildManager::instance().FindGuild(pTable->dwGuildID);
 	while (it != cont.end())
@@ -787,7 +786,7 @@ CLand * CManager::FindLand(long lMapIndex, long x, long y)
 	return NULL;
 }
 
-CLand * CManager::FindLandByGuild(DWORD GID)
+CLand * CManager::FindLandByGuild(uint64_t GID)
 {
 	itertype(m_map_pkLand) it = m_map_pkLand.begin();
 
@@ -994,13 +993,13 @@ void CManager::ClearLand(DWORD dwLandID)
 	sys_log(0, "LAND_CLEAR: request Land Clear. LandID: %d", pLand->GetID());
 }
 
-void CManager::ClearLandByGuildID(DWORD dwGuildID)
+void CManager::ClearLandByGuildID(uint64_t dwGuildID)
 {
 	CLand* pLand = FindLandByGuild(dwGuildID);
 
 	if ( pLand == NULL )
 	{
-		sys_log(0, "LAND_CLEAR: there is no GUILD id like %d", dwGuildID);
+		sys_log(0, "LAND_CLEAR: there is no GUILD id like %llu", static_cast<unsigned long long>(dwGuildID));
 		return;
 	}
 
@@ -1253,4 +1252,3 @@ void CLand::RequestDeleteWallBlocks(DWORD dwID)
 	}
 }
 // END_BUILD_WALL
-

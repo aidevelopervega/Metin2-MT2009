@@ -38,7 +38,7 @@ class CDungeon;
 class CPartyManager : public singleton<CPartyManager>
 {
 	public:
-		typedef std::map<DWORD, LPPARTY> TPartyMap;
+		typedef std::map<uint64_t, LPPARTY> TPartyMap;
 		typedef std::set<LPPARTY> TPCPartySet;
 
 	public:
@@ -58,15 +58,15 @@ class CPartyManager : public singleton<CPartyManager>
 		void		DeleteAllParty();
 		bool		SetParty(LPCHARACTER pkChr);
 
-		void		SetPartyMember(DWORD dwPID, LPPARTY pParty);
+		void		SetPartyMember(uint64_t dwPID, LPPARTY pParty);
 
-		void		P2PLogin(DWORD pid, const char* name);
-		void		P2PLogout(DWORD pid);
+		void		P2PLogin(uint64_t pid, const char* name);
+		void		P2PLogout(uint64_t pid);
 
-		LPPARTY		P2PCreateParty(DWORD pid);
-		void		P2PDeleteParty(DWORD pid);
-		void		P2PJoinParty(DWORD leader, DWORD pid, BYTE role = 0);
-		void		P2PQuitParty(DWORD pid);
+		LPPARTY		P2PCreateParty(uint64_t pid);
+		void		P2PDeleteParty(uint64_t pid);
+		void		P2PJoinParty(uint64_t leader, uint64_t pid, BYTE role = 0);
+		void		P2PQuitParty(uint64_t pid);
 
 	private:
 		TPartyMap	m_map_pkParty;
@@ -97,7 +97,7 @@ class CParty
 			std::string strName;
 		} TMember;
 
-		typedef std::map<DWORD, TMember> TMemberMap;
+		typedef std::map<uint64_t, TMember> TMemberMap;
 
 		typedef std::map<std::string, int> TFlagMap;
 
@@ -105,38 +105,38 @@ class CParty
 		CParty();
 		virtual ~CParty();
 
-		void		P2PJoin(DWORD dwPID);
-		void		P2PQuit(DWORD dwPID);
-		virtual void	Join(DWORD dwPID);
-		void		Quit(DWORD dwPID);
+		void		P2PJoin(uint64_t dwPID);
+		void		P2PQuit(uint64_t dwPID);
+		virtual void	Join(uint64_t dwPID);
+		void		Quit(uint64_t dwPID);
 		void		Link(LPCHARACTER pkChr);
 		void		Unlink(LPCHARACTER pkChr);
 
 		void		ChatPacketToAllMember(BYTE type, const char* format, ...);
 
-		void		UpdateOnlineState(DWORD dwPID, const char* name);
-		void		UpdateOfflineState(DWORD dwPID);
+		void		UpdateOnlineState(uint64_t dwPID, const char* name);
+		void		UpdateOfflineState(uint64_t dwPID);
 
-		DWORD		GetLeaderPID();
+		uint64_t	GetLeaderPID();
 		LPCHARACTER	GetLeaderCharacter();
 		LPCHARACTER	GetLeader() { return m_pkChrLeader; }
 
 		DWORD		GetMemberCount();
 		DWORD		GetNearMemberCount()	{ return m_iCountNearPartyMember; }
 
-		bool		IsMember(DWORD pid) { return m_memberMap.find(pid) != m_memberMap.end(); }
+		bool		IsMember(uint64_t pid) { return m_memberMap.find(pid) != m_memberMap.end(); }
 
-		bool		IsNearLeader(DWORD pid);
+		bool		IsNearLeader(uint64_t pid);
 
 		bool		IsPositionNearLeader(LPCHARACTER ch);
 
 		void		SendMessage(LPCHARACTER ch, BYTE bMsg, DWORD dwArg1, DWORD dwArg2);
 
-		void		SendPartyJoinOneToAll(DWORD dwPID);
+		void		SendPartyJoinOneToAll(uint64_t dwPID);
 		void		SendPartyJoinAllToOne(LPCHARACTER ch);
-		void		SendPartyRemoveOneToAll(DWORD dwPID);
+		void		SendPartyRemoveOneToAll(uint64_t dwPID);
 
-		void		SendPartyInfoOneToAll(DWORD pid);
+		void		SendPartyInfoOneToAll(uint64_t pid);
 		void		SendPartyInfoOneToAll(LPCHARACTER ch);
 		void		SendPartyInfoAllToOne(LPCHARACTER ch);
 
@@ -165,9 +165,9 @@ class CParty
 #endif
 		int		GetExpBonusPercent();
 
-		bool		SetRole(DWORD pid, BYTE bRole, bool on);
-		BYTE		GetRole(DWORD pid);
-		bool		IsRole(DWORD pid, BYTE bRole);
+		bool		SetRole(uint64_t pid, BYTE bRole, bool on);
+		BYTE		GetRole(uint64_t pid);
+		bool		IsRole(uint64_t pid, BYTE bRole);
 
 		BYTE		GetMemberMaxLevel();
 		BYTE		GetMemberMinLevel();
@@ -175,7 +175,7 @@ class CParty
 		void		ComputeRolePoint(LPCHARACTER ch, BYTE bRole, bool bAdd);
 
 		void		HealParty();
-		void		SummonToLeader(DWORD pid);
+		void		SummonToLeader(uint64_t pid);
 
 		void		SetPCParty(bool b) { m_bPCParty = b; }
 		bool IsPCParty() const { return m_bPCParty; }
@@ -193,11 +193,11 @@ class CParty
 		void		SetParameter(int iMode);
 		int		GetExpDistributionMode();
 
-		void		SetExpCentralizeCharacter(DWORD pid);
+		void		SetExpCentralizeCharacter(uint64_t pid);
 		LPCHARACTER	GetExpCentralizeCharacter();
 
-		void		RequestSetMemberLevel(DWORD pid, BYTE level);
-		void		P2PSetMemberLevel(DWORD pid, BYTE level);
+		void		RequestSetMemberLevel(uint64_t pid, BYTE level);
+		void		P2PSetMemberLevel(uint64_t pid, BYTE level);
 
 		bool		IsPartyInDungeon(int mapIndex);
 		bool		IsPartyInAnyDungeon();
@@ -210,13 +210,13 @@ class CParty
 		void		RemovePartyBonus();
 
 		void		RemoveBonus();
-		void		RemoveBonusForOne(DWORD pid);
+		void		RemoveBonusForOne(uint64_t pid);
 
 		void		SendParameter(LPCHARACTER ch);
 		void		SendParameterToAll();
 
 		TMemberMap	m_memberMap;
-		DWORD		m_dwLeaderPID;
+		uint64_t	m_dwLeaderPID;
 		LPCHARACTER	m_pkChrLeader;
 
 		LPEVENT		m_eventUpdate;
@@ -439,4 +439,3 @@ struct FPartyDropDiceRoll
 #endif
 
 #endif
-

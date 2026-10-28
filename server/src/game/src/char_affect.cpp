@@ -28,7 +28,7 @@
 #define IS_TARGET_SHOW_AFFECT(type) (type == AFFECT_POISON || type == AFFECT_SLOW || type == AFFECT_STUN || type == AFFECT_FIRE || type == AFFECT_HEAL_ON_DAMAGE || type == AFFECT_REMOVE_ALL_RESIST)
 
 
-void SendAffectRemovePacket(LPDESC d, DWORD pid, DWORD type, BYTE point)
+void SendAffectRemovePacket(LPDESC d, uint64_t pid, DWORD type, BYTE point)
 {
 	TPacketGCAffectRemove ptoc;
 	ptoc.bHeader	= HEADER_GC_AFFECT_REMOVE;
@@ -314,7 +314,7 @@ int CHARACTER::ProcessAffect()
 				bEnd = true;
 		}
 
-		if (pkAff->lSPCost > 0)
+		if (pkAff->lSPCost > 0 && pkAff->dwType != AFFECT_AUTO_HP_RECOVERY && pkAff->dwType != AFFECT_AUTO_SP_RECOVERY)
 		{
 			if (GetSP() < pkAff->lSPCost)
 				bEnd = true;
@@ -402,7 +402,7 @@ void CHARACTER::SaveAffect()
 
 EVENTINFO(load_affect_login_event_info)
 {
-	DWORD pid;
+	uint64_t pid;
 	DWORD count;
 	char* data;
 
@@ -424,7 +424,7 @@ EVENTFUNC(load_affect_login_event)
 		return 0;
 	}
 
-	DWORD dwPID = info->pid;
+	uint64_t dwPID = info->pid;
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(dwPID);
 
 	if (!ch)
@@ -463,7 +463,7 @@ EVENTFUNC(load_affect_login_event)
 	}
 	else
 	{
-		sys_err("input_db.cpp:quest_login_event INVALID PHASE pid %d", ch->GetPlayerID());
+		sys_err("input_db.cpp:quest_login_event INVALID PHASE pid %llu", static_cast<unsigned long long>(ch->GetPlayerID()));
 		M2_DELETE_ARRAY(info->data);
 		return 0;
 	}
@@ -507,7 +507,8 @@ void CHARACTER::LoadAffect(DWORD dwCount, TPacketAffectElement * pElements)
 
 		if (AFFECT_AUTO_HP_RECOVERY == pElements->dwType || AFFECT_AUTO_SP_RECOVERY == pElements->dwType)
 		{
-			LPITEM item = FindItemByID( pElements->dwFlag );
+			const uint64_t ullAffectItemID = (pElements->lSPCost > 0) ? static_cast<uint64_t>(pElements->lSPCost) : static_cast<uint64_t>(pElements->dwFlag);
+			LPITEM item = FindItemByID(ullAffectItemID);
 
 			if (NULL == item)
 				continue;
@@ -982,4 +983,3 @@ void CHARACTER::RemoveGuildWarAffect()
 	RemoveAffect(GUILD_SKILL_BUNNO);
 	RemoveAffect(GUILD_SKILL_JUMUN);
 }
-

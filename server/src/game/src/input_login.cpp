@@ -863,10 +863,10 @@ void CInputLogin::Entergame(LPDESC d, [[maybe_unused]] const char * data)
 
 	if (ch->GetHorseLevel() > 0)
 	{
-		DWORD pid = ch->GetPlayerID();
+		uint64_t pid = ch->GetPlayerID();
 
 		if (pid != 0 && CHorseNameManager::instance().GetHorseName(pid) == NULL)
-			db_clientdesc->DBPacket(HEADER_GD_REQ_HORSE_NAME, 0, &pid, sizeof(DWORD));
+			db_clientdesc->DBPacket(HEADER_GD_REQ_HORSE_NAME, 0, &pid, sizeof(uint64_t));
 
 		// @fixme182 BEGIN
 		ch->SetHorseLevel(ch->GetHorseLevel());
@@ -929,7 +929,7 @@ void CInputLogin::Empire(LPDESC d, const char * c_pData)
 		{
 			if (r.players[i].dwID)
 			{
-				sys_err("EmpireSelectFailed %d", r.players[i].dwID);
+				sys_err("EmpireSelectFailed %llu", static_cast<unsigned long long>(r.players[i].dwID));
 				d->SetPhase(PHASE_CLOSE);
 				return;
 			}
@@ -958,7 +958,7 @@ int CInputLogin::GuildSymbolUpload(LPDESC d, const char* c_pData, size_t uiBytes
 
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 	if (!p->guild_id || !CGuildManager::instance().IsCorrectGuildToken(p->guild_id, p->token)) {
-		sys_err("MARK_SERVER: GuildSymbolUpload: invalid token. guild_id %u token %u", p->guild_id, p->token);
+		sys_err("MARK_SERVER: GuildSymbolUpload: invalid token. guild_id %llu token %u", static_cast<unsigned long long>(p->guild_id), p->token);
 		d->SetPhase(PHASE_CLOSE);
 		return 0;
 	}
@@ -992,7 +992,7 @@ void CInputLogin::GuildSymbolCRC(LPDESC d, const char* c_pData)
 {
 	const TPacketCGSymbolCRC & CGPacket = *((TPacketCGSymbolCRC *) c_pData);
 
-	sys_log(0, "GuildSymbolCRC %u %u %u", CGPacket.guild_id, CGPacket.crc, CGPacket.size);
+	sys_log(0, "GuildSymbolCRC %llu %u %u", static_cast<unsigned long long>(CGPacket.guild_id), CGPacket.crc, CGPacket.size);
 
 	const CGuildMarkManager::TGuildSymbol * pkGS = CGuildMarkManager::instance().GetGuildSymbol(CGPacket.guild_id);
 
@@ -1023,7 +1023,7 @@ void CInputLogin::GuildMarkUpload([[maybe_unused]] LPDESC d, const char* c_pData
 
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 	if (!p->gid || !CGuildManager::instance().IsCorrectGuildToken(p->gid, p->token)) {
-		sys_err("MARK_SERVER: GuildMarkUpload: invalid token. gid %u token %u", p->gid, p->token);
+		sys_err("MARK_SERVER: GuildMarkUpload: invalid token. gid %llu token %u", static_cast<unsigned long long>(p->gid), p->token);
 		return;
 	}
 #endif
@@ -1032,7 +1032,7 @@ void CInputLogin::GuildMarkUpload([[maybe_unused]] LPDESC d, const char* c_pData
 	CGuild * pkGuild{};
 	if (!(pkGuild = rkGuildMgr.FindGuild(p->gid)))
 	{
-		sys_err("MARK_SERVER: GuildMarkUpload: no guild. gid %u", p->gid);
+		sys_err("MARK_SERVER: GuildMarkUpload: no guild. gid %llu", static_cast<unsigned long long>(p->gid));
 		return;
 	}
 
@@ -1044,7 +1044,7 @@ void CInputLogin::GuildMarkUpload([[maybe_unused]] LPDESC d, const char* c_pData
 
 	CGuildMarkManager& rkMarkMgr = CGuildMarkManager::instance();
 
-	sys_log(0, "MARK_SERVER: GuildMarkUpload: gid %u", p->gid);
+	sys_log(0, "MARK_SERVER: GuildMarkUpload: gid %llu", static_cast<unsigned long long>(p->gid));
 
 	bool isEmpty = true;
 
@@ -1243,4 +1243,3 @@ int CInputLogin::Analyze(LPDESC d, BYTE bHeader, const char* c_pData)
 
 	return (iExtraLen);
 }
-

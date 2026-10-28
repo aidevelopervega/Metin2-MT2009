@@ -143,8 +143,7 @@ namespace quest
 		int m_count;
 
 		FBuildLuaGuildWarList(lua_State * L);
-		void operator() (DWORD g1, DWORD g2);
+		void operator() (uint64_t g1, uint64_t g2);
 	};
 }
 #endif /*__HEADER_QUEST_LUA__*/
-

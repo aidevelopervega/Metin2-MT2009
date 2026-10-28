@@ -22,7 +22,7 @@ public:
 	virtual void	SetPCShop([[maybe_unused]] LPCHARACTER ch) { return; }
 	virtual bool	IsPCShop() { return false; }
 	virtual int		Buy(LPCHARACTER ch, BYTE pos);
-	virtual bool	IsSellingItem([[maybe_unused]] DWORD itemID) { return false; }
+	virtual bool	IsSellingItem([[maybe_unused]] uint64_t itemID) { return false; }
 
 	size_t			GetTabCount() { return m_vec_shopTabs.size(); }
 private:
@@ -31,4 +31,3 @@ private:
 typedef CShopEx* LPSHOPEX;
 
 #endif
-

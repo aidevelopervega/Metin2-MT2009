@@ -15,7 +15,7 @@ namespace ikashop
 		};
 
 		using ITEM_CACHE_HANDLE = std::shared_ptr<TShopCacheItemInfo>;
-		using SHOPCACHE_MAP = std::map<DWORD, ITEM_CACHE_HANDLE>;
+		using SHOPCACHE_MAP = std::map<uint64_t, ITEM_CACHE_HANDLE>;
 		struct TShopCacheInfo 
 		{
 			DWORD duration;
@@ -34,53 +34,53 @@ namespace ikashop
 		CShopCache();
 		~CShopCache();
 
-		SHOP_HANDLE	Get(DWORD dwOwnerID) const;
+		SHOP_HANDLE	Get(uint64_t dwOwnerID) const;
 		bool AddItem(const TShopCacheItemInfo& rItem, const int queryType);
-		bool RemoveItem(DWORD dwOwnerID, DWORD dwItemID);
-		void DeleteItem(DWORD owner, DWORD itemid);
-		bool SellItem(DWORD dwOwnerID, DWORD dwItemID, bool updateQuery = true);
-		bool LockSellItem(DWORD dwOwnerID, DWORD dwItemID, long long TotalPriceSeen); //patch seen price check
-		bool UnlockSellItem(DWORD dwOwnerID, DWORD dwItemID);//topatch
-		bool EditItem(DWORD dwOwnerID, DWORD dwItemID, const TPriceInfo& rItemPrice);			 
-		bool CloseShop(DWORD dwOwnerID);
+		bool RemoveItem(uint64_t dwOwnerID, uint64_t dwItemID);
+		void DeleteItem(uint64_t owner, uint64_t itemid);
+		bool SellItem(uint64_t dwOwnerID, uint64_t dwItemID, bool updateQuery = true);
+		bool LockSellItem(uint64_t dwOwnerID, uint64_t dwItemID, long long TotalPriceSeen); //patch seen price check
+		bool UnlockSellItem(uint64_t dwOwnerID, uint64_t dwItemID);//topatch
+		bool EditItem(uint64_t dwOwnerID, uint64_t dwItemID, const TPriceInfo& rItemPrice);
+		bool CloseShop(uint64_t dwOwnerID);
 
-		bool CreateShop(DWORD dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
+		bool CreateShop(uint64_t dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
 #ifdef ENABLE_IKASHOP_ENTITIES
 			, const TShopSpawn& spawn, const TShopItem * item
 #endif
 			, BYTE unlockCount, bool isPremium
 		);
 
-		bool ChangeShopName(DWORD dwOwnerID, const char* szName);
-			
+		bool ChangeShopName(uint64_t dwOwnerID, const char* szName);
+
 		// on boot
-		bool PutItem(DWORD dwOwnerID, DWORD dwItemID, const TShopCacheItemInfo& rItem);
-		bool PutShop(DWORD dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
+		bool PutItem(uint64_t dwOwnerID, uint64_t dwItemID, const TShopCacheItemInfo& rItem);
+		bool PutShop(uint64_t dwOwnerID, DWORD dwDuration, const char* szShopName, const char* szOwnerName
 #ifdef ENABLE_IKASHOP_ENTITIES
 			, const TShopSpawn& spawn
 #endif
 			, BYTE unlockCount, bool isPremium
 		);
-			 
+
 		DWORD GetCount() const {return static_cast<DWORD>(m_shopsMap.size());}
 		void EncodeCache(CPeer* peer) const;
 		DWORD GetItemCount() const;
-			 
-		void ShopDurationProcess();
-		void UpdateDurationQuery(DWORD dwOwnerID, const TShopCacheInfo& rShop );
 
-		ITEM_CACHE_HANDLE GetItem(DWORD owner, DWORD item);
+		void ShopDurationProcess();
+		void UpdateDurationQuery(uint64_t dwOwnerID, const TShopCacheInfo& rShop );
+
+		ITEM_CACHE_HANDLE GetItem(uint64_t owner, uint64_t item);
 
 #ifdef ENABLE_IKASHOP_ENTITIES
 #ifdef EXTEND_IKASHOP_PRO
-		bool MoveShopEntity(DWORD owner, const TShopSpawn& spawn);
+		bool MoveShopEntity(uint64_t owner, const TShopSpawn& spawn);
 #endif
 #endif
 
-		bool SetLockedSlotState(DWORD owner, BYTE unlockCount, bool isPremium);
+		bool SetLockedSlotState(uint64_t owner, BYTE unlockCount, bool isPremium);
 
 	private:
-		std::map<DWORD, SHOP_HANDLE> m_shopsMap;
+		std::map<uint64_t, SHOP_HANDLE> m_shopsMap;
 	};
 
 
@@ -89,37 +89,37 @@ namespace ikashop
 	public:
 		struct TSafeboxCacheInfo {
 			TValutesInfo valutes;
-			std::map<DWORD, TShopPlayerItem> itemsmap;
-			std::map<DWORD, TShopPlayerItem> lockedmap;
+			std::map<uint64_t, TShopPlayerItem> itemsmap;
+			std::map<uint64_t, TShopPlayerItem> lockedmap;
 		};
-		
+
 		using SAFEBOX_HANDLE = std::shared_ptr<TSafeboxCacheInfo>;
-		using CACHEMAP = std::map<DWORD, SAFEBOX_HANDLE>;
+		using CACHEMAP = std::map<uint64_t, SAFEBOX_HANDLE>;
 
 	public:
 		CSafeboxCache();
 		~CSafeboxCache();
 
-		SAFEBOX_HANDLE Get(DWORD dwOwnerID) const;
+		SAFEBOX_HANDLE Get(uint64_t dwOwnerID) const;
 
-		bool PutSafebox(DWORD dwOwnerID, const TSafeboxCacheInfo& rSafebox);
-		bool PutItem(DWORD dwOwnerID, DWORD dwItem, const TShopPlayerItem& item);
+		bool PutSafebox(uint64_t dwOwnerID, const TSafeboxCacheInfo& rSafebox);
+		bool PutItem(uint64_t dwOwnerID, uint64_t dwItem, const TShopPlayerItem& item);
 
-		bool DeleteItem(DWORD dwOwner, DWORD dwItemID);
-		bool LockItem(DWORD dwOwner, DWORD dwItemID);
-		bool RemoveLockedItem(DWORD dwOwner, DWORD dwItemID);
-		bool UnlockItem(DWORD dwOwner, DWORD dwItemID);
-		bool AddItem(DWORD dwOwnerID, DWORD dwItemID, const TShopPlayerItem& item);
+		bool DeleteItem(uint64_t dwOwner, uint64_t dwItemID);
+		bool LockItem(uint64_t dwOwner, uint64_t dwItemID);
+		bool RemoveLockedItem(uint64_t dwOwner, uint64_t dwItemID);
+		bool UnlockItem(uint64_t dwOwner, uint64_t dwItemID);
+		bool AddItem(uint64_t dwOwnerID, uint64_t dwItemID, const TShopPlayerItem& item);
 
-		bool AddValutes(DWORD dwOwnerID, const TValutesInfo& val);
-		bool RemoveValutes(DWORD dwOwnerID, const TValutesInfo& val);
-		void AddValutesAsQuery(DWORD dwOwnerID, const TValutesInfo& val);
+		bool AddValutes(uint64_t dwOwnerID, const TValutesInfo& val);
+		bool RemoveValutes(uint64_t dwOwnerID, const TValutesInfo& val);
+		void AddValutesAsQuery(uint64_t dwOwnerID, const TValutesInfo& val);
 
-		SAFEBOX_HANDLE CreateSafebox(DWORD dwOwnerID);
+		SAFEBOX_HANDLE CreateSafebox(uint64_t dwOwnerID);
 		DWORD GetCount() const {return static_cast<DWORD>(m_safeboxMap.size());}
 		DWORD GetItemCount() const;
 
-		SAFEBOX_HANDLE LoadSafebox(DWORD dwPID);
+		SAFEBOX_HANDLE LoadSafebox(uint64_t dwPID);
 
 		//patch 08-03-2020
 		void ItemExpirationProcess();
@@ -134,8 +134,8 @@ namespace ikashop
 	{
 	public:
 		using OFFER_HANDLE = std::shared_ptr<TOfferInfo>;
-		using CACHEMAP = std::map<DWORD, OFFER_HANDLE>;
-		using FINDOFFERBYSHOP = std::map<DWORD, std::vector<OFFER_HANDLE>>;
+		using CACHEMAP = std::map<uint64_t, OFFER_HANDLE>;
+		using FINDOFFERBYSHOP = std::map<uint64_t, std::vector<OFFER_HANDLE>>;
 
 	public:
 		COfferCache();
@@ -143,14 +143,14 @@ namespace ikashop
 
 		bool Puts(const TOfferInfo& rOffer);
 		bool AddOffer(const TOfferInfo& rOffer);
-		bool NotifiedOffer(DWORD dwOfferID);
-		bool AcceptOffer(DWORD dwOfferID);
-		bool CancelOffer(DWORD dwOfferID,DWORD dwOwnerID);
-		bool RemoveOffersByShopOwner(DWORD dwShopOwnerID);
+		bool NotifiedOffer(uint64_t dwOfferID);
+		bool AcceptOffer(uint64_t dwOfferID);
+		bool CancelOffer(uint64_t dwOfferID, uint64_t dwOwnerID);
+		bool RemoveOffersByShopOwner(uint64_t dwShopOwnerID);
 
-		OFFER_HANDLE Get(DWORD dwOfferID) const;
-		std::vector<OFFER_HANDLE> GetOffersByShopOwner(DWORD dwOwnerID) const;
-		std::vector<OFFER_HANDLE> GetOffersByItemID(DWORD dwOwnerID, DWORD dwItemID) const;
+		OFFER_HANDLE Get(uint64_t dwOfferID) const;
+		std::vector<OFFER_HANDLE> GetOffersByShopOwner(uint64_t dwOwnerID) const;
+		std::vector<OFFER_HANDLE> GetOffersByItemID(uint64_t dwOwnerID, uint64_t dwItemID) const;
 
 		DWORD GetCount() {return static_cast<DWORD>(m_mapOffersByBuyer.size());}
 		void EncodeCache(CPeer* peer) const;
@@ -166,8 +166,8 @@ namespace ikashop
 		using AUCTION_HANDLE = std::shared_ptr<TAuctionInfo>;
 		using AUCTION_OFFER_HANDLE = std::shared_ptr<TAuctionOfferInfo>;
 		using AUCTION_OFFER_VEC = std::vector<AUCTION_OFFER_HANDLE>;
-		using AUCTION_MAP = std::map<DWORD, std::shared_ptr<TAuctionInfo>>;
-		using AUCTION_OFFER_MAP = std::map<DWORD, AUCTION_OFFER_VEC>;
+		using AUCTION_MAP = std::map<uint64_t, std::shared_ptr<TAuctionInfo>>;
+		using AUCTION_OFFER_MAP = std::map<uint64_t, AUCTION_OFFER_VEC>;
 
 	public:
 		CAuctionCache();
@@ -178,13 +178,13 @@ namespace ikashop
 
 		bool AddAuction(const TAuctionInfo& auction);
 		bool AddOffer(const TAuctionOfferInfo& auctionOffer, bool quering = true);
-		bool ExpiredAuction(DWORD dwOwnerID);
+		bool ExpiredAuction(uint64_t dwOwnerID);
 		bool AuctionDurationProcess();
 
-		AUCTION_OFFER_HANDLE GetBestBuyerOffer(DWORD dwOwnerID);
+		AUCTION_OFFER_HANDLE GetBestBuyerOffer(uint64_t dwOwnerID);
 
-		AUCTION_HANDLE Get(DWORD dwOwnerID);
-		AUCTION_OFFER_VEC GetOffers(DWORD dwOwnerID);
+		AUCTION_HANDLE Get(uint64_t dwOwnerID);
+		AUCTION_OFFER_VEC GetOffers(uint64_t dwOwnerID);
 
 		DWORD GetCount();
 		DWORD GetOffersCount();
@@ -203,7 +203,7 @@ namespace ikashop
 
 	//QUERY INFO
 	struct SQueryInfoCreateShop {
-		DWORD owner;
+		uint64_t owner;
 		DWORD duration;
 		BYTE unlockCount;
 		bool isPremium;
@@ -214,12 +214,12 @@ namespace ikashop
 #endif
 		TShopItem items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
 	};
-	using SQueryInfoAddItem = CShopCache::TShopCacheItemInfo;	
+	using SQueryInfoAddItem = CShopCache::TShopCacheItemInfo;
 	using SQueryInfoSafeboxAddItem = TShopPlayerItem;
 	using SQueryInfoOfferAdd = TOfferInfo;
 }
 
-	
+
 
 
 

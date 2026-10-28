@@ -33,8 +33,8 @@ class CItem : public CEntity
 
 		int			GetWindowInventoryEx();
 
-		void		SetID(DWORD id)		{ m_dwID = id;	}
-		DWORD		GetID()			{ return m_dwID; }
+		void		SetID(uint64_t id)		{ m_dwID = id;	}
+		uint64_t	GetID()			{ return m_dwID; }
 
 		void			SetProto(const TItemTable * table);
 		TItemTable const *	GetProto()	{ return m_pProto; }
@@ -144,9 +144,9 @@ class CItem : public CEntity
 		void		SetOwnership(LPCHARACTER ch, int iSec = 10);
 		void		SetOwnershipEvent(LPEVENT pkEvent);
 
-		DWORD		GetLastOwnerPID()	{ return m_dwLastOwnerPID; }
+		uint64_t	GetLastOwnerPID()	{ return m_dwLastOwnerPID; }
 #ifdef ENABLE_HIGHLIGHT_NEW_ITEM
-		void		SetLastOwnerPID(DWORD pid) { m_dwLastOwnerPID = pid; }
+		void		SetLastOwnerPID(uint64_t pid) { m_dwLastOwnerPID = pid; }
 #endif
 
 		int		GetAttributeSetIndex();
@@ -264,13 +264,13 @@ class CItem : public CEntity
 		LPCHARACTER	m_pOwner;
 
 		BYTE		m_bWindow;
-		DWORD		m_dwID;
+		uint64_t	m_dwID;
 		bool		m_bEquipped;
 		DWORD		m_dwVID;		// VID
 		WORD		m_wCell;
 		ITEM_COUNT	m_dwCount;
 		long		m_lFlag;
-		DWORD		m_dwLastOwnerPID;
+		uint64_t	m_dwLastOwnerPID;
 
 		bool		m_bExchanging;
 
@@ -285,7 +285,7 @@ class CItem : public CEntity
 		LPEVENT		m_pkAccessorySocketExpireEvent;
 		LPEVENT		m_pkOwnershipEvent;
 
-		DWORD		m_dwOwnershipPID;
+		uint64_t	m_dwOwnershipPID;
 
 		bool		m_bSkipSave;
 
@@ -363,4 +363,3 @@ EVENTINFO(item_vid_event_info)
 };
 
 #endif
-

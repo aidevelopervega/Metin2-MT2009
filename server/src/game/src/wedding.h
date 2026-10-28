@@ -11,7 +11,7 @@ namespace marriage
 	class WeddingMap
 	{
 		public:
-			WeddingMap(DWORD dwMapIndex, DWORD dwPID1, DWORD dwPID2);
+			WeddingMap(DWORD dwMapIndex, uint64_t dwPID1, uint64_t dwPID2);
 			~WeddingMap();
 
 			DWORD GetMapIndex() { return m_dwMapIndex; }
@@ -49,8 +49,8 @@ namespace marriage
 			bool m_isSnow;
 			bool m_isMusic;
 
-			DWORD dwPID1;
-			DWORD dwPID2;
+			uint64_t dwPID1;
+			uint64_t dwPID2;
 
 			std::string m_stMusicFileName;
 	};
@@ -63,7 +63,7 @@ namespace marriage
 
 			bool IsWeddingMap(DWORD dwMapIndex);
 
-			void Request(DWORD dwPID1, DWORD dwPID2);
+			void Request(uint64_t dwPID1, uint64_t dwPID2);
 			bool End(DWORD dwMapIndex);
 
 			void DestroyWeddingMap(WeddingMap* pMap);
@@ -71,7 +71,7 @@ namespace marriage
 			WeddingMap* Find(DWORD dwMapIndex);
 
 		private:
-			DWORD __CreateWeddingMap(DWORD dwPID1, DWORD dwPID2);
+			DWORD __CreateWeddingMap(uint64_t dwPID1, uint64_t dwPID2);
 
 		private:
 
@@ -79,4 +79,3 @@ namespace marriage
 	};
 }
 #endif
-

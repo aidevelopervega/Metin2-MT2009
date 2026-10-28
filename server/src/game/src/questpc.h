@@ -50,8 +50,8 @@ namespace quest
 			~PC();
 
 			void		Destroy();
-			void		SetID(DWORD dwID);
-			DWORD		GetID() { return m_dwID; }
+			void		SetID(uint64_t dwID);
+			uint64_t	GetID() { return m_dwID; }
 
 			bool		HasQuest(const string & quest_name);
 			QuestState & GetQuest(const string& quest_name);
@@ -138,10 +138,10 @@ namespace quest
 
 			void		SetQuestState(const char* szQuestName, const char* szStateName);
 
-			void		SetConfirmWait(DWORD dwPID) { m_bConfirmWait = true; m_dwWaitConfirmFromPID = dwPID; }
+			void		SetConfirmWait(uint64_t dwPID) { m_bConfirmWait = true; m_dwWaitConfirmFromPID = dwPID; }
 			void		ClearConfirmWait() { m_bConfirmWait = false; }
 			bool		IsConfirmWait() const	{ return m_bConfirmWait; }
-			bool		IsConfirmWait(DWORD dwPID) const	{ return m_bConfirmWait && dwPID == m_dwWaitConfirmFromPID; }
+			bool		IsConfirmWait(uint64_t dwPID) const	{ return m_bConfirmWait && dwPID == m_dwWaitConfirmFromPID; }
 
 			void		SetCommand(const char* command) { curCommand = command; }
 			const char* GetCommand() { return curCommand; }
@@ -169,7 +169,7 @@ namespace quest
 
 			bool		m_bShouldSendDone;
 
-			DWORD		m_dwID;
+			uint64_t	m_dwID;
 
 			QuestInfo		m_QuestInfo;
 
@@ -189,7 +189,7 @@ namespace quest
 
 			int			m_iLastState;
 
-			DWORD		m_dwWaitConfirmFromPID;
+			uint64_t	m_dwWaitConfirmFromPID;
 			bool		m_bConfirmWait;
 
 			const char* curCommand;
@@ -224,4 +224,3 @@ namespace quest
 }
 
 #endif
-

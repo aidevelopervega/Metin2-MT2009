@@ -79,8 +79,8 @@ namespace ikashop
 
 	class CShopItem
 	{
-		using ItemID = DWORD;
-		using OwnerID = DWORD;
+		using ItemID = uint64_t;
+		using OwnerID = uint64_t;
 
 	public:
 		TItemTable* GetTable() const;
@@ -171,10 +171,10 @@ namespace ikashop
 		using ITEM_HANDLE = std::shared_ptr<CShopItem>;
 		using OFFER_HANDLE = std::shared_ptr<TOfferInfo>;
 
-		using SHOP_ITEM_MAP = std::map<DWORD, ITEM_HANDLE>;
-		using OFFER_MAP = std::map<DWORD, OFFER_HANDLE>;
+		using SHOP_ITEM_MAP = std::map<uint64_t, ITEM_HANDLE>;
+		using OFFER_MAP = std::map<uint64_t, OFFER_HANDLE>;
 
-		using VECGUEST = std::set<DWORD>;
+		using VECGUEST = std::set<uint64_t>;
 		using SHOPNAME = std::string;
 #ifdef ENABLE_IKASHOP_ENTITIES
 		using ENTITY_HANDLE = std::shared_ptr<ShopEntity>;
@@ -195,8 +195,8 @@ namespace ikashop
 		bool IsOwnerOnline() { return bIsOwnerOnline; }
 
 		// owner pid
-		void SetOwnerPID(DWORD ownerid);
-		DWORD GetOwnerPID() const;
+		void SetOwnerPID(uint64_t ownerid);
+		uint64_t GetOwnerPID() const;
 
 		// guests
 		bool AddGuest(LPCHARACTER ch);
@@ -205,10 +205,10 @@ namespace ikashop
 
 		// items
 		bool AddItem(const TShopItem& rItem, bool updateGuestView=true);
-		bool RemoveItem(DWORD itemid);
-		bool ModifyItemPrice(DWORD itemid, const TPriceInfo& price);
-		bool BuyItem(DWORD itemid);
-		ITEM_HANDLE GetItem(DWORD itemid);
+		bool RemoveItem(uint64_t itemid);
+		bool ModifyItemPrice(uint64_t itemid, const TPriceInfo& price);
+		bool BuyItem(uint64_t itemid);
+		ITEM_HANDLE GetItem(uint64_t itemid);
 		YANG GetTotalYangValue();
 
 		bool HasItem(DWORD itemVnum, int socket0=0);
@@ -224,7 +224,7 @@ namespace ikashop
 		bool AcceptOffer(OFFER_HANDLE offer);
 		void NotifyOffers(LPCHARACTER ch);
 		void NotifyAcceptedOffers(LPCHARACTER ch);
-		void RemoveOffer(DWORD offerid);
+		void RemoveOffer(uint64_t offerid);
 
 		// helpers
 		LPCHARACTER FindOwnerCharacter();
@@ -267,7 +267,7 @@ namespace ikashop
 		SHOP_ITEM_MAP m_items{};
 		OFFER_MAP m_offers{};
 		VECGUEST m_guests{};
-		DWORD m_pid{};
+		uint64_t m_pid{};
 		DWORD m_duration{};
 		SHOPNAME m_name{};
 		std::string m_ownerName{};
@@ -292,7 +292,7 @@ namespace ikashop
 
 	public:
 		using ITEM_HANDLE = std::shared_ptr<CShopItem>;
-		using ITEM_MAP = std::map<DWORD, ITEM_HANDLE>;
+		using ITEM_MAP = std::map<uint64_t, ITEM_HANDLE>;
 
 	public:
 		CShopSafebox() = default;
@@ -303,7 +303,7 @@ namespace ikashop
 		void SetValuteAmount(TValutesInfo val);
 			 
 		bool AddItem(const TShopPlayerItem& item);
-		bool RemoveItem(DWORD itemid);
+		bool RemoveItem(uint64_t itemid);
 			 
 		void AddValute(TValutesInfo val);
 		bool RemoveValute(TValutesInfo val);
@@ -312,7 +312,7 @@ namespace ikashop
 		DWORD GetLeftSpace() const;
 		const TValutesInfo& GetValutes() const;
 
-		ITEM_HANDLE GetItem(DWORD itemid) const;
+		ITEM_HANDLE GetItem(uint64_t itemid) const;
 		LPCHARACTER GetOwner() const;
 
 		bool RefreshToOwner(LPCHARACTER ch = nullptr);
@@ -335,7 +335,7 @@ namespace ikashop
 	public:
 		using AUCTION_OFFER_HANDLE = std::shared_ptr<TAuctionOfferInfo>;
 		using AUCTION_OFFERVEC = std::vector<AUCTION_OFFER_HANDLE>;
-		using GUESTVEC = std::vector<DWORD>;
+		using GUESTVEC = std::vector<uint64_t>;
 
 	public:
 		void SetInfo(const TAuctionInfo& auction);
@@ -350,7 +350,7 @@ namespace ikashop
 		void IncreaseDuration();
 		
 		const GUESTVEC& GetGuests() const;
-		DWORD	GetBestBuyer() const;
+		uint64_t	GetBestBuyer() const;
 		const TAuctionInfo& GetInfo() const;
 		const AUCTION_OFFERVEC& GetOffers() const;
 		AUCTION_OFFER_HANDLE GetBestOffer() const;
@@ -419,6 +419,3 @@ namespace ikashop
 #endif
 
 #endif //__include
-
-
-

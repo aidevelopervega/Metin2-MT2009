@@ -60,6 +60,26 @@ static inline int m2_lua_resume(lua_State* L, int nargs) {
 #define LUA_YIELD 1
 #endif
 
+#include <stdint.h>
+#include <stdlib.h>
+
+static inline uint64_t m2_lua_touint64(lua_State* L, int idx) {
+	if (lua_isinteger(L, idx))
+		return static_cast<uint64_t>(lua_tointeger(L, idx));
+	if (lua_isnumber(L, idx))
+		return static_cast<uint64_t>(lua_tonumber(L, idx));
+	if (lua_isstring(L, idx)) {
+		const char* s = lua_tostring(L, idx);
+		if (s)
+			return static_cast<uint64_t>(strtoull(s, NULL, 10));
+	}
+	return 0ULL;
+}
+
+static inline void m2_lua_pushuint64(lua_State* L, uint64_t v) {
+	lua_pushinteger(L, static_cast<lua_Integer>(v));
+}
+
 #if !defined(_MSC_VER) && defined(__cplusplus)
 }
 #endif

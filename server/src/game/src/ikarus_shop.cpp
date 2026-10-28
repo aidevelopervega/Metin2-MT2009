@@ -56,7 +56,7 @@ namespace ikashop
 		m_info.price = price;
 	}
 	
-	DWORD CShopItem::GetID() const
+	uint64_t CShopItem::GetID() const
 	{
 		return m_info.id;
 	}
@@ -124,12 +124,12 @@ namespace ikashop
 		return 1;
 	}
 
-	void CShop::SetOwnerPID(DWORD ownerid)
+	void CShop::SetOwnerPID(uint64_t ownerid)
 	{
 		m_pid = ownerid;
 	}
 
-	DWORD CShop::GetOwnerPID() const
+	uint64_t CShop::GetOwnerPID() const
 	{
 		return m_pid;
 	}
@@ -185,7 +185,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShop::RemoveItem(DWORD itemid)
+	bool CShop::RemoveItem(uint64_t itemid)
 	{
 		// getting item handle
 		auto item = GetItem(itemid);
@@ -235,7 +235,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShop::ModifyItemPrice(DWORD itemid, const TPriceInfo& price)
+	bool CShop::ModifyItemPrice(uint64_t itemid, const TPriceInfo& price)
 	{
 		// getting item
 		auto shopItem = GetItem(itemid);
@@ -283,12 +283,12 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShop::BuyItem(DWORD itemid)
+	bool CShop::BuyItem(uint64_t itemid)
 	{
 		return RemoveItem(itemid);
 	}
 
-	CShop::ITEM_HANDLE CShop::GetItem(DWORD itemid)
+	CShop::ITEM_HANDLE CShop::GetItem(uint64_t itemid)
 	{
 		auto it = m_items.find(itemid);
 		return it != m_items.end() ? it->second : nullptr;
@@ -512,7 +512,7 @@ namespace ikashop
 		}
 	}
 
-	void CShop::RemoveOffer(DWORD offerid)
+	void CShop::RemoveOffer(uint64_t offerid)
 	{
 		std::erase_if(m_offers, [&](auto&& iter){ return offerid == iter.second->offerid; });
 	}
@@ -682,7 +682,7 @@ namespace ikashop
 		return m_guests;
 	}
 
-	DWORD CAuction::GetBestBuyer() const
+	uint64_t CAuction::GetBestBuyer() const
 	{
 		return m_bestOffer ? m_bestOffer->buyerid : 0;
 	}
@@ -784,10 +784,3 @@ namespace ikashop
 
 
 #endif
-
-
-
-
-
-
-

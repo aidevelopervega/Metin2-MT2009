@@ -41,7 +41,7 @@ extern int g_test_server;
 extern int g_log;
 extern std::string g_stLocale;
 extern std::string g_stLocaleNameColumn;
-bool CreateItemTableFromRes(MYSQL_RES * res, std::vector<TPlayerItem> * pVec, DWORD dwPID);
+bool CreateItemTableFromRes(MYSQL_RES * res, std::vector<TPlayerItem> * pVec, uint64_t dwPID);
 
 DWORD g_dwUsageMax = 0;
 DWORD g_dwUsageAvg = 0;
@@ -92,7 +92,7 @@ CClientManager::~CClientManager()
 	Destroy();
 }
 
-void CClientManager::SetPlayerIDStart(int iIDStart)
+void CClientManager::SetPlayerIDStart(uint64_t iIDStart)
 {
 	m_iPlayerIDStart = iIDStart;
 }
@@ -166,7 +166,7 @@ static bool __InitializeDefaultPriv()
 		else if (!strcmp(row[0], "GUILD"))
 		{
 			// init
-			DWORD guild_id = 0;
+			uint64_t guild_id = 0;
 			BYTE type = 1;
 			int value = 0;
 			time_t duration_sec = 0;
@@ -184,14 +184,14 @@ static bool __InitializeDefaultPriv()
 			// send priv
 			if (guild_id)
 			{
-				printf("DEFAULT_PRIV_GUILD: set guild_id(%u), type(%u), value(%d), duration(%lld)\n", static_cast<unsigned int>(guild_id), type, value, static_cast<long long>(duration_sec));
+				printf("DEFAULT_PRIV_GUILD: set guild_id(%llu), type(%u), value(%d), duration(%lld)\n", static_cast<unsigned long long>(guild_id), type, value, static_cast<long long>(duration_sec));
 				CPrivManager::instance().AddGuildPriv(guild_id, type, value, duration_sec);
 			}
 		}
 		else if (!strcmp(row[0], "PLAYER"))
 		{
 			// init
-			DWORD pid = 0;
+			uint64_t pid = 0;
 			BYTE type = 1;
 			int value = 0;
 			// set
@@ -201,7 +201,7 @@ static bool __InitializeDefaultPriv()
 			// send priv
 			if (pid)
 			{
-				printf("DEFAULT_PRIV_PLAYER: set pid(%u), type(%u), value(%d)\n", static_cast<unsigned int>(pid), type, value);
+				printf("DEFAULT_PRIV_PLAYER: set pid(%llu), type(%u), value(%d)\n", static_cast<unsigned long long>(pid), type, value);
 				CPrivManager::instance().AddCharPriv(pid, type, value);
 			}
 		}
@@ -209,12 +209,12 @@ static bool __InitializeDefaultPriv()
 	return true;
 }
 
-static bool __UpdateDefaultPriv(const char* priv_type, DWORD id, BYTE type, int value, time_t duration_sec)
+static bool __UpdateDefaultPriv(const char* priv_type, uint64_t id, BYTE type, int value, time_t duration_sec)
 {
 	char szQuery[1024];
 	snprintf(szQuery, 1024,
-		"REPLACE INTO priv_settings SET priv_type='%s', id=%u, type=%u, value=%d, duration=DATE_ADD(NOW(), INTERVAL %lld SECOND);",
-		priv_type, static_cast<unsigned int>(id), type, value, static_cast<long long>(duration_sec)
+		"REPLACE INTO priv_settings SET priv_type='%s', id=%llu, type=%u, value=%d, duration=DATE_ADD(NOW(), INTERVAL %lld SECOND);",
+		priv_type, static_cast<unsigned long long>(id), type, value, static_cast<long long>(duration_sec)
 	);
 	auto pMsg(CDBManager::instance().DirectQuery(szQuery, SQL_COMMON));
 	return pMsg->Get()->uiAffectedRows;
@@ -688,13 +688,13 @@ void CClientManager::SendPartyOnSetup(CPeer* pkPeer)
 
 	for (itertype(pm) it_party = pm.begin(); it_party != pm.end(); ++it_party)
 	{
-		sys_log(0, "PARTY SendPartyOnSetup Party [%u]", it_party->first);
+		sys_log(0, "PARTY SendPartyOnSetup Party [%llu]", static_cast<unsigned long long>(it_party->first));
 		pkPeer->EncodeHeader(HEADER_DG_PARTY_CREATE, 0, sizeof(TPacketPartyCreate));
 		pkPeer->Encode(it_party->first);
 
 		for (itertype(it_party->second) it_member = it_party->second.begin(); it_member != it_party->second.end(); ++it_member)
 		{
-			sys_log(0, "PARTY SendPartyOnSetup Party [%u] Member [%u]", it_party->first, it_member->first);
+			sys_log(0, "PARTY SendPartyOnSetup Party [%llu] Member [%llu]", static_cast<unsigned long long>(it_party->first), static_cast<unsigned long long>(it_member->first));
 			pkPeer->EncodeHeader(HEADER_DG_PARTY_ADD, 0, sizeof(TPacketPartyAdd));
 			pkPeer->Encode(it_party->first);
 			pkPeer->Encode(it_member->first);
@@ -730,14 +730,14 @@ void CClientManager::QUERY_QUEST_SAVE(CPeer * pkPeer, TQuestTable * pTable, DWOR
 		if (pTable->lValue == 0)
 		{
 			snprintf(szQuery, sizeof(szQuery),
-					"DELETE FROM quest%s WHERE dwPID=%u AND szName='%s' AND szState='%s'",
-					GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), pTable->szName, pTable->szState);
+					"DELETE FROM quest%s WHERE dwPID=%llu AND szName='%s' AND szState='%s'",
+					GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), pTable->szName, pTable->szState);
 		}
 		else
 		{
 			snprintf(szQuery, sizeof(szQuery),
-					"REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%u, '%s', '%s', %d)",
-					GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), pTable->szName, pTable->szState, pTable->lValue);
+					"REPLACE INTO quest%s (dwPID, szName, szState, lValue) VALUES(%llu, '%s', '%s', %d)",
+					GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), pTable->szName, pTable->szState, pTable->lValue);
 		}
 
 		CDBManager::instance().ReturnQuery(szQuery, QID_QUEST_SAVE, pkPeer->GetHandle(), NULL);
@@ -761,14 +761,14 @@ void CClientManager::QUERY_SPECIAL_FLAG_SAVE(CPeer* pkPeer, TSpecialFlagTable* p
 		if (pTable->llValue == 0)
 		{
 			snprintf(szQuery, sizeof(szQuery),
-				"DELETE FROM player_special_flag%s WHERE (pid=%u or aid=%u) AND flag='%s'",
-				GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), static_cast<unsigned int>(pTable->dwAID), pTable->szFlag);
+				"DELETE FROM player_special_flag%s WHERE (pid=%llu or aid=%llu) AND flag='%s'",
+				GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), static_cast<unsigned long long>(pTable->dwAID), pTable->szFlag);
 		}
 		else
 		{
 			snprintf(szQuery, sizeof(szQuery),
-				"REPLACE INTO player_special_flag%s (pid, aid, flag, value) VALUES(%u, %u, '%s', %lld)",
-				GetTablePostfix(), static_cast<unsigned int>(pTable->dwPID), static_cast<unsigned int>(pTable->dwAID), pTable->szFlag, pTable->llValue);
+				"REPLACE INTO player_special_flag%s (pid, aid, flag, value) VALUES(%llu, %llu, '%s', %lld)",
+				GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), static_cast<unsigned long long>(pTable->dwAID), pTable->szFlag, pTable->llValue);
 		}
 
 		CDBManager::instance().ReturnQuery(szQuery, QID_SPECIAL_FLAG_SAVE, pkPeer->GetHandle(), NULL);
@@ -786,11 +786,11 @@ void CClientManager::QUERY_SAFEBOX_LOAD(CPeer * pkPeer, DWORD dwHandle, TSafebox
 
 	char szQuery[QUERY_MAX_LEN];
 	snprintf(szQuery, sizeof(szQuery),
-			"SELECT account_id, size, password FROM safebox%s WHERE account_id=%u",
-			GetTablePostfix(), static_cast<unsigned int>(packet->dwID));
+			"SELECT account_id, size, password FROM safebox%s WHERE account_id=%llu",
+			GetTablePostfix(), static_cast<unsigned long long>(packet->dwID));
 
 	if (g_log)
-		sys_log(0, "HEADER_GD_SAFEBOX_LOAD (handle: %d account.id %u is_mall %d)", dwHandle, packet->dwID, bMall ? 1 : 0);
+		sys_log(0, "HEADER_GD_SAFEBOX_LOAD (handle: %d account.id %llu is_mall %d)", dwHandle, static_cast<unsigned long long>(packet->dwID), bMall ? 1 : 0);
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_LOAD, pkPeer->GetHandle(), pi);
 }
@@ -850,10 +850,10 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 			if (pi->ip[0] == 1)
 			{
 				pSafebox->bSize = 1;
-				sys_log(0, "MALL id[%d] size[%d]", pSafebox->dwID, pSafebox->bSize);
+				sys_log(0, "MALL id[%llu] size[%d]", static_cast<unsigned long long>(pSafebox->dwID), pSafebox->bSize);
 			}
 			else
-				sys_log(0, "SAFEBOX id[%d] size[%d]", pSafebox->dwID, pSafebox->bSize);
+				sys_log(0, "SAFEBOX id[%llu] size[%d]", static_cast<unsigned long long>(pSafebox->dwID), pSafebox->bSize);
 		}
 
 		if (0 == pSafebox->dwID)
@@ -871,8 +871,8 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 				"attrtype4, attrvalue4, "
 				"attrtype5, attrvalue5, "
 				"attrtype6, attrvalue6 "
-				"FROM item%s WHERE owner_id=%u AND `window`='%s'",
-				GetTablePostfix(), static_cast<unsigned int>(pi->account_id), pi->ip[0] == 0 ? "SAFEBOX" : "MALL");
+				"FROM item%s WHERE owner_id=%llu AND `window`='%s'",
+				GetTablePostfix(), static_cast<unsigned long long>(pi->account_id), pi->ip[0] == 0 ? "SAFEBOX" : "MALL");
 
 		pi->account_index = 1;
 
@@ -922,7 +922,7 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 
 			if (!bEscape)
 			{
-				std::vector<std::pair<DWORD, DWORD> > vec_dwFinishedAwardID;
+				std::vector<std::pair<uint64_t, uint64_t> > vec_dwFinishedAwardID;
 
 				typeof(pSet->begin()) it = pSet->begin();
 
@@ -1095,7 +1095,7 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 						char szColumns[QUERY_MAX_LEN], szValues[QUERY_MAX_LEN];
 
 						size_t iLen = static_cast<size_t>(snprintf(szColumns, sizeof(szColumns), "id, owner_id, `window`, pos, vnum, count"));
-						size_t iValueLen = static_cast<size_t>(snprintf(szValues, sizeof(szValues), "%u, %u, '%s', %d, %u, %u", static_cast<unsigned int>(GainItemID()), static_cast<unsigned int>(pi->account_id), (pi->ip[0] == 0) ? "SAFEBOX" : "MALL", iPos, static_cast<unsigned int>(pItemAward->dwVnum), static_cast<unsigned int>(pItemAward->dwCount)));
+						size_t iValueLen = static_cast<size_t>(snprintf(szValues, sizeof(szValues), "%llu, %llu, '%s', %d, %u, %u", static_cast<unsigned long long>(GainItemID()), static_cast<unsigned long long>(pi->account_id), (pi->ip[0] == 0) ? "SAFEBOX" : "MALL", iPos, static_cast<unsigned int>(pItemAward->dwVnum), static_cast<unsigned int>(pItemAward->dwCount)));
 
 						iLen += static_cast<size_t>(snprintf(szColumns + iLen, sizeof(szColumns) - iLen, ", socket0, socket1, socket2"));
 						iValueLen += static_cast<size_t>(snprintf(szValues + iValueLen, sizeof(szValues) - iValueLen, ", %u, %u, %u", static_cast<unsigned int>(dwSocket0), static_cast<unsigned int>(dwSocket1), static_cast<unsigned int>(dwSocket2)));
@@ -1111,10 +1111,10 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 						#else
 						snprintf(szQuery, sizeof(szQuery),
 								"INSERT INTO item%s (id, owner_id, `window`, pos, vnum, count, socket0, socket1, socket2) "
-								"VALUES(%u, %u, '%s', %d, %u, %u, %u, %u, %u)",
+								"VALUES(%llu, %llu, '%s', %d, %u, %u, %u, %u, %u)",
 								GetTablePostfix(),
-								GainItemID(),
-								pi->account_id,
+								static_cast<unsigned long long>(GainItemID()),
+								static_cast<unsigned long long>(pi->account_id),
 								pi->ip[0] == 0 ? "SAFEBOX" : "MALL",
 								iPos,
 								pItemAward->dwVnum, pItemAward->dwCount, pItemAward->dwSocket0, pItemAward->dwSocket1, dwSocket2);
@@ -1130,10 +1130,10 @@ void CClientManager::RESULT_SAFEBOX_LOAD(CPeer * pkPeer, SQLMsg * msg)
 					SQLResult * pRes = pmsg->Get();
 					sys_log(0, "SAFEBOX Query : [%s]", szQuery);
 
-					if (pRes->uiAffectedRows == 0 || pRes->uiInsertID == 0 || pRes->uiAffectedRows == (uint32_t)-1)
+					if (pRes->uiAffectedRows == 0 || !pRes->HasValidInsertID() || pRes->uiAffectedRows == (uint32_t)-1)
 						break;
 
-					item.id = static_cast<DWORD>(pRes->uiInsertID);
+					item.id = pRes->ullInsertID;
 					item.window = pi->ip[0] == 0 ? SAFEBOX : MALL,
 					item.pos = static_cast<WORD>(iPos);
 					item.count = pItemAward->dwCount;
@@ -1176,9 +1176,9 @@ void CClientManager::QUERY_SAFEBOX_CHANGE_SIZE(CPeer * pkPeer, DWORD dwHandle, T
 	char szQuery[QUERY_MAX_LEN];
 
 	if (p->bSize == 1)
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO safebox%s (account_id, size) VALUES(%u, %u)", GetTablePostfix(), static_cast<unsigned int>(p->dwID), p->bSize);
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO safebox%s (account_id, size) VALUES(%llu, %u)", GetTablePostfix(), static_cast<unsigned long long>(p->dwID), p->bSize);
 	else
-		snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET size=%u WHERE account_id=%u", GetTablePostfix(), p->bSize, static_cast<unsigned int>(p->dwID));
+		snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET size=%u WHERE account_id=%llu", GetTablePostfix(), p->bSize, static_cast<unsigned long long>(p->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_SIZE, pkPeer->GetHandle(), pi);
 }
@@ -1207,7 +1207,7 @@ void CClientManager::QUERY_SAFEBOX_CHANGE_PASSWORD(CPeer * pkPeer, DWORD dwHandl
 	pi->account_id = p->dwID;
 
 	char szQuery[QUERY_MAX_LEN];
-	snprintf(szQuery, sizeof(szQuery), "SELECT password FROM safebox%s WHERE account_id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT password FROM safebox%s WHERE account_id=%llu", GetTablePostfix(), static_cast<unsigned long long>(p->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_PASSWORD, pkPeer->GetHandle(), pi);
 }
@@ -1236,7 +1236,7 @@ void CClientManager::RESULT_SAFEBOX_CHANGE_PASSWORD(CPeer * pkPeer, SQLMsg * msg
 				return;
 			}
 
-			snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET password='%s' WHERE account_id=%u", GetTablePostfix(), escape_pwd, static_cast<unsigned int>(p->account_id));
+			snprintf(szQuery, sizeof(szQuery), "UPDATE safebox%s SET password='%s' WHERE account_id=%llu", GetTablePostfix(), escape_pwd, static_cast<unsigned long long>(p->account_id));
 
 			CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_CHANGE_PASSWORD_SECOND, pkPeer->GetHandle(), p);
 			return;
@@ -1337,7 +1337,7 @@ void CClientManager::RESULT_PRICELIST_LOAD(CPeer* peer, SQLMsg* pMsg)
 	peer->Encode(header);
 	peer->Encode(table.aPriceInfo, static_cast<DWORD>(sizePriceListSize));
 
-	sys_log(0, "Load MyShopPricelist handle[%d] pid[%d] count[%d]", pReqInfo->first, pReqInfo->second, header.byCount);
+	sys_log(0, "Load MyShopPricelist handle[%d] pid[%llu] count[%d]", pReqInfo->first, static_cast<unsigned long long>(pReqInfo->second), header.byCount);
 
 	delete pReqInfo;
 }
@@ -1373,8 +1373,8 @@ void CClientManager::QUERY_SAFEBOX_SAVE(CPeer * pkPeer, TSafeboxTable * pTable)
 	char szQuery[QUERY_MAX_LEN];
 
 	snprintf(szQuery, sizeof(szQuery),
-			"UPDATE safebox%s SET gold='%lld' WHERE account_id=%u",
-			GetTablePostfix(), pTable->dwGold, static_cast<unsigned int>(pTable->dwID));
+			"UPDATE safebox%s SET gold='%lld' WHERE account_id=%llu",
+			GetTablePostfix(), pTable->dwGold, static_cast<unsigned long long>(pTable->dwID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_SAFEBOX_SAVE, pkPeer->GetHandle(), NULL);
 }
@@ -1383,17 +1383,17 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE id=%u", GetTablePostfix(), p->bEmpire, static_cast<unsigned int>(p->dwAccountID));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE id=%llu", GetTablePostfix(), p->bEmpire, static_cast<unsigned long long>(p->dwAccountID));
 	CDBManager::instance().DirectQuery(szQuery);
 
 	sys_log(0, "EmpireSelect: %s", szQuery);
 	{
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
 		snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid1, pid2, pid3, pid4, pid5 FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwAccountID));
+				"SELECT pid1, pid2, pid3, pid4, pid5 FROM player_index%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(p->dwAccountID));
 #else
 		snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid1, pid2, pid3, pid4 FROM player_index%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(p->dwAccountID));
+				"SELECT pid1, pid2, pid3, pid4 FROM player_index%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(p->dwAccountID));
 #endif
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
@@ -1405,7 +1405,7 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 			sys_log(0, "EMPIRE %u", pRes->uiNumRows);
 
 			MYSQL_ROW row = mysql_fetch_row(pRes->pSQLResult);
-			DWORD pids[PLAYER_PER_ACCOUNT]{}; // @fixme310
+			uint64_t pids[PLAYER_PER_ACCOUNT]{}; // @fixme310
 
 			UINT g_start_map[4] =
 			{
@@ -1427,19 +1427,19 @@ void CClientManager::QUERY_EMPIRE_SELECT(CPeer * pkPeer, DWORD dwHandle, TEmpire
 			for (int i = 0; i < PLAYER_PER_ACCOUNT; ++i) // @fixme310
 			{
 				str_to_number(pids[i], row[i]);
-				sys_log(0, "EMPIRE PIDS[%d]", pids[i]);
+				sys_log(0, "EMPIRE PIDS[%llu]", static_cast<unsigned long long>(pids[i]));
 
 				if (pids[i])
 				{
-					sys_log(0, "EMPIRE move to pid[%d] to village of %u, map_index %d",
-							pids[i], p->bEmpire, g_start_map[p->bEmpire]);
+					sys_log(0, "EMPIRE move to pid[%llu] to village of %u, map_index %d",
+							static_cast<unsigned long long>(pids[i]), p->bEmpire, g_start_map[p->bEmpire]);
 
-					snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET map_index=%u,x=%u,y=%u WHERE id=%u",
+					snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET map_index=%u,x=%u,y=%u WHERE id=%llu",
 							GetTablePostfix(),
 							g_start_map[p->bEmpire],
 							static_cast<unsigned int>(g_start_position[p->bEmpire][0]),
 							static_cast<unsigned int>(g_start_position[p->bEmpire][1]),
-							static_cast<unsigned int>(pids[i]));
+							static_cast<unsigned long long>(pids[i]));
 
 					auto pmsg2(CDBManager::instance().DirectQuery(szQuery));
 				}
@@ -1634,11 +1634,11 @@ void CClientManager::QUERY_SETUP(CPeer * peer, [[maybe_unused]] DWORD dwHandle, 
 
 		if (InsertLogonAccount(pck->szLogin, peer->GetHandle(), pck->szHost))
 		{
-			sys_log(0, "SETUP: login %u %s login_key ***MASKED*** host %s", pck->dwID, pck->szLogin, pck->szHost);
+			sys_log(0, "SETUP: login %llu %s login_key ***MASKED*** host %s", static_cast<unsigned long long>(pck->dwID), pck->szLogin, pck->szHost);
 			pkLD->SetPlay(true);
 		}
 		else
-			sys_log(0, "SETUP: login_fail %u %s login_key ***MASKED***", pck->dwID, pck->szLogin);
+			sys_log(0, "SETUP: login_fail %llu %s login_key ***MASKED***", static_cast<unsigned long long>(pck->dwID), pck->szLogin);
 	}
 
 	SendPartyOnSetup(peer);
@@ -1650,10 +1650,10 @@ void CClientManager::QUERY_SETUP(CPeer * peer, [[maybe_unused]] DWORD dwHandle, 
 
 void CClientManager::QUERY_ITEM_FLUSH([[maybe_unused]] CPeer * pkPeer, const char * c_pData)
 {
-	DWORD dwID = *(DWORD *) c_pData;
+	uint64_t dwID = *(const uint64_t *) c_pData;
 
 	if (g_log)
-		sys_log(0, "HEADER_GD_ITEM_FLUSH: %u", dwID);
+		sys_log(0, "HEADER_GD_ITEM_FLUSH: %llu", static_cast<unsigned long long>(dwID));
 
 	CItemCache * c = GetItemCache(dwID);
 
@@ -1680,7 +1680,7 @@ void CClientManager::QUERY_ITEM_SAVE(CPeer * pkPeer, const char * c_pData)
 			if (it != m_map_pkItemCacheSetPtr.end())
 			{
 				if (g_test_server)
-					sys_log(0, "ITEM_CACHE: safebox owner %u id %u", c->Get()->owner, c->Get()->id);
+					sys_log(0, "ITEM_CACHE: safebox owner %llu id %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id));
 
 				it->second->erase(c);
 			}
@@ -1726,13 +1726,13 @@ void CClientManager::QUERY_ITEM_SAVE(CPeer * pkPeer, const char * c_pData)
 	else
 	{
 		if (g_test_server)
-			sys_log(0, "QUERY_ITEM_SAVE => PutItemCache() owner %d id %d vnum %d ", p->owner, p->id, p->vnum);
+			sys_log(0, "QUERY_ITEM_SAVE => PutItemCache() owner %llu id %llu vnum %d ", static_cast<unsigned long long>(p->owner), static_cast<unsigned long long>(p->id), p->vnum);
 
 		PutItemCache(p);
 	}
 }
 
-CClientManager::TItemCacheSet * CClientManager::GetItemCacheSet(DWORD pid)
+CClientManager::TItemCacheSet * CClientManager::GetItemCacheSet(uint64_t pid)
 {
 	TItemCacheSetPtrMap::iterator it = m_map_pkItemCacheSetPtr.find(pid);
 
@@ -1742,7 +1742,7 @@ CClientManager::TItemCacheSet * CClientManager::GetItemCacheSet(DWORD pid)
 	return it->second;
 }
 
-void CClientManager::CreateItemCacheSet(DWORD pid)
+void CClientManager::CreateItemCacheSet(uint64_t pid)
 {
 	if (m_map_pkItemCacheSetPtr.find(pid) != m_map_pkItemCacheSetPtr.end())
 		return;
@@ -1751,16 +1751,16 @@ void CClientManager::CreateItemCacheSet(DWORD pid)
 	m_map_pkItemCacheSetPtr.emplace(pid, pSet);
 
 	if (g_log)
-		sys_log(0, "ITEM_CACHE: new cache %u", pid);
+		sys_log(0, "ITEM_CACHE: new cache %llu", static_cast<unsigned long long>(pid));
 }
 
-void CClientManager::FlushItemCacheSet(DWORD pid)
+void CClientManager::FlushItemCacheSet(uint64_t pid)
 {
 	TItemCacheSetPtrMap::iterator it = m_map_pkItemCacheSetPtr.find(pid);
 
 	if (it == m_map_pkItemCacheSetPtr.end())
 	{
-		sys_log(0, "FLUSH_ITEMCACHESET : No ItemCacheSet pid(%d)", pid);
+		sys_log(0, "FLUSH_ITEMCACHESET : No ItemCacheSet pid(%llu)", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -1793,11 +1793,11 @@ void CClientManager::FlushItemCacheSet(DWORD pid)
 		m_map_pkItemCacheSetPtr.erase(it);
 
 		if (g_log)
-			sys_log(0, "FLUSH_ITEMCACHESET : Deleted pid(%d)", pid);
+			sys_log(0, "FLUSH_ITEMCACHESET : Deleted pid(%llu)", static_cast<unsigned long long>(pid));
 	}
 }
 
-CItemCache * CClientManager::GetItemCache(DWORD id)
+CItemCache * CClientManager::GetItemCache(uint64_t id)
 {
 	TItemCacheMap::iterator it = m_map_itemCache.find(id);
 
@@ -1816,7 +1816,7 @@ void CClientManager::PutItemCache(TPlayerItem * pNew, bool bSkipQuery)
 	if (!c)
 	{
 		if (g_log)
-			sys_log(0, "ITEM_CACHE: PutItemCache ==> New CItemCache id%d vnum%d new owner%d", pNew->id, pNew->vnum, pNew->owner);
+			sys_log(0, "ITEM_CACHE: PutItemCache ==> New CItemCache id%llu vnum%d new owner%llu", static_cast<unsigned long long>(pNew->id), pNew->vnum, static_cast<unsigned long long>(pNew->owner));
 
 		c = new CItemCache;
 		m_map_itemCache.emplace(pNew->id, c);
@@ -1834,7 +1834,7 @@ void CClientManager::PutItemCache(TPlayerItem * pNew, bool bSkipQuery)
 			if (it != m_map_pkItemCacheSetPtr.end())
 			{
 				if (g_log)
-				sys_log(0, "ITEM_CACHE: delete owner %u id %u new owner %u", c->Get()->owner, c->Get()->id, pNew->owner);
+				sys_log(0, "ITEM_CACHE: delete owner %llu id %llu new owner %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id), static_cast<unsigned long long>(pNew->owner));
 				it->second->erase(c);
 			}
 		}
@@ -1847,23 +1847,23 @@ void CClientManager::PutItemCache(TPlayerItem * pNew, bool bSkipQuery)
 	if (it != m_map_pkItemCacheSetPtr.end())
 	{
 		if (g_log)
-			sys_log(0, "ITEM_CACHE: save %u id %u", c->Get()->owner, c->Get()->id);
+			sys_log(0, "ITEM_CACHE: save %llu id %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id));
 		else
-			sys_log(1, "ITEM_CACHE: save %u id %u", c->Get()->owner, c->Get()->id);
+			sys_log(1, "ITEM_CACHE: save %llu id %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id));
 		it->second->emplace(c);
 	}
 	else
 	{
 		if (g_log)
-			sys_log(0, "ITEM_CACHE: direct save %u id %u", c->Get()->owner, c->Get()->id);
+			sys_log(0, "ITEM_CACHE: direct save %llu id %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id));
 		else
-			sys_log(1, "ITEM_CACHE: direct save %u id %u", c->Get()->owner, c->Get()->id);
+			sys_log(1, "ITEM_CACHE: direct save %llu id %llu", static_cast<unsigned long long>(c->Get()->owner), static_cast<unsigned long long>(c->Get()->id));
 
 		c->OnFlush();
 	}
 }
 
-bool CClientManager::DeleteItemCache(DWORD dwID)
+bool CClientManager::DeleteItemCache(uint64_t dwID)
 {
 	CItemCache * c = GetItemCache(dwID);
 
@@ -1875,7 +1875,7 @@ bool CClientManager::DeleteItemCache(DWORD dwID)
 }
 
 // MYSHOP_PRICE_LIST
-CItemPriceListTableCache* CClientManager::GetItemPriceListCache(DWORD dwID)
+CItemPriceListTableCache* CClientManager::GetItemPriceListCache(uint64_t dwID)
 {
 	TItemPriceListCacheMap::iterator it = m_mapItemPriceListCache.find(dwID);
 
@@ -1909,7 +1909,7 @@ void CClientManager::UpdatePlayerCache()
 		if (c->CheckTimeout())
 		{
 			if (g_log)
-				sys_log(0, "UPDATE : UpdatePlayerCache() ==> FlushPlayerCache %d %s ", c->Get(false)->id, c->Get(false)->name);
+				sys_log(0, "UPDATE : UpdatePlayerCache() ==> FlushPlayerCache %llu %s ", static_cast<unsigned long long>(c->Get(false)->id), c->Get(false)->name);
 
 			c->Flush();
 
@@ -1941,7 +1941,7 @@ void CClientManager::UpdateItemCache()
 		if (c->CheckFlushTimeout())
 		{
 			if (g_test_server)
-				sys_log(0, "UpdateItemCache ==> Flush() vnum %u id %u owner %u", c->Get()->vnum, c->Get()->id, c->Get()->owner);
+				sys_log(0, "UpdateItemCache ==> Flush() vnum %u id %llu owner %llu", c->Get()->vnum, static_cast<unsigned long long>(c->Get()->id), static_cast<unsigned long long>(c->Get()->owner));
 
 			c->Flush();
 
@@ -1971,18 +1971,17 @@ void CClientManager::UpdateItemPriceListCache()
 
 void CClientManager::QUERY_ITEM_DESTROY(CPeer * pkPeer, const char * c_pData)
 {
-	DWORD dwID = *(DWORD *) c_pData;
-	c_pData += sizeof(DWORD);
-
-	DWORD dwPID = *(DWORD *) c_pData;
+	uint64_t dwID = *reinterpret_cast<const uint64_t *>(c_pData);
+	c_pData += sizeof(uint64_t);
+	uint64_t dwPID = *reinterpret_cast<const uint64_t *>(c_pData);
 
 	if (!DeleteItemCache(dwID))
 	{
-		char szQuery[64];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwID));
+		char szQuery[128];
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(dwID));
 
 		if (g_log)
-			sys_log(0, "HEADER_GD_ITEM_DESTROY: PID %u ID %u", dwPID, dwID);
+			sys_log(0, "HEADER_GD_ITEM_DESTROY: PID %llu ID %llu", static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(dwID));
 
 		if (dwPID == 0)
 			CDBManager::instance().AsyncQuery(szQuery);
@@ -1994,9 +1993,9 @@ void CClientManager::QUERY_ITEM_DESTROY(CPeer * pkPeer, const char * c_pData)
 void CClientManager::QUERY_FLUSH_CACHE(CPeer * pkPeer, const char * c_pData)
 {
 	(void)pkPeer;
-	DWORD dwPID = *(DWORD *) c_pData;
+	uint64_t dwPID = *(const uint64_t *) c_pData;
 
-	sys_log(0, "FLUSH_CACHE: %u", dwPID);
+	sys_log(0, "FLUSH_CACHE: %llu", static_cast<unsigned long long>(dwPID));
 
 	FlushPlayerCacheSet(dwPID);
 	FlushItemCacheSet(dwPID);
@@ -2132,7 +2131,7 @@ CLoginData * CClientManager::GetLoginDataByLogin(const char * c_pszLogin)
 	return it->second;
 }
 
-CLoginData * CClientManager::GetLoginDataByAID(DWORD dwAID)
+CLoginData * CClientManager::GetLoginDataByAID(uint64_t dwAID)
 {
 	TLoginDataByAID::iterator it = m_map_pkLoginDataByAID.find(dwAID);
 
@@ -2167,7 +2166,7 @@ void CClientManager::DeleteLoginData(CLoginData * pkLD)
 void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDAuthLogin * p)
 {
 	if (g_test_server)
-		sys_log(0, "QUERY_AUTH_LOGIN %u ***MASKED*** %s", p->dwID, p->szLogin);
+		sys_log(0, "QUERY_AUTH_LOGIN %llu ***MASKED*** %s", static_cast<unsigned long long>(p->dwID), p->szLogin);
 	CLoginData * pkLD = GetLoginDataByLogin(p->szLogin);
 
 	if (pkLD)
@@ -2204,8 +2203,8 @@ void CClientManager::QUERY_AUTH_LOGIN(CPeer * pkPeer, DWORD dwHandle, TPacketGDA
 		strlcpy(r.passwd, "TEMP", sizeof(r.passwd));
 		r.iPremium = p->iPremium;
 
-		sys_log(0, "AUTH_LOGIN id(%u) login(%s) social_id(***MASKED***) login_key(***MASKED***), client_key(***MASKED***), hwid (%s)",
-				p->dwID, p->szLogin, p->szHwid);
+		sys_log(0, "AUTH_LOGIN id(%llu) login(%s) social_id(***MASKED***) login_key(***MASKED***), client_key(***MASKED***), hwid (%s)",
+				static_cast<unsigned long long>(p->dwID), p->szLogin, p->szHwid);
 
 		bResult = 1;
 
@@ -2246,7 +2245,7 @@ void CClientManager::CreateObject(TPacketGDCreateObject * p)
 			GetTablePostfix(), static_cast<unsigned int>(p->dwLandID), static_cast<unsigned int>(p->dwVnum), p->lMapIndex, p->x, p->y, p->xRot, p->yRot, p->zRot);
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
-	if (pmsg->Get()->uiInsertID == 0)
+	if (!pmsg->Get()->HasValidInsertID())
 	{
 		sys_err("cannot insert object");
 		return;
@@ -2256,7 +2255,7 @@ void CClientManager::CreateObject(TPacketGDCreateObject * p)
 
 	memset(pkObj, 0, sizeof(TObject));
 
-	pkObj->dwID = static_cast<DWORD>(pmsg->Get()->uiInsertID);
+	pkObj->dwID = static_cast<DWORD>(pmsg->Get()->ullInsertID);
 	pkObj->dwVnum = p->dwVnum;
 	pkObj->dwLandID = p->dwLandID;
 	pkObj->lMapIndex = p->lMapIndex;
@@ -2296,10 +2295,10 @@ void CClientManager::DeleteObject(DWORD dwID)
 	ForwardPacket(HEADER_DG_DELETE_OBJECT, &dwID, sizeof(DWORD));
 }
 
-void CClientManager::UpdateLand(DWORD * pdw)
+void CClientManager::UpdateLand(const TPacketGDUpdateLand * pdw)
 {
-	DWORD dwID = pdw[0];
-	DWORD dwGuild = pdw[1];
+	DWORD dwID = pdw->dwLandID;
+	uint64_t dwGuild = pdw->dwGuildID;
 
 	if (m_vec_kLandTable.empty())
 		return;
@@ -2313,7 +2312,7 @@ void CClientManager::UpdateLand(DWORD * pdw)
 		if (p->dwID == dwID)
 		{
 			char buf[256];
-			snprintf(buf, sizeof(buf), "REPLACE INTO guild_land (land_id, guild_id) VALUES (%u, %u)", static_cast<unsigned int>(dwID), static_cast<unsigned int>(dwGuild));
+			snprintf(buf, sizeof(buf), "REPLACE INTO guild_land (land_id, guild_id) VALUES (%u, %llu)", static_cast<unsigned int>(dwID), static_cast<unsigned long long>(dwGuild));
 			CDBManager::instance().AsyncQuery(buf);
 
 			p->dwGuildID = dwGuild;
@@ -2337,7 +2336,7 @@ void CClientManager::BlockChat(TPacketBlockChat* p)
 	if (pRes->uiNumRows)
 	{
 		MYSQL_ROW row = mysql_fetch_row(pRes->pSQLResult);
-		DWORD pid = static_cast<DWORD>(strtoul(row[0], NULL, 10));
+		uint64_t pid = static_cast<uint64_t>(strtoull(row[0], NULL, 10));
 
 		TPacketGDAddAffect pa;
 		pa.dwPID = pid;
@@ -2359,39 +2358,39 @@ void CClientManager::BlockChat(TPacketBlockChat* p)
 
 void CClientManager::MarriageAdd(TPacketMarriageAdd * p)
 {
-	sys_log(0, "MarriageAdd %u %u %s %s", p->dwPID1, p->dwPID2, p->szName1, p->szName2);
+	sys_log(0, "MarriageAdd %llu %llu %s %s", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2), p->szName1, p->szName2);
 	marriage::CManager::instance().Add(p->dwPID1, p->dwPID2, p->szName1, p->szName2);
 }
 
 void CClientManager::MarriageUpdate(TPacketMarriageUpdate * p)
 {
-	sys_log(0, "MarriageUpdate PID:%u %u LP:%d ST:%d", p->dwPID1, p->dwPID2, p->iLovePoint, p->byMarried);
+	sys_log(0, "MarriageUpdate PID:%llu %llu LP:%d ST:%d", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2), p->iLovePoint, p->byMarried);
 	marriage::CManager::instance().Update(p->dwPID1, p->dwPID2, p->iLovePoint, p->byMarried);
 }
 
 void CClientManager::MarriageRemove(TPacketMarriageRemove * p)
 {
-	sys_log(0, "MarriageRemove %u %u", p->dwPID1, p->dwPID2);
+	sys_log(0, "MarriageRemove %llu %llu", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2));
 	marriage::CManager::instance().Remove(p->dwPID1, p->dwPID2);
 }
 
 void CClientManager::WeddingRequest(TPacketWeddingRequest * p)
 {
-	sys_log(0, "WeddingRequest %u %u", p->dwPID1, p->dwPID2);
+	sys_log(0, "WeddingRequest %llu %llu", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2));
 	ForwardPacket(HEADER_DG_WEDDING_REQUEST, p, sizeof(TPacketWeddingRequest));
 	//marriage::CManager::instance().RegisterWedding(p->dwPID1, p->szName1, p->dwPID2, p->szName2);
 }
 
 void CClientManager::WeddingReady(TPacketWeddingReady * p)
 {
-	sys_log(0, "WeddingReady %u %u", p->dwPID1, p->dwPID2);
+	sys_log(0, "WeddingReady %llu %llu", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2));
 	ForwardPacket(HEADER_DG_WEDDING_READY, p, sizeof(TPacketWeddingReady));
 	marriage::CManager::instance().ReadyWedding(p->dwMapIndex, p->dwPID1, p->dwPID2);
 }
 
 void CClientManager::WeddingEnd(TPacketWeddingEnd * p)
 {
-	sys_log(0, "WeddingEnd %u %u", p->dwPID1, p->dwPID2);
+	sys_log(0, "WeddingEnd %llu %llu", static_cast<unsigned long long>(p->dwPID1), static_cast<unsigned long long>(p->dwPID2));
 	marriage::CManager::instance().EndWedding(p->dwPID1, p->dwPID2);
 }
 
@@ -2429,7 +2428,7 @@ void CClientManager::MyshopPricelistUpdate(const TItemPriceListTable* pPacket) /
 		thecore_memcpy(pUpdateTable->aPriceInfo, pPacket->aPriceInfo, sizeof(TItemPriceInfo) * pPacket->byCount);
 
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), static_cast<unsigned int>(pPacket->dwOwnerID));
+		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%llu", GetTablePostfix(), static_cast<unsigned long long>(pPacket->dwOwnerID));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_LOAD_FOR_UPDATE, 0, pUpdateTable);
 	}
 }
@@ -2437,11 +2436,11 @@ void CClientManager::MyshopPricelistUpdate(const TItemPriceListTable* pPacket) /
 // MYSHOP_PRICE_LIST
 
 //
-void CClientManager::MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, DWORD dwPlayerID)
+void CClientManager::MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, uint64_t dwPlayerID)
 {
 	if (CItemPriceListTableCache* pCache = GetItemPriceListCache(dwPlayerID))
 	{
-		sys_log(0, "Cache MyShopPricelist handle[%d] pid[%d]", dwHandle, dwPlayerID);
+		sys_log(0, "Cache MyShopPricelist handle[%d] pid[%llu]", dwHandle, static_cast<unsigned long long>(dwPlayerID));
 
 		TItemPriceListTable* pTable = pCache->Get(false);
 
@@ -2460,10 +2459,10 @@ void CClientManager::MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, DWORD d
 	}
 	else
 	{
-		sys_log(0, "Query MyShopPricelist handle[%d] pid[%d]", dwHandle, dwPlayerID);
+		sys_log(0, "Query MyShopPricelist handle[%d] pid[%llu]", dwHandle, static_cast<unsigned long long>(dwPlayerID));
 
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), static_cast<unsigned int>(dwPlayerID));
+		snprintf(szQuery, sizeof(szQuery), "SELECT item_vnum, price FROM myshop_pricelist%s WHERE owner_id=%llu", GetTablePostfix(), static_cast<unsigned long long>(dwPlayerID));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_LOAD, peer->GetHandle(), new TItemPricelistReqInfo(dwHandle, dwPlayerID));
 	}
 }
@@ -2598,7 +2597,7 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_GUILD_CREATE:
-				GuildCreate(peer, *(DWORD *) data);
+				GuildCreate(peer, *(const uint64_t *) data);
 				break;
 
 			case HEADER_GD_GUILD_SKILL_UPDATE:
@@ -2748,7 +2747,7 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_UPDATE_LAND:
-				UpdateLand((DWORD *) data);
+				UpdateLand((const TPacketGDUpdateLand *) data);
 				break;
 
 			case HEADER_GD_MARRIAGE_ADD:
@@ -2783,9 +2782,9 @@ void CClientManager::ProcessPackets(CPeer * peer)
 
 				// MYSHOP_PRICE_LIST
 			case HEADER_GD_MYSHOP_PRICELIST_UPDATE:
-				if (dwLength < sizeof(DWORD) + sizeof(BYTE) ||
+				if (dwLength < sizeof(uint64_t) + sizeof(BYTE) ||
 					((const TItemPriceListTable*)data)->byCount > SHOP_PRICELIST_MAX_NUM ||
-					dwLength < sizeof(DWORD) + sizeof(BYTE) + sizeof(TItemPriceInfo) * ((const TItemPriceListTable*)data)->byCount)
+					dwLength < sizeof(uint64_t) + sizeof(BYTE) + sizeof(TItemPriceInfo) * ((const TItemPriceListTable*)data)->byCount)
 				{
 					sys_err("HEADER_GD_MYSHOP_PRICELIST_UPDATE: invalid packet size %u", static_cast<unsigned int>(dwLength));
 					break;
@@ -2794,7 +2793,7 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_MYSHOP_PRICELIST_REQ:
-				MyshopPricelistRequest(peer, dwHandle, *(DWORD*)data);
+				MyshopPricelistRequest(peer, dwHandle, *(const uint64_t*)data);
 				break;
 				// END_OF_MYSHOP_PRICE_LIST
 
@@ -2867,7 +2866,7 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_REQ_HORSE_NAME :
-				AckHorseName(*(DWORD*)data, peer);
+				AckHorseName(*(const uint64_t*)data, peer);
 				break;
 
 			case HEADER_GD_DC:
@@ -3001,7 +3000,7 @@ CPeer * CClientManager::GetAnyPeer()
 int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 {
 	CQueryInfo * qi = (CQueryInfo *) msg->pvUserData;
-	CPeer * peer = GetPeer(qi->dwIdent);
+	CPeer * peer = GetPeer(static_cast<IDENT>(qi->dwIdent));
 
 #ifdef _TEST
 	if (qi->iType != QID_ITEM_AWARD_LOAD)
@@ -3040,18 +3039,18 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 
 				if (bUnknown)
 				{
-					sys_err("CRITICAL DB SAVE UNKNOWN (Connection Lost): type %d, ident %u, errno %u; transaction status UNKNOWN - blind retry prohibited!",
-							qi->iType, qi->dwIdent, msg->uiSQLErrno);
+					sys_err("CRITICAL DB SAVE UNKNOWN (Connection Lost): type %d, ident %llu, errno %u; transaction status UNKNOWN - blind retry prohibited!",
+							qi->iType, static_cast<unsigned long long>(qi->dwIdent), msg->uiSQLErrno);
 				}
 				else if (bOverflow)
 				{
-					sys_err("CRITICAL DB SAVE ERROR (64-bit Overflow): type %d, ident %u; out-of-range value rejected!",
-							qi->iType, qi->dwIdent);
+					sys_err("CRITICAL DB SAVE ERROR (64-bit Overflow): type %d, ident %llu; out-of-range value rejected!",
+							qi->iType, static_cast<unsigned long long>(qi->dwIdent));
 				}
 				else
 				{
-					sys_err("CRITICAL DB SAVE ERROR (SQL Failure): type %d, ident %u, errno %u",
-							qi->iType, qi->dwIdent, msg->uiSQLErrno);
+					sys_err("CRITICAL DB SAVE ERROR (SQL Failure): type %d, ident %llu, errno %u",
+							qi->iType, static_cast<unsigned long long>(qi->dwIdent), msg->uiSQLErrno);
 				}
 
 				DWORD dwFailedVer = (DWORD)(uintptr_t)qi->pvData;
@@ -3061,11 +3060,11 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 					if (pkPlayerCache)
 					{
 						pkPlayerCache->OnSaveFailure(dwFailedVer, bUnknown);
-						sys_err("PlayerTableCache: player id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
+						sys_err("PlayerTableCache: player id %llu save failed, kept dirty in cache for future retry.", static_cast<unsigned long long>(qi->dwIdent));
 					}
 					else
 					{
-						sys_err("PlayerTableCache: player id %u save failed, but cache object already freed (logout race/flush)!", qi->dwIdent);
+						sys_err("PlayerTableCache: player id %llu save failed, but cache object already freed (logout race/flush)!", static_cast<unsigned long long>(qi->dwIdent));
 					}
 				}
 				else if (qi->iType == QID_ITEM_SAVE && qi->dwIdent != 0)
@@ -3074,11 +3073,11 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 					if (pkItemCache)
 					{
 						pkItemCache->OnSaveFailure(dwFailedVer, bUnknown);
-						sys_err("ItemCache: item id %u save failed, kept dirty in cache for future retry.", qi->dwIdent);
+						sys_err("ItemCache: item id %llu save failed, kept dirty in cache for future retry.", static_cast<unsigned long long>(qi->dwIdent));
 					}
 					else
 					{
-						sys_err("ItemCache: item id %u save failed, but cache object already freed (logout race/flush)!", qi->dwIdent);
+						sys_err("ItemCache: item id %llu save failed, but cache object already freed (logout race/flush)!", static_cast<unsigned long long>(qi->dwIdent));
 					}
 				}
 				else if (qi->iType == QID_ITEM_DESTROY && qi->dwIdent != 0)
@@ -3087,7 +3086,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 					if (pkItemCache)
 					{
 						pkItemCache->OnSaveFailure(dwFailedVer, bUnknown);
-						sys_err("ItemCache: item id %u destroy failed, kept dirty in cache for future retry.", qi->dwIdent);
+						sys_err("ItemCache: item id %llu destroy failed, kept dirty in cache for future retry.", static_cast<unsigned long long>(qi->dwIdent));
 					}
 				}
 			}
@@ -3104,7 +3103,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 						{
 							m_map_playerCache.erase(qi->dwIdent);
 							delete pkPlayerCache;
-							sys_log(0, "PlayerTableCache: player id %u save acknowledged and safely evicted from memory.", qi->dwIdent);
+							sys_log(0, "PlayerTableCache: player id %llu save acknowledged and safely evicted from memory.", static_cast<unsigned long long>(qi->dwIdent));
 						}
 					}
 				}
@@ -3116,7 +3115,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 						pkItemCache->OnSaveSuccess(dwSavedVer);
 						if (pkItemCache->CanEvict())
 						{
-							DWORD dwOwner = pkItemCache->Get()->owner;
+							uint64_t dwOwner = pkItemCache->Get()->owner;
 							m_map_itemCache.erase(qi->dwIdent);
 							TItemCacheSet * pSet = GetItemCacheSet(dwOwner);
 							if (pSet)
@@ -3129,7 +3128,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 								}
 							}
 							delete pkItemCache;
-							sys_log(0, "ItemCache: item id %u save acknowledged and safely evicted from memory.", qi->dwIdent);
+							sys_log(0, "ItemCache: item id %llu save acknowledged and safely evicted from memory.", static_cast<unsigned long long>(qi->dwIdent));
 						}
 					}
 				}
@@ -3138,7 +3137,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 					CItemCache * pkItemCache = GetItemCache(qi->dwIdent);
 					if (pkItemCache)
 					{
-						DWORD dwOwner = pkItemCache->Get()->owner;
+						uint64_t dwOwner = pkItemCache->Get()->owner;
 						m_map_itemCache.erase(qi->dwIdent);
 						TItemCacheSet * pSet = GetItemCacheSet(dwOwner);
 						if (pSet)
@@ -3151,7 +3150,7 @@ int CClientManager::AnalyzeQueryResult(SQLMsg * msg)
 							}
 						}
 						delete pkItemCache;
-						sys_log(0, "ItemCache: item id %u destroy acknowledged and safely deleted.", qi->dwIdent);
+						sys_log(0, "ItemCache: item id %llu destroy acknowledged and safely deleted.", static_cast<unsigned long long>(qi->dwIdent));
 					}
 				}
 			}
@@ -3595,7 +3594,7 @@ time_t CClientManager::GetCurrentTime()
 // ITEM_UNIQUE_ID
 bool CClientManager::InitializeNowItemID()
 {
-	DWORD dwMin, dwMax;
+	uint64_t dwMin, dwMax;
 
 	if (!CConfig::instance().GetTwoValue("ITEM_ID_RANGE", &dwMin, &dwMax))
 	{
@@ -3603,7 +3602,7 @@ bool CClientManager::InitializeNowItemID()
 		return false;
 	}
 
-	sys_log(0, "ItemRange From File %u ~ %u ", dwMin, dwMax);
+	sys_log(0, "ItemRange From File %llu ~ %llu ", static_cast<unsigned long long>(dwMin), static_cast<unsigned long long>(dwMax));
 
 	if (CItemIDRangeManager::instance().BuildRange(dwMin, dwMax, m_itemRange) == false)
 	{
@@ -3611,33 +3610,38 @@ bool CClientManager::InitializeNowItemID()
 		return false;
 	}
 
-	sys_log(0, " Init Success Start %u End %u Now %u\n", m_itemRange.dwMin, m_itemRange.dwMax, m_itemRange.dwUsableItemIDMin);
+	sys_log(0, " Init Success Start %llu End %llu Now %llu\n",
+			static_cast<unsigned long long>(m_itemRange.dwMin),
+			static_cast<unsigned long long>(m_itemRange.dwMax),
+			static_cast<unsigned long long>(m_itemRange.dwUsableItemIDMin));
 
 	return true;
 }
 
-DWORD CClientManager::GainItemID()
+uint64_t CClientManager::GainItemID()
 {
 	if (m_itemRange.dwUsableItemIDMin == 0 || m_itemRange.dwUsableItemIDMin > m_itemRange.dwMax)
 	{
-		sys_err("GainItemID: range exhausted (%u ~ %u, usable=%u)",
-				m_itemRange.dwMin, m_itemRange.dwMax, m_itemRange.dwUsableItemIDMin);
+		sys_err("GainItemID: range exhausted (%llu ~ %llu, usable=%llu)",
+				static_cast<unsigned long long>(m_itemRange.dwMin),
+				static_cast<unsigned long long>(m_itemRange.dwMax),
+				static_cast<unsigned long long>(m_itemRange.dwUsableItemIDMin));
 		return 0;
 	}
 	return m_itemRange.dwUsableItemIDMin++;
 }
 
-DWORD CClientManager::GetItemID()
+uint64_t CClientManager::GetItemID()
 {
 	return m_itemRange.dwUsableItemIDMin;
 }
 
-DWORD CClientManager::GetMaxCachedItemIDInRange(DWORD dwMin, DWORD dwMax) const
+uint64_t CClientManager::GetMaxCachedItemIDInRange(uint64_t dwMin, uint64_t dwMax) const
 {
-	DWORD dwMaxCached = 0;
+	uint64_t dwMaxCached = 0;
 	for (const auto& kv : m_map_itemCache)
 	{
-		const DWORD dwID = kv.first;
+		const uint64_t dwID = kv.first;
 		if (dwID >= dwMin && dwID <= dwMax && dwID > dwMaxCached)
 			dwMaxCached = dwID;
 	}
@@ -4161,27 +4165,28 @@ void CClientManager::ReloadAdmin(CPeer*, TPacketReloadAdmin* p)
 //BREAK_MARRIAGE
 void CClientManager::BreakMarriage([[maybe_unused]] CPeer * peer, const char * data)
 {
-	DWORD pid1, pid2;
+	uint64_t pid1, pid2;
 
-	pid1 = *(const DWORD *) data;
-	data += sizeof(DWORD);
+	pid1 = *(const uint64_t *) data;
+	data += sizeof(uint64_t);
 
-	pid2 = *(const DWORD *) data;
-	data += sizeof(DWORD);
+	pid2 = *(const uint64_t *) data;
+	data += sizeof(uint64_t);
 
-	sys_log(0, "Breaking off a marriage engagement! pid %d and pid %d", pid1, pid2);
+	sys_log(0, "Breaking off a marriage engagement! pid %llu and pid %llu",
+			static_cast<unsigned long long>(pid1), static_cast<unsigned long long>(pid2));
 	marriage::CManager::instance().Remove(pid1, pid2);
 }
 //END_BREAK_MARIIAGE
 
-void CClientManager::UpdateItemCacheSet(DWORD pid)
+void CClientManager::UpdateItemCacheSet(uint64_t pid)
 {
 	itertype(m_map_pkItemCacheSetPtr) it = m_map_pkItemCacheSetPtr.find(pid);
 
 	if (it == m_map_pkItemCacheSetPtr.end())
 	{
 		if (g_test_server)
-			sys_log(0, "UPDATE_ITEMCACHESET : UpdateItemCacheSet ==> No ItemCacheSet pid(%d)", pid);
+			sys_log(0, "UPDATE_ITEMCACHESET : UpdateItemCacheSet ==> No ItemCacheSet pid(%llu)", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -4195,26 +4200,26 @@ void CClientManager::UpdateItemCacheSet(DWORD pid)
 	}
 
 	if (g_log)
-		sys_log(0, "UPDATE_ITEMCACHESET : UpdateItemCachsSet pid(%d)", pid);
+		sys_log(0, "UPDATE_ITEMCACHESET : UpdateItemCachsSet pid(%llu)", static_cast<unsigned long long>(pid));
 }
 
 void CClientManager::Election(CPeer * peer, DWORD dwHandle, const char* data)
 {
 	DWORD idx;
-	DWORD selectingpid;
+	uint64_t selectingpid;
 
-	idx = *(DWORD *) data;
+	idx = *(const DWORD *) data;
 	data += sizeof(DWORD);
 
-	selectingpid = *(DWORD *) data;
-	data += sizeof(DWORD);
+	selectingpid = *(const uint64_t *) data;
+	data += sizeof(uint64_t);
 
 	int Success = 0;
 
 	if (!(Success = CMonarch::instance().VoteMonarch(selectingpid, idx)))
 	{
 		if (g_test_server)
-		sys_log(0, "[MONARCH_VOTE] Failed %d %d", idx, selectingpid);
+		sys_log(0, "[MONARCH_VOTE] Failed %d %llu", idx, static_cast<unsigned long long>(selectingpid));
 		peer->EncodeHeader(HEADER_DG_ELECT_MONARCH, dwHandle, sizeof(int));
 		peer->Encode(Success);
 		return;
@@ -4222,7 +4227,7 @@ void CClientManager::Election(CPeer * peer, DWORD dwHandle, const char* data)
 	else
 	{
 		if (g_test_server)
-		sys_log(0, "[MONARCH_VOTE] Success %d %d", idx, selectingpid);
+		sys_log(0, "[MONARCH_VOTE] Success %d %llu", idx, static_cast<unsigned long long>(selectingpid));
 		peer->EncodeHeader(HEADER_DG_ELECT_MONARCH, dwHandle, sizeof(int));
 		peer->Encode(Success);
 		return;
@@ -4230,25 +4235,26 @@ void CClientManager::Election(CPeer * peer, DWORD dwHandle, const char* data)
 }
 void CClientManager::Candidacy(CPeer *  peer, DWORD dwHandle, const char* data)
 {
-	DWORD pid;
+	uint64_t pid;
 
-	pid = *(DWORD *) data;
-	data += sizeof(DWORD);
+	pid = *(const uint64_t *) data;
+	data += sizeof(uint64_t);
 
 	if (!CMonarch::instance().AddCandidacy(pid, data))
 	{
 		if (g_test_server)
-			sys_log(0, "[MONARCH_CANDIDACY] Failed %d %s", pid, data);
+			sys_log(0, "[MONARCH_CANDIDACY] Failed %llu %s", static_cast<unsigned long long>(pid), data);
 
-		peer->EncodeHeader(HEADER_DG_CANDIDACY, dwHandle, sizeof(int) + 32);
-		peer->Encode(0, sizeof(int));
+		peer->EncodeHeader(HEADER_DG_CANDIDACY, dwHandle, sizeof(uint64_t) + 32);
+		uint64_t zero = 0;
+		peer->Encode(&zero, sizeof(uint64_t));
 		peer->Encode(data, 32);
 		return;
 	}
 	else
 	{
 		if (g_test_server)
-			sys_log(0, "[MONARCH_CANDIDACY] Success %d %s", pid, data);
+			sys_log(0, "[MONARCH_CANDIDACY] Success %llu %s", static_cast<unsigned long long>(pid), data);
 
 		for (itertype(m_peerList) it = m_peerList.begin(); it != m_peerList.end(); ++it)
 		{
@@ -4262,13 +4268,13 @@ void CClientManager::Candidacy(CPeer *  peer, DWORD dwHandle, const char* data)
 
 			if (p == peer)
 			{
-				p->EncodeHeader(HEADER_DG_CANDIDACY, dwHandle, sizeof(int) + 32);
+				p->EncodeHeader(HEADER_DG_CANDIDACY, dwHandle, sizeof(uint64_t) + 32);
 				p->Encode(pid);
 				p->Encode(data, 32);
 			}
 			else
 			{
-				p->EncodeHeader(HEADER_DG_CANDIDACY, 0, sizeof(int) + 32);
+				p->EncodeHeader(HEADER_DG_CANDIDACY, 0, sizeof(uint64_t) + 32);
 				p->Encode(pid);
 				p->Encode(data, 32);
 			}
@@ -4335,7 +4341,7 @@ void CClientManager::TakeMonarchMoney(CPeer * peer, DWORD dwHandle, const char *
 {
 	const auto* req = reinterpret_cast<const TPacketGDTakeMonarchMoney*>(data);
 	const int Empire = req->iEmpire;
-	const DWORD pid = req->dwPID;
+	const uint64_t pid = req->dwPID;
 	YANG Money = req->llMoney;
 
 	if (g_test_server)
@@ -4489,17 +4495,17 @@ void CClientManager::ChangeMonarchLord([[maybe_unused]] CPeer * peer, [[maybe_un
 {
 	char szQuery[1024];
 	snprintf(szQuery, sizeof(szQuery),
-			"SELECT a.name, NOW() FROM player%s AS a, player_index%s AS b WHERE (a.account_id=b.id AND a.id=%u AND b.empire=%u) AND "
+			"SELECT a.name, NOW() FROM player%s AS a, player_index%s AS b WHERE (a.account_id=b.id AND a.id=%llu AND b.empire=%u) AND "
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-		    "(b.pid1=%u OR b.pid2=%u OR b.pid3=%u OR b.pid4=%u OR b.pid5=%u)",
+		    "(b.pid1=%llu OR b.pid2=%llu OR b.pid3=%llu OR b.pid4=%llu OR b.pid5=%llu)",
 #else
-		    "(b.pid1=%u OR b.pid2=%u OR b.pid3=%u OR b.pid4=%u)",
+		    "(b.pid1=%llu OR b.pid2=%llu OR b.pid3=%llu OR b.pid4=%llu)",
 #endif
-			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(info->dwPID), info->bEmpire,
+			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned long long>(info->dwPID), info->bEmpire,
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-		   	static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID));
+				static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID));
 #else
-		   	static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID), static_cast<unsigned int>(info->dwPID));
+				static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID), static_cast<unsigned long long>(info->dwPID));
 #endif
 
 	auto pMsg = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
@@ -4513,7 +4519,7 @@ void CClientManager::ChangeMonarchLord([[maybe_unused]] CPeer * peer, [[maybe_un
 		strlcpy(ack.szName, row[0], sizeof(ack.szName));
 		strlcpy(ack.szDate, row[1], sizeof(ack.szDate));
 
-		snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET pid=%u, windate=NOW() WHERE empire=%d", static_cast<unsigned int>(ack.dwPID), ack.bEmpire);
+		snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET pid=%llu, windate=NOW() WHERE empire=%d", static_cast<unsigned long long>(ack.dwPID), ack.bEmpire);
 		auto pMsg2 = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
 		if (pMsg2->Get()->uiAffectedRows > 0)
 		{
@@ -4571,18 +4577,18 @@ void CClientManager::DeleteLoginKey(TPacketDC *data)
 void CClientManager::DeleteAwardId(TPacketDeleteAwardID *data)
 {
 	//sys_log(0,"data from game server arrived %d",data->dwID);
-	std::map<DWORD, TItemAward *>::iterator it;
+	std::map<uint64_t, TItemAward *>::iterator it;
 	it = ItemAwardManager::Instance().GetMapAward().find(data->dwID);
 	if ( it != ItemAwardManager::Instance().GetMapAward().end() )
 	{
 		std::set<TItemAward *> & kSet = ItemAwardManager::Instance().GetMapkSetAwardByLogin()[it->second->szLogin];
 		if(kSet.erase(it->second))
-			sys_log(0,"erase ItemAward id: %d from cache", data->dwID);
+			sys_log(0,"erase ItemAward id: %llu from cache", static_cast<unsigned long long>(data->dwID));
 		ItemAwardManager::Instance().GetMapAward().erase(data->dwID);
 	}
 	else
 	{
-		sys_log(0,"DELETE_AWARDID : could not find the id: %d", data->dwID);
+		sys_log(0,"DELETE_AWARDID : could not find the id: %llu", static_cast<unsigned long long>(data->dwID));
 	}
 }
 
@@ -4679,11 +4685,11 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 
 	if (packet->lAmount == INT64_MIN || packet->lSecondAmount == INT64_MIN)
 	{
-		sys_err("ChargeCash: invalid INT64_MIN amount (type : %d, amount : %lld, second : %lld, aid : %u)",
+		sys_err("ChargeCash: invalid INT64_MIN amount (type : %d, amount : %lld, second : %lld, aid : %llu)",
 			packet->eChargeType,
 			static_cast<long long>(packet->lAmount),
 			static_cast<long long>(packet->lSecondAmount),
-			static_cast<unsigned int>(packet->dwAID));
+			static_cast<unsigned long long>(packet->dwAID));
 		return;
 	}
 
@@ -4696,9 +4702,9 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 			const uint64_t credit = static_cast<uint64_t>(packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
 				"update account set `cash` = `cash` + %llu "
-				"where id = %u and CAST(`cash` AS SIGNED) >= 0 and CAST(`cash` AS SIGNED) <= %lld - %llu limit 1",
+				"where id = %llu and CAST(`cash` AS SIGNED) >= 0 and CAST(`cash` AS SIGNED) <= %lld - %llu limit 1",
 				static_cast<unsigned long long>(credit),
-				static_cast<unsigned int>(packet->dwAID),
+				static_cast<unsigned long long>(packet->dwAID),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(credit));
 		}
@@ -4710,10 +4716,10 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 				: static_cast<uint64_t>(packet->lSecondAmount);
 			snprintf(szQuery, sizeof(szQuery),
 				"update account set `cash` = `cash` - %llu, `cash_mark` = `cash_mark` + %llu "
-				"where id = %u and `cash` >= %llu and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
+				"where id = %llu and `cash` >= %llu and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
 				static_cast<unsigned long long>(cost),
 				static_cast<unsigned long long>(secondCredit),
-				static_cast<unsigned int>(packet->dwAID),
+				static_cast<unsigned long long>(packet->dwAID),
 				static_cast<unsigned long long>(cost),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(secondCredit));
@@ -4726,34 +4732,34 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 			const uint64_t credit = static_cast<uint64_t>(packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
 				"update account set `cash_mark` = `cash_mark` + %llu "
-				"where id = %u and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
+				"where id = %llu and CAST(`cash_mark` AS SIGNED) >= 0 and CAST(`cash_mark` AS SIGNED) <= %lld - %llu limit 1",
 				static_cast<unsigned long long>(credit),
-				static_cast<unsigned int>(packet->dwAID),
+				static_cast<unsigned long long>(packet->dwAID),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(credit));
 		}
 		else
 		{
-			const uint32_t aid = static_cast<uint32_t>(packet->dwAID);
+			const uint64_t aid = packet->dwAID;
 			const uint64_t cost = static_cast<uint64_t>(-packet->lAmount);
 			snprintf(szQuery, sizeof(szQuery),
 				"update account set `cash_mark` = `cash_mark` - %llu "
-				"where id = %u and `cash_mark` >= %llu limit 1",
+				"where id = %llu and `cash_mark` >= %llu limit 1",
 				static_cast<unsigned long long>(cost),
-				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(aid),
 				static_cast<unsigned long long>(cost));
 		}
 	}
 	else
 	{
-		sys_err("Invalid request charge type (type : %d, amount : %lld, aid : %u)",
-			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned int>(packet->dwAID));
+		sys_err("Invalid request charge type (type : %d, amount : %lld, aid : %llu)",
+			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned long long>(packet->dwAID));
 		return;
 	}
 	
 	if (g_test_server)
-		sys_err("Request Charge (type : %d, amount : %lld, aid : %u)",
-			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned int>(packet->dwAID));
+		sys_err("Request Charge (type : %d, amount : %lld, aid : %llu)",
+			packet->eChargeType, static_cast<long long>(packet->lAmount), static_cast<unsigned long long>(packet->dwAID));
 	
 	CDBManager::Instance().AsyncQuery(szQuery, SQL_ACCOUNT);
 }
@@ -4841,9 +4847,9 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 		{
 			snprintf(szQuery, sizeof(szQuery),
 				"UPDATE account SET `cash` = `cash` + %llu "
-				"WHERE id = %u AND `cash` >= 0 AND `cash` <= %lld - %llu LIMIT 1",
+				"WHERE id = %llu AND `cash` >= 0 AND `cash` <= %lld - %llu LIMIT 1",
 				static_cast<unsigned long long>(cash),
-				static_cast<unsigned int>(p->dwAID),
+				static_cast<unsigned long long>(p->dwAID),
 				static_cast<long long>(INT64_MAX),
 				static_cast<unsigned long long>(cash));
 			std::unique_ptr<SQLMsg> pCashMsg(CDBManager::Instance().DirectQuery(szQuery, SQL_ACCOUNT));
@@ -4898,7 +4904,7 @@ void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
 			if (pkPlayerCache)
 			{
 				pkPlayerCache->OnSaveFailure(failedVersion, bUnknown);
-				sys_err("AnalyzeFailedQuery: PlayerTableCache: player id %u kept dirty in cache.", qi->dwIdent);
+				sys_err("AnalyzeFailedQuery: PlayerTableCache: player id %llu kept dirty in cache.", static_cast<unsigned long long>(qi->dwIdent));
 			}
 		}
 		else if (qi->iType == QID_ITEM_SAVE && qi->dwIdent != 0)
@@ -4907,7 +4913,7 @@ void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
 			if (pkItemCache)
 			{
 				pkItemCache->OnSaveFailure(failedVersion, bUnknown);
-				sys_err("AnalyzeFailedQuery: ItemCache: item id %u kept dirty in cache.", qi->dwIdent);
+				sys_err("AnalyzeFailedQuery: ItemCache: item id %llu kept dirty in cache.", static_cast<unsigned long long>(qi->dwIdent));
 			}
 		}
 		else if (qi->iType == QID_ITEM_DESTROY && qi->dwIdent != 0)
@@ -4916,7 +4922,7 @@ void CClientManager::AnalyzeFailedQuery(SQLMsg * msg)
 			if (pkItemCache)
 			{
 				pkItemCache->OnSaveFailure(failedVersion, bUnknown);
-				sys_err("AnalyzeFailedQuery: ItemCache: item id %u destroy kept dirty in cache.", qi->dwIdent);
+				sys_err("AnalyzeFailedQuery: ItemCache: item id %llu destroy kept dirty in cache.", static_cast<unsigned long long>(qi->dwIdent));
 			}
 		}
 		delete qi;

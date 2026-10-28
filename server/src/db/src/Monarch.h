@@ -19,17 +19,17 @@
 class CMonarch : public singleton<CMonarch>
 {
 	public:
-		typedef std::map<DWORD, MonarchElectionInfo*> MAP_MONARCHELECTION;
+		typedef std::map<uint64_t, MonarchElectionInfo*> MAP_MONARCHELECTION;
 		typedef std::vector<MonarchCandidacy> VEC_MONARCHCANDIDACY;
 
 		CMonarch();
 		virtual ~CMonarch();
 
-		bool VoteMonarch(DWORD pid, DWORD selectedpid);
+		bool VoteMonarch(uint64_t pid, uint64_t selectedpid);
 		void ElectMonarch();
 
-		bool IsCandidacy(DWORD pid);
-		bool AddCandidacy(DWORD pid, const char * name);
+		bool IsCandidacy(uint64_t pid);
+		bool AddCandidacy(uint64_t pid, const char * name);
 		bool DelCandidacy(const char * name);
 
 		bool LoadMonarch();
@@ -37,10 +37,10 @@ class CMonarch : public singleton<CMonarch>
 		bool DelMonarch(int Empire);
 		bool DelMonarch(const char * name);
 
-		bool IsMonarch(int Empire, DWORD pid);
+		bool IsMonarch(int Empire, uint64_t pid);
 		bool AddMoney(int Empire, int64_t Money);
 		bool DecMoney(int Empire, int64_t Money);
-		bool TakeMoney(int Empire, DWORD pid, int64_t Money);
+		bool TakeMoney(int Empire, uint64_t pid, int64_t Money);
 
 		TMonarchInfo* GetMonarch()
 		{
@@ -58,13 +58,13 @@ class CMonarch : public singleton<CMonarch>
 		}
 
 	private:
-		int GetCandidacyIndex(DWORD pid);
+		int GetCandidacyIndex(uint64_t pid);
 
 		MAP_MONARCHELECTION m_map_MonarchElection;
 		VEC_MONARCHCANDIDACY m_vec_MonarchCandidacy;
 		TMonarchInfo m_MonarchInfo;
 
-		MonarchElectionInfo* GetMonarchElection(DWORD pid)
+		MonarchElectionInfo* GetMonarchElection(uint64_t pid)
 		{
 			MAP_MONARCHELECTION::iterator it = m_map_MonarchElection.find(pid);
 
@@ -76,4 +76,3 @@ class CMonarch : public singleton<CMonarch>
 };
 
 #endif
-

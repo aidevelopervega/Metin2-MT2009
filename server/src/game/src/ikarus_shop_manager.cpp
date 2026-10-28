@@ -446,13 +446,13 @@ namespace ikashop
 			cache->AddOffer(offer);
 	}
 
-	CShopManager::SHOP_HANDLE CShopManager::GetShopByOwnerID(DWORD pid)
+	CShopManager::SHOP_HANDLE CShopManager::GetShopByOwnerID(uint64_t pid)
 	{
 		auto it = m_mapShops.find(pid);
 		return it != m_mapShops.end() ? it->second : nullptr;
 	}
 
-	CShopManager::AUCTION_HANDLE CShopManager::GetAuctionByOwnerID(DWORD pid)
+	CShopManager::AUCTION_HANDLE CShopManager::GetAuctionByOwnerID(uint64_t pid)
 	{
 		auto it = m_mapAuctions.find(pid);
 		return it != m_mapAuctions.end() ? it->second : nullptr;
@@ -852,7 +852,7 @@ namespace ikashop
 	void CShopManager::_RemoveShopOffers(SHOP_HANDLE shop)
 	{
 		// storing all buyers's pids
-		std::set<DWORD> buyers;
+		std::set<uint64_t> buyers;
 
 		// iterating over shop's offers
 		for (auto& iter : shop->GetOffers())
@@ -860,7 +860,7 @@ namespace ikashop
 			auto& offer = iter.second;
 
 			// for each offer removing from buyer's offer list
-			DWORD buyer = offer->buyerid;
+			uint64_t buyer = offer->buyerid;
 			buyers.emplace(buyer);
 
 			// searching buyer into map
@@ -972,7 +972,7 @@ namespace ikashop
 
 #endif
 
-	CShopManager::SAFEBOX_HANDLE CShopManager::GetShopSafeboxByOwnerID(DWORD pid)
+	CShopManager::SAFEBOX_HANDLE CShopManager::GetShopSafeboxByOwnerID(uint64_t pid)
 	{
 		auto it = m_mapSafeboxs.find(pid);
 		return it != m_mapSafeboxs.end() ? it->second : nullptr;
@@ -996,7 +996,7 @@ namespace ikashop
 
 
 	//db packets exchanging
-	void CShopManager::SendShopBuyDBPacket(DWORD buyerid, DWORD ownerid, DWORD itemid, bool success)
+	void CShopManager::SendShopBuyDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid, bool success)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_BUY_ITEM;
@@ -1018,7 +1018,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopBuyDBPacket(DWORD buyerid, DWORD ownerid,DWORD itemid, bool requester)
+	bool CShopManager::RecvShopBuyDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid, bool requester)
 	{
 		// searching shop
 		auto shop = GetShopByOwnerID(ownerid);
@@ -1035,7 +1035,9 @@ namespace ikashop
 			auto itemInstance = shopItem->CreateItem();
 			if (!itemInstance)
 			{
-				sys_err("cannot create item ( itemid %u , vnum %u, shop owner %u, buyer %u )", itemid, shopItem->GetInfo().vnum, ownerid, buyerid );
+				sys_err("cannot create item ( itemid %llu , vnum %u, shop owner %llu, buyer %llu )",
+					static_cast<unsigned long long>(itemid), shopItem->GetInfo().vnum,
+					static_cast<unsigned long long>(ownerid), static_cast<unsigned long long>(buyerid));
 				return false;
 			}
 
@@ -1081,7 +1083,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price)
+	void CShopManager::SendShopEditItemDBPacket(uint64_t ownerid, uint64_t itemid, const TPriceInfo& price)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_EDIT_ITEM;
@@ -1099,7 +1101,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopEditItemClientPacket(LPCHARACTER ch, DWORD itemid, const TPriceInfo& price)
+	bool CShopManager::RecvShopEditItemClientPacket(LPCHARACTER ch, uint64_t itemid, const TPriceInfo& price)
 	{
 		if(!ch || !ch->GetIkarusShop())
 			return false;
@@ -1211,7 +1213,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopRemoveItemDBPacket(DWORD ownerid, DWORD itemid)
+	void CShopManager::SendShopRemoveItemDBPacket(uint64_t ownerid, uint64_t itemid)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_REMOVE_ITEM;
@@ -1228,7 +1230,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopRemoveItemDBPacket(DWORD ownerid, DWORD itemid, bool requester)
+	bool CShopManager::RecvShopRemoveItemDBPacket(uint64_t ownerid, uint64_t itemid, bool requester)
 	{
 		// searching shop
 		auto shop = GetShopByOwnerID(ownerid);
@@ -1283,7 +1285,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopAddItemDBPacket(DWORD ownerid, const TShopItem& iteminfo)
+	void CShopManager::SendShopAddItemDBPacket(uint64_t ownerid, const TShopItem& iteminfo)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_ADD_ITEM;
@@ -1300,7 +1302,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopAddItemDBPacket(DWORD ownerid, const TShopItem& iteminfo)
+	bool CShopManager::RecvShopAddItemDBPacket(uint64_t ownerid, const TShopItem& iteminfo)
 	{
 		// searching shop
 		auto shop = GetShopByOwnerID(ownerid);
@@ -1364,7 +1366,7 @@ namespace ikashop
 
 
 	//SHOPS
-	void CShopManager::SendShopForceHardCloseDBPacket(DWORD pid)
+	void CShopManager::SendShopForceHardCloseDBPacket(uint64_t pid)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = SUBHEADER_GD_SHOP_FORCE_HARD_CLOSE;
@@ -1380,7 +1382,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	void CShopManager::SendShopForceSoftCloseDBPacket(DWORD pid, bool gm = false)
+	void CShopManager::SendShopForceSoftCloseDBPacket(uint64_t pid, bool gm = false)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_SHOP_FORCE_SOFT_CLOSE;
@@ -1396,7 +1398,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopForceCloseDBPacket(DWORD pid)
+	bool CShopManager::RecvShopForceCloseDBPacket(uint64_t pid)
 	{
 		// getting shop
 		auto shop = GetShopByOwnerID(pid);
@@ -1425,7 +1427,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopLockBuyItemDBPacket(LPCHARACTER buyer, DWORD ownerid, ITEM_HANDLE item, long long TotalPriceSeen) //patch seen price check
+	void CShopManager::SendShopLockBuyItemDBPacket(LPCHARACTER buyer, uint64_t ownerid, ITEM_HANDLE item, long long TotalPriceSeen) //patch seen price check
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = SUBHEADER_GD_BUY_LOCK_ITEM;
@@ -1444,7 +1446,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopLockedBuyItemDBPacket(DWORD buyerid, DWORD ownerid,DWORD itemid)
+	bool CShopManager::RecvShopLockedBuyItemDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid)
 	{
 		auto SendDBFeedback = [&](auto success){
 			SendShopBuyDBPacket(buyerid, ownerid, itemid, success);
@@ -1469,7 +1471,7 @@ namespace ikashop
 		return SendDBFeedback(true);
 	}
 
-	bool CShopManager::RecvShopExpiredDBPacket(DWORD pid)
+	bool CShopManager::RecvShopExpiredDBPacket(uint64_t pid)
 	{
 		auto shop = GetShopByOwnerID(pid);
 		if (!shop)
@@ -1559,7 +1561,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopChangeNameDBPacket(DWORD ownerid, const char* name)
+	void CShopManager::SendShopChangeNameDBPacket(uint64_t ownerid, const char* name)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_SHOP_CHANGE_NAME;
@@ -1576,7 +1578,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopChangeNameDBPacket(DWORD ownerid, const char* name)
+	bool CShopManager::RecvShopChangeNameDBPacket(uint64_t ownerid, const char* name)
 	{
 		auto shop = GetShopByOwnerID(ownerid);
 		if(!shop)
@@ -1593,7 +1595,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopOwnerOnlineDBPacket(DWORD ownerID, const bool ownerOnlineState)
+	void CShopManager::SendShopOwnerOnlineDBPacket(uint64_t ownerID, const bool ownerOnlineState)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = SUBHEADER_GD_OWNER_ONLINE;
@@ -1609,7 +1611,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopOwnerOnlineDBPacket(DWORD ownerID, const bool ownerOnlineState)
+	bool CShopManager::RecvShopOwnerOnlineDBPacket(uint64_t ownerID, const bool ownerOnlineState)
 	{
 		auto shop = GetShopByOwnerID(ownerID);
 		if (!shop)
@@ -1673,7 +1675,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopOfferNotifiedDBPacket(DWORD offerid, DWORD ownerid)
+	void CShopManager::SendShopOfferNotifiedDBPacket(uint64_t offerid, uint64_t ownerid)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_OFFER_NOTIFIED;
@@ -1689,7 +1691,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopOfferNotifiedDBPacket(DWORD offerid, DWORD ownerid)
+	bool CShopManager::RecvShopOfferNotifiedDBPacket(uint64_t offerid, uint64_t ownerid)
 	{
 		// searching shop
 		auto shop = GetShopByOwnerID(ownerid);
@@ -1727,7 +1729,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	void CShopManager::SendShopOfferCancelDBPacket(const TOfferInfo& offer, DWORD requester)
+	void CShopManager::SendShopOfferCancelDBPacket(const TOfferInfo& offer, uint64_t requester)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_OFFER_CANCEL;
@@ -1744,7 +1746,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopOfferCancelDBPacket(DWORD offerid, DWORD ownerid, bool removing) //ikashop-updated 05/08/19
+	bool CShopManager::RecvShopOfferCancelDBPacket(uint64_t offerid, uint64_t ownerid, bool removing) //ikashop-updated 05/08/19
 	{
 		// searching offer handle
 		auto it = m_mapOffer.find(offerid);
@@ -1795,7 +1797,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopOfferAcceptDBPacket(DWORD offerid, DWORD ownerid)
+	bool CShopManager::RecvShopOfferAcceptDBPacket(uint64_t offerid, uint64_t ownerid)
 	{
 		// searching shop
 		auto shop = GetShopByOwnerID(ownerid);
@@ -1846,7 +1848,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopSafeboxAddItemDBPacket(DWORD ownerid, DWORD itemid, const TShopPlayerItem& item)
+	bool CShopManager::RecvShopSafeboxAddItemDBPacket(uint64_t ownerid, uint64_t itemid, const TShopPlayerItem& item)
 	{
 		auto ch = CHARACTER_MANAGER::instance().FindByPID(ownerid);
 		auto safebox = ch && ch->GetIkarusShopSafebox() ? ch->GetIkarusShopSafebox() : GetShopSafeboxByOwnerID(ownerid);
@@ -1878,7 +1880,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::SendShopSafeboxAddItemDBPacket(DWORD ownerid, const CShopItem& item) {
+	bool CShopManager::SendShopSafeboxAddItemDBPacket(uint64_t ownerid, const CShopItem& item) {
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = SUBHEADER_GD_SAFEBOX_ADD_ITEM;
 
@@ -1896,7 +1898,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopSafeboxAddValutesDBPacket(DWORD ownerid, const TValutesInfo& valute)
+	bool CShopManager::RecvShopSafeboxAddValutesDBPacket(uint64_t ownerid, const TValutesInfo& valute)
 	{
 		auto ch = CHARACTER_MANAGER::instance().FindByPID(ownerid);
 		auto safebox = ch && ch->GetIkarusShopSafebox() ? ch->GetIkarusShopSafebox() : GetShopSafeboxByOwnerID(ownerid);
@@ -1914,7 +1916,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopSafeboxGetItemDBPacket(DWORD ownerid, DWORD itemid)
+	void CShopManager::SendShopSafeboxGetItemDBPacket(uint64_t ownerid, uint64_t itemid)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_SAFEBOX_GET_ITEM;
@@ -1931,7 +1933,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	void CShopManager::SendShopSafeboxGetValutesDBPacket(DWORD ownerid, const TValutesInfo& valutes)
+	void CShopManager::SendShopSafeboxGetValutesDBPacket(uint64_t ownerid, const TValutesInfo& valutes)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader	= SUBHEADER_GD_SAFEBOX_GET_VALUTES;
@@ -1947,7 +1949,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buff.read_peek(), buff.size());
 	}
 
-	bool CShopManager::RecvShopSafeboxLoadDBPacket(DWORD ownerid, const TValutesInfo& valute, const std::vector<TShopPlayerItem>& items)
+	bool CShopManager::RecvShopSafeboxLoadDBPacket(uint64_t ownerid, const TValutesInfo& valute, const std::vector<TShopPlayerItem>& items)
 	{
 		// resetting/inserting safebox
 		auto& safebox = m_mapSafeboxs[ownerid] = std::make_shared<CShopSafebox>();
@@ -1960,7 +1962,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopSafeboxExpiredItemDBPacket(DWORD ownerid, DWORD itemid) {
+	bool CShopManager::RecvShopSafeboxExpiredItemDBPacket(uint64_t ownerid, uint64_t itemid) {
 		if (auto data = GetShopSafeboxByOwnerID(ownerid)) 
 		{
 			data->RemoveItem(itemid);
@@ -1974,7 +1976,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopSafeboxGetItemConfirm(DWORD ownerid, DWORD itemid)
+	bool CShopManager::RecvShopSafeboxGetItemConfirm(uint64_t ownerid, uint64_t itemid)
 	{
 		auto _SendFeedbackToDB = [&](auto result){
 			TPacketGDNewIkarusShop pack{};
@@ -2057,7 +2059,7 @@ namespace ikashop
 		return _SendFeedbackToDB(true);
 	}
 
-	void CShopManager::SendShopLoadExpiredShop(DWORD ownerid)
+	void CShopManager::SendShopLoadExpiredShop(uint64_t ownerid)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = SUBHEADER_GD_LOAD_EXPIRED_SHOP;
@@ -2149,7 +2151,7 @@ namespace ikashop
 	}
 
 	//updated 30/09/19
-	bool CShopManager::RecvAuctionExpiredDBPacket(DWORD id)
+	bool CShopManager::RecvAuctionExpiredDBPacket(uint64_t id)
 	{
 		// searching auction inside map
 		auto it = m_mapAuctions.find(id);
@@ -2182,7 +2184,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvAuctionOfferSeenDBPacket(DWORD ownerid, DWORD buyerid, long long price)
+	bool CShopManager::RecvAuctionOfferSeenDBPacket(uint64_t ownerid, uint64_t buyerid, long long price)
 	{
 		if(auto auction = GetAuctionByOwnerID(ownerid))
 		{
@@ -2203,13 +2205,13 @@ namespace ikashop
 	}
 
 #ifdef EXTEND_IKASHOP_PRO
-	bool CShopManager::RecvNotificationLoadDBPacket(DWORD owner, const std::vector<TNotificationInfo>& notifications)
+	bool CShopManager::RecvNotificationLoadDBPacket(uint64_t owner, const std::vector<TNotificationInfo>& notifications)
 	{
 		m_notificationMap[owner] = notifications;
 		return true;
 	}
 
-	bool CShopManager::RecvNotificationForwardDBPacket(DWORD owner, const TNotificationInfo& notification)
+	bool CShopManager::RecvNotificationForwardDBPacket(uint64_t owner, const TNotificationInfo& notification)
 	{
 		if(auto ch = CHARACTER_MANAGER::instance().FindByPID(owner))
 		{
@@ -2223,7 +2225,7 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendShopRestoreDurationDBPacket(DWORD owner)
+	void CShopManager::SendShopRestoreDurationDBPacket(uint64_t owner)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = ikashop::SUBHEADER_GD_SHOP_RESTORE_DURATION;
@@ -2235,7 +2237,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buffer.read_peek(), buffer.size());
 	}
 	
-	bool CShopManager::RecvShopRestoreDurationDBPacket(DWORD owner)
+	bool CShopManager::RecvShopRestoreDurationDBPacket(uint64_t owner)
 	{
 		if(auto shop = GetShopByOwnerID(owner))
 		{
@@ -2255,7 +2257,7 @@ namespace ikashop
 
 #ifdef ENABLE_IKASHOP_ENTITIES
 #ifdef EXTEND_IKASHOP_PRO
-	void CShopManager::RecvMoveShopEntityDBPacket(DWORD owner, const TShopSpawn& spawn)
+	void CShopManager::RecvMoveShopEntityDBPacket(uint64_t owner, const TShopSpawn& spawn)
 	{
 		if(auto shop = GetShopByOwnerID(owner))
 		{
@@ -2266,7 +2268,7 @@ namespace ikashop
 #endif
 #endif
 
-	void CShopManager::SendShopLockedSlotStateDBPacket(DWORD pid, BYTE unlockCount, bool isPremium)
+	void CShopManager::SendShopLockedSlotStateDBPacket(uint64_t pid, BYTE unlockCount, bool isPremium)
 	{
 		TPacketGDNewIkarusShop pack{};
 		pack.bSubHeader = ikashop::SUBHEADER_GD_SHOP_LOCKED_SLOT_STATE;
@@ -2283,7 +2285,7 @@ namespace ikashop
 		db_clientdesc->DBPacket(HEADER_GD_NEW_OFFLINESHOP, 0, buffer.read_peek(), buffer.size());
 	}
 
-	void CShopManager::RecvShopLockedSlotStateDBPacket(DWORD ownerID, BYTE unlockCount, bool isPremium)
+	void CShopManager::RecvShopLockedSlotStateDBPacket(uint64_t ownerID, BYTE unlockCount, bool isPremium)
 	{
 		if (auto shop = GetShopByOwnerID(ownerID))
 		{
@@ -2361,7 +2363,7 @@ namespace ikashop
 			auto item = ch->GetItem(pItemTable[i].pos);
 			if (!item)
 			{
-				sys_err("OpenOfflineShop item is NULL pid %d ", ch->GetPlayerID());
+				sys_err("OpenOfflineShop item is NULL pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return false;
 			}
 			const TPriceInfo price{ pItemTable[i].price };
@@ -2415,7 +2417,7 @@ namespace ikashop
 			auto item = ch->GetItem(pItemTable[i].pos);
 			if (!item)
 			{
-				sys_err("OpenOfflineShop item is NULL pid %d ", ch->GetPlayerID());
+				sys_err("OpenOfflineShop item is NULL pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 				return false;
 			}
 
@@ -2585,7 +2587,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopOpenClientPacket(LPCHARACTER ch, DWORD ownerid)
+	bool CShopManager::RecvShopOpenClientPacket(LPCHARACTER ch, uint64_t ownerid)
 	{
 		if(!ch || !ch->GetDesc())
 			return false;
@@ -2658,7 +2660,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopBuyItemClientPacket(LPCHARACTER ch, DWORD ownerid, DWORD itemid, [[maybe_unused]] bool searching, long long seenprice)  //patch seen price check
+	bool CShopManager::RecvShopBuyItemClientPacket(LPCHARACTER ch, uint64_t ownerid, uint64_t itemid, [[maybe_unused]] bool searching, long long seenprice)  //patch seen price check
 	{
 		if(!ch || !CheckGMLevel(ch))
 			return false;
@@ -3042,14 +3044,14 @@ namespace ikashop
 		return true;
 	}
 
-	void CShopManager::SendSearchResultDeleteClientPacket(LPCHARACTER ch, DWORD itemid)
+	void CShopManager::SendSearchResultDeleteClientPacket(LPCHARACTER ch, uint64_t itemid)
 	{
 		if (!ch || !ch->GetDesc())
 			return;
 
 		TPacketGCNewIkarusShop pack;
 		pack.header = HEADER_GC_NEW_OFFLINESHOP;
-		pack.size = sizeof(pack) + sizeof(DWORD);
+		pack.size = sizeof(pack) + sizeof(itemid);
 		pack.subheader = ikashop::SUBHEADER_GC_SEARCH_RESULT_DELETE;
 
 		ch->GetDesc()->BufferedPacket(&pack, sizeof(pack));
@@ -3111,7 +3113,7 @@ namespace ikashop
 		ch->GetDesc()->Packet(&pack, sizeof(pack));
 	}
 
-	void CShopManager::SendShopExpiredGuesting(DWORD ownerid, LPCHARACTER ch)
+	void CShopManager::SendShopExpiredGuesting(uint64_t ownerid, LPCHARACTER ch)
 	{
 		if (!ch->GetDesc())
 			return;
@@ -3172,7 +3174,7 @@ namespace ikashop
 		ch->GetDesc()->Packet(buff.read_peek(), buff.size());
 	}
 
-	void CShopManager::SendShopForceClosedClientPacket(DWORD ownerid)
+	void CShopManager::SendShopForceClosedClientPacket(uint64_t ownerid)
 	{
 		if(auto ch = CHARACTER_MANAGER::instance().FindByPID(ownerid))
 		{
@@ -3341,7 +3343,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopRemoveItemClientPacket(LPCHARACTER ch, DWORD itemid)
+	bool CShopManager::RecvShopRemoveItemClientPacket(LPCHARACTER ch, uint64_t itemid)
 	{
 		if(!ch || !ch->GetIkarusShop())
 			return false;
@@ -3506,7 +3508,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price)
+	bool CShopManager::RecvShopEditItemDBPacket(uint64_t ownerid, uint64_t itemid, const TPriceInfo& price)
 	{
 		auto shop = GetShopByOwnerID(ownerid);
 		if (!shop)
@@ -3604,7 +3606,7 @@ namespace ikashop
 		ch->SetIkarusShopUseTime();
 
 		std::vector<TSearchResultInfo> matches;
-		std::set<DWORD> matchedIds;
+		std::set<uint64_t> matchedIds;
 
 		for (int i = 0; i < 20; i++)
 		{
@@ -3813,7 +3815,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopAcceptOfferClientPacket(LPCHARACTER ch, DWORD offerid)
+	bool CShopManager::RecvShopAcceptOfferClientPacket(LPCHARACTER ch, uint64_t offerid)
 	{
 		if(!ch || !ch->GetIkarusShop())
 			return false;
@@ -3859,7 +3861,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopCancelOfferClientPacket(LPCHARACTER ch, DWORD offerid, DWORD ownerid)
+	bool CShopManager::RecvShopCancelOfferClientPacket(LPCHARACTER ch, uint64_t offerid, uint64_t ownerid)
 	{
 		if(!ch || !CheckGMLevel(ch))
 			return false;
@@ -3996,7 +3998,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvShopSafeboxGetItemClientPacket(LPCHARACTER ch, DWORD itemid)
+	bool CShopManager::RecvShopSafeboxGetItemClientPacket(LPCHARACTER ch, uint64_t itemid)
 	{
 		if(!ch || !ch->GetIkarusShopSafebox())
 			return false;
@@ -4185,7 +4187,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvAuctionOpenRequestClientPacket(LPCHARACTER ch, DWORD ownerid)
+	bool CShopManager::RecvAuctionOpenRequestClientPacket(LPCHARACTER ch, uint64_t ownerid)
 	{
 		auto it = m_mapAuctions.find(ownerid);
 		if(it == m_mapAuctions.end())
@@ -4247,7 +4249,7 @@ namespace ikashop
 			TPacketGDNewIkarusShop pack;
 			pack.bSubHeader = ikashop::SUBHEADER_GD_AUCTION_CANCEL;
 			
-			DWORD ownerid = ch->GetPlayerID();
+			uint64_t ownerid = ch->GetPlayerID();
 
 			TEMP_BUFFER buff;
 			buff.write(&pack, sizeof(pack));
@@ -4335,7 +4337,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvAuctionAddOfferClientPacket(LPCHARACTER ch, DWORD ownerid, const TPriceInfo& price)
+	bool CShopManager::RecvAuctionAddOfferClientPacket(LPCHARACTER ch, uint64_t ownerid, const TPriceInfo& price)
 	{
 		//checking about guesting
 		if(!ch || !ch->GetIkarusAuctionGuest() || ch->GetIkarusAuctionGuest()->GetInfo().owner != ownerid)
@@ -4405,7 +4407,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::RecvAuctionExitFromAuction(LPCHARACTER ch, DWORD ownerid)
+	bool CShopManager::RecvAuctionExitFromAuction(LPCHARACTER ch, uint64_t ownerid)
 	{
 		if(ch->GetIkarusAuctionGuest() && ch->GetIkarusAuctionGuest()->GetInfo().owner == ownerid)
 			ch->SetIkarusAuctionGuest(nullptr);
@@ -4673,7 +4675,7 @@ namespace ikashop
 		m_offerCooldownMap.clear();
 	}
 
-	bool CShopManager::CheckOfferCooldown(DWORD pid) {
+	bool CShopManager::CheckOfferCooldown(uint64_t pid) {
 		static const auto cooldown_seconds = OFFLINESHOP_SECONDS_PER_OFFER * 1000;
 		const auto now = get_dword_time();
 
@@ -4712,7 +4714,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopManager::CheckSearchCooldown(DWORD pid)
+	bool CShopManager::CheckSearchCooldown(uint64_t pid)
 	{
 		static const auto cooldown_seconds = OFFLINESHOP_SECONDS_PER_SEARCH * 1000;
 		const auto now = get_dword_time();

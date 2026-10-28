@@ -28,7 +28,7 @@ static Pixel * LoadOldGuildMarkImageFile()
 	return dataPtr;
 }
 
-bool GuildMarkConvert(const std::vector<DWORD> & vecGuildID)
+bool GuildMarkConvert(const std::vector<uint64_t> & vecGuildID)
 {
 #ifndef __WIN32__
 	mkdir("mark", S_IRWXU);
@@ -59,20 +59,21 @@ bool GuildMarkConvert(const std::vector<DWORD> & vecGuildID)
 	sys_log(0, "Guild Mark Converting Start.");
 
 	char line[256];
-	DWORD guild_id;
+	uint64_t guild_id;
 	DWORD mark_id;
 	Pixel mark[SGuildMark::SIZE];
 
 	while (fgets(line, sizeof(line)-1, fp))
 	{
-		unsigned int uGuildID = 0, uMarkID = 0;
-		sscanf(line, "%u %u", &uGuildID, &uMarkID);
-		guild_id = uGuildID;
+		unsigned long long uGuildID = 0;
+		unsigned int uMarkID = 0;
+		sscanf(line, "%llu %u", &uGuildID, &uMarkID);
+		guild_id = static_cast<uint64_t>(uGuildID);
 		mark_id = uMarkID;
 
 		if (find(vecGuildID.begin(), vecGuildID.end(), guild_id) == vecGuildID.end())
 		{
-			sys_log(0, "  skipping guild ID %u", guild_id);
+			sys_log(0, "  skipping guild ID %llu", static_cast<unsigned long long>(guild_id));
 			continue;
 		}
 
@@ -118,4 +119,3 @@ bool GuildMarkConvert(const std::vector<DWORD> & vecGuildID)
 
 	return true;
 }
-

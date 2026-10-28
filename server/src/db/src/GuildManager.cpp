@@ -57,7 +57,7 @@ namespace
 {
 	struct FSendPeerWar
 	{
-		FSendPeerWar(BYTE bType, BYTE bWar, DWORD GID1, DWORD GID2)
+		FSendPeerWar(BYTE bType, BYTE bWar, uint64_t GID1, uint64_t GID2)
 		{
 			if (number(0, 1))
 				std::swap(GID1, GID2);
@@ -84,7 +84,7 @@ namespace
 
 	struct FSendGuildWarScore
 	{
-		FSendGuildWarScore(DWORD guild_gain, DWORD dwOppGID, int iScore, int iBetScore)
+		FSendGuildWarScore(uint64_t guild_gain, uint64_t dwOppGID, int iScore, int iBetScore)
 		{
 			pck.dwGuildGainPoint = guild_gain;
 			pck.dwGuildOpponent = dwOppGID;
@@ -120,7 +120,7 @@ CGuildManager::~CGuildManager()
 	}
 }
 
-TGuild & CGuildManager::TouchGuild(DWORD GID)
+TGuild & CGuildManager::TouchGuild(uint64_t GID)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -138,7 +138,7 @@ void CGuildManager::ParseResult(SQLResult * pRes)
 
 	while ((row = mysql_fetch_row(pRes->pSQLResult)))
 	{
-		DWORD GID = strtoul(row[0], NULL, 10);
+		uint64_t GID = strtoull(row[0], NULL, 10);
 
 		TGuild & r_info = TouchGuild(GID);
 
@@ -190,10 +190,10 @@ void CGuildManager::Initialize()
 	QueryRanking();
 }
 
-void CGuildManager::Load(DWORD dwGuildID)
+void CGuildManager::Load(uint64_t dwGuildID)
 {
 	char szQuery[1024];
-	snprintf(szQuery, sizeof(szQuery), "SELECT id, name, ladder_point, win, draw, loss, gold, level FROM guild%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwGuildID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT id, name, ladder_point, win, draw, loss, gold, level FROM guild%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(dwGuildID));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiNumRows)
@@ -208,7 +208,7 @@ void CGuildManager::QueryRanking()
 	CDBManager::instance().ReturnQuery(szQuery, QID_GUILD_RANKING, 0, 0);
 }
 
-int CGuildManager::GetRanking(DWORD dwGID)
+int CGuildManager::GetRanking(uint64_t dwGID)
 {
 	itertype(map_kLadderPointRankingByGID) it = map_kLadderPointRankingByGID.find(dwGID);
 
@@ -232,7 +232,7 @@ void CGuildManager::ResultRanking(MYSQL_RES * pRes)
 
 	while ((row = mysql_fetch_row(pRes)))
 	{
-		DWORD	dwGID = 0; str_to_number(dwGID, row[0]);
+		uint64_t	dwGID = 0; str_to_number(dwGID, row[0]);
 		int	iLadderPoint = 0; str_to_number(iLadderPoint, row[2]);
 
 		if (iLadderPoint != iLastLadderPoint)
@@ -311,7 +311,8 @@ void CGuildManager::Update()
 		p.dwGuildTo	= ws.GID[1];
 
 		CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR, &p, sizeof(p));
-		sys_log(0, "GuildWar: GUILD sending start of wait start war %d %d", ws.GID[0], ws.GID[1]);
+		sys_log(0, "GuildWar: GUILD sending start of wait start war %llu %llu",
+				static_cast<unsigned long long>(ws.GID[0]), static_cast<unsigned long long>(ws.GID[1]));
 	}
 }
 
@@ -322,8 +323,8 @@ void CGuildManager::OnSetup(CPeer* peer)
 	for_all(m_WarMap, it_cont)
 		for_all(it_cont->second, it)
 		{
-			DWORD g1 = it_cont->first;
-			DWORD g2 = it->first;
+			uint64_t g1 = it_cont->first;
+			uint64_t g2 = it->first;
 			TGuildWarPQElement* p = it->second.pElement;
 
 			if (!p || p->bEnd)
@@ -345,7 +346,7 @@ void CGuildManager::OnSetup(CPeer* peer)
 	}
 }
 
-void CGuildManager::GuildWarWin(DWORD GID)
+void CGuildManager::GuildWarWin(uint64_t GID)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -355,11 +356,11 @@ void CGuildManager::GuildWarWin(DWORD GID)
 	++it->second.win;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET win=%d WHERE id=%u", GetTablePostfix(), it->second.win, static_cast<unsigned int>(GID));
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET win=%d WHERE id=%llu", GetTablePostfix(), it->second.win, static_cast<unsigned long long>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
-void CGuildManager::GuildWarLose(DWORD GID)
+void CGuildManager::GuildWarLose(uint64_t GID)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -369,11 +370,11 @@ void CGuildManager::GuildWarLose(DWORD GID)
 	++it->second.loss;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET loss=%d WHERE id=%u", GetTablePostfix(), it->second.loss, static_cast<unsigned int>(GID));
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET loss=%d WHERE id=%llu", GetTablePostfix(), it->second.loss, static_cast<unsigned long long>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
-void CGuildManager::GuildWarDraw(DWORD GID)
+void CGuildManager::GuildWarDraw(uint64_t GID)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -383,14 +384,14 @@ void CGuildManager::GuildWarDraw(DWORD GID)
 	++it->second.draw;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET draw=%d WHERE id=%u", GetTablePostfix(), it->second.draw, static_cast<unsigned int>(GID));
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET draw=%d WHERE id=%llu", GetTablePostfix(), it->second.draw, static_cast<unsigned long long>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
-bool CGuildManager::IsHalfWinLadderPoint(DWORD dwGuildWinner, DWORD dwGuildLoser)
+bool CGuildManager::IsHalfWinLadderPoint(uint64_t dwGuildWinner, uint64_t dwGuildLoser)
 {
-	DWORD GID1 = dwGuildWinner;
-	DWORD GID2 = dwGuildLoser;
+	uint64_t GID1 = dwGuildWinner;
+	uint64_t GID2 = dwGuildLoser;
 
 	if (GID1 > GID2)
 		std::swap(GID1, GID2);
@@ -404,9 +405,10 @@ bool CGuildManager::IsHalfWinLadderPoint(DWORD dwGuildWinner, DWORD dwGuildLoser
 	return false;
 }
 
-void CGuildManager::ProcessDraw(DWORD dwGuildID1, DWORD dwGuildID2)
+void CGuildManager::ProcessDraw(uint64_t dwGuildID1, uint64_t dwGuildID2)
 {
-	sys_log(0, "GuildWar: \tThe war between %d and %d is ended in draw", dwGuildID1, dwGuildID2);
+	sys_log(0, "GuildWar: \tThe war between %llu and %llu is ended in draw",
+			static_cast<unsigned long long>(dwGuildID1), static_cast<unsigned long long>(dwGuildID2));
 
 	GuildWarDraw(dwGuildID1);
 	GuildWarDraw(dwGuildID2);
@@ -416,11 +418,12 @@ void CGuildManager::ProcessDraw(DWORD dwGuildID1, DWORD dwGuildID2)
 	QueryRanking();
 }
 
-void CGuildManager::ProcessWinLose(DWORD dwGuildWinner, DWORD dwGuildLoser)
+void CGuildManager::ProcessWinLose(uint64_t dwGuildWinner, uint64_t dwGuildLoser)
 {
 	GuildWarWin(dwGuildWinner);
 	GuildWarLose(dwGuildLoser);
-	sys_log(0, "GuildWar: \tWinner : %d Loser : %d", dwGuildWinner, dwGuildLoser);
+	sys_log(0, "GuildWar: \tWinner : %llu Loser : %llu",
+			static_cast<unsigned long long>(dwGuildWinner), static_cast<unsigned long long>(dwGuildLoser));
 
 	int iPoint = GetLadderPoint(dwGuildLoser);
 	int gain = (int)(iPoint * 0.05);
@@ -437,9 +440,10 @@ void CGuildManager::ProcessWinLose(DWORD dwGuildWinner, DWORD dwGuildLoser)
 	QueryRanking();
 }
 
-void CGuildManager::RemoveWar(DWORD GID1, DWORD GID2)
+void CGuildManager::RemoveWar(uint64_t GID1, uint64_t GID2)
 {
-	sys_log(0, "GuildWar: RemoveWar(%d, %d)", GID1, GID2);
+	sys_log(0, "GuildWar: RemoveWar(%llu, %llu)",
+			static_cast<unsigned long long>(GID1), static_cast<unsigned long long>(GID2));
 
 	if (GID1 > GID2)
 		std::swap(GID2, GID1);
@@ -468,12 +472,13 @@ void CGuildManager::RemoveWar(DWORD GID1, DWORD GID2)
 //
 
 //
-void CGuildManager::WarEnd(DWORD GID1, DWORD GID2, bool bForceDraw)
+void CGuildManager::WarEnd(uint64_t GID1, uint64_t GID2, bool bForceDraw)
 {
 	if (GID1 > GID2)
 		std::swap(GID2, GID1);
 
-	sys_log(0, "GuildWar: WarEnd %d %d", GID1, GID2);
+	sys_log(0, "GuildWar: WarEnd %llu %llu",
+			static_cast<unsigned long long>(GID1), static_cast<unsigned long long>(GID2));
 
 	itertype(m_WarMap[GID1]) itWarMap = m_WarMap[GID1].find(GID2);
 
@@ -492,8 +497,8 @@ void CGuildManager::WarEnd(DWORD GID1, DWORD GID2, bool bForceDraw)
 		return;
 	}
 
-	DWORD win_guild = pData->GID[0];
-	DWORD lose_guild = pData->GID[1];
+	uint64_t win_guild = pData->GID[0];
+	uint64_t lose_guild = pData->GID[1];
 
 	bool bDraw = false;
 
@@ -528,12 +533,13 @@ void CGuildManager::WarEnd(DWORD GID1, DWORD GID2, bool bForceDraw)
 //
 
 //
-void CGuildManager::RecvWarOver(DWORD dwGuildWinner, DWORD dwGuildLoser, bool bDraw, YANG lWarPrice)
+void CGuildManager::RecvWarOver(uint64_t dwGuildWinner, uint64_t dwGuildLoser, bool bDraw, YANG lWarPrice)
 {
-	sys_log(0, "GuildWar: RecvWarOver : winner %u vs %u draw? %d war_price %lld", dwGuildWinner, dwGuildLoser, bDraw ? 1 : 0, lWarPrice);
+	sys_log(0, "GuildWar: RecvWarOver : winner %llu vs %llu draw? %d war_price %lld",
+			static_cast<unsigned long long>(dwGuildWinner), static_cast<unsigned long long>(dwGuildLoser), bDraw ? 1 : 0, lWarPrice);
 
-	DWORD GID1 = dwGuildWinner;
-	DWORD GID2 = dwGuildLoser;
+	uint64_t GID1 = dwGuildWinner;
+	uint64_t GID2 = dwGuildLoser;
 
 	if (GID1 > GID2)
 		std::swap(GID1, GID2);
@@ -571,15 +577,17 @@ void CGuildManager::RecvWarOver(DWORD dwGuildWinner, DWORD dwGuildLoser, bool bD
 	RemoveWar(GID1, GID2);
 }
 
-void CGuildManager::RecvWarEnd(DWORD GID1, DWORD GID2)
+void CGuildManager::RecvWarEnd(uint64_t GID1, uint64_t GID2)
 {
-	sys_log(0, "GuildWar: RecvWarEnded : %u vs %u", GID1, GID2);
+	sys_log(0, "GuildWar: RecvWarEnded : %llu vs %llu",
+			static_cast<unsigned long long>(GID1), static_cast<unsigned long long>(GID2));
 	WarEnd(GID1, GID2, true);
 }
 
-void CGuildManager::StartWar(BYTE bType, DWORD GID1, DWORD GID2, CGuildWarReserve * pkReserve)
+void CGuildManager::StartWar(BYTE bType, uint64_t GID1, uint64_t GID2, CGuildWarReserve * pkReserve)
 {
-	sys_log(0, "GuildWar: StartWar(%d,%d,%d)", bType, GID1, GID2);
+	sys_log(0, "GuildWar: StartWar(%d,%llu,%llu)", bType,
+			static_cast<unsigned long long>(GID1), static_cast<unsigned long long>(GID2));
 
 	if (GID1 > GID2)
 		std::swap(GID1, GID2);
@@ -597,10 +605,10 @@ void CGuildManager::StartWar(BYTE bType, DWORD GID1, DWORD GID2, CGuildWarReserv
 	m_pqOnWar.push(std::make_pair(gw.tEndTime, gw.pElement));
 }
 
-void CGuildManager::UpdateScore(DWORD dwGainGID, DWORD dwOppGID, int iScoreDelta, int iBetScoreDelta)
+void CGuildManager::UpdateScore(uint64_t dwGainGID, uint64_t dwOppGID, int iScoreDelta, int iBetScoreDelta)
 {
-	DWORD GID1 = dwGainGID;
-	DWORD GID2 = dwOppGID;
+	uint64_t GID1 = dwGainGID;
+	uint64_t GID2 = dwOppGID;
 
 	if (GID1 > GID2)
 		std::swap(GID1, GID2);
@@ -637,24 +645,25 @@ void CGuildManager::UpdateScore(DWORD dwGainGID, DWORD dwOppGID, int iScoreDelta
 			iNewBetScore = p->iBetScore[1];
 		}
 
-		sys_log(0, "GuildWar: SendGuildWarScore guild %u wartype %u score_delta %d betscore_delta %d result %u, %u",
-				dwGainGID, p->bType, iScoreDelta, iBetScoreDelta, iNewScore, iNewBetScore);
+		sys_log(0, "GuildWar: SendGuildWarScore guild %llu wartype %u score_delta %d betscore_delta %d result %u, %u",
+				static_cast<unsigned long long>(dwGainGID), p->bType, iScoreDelta, iBetScoreDelta, iNewScore, iNewBetScore);
 
 		CClientManager::instance().for_each_peer(FSendGuildWarScore(dwGainGID, dwOppGID, iNewScore, iNewBetScore));
 	}
 }
 
-void CGuildManager::AddDeclare(BYTE bType, DWORD guild_from, DWORD guild_to)
+void CGuildManager::AddDeclare(BYTE bType, uint64_t guild_from, uint64_t guild_to)
 {
 	TGuildDeclareInfo di(bType, guild_from, guild_to);
 
 	if (m_DeclareMap.find(di) == m_DeclareMap.end())
 		m_DeclareMap.emplace(di);
 
-	sys_log(0, "GuildWar: AddDeclare(Type:%d,from:%d,to:%d)", bType, guild_from, guild_to);
+	sys_log(0, "GuildWar: AddDeclare(Type:%d,from:%llu,to:%llu)", bType,
+			static_cast<unsigned long long>(guild_from), static_cast<unsigned long long>(guild_to));
 }
 
-void CGuildManager::RemoveDeclare(DWORD guild_from, DWORD guild_to)
+void CGuildManager::RemoveDeclare(uint64_t guild_from, uint64_t guild_to)
 {
 	typeof(m_DeclareMap.begin()) it = m_DeclareMap.find(TGuildDeclareInfo(0, guild_from, guild_to));
 
@@ -666,25 +675,27 @@ void CGuildManager::RemoveDeclare(DWORD guild_from, DWORD guild_to)
 	if (it != m_DeclareMap.end())
 		m_DeclareMap.erase(it);
 
-	sys_log(0, "GuildWar: RemoveDeclare(from:%d,to:%d)", guild_from, guild_to);
+	sys_log(0, "GuildWar: RemoveDeclare(from:%llu,to:%llu)",
+			static_cast<unsigned long long>(guild_from), static_cast<unsigned long long>(guild_to));
 }
 
-bool CGuildManager::TakeBetPrice(DWORD dwGuildTo, DWORD dwGuildFrom, YANG lWarPrice)
+bool CGuildManager::TakeBetPrice(uint64_t dwGuildTo, uint64_t dwGuildFrom, YANG lWarPrice)
 {
 	itertype(m_map_kGuild) it_from = m_map_kGuild.find(dwGuildFrom);
 	itertype(m_map_kGuild) it_to = m_map_kGuild.find(dwGuildTo);
 
 	if (it_from == m_map_kGuild.end() || it_to == m_map_kGuild.end())
 	{
-		sys_log(0, "TakeBetPrice: guild not exist %u %u",
-				dwGuildFrom, dwGuildTo);
+		sys_log(0, "TakeBetPrice: guild not exist %llu %llu",
+				static_cast<unsigned long long>(dwGuildFrom), static_cast<unsigned long long>(dwGuildTo));
 		return false;
 	}
 
 	if (it_from->second.gold < lWarPrice || it_to->second.gold < lWarPrice)
 	{
-		sys_log(0, "TakeBetPrice: not enough gold %u %lld to %u %lld",
-				dwGuildFrom, it_from->second.gold, dwGuildTo, it_to->second.gold);
+		sys_log(0, "TakeBetPrice: not enough gold %llu %lld to %llu %lld",
+				static_cast<unsigned long long>(dwGuildFrom), it_from->second.gold,
+				static_cast<unsigned long long>(dwGuildTo), it_to->second.gold);
 		return false;
 	}
 
@@ -708,16 +719,16 @@ bool CGuildManager::WaitStart(TPacketGuildWar * p)
 	m_pqWaitStart.push(std::make_pair(dwCurTime + GetGuildWarWaitStartDuration(), info));
 
 	sys_log(0,
-			"GuildWar: WaitStart g1 %d g2 %d price %lld start at %u",
-			p->dwGuildFrom,
-			p->dwGuildTo,
+			"GuildWar: WaitStart g1 %llu g2 %llu price %lld start at %u",
+			static_cast<unsigned long long>(p->dwGuildFrom),
+			static_cast<unsigned long long>(p->dwGuildTo),
 			p->lWarPrice,
 			dwCurTime + GetGuildWarWaitStartDuration());
 
 	return true;
 }
 
-int CGuildManager::GetLadderPoint(DWORD GID)
+int CGuildManager::GetLadderPoint(uint64_t GID)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -727,7 +738,7 @@ int CGuildManager::GetLadderPoint(DWORD GID)
 	return it->second.ladder_point;
 }
 
-void CGuildManager::ChangeLadderPoint(DWORD GID, int change)
+void CGuildManager::ChangeLadderPoint(uint64_t GID, int change)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(GID);
 
@@ -742,10 +753,10 @@ void CGuildManager::ChangeLadderPoint(DWORD GID, int change)
 		r.ladder_point = 0;
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET ladder_point=%d WHERE id=%u", GetTablePostfix(), r.ladder_point, static_cast<unsigned int>(GID));
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET ladder_point=%d WHERE id=%llu", GetTablePostfix(), r.ladder_point, static_cast<unsigned long long>(GID));
 	CDBManager::instance().AsyncQuery(buf);
 
-	sys_log(0, "GuildManager::ChangeLadderPoint %u %d", GID, r.ladder_point);
+	sys_log(0, "GuildManager::ChangeLadderPoint %llu %d", static_cast<unsigned long long>(GID), r.ladder_point);
 	sys_log(0, "%s", buf);
 
 	TPacketGuildLadder p;
@@ -759,17 +770,19 @@ void CGuildManager::ChangeLadderPoint(DWORD GID, int change)
 	CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_LADDER, &p, sizeof(TPacketGuildLadder));
 }
 
-void CGuildManager::UseSkill(DWORD GID, DWORD dwSkillVnum, DWORD dwCooltime)
+void CGuildManager::UseSkill(uint64_t GID, DWORD dwSkillVnum, DWORD dwCooltime)
 {
 	// GUILD_SKILL_COOLTIME_BUG_FIX
-	sys_log(0, "UseSkill(gid=%d, skill=%d) CoolTime(%d:%d)", GID, dwSkillVnum, dwCooltime, CClientManager::instance().GetCurrentTime() + dwCooltime);
+	sys_log(0, "UseSkill(gid=%llu, skill=%u) CoolTime(%u:%lld)",
+			static_cast<unsigned long long>(GID), dwSkillVnum, dwCooltime,
+			static_cast<long long>(CClientManager::instance().GetCurrentTime() + dwCooltime));
 	m_pqSkill.push(std::make_pair(CClientManager::instance().GetCurrentTime() + dwCooltime, TGuildSkillUsed(GID, dwSkillVnum)));
 	// END_OF_GUILD_SKILL_COOLTIME_BUG_FIX
 }
 
-void CGuildManager::MoneyChange(DWORD dwGuild, YANG dwGold)
+void CGuildManager::MoneyChange(uint64_t dwGuild, YANG dwGold)
 {
-	sys_log(0, "GuildManager::MoneyChange %d %lld", dwGuild, dwGold);
+	sys_log(0, "GuildManager::MoneyChange %llu %lld", static_cast<unsigned long long>(dwGuild), dwGold);
 
 	TPacketDGGuildMoneyChange p;
 	p.dwGuild = dwGuild;
@@ -777,11 +790,11 @@ void CGuildManager::MoneyChange(DWORD dwGuild, YANG dwGold)
 	CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_MONEY_CHANGE, &p, sizeof(p));
 
 	char buf[1024];
-	snprintf(buf, sizeof(buf), "UPDATE guild%s SET gold=%lld WHERE id = %u", GetTablePostfix(), dwGold, static_cast<unsigned int>(dwGuild));
+	snprintf(buf, sizeof(buf), "UPDATE guild%s SET gold=%lld WHERE id = %llu", GetTablePostfix(), dwGold, static_cast<unsigned long long>(dwGuild));
 	CDBManager::instance().AsyncQuery(buf);
 }
 
-void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
+void CGuildManager::DepositMoney(uint64_t dwGuild, YANG iGold)
 {
 	if (iGold <= 0 || iGold >= GOLD_MAX)
 		return;
@@ -790,7 +803,7 @@ void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 
 	if (it == m_map_kGuild.end())
 	{
-		sys_err("No guild by id %u", dwGuild);
+		sys_err("No guild by id %llu", static_cast<unsigned long long>(dwGuild));
 		return;
 	}
 
@@ -801,12 +814,12 @@ void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 		it->second.gold = GOLD_MAX - 1;
 	else
 		it->second.gold += iGold;
-	sys_log(0, "GUILD: %u Deposit %lld Total %lld", dwGuild, iGold, it->second.gold);
+	sys_log(0, "GUILD: %llu Deposit %lld Total %lld", static_cast<unsigned long long>(dwGuild), iGold, it->second.gold);
 
 	MoneyChange(dwGuild, it->second.gold);
 }
 
-void CGuildManager::WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG iGold)
+void CGuildManager::WithdrawMoney(CPeer* peer, uint64_t dwGuild, YANG iGold)
 {
 	if (iGold <= 0 || iGold >= GOLD_MAX)
 		return;
@@ -815,14 +828,14 @@ void CGuildManager::WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG iGold)
 
 	if (it == m_map_kGuild.end())
 	{
-		sys_err("No guild by id %u", dwGuild);
+		sys_err("No guild by id %llu", static_cast<unsigned long long>(dwGuild));
 		return;
 	}
 
 	if (it->second.gold >= iGold)
 	{
 		it->second.gold -= iGold;
-		sys_log(0, "GUILD: %u Withdraw %lld Total %lld", dwGuild, iGold, it->second.gold);
+		sys_log(0, "GUILD: %llu Withdraw %lld Total %lld", static_cast<unsigned long long>(dwGuild), iGold, it->second.gold);
 
 		TPacketDGGuildMoneyWithdraw p;
 		p.dwGuild = dwGuild;
@@ -833,14 +846,15 @@ void CGuildManager::WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG iGold)
 	}
 }
 
-void CGuildManager::WithdrawMoneyReply(DWORD dwGuild, BYTE bGiveSuccess, YANG iGold)
+void CGuildManager::WithdrawMoneyReply(uint64_t dwGuild, BYTE bGiveSuccess, YANG iGold)
 {
 	itertype(m_map_kGuild) it = m_map_kGuild.find(dwGuild);
 
 	if (it == m_map_kGuild.end())
 		return;
 
-	sys_log(0, "GuildManager::WithdrawMoneyReply : guild %u success %d gold %lld", dwGuild, bGiveSuccess, iGold);
+	sys_log(0, "GuildManager::WithdrawMoneyReply : guild %llu success %d gold %lld",
+			static_cast<unsigned long long>(dwGuild), bGiveSuccess, iGold);
 
 	if (!bGiveSuccess)
 	{
@@ -951,7 +965,11 @@ void CGuildManager::BootReserveWar()
 			CGuildWarReserve * pkReserve = new CGuildWarReserve(t);
 
 			char buf[512];
-			snprintf(buf, sizeof(buf), "GuildWar: BootReserveWar : step %d id %u GID1 %u GID2 %u", i, static_cast<unsigned int>(t.dwID), static_cast<unsigned int>(t.dwGuildFrom), static_cast<unsigned int>(t.dwGuildTo));
+			snprintf(buf, sizeof(buf), "GuildWar: BootReserveWar : step %d id %llu GID1 %llu GID2 %llu",
+					i,
+					static_cast<unsigned long long>(t.dwID),
+					static_cast<unsigned long long>(t.dwGuildFrom),
+					static_cast<unsigned long long>(t.dwGuildTo));
 
 			//if (i == 0 || (int) t.dwTime - CClientManager::instance().GetCurrentTime() < 60 * 5)
 			if (i == 0 || static_cast<int64_t>(t.dwTime) - static_cast<int64_t>(CClientManager::instance().GetCurrentTime()) < 0)
@@ -973,13 +991,13 @@ void CGuildManager::BootReserveWar()
 	}
 }
 
-int GetAverageGuildMemberLevel(DWORD dwGID)
+int GetAverageGuildMemberLevel(uint64_t dwGID)
 {
 	char szQuery[QUERY_MAX_LEN];
 
 	snprintf(szQuery, sizeof(szQuery),
-			"SELECT AVG(level) FROM guild_member%s, player%s AS p WHERE guild_id=%u AND guild_member%s.pid=p.id",
-			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(dwGID), GetTablePostfix());
+			"SELECT AVG(level) FROM guild_member%s, player%s AS p WHERE guild_id=%llu AND guild_member%s.pid=p.id",
+			GetTablePostfix(), GetTablePostfix(), static_cast<unsigned long long>(dwGID), GetTablePostfix());
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
 	if (!msg || !msg->Get() || !msg->Get()->pSQLResult)
@@ -993,11 +1011,11 @@ int GetAverageGuildMemberLevel(DWORD dwGID)
 	return nAverageLevel;
 }
 
-int GetGuildMemberCount(DWORD dwGID)
+int GetGuildMemberCount(uint64_t dwGID)
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM guild_member%s WHERE guild_id=%u", GetTablePostfix(), static_cast<unsigned int>(dwGID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM guild_member%s WHERE guild_id=%llu", GetTablePostfix(), static_cast<unsigned long long>(dwGID));
 
 	auto msg(CDBManager::instance().DirectQuery(szQuery));
 	if (!msg || !msg->Get() || !msg->Get()->pSQLResult)
@@ -1013,8 +1031,8 @@ int GetGuildMemberCount(DWORD dwGID)
 
 bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 {
-	DWORD GID1 = p->dwGuildFrom;
-	DWORD GID2 = p->dwGuildTo;
+	uint64_t GID1 = p->dwGuildFrom;
+	uint64_t GID2 = p->dwGuildTo;
 
 	if (GID1 > GID2)
 		std::swap(GID1, GID2);
@@ -1048,7 +1066,8 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 	polyPower.SetVar("mc", mc);
 
 	t.lPowerFrom = (long) polyPower.Eval();
-	sys_log(0, "GuildWar: %u lvp %d rkp %d alv %d mc %d power %d", GID1, lvp, rkp, alv, mc, t.lPowerFrom);
+	sys_log(0, "GuildWar: %llu lvp %d rkp %d alv %d mc %d power %d",
+			static_cast<unsigned long long>(GID1), lvp, rkp, alv, mc, t.lPowerFrom);
 
 	TGuild & k2 = TouchGuild(GID2);
 
@@ -1063,7 +1082,8 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 	polyPower.SetVar("mc", mc);
 
 	t.lPowerTo = (long) polyPower.Eval();
-	sys_log(0, "GuildWar: %u lvp %d rkp %d alv %d mc %d power %d", GID2, lvp, rkp, alv, mc, t.lPowerTo);
+	sys_log(0, "GuildWar: %llu lvp %d rkp %d alv %d mc %d power %d",
+			static_cast<unsigned long long>(GID2), lvp, rkp, alv, mc, t.lPowerTo);
 
 	if (t.lPowerTo > t.lPowerFrom)
 	{
@@ -1083,18 +1103,18 @@ bool CGuildManager::ReserveWar(TPacketGuildWar * p)
 
 	snprintf(szQuery, sizeof(szQuery),
 			"INSERT INTO guild_war_reservation (guild1, guild2, time, type, warprice, initscore, power1, power2, handicap) "
-			"VALUES(%u, %u, DATE_ADD(NOW(), INTERVAL 180 SECOND), %u, %lld, %d, %d, %d, %d)",
-			static_cast<unsigned int>(GID1), static_cast<unsigned int>(GID2), p->bType, p->lWarPrice, p->lInitialScore, t.lPowerFrom, t.lPowerTo, t.lHandicap);
+			"VALUES(%llu, %llu, DATE_ADD(NOW(), INTERVAL 180 SECOND), %u, %lld, %d, %d, %d, %d)",
+			static_cast<unsigned long long>(GID1), static_cast<unsigned long long>(GID2), p->bType, p->lWarPrice, p->lInitialScore, t.lPowerFrom, t.lPowerTo, t.lHandicap);
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 
-	if (pmsg->Get()->uiAffectedRows == 0 || pmsg->Get()->uiInsertID == 0 || pmsg->Get()->uiAffectedRows == (uint32_t)-1)
+	if (pmsg->Get()->uiAffectedRows == 0 || !pmsg->Get()->HasValidInsertID() || pmsg->Get()->uiAffectedRows == (uint32_t)-1)
 	{
 		sys_err("GuildWar: Cannot insert row");
 		return false;
 	}
 
-	t.dwID = static_cast<DWORD>(pmsg->Get()->uiInsertID);
+	t.dwID = pmsg->Get()->ullInsertID;
 
 	m_map_kWarReserve.emplace(t.dwID, new CGuildWarReserve(t));
 
@@ -1122,15 +1142,17 @@ void CGuildManager::ProcessReserveWar()
 			TGuild & r_1 = m_map_kGuild[r.dwGuildFrom];
 			TGuild & r_2 = m_map_kGuild[r.dwGuildTo];
 
-			sys_log(0, "GuildWar: started GID1 %u GID2 %u %d time %d min %d", r.dwGuildFrom, r.dwGuildTo, r.bStarted, dwCurTime - r.dwTime, iMin);
+			sys_log(0, "GuildWar: started GID1 %llu GID2 %llu %d time %d min %d",
+					static_cast<unsigned long long>(r.dwGuildFrom), static_cast<unsigned long long>(r.dwGuildTo),
+					r.bStarted, dwCurTime - r.dwTime, iMin);
 
 			if (iMin <= 0)
 			{
 				char szQuery[128];
-				snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1 WHERE id=%u", static_cast<unsigned int>(r.dwID));
+				snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1 WHERE id=%llu", static_cast<unsigned long long>(r.dwID));
 				CDBManager::instance().AsyncQuery(szQuery);
 
-				CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR_RESERVE_DEL, &r.dwID, sizeof(DWORD));
+				CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR_RESERVE_DEL, &r.dwID, sizeof(r.dwID));
 
 				r.bStarted = true;
 
@@ -1167,7 +1189,7 @@ void CGuildManager::ProcessReserveWar()
 	}
 }
 
-bool CGuildManager::Bet(DWORD dwID, const char * c_pszLogin, YANG dwGold, DWORD dwGuild)
+bool CGuildManager::Bet(uint64_t dwID, const char * c_pszLogin, YANG dwGold, uint64_t dwGuild)
 {
 	itertype(m_map_kWarReserve) it = m_map_kWarReserve.find(dwID);
 
@@ -1175,7 +1197,7 @@ bool CGuildManager::Bet(DWORD dwID, const char * c_pszLogin, YANG dwGold, DWORD 
 
 	if (it == m_map_kWarReserve.end())
 	{
-		sys_log(0, "WAR_RESERVE: Bet: cannot find reserve war by id %u", dwID);
+		sys_log(0, "WAR_RESERVE: Bet: cannot find reserve war by id %llu", static_cast<unsigned long long>(dwID));
 		snprintf(szQuery, sizeof(szQuery), "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES('%s', %d, %lld, NOW())",
 				c_pszLogin, ITEM_ELK_VNUM, dwGold);
 		CDBManager::instance().AsyncQuery(szQuery);
@@ -1184,7 +1206,8 @@ bool CGuildManager::Bet(DWORD dwID, const char * c_pszLogin, YANG dwGold, DWORD 
 
 	if (!it->second->Bet(c_pszLogin, dwGold, dwGuild))
 	{
-		sys_log(0, "WAR_RESERVE: Bet: cannot bet id %u, login %s, gold %lld, guild %u", dwID, c_pszLogin, dwGold, dwGuild);
+		sys_log(0, "WAR_RESERVE: Bet: cannot bet id %llu, login %s, gold %lld, guild %llu",
+				static_cast<unsigned long long>(dwID), c_pszLogin, dwGold, static_cast<unsigned long long>(dwGuild));
 		snprintf(szQuery, sizeof(szQuery), "INSERT INTO item_award (login, vnum, socket0, given_time) VALUES('%s', %d, %lld, NOW())",
 				c_pszLogin, ITEM_ELK_VNUM, dwGold);
 		CDBManager::instance().AsyncQuery(szQuery);
@@ -1194,13 +1217,13 @@ bool CGuildManager::Bet(DWORD dwID, const char * c_pszLogin, YANG dwGold, DWORD 
 	return true;
 }
 
-void CGuildManager::CancelWar(DWORD GID1, DWORD GID2)
+void CGuildManager::CancelWar(uint64_t GID1, uint64_t GID2)
 {
 	RemoveDeclare(GID1, GID2);
 	RemoveWar(GID1, GID2);
 }
 
-bool CGuildManager::ChangeMaster(DWORD dwGID, DWORD dwFrom, DWORD dwTo)
+bool CGuildManager::ChangeMaster(uint64_t dwGID, uint64_t dwFrom, uint64_t dwTo)
 {
 	itertype(m_map_kGuild) iter = m_map_kGuild.find(dwGID);
 
@@ -1209,13 +1232,16 @@ bool CGuildManager::ChangeMaster(DWORD dwGID, DWORD dwFrom, DWORD dwTo)
 
 	char szQuery[1024];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild%s SET master=%u WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(dwTo), static_cast<unsigned int>(dwGID));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild%s SET master=%llu WHERE id=%llu",
+			GetTablePostfix(), static_cast<unsigned long long>(dwTo), static_cast<unsigned long long>(dwGID));
 	CDBManager::instance().DirectQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=1 WHERE pid=%u", GetTablePostfix(), static_cast<unsigned int>(dwTo));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=1 WHERE pid=%llu",
+			GetTablePostfix(), static_cast<unsigned long long>(dwTo));
 	CDBManager::instance().DirectQuery(szQuery);
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=15 WHERE pid=%u", GetTablePostfix(), static_cast<unsigned int>(dwFrom));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_member%s SET grade=15 WHERE pid=%llu",
+			GetTablePostfix(), static_cast<unsigned long long>(dwFrom));
 	CDBManager::instance().DirectQuery(szQuery);
 
 	return true;
@@ -1235,7 +1261,7 @@ CGuildWarReserve::CGuildWarReserve(const TGuildWarReserve & rTable)
 void CGuildWarReserve::Initialize()
 {
 	char szQuery[256];
-	snprintf(szQuery, sizeof(szQuery), "SELECT login, guild, gold FROM guild_war_bet WHERE war_id=%u", static_cast<unsigned int>(m_data.dwID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT login, guild, gold FROM guild_war_bet WHERE war_id=%llu", static_cast<unsigned long long>(m_data.dwID));
 
 	auto msgbet(CDBManager::instance().DirectQuery(szQuery));
 	if (msgbet->Get()->uiNumRows)
@@ -1244,7 +1270,7 @@ void CGuildWarReserve::Initialize()
 		MYSQL_ROW row;
 
 		char szLogin[LOGIN_MAX_LEN+1];
-		DWORD dwGuild;
+		uint64_t dwGuild;
 		YANG dwGold;
 
 		while ((row = mysql_fetch_row(res)))
@@ -1288,7 +1314,7 @@ void CGuildWarReserve::OnSetup(CPeer * peer)
 	}
 }
 
-bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild)
+bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, uint64_t dwGuild)
 {
 	char szQuery[1024];
 
@@ -1311,8 +1337,8 @@ bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild)
 	}
 
 	snprintf(szQuery, sizeof(szQuery),
-			"INSERT INTO guild_war_bet (war_id, login, gold, guild) VALUES(%u, '%s', %lld, %u)",
-			static_cast<unsigned int>(m_data.dwID), pszLogin, dwGold, static_cast<unsigned int>(dwGuild));
+			"INSERT INTO guild_war_bet (war_id, login, gold, guild) VALUES(%llu, '%s', %lld, %llu)",
+			static_cast<unsigned long long>(m_data.dwID), pszLogin, dwGold, static_cast<unsigned long long>(dwGuild));
 
 	auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 	if (pmsg->Get()->uiAffectedRows == 0 || pmsg->Get()->uiAffectedRows == (uint32_t)-1)
@@ -1328,12 +1354,13 @@ bool CGuildWarReserve::Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild)
 
 	CClientManager::instance().ForwardPacket(HEADER_DG_GUILD_WAR_RESERVE_ADD, &m_data, sizeof(TGuildWarReserve));
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET bet_from=%lld,bet_to=%lld WHERE id=%u",
-			m_data.dwBetFrom, m_data.dwBetTo, static_cast<unsigned int>(m_data.dwID));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET bet_from=%lld,bet_to=%lld WHERE id=%llu",
+			m_data.dwBetFrom, m_data.dwBetTo, static_cast<unsigned long long>(m_data.dwID));
 
 	CDBManager::instance().AsyncQuery(szQuery);
 
-	sys_log(0, "GuildWarReserve::Bet: success. %s %u war_id %u bet %lld : %lld", pszLogin, dwGuild, m_data.dwID, m_data.dwBetFrom, m_data.dwBetTo);
+	sys_log(0, "GuildWarReserve::Bet: success. %s %llu war_id %llu bet %lld : %lld",
+			pszLogin, static_cast<unsigned long long>(dwGuild), static_cast<unsigned long long>(m_data.dwID), m_data.dwBetFrom, m_data.dwBetTo);
 	mapBet.emplace(pszLogin, std::make_pair(dwGuild, dwGold));
 
 	TPacketGDGuildWarBet pckBet;
@@ -1353,13 +1380,13 @@ void CGuildWarReserve::Draw()
 {
 	char szQuery[1024];
 
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=0 WHERE id=%u", static_cast<unsigned int>(m_data.dwID));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=0 WHERE id=%llu", static_cast<unsigned long long>(m_data.dwID));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	if (mapBet.empty())
 		return;
 
-	sys_log(0, "WAR_REWARD: Draw. war_id %u", m_data.dwID);
+	sys_log(0, "WAR_REWARD: Draw. war_id %llu", static_cast<unsigned long long>(m_data.dwID));
 
 	itertype(mapBet) it = mapBet.begin();
 
@@ -1400,9 +1427,11 @@ void CGuildWarReserve::Draw()
 
 void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 {
-	DWORD dwWinner;
+	uint64_t dwWinner;
 
-	sys_log(0, "WAR_REWARD: End: From %u %d To %u %d", m_data.dwGuildFrom, iScoreFrom, m_data.dwGuildTo, iScoreTo);
+	sys_log(0, "WAR_REWARD: End: From %llu %d To %llu %d",
+			static_cast<unsigned long long>(m_data.dwGuildFrom), iScoreFrom,
+			static_cast<unsigned long long>(m_data.dwGuildTo), iScoreTo);
 
 	if (m_data.lPowerFrom > m_data.lPowerTo)
 	{
@@ -1432,8 +1461,8 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 	}
 
 	char szQuery[1024];
-	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=%u,result1=%d,result2=%d WHERE id=%u",
-			static_cast<unsigned int>(dwWinner), iScoreFrom, iScoreTo, static_cast<unsigned int>(m_data.dwID));
+	snprintf(szQuery, sizeof(szQuery), "UPDATE guild_war_reservation SET started=1,winner=%llu,result1=%d,result2=%d WHERE id=%llu",
+			static_cast<unsigned long long>(dwWinner), iScoreFrom, iScoreTo, static_cast<unsigned long long>(m_data.dwID));
 	CDBManager::instance().AsyncQuery(szQuery);
 
 	if (mapBet.empty())
@@ -1508,4 +1537,3 @@ void CGuildWarReserve::End(int iScoreFrom, int iScoreTo)
 			break;
 	}
 }
-

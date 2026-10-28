@@ -237,13 +237,13 @@ EVENTFUNC(ready_to_start_event)
 		if (chA != NULL)
 		{
 			chA->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The duel has finished, because your combatant vanished."));
-			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%d) OppPID(%d)", pArena->GetPlayerAPID(), pArena->GetPlayerBPID());
+			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%llu) OppPID(%llu)", static_cast<unsigned long long>(pArena->GetPlayerAPID()), static_cast<unsigned long long>(pArena->GetPlayerBPID()));
 		}
 
 		if (chB != NULL)
 		{
 			chB->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The duel has finished, because your combatant vanished."));
-			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%d) OppPID(%d)", pArena->GetPlayerBPID(), pArena->GetPlayerAPID());
+			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%llu) OppPID(%llu)", static_cast<unsigned long long>(pArena->GetPlayerBPID()), static_cast<unsigned long long>(pArena->GetPlayerAPID()));
 		}
 
 		pArena->SendChatPacketToObserver(CHAT_TYPE_NOTICE, LC_TEXT("The duel has finished, because your combatant vanished."));
@@ -410,13 +410,13 @@ EVENTFUNC(duel_time_out)
 		if (chA != NULL)
 		{
 			chA->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The duel has finished, because your combatant vanished."));
-			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%d) OppPID(%d)", pArena->GetPlayerAPID(), pArena->GetPlayerBPID());
+			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%llu) OppPID(%llu)", static_cast<unsigned long long>(pArena->GetPlayerAPID()), static_cast<unsigned long long>(pArena->GetPlayerBPID()));
 		}
 
 		if (chB != NULL)
 		{
 			chB->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The duel has finished, because your combatant vanished."));
-			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%d) OppPID(%d)", pArena->GetPlayerBPID(), pArena->GetPlayerAPID());
+			sys_log(0, "ARENA: Oppernent is disappered. MyPID(%llu) OppPID(%llu)", static_cast<unsigned long long>(pArena->GetPlayerBPID()), static_cast<unsigned long long>(pArena->GetPlayerAPID()));
 		}
 
 		pArena->SendChatPacketToObserver(CHAT_TYPE_INFO, LC_TEXT("The duel has finished, because your combatant vanished."));
@@ -447,7 +447,7 @@ EVENTFUNC(duel_time_out)
 
 				info->state++;
 
-				sys_log(0, "ARENA: Because of time over, duel is end. PIDA(%d) vs PIDB(%d)", pArena->GetPlayerAPID(), pArena->GetPlayerBPID());
+				sys_log(0, "ARENA: Because of time over, duel is end. PIDA(%llu) vs PIDB(%llu)", static_cast<unsigned long long>(pArena->GetPlayerAPID()), static_cast<unsigned long long>(pArena->GetPlayerBPID()));
 
 				return PASSES_PER_SEC(10);
 				break;
@@ -498,7 +498,7 @@ bool CArena::StartDuel(LPCHARACTER pCharFrom, LPCHARACTER pCharTo, int nSetPoint
 	pCharTo->PointChange(POINT_HP, pCharTo->GetMaxHP() - pCharTo->GetHP());
 	pCharTo->PointChange(POINT_SP, pCharTo->GetMaxSP() - pCharTo->GetSP());
 
-	sys_log(0, "ARENA: Start Duel with PID_A(%d) vs PID_B(%d)", GetPlayerAPID(), GetPlayerBPID());
+	sys_log(0, "ARENA: Start Duel with PID_A(%llu) vs PID_B(%llu)", static_cast<unsigned long long>(GetPlayerAPID()), static_cast<unsigned long long>(GetPlayerBPID()));
 	return true;
 }
 
@@ -579,7 +579,7 @@ void CArena::EndDuel()
 
 	m_mapObserver.clear();
 
-	sys_log(0, "ARENA: End Duel PID_A(%d) vs PID_B(%d)", GetPlayerAPID(), GetPlayerBPID());
+	sys_log(0, "ARENA: End Duel PID_A(%llu) vs PID_B(%llu)", static_cast<unsigned long long>(GetPlayerAPID()), static_cast<unsigned long long>(GetPlayerBPID()));
 
 	Clear();
 }
@@ -662,8 +662,8 @@ bool CArenaMap::CanAttack(LPCHARACTER pCharAttacker, LPCHARACTER pCharVictim)
 {
 	if (pCharAttacker == NULL || pCharVictim == NULL) return false;
 
-	DWORD dwPIDA = pCharAttacker->GetPlayerID();
-	DWORD dwPIDB = pCharVictim->GetPlayerID();
+	uint64_t dwPIDA = pCharAttacker->GetPlayerID();
+	uint64_t dwPIDB = pCharVictim->GetPlayerID();
 
 	itertype(m_listArena) iter = m_listArena.begin();
 
@@ -678,7 +678,7 @@ bool CArenaMap::CanAttack(LPCHARACTER pCharAttacker, LPCHARACTER pCharVictim)
 	return false;
 }
 
-bool CArena::CanAttack(DWORD dwPIDA, DWORD dwPIDB)
+bool CArena::CanAttack(uint64_t dwPIDA, uint64_t dwPIDB)
 {
 	if (m_dwPIDA == dwPIDA && m_dwPIDB == dwPIDB) return true;
 	if (m_dwPIDA == dwPIDB && m_dwPIDB == dwPIDA) return true;
@@ -702,8 +702,8 @@ bool CArenaManager::OnDead(LPCHARACTER pCharKiller, LPCHARACTER pCharVictim)
 
 bool CArenaMap::OnDead(LPCHARACTER pCharKiller, LPCHARACTER pCharVictim)
 {
-	DWORD dwPIDA = pCharKiller->GetPlayerID();
-	DWORD dwPIDB = pCharVictim->GetPlayerID();
+	uint64_t dwPIDA = pCharKiller->GetPlayerID();
+	uint64_t dwPIDB = pCharVictim->GetPlayerID();
 
 	itertype(m_listArena) iter = m_listArena.begin();
 
@@ -720,7 +720,7 @@ bool CArenaMap::OnDead(LPCHARACTER pCharKiller, LPCHARACTER pCharVictim)
 	return false;
 }
 
-bool CArena::OnDead(DWORD dwPIDA, DWORD dwPIDB)
+bool CArena::OnDead(uint64_t dwPIDA, uint64_t dwPIDB)
 {
 	bool restart = false;
 
@@ -756,8 +756,8 @@ bool CArena::OnDead(DWORD dwPIDA, DWORD dwPIDB)
 				pCharB->ChatPacket(CHAT_TYPE_NOTICE, LC_TEXT("%s has won the duel."), pCharA->GetName());
 				SendChatPacketToObserver(CHAT_TYPE_NOTICE, LC_TEXT("%s has won the duel."), pCharA->GetName());
 
-				sys_log(0, "ARENA: Duel is end. Winner %s(%d) Loser %s(%d)",
-						pCharA->GetName(), GetPlayerAPID(), pCharB->GetName(), GetPlayerBPID());
+				sys_log(0, "ARENA: Duel is end. Winner %s(%llu) Loser %s(%llu)",
+						pCharA->GetName(), static_cast<unsigned long long>(GetPlayerAPID()), pCharB->GetName(), static_cast<unsigned long long>(GetPlayerBPID()));
 			}
 			else
 			{
@@ -770,8 +770,8 @@ bool CArena::OnDead(DWORD dwPIDA, DWORD dwPIDB)
 
 				SendChatPacketToObserver(CHAT_TYPE_NOTICE, "%s %d : %d %s", pCharA->GetName(), m_dwSetPointOfA, m_dwSetPointOfB, pCharB->GetName());
 
-				sys_log(0, "ARENA: %s(%d) won a round vs %s(%d)",
-						pCharA->GetName(), GetPlayerAPID(), pCharB->GetName(), GetPlayerBPID());
+				sys_log(0, "ARENA: %s(%llu) won a round vs %s(%llu)",
+						pCharA->GetName(), static_cast<unsigned long long>(GetPlayerAPID()), pCharB->GetName(), static_cast<unsigned long long>(GetPlayerBPID()));
 			}
 		}
 		else if (m_dwPIDB == dwPIDA)
@@ -783,7 +783,7 @@ bool CArena::OnDead(DWORD dwPIDA, DWORD dwPIDB)
 				pCharB->ChatPacket(CHAT_TYPE_NOTICE, LC_TEXT("%s has won the duel."), pCharB->GetName());
 				SendChatPacketToObserver(CHAT_TYPE_NOTICE, LC_TEXT("%s has won the duel."), pCharB->GetName());
 
-				sys_log(0, "ARENA: Duel is end. Winner(%d) Loser(%d)", GetPlayerBPID(), GetPlayerAPID());
+				sys_log(0, "ARENA: Duel is end. Winner(%llu) Loser(%llu)", static_cast<unsigned long long>(GetPlayerBPID()), static_cast<unsigned long long>(GetPlayerAPID()));
 			}
 			else
 			{
@@ -796,13 +796,15 @@ bool CArena::OnDead(DWORD dwPIDA, DWORD dwPIDB)
 
 				SendChatPacketToObserver(CHAT_TYPE_NOTICE, "%s %d : %d %s", pCharA->GetName(), m_dwSetPointOfA, m_dwSetPointOfB, pCharB->GetName());
 
-				sys_log(0, "ARENA : PID(%d) won a round. Opp(%d)", GetPlayerBPID(), GetPlayerAPID());
+				sys_log(0, "ARENA : PID(%llu) won a round. Opp(%llu)", static_cast<unsigned long long>(GetPlayerBPID()), static_cast<unsigned long long>(GetPlayerAPID()));
 			}
 		}
 		else
 		{
 			// wtf
-			sys_log(0, "ARENA : OnDead Error (%d, %d) (%d, %d)", m_dwPIDA, m_dwPIDB, dwPIDA, dwPIDB);
+			sys_log(0, "ARENA : OnDead Error (%llu, %llu) (%llu, %llu)",
+					static_cast<unsigned long long>(m_dwPIDA), static_cast<unsigned long long>(m_dwPIDB),
+					static_cast<unsigned long long>(dwPIDA), static_cast<unsigned long long>(dwPIDB));
 		}
 
 		int potion = quest::CQuestManager::instance().GetEventFlag("arena_potion_limit_count");
@@ -894,7 +896,7 @@ bool CArena::IsMyObserver(WORD ObserverX, WORD ObserverY)
 
 bool CArena::AddObserver(LPCHARACTER pChar)
 {
-	DWORD pid = pChar->GetPlayerID();
+	uint64_t pid = pChar->GetPlayerID();
 
 	m_mapObserver.emplace(pid, (LPCHARACTER)NULL);
 
@@ -909,7 +911,7 @@ bool CArenaManager::IsArenaMap(DWORD dwMapIndex)
 	return m_mapArenaMap.find(dwMapIndex) != m_mapArenaMap.end();
 }
 
-MEMBER_IDENTITY CArenaManager::IsMember(DWORD dwMapIndex, DWORD PID)
+MEMBER_IDENTITY CArenaManager::IsMember(DWORD dwMapIndex, uint64_t PID)
 {
 	itertype(m_mapArenaMap) iter = m_mapArenaMap.find(dwMapIndex);
 
@@ -922,7 +924,7 @@ MEMBER_IDENTITY CArenaManager::IsMember(DWORD dwMapIndex, DWORD PID)
 	return MEMBER_NO;
 }
 
-MEMBER_IDENTITY CArenaMap::IsMember(DWORD PID)
+MEMBER_IDENTITY CArenaMap::IsMember(uint64_t PID)
 {
 	itertype(m_listArena) iter = m_listArena.begin();
 
@@ -936,21 +938,21 @@ MEMBER_IDENTITY CArenaMap::IsMember(DWORD PID)
 	return MEMBER_NO;
 }
 
-bool CArena::IsObserver(DWORD PID)
+bool CArena::IsObserver(uint64_t PID)
 {
 	itertype(m_mapObserver) iter = m_mapObserver.find(PID);
 
 	return iter != m_mapObserver.end();
 }
 
-void CArena::OnDisconnect(DWORD pid)
+void CArena::OnDisconnect(uint64_t pid)
 {
 	if (m_dwPIDA == pid)
 	{
 		if (GetPlayerB() != NULL)
 			GetPlayerB()->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The combatants have been separated. The duel has been stopped."));
 
-		sys_log(0, "ARENA : Duel is end because of Opp(%d) is disconnect. MyPID(%d)", GetPlayerAPID(), GetPlayerBPID());
+		sys_log(0, "ARENA : Duel is end because of Opp(%llu) is disconnect. MyPID(%llu)", static_cast<unsigned long long>(GetPlayerAPID()), static_cast<unsigned long long>(GetPlayerBPID()));
 		EndDuel();
 	}
 	else if (m_dwPIDB == pid)
@@ -958,12 +960,12 @@ void CArena::OnDisconnect(DWORD pid)
 		if (GetPlayerA() != NULL)
 			GetPlayerA()->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The combatants have been separated. The duel has been stopped."));
 
-		sys_log(0, "ARENA : Duel is end because of Opp(%d) is disconnect. MyPID(%d)", GetPlayerBPID(), GetPlayerAPID());
+		sys_log(0, "ARENA : Duel is end because of Opp(%llu) is disconnect. MyPID(%llu)", static_cast<unsigned long long>(GetPlayerBPID()), static_cast<unsigned long long>(GetPlayerAPID()));
 		EndDuel();
 	}
 }
 
-void CArena::RemoveObserver(DWORD pid)
+void CArena::RemoveObserver(uint64_t pid)
 {
 	itertype(m_mapObserver) iter = m_mapObserver.find(pid);
 
@@ -1020,7 +1022,7 @@ void CArena::SendChatPacketToObserver([[maybe_unused]] BYTE type, [[maybe_unused
 	*/
 }
 
-bool CArenaManager::EndDuel(DWORD pid)
+bool CArenaManager::EndDuel(uint64_t pid)
 {
 	itertype(m_mapArenaMap) iter = m_mapArenaMap.begin();
 
@@ -1032,7 +1034,7 @@ bool CArenaManager::EndDuel(DWORD pid)
 	return false;
 }
 
-bool CArenaMap::EndDuel(DWORD pid)
+bool CArenaMap::EndDuel(uint64_t pid)
 {
 	itertype(m_listArena) iter = m_listArena.begin();
 
@@ -1083,7 +1085,7 @@ bool CArenaMap::RegisterObserverPtr(LPCHARACTER pChar, [[maybe_unused]] DWORD ma
 
 bool CArena::RegisterObserverPtr(LPCHARACTER pChar)
 {
-	DWORD pid = pChar->GetPlayerID();
+	uint64_t pid = pChar->GetPlayerID();
 	itertype(m_mapObserver) iter = m_mapObserver.find(pid);
 
 	if (iter == m_mapObserver.end())
@@ -1164,4 +1166,3 @@ bool CArenaManager::IsLimitedItem(long lMapIndex, DWORD dwVnum)
 
 	return false;
 }
-

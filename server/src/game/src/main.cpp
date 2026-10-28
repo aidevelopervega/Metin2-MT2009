@@ -223,8 +223,8 @@ namespace
 	};
 }
 
-extern std::map<DWORD, CLoginSim *> g_sim; // first: AID
-extern std::map<DWORD, CLoginSim *> g_simByPID;
+extern std::map<uint64_t, CLoginSim *> g_sim; // first: AID
+extern std::map<uint64_t, CLoginSim *> g_simByPID;
 extern std::vector<TPlayerTable> g_vec_save;
 unsigned int save_idx = 0;
 
@@ -985,4 +985,3 @@ int io_loop(LPFDWATCH fdw)
 
 	return 1;
 }
-

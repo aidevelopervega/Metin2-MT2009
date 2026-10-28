@@ -11,8 +11,8 @@ public:
 
 	struct BlockPlayerData
 	{
-		DWORD aid;
-		DWORD pid;
+		uint64_t aid;
+		uint64_t pid;
 		char name[24 + 1];
 		bool foundOnline;
 	};
@@ -22,21 +22,18 @@ public:
 		char hwid[255 + 1];
 	};
 
-	BlockPlayerData GetBlockPlayerData(DWORD pid);
-	BlockHwidData GetBlockHwidData(DWORD pid);
+	BlockPlayerData GetBlockPlayerData(uint64_t pid);
+	BlockHwidData GetBlockHwidData(uint64_t aid);
 
-	bool CloseOfflineShop(DWORD pid);
+	bool CloseOfflineShop(uint64_t pid);
 
-	bool Block(DWORD aid, DWORD pid, DWORD duration, DWORD who, std::string reason, bool instant_block);
+	bool Block(uint64_t aid, uint64_t pid, DWORD duration, uint64_t who, std::string reason, bool instant_block);
 	void BlockHWID(const char * hwid);
-	void BlockAccountQuery(DWORD aid, DWORD duration);
+	void BlockAccountQuery(uint64_t aid, DWORD duration);
 	int FlushBlock();
 	void BlockHwidQuery(const char* hwid);
-	void SendDisconnect(DWORD pid);
+	void SendDisconnect(uint64_t pid);
 	void SendDisconnectHwid(const char * hwid);
 	void DisconnectHwid(const char * hwid);
 
 };
-
-
-

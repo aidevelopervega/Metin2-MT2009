@@ -30,7 +30,7 @@ namespace quest
 	ALUA(building_get_land_info)
 	{
 		YANG price = 1000000000;
-		int owner = 1000000000;
+		uint64_t owner = 1000000000;
 		int level_limit = 1000000000;
 
 		if (lua_isnumber(L, 1))
@@ -52,7 +52,7 @@ namespace quest
 			sys_err("invalid argument");
 
 		lua_pushnumber(L, static_cast<lua_Number>(price));
-		lua_pushnumber(L, owner);
+		m2_lua_pushuint64(L, owner);
 		lua_pushnumber(L, level_limit);
 		return 3;
 	}
@@ -72,7 +72,7 @@ namespace quest
 		if (pkLand)
 		{
 			if (pkLand->GetData().dwGuildID == 0)
-				pkLand->SetOwner((DWORD) lua_tonumber(L, 2));
+				pkLand->SetOwner(m2_lua_touint64(L, 2));
 		}
 
 		return 0;
@@ -89,7 +89,7 @@ namespace quest
 			return 1;
 		}
 
-		auto pmsg(DBManager::instance().DirectQuery("SELECT COUNT(*) FROM guild_land%s WHERE guild_id = %d", get_table_postfix(), (DWORD)lua_tonumber(L, 1)));
+		auto pmsg(DBManager::instance().DirectQuery("SELECT COUNT(*) FROM guild_land%s WHERE guild_id = %llu", get_table_postfix(), static_cast<unsigned long long>(m2_lua_touint64(L, 1))));
 		if (pmsg->Get()->uiNumRows > 0)
 		{
 			MYSQL_ROW row = mysql_fetch_row(pmsg->Get()->pSQLResult);
@@ -158,4 +158,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("building", functions);
 	}
 };
-

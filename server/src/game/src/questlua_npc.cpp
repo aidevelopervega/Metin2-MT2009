@@ -68,7 +68,7 @@ namespace quest
 		if (npc)
 			pGuild = npc->GetGuild();
 
-		lua_pushnumber(L, pGuild ? pGuild->GetID() : 0);
+		m2_lua_pushuint64(L, pGuild ? pGuild->GetID() : 0);
 		return 1;
 	}
 
@@ -368,7 +368,7 @@ namespace quest
 		CQuestManager& q = CQuestManager::instance();
 		LPCHARACTER npc = q.GetCurrentNPCCharacterPtr();
 
-		lua_pushnumber(L, npc->GetPlayerID());
+		m2_lua_pushuint64(L, npc->GetPlayerID());
 		return 1;
 	}
 
@@ -938,4 +938,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("npc", npc_functions);
 	}
 };
-

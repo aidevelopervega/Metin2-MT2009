@@ -89,7 +89,7 @@ namespace quest
 
 	ALUA(arena_is_in_arena)
 	{
-		DWORD pid = (DWORD)lua_tonumber(L, 1);
+		uint64_t pid = m2_lua_touint64(L, 1);
 
 		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 
@@ -130,4 +130,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("arena", arena_functions);
 	}
 }
-

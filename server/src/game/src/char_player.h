@@ -79,7 +79,7 @@ public:
 
 	std::map<const std::string, long long> m_mapSpecialFlagSave;
 	void SetSpecialFlagSave(std::string flag, long long value);
-	void SaveSpecialFlag(DWORD pid, DWORD aid);
+	void SaveSpecialFlag(uint64_t pid, uint64_t aid);
 	void SendSpecialFlagsToClient(LPCHARACTER ch);
 
 	void SetSummonItemDelay(LPCHARACTER ch, int duration);
@@ -102,7 +102,7 @@ public:
 		int changeRequests;
 		int64_t expireTime;
 		char code[8 + 1];
-		DWORD invokerPID;
+		uint64_t invokerPID;
 	};
 	TPlayerCaptcha m_Captcha;
 	TPlayerCaptcha&	GetPlayerCaptcha() { return m_Captcha; }

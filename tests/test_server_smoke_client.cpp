@@ -799,10 +799,10 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 1:   return 37;   // HEADER_GC_CHARACTER_ADD
 		case 2:   return 5;    // HEADER_GC_CHARACTER_DEL
 		case 3:   return 24;   // HEADER_GC_MOVE
-		case 6:   return 353;  // HEADER_GC_LOGIN_SUCCESS
-		case 32:  return 353;  // HEADER_GC_LOGIN_SUCCESS_NEWSLOT
+		case 6:   return 385;  // HEADER_GC_LOGIN_SUCCESS (x64 64-bit PID + GUILD_ID)
+		case 32:  return 385;  // HEADER_GC_LOGIN_SUCCESS_NEWSLOT (x64 64-bit PID + GUILD_ID)
 		case 7:   return 10;   // HEADER_GC_LOGIN_FAILURE
-		case 8:   return 69;   // HEADER_GC_CHARACTER_CREATE_SUCCESS
+		case 8:   return 73;   // HEADER_GC_CHARACTER_CREATE_SUCCESS (x64 64-bit PID)
 		case 9:   return 2;    // HEADER_GC_CHARACTER_CREATE_FAILURE
 		case 10:  return 2;    // HEADER_GC_CHARACTER_DELETE_SUCCESS
 		case 11:  return 1;    // HEADER_GC_CHARACTER_DELETE_WRONG_SOCIAL_ID
@@ -811,7 +811,7 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 16:  return 1417; // HEADER_GC_CHARACTER_POINTS (x64: 1 + 177 * 8)
 		case 17:  return 25;   // HEADER_GC_CHARACTER_POINT_CHANGE (x64: 4 + 4 + 1 + 8 + 8)
 		case 18:  return 7;    // HEADER_GC_CHANGE_SPEED
-		case 19:  return 44;   // HEADER_GC_CHARACTER_UPDATE
+		case 19:  return 48;   // HEADER_GC_CHARACTER_UPDATE (x64 64-bit GUILD_ID)
 		case 20:  return 36;   // HEADER_GC_ITEM_DEL (deprecated)
 		case 21:  return 54;   // HEADER_GC_ITEM_SET
 		case 22:  return 13;   // HEADER_GC_ITEM_USE
@@ -829,7 +829,7 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 42:  return 42;   // HEADER_GC_EXCHANGE
 		case 43:  return 6;    // HEADER_GC_CHARACTER_POSITION
 		case 44:  return 1;    // HEADER_GC_PING
-		case 46:  return 74;   // HEADER_GC_QUEST_CONFIRM
+		case 46:  return 78;   // HEADER_GC_QUEST_CONFIRM (x64 64-bit requestPID)
 		case 61:  return 14;   // HEADER_GC_MOUNT
 		case 62:  return 9;    // HEADER_GC_OWNERSHIP
 		case 65:  return 15;   // HEADER_GC_WARP
@@ -861,7 +861,7 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 132: return 2;    // HEADER_GC_LOVE_POINT_UPDATE
 		case 134: return 10;   // HEADER_GC_DIG_MOTION
 		case 135: return 10;   // HEADER_GC_DAMAGE_INFO
-		case 136: return 62;   // HEADER_GC_CHAR_ADDITIONAL_INFO
+		case 136: return 66;   // HEADER_GC_CHAR_ADDITIONAL_INFO (x64 64-bit GUILD_ID)
 		case 137: return 73;   // HEADER_GC_MAIN_CHARACTER3_BGM
 		case 138: return 77;   // HEADER_GC_MAIN_CHARACTER4_BGM_VOL
 		case 139: return 9;    // HEADER_GC_SET_GOLD
@@ -899,7 +899,7 @@ struct SmokeGameStreamState {
 	bool     sawCharCreateSuccess = false;
 	bool     sawCharCreateFailure = false;
 	uint8_t  charCreateFailType = 0;
-	uint32_t player0Id = 0;
+	uint64_t player0Id = 0;
 	char     player0Name[25]{};
 	uint8_t  player0Level = 0;
 	int32_t  player0X = 0;
@@ -987,14 +987,14 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 				st.sawPhaseGame = true;
 		} else if (hdr == 32 /* HEADER_GC_LOGIN_SUCCESS_NEWSLOT */ || hdr == 6 /* HEADER_GC_LOGIN_SUCCESS */) {
 			st.sawLoginSuccess = true;
-			std::memcpy(&st.player0Id, pkt + 1, sizeof(uint32_t));
-			std::memcpy(st.player0Name, pkt + 5, 24);
+			std::memcpy(&st.player0Id, pkt + 1, sizeof(uint64_t));
+			std::memcpy(st.player0Name, pkt + 9, 24);
 			st.player0Name[24] = '\0';
-			st.player0Level = pkt[31];
-			std::memcpy(&st.player0X, pkt + 53, sizeof(int32_t));
-			std::memcpy(&st.player0Y, pkt + 57, sizeof(int32_t));
-			std::memcpy(&st.player0Addr, pkt + 61, sizeof(int32_t));
-			std::memcpy(&st.player0Port, pkt + 65, sizeof(uint16_t));
+			st.player0Level = pkt[35];
+			std::memcpy(&st.player0X, pkt + 57, sizeof(int32_t));
+			std::memcpy(&st.player0Y, pkt + 61, sizeof(int32_t));
+			std::memcpy(&st.player0Addr, pkt + 65, sizeof(int32_t));
+			std::memcpy(&st.player0Port, pkt + 69, sizeof(uint16_t));
 		} else if (hdr == 65 /* HEADER_GC_WARP */) {
 			st.sawWarp = true;
 			std::memcpy(&st.warpX, pkt + 1, sizeof(int32_t));
@@ -1003,10 +1003,10 @@ static bool pump_gc_packets(sock_t s, SmokeGameStreamState& st, const uint32_t s
 			std::memcpy(&st.warpPort, pkt + 13, sizeof(uint16_t));
 		} else if (hdr == 8 /* HEADER_GC_CHARACTER_CREATE_SUCCESS */) {
 			st.sawCharCreateSuccess = true;
-			std::memcpy(&st.player0Id, pkt + 2, sizeof(uint32_t));
-			std::memcpy(st.player0Name, pkt + 6, 24);
+			std::memcpy(&st.player0Id, pkt + 2, sizeof(uint64_t));
+			std::memcpy(st.player0Name, pkt + 10, 24);
 			st.player0Name[24] = '\0';
-			st.player0Level = pkt[32];
+			st.player0Level = pkt[36];
 		} else if (hdr == 9 /* HEADER_GC_CHARACTER_CREATE_FAILURE */) {
 			st.sawCharCreateFailure = true;
 			st.charCreateFailType = pkt[1];
@@ -1147,8 +1147,8 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 	}
 
 	if (!st.sawPhaseSelect || !st.sawLoginSuccess) {
-		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%u)\n",
-			st.rxTotal, st.sawEmpire ? 1 : 0, st.sawPhaseSelect ? 1 : 0, st.sawLoginSuccess ? 1 : 0, st.player0Id);
+		std::fprintf(stderr, "[game-login-key] FAIL: incomplete LoginByKey response (rxTotal=%zu sawEmpire=%d sawPhaseSelect=%d sawLoginSuccess=%d player0Id=%llu)\n",
+			st.rxTotal, st.sawEmpire ? 1 : 0, st.sawPhaseSelect ? 1 : 0, st.sawLoginSuccess ? 1 : 0, static_cast<unsigned long long>(st.player0Id));
 		CLOSESOCK(s);
 		return 1;
 	}
@@ -1199,25 +1199,25 @@ static int run_game_login_key(int port, const char* login_arg, uint32_t login_ke
 		}
 
 		if (!st.sawCharCreateSuccess || st.player0Id == 0 || std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level != 1u) {
-			std::fprintf(stderr, "[game-char-create] FAIL: character creation failed (sawSuccess=%d sawFail=%d failType=%u player0Id=%u name='%s' level=%u)\n",
+			std::fprintf(stderr, "[game-char-create] FAIL: character creation failed (sawSuccess=%d sawFail=%d failType=%u player0Id=%llu name='%s' level=%u)\n",
 				st.sawCharCreateSuccess ? 1 : 0, st.sawCharCreateFailure ? 1 : 0, static_cast<unsigned>(st.charCreateFailType),
-				st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+				static_cast<unsigned long long>(st.player0Id), st.player0Name, static_cast<unsigned>(st.player0Level));
 			CLOSESOCK(s);
 			return 1;
 		}
 
-		std::printf("  [PASS] [game-char-create] Created new character via HEADER_CG_EMPIRE(90, empire=1) + HEADER_CG_CHARACTER_CREATE(4) -> HEADER_GC_CHARACTER_CREATE_SUCCESS(8, slot=0, id=%u, name='%s', level=%u)\n",
-			st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+		std::printf("  [PASS] [game-char-create] Created new character via HEADER_CG_EMPIRE(90, empire=1) + HEADER_CG_CHARACTER_CREATE(4) -> HEADER_GC_CHARACTER_CREATE_SUCCESS(8, slot=0, id=%llu, name='%s', level=%u)\n",
+			static_cast<unsigned long long>(st.player0Id), st.player0Name, static_cast<unsigned>(st.player0Level));
 	} else {
 		if (std::strcmp(st.player0Name, "SmokeHero") != 0 || st.player0Level < 1u) {
-			std::fprintf(stderr, "[game-login-key] FAIL: unexpected persisted character in slot 0 (player0Id=%u name='%s' level=%u)\n",
-				st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level));
+			std::fprintf(stderr, "[game-login-key] FAIL: unexpected persisted character in slot 0 (player0Id=%llu name='%s' level=%u)\n",
+				static_cast<unsigned long long>(st.player0Id), st.player0Name, static_cast<unsigned>(st.player0Level));
 			CLOSESOCK(s);
 			return 1;
 		}
 
-		std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=***MASKED(non-zero)*** via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%u, name='%s', level=%u}) (%zu wire bytes)\n",
-			static_cast<unsigned>(st.empireId), st.player0Id, st.player0Name, static_cast<unsigned>(st.player0Level), st.rxTotal);
+		std::printf("  [PASS] [game-login-key] Real GAME_SERVER verified dwLoginKey=***MASKED(non-zero)*** via db_r41023 -> HEADER_GC_EMPIRE(90, empire=%u) + TPacketGCPhase(PHASE_SELECT=3) + HEADER_GC_LOGIN_SUCCESS(32, char[0]={id=%llu, name='%s', level=%u}) (%zu wire bytes)\n",
+			static_cast<unsigned>(st.empireId), static_cast<unsigned long long>(st.player0Id), st.player0Name, static_cast<unsigned>(st.player0Level), st.rxTotal);
 	}
 
 	// Stage B: Send HEADER_CG_CHARACTER_SELECT(6, index=0) and wait for PHASE_LOADING + TPacketGCMainCharacter + Points + SkillLevel
@@ -1480,13 +1480,13 @@ static int run_game_cross_core_warp(int ch11_port, int ch12_port, const char* lo
 
 	if (!st1.sawPhaseSelect || !st1.sawLoginSuccess || st1.player0Id == 0 ||
 	    st1.player0Port != static_cast<uint16_t>(ch12_port)) {
-		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch11 PHASE_SELECT CMapLocation redirect mismatch (sawSelect=%d sawLogin=%d id=%u port=%u expectedPort=%d pos=%dx%d)\n",
-			st1.sawPhaseSelect ? 1 : 0, st1.sawLoginSuccess ? 1 : 0, st1.player0Id,
+		std::fprintf(stderr, "[game-cross-core-warp] FAIL: ch11 PHASE_SELECT CMapLocation redirect mismatch (sawSelect=%d sawLogin=%d id=%llu port=%u expectedPort=%d pos=%dx%d)\n",
+			st1.sawPhaseSelect ? 1 : 0, st1.sawLoginSuccess ? 1 : 0, static_cast<unsigned long long>(st1.player0Id),
 			static_cast<unsigned>(st1.player0Port), ch12_port, st1.player0X, st1.player0Y);
 		return 1;
 	}
-	std::printf("  [PASS] [cross-core-step1] ch11 (port %d) CMapLocation resolved character '%s' (id=%u, pos=%dx%d) to secondary core ch12 port=%u\n",
-		ch11_port, st1.player0Name, st1.player0Id, st1.player0X, st1.player0Y, static_cast<unsigned>(st1.player0Port));
+	std::printf("  [PASS] [cross-core-step1] ch11 (port %d) CMapLocation resolved character '%s' (id=%llu, pos=%dx%d) to secondary core ch12 port=%u\n",
+		ch11_port, st1.player0Name, static_cast<unsigned long long>(st1.player0Id), st1.player0X, st1.player0Y, static_cast<unsigned>(st1.player0Port));
 
 	// Step 2: Connect to ch12 (28001) with the same dwLoginKey, enter PHASE_GAME on map_index=3, and trigger portal 10002 WarpSet
 	sock_t s2 = connect_with_retry(ch12_port, 60);

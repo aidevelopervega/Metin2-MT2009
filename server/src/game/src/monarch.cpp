@@ -55,16 +55,16 @@ int CMonarch::HealMyEmpire(LPCHARACTER ch, YANG price)
 		return 0;
 
 	BYTE Empire = ch->GetEmpire();
-	DWORD pid = ch->GetPlayerID();
+	uint64_t pid = ch->GetPlayerID();
 
-	sys_log(0, "HealMyEmpire[%d] pid:%u price %lld", Empire, static_cast<unsigned int>(pid), static_cast<long long>(price));
+	sys_log(0, "HealMyEmpire[%d] pid:%llu price %lld", Empire, static_cast<unsigned long long>(pid), static_cast<long long>(price));
 
 	if (IsMonarch(pid, Empire) == 0)
 	{
 		if (!ch->IsGM())
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO ,LC_TEXT("\xb1\xba\xc1\xd6\xc0\xc7 \xc0\xda\xb0\xdd\xc0\xbb \xb0\xa1\xc1\xf6\xb0\xed \xc0\xd6\xc1\xf6 \xbe\xca\xbd\xc0\xb4\xcf\xb4\xd9"));
-			sys_err("No Monarch pid %u ", static_cast<unsigned int>(pid));
+			sys_err("No Monarch pid %llu ", static_cast<unsigned long long>(pid));
 			return 0;
 		}
 	}
@@ -107,7 +107,7 @@ void CMonarch::SetMonarchInfo(TMonarchInfo * pInfo)
 	memcpy(&m_MonarchInfo, pInfo, sizeof(TMonarchInfo));
 }
 
-bool CMonarch::IsMonarch(DWORD pid, BYTE bEmpire)
+bool CMonarch::IsMonarch(uint64_t pid, BYTE bEmpire)
 {
 	if (bEmpire >= _countof(m_MonarchInfo.pid))
 		return false;
@@ -197,7 +197,7 @@ TMonarchInfo* CMonarch::GetMonarch()
 	return &m_MonarchInfo;
 }
 
-DWORD CMonarch::GetMonarchPID(BYTE Empire)
+uint64_t CMonarch::GetMonarchPID(BYTE Empire)
 {
 	return Empire < _countof(m_MonarchInfo.pid) ? m_MonarchInfo.pid[Empire] : 0;
 }

@@ -48,7 +48,7 @@ namespace ikashop
 		return true;
 	}
 
-	bool CShopSafebox::RemoveItem(DWORD itemid)
+	bool CShopSafebox::RemoveItem(uint64_t itemid)
 	{
 		// searching item
 		auto iter = m_items.find(itemid);
@@ -100,7 +100,7 @@ namespace ikashop
 		return m_valutes;
 	}
 
-	CShopSafebox::ITEM_HANDLE CShopSafebox::GetItem(DWORD itemid) const
+	CShopSafebox::ITEM_HANDLE CShopSafebox::GetItem(uint64_t itemid) const
 	{
 		auto it = m_items.find(itemid);
 		return it != m_items.end() ? it->second : nullptr;
@@ -177,8 +177,3 @@ namespace ikashop
 
 
 #endif
-
-
-
-
-

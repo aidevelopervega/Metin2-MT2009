@@ -59,24 +59,24 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 {
     public:
 	typedef std::list<CPeer *>			TPeerList;
-	typedef boost::unordered_map<DWORD, CPlayerTableCache *> TPlayerTableCacheMap;
-	typedef boost::unordered_map<DWORD, CItemCache *> TItemCacheMap;
+	typedef boost::unordered_map<uint64_t, CPlayerTableCache *> TPlayerTableCacheMap;
+	typedef boost::unordered_map<uint64_t, CItemCache *> TItemCacheMap;
 	typedef boost::unordered_set<CItemCache *, boost::hash<CItemCache*> > TItemCacheSet;
-	typedef boost::unordered_map<DWORD, TItemCacheSet *> TItemCacheSetPtrMap;
-	typedef boost::unordered_map<DWORD, CItemPriceListTableCache*> TItemPriceListCacheMap;
+	typedef boost::unordered_map<uint64_t, TItemCacheSet *> TItemCacheSetPtrMap;
+	typedef boost::unordered_map<uint64_t, CItemPriceListTableCache*> TItemPriceListCacheMap;
 	typedef boost::unordered_map<WORD, BYTE> TChannelStatusMap;
 
 	// MYSHOP_PRICE_LIST
 
-	typedef std::pair< DWORD, DWORD >		TItemPricelistReqInfo;
+	typedef std::pair< DWORD, uint64_t >		TItemPricelistReqInfo;
 	// END_OF_MYSHOP_PRICE_LIST
 
 	class ClientHandleInfo
 	{
 	    public:
 		DWORD	dwHandle;
-		DWORD	account_id;
-		DWORD	player_id;
+		uint64_t	account_id;
+		uint64_t	player_id;
 		BYTE	account_index;
 		char	login[LOGIN_MAX_LEN + 1];
 		char	safebox_password[SAFEBOX_PASSWORD_MAX_LEN + 1];
@@ -85,21 +85,30 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 		TAccountTable * pAccountTable;
 		TSafeboxTable * pSafebox;
 
-		ClientHandleInfo(DWORD argHandle, DWORD dwPID = 0)
+		ClientHandleInfo(DWORD argHandle, uint64_t dwPID = 0)
 		{
 		    dwHandle = argHandle;
 		    pSafebox = NULL;
 		    pAccountTable = NULL;
 		    player_id = dwPID;
+		    account_id = 0;
+		    account_index = 0;
+		    memset(login, 0, sizeof(login));
+		    memset(safebox_password, 0, sizeof(safebox_password));
+		    memset(ip, 0, sizeof(ip));
 		};
 
-		ClientHandleInfo(DWORD argHandle, DWORD dwPID, DWORD accountId)
+		ClientHandleInfo(DWORD argHandle, uint64_t dwPID, uint64_t accountId)
 		{
 		    dwHandle = argHandle;
 		    pSafebox = NULL;
 		    pAccountTable = NULL;
 		    player_id = dwPID;
 			account_id = accountId;
+			account_index = 0;
+			memset(login, 0, sizeof(login));
+			memset(safebox_password, 0, sizeof(safebox_password));
+			memset(ip, 0, sizeof(ip));
 		};
 
 		~ClientHandleInfo()
@@ -124,8 +133,8 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
 	void	GetPeerP2PHostNames(std::string& peerHostNames);
 	void	SetTablePostfix(const char* c_pszTablePostfix);
-	void	SetPlayerIDStart(int iIDStart);
-	int		GetPlayerIDStart() { return m_iPlayerIDStart; }
+	void	SetPlayerIDStart(uint64_t iIDStart);
+	uint64_t	GetPlayerIDStart() { return m_iPlayerIDStart; }
 
 	int		GetPlayerDeleteLevelLimit() { return m_iPlayerDeleteLevelLimit; }
 
@@ -137,30 +146,30 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void	SendAllGuildSkillRechargePacket();
 	void	SendTime();
 
-	CPlayerTableCache *	GetPlayerCache(DWORD id);
+	CPlayerTableCache *	GetPlayerCache(uint64_t id);
 	void			PutPlayerCache(TPlayerTable * pNew);
 
-	void			CreateItemCacheSet(DWORD dwID);
-	TItemCacheSet *		GetItemCacheSet(DWORD dwID);
-	void			FlushItemCacheSet(DWORD dwID);
+	void			CreateItemCacheSet(uint64_t dwID);
+	TItemCacheSet *		GetItemCacheSet(uint64_t dwID);
+	void			FlushItemCacheSet(uint64_t dwID);
 
-	CItemCache *		GetItemCache(DWORD id);
+	CItemCache *		GetItemCache(uint64_t id);
 	void			PutItemCache(TPlayerItem * pNew, bool bSkipQuery = false);
-	bool			DeleteItemCache(DWORD id);
+	bool			DeleteItemCache(uint64_t id);
 
 	void			UpdatePlayerCache();
 	void			UpdateItemCache();
 
 	// MYSHOP_PRICE_LIST
 
-	CItemPriceListTableCache*	GetItemPriceListCache(DWORD dwID);
+	CItemPriceListTableCache*	GetItemPriceListCache(uint64_t dwID);
 
 	void			PutItemPriceListCache(const TItemPriceListTable* pItemPriceList);
 
 	void			UpdateItemPriceListCache(void);
 	// END_OF_MYSHOP_PRICE_LIST
 
-	void			SendGuildSkillUsable(DWORD guild_id, DWORD dwSkillVnum, bool bUsable);
+	void			SendGuildSkillUsable(uint64_t guild_id, DWORD dwSkillVnum, bool bUsable);
 
 	void			SetCacheFlushCountLimit(int iLimit);
 
@@ -180,11 +189,11 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	int			AnalyzeQueryResult(SQLMsg * msg);
 	void			AnalyzeFailedQuery(SQLMsg * msg);
 	int			AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
-	void		FlushPlayerCacheSet(DWORD pid);
-	DWORD		GetMaxCachedItemIDInRange(DWORD dwMin, DWORD dwMax) const;
+	void		FlushPlayerCacheSet(uint64_t pid);
+	uint64_t	GetMaxCachedItemIDInRange(uint64_t dwMin, uint64_t dwMax) const;
 	void		QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoadPacket * packet);
 	void		InsertLoginData(CLoginData * pkLD);
-	CLoginData *	GetLoginDataByAID(DWORD dwAID);
+	CLoginData *	GetLoginDataByAID(uint64_t dwAID);
 	bool		InitializeSpecialShopTable();
 	void		QUERY_BOOT(CPeer * peer, TPacketGDBoot * p);
 	int		GetSpecialShopTableSize() const { return m_iSpecialShopTableSize; }
@@ -254,7 +263,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	bool		DeleteLogonAccount(const char * c_pszLogin, DWORD dwHandle);
 	bool		FindLogonAccount(const char * c_pszLogin);
 
-	void		GuildCreate(CPeer * peer, DWORD dwGuildID);
+	void		GuildCreate(CPeer * peer, uint64_t dwGuildID);
 	void		GuildSkillUpdate(CPeer * peer, TPacketGuildSkillUpdate* p);
 	void		GuildExpUpdate(CPeer * peer, TPacketGuildExpUpdate* p);
 	void		GuildAddMember(CPeer * peer, TPacketGDGuildAddMember* p);
@@ -272,7 +281,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void		GuildWarBet(TPacketGDGuildWarBet * p);
 	void		GuildChangeMaster(TPacketChangeGuildMaster* p);
 
-	void		SetGuildWarEndTime(DWORD guild_id1, DWORD guild_id2, time_t tEndTime);
+	void		SetGuildWarEndTime(uint64_t guild_id1, uint64_t guild_id2, time_t tEndTime);
 
 	void		QUERY_LOGIN(CPeer * peer, DWORD dwHandle, SLoginPacket* data);
 	void		QUERY_LOGOUT(CPeer * peer, DWORD dwHandle, const char *);
@@ -281,11 +290,11 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
 	void		RESULT_COMPOSITE_PLAYER(CPeer * peer, SQLMsg * pMsg, DWORD dwQID);
 	void		RESULT_PLAYER_LOAD(CPeer * peer, MYSQL_RES * pRes, ClientHandleInfo * pkInfo);
-	void		RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwPID);
-	void		RESULT_QUEST_LOAD(CPeer * pkPeer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwPID);
+	void		RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, uint64_t dwPID);
+	void		RESULT_QUEST_LOAD(CPeer * pkPeer, MYSQL_RES * pRes, DWORD dwHandle, uint64_t dwPID);
 	// @fixme402 (RESULT_AFFECT_LOAD +dwRealPID)
-	void		RESULT_AFFECT_LOAD(CPeer * pkPeer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwRealPID);
-	void		RESULT_SPECIAL_FLAG_LOAD(CPeer* pkPeer, MYSQL_RES* pRes, DWORD dwHandle, DWORD dwPID);
+	void		RESULT_AFFECT_LOAD(CPeer * pkPeer, MYSQL_RES * pRes, DWORD dwHandle, uint64_t dwRealPID);
+	void		RESULT_SPECIAL_FLAG_LOAD(CPeer* pkPeer, MYSQL_RES* pRes, DWORD dwHandle, uint64_t dwPID);
 
 	// PLAYER_INDEX_CREATE_BUG_FIX
 	void		RESULT_PLAYER_INDEX_CREATE(CPeer *pkPeer, SQLMsg *msg);
@@ -378,13 +387,13 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
 	void		MyshopPricelistUpdate(const TItemPriceListTable* pPacket); // @fixme403 (TPacketMyshopPricelistHeader to TItemPriceListTable)
 
-	void		MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, DWORD dwPlayerID);
+	void		MyshopPricelistRequest(CPeer* peer, DWORD dwHandle, uint64_t dwPlayerID);
 	// END_OF_MYSHOP_PRICE_LIST
 
 	// Building
 	void		CreateObject(TPacketGDCreateObject * p);
 	void		DeleteObject(DWORD dwID);
-	void		UpdateLand(DWORD * pdw);
+	void		UpdateLand(const TPacketGDUpdateLand * p);
 
 	// BLOCK_CHAT
 	void		BlockChat(TPacketBlockChat * p);
@@ -406,13 +415,13 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	TLoginDataByLogin			m_map_pkLoginDataByLogin;
 
 	// AccountID LoginData pair
-	typedef boost::unordered_map<DWORD, CLoginData *> TLoginDataByAID;
+	typedef boost::unordered_map<uint64_t, CLoginData *> TLoginDataByAID;
 	TLoginDataByAID				m_map_pkLoginDataByAID;
 
 	typedef boost::unordered_map<std::string, CLoginData *> TLogonAccountMap;
 	TLogonAccountMap			m_map_kLogonAccount;
 
-	int					m_iPlayerIDStart;
+	uint64_t				m_iPlayerIDStart;
 	int					m_iPlayerDeleteLevelLimit;
 	int					m_iPlayerDeleteLevelLimitLower;
 	bool					m_bChinaEventServer;
@@ -474,8 +483,8 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 		}
 	};
 
-	typedef std::map<DWORD, TPartyInfo>	TPartyMember;
-	typedef std::map<DWORD, TPartyMember>	TPartyMap;
+	typedef std::map<uint64_t, TPartyInfo>	TPartyMember;
+	typedef std::map<uint64_t, TPartyMember>	TPartyMap;
 	typedef std::map<BYTE, TPartyMap>	TPartyChannelMap;
 	TPartyChannelMap m_map_pkChannelParty;
 
@@ -491,18 +500,18 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 
     public :
 	bool InitializeNowItemID();
-	DWORD GetItemID();
-	DWORD GainItemID();
+	uint64_t GetItemID();
+	uint64_t GainItemID();
 	TItemIDRangeTable GetItemRange() { return m_itemRange; }
 #ifdef ENABLE_IKASHOP_RENEWAL
 public:
 	// forwarding
 	void SendIkarusShopTable(CPeer* peer);
 	//booting
-	bool InitializeIkarusShopTable(DWORD owner=0);
+	bool InitializeIkarusShopTable(uint64_t owner=0);
 	// shops
-	bool InitializeIkarusShopShopTable(DWORD owner=0);
-	bool InitializeIkarusShopShopItemsTable(DWORD owner=0);
+	bool InitializeIkarusShopShopTable(uint64_t owner=0);
+	bool InitializeIkarusShopShopItemsTable(uint64_t owner=0);
 	// offers
 	bool InitializeIkarusShopOfferTable();
 	// auctions
@@ -549,35 +558,35 @@ public:
 	bool RecvIkarusShopOwnerOnline(const char* data);
 	bool RecvIkarusShopLoadExpiredShop(const char* data);
 
-	bool SendIkarusShopBuyItemPacket(DWORD dwOwner, DWORD dwGuest, DWORD dwItem, CPeer* requester);
-	bool SendIkarusShopBuyLockedItemPacket(CPeer* peer,DWORD dwOwner, DWORD dwGuest, DWORD dwItem);
-	bool SendIkarusShopEditItemPacket(DWORD dwOwner, DWORD dwItem, const ikashop::TPriceInfo& price);
-	bool SendIkarusShopRemoveItemPacket(DWORD dwOwner, DWORD dwItem, CPeer* requester = nullptr);
-	bool SendIkarusShopAddItemPacket(DWORD dwOwner, DWORD dwItemID, const ikashop::TShopItem& rInfo);
+	bool SendIkarusShopBuyItemPacket(uint64_t dwOwner, uint64_t dwGuest, uint64_t dwItem, CPeer* requester);
+	bool SendIkarusShopBuyLockedItemPacket(CPeer* peer, uint64_t dwOwner, uint64_t dwGuest, uint64_t dwItem);
+	bool SendIkarusShopEditItemPacket(uint64_t dwOwner, uint64_t dwItem, const ikashop::TPriceInfo& price);
+	bool SendIkarusShopRemoveItemPacket(uint64_t dwOwner, uint64_t dwItem, CPeer* requester = nullptr);
+	bool SendIkarusShopAddItemPacket(uint64_t dwOwner, uint64_t dwItemID, const ikashop::TShopItem& rInfo);
 
-	bool SendIkarusShopForceClose(DWORD dwOwnerID);
+	bool SendIkarusShopForceClose(uint64_t dwOwnerID);
 	bool SendIkarusShopCreateNew(const ikashop::TShopInfo& shop, const ikashop::TShopItem* items);
-	bool SendIkarusShopChangeName(DWORD dwOwnerID, const char* szName);
-	bool SendIkarusShopShopExpired(DWORD dwOwnerID);
+	bool SendIkarusShopChangeName(uint64_t dwOwnerID, const char* szName);
+	bool SendIkarusShopShopExpired(uint64_t dwOwnerID);
 
 	bool SendIkarusShopOfferCreate(const ikashop::TOfferInfo& offer);
-	bool SendIkarusShopOfferNotified(DWORD dwOwnerID, DWORD dwOfferID);
-	bool SendIkarusShopOfferAccepted(DWORD dwOwnerID, DWORD dwOfferID);
+	bool SendIkarusShopOfferNotified(uint64_t dwOwnerID, uint64_t dwOfferID);
+	bool SendIkarusShopOfferAccepted(uint64_t dwOwnerID, uint64_t dwOfferID);
 
 	//ikashop-updated 05/08/19
-	void SendIkarusShopOfferCancel(DWORD dwOwnerID, DWORD dwOfferID, bool isRemovingItem);
+	void SendIkarusShopOfferCancel(uint64_t dwOwnerID, uint64_t dwOfferID, bool isRemovingItem);
 
-	void SendIkarusShopSafeboxAddItem(DWORD dwOwnerID, DWORD dwItem, const ikashop::TShopPlayerItem& item);
-	void SendIkarusShopSafeboxAddValutes(DWORD dwOwnerID, const ikashop::TValutesInfo& valute);
+	void SendIkarusShopSafeboxAddItem(uint64_t dwOwnerID, uint64_t dwItem, const ikashop::TShopPlayerItem& item);
+	void SendIkarusShopSafeboxAddValutes(uint64_t dwOwnerID, const ikashop::TValutesInfo& valute);
 
 	//patch 08-03-2020
-	void SendIkarusShopSafeboxExpiredItem(DWORD dwOwnerID, DWORD itemID);
-	void SendIkarusShopSafeboxGetItemConfirm(CPeer* peer, DWORD dwOwnerID, DWORD itemID);
+	void SendIkarusShopSafeboxExpiredItem(uint64_t dwOwnerID, uint64_t itemID);
+	void SendIkarusShopSafeboxGetItemConfirm(CPeer* peer, uint64_t dwOwnerID, uint64_t itemID);
 
 	//AUCTION
 	void SendIkarusShopAuctionCreate(const ikashop::TAuctionInfo& auction);
 	void SendIkarusShopAuctionAddOffer(const ikashop::TAuctionOfferInfo& offer);
-	void SendIkarusShopAuctionExpired(DWORD dwOwnerID);
+	void SendIkarusShopAuctionExpired(uint64_t dwOwnerID);
 
 	void IkarusShopResultQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo);
 	void IkarusShopResultAddItemQuery(CPeer* peer, SQLMsg* msg, CQueryInfo* pQueryInfo, bool sendResponse=true);
@@ -587,26 +596,26 @@ public:
 
 
 	void IkarusShopDurationProcess();
-	void IkarusShopExpiredShop(DWORD dwID
+	void IkarusShopExpiredShop(uint64_t dwID
 	);
-	void IkarusShopExpiredAuction(DWORD dwID);
-	void IkarusShopLoadShopSafebox(CPeer* peer ,DWORD dwID);
+	void IkarusShopExpiredAuction(uint64_t dwID);
+	void IkarusShopLoadShopSafebox(CPeer* peer ,uint64_t dwID);
 #ifdef EXTEND_IKASHOP_PRO
-	void IkarusShopLoadNotifications(CPeer* peer, DWORD owner);
-	void AppendIkarusShopNotification(ikashop::ENotificationType type, DWORD owner, DWORD what, const std::string& who, const std::string& format);
+	void IkarusShopLoadNotifications(CPeer* peer, uint64_t owner);
+	void AppendIkarusShopNotification(ikashop::ENotificationType type, uint64_t owner, DWORD what, const std::string& who, const std::string& format);
 #endif
 	//patch 08-03-2020
-	void IkarusShopExpiredAuctionItem(DWORD dwOwnerID);
+	void IkarusShopExpiredAuctionItem(uint64_t dwOwnerID);
 
 	//updated 15-01-2020
-	bool IsUsingIkarusShopSystem(DWORD dwID);
+	bool IsUsingIkarusShopSystem(uint64_t dwID);
 
 	//patch offerlist loading fix
-	void RemoveOfferOnShopItem(DWORD dwOwnerID, DWORD dwItemID);
-	void RemoveOfferOnShop(DWORD dwOwnerID);
+	void RemoveOfferOnShopItem(uint64_t dwOwnerID, uint64_t dwItemID);
+	void RemoveOfferOnShop(uint64_t dwOwnerID);
 
 #ifdef ENABLE_IKASHOP_LOGS
-	void IkarusShopLog(DWORD who, DWORD itemid, std::string_view what, DWORD shopOwner, const std::string& extra = "", DWORD vnum = 0, DWORD count = 0, int64_t yang = 0, int cheque = 0);
+	void IkarusShopLog(uint64_t who, uint64_t itemid, std::string_view what, uint64_t shopOwner, const std::string& extra = "", DWORD vnum = 0, DWORD count = 0, int64_t yang = 0, int cheque = 0);
 #endif
 
 private:
@@ -638,7 +647,7 @@ private:
 
 	struct TLogoutPlayer
 	{
-	    DWORD	pid;
+	    uint64_t	pid;
 	    time_t	time;
 
 	    bool operator < (const TLogoutPlayer & r)
@@ -647,13 +656,13 @@ private:
 	    }
 	};
 
-	typedef boost::unordered_map<DWORD, TLogoutPlayer*> TLogoutPlayerMap;
+	typedef boost::unordered_map<uint64_t, TLogoutPlayer*> TLogoutPlayerMap;
 	TLogoutPlayerMap m_map_logout;
 
-	void InsertLogoutPlayer(DWORD pid);
-	void DeleteLogoutPlayer(DWORD pid);
+	void InsertLogoutPlayer(uint64_t pid);
+	void DeleteLogoutPlayer(uint64_t pid);
 	void UpdateLogoutPlayer();
-	void UpdateItemCacheSet(DWORD pid);
+	void UpdateItemCacheSet(uint64_t pid);
 
 
 	//MONARCH
@@ -674,7 +683,7 @@ private:
 	void SendSpareItemIDRange(CPeer* peer);
 
 	void UpdateHorseName(TPacketUpdateHorseName* data, CPeer* peer);
-	void AckHorseName(DWORD dwPID, CPeer* peer);
+	void AckHorseName(uint64_t dwPID, CPeer* peer);
 	void SetLoginPremiumPass(CPeer* peer, TPacketSetPremiumPass* data);
 	void DeleteLoginKey(TPacketDC *data);
 	void ResetLastPlayerID(const TPacketNeedLoginLogInfo* data);
@@ -707,4 +716,3 @@ Func CClientManager::for_each_peer(Func f)
     return f;
 }
 #endif
-

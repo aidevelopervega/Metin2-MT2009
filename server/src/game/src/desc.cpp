@@ -498,13 +498,15 @@ int DESC::ProcessInput()
 				{
 					if (iBytesProceed > iSizeBuffer)
 					{
-						buffer_read_proceed(m_lpInputBuffer, iSizeBuffer);
+						if (m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
+							buffer_read_proceed(m_lpInputBuffer, MIN(iSizeBuffer, buffer_size(m_lpInputBuffer)));
 						iSizeBuffer = 0;
 						iBytesProceed = 0;
 						break;
 					}
 
-					buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
+					if (iBytesProceed > 0 && m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
+						buffer_read_proceed(m_lpInputBuffer, MIN(iBytesProceed, buffer_size(m_lpInputBuffer)));
 					iSizeBuffer -= iBytesProceed;
 
 					buffer_read_proceed(lpBufferDecrypt, iBytesProceed);
@@ -519,7 +521,8 @@ int DESC::ProcessInput()
 
 				if (!bKeyChanged)
 				{
-					buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
+					if (iBytesProceed > 0 && m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
+						buffer_read_proceed(m_lpInputBuffer, MIN(iBytesProceed, buffer_size(m_lpInputBuffer)));
 					break;
 				}
 			}
@@ -1234,4 +1237,3 @@ void DESC::ChatPacket(BYTE type, const char * format, ...)
 
 	Packet(buf.read_peek(), buf.size());
 }
-

@@ -44,7 +44,7 @@ inline float gauss_random(const float fAverage, const float sigma)
 }
 #endif
 
-DWORD g_dwLastCachedItemAwardID = 0;
+uint64_t g_dwLastCachedItemAwardID = 0;
 ItemAwardManager::ItemAwardManager()
 {
 }
@@ -66,7 +66,7 @@ void ItemAwardManager::RequestLoad()
 		"attrtype5, attrvalue5, "
 		"attrtype6, attrvalue6, "
 		#endif
-		"mall,why FROM item_award WHERE taken_time IS NULL and id > %u", static_cast<unsigned int>(g_dwLastCachedItemAwardID));
+		"mall,why FROM item_award WHERE taken_time IS NULL and id > %llu", static_cast<unsigned long long>(g_dwLastCachedItemAwardID));
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_AWARD_LOAD, 0, NULL);
 }
 
@@ -79,7 +79,7 @@ void ItemAwardManager::Load(SQLMsg * pMsg)
 		MYSQL_ROW row = mysql_fetch_row(pRes);
 		int col = 0;
 
-		DWORD dwID = 0;
+		uint64_t dwID = 0;
 		str_to_number(dwID, row[col++]);
 
 		if (m_map_award.find(dwID) != m_map_award.end())
@@ -126,8 +126,8 @@ void ItemAwardManager::Load(SQLMsg * pMsg)
 
 		m_map_award.emplace(dwID, kData);
 
-		printf("ITEM_AWARD load id %u bMall %d \n", static_cast<unsigned int>(kData->dwID), kData->bMall);
-		sys_log(0, "ITEM_AWARD: load id %u login %s vnum %u count %u socket %u", static_cast<unsigned int>(kData->dwID), kData->szLogin, static_cast<unsigned int>(kData->dwVnum), static_cast<unsigned int>(kData->dwCount), static_cast<unsigned int>(kData->dwSocket0));
+		printf("ITEM_AWARD load id %llu bMall %d \n", static_cast<unsigned long long>(kData->dwID), kData->bMall);
+		sys_log(0, "ITEM_AWARD: load id %llu login %s vnum %u count %u socket %u", static_cast<unsigned long long>(kData->dwID), kData->szLogin, static_cast<unsigned int>(kData->dwVnum), static_cast<unsigned int>(kData->dwCount), static_cast<unsigned int>(kData->dwSocket0));
 		std::set<TItemAward *> & kSet = m_map_kSetAwardByLogin[kData->szLogin];
 		kSet.emplace(kData);
 
@@ -146,13 +146,13 @@ std::set<TItemAward *> * ItemAwardManager::GetByLogin(const char * c_pszLogin)
 	return &it->second;
 }
 
-void ItemAwardManager::Taken(DWORD dwAwardID, DWORD dwItemID)
+void ItemAwardManager::Taken(uint64_t dwAwardID, uint64_t dwItemID)
 {
 	itertype(m_map_award) it = m_map_award.find(dwAwardID);
 
 	if (it == m_map_award.end())
 	{
-		sys_log(0, "ITEM_AWARD: Taken ID not exist %u", dwAwardID);
+		sys_log(0, "ITEM_AWARD: Taken ID not exist %llu", static_cast<unsigned long long>(dwAwardID));
 		return;
 	}
 
@@ -164,13 +164,13 @@ void ItemAwardManager::Taken(DWORD dwAwardID, DWORD dwItemID)
 	char szQuery[QUERY_MAX_LEN];
 
 	snprintf(szQuery, sizeof(szQuery),
-			"UPDATE item_award SET taken_time=NOW(),item_id=%u WHERE id=%u AND taken_time IS NULL",
-			static_cast<unsigned int>(dwItemID), static_cast<unsigned int>(dwAwardID));
+			"UPDATE item_award SET taken_time=NOW(),item_id=%llu WHERE id=%llu AND taken_time IS NULL",
+			static_cast<unsigned long long>(dwItemID), static_cast<unsigned long long>(dwAwardID));
 
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_AWARD_TAKEN, 0, NULL);
 }
 
-std::map<DWORD, TItemAward *>& ItemAwardManager::GetMapAward()
+std::map<uint64_t, TItemAward *>& ItemAwardManager::GetMapAward()
 {
 	return m_map_award;
 }
@@ -506,4 +506,3 @@ void ItemAwardManager::CheckItemBlend(TItemAward & rkItemAward, const TItemTable
 		sys_err("ItemAwardManager: Unknown sockets for ITEM_BLEND.");
 }
 #endif
-

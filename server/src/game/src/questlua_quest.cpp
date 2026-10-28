@@ -209,7 +209,7 @@ namespace quest
 	ALUA(quest_begin_other_pc_block)
 	{
 		CQuestManager& q = CQuestManager::instance();
-		DWORD pid = lua_tonumber(L, -1);
+		uint64_t pid = m2_lua_touint64(L, -1);
 		q.BeginOtherPCBlock(pid);
 		return 0;
 	}
@@ -252,4 +252,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("q", quest_functions);
 	}
 }
-

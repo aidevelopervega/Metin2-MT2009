@@ -12,16 +12,16 @@ CItemIDRangeManager::CItemIDRangeManager()
 
 void CItemIDRangeManager::Build()
 {
-	DWORD dwMin = 0;
-	DWORD dwMax = 0;
+	uint64_t dwMin = 0;
+	uint64_t dwMax = 0;
 	TItemIDRangeTable range;
 
-	for (DWORD i = 0; ; ++i)
+	for (uint64_t i = 0; ; ++i)
 	{
 		dwMin = cs_dwMinimumRange * (i + 1) + 1;
 		dwMax = cs_dwMinimumRange * (i + 2);
 
-		if (dwMax == cs_dwMaxItemID)
+		if (dwMax >= cs_dwDefaultPrebuildMaxItemID)
 			break;
 
 		if (CClientManager::instance().GetItemRange().dwMin <= dwMin &&
@@ -33,6 +33,42 @@ void CItemIDRangeManager::Build()
 		if (BuildRange(dwMin, dwMax, range) == true)
 		{
 			m_listData.emplace_back(range);
+		}
+	}
+
+	// Also build 64-bit ranges above 2^32 if high item IDs exist in DB or active range
+	char szQuery[256];
+	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s", GetTablePostfix());
+	uint64_t ullGlobalMaxID = CClientManager::instance().GetItemRange().dwMax;
+	auto pMsg = CDBManager::instance().DirectQuery(szQuery);
+	if (pMsg && pMsg->Get()->uiNumRows > 0)
+	{
+		MYSQL_ROW row = mysql_fetch_row(pMsg->Get()->pSQLResult);
+		uint64_t dbMax = 0;
+		if (row && row[0])
+			str_to_number(dbMax, row[0]);
+		if (dbMax > ullGlobalMaxID)
+			ullGlobalMaxID = dbMax;
+	}
+
+	if (ullGlobalMaxID >= cs_dwDefaultPrebuildMaxItemID)
+	{
+		const uint64_t baseChunk = ullGlobalMaxID / cs_dwMinimumRange;
+		for (uint64_t offset = 0; offset < 16; ++offset)
+		{
+			dwMin = cs_dwMinimumRange * (baseChunk + offset) + 1;
+			dwMax = cs_dwMinimumRange * (baseChunk + offset + 1);
+			if (dwMax >= cs_dwMaxItemID)
+				break;
+			if (CClientManager::instance().GetItemRange().dwMin <= dwMin &&
+				CClientManager::instance().GetItemRange().dwMax >= dwMax)
+			{
+				continue;
+			}
+			if (BuildRange(dwMin, dwMax, range) == true)
+			{
+				m_listData.emplace_back(range);
+			}
 		}
 	}
 }
@@ -84,13 +120,14 @@ TItemIDRangeTable CItemIDRangeManager::GetRange()
 	return ret;
 }
 
-bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable& range)
+bool CItemIDRangeManager::BuildRange(uint64_t dwMin, uint64_t dwMax, TItemIDRangeTable& range)
 {
 	char szQuery[1024];
-	DWORD dwItemMaxID = 0;
+	uint64_t dwItemMaxID = 0;
 	MYSQL_ROW row;
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s WHERE id >= %u and id <= %u", GetTablePostfix(), static_cast<unsigned int>(dwMin), static_cast<unsigned int>(dwMax));
+	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s WHERE id >= %llu and id <= %llu",
+			GetTablePostfix(), static_cast<unsigned long long>(dwMin), static_cast<unsigned long long>(dwMax));
 
 	auto pMsg = CDBManager::instance().DirectQuery(szQuery);
 	if (pMsg != NULL)
@@ -102,7 +139,7 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 		}
 	}
 
-	const DWORD dwCachedMaxID = CClientManager::instance().GetMaxCachedItemIDInRange(dwMin, dwMax);
+	const uint64_t dwCachedMaxID = CClientManager::instance().GetMaxCachedItemIDInRange(dwMin, dwMax);
 	if (dwCachedMaxID > dwItemMaxID)
 		dwItemMaxID = dwCachedMaxID;
 
@@ -113,8 +150,9 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 
 	if ((dwMax < dwItemMaxID) || (dwMax - dwItemMaxID < cs_dwMinimumRemainCount))
 	{
-		sys_log(0, "ItemIDRange: Build %u ~ %u start: %u\tNOT USE remain count is below %u",
-			   	dwMin, dwMax, dwItemMaxID, cs_dwMinimumRemainCount);
+		sys_log(0, "ItemIDRange: Build %llu ~ %llu start: %llu\tNOT USE remain count is below %llu",
+					static_cast<unsigned long long>(dwMin), static_cast<unsigned long long>(dwMax),
+				static_cast<unsigned long long>(dwItemMaxID), static_cast<unsigned long long>(cs_dwMinimumRemainCount));
 	}
 	else
 	{
@@ -122,8 +160,8 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 		range.dwMax = dwMax;
 		range.dwUsableItemIDMin = dwItemMaxID;
 
-		snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM item%s WHERE id >= %u AND id <= %u",
-				GetTablePostfix(), static_cast<unsigned int>(range.dwUsableItemIDMin), static_cast<unsigned int>(range.dwMax));
+		snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*) FROM item%s WHERE id >= %llu AND id <= %llu",
+				GetTablePostfix(), static_cast<unsigned long long>(range.dwUsableItemIDMin), static_cast<unsigned long long>(range.dwMax));
 
 		pMsg = CDBManager::instance().DirectQuery(szQuery);
 
@@ -137,12 +175,15 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 
 				if (count > 0)
 				{
-					sys_err("ItemIDRange: Build: %u ~ %u\thave a item", range.dwUsableItemIDMin, range.dwMax);
+					sys_err("ItemIDRange: Build: %llu ~ %llu\thave a item",
+							static_cast<unsigned long long>(range.dwUsableItemIDMin), static_cast<unsigned long long>(range.dwMax));
 					return false;
 				}
 				else
 				{
-					sys_log(0, "ItemIDRange: Build: %u ~ %u start:%u", range.dwMin, range.dwMax, range.dwUsableItemIDMin);
+					sys_log(0, "ItemIDRange: Build: %llu ~ %llu start:%llu",
+							static_cast<unsigned long long>(range.dwMin), static_cast<unsigned long long>(range.dwMax),
+							static_cast<unsigned long long>(range.dwUsableItemIDMin));
 					return true;
 				}
 			}
@@ -152,7 +193,7 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 	return false;
 }
 
-void CItemIDRangeManager::UpdateRange(DWORD dwMin, DWORD dwMax)
+void CItemIDRangeManager::UpdateRange(uint64_t dwMin, uint64_t dwMax)
 {
 	TItemIDRangeTable range;
 
@@ -161,4 +202,3 @@ void CItemIDRangeManager::UpdateRange(DWORD dwMin, DWORD dwMax)
 		m_listData.emplace_back(range);
 	}
 }
-

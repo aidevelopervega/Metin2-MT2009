@@ -221,7 +221,7 @@ void P2P_MANAGER::Logout(const char * c_pszName)
 	sys_log(0, "P2P: Logout %s", c_pszName);
 }
 
-CCI * P2P_MANAGER::FindByPID(DWORD pid)
+CCI * P2P_MANAGER::FindByPID(uint64_t pid)
 {
 	TPIDCCIMap::iterator it = m_map_dwPID_pkCCI.find(pid);
 	if (it == m_map_dwPID_pkCCI.end())
@@ -273,4 +273,3 @@ void P2P_MANAGER::GetP2PHostNames(std::string& hostNames)
 	}
 	hostNames += oss.str();
 }
-

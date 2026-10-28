@@ -14,7 +14,7 @@ EVENTINFO(TargetInfo)
 
 	int         iID;
 
-	DWORD       dwPID;
+	uint64_t    dwPID;
 	DWORD       dwQuestIndex;
 
 	char        szTargetName[32+1];
@@ -57,19 +57,18 @@ class CTargetManager : public singleton<CTargetManager>
 		CTargetManager();
 		virtual ~CTargetManager();
 
-		TargetInfo* CreateTarget(DWORD dwPID, DWORD dwQuestIndex, const char * c_pszTargetName, int iType, int iArg1, int iArg2, int iMapIndex, const char * c_pszTargetDesc = NULL, int iSendFlag = 1);
-		void DeleteTarget(DWORD dwPID, DWORD dwQuestIndex, const char * c_pszTargetName);
+		TargetInfo* CreateTarget(uint64_t dwPID, DWORD dwQuestIndex, const char * c_pszTargetName, int iType, int iArg1, int iArg2, int iMapIndex, const char * c_pszTargetDesc = NULL, int iSendFlag = 1);
+		void DeleteTarget(uint64_t dwPID, DWORD dwQuestIndex, const char * c_pszTargetName);
 
-		void Logout(DWORD dwPID);
-		TargetInfo * GetTargetInfo(DWORD dwPID, int iType, int iArg1);
+		void Logout(uint64_t dwPID);
+		TargetInfo * GetTargetInfo(uint64_t dwPID, int iType, int iArg1);
 
-		LPEVENT GetTargetEvent(DWORD dwPID, DWORD dwQuestIndex, const char * c_pszTargetName);
+		LPEVENT GetTargetEvent(uint64_t dwPID, DWORD dwQuestIndex, const char * c_pszTargetName);
 
 	protected:
 		// first: PID
-		std::map<DWORD, std::list<LPEVENT> > m_map_kListEvent;
+		std::map<uint64_t, std::list<LPEVENT> > m_map_kListEvent;
 		int m_iID;
 };
 
 #endif
-

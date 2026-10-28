@@ -2490,7 +2490,7 @@ ACMD(do_stop_guild_war)
 	if (!*arg1 || !*arg2)
 		return;
 
-	int id1 = 0, id2 = 0;
+	uint64_t id1 = 0, id2 = 0;
 
 	str_to_number(id1, arg1);
 	str_to_number(id2, arg2);
@@ -2503,7 +2503,7 @@ ACMD(do_stop_guild_war)
 		std::swap(id1, id2);
 	}
 
-	ch->ChatPacket(CHAT_TYPE_TALKING, "%d %d", id1, id2);
+	ch->ChatPacket(CHAT_TYPE_TALKING, "%llu %llu", static_cast<unsigned long long>(id1), static_cast<unsigned long long>(id2));
 	CGuildManager::instance().RequestEndWar(id1, id2);
 }
 
@@ -2512,7 +2512,7 @@ ACMD(do_cancel_guild_war)
 	char arg1[256], arg2[256];
 	two_arguments(argument, arg1, sizeof(arg1), arg2, sizeof(arg2));
 
-	int id1 = 0, id2 = 0;
+	uint64_t id1 = 0, id2 = 0;
 	str_to_number(id1, arg1);
 	str_to_number(id2, arg2);
 
@@ -2530,8 +2530,8 @@ ACMD(do_guild_state)
 	CGuild* pGuild = CGuildManager::instance().FindGuildByName(arg1);
 	if (pGuild != NULL)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "GuildID: %d", pGuild->GetID());
-		ch->ChatPacket(CHAT_TYPE_INFO, "GuildMasterPID: %d", pGuild->GetMasterPID());
+		ch->ChatPacket(CHAT_TYPE_INFO, "GuildID: %llu", static_cast<unsigned long long>(pGuild->GetID()));
+		ch->ChatPacket(CHAT_TYPE_INFO, "GuildMasterPID: %llu", static_cast<unsigned long long>(pGuild->GetMasterPID()));
 		ch->ChatPacket(CHAT_TYPE_INFO, "IsInWar: %d", pGuild->UnderAnyWar());
 	}
 	else
@@ -2890,7 +2890,7 @@ ACMD(do_priv_guild)
 
 		if (!g)
 		{
-			DWORD guild_id = 0;
+			uint64_t guild_id = 0;
 			str_to_number(guild_id, arg1);
 			g = CGuildManager::instance().FindGuild(guild_id);
 		}
@@ -2900,7 +2900,7 @@ ACMD(do_priv_guild)
 		else
 		{
 			char buf[1024+1];
-			snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(g->GetID())); // @fixme177
+			snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(g->GetID())); // @fixme177
 
 			using namespace quest;
 			PC * pc = CQuestManager::instance().GetPC(ch->GetPlayerID());
@@ -3823,11 +3823,13 @@ ACMD(do_stat_plus_amount)
 	}
 }
 
+#pragma pack(1)
 struct tTwoPID
 {
-	int pid1;
-	int pid2;
+	uint64_t pid1;
+	uint64_t pid2;
 };
+#pragma pack()
 
 ACMD(do_break_marriage)
 {
@@ -4103,10 +4105,11 @@ ACMD(do_flush)
 		return;
 	}
 
-	DWORD pid = (DWORD) strtoul(arg1, NULL, 10);
+	uint64_t pid = 0;
+	str_to_number(pid, arg1);
 	auto tch = CHARACTER_MANAGER::instance().FindByPID(pid);
 	if (!tch) {
-		ch->ChatPacket(CHAT_TYPE_INFO, "player_id %d not found", pid);
+		ch->ChatPacket(CHAT_TYPE_INFO, "player_id %llu not found", static_cast<unsigned long long>(pid));
 		return;
 	}
 	tch->Save();
@@ -4363,7 +4366,7 @@ ACMD(do_get_item_id_list)
 	{
 		LPITEM item = ch->GetInventoryItem(i);
 		if (item != NULL)
-			ch->ChatPacket(CHAT_TYPE_INFO, "cell : %d, name : %s, id : %d", item->GetCell(), item->GetName(), item->GetID());
+			ch->ChatPacket(CHAT_TYPE_INFO, "cell : %d, name : %s, id : %llu", item->GetCell(), item->GetName(), static_cast<unsigned long long>(item->GetID()));
 	}
 }
 
@@ -4375,7 +4378,8 @@ ACMD(do_set_socket)
 
 	one_argument (two_arguments (argument, arg1, sizeof (arg1), arg2, sizeof(arg2)), arg3, sizeof (arg3));
 
-	int item_id, socket_num, value;
+	uint64_t item_id = 0;
+	int socket_num = 0, value = 0;
 	if (!str_to_number (item_id, arg1) || !str_to_number (socket_num, arg2) || !str_to_number (value, arg3))
 		return;
 
@@ -4782,7 +4786,7 @@ ACMD (do_ds_list)
 
 		LPITEM item = ch->GetItem(cell);
 		if (item != NULL)
-			ch->ChatPacket(CHAT_TYPE_INFO, "cell : %d, name : %s, id : %d", item->GetCell(), item->GetName(), item->GetID());
+			ch->ChatPacket(CHAT_TYPE_INFO, "cell : %d, name : %s, id : %llu", item->GetCell(), item->GetName(), static_cast<unsigned long long>(item->GetID()));
 	}
 }
 #ifdef ENABLE_IKASHOP_RENEWAL
@@ -4791,7 +4795,7 @@ ACMD(do_offshop_force_close_shop) {
 	argument = one_argument(argument, arg1, sizeof(arg1));
 	if (arg1[0] != 0 && isdigit(arg1[0])) {
 
-		DWORD id = 0;
+		uint64_t id = 0;
 		str_to_number(id, arg1);
 
 		if (id == 0) {
@@ -4801,7 +4805,7 @@ ACMD(do_offshop_force_close_shop) {
 		else {
 			auto pkShop = ikashop::GetManager().GetShopByOwnerID(id);
 			if (!pkShop) {
-				ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find shop by id %u ", id);
+				ch->ChatPacket(CHAT_TYPE_INFO, "Cannot find shop by id %llu ", static_cast<unsigned long long>(id));
 				return;
 			}
 			else {
@@ -5015,7 +5019,7 @@ ACMD(do_block) {
 		return;
 	}
 
-	DWORD pid = 0;
+	uint64_t pid = 0;
 	str_to_number(pid, arg1);
 
 	DWORD duration = 0;
@@ -5031,7 +5035,7 @@ ACMD(do_block) {
 
 	if (data.pid == 0)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "No player with pid %d found.", pid);
+		ch->ChatPacket(CHAT_TYPE_INFO, "No player with pid %llu found.", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -5062,13 +5066,13 @@ ACMD(do_block_hwid)
 		return;
 	}
 
-	DWORD aid = 0;
+	uint64_t aid = 0;
 	str_to_number(aid, arg1);
 
 	auto data = BanManager::instance().GetBlockHwidData(aid);
 	if (std::strlen(data.hwid) < 1)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "Account with id %d not found.", aid);
+		ch->ChatPacket(CHAT_TYPE_INFO, "Account with id %llu not found.", static_cast<unsigned long long>(aid));
 		return;
 	}
 
@@ -5096,7 +5100,7 @@ ACMD(do_block_pool)
 		return;
 	}
 
-	DWORD pid = 0;
+	uint64_t pid = 0;
 	str_to_number(pid, arg1);
 
 	DWORD duration = 0;
@@ -5111,7 +5115,7 @@ ACMD(do_block_pool)
 
 	if (data.pid == 0)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "No player with pid %d found.", pid);
+		ch->ChatPacket(CHAT_TYPE_INFO, "No player with pid %llu found.", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -5238,5 +5242,3 @@ ACMD(do_check_mob)
 
 	ch->ChatPacket(CHAT_TYPE_INFO, "######");
 }
-
-

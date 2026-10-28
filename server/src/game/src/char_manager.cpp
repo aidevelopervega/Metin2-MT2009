@@ -88,7 +88,7 @@ DWORD CHARACTER_MANAGER::AllocVID()
 	return m_iVIDCount;
 }
 
-LPCHARACTER CHARACTER_MANAGER::CreateCharacter(const char * name, DWORD dwPID)
+LPCHARACTER CHARACTER_MANAGER::CreateCharacter(const char * name, uint64_t dwPID)
 {
 	DWORD dwVID = AllocVID();
 
@@ -240,7 +240,7 @@ LPCHARACTER CHARACTER_MANAGER::Find(const VID & vid)
 	return tch;
 }
 
-LPCHARACTER CHARACTER_MANAGER::FindByPID(DWORD dwPID)
+LPCHARACTER CHARACTER_MANAGER::FindByPID(uint64_t dwPID)
 {
 	itertype(m_map_pkChrByPID) it = m_map_pkChrByPID.find(dwPID);
 
@@ -250,7 +250,8 @@ LPCHARACTER CHARACTER_MANAGER::FindByPID(DWORD dwPID)
 	// <Factor> Added sanity check
 	LPCHARACTER found = it->second;
 	if (found != NULL && dwPID != found->GetPlayerID()) {
-		sys_err("[CHARACTER_MANAGER::FindByPID] <Factor> %u != %u", dwPID, found->GetPlayerID());
+		sys_err("[CHARACTER_MANAGER::FindByPID] <Factor> %llu != %llu",
+				static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(found->GetPlayerID()));
 		return NULL;
 	}
 	return found;
@@ -274,7 +275,7 @@ LPCHARACTER CHARACTER_MANAGER::FindPC(const char * name)
 	return found;
 }
 
-LPCHARACTER CHARACTER_MANAGER::FindPlayer(DWORD pid)
+LPCHARACTER CHARACTER_MANAGER::FindPlayer(uint64_t pid)
 {
 	return FindByPID(pid);
 }
@@ -290,7 +291,7 @@ LPCHARACTER CHARACTER_MANAGER::FindPlayerArg(const char* arg)
 	{
 		const char* pidStr = arg + 4; // Skip "pid:"
 
-		DWORD dwPID = 0;
+		uint64_t dwPID = 0;
 		str_to_number(dwPID, pidStr);
 		return FindPlayer(dwPID);
 	}
@@ -1192,4 +1193,3 @@ CharacterVectorInteractor::~CharacterVectorInteractor()
 	if (m_bMyBegin)
 		CHARACTER_MANAGER::instance().FlushPendingDestroy();
 }
-

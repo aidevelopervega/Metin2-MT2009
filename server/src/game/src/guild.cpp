@@ -26,7 +26,7 @@
 SGuildMember::SGuildMember(LPCHARACTER ch, BYTE in_grade, DWORD in_offer_exp)
 : pid(ch->GetPlayerID()), grade(in_grade), is_general(0), job(ch->GetJob()), level(ch->GetLevel()), offer_exp(in_offer_exp), name(ch->GetName())
 {}
-SGuildMember::SGuildMember(DWORD in_pid, BYTE in_grade, BYTE in_is_general, BYTE in_job, BYTE in_level, DWORD in_offer_exp, char* in_name)
+SGuildMember::SGuildMember(uint64_t in_pid, BYTE in_grade, BYTE in_is_general, BYTE in_job, BYTE in_level, DWORD in_offer_exp, char* in_name)
 : pid(in_pid), grade(in_grade), is_general(in_is_general), job(in_job), level(in_level), offer_exp(in_offer_exp), name(in_name)
 {}
 
@@ -34,11 +34,11 @@ namespace
 {
 	struct FGuildNameSender
 	{
-		FGuildNameSender(DWORD in_id, const char* guild_name) : id(in_id), name(guild_name)
+		FGuildNameSender(uint64_t in_id, const char* guild_name) : id(in_id), name(guild_name)
 		{
 			p.header = HEADER_GC_GUILD;
 			p.subheader = GUILD_SUBHEADER_GC_GUILD_NAME;
-			p.size = sizeof(p) + sizeof(DWORD) + GUILD_NAME_MAX_LEN;
+			p.size = sizeof(p) + sizeof(uint64_t) + GUILD_NAME_MAX_LEN;
 		}
 
 		void operator() (LPCHARACTER ch)
@@ -53,7 +53,7 @@ namespace
 			}
 		}
 
-		DWORD id;
+		uint64_t id;
 		const char * name;
 		TPacketGCGuild p;
 	};
@@ -88,25 +88,25 @@ CGuild::CGuild(TGuildCreateParameter & cp)
 				",token"
 				#endif
 				") "
-				"VALUES('%s', %u, 1000, 1, 0, 0, '\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0'"
+				"VALUES('%s', %llu, 1000, 1, 0, 0, '\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0'"
 				#ifdef ENABLE_GUILD_TOKEN_AUTH
 				",%" PRIu64
 				#endif
 				")",
-				get_table_postfix(), m_data.name, m_data.master_pid
+				get_table_postfix(), m_data.name, static_cast<unsigned long long>(m_data.master_pid)
 				#ifdef ENABLE_GUILD_TOKEN_AUTH
 				, m_data.token
 				#endif
 				));
 
 	// TODO if error occur?
-	m_data.guild_id = pmsg->Get()->uiInsertID;
+	m_data.guild_id = pmsg->Get()->ullInsertID;
 
 	for (int i = 0; i < GUILD_GRADE_COUNT; ++i)
 	{
-		DBManager::instance().Query("INSERT INTO guild_grade%s VALUES(%u, %d, '%s', %d)",
+		DBManager::instance().Query("INSERT INTO guild_grade%s VALUES(%llu, %d, '%s', %d)",
 				get_table_postfix(),
-				m_data.guild_id,
+				static_cast<unsigned long long>(m_data.guild_id),
 				i + 1,
 				m_data.grade_array[i].grade_name,
 				m_data.grade_array[i].auth_flag);
@@ -115,7 +115,7 @@ CGuild::CGuild(TGuildCreateParameter & cp)
 	ComputeGuildPoints();
 	m_data.power	= m_data.max_power;
 	m_data.ladder_point	= 0;
-	db_clientdesc->DBPacket(HEADER_GD_GUILD_CREATE, 0, &m_data.guild_id, sizeof(DWORD));
+	db_clientdesc->DBPacket(HEADER_GD_GUILD_CREATE, 0, &m_data.guild_id, sizeof(uint64_t));
 
 	TPacketGuildSkillUpdate guild_skill;
 	guild_skill.guild_id = m_data.guild_id;
@@ -154,7 +154,7 @@ void CGuild::RequestAddMember(LPCHARACTER ch, int grade)
 
 	if (m_member.find(ch->GetPlayerID()) != m_member.end())
 	{
-		sys_err("Already a member in guild %s[%d]", ch->GetName(), ch->GetPlayerID());
+		sys_err("Already a member in guild %s[%llu]", ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()));
 		return;
 	}
 
@@ -187,8 +187,8 @@ void CGuild::AddMember(TPacketDGGuildMember * p)
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(p->dwPID);
 
-	sys_log(0, "GUILD: AddMember PID %u, grade %u, job %u, level %u, offer %u, name %s ptr %p",
-			p->dwPID, p->bGrade, p->bJob, p->bLevel, p->dwOffer, p->szName, get_pointer(ch));
+	sys_log(0, "GUILD: AddMember PID %llu, grade %u, job %u, level %u, offer %u, name %s ptr %p",
+			static_cast<unsigned long long>(p->dwPID), p->bGrade, p->bJob, p->bLevel, p->dwOffer, p->szName, get_pointer(ch));
 
 	if (ch)
 		LoginMember(ch);
@@ -196,7 +196,7 @@ void CGuild::AddMember(TPacketDGGuildMember * p)
 		P2PLoginMember(p->dwPID);
 }
 
-bool CGuild::RequestRemoveMember(DWORD pid)
+bool CGuild::RequestRemoveMember(uint64_t pid)
 {
 	TGuildMemberContainer::iterator it;
 
@@ -215,7 +215,7 @@ bool CGuild::RequestRemoveMember(DWORD pid)
 	return true;
 }
 
-bool CGuild::RemoveMember(DWORD pid)
+bool CGuild::RemoveMember(uint64_t pid)
 {
 	sys_log(0, "Receive Guild P2P RemoveMember");
 	TGuildMemberContainer::iterator it;
@@ -243,16 +243,16 @@ bool CGuild::RemoveMember(DWORD pid)
 	}
 
 	if (g_bGuildInviteLimit)
-		DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%u, %lld)", static_cast<unsigned int>(GetID()), static_cast<long long>(get_global_time()));
+		DBManager::instance().Query("REPLACE INTO guild_invite_limit VALUES(%llu, %lld)", static_cast<unsigned long long>(GetID()), static_cast<long long>(get_global_time()));
 
 	return true;
 }
 
-void CGuild::P2PLoginMember(DWORD pid)
+void CGuild::P2PLoginMember(uint64_t pid)
 {
 	if (m_member.find(pid) == m_member.end())
 	{
-		sys_err("GUILD [%d] is not a memeber of guild.", pid);
+		sys_err("GUILD [%llu] is not a memeber of guild.", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -269,7 +269,7 @@ void CGuild::LoginMember(LPCHARACTER ch)
 {
 	if (m_member.find(ch->GetPlayerID()) == m_member.end())
 	{
-		sys_err("GUILD %s[%d] is not a memeber of guild.", ch->GetName(), ch->GetPlayerID());
+		sys_err("GUILD %s[%llu] is not a memeber of guild.", ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()));
 		return;
 	}
 
@@ -290,11 +290,11 @@ void CGuild::LoginMember(LPCHARACTER ch)
 	SendEnemyGuild(ch);
 }
 
-void CGuild::P2PLogoutMember(DWORD pid)
+void CGuild::P2PLogoutMember(uint64_t pid)
 {
 	if (m_member.find(pid)==m_member.end())
 	{
-		sys_err("GUILD [%d] is not a memeber of guild.", pid);
+		sys_err("GUILD [%llu] is not a memeber of guild.", static_cast<unsigned long long>(pid));
 		return;
 	}
 
@@ -312,7 +312,7 @@ void CGuild::LogoutMember(LPCHARACTER ch)
 {
 	if (m_member.find(ch->GetPlayerID())==m_member.end())
 	{
-		sys_err("GUILD %s[%d] is not a memeber of guild.", ch->GetName(), ch->GetPlayerID());
+		sys_err("GUILD %s[%llu] is not a memeber of guild.", ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()));
 		return;
 	}
 
@@ -326,11 +326,11 @@ void CGuild::LogoutMember(LPCHARACTER ch)
 	}
 }
 
-void CGuild::SendOnlineRemoveOnePacket(DWORD pid)
+void CGuild::SendOnlineRemoveOnePacket(uint64_t pid)
 {
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
-	pack.size = sizeof(pack)+4;
+	pack.size = sizeof(pack)+sizeof(uint64_t);
 	pack.subheader = GUILD_SUBHEADER_GC_REMOVE;
 
 	TEMP_BUFFER buf;
@@ -380,7 +380,7 @@ void CGuild::SendListOneToAll(LPCHARACTER ch)
 	SendListOneToAll(ch->GetPlayerID());
 }
 
-void CGuild::SendListOneToAll(DWORD pid)
+void CGuild::SendListOneToAll(uint64_t pid)
 {
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
@@ -408,7 +408,7 @@ void CGuild::SendListOneToAll(DWORD pid)
 
 		cit->second._dummy = 1;
 
-		buf.write(&(cit->second), sizeof(DWORD) * 3 +1);
+		buf.write(&(cit->second), sizeof(uint64_t) + sizeof(DWORD) * 2 + 1);
 		buf.write(cit->second.name.c_str(), cit->second.name.length());
 		buf.write(c, CHARACTER_NAME_MAX_LEN + 1 - cit->second.name.length());
 		d->Packet(buf.read_peek(), buf.size());
@@ -438,7 +438,7 @@ void CGuild::SendListPacket(LPCHARACTER ch)
 	{
 		it->second._dummy = 1;
 
-		buf.write(&(it->second), sizeof(DWORD)*3+1);
+		buf.write(&(it->second), sizeof(uint64_t) + sizeof(DWORD) * 2 + 1);
 
 		strlcpy(c, it->second.name.c_str(), sizeof(c));
 
@@ -466,26 +466,26 @@ void CGuild::SendLoginPacket(LPCHARACTER ch, LPCHARACTER chLogin)
 	SendLoginPacket(ch, chLogin->GetPlayerID());
 }
 
-void CGuild::SendLoginPacket(LPCHARACTER ch, DWORD pid)
+void CGuild::SendLoginPacket(LPCHARACTER ch, uint64_t pid)
 {
 	/*
 	   Login Packet
 	   header 4
-	   pid 4
+	   pid 8
 	 */
 	if (!ch->GetDesc())
 		return;
 
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
-	pack.size = sizeof(pack)+4;
+	pack.size = sizeof(pack)+sizeof(uint64_t);
 	pack.subheader = GUILD_SUBHEADER_GC_LOGIN;
 
 	TEMP_BUFFER buf;
 
 	buf.write(&pack, sizeof(pack));
 
-	buf.write(&pid, 4);
+	buf.write(&pid, sizeof(uint64_t));
 
 	ch->GetDesc()->Packet(buf.read_peek(), buf.size());
 }
@@ -495,25 +495,25 @@ void CGuild::SendLogoutPacket(LPCHARACTER ch, LPCHARACTER chLogout)
 	SendLogoutPacket(ch, chLogout->GetPlayerID());
 }
 
-void CGuild::SendLogoutPacket(LPCHARACTER ch, DWORD pid)
+void CGuild::SendLogoutPacket(LPCHARACTER ch, uint64_t pid)
 {
 	/*
 	   Logout Packet
 	   header 4
-	   pid 4
+	   pid 8
 	 */
 	if (!ch->GetDesc())
 		return;
 
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
-	pack.size = sizeof(pack)+4;
+	pack.size = sizeof(pack)+sizeof(uint64_t);
 	pack.subheader = GUILD_SUBHEADER_GC_LOGOUT;
 
 	TEMP_BUFFER buf;
 
 	buf.write(&pack, sizeof(pack));
-	buf.write(&pid, 4);
+	buf.write(&pid, sizeof(uint64_t));
 
 	ch->GetDesc()->Packet(buf.read_peek(), buf.size());
 }
@@ -531,7 +531,7 @@ void CGuild::LoadGuildMemberData(SQLMsg* pmsg)
 	{
 		MYSQL_ROW row = mysql_fetch_row(pmsg->Get()->pSQLResult);
 
-		DWORD pid = strtoul(row[0], (char**) NULL, 10);
+		uint64_t pid = strtoull(row[0], (char**) NULL, 10);
 		BYTE grade = (BYTE) strtoul(row[1], (char**) NULL, 10);
 		BYTE is_general = 0;
 
@@ -577,7 +577,7 @@ void CGuild::LoadGuildData(SQLMsg* pmsg)
 	}
 
 	MYSQL_ROW row = mysql_fetch_row(pmsg->Get()->pSQLResult);
-	m_data.master_pid = strtoul(row[0], (char **)NULL, 10);
+	m_data.master_pid = strtoull(row[0], (char **)NULL, 10);
 	m_data.level = (BYTE)strtoul(row[1], (char **)NULL, 10);
 	m_data.exp = strtoul(row[2], (char **)NULL, 10);
 	strlcpy(m_data.name, row[3], sizeof(m_data.name));
@@ -606,7 +606,7 @@ void CGuild::LoadGuildData(SQLMsg* pmsg)
 	ComputeGuildPoints();
 }
 
-void CGuild::Load(DWORD guild_id)
+void CGuild::Load(uint64_t guild_id)
 {
 	Initialize();
 
@@ -617,20 +617,20 @@ void CGuild::Load(DWORD guild_id)
 			#ifdef ENABLE_GUILD_TOKEN_AUTH
 			", token "
 			#endif
-			" FROM guild%s WHERE id = %u", get_table_postfix(), m_data.guild_id);
+			" FROM guild%s WHERE id = %llu", get_table_postfix(), static_cast<unsigned long long>(m_data.guild_id));
 
-	sys_log(0, "GUILD: loading guild id %12s %u", m_data.name, guild_id);
+	sys_log(0, "GUILD: loading guild id %12s %llu", m_data.name, static_cast<unsigned long long>(guild_id));
 
 	DBManager::instance().FuncQuery(msl::bind1st(std::mem_fn(&CGuild::LoadGuildGradeData), this),
-			"SELECT grade, name, auth+0 FROM guild_grade%s WHERE guild_id = %u", get_table_postfix(), m_data.guild_id);
+			"SELECT grade, name, auth+0 FROM guild_grade%s WHERE guild_id = %llu", get_table_postfix(), static_cast<unsigned long long>(m_data.guild_id));
 
 	DBManager::instance().FuncQuery(msl::bind1st(std::mem_fn(&CGuild::LoadGuildMemberData), this),
-			"SELECT pid, grade, is_general, offer, level, job, name FROM guild_member%s, player%s WHERE guild_id = %u and pid = id", get_table_postfix(), get_table_postfix(), guild_id);
+			"SELECT pid, grade, is_general, offer, level, job, name FROM guild_member%s, player%s WHERE guild_id = %llu and pid = id", get_table_postfix(), get_table_postfix(), static_cast<unsigned long long>(guild_id));
 }
 
 void CGuild::SaveLevel()
 {
-	DBManager::instance().Query("UPDATE guild%s SET level=%d, exp=%u, skill_point=%d WHERE id = %u", get_table_postfix(), m_data.level,m_data.exp, m_data.skill_point,m_data.guild_id);
+	DBManager::instance().Query("UPDATE guild%s SET level=%d, exp=%u, skill_point=%d WHERE id = %llu", get_table_postfix(), m_data.level,m_data.exp, m_data.skill_point, static_cast<unsigned long long>(m_data.guild_id));
 }
 
 void CGuild::SendDBSkillUpdate(int amount)
@@ -649,11 +649,11 @@ void CGuild::SaveSkill()
 	char text[GUILD_SKILL_COUNT * 2 + 1];
 
 	DBManager::instance().EscapeString(text, sizeof(text), (const char *) m_data.abySkill, sizeof(m_data.abySkill));
-	DBManager::instance().Query("UPDATE guild%s SET sp = %d, skill_point=%d, skill='%s' WHERE id = %u",
-			get_table_postfix(), m_data.power, m_data.skill_point, text, m_data.guild_id);
+	DBManager::instance().Query("UPDATE guild%s SET sp = %d, skill_point=%d, skill='%s' WHERE id = %llu",
+			get_table_postfix(), m_data.power, m_data.skill_point, text, static_cast<unsigned long long>(m_data.guild_id));
 }
 
-TGuildMember* CGuild::GetMember(DWORD pid)
+TGuildMember* CGuild::GetMember(uint64_t pid)
 {
 	TGuildMemberContainer::iterator it = m_member.find(pid);
 	if (it==m_member.end())
@@ -662,7 +662,7 @@ TGuildMember* CGuild::GetMember(DWORD pid)
 	return &it->second;
 }
 
-DWORD CGuild::GetMemberPID(const std::string& strName)
+uint64_t CGuild::GetMemberPID(const std::string& strName)
 {
 	for ( TGuildMemberContainer::iterator iter = m_member.begin();
 			iter != m_member.end(); iter++ )
@@ -754,7 +754,7 @@ void CGuild::__P2PUpdateGrade(SQLMsg* pmsg)
 void CGuild::P2PChangeGrade(BYTE grade)
 {
 	DBManager::instance().FuncQuery(msl::bind1st(std::mem_fn(&CGuild::__P2PUpdateGrade),this),
-			"SELECT grade, name, auth+0 FROM guild_grade%s WHERE guild_id = %u and grade = %d", get_table_postfix(), m_data.guild_id, grade);
+			"SELECT grade, name, auth+0 FROM guild_grade%s WHERE guild_id = %llu and grade = %d", get_table_postfix(), static_cast<unsigned long long>(m_data.guild_id), grade);
 }
 
 namespace
@@ -764,7 +764,7 @@ namespace
 		BYTE grade;
 		TPacketGuild p;
 
-		FSendChangeGrade(DWORD guild_id, BYTE in_grade) : grade(in_grade)
+		FSendChangeGrade(uint64_t guild_id, BYTE in_grade) : grade(in_grade)
 		{
 			p.dwGuild = guild_id;
 			p.dwInfo = in_grade;
@@ -797,7 +797,7 @@ void CGuild::ChangeGradeName(BYTE grade, const char* grade_name)
 	char text[GUILD_NAME_MAX_LEN * 2 + 1];
 
 	DBManager::instance().EscapeString(text, sizeof(text), grade_name, strlen(grade_name));
-	DBManager::instance().FuncAfterQuery(FSendChangeGrade(GetID(), grade), "UPDATE guild_grade%s SET name = '%s' where guild_id = %u and grade = %d", get_table_postfix(), text, m_data.guild_id, grade);
+	DBManager::instance().FuncAfterQuery(FSendChangeGrade(GetID(), grade), "UPDATE guild_grade%s SET name = '%s' where guild_id = %llu and grade = %d", get_table_postfix(), text, static_cast<unsigned long long>(m_data.guild_id), grade);
 
 	grade--;
 	strlcpy(m_data.grade_array[grade].grade_name, grade_name, sizeof(m_data.grade_array[grade].grade_name));
@@ -836,7 +836,7 @@ void CGuild::ChangeGradeAuth(BYTE grade, BYTE auth)
 		return;
 	}
 
-	DBManager::instance().FuncAfterQuery(FSendChangeGrade(GetID(),grade), "UPDATE guild_grade%s SET auth = %d where guild_id = %u and grade = %d", get_table_postfix(), auth, m_data.guild_id, grade);
+	DBManager::instance().FuncAfterQuery(FSendChangeGrade(GetID(),grade), "UPDATE guild_grade%s SET auth = %d where guild_id = %llu and grade = %d", get_table_postfix(), auth, static_cast<unsigned long long>(m_data.guild_id), grade);
 
 	grade--;
 
@@ -891,7 +891,7 @@ void CGuild::SendGuildInfoPacket(LPCHARACTER ch)
 	pack_sub.has_land	= HasLand();
 
 	sys_log(0, "GMC guild_name %s", m_data.name);
-	sys_log(0, "GMC master %d", m_data.master_pid);
+	sys_log(0, "GMC master %llu", static_cast<unsigned long long>(m_data.master_pid));
 
 	d->BufferedPacket(pack);
 	d->Packet(pack_sub);
@@ -921,7 +921,7 @@ bool CGuild::OfferExp(LPCHARACTER ch, int amount)
 
 	if (ch->GetExp() - (DWORD) amount > ch->GetExp())
 	{
-		sys_err("Wrong guild offer amount %d by %s[%u]", amount, ch->GetName(), ch->GetPlayerID());
+		sys_err("Wrong guild offer amount %d by %s[%llu]", amount, ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()));
 		return false;
 	}
 
@@ -945,9 +945,9 @@ bool CGuild::OfferExp(LPCHARACTER ch, int amount)
 		if (d)
 		{
 			pack.subheader = GUILD_SUBHEADER_GC_LIST;
-			pack.size = sizeof(pack) + 13;
+			pack.size = sizeof(pack) + sizeof(uint64_t) + sizeof(DWORD) * 2 + 1;
 			d->BufferedPacket(pack);
-			d->Packet(&(cit->second), sizeof(DWORD) * 3 + 1);
+			d->Packet(&(cit->second), sizeof(uint64_t) + sizeof(DWORD) * 2 + 1);
 		}
 	}
 
@@ -967,7 +967,7 @@ bool CGuild::OfferExp(LPCHARACTER ch, int amount)
 
 void CGuild::Disband()
 {
-	sys_log(0, "GUILD: Disband %s:%u", GetName(), GetID());
+	sys_log(0, "GUILD: Disband %s:%llu", GetName(), static_cast<unsigned long long>(GetID()));
 
 	for (TGuildMemberOnlineContainer::iterator it = m_memberOnline.begin(); it != m_memberOnline.end(); ++it)
 	{
@@ -983,7 +983,7 @@ void CGuild::Disband()
 	}
 }
 
-void CGuild::RequestDisband(DWORD pid)
+void CGuild::RequestDisband(uint64_t pid)
 {
 	if (m_data.master_pid != pid)
 		return;
@@ -1018,8 +1018,8 @@ void CGuild::AddComment(LPCHARACTER ch, const std::string& str)
 
 	auto pid = ch->GetPlayerID();
 	DBManager::instance().FuncAfterQuery([this, pid](){ this->RefreshCommentForce(pid); },
-			"INSERT INTO guild_comment%s(guild_id, name, notice, content, time) VALUES(%u, '%s', %d, '%s', NOW())",
-			get_table_postfix(), m_data.guild_id, ch->GetName(), (str[0] == '!') ? 1 : 0, text);
+			"INSERT INTO guild_comment%s(guild_id, name, notice, content, time) VALUES(%llu, '%s', %d, '%s', NOW())",
+			get_table_postfix(), static_cast<unsigned long long>(m_data.guild_id), ch->GetName(), (str[0] == '!') ? 1 : 0, text);
 }
 
 void CGuild::DeleteComment(LPCHARACTER ch, DWORD comment_id)
@@ -1034,9 +1034,9 @@ void CGuild::DeleteComment(LPCHARACTER ch, DWORD comment_id)
 	std::unique_ptr<SQLMsg> pmsg;
 
 	if (GetMember(ch->GetPlayerID())->grade == GUILD_LEADER_GRADE)
-		pmsg = DBManager::instance().DirectQuery("DELETE FROM guild_comment%s WHERE id = %u AND guild_id = %u",get_table_postfix(), comment_id, m_data.guild_id);
+		pmsg = DBManager::instance().DirectQuery("DELETE FROM guild_comment%s WHERE id = %u AND guild_id = %llu",get_table_postfix(), comment_id, static_cast<unsigned long long>(m_data.guild_id));
 	else
-		pmsg = DBManager::instance().DirectQuery("DELETE FROM guild_comment%s WHERE id = %u AND guild_id = %u AND name = '%s'",get_table_postfix(), comment_id, m_data.guild_id, ch->GetName());
+		pmsg = DBManager::instance().DirectQuery("DELETE FROM guild_comment%s WHERE id = %u AND guild_id = %llu AND name = '%s'",get_table_postfix(), comment_id, static_cast<unsigned long long>(m_data.guild_id), ch->GetName());
 
 	if (pmsg->Get()->uiAffectedRows == 0 || pmsg->Get()->uiAffectedRows == (uint32_t)-1)
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] This message cannot be deleted."));
@@ -1056,14 +1056,14 @@ void CGuild::RefreshComment(LPCHARACTER ch)
 	RefreshCommentForce(ch->GetPlayerID());
 }
 
-void CGuild::RefreshCommentForce(DWORD player_id)
+void CGuild::RefreshCommentForce(uint64_t player_id)
 {
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(player_id);
 	if (ch == NULL) {
 		return;
 	}
 
-	auto pmsg(DBManager::instance().DirectQuery("SELECT id, name, content FROM guild_comment%s WHERE guild_id = %u ORDER BY notice DESC, id DESC LIMIT %d", get_table_postfix(), m_data.guild_id, GUILD_COMMENT_MAX_COUNT));
+	auto pmsg(DBManager::instance().DirectQuery("SELECT id, name, content FROM guild_comment%s WHERE guild_id = %llu ORDER BY notice DESC, id DESC LIMIT %d", get_table_postfix(), static_cast<unsigned long long>(m_data.guild_id), GUILD_COMMENT_MAX_COUNT));
 
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
@@ -1103,7 +1103,7 @@ void CGuild::RefreshCommentForce(DWORD player_id)
 	}
 }
 
-bool CGuild::ChangeMemberGeneral(DWORD pid, BYTE is_general)
+bool CGuild::ChangeMemberGeneral(uint64_t pid, BYTE is_general)
 {
 	if (is_general && GetGeneralCount() >= GetMaxGeneralCount())
 		return false;
@@ -1130,7 +1130,7 @@ bool CGuild::ChangeMemberGeneral(DWORD pid, BYTE is_general)
 
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
-	pack.size = sizeof(pack)+5;
+	pack.size = sizeof(pack)+sizeof(uint64_t)+1;
 	pack.subheader = GUILD_SUBHEADER_GC_CHANGE_MEMBER_GENERAL;
 
 	while (itOnline != m_memberOnline.end())
@@ -1149,7 +1149,7 @@ bool CGuild::ChangeMemberGeneral(DWORD pid, BYTE is_general)
 	return true;
 }
 
-void CGuild::ChangeMemberGrade(DWORD pid, BYTE grade)
+void CGuild::ChangeMemberGrade(uint64_t pid, BYTE grade)
 {
 	if (grade == 1)
 		return;
@@ -1165,7 +1165,7 @@ void CGuild::ChangeMemberGrade(DWORD pid, BYTE grade)
 
 	TPacketGCGuild pack;
 	pack.header = HEADER_GC_GUILD;
-	pack.size = sizeof(pack)+5;
+	pack.size = sizeof(pack)+sizeof(uint64_t)+1;
 	pack.subheader = GUILD_SUBHEADER_GC_CHANGE_MEMBER_GRADE;
 
 	while (itOnline != m_memberOnline.end())
@@ -1226,7 +1226,7 @@ void CGuild::SkillLevelUp(DWORD dwVnum)
 	sys_log(0, "Guild SkillUp: %s %d level %d type %u", GetName(), pkSk->dwVnum, m_data.abySkill[dwRealVnum], pkSk->dwType);
 }
 
-void CGuild::UseSkill(DWORD dwVnum, LPCHARACTER ch, DWORD pid)
+void CGuild::UseSkill(DWORD dwVnum, LPCHARACTER ch, uint64_t pid)
 {
 	LPCHARACTER victim = NULL;
 
@@ -1303,7 +1303,7 @@ void CGuild::UseSkill(DWORD dwVnum, LPCHARACTER ch, DWORD pid)
 	abSkillUsable[dwRealVnum] = false;
 
 	if (test_server)
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("<Guild> %d Skills used (%d, %d) to %u"), (int)dwVnum, GetSP(), iNeededSP, (unsigned int)pid);
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("<Guild> %d Skills used (%d, %d) to %llu"), (int)dwVnum, GetSP(), iNeededSP, static_cast<unsigned long long>(pid));
 
 	switch (dwVnum)
 	{
@@ -1493,7 +1493,7 @@ void CGuild::SkillRecharge()
 {
 }
 
-void CGuild::SaveMember(DWORD pid)
+void CGuild::SaveMember(uint64_t pid)
 {
 	TGuildMemberContainer::iterator it = m_member.find(pid);
 
@@ -1501,11 +1501,11 @@ void CGuild::SaveMember(DWORD pid)
 		return;
 
 	DBManager::instance().Query(
-			"UPDATE guild_member%s SET grade = %d, offer = %u, is_general = %d WHERE pid = %u and guild_id = %u",
-			get_table_postfix(), it->second.grade, it->second.offer_exp, it->second.is_general, pid, m_data.guild_id);
+			"UPDATE guild_member%s SET grade = %d, offer = %u, is_general = %d WHERE pid = %llu and guild_id = %llu",
+			get_table_postfix(), it->second.grade, it->second.offer_exp, it->second.is_general, static_cast<unsigned long long>(pid), static_cast<unsigned long long>(m_data.guild_id));
 }
 
-void CGuild::LevelChange(DWORD pid, BYTE level)
+void CGuild::LevelChange(uint64_t pid, BYTE level)
 {
 	TGuildMemberContainer::iterator cit = m_member.find(pid);
 
@@ -1535,14 +1535,14 @@ void CGuild::LevelChange(DWORD pid, BYTE level)
 		if (d)
 		{
 			pack.subheader = GUILD_SUBHEADER_GC_LIST;
-			pack.size = sizeof(pack) + 13;
+			pack.size = sizeof(pack) + sizeof(uint64_t) + sizeof(DWORD) * 2 + 1;
 			d->BufferedPacket(pack);
-			d->Packet(&(cit->second), sizeof(DWORD) * 3 + 1);
+			d->Packet(&(cit->second), sizeof(uint64_t) + sizeof(DWORD) * 2 + 1);
 		}
 	}
 }
 
-void CGuild::ChangeMemberData(DWORD pid, DWORD offer, BYTE level, BYTE grade)
+void CGuild::ChangeMemberData(uint64_t pid, DWORD offer, BYTE level, BYTE grade)
 {
 	TGuildMemberContainer::iterator cit = m_member.find(pid);
 
@@ -1564,9 +1564,9 @@ void CGuild::ChangeMemberData(DWORD pid, DWORD offer, BYTE level, BYTE grade)
 		if (d)
 		{
 			pack.subheader = GUILD_SUBHEADER_GC_LIST;
-			pack.size = sizeof(pack) + 13;
+			pack.size = sizeof(pack) + sizeof(uint64_t) + sizeof(DWORD) * 2 + 1;
 			d->BufferedPacket(pack);
-			d->Packet(&(cit->second), sizeof(DWORD) * 3 + 1);
+			d->Packet(&(cit->second), sizeof(uint64_t) + sizeof(DWORD) * 2 + 1);
 		}
 	}
 }
@@ -1756,11 +1756,11 @@ void CGuild::RequestDepositMoney(LPCHARACTER ch, YANG iGold)
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_DEPOSIT_MONEY, 0, &p, sizeof(p));
 
 	char buf[64+1];
-	snprintf(buf, sizeof(buf), "%u %s", static_cast<unsigned int>(GetID()), GetName());
+	snprintf(buf, sizeof(buf), "%llu %s", static_cast<unsigned long long>(GetID()), GetName());
 	LogManager::instance().CharLog(ch, iGold, "GUILD_DEPOSIT", buf);
 
 	ch->UpdateDepositPulse(3);
-	sys_log(0, "GUILD: DEPOSIT %s:%u player %s[%u] gold %lld", GetName(), GetID(), ch->GetName(), ch->GetPlayerID(), iGold);
+	sys_log(0, "GUILD: DEPOSIT %s:%llu player %s[%llu] gold %lld", GetName(), static_cast<unsigned long long>(GetID()), ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()), static_cast<long long>(iGold));
 }
 
 void CGuild::RequestWithdrawMoney(LPCHARACTER ch, YANG iGold)
@@ -1831,7 +1831,7 @@ void CGuild::RecvWithdrawMoneyGive(YANG iChangeGold)
 	if (ch && iChangeGold > 0 && ch->GetGold() >= 0 && iChangeGold < GOLD_MAX - ch->GetGold())
 	{
 		ch->ChangeGold(iChangeGold);
-		sys_log(0, "GUILD: WITHDRAW %s:%u player %s[%u] gold %lld", GetName(), GetID(), ch->GetName(), ch->GetPlayerID(), iChangeGold);
+		sys_log(0, "GUILD: WITHDRAW %s:%llu player %s[%llu] gold %lld", GetName(), static_cast<unsigned long long>(GetID()), ch->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()), static_cast<long long>(iChangeGold));
 		bGiveSuccess = true;
 	}
 
@@ -1850,8 +1850,8 @@ bool CGuild::HasLand()
 // GUILD_JOIN_BUG_FIX
 EVENTINFO(TInviteGuildEventInfo)
 {
-	DWORD	dwInviteePID;
-	DWORD	dwGuildID;
+	uint64_t	dwInviteePID;
+	uint64_t	dwGuildID;
 
 	TInviteGuildEventInfo()
 	: dwInviteePID( 0 )
@@ -1944,16 +1944,16 @@ void CGuild::Invite( LPCHARACTER pchInviter, LPCHARACTER pchInvitee )
 
 	m_GuildInviteEventMap.emplace(pchInvitee->GetPlayerID(), event_create(GuildInviteEvent, pInfo, PASSES_PER_SEC(10)));
 
-	DWORD gid = GetID();
+	uint64_t gid = GetID();
 
 	TPacketGCGuild p;
 	p.header	= HEADER_GC_GUILD;
-	p.size	= sizeof(p) + sizeof(DWORD) + GUILD_NAME_MAX_LEN + 1;
+	p.size	= sizeof(p) + sizeof(uint64_t) + GUILD_NAME_MAX_LEN + 1;
 	p.subheader	= GUILD_SUBHEADER_GC_GUILD_INVITE;
 
 	TEMP_BUFFER buf;
 	buf.write( &p, sizeof(p) );
-	buf.write( &gid, sizeof(DWORD) );
+	buf.write( &gid, sizeof(uint64_t) );
 	buf.write( GetName(), GUILD_NAME_MAX_LEN + 1 );
 
 	pchInvitee->GetDesc()->Packet( buf.read_peek(), buf.size() );
@@ -1996,12 +1996,12 @@ void CGuild::InviteAccept( LPCHARACTER pchInvitee )
 	RequestAddMember( pchInvitee, 15 );
 }
 
-void CGuild::InviteDeny( DWORD dwPID )
+void CGuild::InviteDeny( uint64_t dwPID )
 {
 	EventMap::iterator itFind = m_GuildInviteEventMap.find( dwPID );
 	if ( itFind == m_GuildInviteEventMap.end() )
 	{
-		sys_log( 0, "GuildInviteDeny from not invited character(invite guild: %s, invitee PID: %d)", GetName(), dwPID );
+		sys_log( 0, "GuildInviteDeny from not invited character(invite guild: %s, invitee PID: %llu)", GetName(), static_cast<unsigned long long>(dwPID) );
 		return;
 	}
 
@@ -2031,7 +2031,7 @@ CGuild::GuildJoinErrCode CGuild::VerifyGuildJoinableCondition( const LPCHARACTER
 	}
 	else if (g_bGuildInviteLimit)
 	{
-		auto pMsg( DBManager::instance().DirectQuery("SELECT value FROM guild_invite_limit WHERE id=%d", GetID()) );
+		auto pMsg( DBManager::instance().DirectQuery("SELECT value FROM guild_invite_limit WHERE id=%llu", static_cast<unsigned long long>(GetID())) );
 		if ( pMsg->Get()->uiNumRows > 0 )
 		{
 			MYSQL_ROW row = mysql_fetch_row(pMsg->Get()->pSQLResult);
@@ -2055,7 +2055,7 @@ CGuild::GuildJoinErrCode CGuild::VerifyGuildJoinableCondition( const LPCHARACTER
 }
 // END_OF_GUILD_JOIN_BUG_FIX
 
-bool CGuild::ChangeMasterTo(DWORD dwPID)
+bool CGuild::ChangeMasterTo(uint64_t dwPID)
 {
 	if ( GetMember(dwPID) == NULL ) return false;
 
@@ -2143,4 +2143,3 @@ void CGuild::SetSkillPoint(BYTE point)
 }
 
 #endif
-

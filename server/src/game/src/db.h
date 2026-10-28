@@ -56,7 +56,7 @@ class CReturnQueryInfo : public CQueryInfo
 {
 	public:
 		int	iType;
-		DWORD	dwIdent;
+		uint64_t	dwIdent;
 		void			*	pvData;
 };
 
@@ -89,7 +89,7 @@ class DBManager : public singleton<DBManager>
 
 		std::unique_ptr<SQLMsg>		AccountQuery(const char* c_pszFormat, ...);
 		std::unique_ptr<SQLMsg>		DirectQuery(const char * c_pszFormat, ...);
-		void			ReturnQuery(int iType, DWORD dwIdent, void* pvData, const char * c_pszFormat, ...);
+		void			ReturnQuery(int iType, uint64_t dwIdent, void* pvData, const char * c_pszFormat, ...);
 
 		void			Process();
 		void			AnalyzeReturnQuery(SQLMsg * pmsg);
@@ -170,7 +170,7 @@ class AccountDB : public singleton<AccountDB>
 		bool ConnectAsync(const char * host, const int port, const char * user, const char * pwd, const char * db, const char * locale);
 
 		std::unique_ptr<SQLMsg> DirectQuery(const char * query);
-		void ReturnQuery(int iType, DWORD dwIdent, void * pvData, const char * c_pszFormat, ...);
+		void ReturnQuery(int iType, uint64_t dwIdent, void * pvData, const char * c_pszFormat, ...);
 		void AsyncQuery(const char* query);
 
 		void SetLocale(const std::string & stLocale);
@@ -188,4 +188,3 @@ class AccountDB : public singleton<AccountDB>
 //END_ACCOUNT_DB
 
 #endif
-

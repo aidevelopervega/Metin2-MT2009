@@ -28,7 +28,7 @@ class CHARACTER_MANAGER : public singleton<CHARACTER_MANAGER>
 
 		DWORD			AllocVID();
 
-		LPCHARACTER             CreateCharacter(const char * name, DWORD dwPID = 0);
+		LPCHARACTER             CreateCharacter(const char * name, uint64_t dwPID = 0);
 #ifndef DEBUG_ALLOC
 		void DestroyCharacter(LPCHARACTER ch);
 #else
@@ -51,9 +51,9 @@ class CHARACTER_MANAGER : public singleton<CHARACTER_MANAGER>
 		LPCHARACTER		Find(DWORD dwVID);
 		LPCHARACTER		Find(const VID & vid);
 		LPCHARACTER		FindPC(const char * name);
-		LPCHARACTER		FindByPID(DWORD dwPID);
+		LPCHARACTER		FindByPID(uint64_t dwPID);
 
-		LPCHARACTER FindPlayer(DWORD pid);
+		LPCHARACTER FindPlayer(uint64_t pid);
 		LPCHARACTER FindPlayer(const char* name);
 		LPCHARACTER FindPlayerArg(const char* arg);
 
@@ -125,7 +125,7 @@ class CHARACTER_MANAGER : public singleton<CHARACTER_MANAGER>
 		DWORD				m_iVIDCount;
 
 		std::unordered_map<DWORD, LPCHARACTER> m_map_pkChrByVID;
-		std::unordered_map<DWORD, LPCHARACTER> m_map_pkChrByPID;
+		std::unordered_map<uint64_t, LPCHARACTER> m_map_pkChrByPID;
 		NAME_MAP			m_map_pkPCChr;
 
 		CHARACTER_SET		m_set_pkChrState;
@@ -176,4 +176,3 @@ class CharacterVectorInteractor : public CHARACTER_VECTOR
 
 #define M2_DESTROY_CHARACTER_EX(ptr) if (ptr) { M2_DESTROY_CHARACTER(ptr); ptr = nullptr; }
 #endif
-

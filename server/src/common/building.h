@@ -17,7 +17,7 @@ namespace building
 		int32_t	lMapIndex;
 		int32_t	x, y;
 		int32_t	width, height;
-		DWORD	dwGuildID;
+		uint64_t	dwGuildID;
 		BYTE	bGuildLevelLimit;
 		YANG	dwPrice;
 	} TLand;
@@ -65,4 +65,3 @@ namespace building
 };
 
 #endif
-

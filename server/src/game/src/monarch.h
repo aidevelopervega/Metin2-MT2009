@@ -14,7 +14,7 @@ class CMonarch : public singleton<CMonarch>
 		int HealMyEmpire(LPCHARACTER ch, YANG price);
 		void SetMonarchInfo(TMonarchInfo * pInfo);
 
-		bool IsMonarch(DWORD pid, BYTE bEmpire);
+		bool IsMonarch(uint64_t pid, BYTE bEmpire);
 		bool IsMoneyOk(YANG price, BYTE bEmpire);
 		bool SendtoDBAddMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch);
 		bool SendtoDBDecMoney(YANG Money, BYTE bEmpire, LPCHARACTER ch);
@@ -25,7 +25,7 @@ class CMonarch : public singleton<CMonarch>
 
 		TMonarchInfo* GetMonarch();
 
-		DWORD GetMonarchPID(BYTE Empire);
+		uint64_t GetMonarchPID(BYTE Empire);
 
 		bool IsPowerUp(BYTE Empire);
 		bool IsDefenceUp(BYTE Empire);
@@ -59,4 +59,3 @@ class CMonarch : public singleton<CMonarch>
 bool IsMonarchWarpZone (int map_idx);
 
 #endif
-

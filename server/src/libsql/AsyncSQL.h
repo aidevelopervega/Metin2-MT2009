@@ -51,10 +51,11 @@ typedef struct _SQLResult
 		}
 	}
 
-	bool		HasValidInsertID() const { return ullInsertID != 0 && ullInsertID <= UINT32_MAX; }
+	bool		HasValidInsertID() const { return ullInsertID != 0; }
+	bool		HasValidInsertID32() const { return ullInsertID != 0 && ullInsertID <= UINT32_MAX; }
 	bool		HasValidAffectedRows() const { return ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows <= UINT32_MAX; }
 	bool		HasValidNumRows() const { return ullNumRows <= UINT32_MAX; }
-	bool		IsOverflow() const { return ullNumRows > UINT32_MAX || (ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows > UINT32_MAX) || ullInsertID > UINT32_MAX; }
+	bool		IsOverflow() const { return ullNumRows > UINT32_MAX || (ullAffectedRows != static_cast<my_ulonglong>(-1) && ullAffectedRows > UINT32_MAX); }
 
 	MYSQL_RES *	pSQLResult;
 	uint32_t		uiNumRows;
@@ -98,8 +99,6 @@ typedef struct _SQLMsg
 			if (pRes->ullInsertID > UINT32_MAX)
 			{
 				pRes->uiInsertID = 0;
-				if (uiSQLErrno == 0)
-					uiSQLErrno = 1264;
 			}
 			else
 			{

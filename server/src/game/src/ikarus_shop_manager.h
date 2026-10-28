@@ -132,15 +132,15 @@ namespace ikashop
 		using AUCTION_HANDLE = std::shared_ptr<CAuction>;
 
 		using SHOP_LIMIT_MAP = std::map<DWORD, TOfflineShopLimit>;
-		using SHOPMAP = std::map<DWORD, SHOP_HANDLE>;
-		using SAFEBOXMAP = std::map<DWORD, SAFEBOX_HANDLE>;
-		using OFFERSMAPBUYER = std::map<DWORD, std::vector<OFFER_HANDLE>>;
-		using OFFERSMAP = std::map<DWORD, OFFER_HANDLE>;
-		using SEARCHTIMEMAP = std::map<DWORD, DWORD>;
-		using AUCTIONMAP = std::map<DWORD, AUCTION_HANDLE>;
+		using SHOPMAP = std::map<uint64_t, SHOP_HANDLE>;
+		using SAFEBOXMAP = std::map<uint64_t, SAFEBOX_HANDLE>;
+		using OFFERSMAPBUYER = std::map<uint64_t, std::vector<OFFER_HANDLE>>;
+		using OFFERSMAP = std::map<uint64_t, OFFER_HANDLE>;
+		using SEARCHTIMEMAP = std::map<uint64_t, DWORD>;
+		using AUCTIONMAP = std::map<uint64_t, AUCTION_HANDLE>;
 
 #ifdef EXTEND_IKASHOP_PRO
-		using NOTIFICATION_MAP = std::unordered_map<DWORD, std::vector<TNotificationInfo>>;
+		using NOTIFICATION_MAP = std::unordered_map<uint64_t, std::vector<TNotificationInfo>>;
 #endif
 
 #ifdef ENABLE_IKASHOP_ENTITIES
@@ -158,9 +158,9 @@ namespace ikashop
 
 		void PrepareShopSearchFilters();
 
-		SHOP_HANDLE GetShopByOwnerID(DWORD pid);
-		SAFEBOX_HANDLE GetShopSafeboxByOwnerID(DWORD pid);
-		AUCTION_HANDLE GetAuctionByOwnerID(DWORD pid);
+		SHOP_HANDLE GetShopByOwnerID(uint64_t pid);
+		SAFEBOX_HANDLE GetShopSafeboxByOwnerID(uint64_t pid);
+		AUCTION_HANDLE GetAuctionByOwnerID(uint64_t pid);
 
 		//offers
 		bool PutsNewOffer(OFFER_HANDLE pInfo);
@@ -183,62 +183,62 @@ namespace ikashop
 	public:
 //packets exchanging db
 //ITEMS
-/*db*/	void SendShopBuyDBPacket(DWORD buyerid, DWORD ownerid,DWORD itemid, bool success);
-/*db*/	void SendShopLockBuyItemDBPacket(LPCHARACTER buyer, DWORD ownerid, ITEM_HANDLE item, long long seenprice); //patch seen price check
+/*db*/	void SendShopBuyDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid, bool success);
+/*db*/	void SendShopLockBuyItemDBPacket(LPCHARACTER buyer, uint64_t ownerid, ITEM_HANDLE item, long long seenprice); //patch seen price check
 			 
-/*db*/	bool RecvShopLockedBuyItemDBPacket(DWORD buyerid, DWORD ownerid,DWORD itemid);
-/*db*/	bool RecvShopBuyDBPacket(DWORD buyerid, DWORD ownerid, DWORD itemid, bool requester);
+/*db*/	bool RecvShopLockedBuyItemDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid);
+/*db*/	bool RecvShopBuyDBPacket(uint64_t buyerid, uint64_t ownerid, uint64_t itemid, bool requester);
 			 
-/*db*/	void SendShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price);
-/*db*/	bool RecvShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price);
-			 
-			 
-/*db*/	void SendShopRemoveItemDBPacket(DWORD ownerid, DWORD itemid);
-/*db*/	bool RecvShopRemoveItemDBPacket(DWORD ownerid, DWORD itemid, bool requester);
+/*db*/	void SendShopEditItemDBPacket(uint64_t ownerid, uint64_t itemid, const TPriceInfo& price);
+/*db*/	bool RecvShopEditItemDBPacket(uint64_t ownerid, uint64_t itemid, const TPriceInfo& price);
 			 
 			 
-/*db*/	void SendShopAddItemDBPacket(DWORD ownerid, const TShopItem& iteminfo);
-/*db*/	bool RecvShopAddItemDBPacket(DWORD ownerid, const TShopItem& iteminfo);
+/*db*/	void SendShopRemoveItemDBPacket(uint64_t ownerid, uint64_t itemid);
+/*db*/	bool RecvShopRemoveItemDBPacket(uint64_t ownerid, uint64_t itemid, bool requester);
+			 
+			 
+/*db*/	void SendShopAddItemDBPacket(uint64_t ownerid, const TShopItem& iteminfo);
+/*db*/	bool RecvShopAddItemDBPacket(uint64_t ownerid, const TShopItem& iteminfo);
 			 
 //SHOPS 	 
-/*db*/	void SendShopForceHardCloseDBPacket(DWORD pid);
-/*db*/	void SendShopForceSoftCloseDBPacket(DWORD pid, bool gm);
-/*db*/	bool RecvShopForceCloseDBPacket(DWORD pid);
-/*db*/	bool RecvShopExpiredDBPacket(DWORD pid);
+/*db*/	void SendShopForceHardCloseDBPacket(uint64_t pid);
+/*db*/	void SendShopForceSoftCloseDBPacket(uint64_t pid, bool gm);
+/*db*/	bool RecvShopForceCloseDBPacket(uint64_t pid);
+/*db*/	bool RecvShopExpiredDBPacket(uint64_t pid);
 			 
 /*db*/	void SendShopCreateNewDBPacket(const TShopInfo&, const TShopItem*);
 /*db*/	bool RecvShopCreateNewDBPacket(const TShopInfo&, const TShopItem*);
 			 
-/*db*/	void SendShopChangeNameDBPacket(DWORD ownerid, const char* name);
-/*db*/	bool RecvShopChangeNameDBPacket(DWORD ownerid, const char* name);	
+/*db*/	void SendShopChangeNameDBPacket(uint64_t ownerid, const char* name);
+/*db*/	bool RecvShopChangeNameDBPacket(uint64_t ownerid, const char* name);
 
-/*db*/	void SendShopOwnerOnlineDBPacket(DWORD ownerID, const bool ownerOnlineState);
-/*db*/	bool RecvShopOwnerOnlineDBPacket(DWORD ownerID, const bool ownerOnlineState);
+/*db*/	void SendShopOwnerOnlineDBPacket(uint64_t ownerID, const bool ownerOnlineState);
+/*db*/	bool RecvShopOwnerOnlineDBPacket(uint64_t ownerID, const bool ownerOnlineState);
 			 
 //OFFER		 
 /*db*/	void SendShopOfferNewDBPacket(const TOfferInfo& offer, ITEM_HANDLE item);
 /*db*/	bool RecvShopOfferNewDBPacket(const TOfferInfo& offer);
 			 
-/*db*/	void SendShopOfferNotifiedDBPacket(DWORD offerid, DWORD ownerid);
-/*db*/	bool RecvShopOfferNotifiedDBPacket(DWORD offerid, DWORD ownerid);
+/*db*/	void SendShopOfferNotifiedDBPacket(uint64_t offerid, uint64_t ownerid);
+/*db*/	bool RecvShopOfferNotifiedDBPacket(uint64_t offerid, uint64_t ownerid);
 			 
 /*db*/	void SendShopOfferAcceptDBPacket(const TOfferInfo& offer);
-/*db*/	bool RecvShopOfferAcceptDBPacket(DWORD offerid, DWORD ownerid);
+/*db*/	bool RecvShopOfferAcceptDBPacket(uint64_t offerid, uint64_t ownerid);
 			 
-/*db*/	void SendShopOfferCancelDBPacket(const TOfferInfo& offer, DWORD requester);
-/*db*/	bool RecvShopOfferCancelDBPacket(DWORD offerid, DWORD ownerid, bool removing);			 
+/*db*/	void SendShopOfferCancelDBPacket(const TOfferInfo& offer, uint64_t requester);
+/*db*/	bool RecvShopOfferCancelDBPacket(uint64_t offerid, uint64_t ownerid, bool removing);
 			 
-/*db*/	void SendShopSafeboxGetItemDBPacket(DWORD ownerid, DWORD itemid);
-/*db*/	void SendShopSafeboxGetValutesDBPacket(DWORD ownerid, const TValutesInfo& valutes);
-/*db*/  bool SendShopSafeboxAddItemDBPacket(DWORD ownerid, const CShopItem& item);
-/*db*/	bool RecvShopSafeboxAddItemDBPacket(DWORD ownerid, DWORD itemid, const TShopPlayerItem& item);
-/*db*/	bool RecvShopSafeboxAddValutesDBPacket(DWORD ownerid, const TValutesInfo& valute);
-/*db*/	bool RecvShopSafeboxLoadDBPacket(DWORD ownerid, const TValutesInfo& valute, const std::vector<TShopPlayerItem>& items);
+/*db*/	void SendShopSafeboxGetItemDBPacket(uint64_t ownerid, uint64_t itemid);
+/*db*/	void SendShopSafeboxGetValutesDBPacket(uint64_t ownerid, const TValutesInfo& valutes);
+/*db*/  bool SendShopSafeboxAddItemDBPacket(uint64_t ownerid, const CShopItem& item);
+/*db*/	bool RecvShopSafeboxAddItemDBPacket(uint64_t ownerid, uint64_t itemid, const TShopPlayerItem& item);
+/*db*/	bool RecvShopSafeboxAddValutesDBPacket(uint64_t ownerid, const TValutesInfo& valute);
+/*db*/	bool RecvShopSafeboxLoadDBPacket(uint64_t ownerid, const TValutesInfo& valute, const std::vector<TShopPlayerItem>& items);
 //patch 08-03-2020
-/*db*/  bool RecvShopSafeboxExpiredItemDBPacket(DWORD ownerid, DWORD itemid);
-/*db*/	bool RecvShopSafeboxGetItemConfirm(DWORD ownerid, DWORD itemid);
+/*db*/  bool RecvShopSafeboxExpiredItemDBPacket(uint64_t ownerid, uint64_t itemid);
+/*db*/	bool RecvShopSafeboxGetItemConfirm(uint64_t ownerid, uint64_t itemid);
 
-/*db*/	void SendShopLoadExpiredShop(DWORD ownerid);
+/*db*/	void SendShopLoadExpiredShop(uint64_t ownerid);
 			 
 //AUCTION	 
 /*db*/	void SendAuctionCreateDBPacket(const TAuctionInfo& auction);
@@ -246,29 +246,29 @@ namespace ikashop
 			 
 /*db*/	bool RecvAuctionCreateDBPacket(const TAuctionInfo& auction);
 /*db*/	bool RecvAuctionAddOfferDBPacket(const TAuctionOfferInfo& offer);
-/*db*/	bool RecvAuctionExpiredDBPacket(DWORD id);
-/*db*/	bool RecvAuctionOfferSeenDBPacket(DWORD ownerid, DWORD buyerid, long long price);
+/*db*/	bool RecvAuctionExpiredDBPacket(uint64_t id);
+/*db*/	bool RecvAuctionOfferSeenDBPacket(uint64_t ownerid, uint64_t buyerid, long long price);
 
 #ifdef EXTEND_IKASHOP_PRO
-/*db*/	bool RecvNotificationLoadDBPacket(DWORD owner, const std::vector<TNotificationInfo>& notifications);
-/*db*/	bool RecvNotificationForwardDBPacket(DWORD owner, const TNotificationInfo& notification);
-/*db*/	void SendShopRestoreDurationDBPacket(DWORD owner);
-/*db*/	bool RecvShopRestoreDurationDBPacket(DWORD owner);
+/*db*/	bool RecvNotificationLoadDBPacket(uint64_t owner, const std::vector<TNotificationInfo>& notifications);
+/*db*/	bool RecvNotificationForwardDBPacket(uint64_t owner, const TNotificationInfo& notification);
+/*db*/	void SendShopRestoreDurationDBPacket(uint64_t owner);
+/*db*/	bool RecvShopRestoreDurationDBPacket(uint64_t owner);
 #ifdef ENABLE_IKASHOP_ENTITIES
-/*db*/	void RecvMoveShopEntityDBPacket(DWORD owner, const TShopSpawn& spawn);
+/*db*/	void RecvMoveShopEntityDBPacket(uint64_t owner, const TShopSpawn& spawn);
 #endif
 #endif
-		void SendShopLockedSlotStateDBPacket(DWORD pid, BYTE unlockCount, bool isPremium);
-		void RecvShopLockedSlotStateDBPacket(DWORD ownerID, BYTE unlockCount, bool isPremium);
+		void SendShopLockedSlotStateDBPacket(uint64_t pid, BYTE unlockCount, bool isPremium);
+		void RecvShopLockedSlotStateDBPacket(uint64_t ownerID, BYTE unlockCount, bool isPremium);
 
 //packets echanging clients
 //SHOPS
 ///*cli.*/bool RecvShopCreateNewClientPacket(LPCHARACTER ch); // UNUSED
 /*cli.*/bool RecvShopReopenClientPacket(LPCHARACTER ch, const char * name, BYTE bTimeIndex);
 /*cli.*/bool RecvShopForceCloseClientPacket(LPCHARACTER ch);
-/*cli.*/bool RecvShopOpenClientPacket(LPCHARACTER ch, DWORD ownerid);
+/*cli.*/bool RecvShopOpenClientPacket(LPCHARACTER ch, uint64_t ownerid);
 /*cli.*/bool RecvShopOpenMyShopClientPacket(LPCHARACTER ch);
-/*cli.*/bool RecvShopBuyItemClientPacket(LPCHARACTER ch, DWORD ownerid, DWORD itemid, bool searching, long long seenprice); //patch seen price check
+/*cli.*/bool RecvShopBuyItemClientPacket(LPCHARACTER ch, uint64_t ownerid, uint64_t itemid, bool searching, long long seenprice); //patch seen price check
 #ifdef ENABLE_IKASHOP_ENTITIES
 /*cli.*/bool RecvShopClickEntityClientPacket(LPCHARACTER ch, DWORD evid);
 /*cli.*/bool RecvFindMyShopClientPacket(LPCHARACTER ch);
@@ -280,13 +280,13 @@ namespace ikashop
 		bool SearchItemsByCategory(DWORD category, ikashop::CShopManager::SHOP_HANDLE shop);
 		bool RecvShopSearchItemClientPacket(LPCHARACTER ch, DWORD itemVnum, int socket0);
 
-/*cli.*/void SendSearchResultDeleteClientPacket(LPCHARACTER ch, DWORD itemid);
+/*cli.*/void SendSearchResultDeleteClientPacket(LPCHARACTER ch, uint64_t itemid);
 /*cli.*/void SendShopOpenClientPacket(LPCHARACTER ch, CShop* shop);
 /*cli.*/void SendShopOpenMyShopClientPacket(LPCHARACTER ch);
 /*cli.*/void SendShopOpenMyShopNoShopClientPacket(LPCHARACTER ch);
-/*cli.*/void SendShopExpiredGuesting(DWORD ownerid, LPCHARACTER ch);
+/*cli.*/void SendShopExpiredGuesting(uint64_t ownerid, LPCHARACTER ch);
 			 
-/*cli.*/void SendShopForceClosedClientPacket(DWORD ownerid);
+/*cli.*/void SendShopForceClosedClientPacket(uint64_t ownerid);
 /*cli.*/void SendMyShopPositionClientPacket(LPCHARACTER ch, DWORD shopVID, long x, long y);
 
 
@@ -294,9 +294,9 @@ namespace ikashop
 		void ProcessAddItemToShop(TShopItem& sitem, LPCHARACTER ch, LPITEM item, WORD destPos, const TPriceInfo price);
 
 /*cli.*/bool RecvShopAddItemClientPacket(LPCHARACTER ch, const TItemPos& item, const TPriceInfo& price, int destPos);
-/*cli.*/bool RecvShopRemoveItemClientPacket(LPCHARACTER ch, DWORD itemid);
+/*cli.*/bool RecvShopRemoveItemClientPacket(LPCHARACTER ch, uint64_t itemid);
 /*cli.*/bool RecvShopRemoveAllItemClientPacket(LPCHARACTER ch);
-/*cli.*/bool RecvShopEditItemClientPacket(LPCHARACTER ch, DWORD itemid, const TPriceInfo& price);
+/*cli.*/bool RecvShopEditItemClientPacket(LPCHARACTER ch, uint64_t itemid, const TPriceInfo& price);
 /*cli.*/bool RecvShopRequestEditClientPacket(LPCHARACTER ch, bool isEdit);
 /*cli.*/bool RecvShopChangeNameClientPacket(LPCHARACTER ch, const char * szName);
 
@@ -308,27 +308,27 @@ namespace ikashop
 
 		//OFFERS
 /*cli.*/bool RecvShopCreateOfferClientPacket(LPCHARACTER ch, TOfferInfo offer);
-/*cli.*/bool RecvShopAcceptOfferClientPacket(LPCHARACTER ch, DWORD offerid);
-/*cli.*/bool RecvShopCancelOfferClientPacket(LPCHARACTER ch, DWORD offerid, DWORD ownerid);
+/*cli.*/bool RecvShopAcceptOfferClientPacket(LPCHARACTER ch, uint64_t offerid);
+/*cli.*/bool RecvShopCancelOfferClientPacket(LPCHARACTER ch, uint64_t offerid, uint64_t ownerid);
 /*cli.*/bool RecvOfferListRequestPacket(LPCHARACTER ch);
 
 		
 		//SAFEBOX
 /*cli.*/bool RecvShopSafeboxOpenClientPacket(LPCHARACTER ch);
-/*cli.*/bool RecvShopSafeboxGetItemClientPacket(LPCHARACTER ch, DWORD itemid);
+/*cli.*/bool RecvShopSafeboxGetItemClientPacket(LPCHARACTER ch, uint64_t itemid);
 /*cli.*/bool RecvShopSafeboxGetValutesClientPacket(LPCHARACTER ch);
 /*cli.*/bool RecvShopSafeboxCloseClientPacket(LPCHARACTER ch);
 		
 
 		//AUCTION
 /*cli.*/bool RecvAuctionListRequestClientPacket(LPCHARACTER ch);
-/*cli.*/bool RecvAuctionOpenRequestClientPacket(LPCHARACTER ch, DWORD ownerid);
+/*cli.*/bool RecvAuctionOpenRequestClientPacket(LPCHARACTER ch, uint64_t ownerid);
 /*cli.*/bool RecvMyAuctionOpenRequestClientPacket(LPCHARACTER ch);
 /*cli.*/bool RecvMyAuctionCloseClientPacket(LPCHARACTER ch);
 /*cli.*/bool RecvMyAuctionCancelClientPacket(LPCHARACTER ch);
 /*cli.*/bool RecvAuctionCreateClientPacket(LPCHARACTER ch, const TPriceInfo& startprice, const TItemPos& pos);
-/*cli.*/bool RecvAuctionAddOfferClientPacket(LPCHARACTER ch, DWORD ownerid, const TPriceInfo& price);
-/*cli.*/bool RecvAuctionExitFromAuction(LPCHARACTER ch, DWORD ownerid);
+/*cli.*/bool RecvAuctionAddOfferClientPacket(LPCHARACTER ch, uint64_t ownerid, const TPriceInfo& price);
+/*cli.*/bool RecvAuctionExitFromAuction(LPCHARACTER ch, uint64_t ownerid);
 			 
 /*cli.*/void SendAuctionListClientPacket(LPCHARACTER ch, const std::vector<TAuctionListElement>& auctionVec);
 /*cli.*/void SendAuctionOpenAuctionClientPacket(LPCHARACTER ch, const CAuction& auction); 
@@ -355,8 +355,8 @@ namespace ikashop
 
 		//search time map (checking to avoid search abouse)
 		void ClearSearchTimeMap();
-		bool CheckSearchCooldown(DWORD pid);
-		bool CheckOfferCooldown(DWORD pid);
+		bool CheckSearchCooldown(uint64_t pid);
+		bool CheckOfferCooldown(uint64_t pid);
 
 		bool CheckSafeboxSize(LPCHARACTER ch);
 
@@ -407,4 +407,3 @@ namespace ikashop
 
 #endif
 #endif //__INCLUDE_HEADER_OFFLINESHOP_MANAGER__
-

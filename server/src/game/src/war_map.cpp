@@ -95,7 +95,7 @@ void CWarMap::STeamData::Initialize()
 	set_pidJoiner.clear();
 }
 
-CWarMap::CWarMap(long lMapIndex, const TGuildWarInfo & r_info, TWarMapInfo * pkWarMapInfo, DWORD dwGuildID1, DWORD dwGuildID2)
+CWarMap::CWarMap(long lMapIndex, const TGuildWarInfo & r_info, TWarMapInfo * pkWarMapInfo, uint64_t dwGuildID1, uint64_t dwGuildID2)
 {
 	m_kMapInfo = *pkWarMapInfo;
 	m_kMapInfo.lMapIndex = lMapIndex;
@@ -196,7 +196,7 @@ void CWarMap::SetResetFlagEvent(LPEVENT pkEv)
 	}
 }
 
-bool CWarMap::GetTeamIndex(DWORD dwGuildID, BYTE & bIdx)
+bool CWarMap::GetTeamIndex(uint64_t dwGuildID, BYTE & bIdx)
 {
 	if (m_TeamData[0].dwID == dwGuildID)
 	{
@@ -212,7 +212,47 @@ bool CWarMap::GetTeamIndex(DWORD dwGuildID, BYTE & bIdx)
 	return false;
 }
 
-DWORD CWarMap::GetGuildID(BYTE bIdx)
+bool CWarMap::GetFlagTeamIndex(LPCHARACTER pkChrFlagOrBase, BYTE & bIdx)
+{
+	if (!pkChrFlagOrBase)
+		return false;
+
+	if (m_TeamData[0].pkChrFlag == pkChrFlagOrBase || m_TeamData[0].pkChrFlagBase == pkChrFlagOrBase)
+	{
+		bIdx = 0;
+		return true;
+	}
+
+	if (m_TeamData[1].pkChrFlag == pkChrFlagOrBase || m_TeamData[1].pkChrFlagBase == pkChrFlagOrBase)
+	{
+		bIdx = 1;
+		return true;
+	}
+
+	return GetTeamIndex(static_cast<uint64_t>(static_cast<uint32_t>(pkChrFlagOrBase->GetPoint(POINT_STAT))), bIdx);
+}
+
+bool CWarMap::GetAffectTeamIndex(const CAffect * pkAff, BYTE & bIdx)
+{
+	if (!pkAff)
+		return false;
+
+	if (pkAff->dwFlag == AFF_WAR_FLAG1)
+	{
+		bIdx = 0;
+		return true;
+	}
+
+	if (pkAff->dwFlag == AFF_WAR_FLAG2)
+	{
+		bIdx = 1;
+		return true;
+	}
+
+	return GetTeamIndex(static_cast<uint64_t>(static_cast<uint32_t>(pkAff->lApplyValue)), bIdx);
+}
+
+uint64_t CWarMap::GetGuildID(BYTE bIdx)
 {
 	assert(bIdx < 2);
 	return m_TeamData[bIdx].dwID;
@@ -233,11 +273,11 @@ BYTE CWarMap::GetType()
 	return m_kMapInfo.bType;
 }
 
-DWORD CWarMap::GetGuildOpponent(LPCHARACTER ch)
+uint64_t CWarMap::GetGuildOpponent(LPCHARACTER ch)
 {
 	if (ch->GetGuild())
 	{
-		DWORD gid = ch->GetGuild()->GetID();
+		uint64_t gid = ch->GetGuild()->GetID();
 		BYTE idx;
 
 		if (GetTeamIndex(gid, idx))
@@ -246,9 +286,9 @@ DWORD CWarMap::GetGuildOpponent(LPCHARACTER ch)
 	return 0;
 }
 
-DWORD CWarMap::GetWinnerGuild()
+uint64_t CWarMap::GetWinnerGuild()
 {
-	DWORD win_gid = 0;
+	uint64_t win_gid = 0;
 
 	if (m_TeamData[1].iScore > m_TeamData[0].iScore)
 	{
@@ -278,7 +318,7 @@ void CWarMap::UsePotion(LPCHARACTER ch, LPITEM item)
 
 	YANG iPrice = item->GetProto()->dwGold;
 
-	DWORD gid = ch->GetGuild()->GetID();
+	uint64_t gid = ch->GetGuild()->GetID();
 
 	if (gid == m_TeamData[0].dwID)
 		m_TeamData[0].iUsePotionPrice += iPrice;
@@ -312,10 +352,10 @@ struct FSendUserCount
 	char buf1[30];
 	char buf2[128];
 
-	FSendUserCount(DWORD g1, int g1_count, DWORD g2, int g2_count, int observer)
+	FSendUserCount(uint64_t g1, int g1_count, uint64_t g2, int g2_count, int observer)
 	{
 		snprintf(buf1, sizeof(buf1), "ObserverCount %d", observer);
-		snprintf(buf2, sizeof(buf2), "WarUC %u %d %u %d %d", static_cast<unsigned int>(g1), g1_count, static_cast<unsigned int>(g2), g2_count, observer);
+		snprintf(buf2, sizeof(buf2), "WarUC %llu %d %llu %d %d", static_cast<unsigned long long>(g1), g1_count, static_cast<unsigned long long>(g2), g2_count, observer);
 	}
 
 	void operator() (LPCHARACTER ch)
@@ -343,7 +383,7 @@ void CWarMap::IncMember(LPCHARACTER ch)
 		return;
 
 	sys_log(0, "WarMap::IncMember");
-	DWORD gid = 0;
+	uint64_t gid = 0;
 
 	if (ch->GetGuild())
 		gid = ch->GetGuild()->GetID();
@@ -371,9 +411,9 @@ void CWarMap::IncMember(LPCHARACTER ch)
 
 		event_cancel(&m_pkTimeoutEvent);
 
-		sys_log(0, "WarMap +m %u(cur:%d, acc:%d) vs %u(cur:%d, acc:%d)",
-				m_TeamData[0].dwID, m_TeamData[0].GetCurJointerCount(), m_TeamData[0].GetAccumulatedJoinerCount(),
-				m_TeamData[1].dwID, m_TeamData[1].GetCurJointerCount(), m_TeamData[1].GetAccumulatedJoinerCount());
+		sys_log(0, "WarMap +m %llu(cur:%d, acc:%d) vs %llu(cur:%d, acc:%d)",
+				static_cast<unsigned long long>(m_TeamData[0].dwID), m_TeamData[0].GetCurJointerCount(), m_TeamData[0].GetAccumulatedJoinerCount(),
+				static_cast<unsigned long long>(m_TeamData[1].dwID), m_TeamData[1].GetCurJointerCount(), m_TeamData[1].GetAccumulatedJoinerCount());
 	}
 	else
 	{
@@ -401,7 +441,7 @@ void CWarMap::DecMember(LPCHARACTER ch)
 		return;
 
 	sys_log(0, "WarMap::DecMember");
-	DWORD gid = 0;
+	uint64_t gid = 0;
 
 	if (ch->GetGuild())
 		gid = ch->GetGuild()->GetID();
@@ -421,16 +461,16 @@ void CWarMap::DecMember(LPCHARACTER ch)
 			{
 				BYTE idx;
 
-				if (GetTeamIndex(pkAff->lApplyValue, idx))
+				if (GetAffectTeamIndex(pkAff, idx))
 					AddFlag(idx, ch->GetX(), ch->GetY());
 
 				ch->RemoveAffect(AFFECT_WAR_FLAG);
 			}
 		}
 
-		sys_log(0, "WarMap -m %u(cur:%d, acc:%d) vs %u(cur:%d, acc:%d)",
-				m_TeamData[0].dwID, m_TeamData[0].GetCurJointerCount(), m_TeamData[0].GetAccumulatedJoinerCount(),
-				m_TeamData[1].dwID, m_TeamData[1].GetCurJointerCount(), m_TeamData[1].GetAccumulatedJoinerCount());
+		sys_log(0, "WarMap -m %llu(cur:%d, acc:%d) vs %llu(cur:%d, acc:%d)",
+				static_cast<unsigned long long>(m_TeamData[0].dwID), m_TeamData[0].GetCurJointerCount(), m_TeamData[0].GetAccumulatedJoinerCount(),
+				static_cast<unsigned long long>(m_TeamData[1].dwID), m_TeamData[1].GetCurJointerCount(), m_TeamData[1].GetAccumulatedJoinerCount());
 
 		CheckWarEnd();
 		ch->SetQuestFlag("war.is_war_member", 0);
@@ -481,7 +521,7 @@ void CWarMap::CheckWarEnd()
 		Notice(LC_TEXT("There are no opponents."));
 		Notice(LC_TEXT("If no enemy can be found, the guild war will be ended automatically."));
 
-		sys_log(0, "CheckWarEnd: Timeout begin %u vs %u", m_TeamData[0].dwID, m_TeamData[1].dwID);
+		sys_log(0, "CheckWarEnd: Timeout begin %llu vs %llu", static_cast<unsigned long long>(m_TeamData[0].dwID), static_cast<unsigned long long>(m_TeamData[1].dwID));
 
 		war_map_info* info = AllocEventInfo<war_map_info>();
 		info->pWarMap = this;
@@ -515,8 +555,8 @@ void CWarMap::Timeout()
 	if (m_bEnded)
 		return;
 
-	DWORD dwWinner = 0;
-	DWORD dwLoser = 0;
+	uint64_t dwWinner = 0;
+	uint64_t dwLoser = 0;
 	YANG iRewardGold = 0;
 
 	if (get_dword_time() - m_dwStartTime < 60000 * 5)
@@ -549,10 +589,10 @@ void CWarMap::Timeout()
 				dwLoser = m_TeamData[0].dwID;
 			}
 
-			sys_err("WarMap: member count is not zero, guild1 %u %d guild2 %u %d, winner %u",
-					m_TeamData[0].dwID, m_TeamData[0].iMemberCount,
-					m_TeamData[1].dwID, m_TeamData[1].iMemberCount,
-					dwWinner);
+			sys_err("WarMap: member count is not zero, guild1 %llu %d guild2 %llu %d, winner %llu",
+					static_cast<unsigned long long>(m_TeamData[0].dwID), m_TeamData[0].iMemberCount,
+					static_cast<unsigned long long>(m_TeamData[1].dwID), m_TeamData[1].iMemberCount,
+					static_cast<unsigned long long>(dwWinner));
 		}
 		else
 		{
@@ -563,8 +603,10 @@ void CWarMap::Timeout()
 		}
 	}
 
-	sys_log(0, "WarMap: Timeout %u %u winner %u loser %u reward %lld map %ld",
-			m_TeamData[0].dwID, m_TeamData[1].dwID, dwWinner, dwLoser, static_cast<long long>(iRewardGold), m_kMapInfo.lMapIndex);
+	sys_log(0, "WarMap: Timeout %llu %llu winner %llu loser %llu reward %lld map %ld",
+			static_cast<unsigned long long>(m_TeamData[0].dwID), static_cast<unsigned long long>(m_TeamData[1].dwID),
+			static_cast<unsigned long long>(dwWinner), static_cast<unsigned long long>(dwLoser),
+			static_cast<long long>(iRewardGold), m_kMapInfo.lMapIndex);
 
 	if (dwWinner)
 		CGuildManager::instance().RequestWarOver(dwWinner, dwLoser, dwWinner, iRewardGold);
@@ -642,13 +684,15 @@ void CWarMap::SendScorePacket(BYTE bIdx, LPDESC d)
 
 	p.header = HEADER_GC_GUILD;
 	p.subheader = GUILD_SUBHEADER_GC_WAR_SCORE;
-	p.size = sizeof(p) + sizeof(DWORD) + sizeof(DWORD) + sizeof(long);
+	p.size = sizeof(p) + sizeof(uint64_t) + sizeof(uint64_t) + sizeof(int32_t);
+
+	int32_t s32Score = static_cast<int32_t>(m_TeamData[bIdx].iScore);
 
 	TEMP_BUFFER buf;
 	buf.write(&p, sizeof(p));
-	buf.write(&m_TeamData[bIdx].dwID, sizeof(DWORD));
-	buf.write(&m_TeamData[bIdx ? 0 : 1].dwID, sizeof(DWORD));
-	buf.write(&m_TeamData[bIdx].iScore, sizeof(long));
+	buf.write(&m_TeamData[bIdx].dwID, sizeof(uint64_t));
+	buf.write(&m_TeamData[bIdx ? 0 : 1].dwID, sizeof(uint64_t));
+	buf.write(&s32Score, sizeof(int32_t));
 
 	if (d)
 		d->Packet(buf.read_peek(), buf.size());
@@ -656,7 +700,7 @@ void CWarMap::SendScorePacket(BYTE bIdx, LPDESC d)
 		Packet(buf.read_peek(), buf.size());
 }
 
-void CWarMap::UpdateScore(DWORD g1, int score1, DWORD g2, int score2)
+void CWarMap::UpdateScore(uint64_t g1, int score1, uint64_t g2, int score2)
 {
 	BYTE idx;
 
@@ -696,8 +740,8 @@ bool CWarMap::CheckScore()
 
 	if (test_server) iEndScore /= 10;
 
-	DWORD dwWinner;
-	DWORD dwLoser;
+	uint64_t dwWinner;
+	uint64_t dwLoser;
 
 	if (m_TeamData[0].iScore >= iEndScore)
 	{
@@ -719,13 +763,13 @@ bool CWarMap::CheckScore()
 	else if (dwWinner == m_TeamData[1].dwID)
 		iRewardGold = GetRewardGold(1);
 
-	sys_log(0, "WarMap::CheckScore end score %d guild1 %u score guild2 %d %u score %d winner %u reward %lld",
+	sys_log(0, "WarMap::CheckScore end score %d guild1 %llu score guild2 %d %llu score %d winner %llu reward %lld",
 			iEndScore,
-			m_TeamData[0].dwID,
+			static_cast<unsigned long long>(m_TeamData[0].dwID),
 			m_TeamData[0].iScore,
-			m_TeamData[1].dwID,
+			static_cast<unsigned long long>(m_TeamData[1].dwID),
 			m_TeamData[1].iScore,
-			dwWinner,
+			static_cast<unsigned long long>(dwWinner),
 			static_cast<long long>(iRewardGold));
 
 	CGuildManager::instance().RequestWarOver(dwWinner, dwLoser, dwWinner, iRewardGold);
@@ -779,8 +823,8 @@ void CWarMap::OnKill(LPCHARACTER killer, LPCHARACTER ch)
 	if (m_bEnded)
 		return;
 
-	DWORD dwKillerGuild = 0;
-	DWORD dwDeadGuild = 0;
+	uint64_t dwKillerGuild = 0;
+	uint64_t dwDeadGuild = 0;
 
 	if (killer->GetGuild())
 		dwKillerGuild = killer->GetGuild()->GetID();
@@ -790,7 +834,7 @@ void CWarMap::OnKill(LPCHARACTER killer, LPCHARACTER ch)
 
 	BYTE idx;
 
-	sys_log(0, "WarMap::OnKill %u %u", dwKillerGuild, dwDeadGuild);
+	sys_log(0, "WarMap::OnKill %llu %llu", static_cast<unsigned long long>(dwKillerGuild), static_cast<unsigned long long>(dwDeadGuild));
 
 	if (!GetTeamIndex(dwKillerGuild, idx))
 		return;
@@ -810,7 +854,7 @@ void CWarMap::OnKill(LPCHARACTER killer, LPCHARACTER ch)
 
 				if (pkAff)
 				{
-					if (GetTeamIndex(pkAff->lApplyValue, idx))
+					if (GetAffectTeamIndex(pkAff, idx))
 						AddFlag(idx, ch->GetX(), ch->GetY());
 
 					ch->RemoveAffect(AFFECT_WAR_FLAG);
@@ -843,9 +887,9 @@ void CWarMap::AddFlagBase(BYTE bIdx, DWORD x, DWORD y)
 	}
 
 	r.pkChrFlagBase = CHARACTER_MANAGER::instance().SpawnMob(warmap::WAR_FLAG_BASE_VNUM, m_kMapInfo.lMapIndex, x, y, 0);
-	sys_log(0, "WarMap::AddFlagBase %u %p id %u", bIdx, get_pointer(r.pkChrFlagBase), r.dwID);
+	sys_log(0, "WarMap::AddFlagBase %u %p id %llu", bIdx, get_pointer(r.pkChrFlagBase), static_cast<unsigned long long>(r.dwID));
 
-	r.pkChrFlagBase->SetPoint(POINT_STAT, r.dwID);
+	r.pkChrFlagBase->SetPoint(POINT_STAT, static_cast<int>(r.dwID));
 	r.pkChrFlagBase->SetWarMap(this);
 }
 
@@ -868,9 +912,9 @@ void CWarMap::AddFlag(BYTE bIdx, DWORD x, DWORD y)
 	}
 
 	r.pkChrFlag = CHARACTER_MANAGER::instance().SpawnMob(bIdx == 0 ? warmap::WAR_FLAG_VNUM0 : warmap::WAR_FLAG_VNUM1, m_kMapInfo.lMapIndex, x, y, 0);
-	sys_log(0, "WarMap::AddFlag %u %p id %u", bIdx, get_pointer(r.pkChrFlag), r.dwID);
+	sys_log(0, "WarMap::AddFlag %u %p id %llu", bIdx, get_pointer(r.pkChrFlag), static_cast<unsigned long long>(r.dwID));
 
-	r.pkChrFlag->SetPoint(POINT_STAT, r.dwID);
+	r.pkChrFlag->SetPoint(POINT_STAT, static_cast<int>(r.dwID));
 	r.pkChrFlag->SetWarMap(this);
 }
 
@@ -1035,7 +1079,7 @@ bool CWarMapManager::GetStartPosition(long lMapIndex, BYTE bIdx, PIXEL_POSITION 
 	return true;
 }
 
-long CWarMapManager::CreateWarMap(const TGuildWarInfo& guildWarInfo, DWORD dwGuildID1, DWORD dwGuildID2)
+long CWarMapManager::CreateWarMap(const TGuildWarInfo& guildWarInfo, uint64_t dwGuildID1, uint64_t dwGuildID2)
 {
 	TWarMapInfo * pkInfo = GetWarMapInfo(guildWarInfo.lMapIndex);
 	if (!pkInfo)
@@ -1096,4 +1140,3 @@ void CWarMapManager::OnShutdown()
 	while (it != m_mapWarMap.end())
 		(it++)->second->Draw();
 }
-

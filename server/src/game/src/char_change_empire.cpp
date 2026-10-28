@@ -13,8 +13,8 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 		return 1;
 
 	char szQuery[1024+1];
-	DWORD dwAID;
-	DWORD dwPID[PLAYER_PER_ACCOUNT];
+	uint64_t dwAID;
+	uint64_t dwPID[PLAYER_PER_ACCOUNT];
 	memset(dwPID, 0, sizeof(dwPID));
 
 	{
@@ -23,14 +23,18 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
 				", pid5"
 				#endif
-				" FROM player_index%s WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
+				" FROM player_index%s WHERE (pid1=%llu OR pid2=%llu OR pid3=%llu OR pid4=%llu"
 				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
-				" OR pid5=%u"
+				" OR pid5=%llu"
 				#endif
 				") AND empire=%u",
-				get_table_postfix(), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
+				get_table_postfix(),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
 				#ifdef ENABLE_PLAYER_PER_ACCOUNT5
-				static_cast<unsigned int>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
 				#endif
 				static_cast<unsigned int>(GetEmpire()));
 		auto msg(DBManager::instance().DirectQuery("%s", szQuery));
@@ -54,13 +58,14 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 	const int loop = PLAYER_PER_ACCOUNT;
 
 	{
-		DWORD dwGuildID[PLAYER_PER_ACCOUNT];
+		uint64_t dwGuildID[PLAYER_PER_ACCOUNT];
 		CGuild * pGuild[PLAYER_PER_ACCOUNT];
 		std::unique_ptr<SQLMsg> pMsg;
 
 		for (int i = 0; i < loop; ++i)
 		{
-			snprintf(szQuery, sizeof(szQuery), "SELECT guild_id FROM guild_member%s WHERE pid=%u", get_table_postfix(), static_cast<unsigned int>(dwPID[i]));
+			snprintf(szQuery, sizeof(szQuery), "SELECT guild_id FROM guild_member%s WHERE pid=%llu",
+					get_table_postfix(), static_cast<unsigned long long>(dwPID[i]));
 
 			pMsg = DBManager::instance().DirectQuery("%s", szQuery);
 
@@ -95,16 +100,21 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 	}
 
 	{
-		snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
+		snprintf(szQuery, sizeof(szQuery), "UPDATE player_index%s SET empire=%u WHERE (pid1=%llu OR pid2=%llu OR pid3=%llu OR pid4=%llu"
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-				" OR pid5=%u)"
+				" OR pid5=%llu)"
 #else
 				")"
 #endif
 				" AND empire=%u",
-				get_table_postfix(), static_cast<unsigned int>(empire), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
+				get_table_postfix(),
+				static_cast<unsigned int>(empire),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
+				static_cast<unsigned long long>(GetPlayerID()),
 #ifdef ENABLE_PLAYER_PER_ACCOUNT5
-			static_cast<unsigned int>(GetPlayerID()),
+			static_cast<unsigned long long>(GetPlayerID()),
 #endif
 			static_cast<unsigned int>(GetEmpire()));
 
@@ -123,12 +133,12 @@ int CHARACTER::ChangeEmpire(BYTE empire)
 int CHARACTER::GetChangeEmpireCount() const
 {
 	char szQuery[1024+1];
-	DWORD dwAID = GetAID();
+	uint64_t dwAID = GetAID();
 
 	if (dwAID == 0)
 		return 0;
 
-	snprintf(szQuery, sizeof(szQuery), "SELECT change_count FROM change_empire WHERE aid = %u", static_cast<unsigned int>(dwAID));
+	snprintf(szQuery, sizeof(szQuery), "SELECT change_count FROM change_empire WHERE aid = %llu", static_cast<unsigned long long>(dwAID));
 
 	auto pMsg = DBManager::instance().DirectQuery("%s", szQuery);
 	if (pMsg != NULL && pMsg->uiSQLErrno == 0 && pMsg->Get())
@@ -150,7 +160,7 @@ void CHARACTER::SetChangeEmpireCount()
 {
 	char szQuery[1024+1];
 
-	DWORD dwAID = GetAID();
+	uint64_t dwAID = GetAID();
 
 	if (dwAID == 0) return;
 
@@ -159,29 +169,33 @@ void CHARACTER::SetChangeEmpireCount()
 	if (count == 0)
 	{
 		count++;
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO change_empire VALUES(%u, %d, NOW())", static_cast<unsigned int>(dwAID), count);
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO change_empire VALUES(%llu, %d, NOW())", static_cast<unsigned long long>(dwAID), count);
 	}
 	else
 	{
 		count++;
-		snprintf(szQuery, sizeof(szQuery), "UPDATE change_empire SET change_count=%d WHERE aid=%u", count, static_cast<unsigned int>(dwAID));
+		snprintf(szQuery, sizeof(szQuery), "UPDATE change_empire SET change_count=%d WHERE aid=%llu", count, static_cast<unsigned long long>(dwAID));
 	}
 
 	auto pmsg(DBManager::instance().DirectQuery("%s", szQuery));
 }
 
-DWORD CHARACTER::GetAID() const
+uint64_t CHARACTER::GetAID() const
 {
 	char szQuery[1024+1];
-	DWORD dwAID = 0;
-	snprintf(szQuery, sizeof(szQuery), "SELECT id FROM player_index%s WHERE (pid1=%u OR pid2=%u OR pid3=%u OR pid4=%u"
+	uint64_t dwAID = 0;
+	snprintf(szQuery, sizeof(szQuery), "SELECT id FROM player_index%s WHERE (pid1=%llu OR pid2=%llu OR pid3=%llu OR pid4=%llu"
 			#ifdef ENABLE_PLAYER_PER_ACCOUNT5
-			" OR pid5=%u"
+			" OR pid5=%llu"
 			#endif
 			") AND empire=%u",
-			get_table_postfix(), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()), static_cast<unsigned int>(GetPlayerID()),
+			get_table_postfix(),
+			static_cast<unsigned long long>(GetPlayerID()),
+			static_cast<unsigned long long>(GetPlayerID()),
+			static_cast<unsigned long long>(GetPlayerID()),
+			static_cast<unsigned long long>(GetPlayerID()),
 			#ifdef ENABLE_PLAYER_PER_ACCOUNT5
-			static_cast<unsigned int>(GetPlayerID()),
+			static_cast<unsigned long long>(GetPlayerID()),
 			#endif
 			static_cast<unsigned int>(GetEmpire()));
 
@@ -197,4 +211,3 @@ DWORD CHARACTER::GetAID() const
 	}
 	return 0;
 }
-

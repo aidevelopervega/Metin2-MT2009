@@ -116,7 +116,7 @@ bool ITEM_MANAGER::Initialize(TItemTable * table, int size)
 	return true;
 }
 
-LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTryMagic, int iRarePct, bool bSkipSave, int addRarePct)
+LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, uint64_t id, bool bTryMagic, int iRarePct, bool bSkipSave, int addRarePct)
 {
 	if (0 == vnum)
 		return NULL;
@@ -135,7 +135,7 @@ LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTr
 	{
 		item = m_map_pkItemByID[id];
 		LPCHARACTER owner = item->GetOwner();
-		sys_err("ITEM_ID_DUP: %u %s owner %p", id, item->GetName(), get_pointer(owner));
+		sys_err("ITEM_ID_DUP: %llu %s owner %p", static_cast<unsigned long long>(id), item->GetName(), get_pointer(owner));
 		return NULL;
 	}
 
@@ -165,7 +165,17 @@ LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTr
 	}
 	else
 	{
-		item->SetID(GetNewID());
+		uint64_t newID = GetNewID();
+		if (newID == 0)
+		{
+#ifdef M2_USE_POOL
+			pool_.Destroy(item);
+#else
+			M2_DELETE(item);
+#endif
+			return NULL;
+		}
+		item->SetID(newID);
 
 		if (item->GetType() == ITEM_UNIQUE)
 		{
@@ -424,18 +434,18 @@ void ITEM_MANAGER::SaveSingleItem(LPITEM item)
 {
 	if (!item->GetOwner())
 	{
-		DWORD dwID = item->GetID();
-		DWORD dwOwnerID = item->GetLastOwnerPID();
+		uint64_t dwID = item->GetID();
+		uint64_t dwOwnerID = item->GetLastOwnerPID();
 
-		db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_DESTROY, 0, sizeof(DWORD) + sizeof(DWORD));
-		db_clientdesc->Packet(&dwID, sizeof(DWORD));
-		db_clientdesc->Packet(&dwOwnerID, sizeof(DWORD));
+		db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_DESTROY, 0, sizeof(uint64_t) + sizeof(uint64_t));
+		db_clientdesc->Packet(&dwID, sizeof(uint64_t));
+		db_clientdesc->Packet(&dwOwnerID, sizeof(uint64_t));
 
-		sys_log(1, "ITEM_DELETE %s:%u", item->GetName(), dwID);
+		sys_log(1, "ITEM_DELETE %s:%llu", item->GetName(), static_cast<unsigned long long>(dwID));
 		return;
 	}
 
-	sys_log(1, "ITEM_SAVE %s:%d in %s window %d", item->GetName(), item->GetID(), item->GetOwner()->GetName(), item->GetWindow());
+	sys_log(1, "ITEM_SAVE %s:%llu in %s window %d", item->GetName(), static_cast<unsigned long long>(item->GetID()), item->GetOwner()->GetName(), item->GetWindow());
 
 	TPlayerItem t;
 
@@ -561,20 +571,20 @@ void ITEM_MANAGER::DestroyItem(LPITEM item, const char* file, size_t line)
 	if (it != m_set_pkItemForDelayedSave.end())
 		m_set_pkItemForDelayedSave.erase(it);
 
-	DWORD dwID = item->GetID();
-	sys_log(2, "ITEM_DESTROY %s:%u", item->GetName(), dwID);
+	uint64_t dwID = item->GetID();
+	sys_log(2, "ITEM_DESTROY %s:%llu", item->GetName(), static_cast<unsigned long long>(dwID));
 
 	if (!item->GetSkipSave() && dwID)
 	{
-		DWORD dwOwnerID = item->GetLastOwnerPID();
+		uint64_t dwOwnerID = item->GetLastOwnerPID();
 
-		db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_DESTROY, 0, sizeof(DWORD) + sizeof(DWORD));
-		db_clientdesc->Packet(&dwID, sizeof(DWORD));
-		db_clientdesc->Packet(&dwOwnerID, sizeof(DWORD));
+		db_clientdesc->DBPacketHeader(HEADER_GD_ITEM_DESTROY, 0, sizeof(uint64_t) + sizeof(uint64_t));
+		db_clientdesc->Packet(&dwID, sizeof(uint64_t));
+		db_clientdesc->Packet(&dwOwnerID, sizeof(uint64_t));
 	}
 	else
 	{
-		sys_log(2, "ITEM_DESTROY_SKIP %s:%u (skip=%d)", item->GetName(), dwID, item->GetSkipSave());
+		sys_log(2, "ITEM_DESTROY_SKIP %s:%llu (skip=%d)", item->GetName(), static_cast<unsigned long long>(dwID), item->GetSkipSave());
 	}
 
 	if (dwID)
@@ -593,7 +603,7 @@ void ITEM_MANAGER::DestroyItem(LPITEM item, const char* file, size_t line)
 #endif
 }
 
-LPITEM ITEM_MANAGER::Find(DWORD id)
+LPITEM ITEM_MANAGER::Find(uint64_t id)
 {
 	itertype(m_map_pkItemByID) it = m_map_pkItemByID.find(id);
 	if (it == m_map_pkItemByID.end())
@@ -1914,4 +1924,3 @@ void ITEM_MANAGER::CopyAllAttrTo(LPITEM pkOldItem, LPITEM pkNewItem)
 
 	pkOldItem->CopyAttributeTo(pkNewItem);
 }
-

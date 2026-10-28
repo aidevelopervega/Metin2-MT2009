@@ -31,7 +31,7 @@ bool PlayerHB::Initialize()
 //
 
 //
-void PlayerHB::Put(DWORD id)
+void PlayerHB::Put(uint64_t id)
 {
 	itertype(m_map_data) it = m_map_data.find(id);
 
@@ -48,7 +48,7 @@ void PlayerHB::Put(DWORD id)
 
 //
 //
-bool PlayerHB::Query(DWORD id)
+bool PlayerHB::Query(uint64_t id)
 {
 	time_t ct = time(0);
 	struct tm curr_tm = *localtime(&ct);
@@ -75,8 +75,7 @@ bool PlayerHB::Query(DWORD id)
 		m_stTableName = szTableName;
 	}
 
-	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO %s SELECT * FROM %splayer%s WHERE id=%u", m_stTableName.c_str(), GetPlayerDBName(), GetTablePostfix(), static_cast<unsigned int>(id));
+	snprintf(szQuery, sizeof(szQuery), "REPLACE INTO %s SELECT * FROM %splayer%s WHERE id=%llu", m_stTableName.c_str(), GetPlayerDBName(), GetTablePostfix(), static_cast<unsigned long long>(id));
 	CDBManager::instance().AsyncQuery(szQuery, SQL_HOTBACKUP);
 	return true;
 }
-

@@ -52,8 +52,8 @@ namespace marriage
 			{
 				MYSQL_ROW row = mysql_fetch_row(pRes->pSQLResult);
 
-				DWORD pid1 = 0; str_to_number(pid1, row[0]);
-				DWORD pid2 = 0; str_to_number(pid2, row[1]);
+				uint64_t pid1 = 0; str_to_number(pid1, row[0]);
+				uint64_t pid2 = 0; str_to_number(pid2, row[1]);
 				int love_point = 0; str_to_number(love_point, row[2]);
 				int64_t time = 0; str_to_number(time, row[3]);
 				BYTE is_married = 0; str_to_number(is_married, row[4]);
@@ -65,13 +65,16 @@ namespace marriage
 				m_MarriageByPID.emplace(pid1, pMarriage);
 				m_MarriageByPID.emplace(pid2, pMarriage);
 
-				sys_log(0, "Marriage %u: LP:%d TM:%lld ST:%d %10u:%16s %10u:%16s ", uiRow, love_point, static_cast<long long>(time), is_married, pid1, name1, pid2, name2);
+				sys_log(0, "Marriage %u: LP:%d TM:%lld ST:%d %10llu:%16s %10llu:%16s ",
+						uiRow, love_point, static_cast<long long>(time), is_married,
+						static_cast<unsigned long long>(pid1), name1,
+						static_cast<unsigned long long>(pid2), name2);
 			}
 		}
 		return true;
 	}
 
-	TMarriage* CManager::Get(DWORD dwPlayerID)
+	TMarriage* CManager::Get(uint64_t dwPlayerID)
 	{
 		itertype(m_MarriageByPID) it = m_MarriageByPID.find(dwPlayerID);
 
@@ -81,25 +84,27 @@ namespace marriage
 		return NULL;
 	}
 
-	void Align(DWORD& rPID1, DWORD& rPID2)
+	void Align(uint64_t& rPID1, uint64_t& rPID2)
 	{
 		if (rPID1 > rPID2)
 			std::swap(rPID1, rPID2);
 	}
 
-	void CManager::Add(DWORD dwPID1, DWORD dwPID2, const char* szName1, const char* szName2)
+	void CManager::Add(uint64_t dwPID1, uint64_t dwPID2, const char* szName1, const char* szName2)
 	{
 		int64_t now = static_cast<int64_t>(CClientManager::instance().GetCurrentTime());
 		if (IsMarried(dwPID1) || IsMarried(dwPID2))
 		{
-			sys_err("cannot marry already married character. %d - %d", dwPID1, dwPID2);
+			sys_err("cannot marry already married character. %llu - %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%u, %u, 0, %lld)", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2), static_cast<long long>(now));
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%llu, %llu, 0, %lld)",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2), static_cast<long long>(now));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
@@ -109,7 +114,8 @@ namespace marriage
 			return;
 		}
 
-		sys_log(0, "MARRIAGE ADD %u %u", dwPID1, dwPID2);
+		sys_log(0, "MARRIAGE ADD %llu %llu",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 
 		TMarriage* pMarriage = new TMarriage(dwPID1, dwPID2, 0, now, 0, szName1, szName2);
 		m_Marriages.emplace(pMarriage);
@@ -125,30 +131,33 @@ namespace marriage
 		CClientManager::instance().ForwardPacket(HEADER_DG_MARRIAGE_ADD, &p, sizeof(p));
 	}
 
-	void CManager::Update(DWORD dwPID1, DWORD dwPID2, INT iLovePoint, BYTE byMarried)
+	void CManager::Update(uint64_t dwPID1, uint64_t dwPID2, INT iLovePoint, BYTE byMarried)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("not under marriage : %u %u", dwPID1, dwPID2);
+			sys_err("not under marriage : %llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET love_point = %d, is_married = %d WHERE pid1 = %u AND pid2 = %u",
-				iLovePoint, byMarried, static_cast<unsigned int>(pMarriage->pid1), static_cast<unsigned int>(pMarriage->pid2));
+		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET love_point = %d, is_married = %d WHERE pid1 = %llu AND pid2 = %llu",
+				iLovePoint, byMarried, static_cast<unsigned long long>(pMarriage->pid1), static_cast<unsigned long long>(pMarriage->pid2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
 		if (res->uiAffectedRows == 0 || res->uiAffectedRows == (uint32_t)-1)
 		{
-			sys_log(0, "cannot update marriage : PID:%u %u", dwPID1, dwPID2); // @warme012
+			sys_log(0, "cannot update marriage : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2)); // @warme012
 			return;
 		}
 
-		sys_log(0, "MARRIAGE UPDATE PID:%u %u LP:%u ST:%d", dwPID1, dwPID2, iLovePoint, byMarried);
+		sys_log(0, "MARRIAGE UPDATE PID:%llu %llu LP:%u ST:%d",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2), iLovePoint, byMarried);
 		pMarriage->love_point = iLovePoint;
 		pMarriage->is_married = byMarried;
 
@@ -160,13 +169,16 @@ namespace marriage
 		CClientManager::instance().ForwardPacket(HEADER_DG_MARRIAGE_UPDATE, &p, sizeof(p));
 	}
 
-	void CManager::Remove(DWORD dwPID1, DWORD dwPID2)
+	void CManager::Remove(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 
 		if (pMarriage)
 		{
-			sys_log(0, "Break Marriage pid1 %d pid2 %d Other %d", dwPID1, dwPID2, pMarriage->GetOther(dwPID1));
+			sys_log(0, "Break Marriage pid1 %llu pid2 %llu Other %llu",
+					static_cast<unsigned long long>(dwPID1),
+					static_cast<unsigned long long>(dwPID2),
+					static_cast<unsigned long long>(pMarriage->GetOther(dwPID1)));
 		}
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
@@ -174,26 +186,32 @@ namespace marriage
 
 			for (; it != m_MarriageByPID.end(); ++it)
 			{
-				sys_log(0, "Marriage List pid1 %d pid2 %d", it->second->pid1, it->second->pid2);
+				sys_log(0, "Marriage List pid1 %llu pid2 %llu",
+						static_cast<unsigned long long>(it->second->pid1),
+						static_cast<unsigned long long>(it->second->pid2));
 			}
-			sys_err("not under marriage : PID:%u %u", dwPID1, dwPID2);
+			sys_err("not under marriage : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM marriage WHERE pid1 = %u AND pid2 = %u", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2));
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM marriage WHERE pid1 = %llu AND pid2 = %llu",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
 		if (res->uiAffectedRows == 0 || res->uiAffectedRows == (uint32_t)-1)
 		{
-			sys_err("cannot delete marriage : PID:%u %u", dwPID1, dwPID2);
+			sys_err("cannot delete marriage : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
-		sys_log(0, "MARRIAGE REMOVE PID:%u %u", dwPID1, dwPID2);
+		sys_log(0, "MARRIAGE REMOVE PID:%llu %llu",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 
 		m_Marriages.erase(pMarriage);
 		m_MarriageByPID.erase(dwPID1);
@@ -207,36 +225,40 @@ namespace marriage
 		delete pMarriage;
 	}
 
-	void CManager::EngageToMarriage(DWORD dwPID1, DWORD dwPID2)
+	void CManager::EngageToMarriage(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("not under marriage : PID:%u %u", dwPID1, dwPID2);
+			sys_err("not under marriage : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		if (pMarriage->is_married)
 		{
-			sys_err("already married, cannot change engage to marry : PID:%u %u", dwPID1, dwPID2);
+			sys_err("already married, cannot change engage to marry : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET is_married = 1 WHERE pid1 = %u AND pid2 = %u",
-				static_cast<unsigned int>(pMarriage->pid1), static_cast<unsigned int>(pMarriage->pid2));
+		snprintf(szQuery, sizeof(szQuery), "UPDATE marriage SET is_married = 1 WHERE pid1 = %llu AND pid2 = %llu",
+				static_cast<unsigned long long>(pMarriage->pid1), static_cast<unsigned long long>(pMarriage->pid2));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();
 		if (res->uiAffectedRows == 0 || res->uiAffectedRows == (uint32_t)-1)
 		{
-			sys_err("cannot change engage to marriage : PID:%u %u", dwPID1, dwPID2);
+			sys_err("cannot change engage to marriage : PID:%llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
-		sys_log(0, "MARRIAGE ENGAGE->MARRIAGE PID:%u %u", dwPID1, dwPID2);
+		sys_log(0, "MARRIAGE ENGAGE->MARRIAGE PID:%llu %llu",
+				static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 		pMarriage->is_married = 1;
 
 		TPacketMarriageUpdate p;
@@ -296,18 +318,19 @@ namespace marriage
 		}
 	}
 
-	void CManager::ReadyWedding(DWORD dwMapIndex, DWORD dwPID1, DWORD dwPID2)
+	void CManager::ReadyWedding(DWORD dwMapIndex, uint64_t dwPID1, uint64_t dwPID2)
 	{
 		DWORD dwStartTime = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
 		m_pqWeddingStart.push(TWedding(dwStartTime + 5, dwMapIndex, dwPID1, dwPID2));
 	}
 
-	void CManager::EndWedding(DWORD dwPID1, DWORD dwPID2)
+	void CManager::EndWedding(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		itertype(m_mapRunningWedding) it = m_mapRunningWedding.find(make_pair(dwPID1, dwPID2));
 		if (it == m_mapRunningWedding.end())
 		{
-			sys_err("try to end wedding %u %u", dwPID1, dwPID2);
+			sys_err("try to end wedding %llu %llu",
+					static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -374,4 +397,3 @@ namespace marriage
 		}
 	}
 }
-

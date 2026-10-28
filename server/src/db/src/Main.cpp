@@ -202,14 +202,14 @@ static int RunCreateAccountCLI(int argc, char** argv)
 	AuthSecurity::SecureZeroMemoryBuffer(szEscHash, sizeof(szEscHash));
 
 	if (!pkInsertMsg || pkInsertMsg->uiSQLErrno != 0 || !pkInsertMsg->Get() ||
-	    pkInsertMsg->Get()->uiAffectedRows != 1 || pkInsertMsg->Get()->uiInsertID == 0)
+	    pkInsertMsg->Get()->uiAffectedRows != 1 || !pkInsertMsg->Get()->HasValidInsertID())
 	{
 		unsigned int errCode = pkInsertMsg ? pkInsertMsg->uiSQLErrno : 0;
 		fprintf(stderr, "ERROR: Failed to insert account '%s' (sql_errno=%u).\n", creds.login.c_str(), errCode);
 		return 1;
 	}
 
-	const uint32_t accountId = pkInsertMsg->Get()->uiInsertID;
+	const uint64_t accountId = pkInsertMsg->Get()->ullInsertID;
 
 	if (hwidArg[0] != '\0')
 	{
@@ -228,7 +228,7 @@ static int RunCreateAccountCLI(int argc, char** argv)
 		}
 	}
 
-	printf("ACCOUNT_CREATED id=%u login=%s format=argon2id\n", accountId, creds.login.c_str());
+	printf("ACCOUNT_CREATED id=%llu login=%s format=argon2id\n", static_cast<unsigned long long>(accountId), creds.login.c_str());
 	fflush(stdout);
 	return 0;
 }
@@ -736,4 +736,3 @@ const char * GetPlayerDBName()
 {
 	return g_stPlayerDBName.c_str();
 }
-

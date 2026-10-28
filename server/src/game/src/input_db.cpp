@@ -113,8 +113,8 @@ bool GetServerLocation(TAccountTable & rTab, [[maybe_unused]] BYTE bEmpire)
 	return bFound;
 }
 
-extern std::map<DWORD, CLoginSim *> g_sim;
-extern std::map<DWORD, CLoginSim *> g_simByPID;
+extern std::map<uint64_t, CLoginSim *> g_sim;
+extern std::map<uint64_t, CLoginSim *> g_simByPID;
 
 void CInputDB::LoginSuccess(DWORD dwHandle, const char *data)
 {
@@ -1240,7 +1240,7 @@ void CInputDB::Boot(const char* data)
 
 EVENTINFO(quest_login_event_info)
 {
-	DWORD dwPID;
+	uint64_t dwPID;
 
 	quest_login_event_info()
 	: dwPID( 0 )
@@ -1258,7 +1258,7 @@ EVENTFUNC(quest_login_event)
 		return 0;
 	}
 
-	DWORD dwPID = info->dwPID;
+	uint64_t dwPID = info->dwPID;
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(dwPID);
 
@@ -1395,11 +1395,15 @@ void CInputDB::SpecialFlagLoad(LPDESC d, const char* c_pData)
 	{
 		if (dwCount != 0)
 		{
-			DWORD pid = ch->GetPlayerID();
-			DWORD aid = d->GetAccountTable().id;
+			uint64_t pid = ch->GetPlayerID();
+			uint64_t aid = d->GetAccountTable().id;
 			if (pid != pSpecialFlagTable[0].dwPID && aid != pSpecialFlagTable[0].dwAID)
 			{
-				sys_err("PID AID differs %u=%u %u=%u", pid, pSpecialFlagTable[0].dwPID, aid, pSpecialFlagTable[0].dwAID);
+				sys_err("PID AID differs %llu=%llu %llu=%llu",
+					static_cast<unsigned long long>(pid),
+					static_cast<unsigned long long>(pSpecialFlagTable[0].dwPID),
+					static_cast<unsigned long long>(aid),
+					static_cast<unsigned long long>(pSpecialFlagTable[0].dwAID));
 				return;
 			}
 		}
@@ -1633,7 +1637,7 @@ void CInputDB::P2P(const char * c_pData)
 
 void CInputDB::GuildLoad(const char * c_pData)
 {
-	CGuildManager::instance().LoadGuild(*(DWORD *) c_pData);
+	CGuildManager::instance().LoadGuild(*(const uint64_t *) c_pData);
 }
 
 void CInputDB::GuildSkillUpdate(const char* c_pData)
@@ -1892,8 +1896,9 @@ void CInputDB::AffectLoad(LPDESC d, const char * c_pData)
 
 	LPCHARACTER ch = d->GetCharacter();
 
-	DWORD dwPID = decode_4bytes(c_pData);
-	c_pData += sizeof(DWORD);
+	uint64_t dwPID = 0;
+	memcpy(&dwPID, c_pData, sizeof(uint64_t));
+	c_pData += sizeof(uint64_t);
 
 	DWORD dwCount = decode_4bytes(c_pData);
 	c_pData += sizeof(DWORD);
@@ -2558,7 +2563,7 @@ void IkarusShopNotificationForward(const char* data)
 
 void IkarusShopRestoreDuration(const char* data)
 {
-	const auto& owner = Decode<DWORD>(data);
+	const auto& owner = Decode<uint64_t>(data);
 	ikashop::GetManager().RecvShopRestoreDurationDBPacket(owner);
 }
 #ifdef ENABLE_IKASHOP_ENTITIES
@@ -2598,7 +2603,7 @@ void IkarusShopLoadExpiredShop(const char* data)
 	auto shop = manager.GetShopByOwnerID(subpack.owner);
 	if (shop)
 	{
-		for (const auto item : items)
+		for (const auto& item : items)
 			shop->AddItem(item);
 	}
 }
@@ -3172,7 +3177,7 @@ void CInputDB::AddMonarchMoney([[maybe_unused]] LPDESC d, const char * data )
 
 	CMonarch::instance().AddMoney(Money, static_cast<BYTE>(Empire));
 
-	DWORD pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
+	uint64_t pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 
@@ -3194,7 +3199,7 @@ void CInputDB::DecMonarchMoney([[maybe_unused]] LPDESC d, const char * data)
 
 	CMonarch::instance().DecMoney(Money, static_cast<BYTE>(Empire));
 
-	DWORD pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
+	uint64_t pid = CMonarch::instance().GetMonarchPID(static_cast<BYTE>(Empire));
 
 	LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 
@@ -3338,4 +3343,3 @@ void CInputDB::RecvUseCodeVoucher(TRequestUseCodeVoucherResponse* pcData)
 		CItemShopManager::instance().RecvUseCodeVoucher(ch, pcData->bResponse, pcData->szCode);
 	}
 }
-

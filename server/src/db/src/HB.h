@@ -10,16 +10,15 @@ class PlayerHB : public singleton<PlayerHB>
 
 	bool	Initialize();
 
-	void	Put(DWORD id);
+	void	Put(uint64_t id);
 
     private:
-	bool	Query(DWORD id);
+	bool	Query(uint64_t id);
 
-	std::map<DWORD, time_t> m_map_data;
+	std::map<uint64_t, time_t> m_map_data;
 	std::string		m_stCreateTableQuery;
 	std::string		m_stTableName;
 	int			m_iExpireTime;
 };
 
 #endif
-

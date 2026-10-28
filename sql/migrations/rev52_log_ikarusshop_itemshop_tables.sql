@@ -18,10 +18,10 @@
 
 CREATE TABLE IF NOT EXISTS `ikarusshop_log` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `who` int(10) unsigned NOT NULL DEFAULT 0,
-  `itemid` int(10) unsigned NOT NULL DEFAULT 0,
+  `who` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `itemid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `what` varchar(64) NOT NULL DEFAULT '',
-  `shop_owner` int(10) unsigned NOT NULL DEFAULT 0,
+  `shop_owner` bigint(20) unsigned NOT NULL DEFAULT 0,
   `extra` text NOT NULL,
   `vnum` int(10) unsigned NOT NULL DEFAULT 0,
   `count` int(10) unsigned NOT NULL DEFAULT 0,
@@ -36,14 +36,14 @@ CREATE TABLE IF NOT EXISTS `ikarusshop_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE IF NOT EXISTS `itemshop` (
-  `pid` int(10) unsigned NOT NULL DEFAULT 0,
-  `account_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `account_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `item_index` int(11) NOT NULL DEFAULT 0,
   `vnum` int(10) unsigned NOT NULL DEFAULT 0,
   `count` int(11) NOT NULL DEFAULT 0,
   `price` bigint(20) NOT NULL DEFAULT 0,
   `currency` tinyint(4) NOT NULL DEFAULT 0,
-  `item_id` int(10) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `date` datetime NOT NULL DEFAULT current_timestamp(),
   `money_before_buy` bigint(20) NOT NULL DEFAULT 0,
   KEY `idx_itemshop_pid` (`pid`),

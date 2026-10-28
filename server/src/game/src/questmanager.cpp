@@ -175,7 +175,7 @@ namespace quest
 		return it != m_mapNPCNameID.end() ? it->second : 0;
 	}
 
-	void CQuestManager::SelectItem(unsigned int pc, unsigned int selection)
+	void CQuestManager::SelectItem(uint64_t pc, unsigned int selection)
 	{
 		PC* pPC = GetPC(pc);
 		if (pPC && pPC->IsRunning() && pPC->GetRunningQuestState()->suspend_state == SUSPEND_STATE_SELECT_ITEM)
@@ -192,13 +192,13 @@ namespace quest
 		}
 	}
 
-	void CQuestManager::Confirm(unsigned int pc, EQuestConfirmType confirm, unsigned int pc2)
+	void CQuestManager::Confirm(uint64_t pc, EQuestConfirmType confirm, uint64_t pc2)
 	{
 		PC* pPC = GetPC(pc);
 
 		if (!pPC->IsRunning())
 		{
-			sys_err("no quest running for pc, cannot process input : %u", pc);
+			sys_err("no quest running for pc, cannot process input : %llu", static_cast<unsigned long long>(pc));
 			return;
 		}
 
@@ -211,13 +211,13 @@ namespace quest
 
 		if (currentState->suspend_state != SUSPEND_STATE_CONFIRM)
 		{
-			sys_err("not wait for a confirm : %u %d", pc, currentState->suspend_state);
+			sys_err("not wait for a confirm : %llu %d", static_cast<unsigned long long>(pc), currentState->suspend_state);
 			return;
 		}
 
 		if (pc2 && !pPC->IsConfirmWait(pc2))
 		{
-			sys_err("not wait for a confirm : %u %d", pc, currentState->suspend_state);
+			sys_err("not wait for a confirm : %llu %d", static_cast<unsigned long long>(pc), currentState->suspend_state);
 			return;
 		}
 
@@ -315,18 +315,18 @@ namespace quest
 		return c_qi;
 	}
 
-	void CQuestManager::Input(unsigned int pc, const char* msg)
+	void CQuestManager::Input(uint64_t pc, const char* msg)
 	{
 		PC* pPC = GetPC(pc);
 		if (!pPC)
 		{
-			sys_err("no pc! : %u",pc);
+			sys_err("no pc! : %llu", static_cast<unsigned long long>(pc));
 			return;
 		}
 
 		if (!pPC->IsRunning())
 		{
-			sys_err("no quest running for pc, cannot process input : %u", pc);
+			sys_err("no quest running for pc, cannot process input : %llu", static_cast<unsigned long long>(pc));
 			return;
 		}
 
@@ -339,7 +339,7 @@ namespace quest
 
 		if (currentState->suspend_state != SUSPEND_STATE_INPUT)
 		{
-			sys_err("not wait for a input : %u %d", pc, currentState->suspend_state);
+			sys_err("not wait for a input : %llu %d", static_cast<unsigned long long>(pc), currentState->suspend_state);
 			return;
 		}
 
@@ -355,7 +355,7 @@ namespace quest
 		}
 	}
 
-	void CQuestManager::Select(unsigned int pc, unsigned int selection)
+	void CQuestManager::Select(uint64_t pc, unsigned int selection)
 	{
 		PC* pPC;
 
@@ -413,11 +413,11 @@ namespace quest
 				pPC->CancelRunning();
 			}
 
-			sys_err("wrong QUEST_SELECT request! : %d",pc);
+			sys_err("wrong QUEST_SELECT request! : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::Resume(unsigned int pc)
+	void CQuestManager::Resume(uint64_t pc)
 	{
 		PC * pPC;
 
@@ -450,11 +450,11 @@ namespace quest
 			//cerr << pPC->GetRunningQuestState()->suspend_state;
 			//cerr << SUSPEND_STATE_WAIT << endl;
 			//cerr << "wrong QUEST_WAIT request! : " << pc << endl;
-			sys_err("wrong QUEST_WAIT request! : %d",pc);
+			sys_err("wrong QUEST_WAIT request! : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::EnterState(DWORD pc, DWORD quest_index, int state)
+	void CQuestManager::EnterState(uint64_t pc, DWORD quest_index, int state)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -465,10 +465,10 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnEnterState(*pPC, quest_index, state);
 		}
 		else
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
-	void CQuestManager::LeaveState(DWORD pc, DWORD quest_index, int state)
+	void CQuestManager::LeaveState(uint64_t pc, DWORD quest_index, int state)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -479,10 +479,10 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnLeaveState(*pPC, quest_index, state);
 		}
 		else
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
-	void CQuestManager::Letter(DWORD pc, DWORD quest_index, int state)
+	void CQuestManager::Letter(uint64_t pc, DWORD quest_index, int state)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -493,7 +493,7 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnLetter(*pPC, quest_index, state);
 		}
 		else
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
 	void CQuestManager::LogoutPC(LPCHARACTER ch)
@@ -524,7 +524,7 @@ namespace quest
 	///////////////////////////////////////////////////////////////////////////////////////////
 
 	///////////////////////////////////////////////////////////////////////////////////////////
-	void CQuestManager::Login(unsigned int pc, const char * c_pszQuest)
+	void CQuestManager::Login(uint64_t pc, const char * c_pszQuest)
 	{
 		PC * pPC;
 
@@ -537,11 +537,11 @@ namespace quest
 		}
 		else
 		{
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::Logout(unsigned int pc)
+	void CQuestManager::Logout(uint64_t pc)
 	{
 		PC * pPC;
 
@@ -553,16 +553,16 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnLogout(*pPC);
 		}
 		else
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
 #define ENABLE_PARTYKILL
-	void CQuestManager::Kill(unsigned int pc, unsigned int npc)
+	void CQuestManager::Kill(uint64_t pc, unsigned int npc)
 	{
 		//m_CurrentNPCRace = npc;
 		PC * pPC;
 
-		sys_log(0, "CQuestManager::Kill QUEST_KILL_EVENT (pc=%d, npc=%d)", pc, npc);
+		sys_log(0, "CQuestManager::Kill QUEST_KILL_EVENT (pc=%llu, npc=%u)", static_cast<unsigned long long>(pc), npc);
 
 		if ((pPC = GetPC(pc)))
 		{
@@ -591,15 +591,15 @@ namespace quest
 #endif
 		}
 		else
-			sys_err("QUEST: no such pc id : %d", pc);
+			sys_err("QUEST: no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
 #ifdef ENABLE_QUEST_DIE_EVENT
-	void CQuestManager::Die(unsigned int pc, unsigned int npc)
+	void CQuestManager::Die(uint64_t pc, unsigned int npc)
 	{
 		PC * pPC;
 
-		sys_log(0, "CQuestManager::Kill QUEST_DIE_EVENT (pc=%d, npc=%d)", pc, npc);
+		sys_log(0, "CQuestManager::Kill QUEST_DIE_EVENT (pc=%llu, npc=%u)", static_cast<unsigned long long>(pc), npc);
 
 		if ((pPC = GetPC(pc)))
 		{
@@ -610,7 +610,7 @@ namespace quest
 
 		}
 		else
-			sys_err("QUEST: no such pc id : %d", pc);
+			sys_err("QUEST: no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 #endif
 
@@ -626,10 +626,10 @@ namespace quest
 #endif
 
 #ifdef ENABLE_QUEST_DND_EVENT
-	bool CQuestManager::DND(uint32_t pc, LPITEM item_dnd, LPITEM item_victim, bool bReceiveAll)
+	bool CQuestManager::DND(uint64_t pc, LPITEM item_dnd, LPITEM item_victim, bool bReceiveAll)
 	{
 		if (test_server)
-			sys_log( 0, "CQuestManager::DND_EVENT Start: item_dnd(%d), item_victim(%d), PC(%d)", item_dnd->GetOriginalVnum(), item_victim->GetOriginalVnum(), pc);
+			sys_log( 0, "CQuestManager::DND_EVENT Start: item_dnd(%u), item_victim(%u), PC(%llu)", item_dnd->GetOriginalVnum(), item_victim->GetOriginalVnum(), static_cast<unsigned long long>(pc));
 		PC * pPC;
 		if ((pPC = GetPC(pc)))
 		{
@@ -648,7 +648,7 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST DND_EVENT no such pc id : %d", pc);
+			sys_err("QUEST DND_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 
@@ -665,7 +665,7 @@ namespace quest
 		return m_mapNPC[npc].OnServerTimer(*m_pCurrentPC);
 	}
 
-	bool CQuestManager::Timer(unsigned int pc, unsigned int npc)
+	bool CQuestManager::Timer(uint64_t pc, unsigned int npc)
 	{
 		PC* pPC;
 
@@ -681,13 +681,13 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST TIMER_EVENT no such pc id : %d", pc);
+			sys_err("QUEST TIMER_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 		//cerr << "QUEST TIMER" << endl;
 	}
 
-	void CQuestManager::LevelUp(unsigned int pc)
+	void CQuestManager::LevelUp(uint64_t pc)
 	{
 		PC * pPC;
 
@@ -700,11 +700,11 @@ namespace quest
 		}
 		else
 		{
-			sys_err("QUEST LEVELUP_EVENT no such pc id : %d", pc);
+			sys_err("QUEST LEVELUP_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::AttrIn(unsigned int pc, LPCHARACTER ch, int attr)
+	void CQuestManager::AttrIn(uint64_t pc, LPCHARACTER ch, int attr)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -719,11 +719,11 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::AttrOut(unsigned int pc, LPCHARACTER ch, int attr)
+	void CQuestManager::AttrOut(uint64_t pc, LPCHARACTER ch, int attr)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -739,11 +739,11 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	bool CQuestManager::Target(unsigned int pc, DWORD dwQuestIndex, const char * c_pszTargetName, const char * c_pszVerb)
+	bool CQuestManager::Target(uint64_t pc, DWORD dwQuestIndex, const char * c_pszTargetName, const char * c_pszVerb)
 	{
 		PC * pPC;
 
@@ -759,7 +759,7 @@ namespace quest
 		return false;
 	}
 
-	void CQuestManager::QuestInfo(unsigned int pc, unsigned int quest_index)
+	void CQuestManager::QuestInfo(uint64_t pc, unsigned int quest_index)
 	{
 		PC* pPC;
 
@@ -782,11 +782,11 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST INFO_EVENT no such pc id : %d", pc);
+			sys_err("QUEST INFO_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	void CQuestManager::QuestButton(unsigned int pc, unsigned int quest_index)
+	void CQuestManager::QuestButton(uint64_t pc, unsigned int quest_index)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -806,11 +806,11 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST CLICK_EVENT no such pc id : %d", pc);
+			sys_err("QUEST CLICK_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 		}
 	}
 
-	bool CQuestManager::TakeItem(unsigned int pc, unsigned int npc, LPITEM item)
+	bool CQuestManager::TakeItem(uint64_t pc, unsigned int npc, LPITEM item)
 	{
 		//m_CurrentNPCRace = npc;
 		PC* pPC;
@@ -848,15 +848,15 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST USE_ITEM_EVENT no such pc id : %d", pc);
+			sys_err("QUEST USE_ITEM_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
 
-	bool CQuestManager::UseItem(unsigned int pc, LPITEM item, bool bReceiveAll)
+	bool CQuestManager::UseItem(uint64_t pc, LPITEM item, bool bReceiveAll)
 	{
 		if (test_server)
-			sys_log( 0, "questmanager::UseItem Start : itemVnum : %d PC : %d", item->GetOriginalVnum(), pc);
+			sys_log( 0, "questmanager::UseItem Start : itemVnum : %u PC : %llu", item->GetOriginalVnum(), static_cast<unsigned long long>(pc));
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
 		{
@@ -897,15 +897,15 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST USE_ITEM_EVENT no such pc id : %d", pc);
+			sys_err("QUEST USE_ITEM_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
 
-	bool CQuestManager::UseTypeItem(unsigned int pc, LPITEM item, bool bReceiveAll)
+	bool CQuestManager::UseTypeItem(uint64_t pc, LPITEM item, bool bReceiveAll)
 	{
 		if (test_server)
-			sys_log(0, "questmanager::UseTypeItem Start : itemVnum : %d PC : %d", item->GetOriginalVnum(), pc);
+			sys_log(0, "questmanager::UseTypeItem Start : itemVnum : %u PC : %llu", item->GetOriginalVnum(), static_cast<unsigned long long>(pc));
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
 		{
@@ -928,15 +928,15 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST USE_TYPE_ITEM_EVENT no such pc id : %d", pc);
+			sys_err("QUEST USE_TYPE_ITEM_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
 
-	bool CQuestManager::SIGUse(unsigned int pc, DWORD sig_vnum, LPITEM item, bool bReceiveAll)
+	bool CQuestManager::SIGUse(uint64_t pc, DWORD sig_vnum, LPITEM item, bool bReceiveAll)
 	{
 		if (test_server)
-			sys_log( 0, "questmanager::SIGUse Start : itemVnum : %d PC : %d", item->GetOriginalVnum(), pc);
+			sys_log( 0, "questmanager::SIGUse Start : itemVnum : %u PC : %llu", item->GetOriginalVnum(), static_cast<unsigned long long>(pc));
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
 		{
@@ -962,12 +962,12 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST USE_ITEM_EVENT no such pc id : %d", pc);
+			sys_err("QUEST USE_ITEM_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
 
-	bool CQuestManager::GiveItemToPC(unsigned int pc, LPCHARACTER pkChr)
+	bool CQuestManager::GiveItemToPC(uint64_t pc, LPCHARACTER pkChr)
 	{
 		if (!pkChr->IsPC())
 			return false;
@@ -993,7 +993,7 @@ namespace quest
 		return false;
 	}
 
-	bool CQuestManager::Click(unsigned int pc, LPCHARACTER pkChrTarget)
+	bool CQuestManager::Click(uint64_t pc, LPCHARACTER pkChrTarget)
 	{
 		PC * pPC = GetPC(pc);
 
@@ -1012,7 +1012,7 @@ namespace quest
 			TargetInfo * pInfo = CTargetManager::instance().GetTargetInfo(pc, TARGET_TYPE_VID, pkChrTarget->GetVID());
 			if (test_server)
 			{
-				sys_log(0, "CQuestManager::Click(pid=%u, npc_name=%s) - target_info(%p)", pc, pkChrTarget->GetName(), static_cast<const void*>(pInfo));
+				sys_log(0, "CQuestManager::Click(pid=%llu, npc_name=%s) - target_info(%p)", static_cast<unsigned long long>(pc), pkChrTarget->GetName(), static_cast<const void*>(pInfo));
 			}
 
 			if (pInfo)
@@ -1033,8 +1033,8 @@ namespace quest
 
 				if (it == m_mapNPC.end())
 				{
-					sys_log(0, "CQuestManager::Click(pid=%d, target_npc_name=%s) - NOT EXIST NPC RACE VNUM[%d]",
-							pc,
+					sys_log(0, "CQuestManager::Click(pid=%llu, target_npc_name=%s) - NOT EXIST NPC RACE VNUM[%u]",
+							static_cast<unsigned long long>(pc),
 							pkChrTarget->GetName(),
 							dwCurrentNPCRace); // @warme012
 					return false;
@@ -1068,13 +1068,13 @@ namespace quest
 		else
 		{
 			//cout << "no such pc id : " << pc;
-			sys_err("QUEST CLICK_EVENT no such pc id : %d", pc);
+			sys_err("QUEST CLICK_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 		//cerr << "QUEST CLICk" << endl;
 	}
 
-	void CQuestManager::Unmount(unsigned int pc)
+	void CQuestManager::Unmount(uint64_t pc)
 	{
 		PC * pPC;
 
@@ -1086,10 +1086,10 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnUnmount(*pPC);
 		}
 		else
-			sys_err("QUEST no such pc id : %d", pc);
+			sys_err("QUEST no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
-	void CQuestManager::ItemInformer(unsigned int pc,unsigned int vnum)
+	void CQuestManager::ItemInformer(uint64_t pc, unsigned int vnum)
 	{
 		PC* pPC;
 		pPC = GetPC(pc);
@@ -1150,7 +1150,7 @@ namespace quest
 		m_mapPC.erase(ch->GetPlayerID());
 	}
 
-	PC * CQuestManager::GetPCForce(unsigned int pc)
+	PC * CQuestManager::GetPCForce(uint64_t pc)
 	{
 		PCMap::iterator it;
 
@@ -1164,7 +1164,7 @@ namespace quest
 		return &it->second;
 	}
 
-	PC * CQuestManager::GetPC(unsigned int pc)
+	PC * CQuestManager::GetPC(uint64_t pc)
 	{
 		PCMap::iterator it;
 
@@ -2049,10 +2049,10 @@ namespace quest
 		m_pSelectedDungeon = pDungeon;
 	}
 
-	bool CQuestManager::PickupItem(unsigned int pc, LPITEM item)
+	bool CQuestManager::PickupItem(uint64_t pc, LPITEM item)
 	{
 		if (test_server)
-			sys_log( 0, "questmanager::PickupItem Start : itemVnum : %d PC : %d", item->GetOriginalVnum(), pc);
+			sys_log( 0, "questmanager::PickupItem Start : itemVnum : %d PC : %llu", item->GetOriginalVnum(), static_cast<unsigned long long>(pc));
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
 		{
@@ -2072,11 +2072,11 @@ namespace quest
 		}
 		else
 		{
-			sys_err("QUEST PICK_ITEM_EVENT no such pc id : %d", pc);
+			sys_err("QUEST PICK_ITEM_EVENT no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
-	void CQuestManager::BeginOtherPCBlock(DWORD pid)
+	void CQuestManager::BeginOtherPCBlock(uint64_t pid)
 	{
 		LPCHARACTER ch = GetCurrentCharacterPtr();
 		if (NULL == ch)
@@ -2109,7 +2109,7 @@ namespace quest
 			sys_err("m_vecPCStack is alread empty. CurrentQuest{Name(%s), State(%s)}", GetCurrentQuestName().c_str(), GetCurrentState()->_title.c_str());
 			return;
 		}
-		DWORD pc = m_vecPCStack.back();
+		uint64_t pc = m_vecPCStack.back();
 		m_vecPCStack.pop_back();
 		GetPC(pc);
 
@@ -2129,10 +2129,10 @@ namespace quest
 		return m_pOtherPCBlockRootPC;
 	}
 	
-	bool CQuestManager::Write(unsigned int pc, const char* c_pszMessage)
+	bool CQuestManager::Write(uint64_t pc, const char* c_pszMessage)
 	{
 		PC* pPC;
-		sys_log(0, "CQuestManager::Write Triggered write [pc= %d, mes=%s]", pc, c_pszMessage);
+		sys_log(0, "CQuestManager::Write Triggered write [pc= %llu, mes=%s]", static_cast<unsigned long long>(pc), c_pszMessage);
 		if ((pPC = GetPC(pc)))
 		{
 			if (!CheckQuestLoaded(pPC))
@@ -2144,12 +2144,12 @@ namespace quest
 		}
 		else
 		{
-			sys_err("QUEST Write: no such pc id : %d", pc);
+			sys_err("QUEST Write: no such pc id : %llu", static_cast<unsigned long long>(pc));
 			return false;
 		}
 	}
 
-	void CQuestManager::Fishing(unsigned int pc, BYTE state)
+	void CQuestManager::Fishing(uint64_t pc, BYTE state)
 	{
 		PC* pPC;
 		if ((pPC = GetPC(pc)))
@@ -2161,14 +2161,14 @@ namespace quest
 			m_mapNPC[QUEST_NO_NPC].OnFishing(*pPC);
 		}
 		else
-			sys_err("QUEST FishingSuccess: no such pc id : %d", pc);
+			sys_err("QUEST FishingSuccess: no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 
-	void CQuestManager::Mining(unsigned int pc, unsigned int npc, BYTE state)
+	void CQuestManager::Mining(uint64_t pc, unsigned int npc, BYTE state)
 	{
 		PC* pPC;
 
-		sys_log(0, "CQuestManager::Mining QUEST_MINING_EVENT (pc=%d, npc=%d)", pc, npc);
+		sys_log(0, "CQuestManager::Mining QUEST_MINING_EVENT (pc=%llu, npc=%d)", static_cast<unsigned long long>(pc), npc);
 
 		if ((pPC = GetPC(pc)))
 		{
@@ -2182,7 +2182,6 @@ namespace quest
 			}
 		}
 		else
-			sys_err("QUEST: no such pc id : %d", pc);
+			sys_err("QUEST: no such pc id : %llu", static_cast<unsigned long long>(pc));
 	}
 }
-

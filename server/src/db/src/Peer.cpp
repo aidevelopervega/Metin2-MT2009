@@ -176,7 +176,9 @@ bool CPeer::SetItemIDRange(TItemIDRangeTable itemRange)
 	if (itemRange.dwMin == 0 || itemRange.dwMax == 0 || itemRange.dwUsableItemIDMin == 0) return false;
 
 	m_itemRange = itemRange;
-	sys_log(0, "ItemIDRange: SET %s %u ~ %u start: %u", GetPublicIP(), m_itemRange.dwMin, m_itemRange.dwMax, m_itemRange.dwUsableItemIDMin);
+	sys_log(0, "ItemIDRange: SET %s %llu ~ %llu start: %llu", GetPublicIP(),
+			static_cast<unsigned long long>(m_itemRange.dwMin), static_cast<unsigned long long>(m_itemRange.dwMax),
+			static_cast<unsigned long long>(m_itemRange.dwUsableItemIDMin));
 
 	return true;
 }
@@ -186,8 +188,9 @@ bool CPeer::SetSpareItemIDRange(TItemIDRangeTable itemRange)
 	if (itemRange.dwMin == 0 || itemRange.dwMax == 0 || itemRange.dwUsableItemIDMin == 0) return false;
 
 	m_itemSpareRange = itemRange;
-	sys_log(0, "ItemIDRange: SPARE SET %s %u ~ %u start: %u", GetPublicIP(), m_itemSpareRange.dwMin, m_itemSpareRange.dwMax,
-			m_itemSpareRange.dwUsableItemIDMin);
+	sys_log(0, "ItemIDRange: SPARE SET %s %llu ~ %llu start: %llu", GetPublicIP(),
+			static_cast<unsigned long long>(m_itemSpareRange.dwMin), static_cast<unsigned long long>(m_itemSpareRange.dwMax),
+			static_cast<unsigned long long>(m_itemSpareRange.dwUsableItemIDMin));
 
 	return true;
 }
@@ -197,19 +200,20 @@ bool CPeer::CheckItemIDRangeCollision(TItemIDRangeTable itemRange)
 	if (m_itemRange.dwMin > 0 && m_itemRange.dwMax > 0 &&
 		m_itemRange.dwMin <= itemRange.dwMax && m_itemRange.dwMax >= itemRange.dwMin)
 	{
-		sys_err("ItemIDRange: Collision!! this %u ~ %u check %u ~ %u",
-				m_itemRange.dwMin, m_itemRange.dwMax, itemRange.dwMin, itemRange.dwMax);
+		sys_err("ItemIDRange: Collision!! this %llu ~ %llu check %llu ~ %llu",
+				static_cast<unsigned long long>(m_itemRange.dwMin), static_cast<unsigned long long>(m_itemRange.dwMax),
+				static_cast<unsigned long long>(itemRange.dwMin), static_cast<unsigned long long>(itemRange.dwMax));
 		return true;
 	}
 
 	if (m_itemSpareRange.dwMin > 0 && m_itemSpareRange.dwMax > 0 &&
 		m_itemSpareRange.dwMin <= itemRange.dwMax && m_itemSpareRange.dwMax >= itemRange.dwMin)
 	{
-		sys_err("ItemIDRange: Collision with spare range this %u ~ %u check %u ~ %u",
-				m_itemSpareRange.dwMin, m_itemSpareRange.dwMax, itemRange.dwMin, itemRange.dwMax);
+		sys_err("ItemIDRange: Collision with spare range this %llu ~ %llu check %llu ~ %llu",
+				static_cast<unsigned long long>(m_itemSpareRange.dwMin), static_cast<unsigned long long>(m_itemSpareRange.dwMax),
+				static_cast<unsigned long long>(itemRange.dwMin), static_cast<unsigned long long>(itemRange.dwMax));
 		return true;
 	}
 
 	return false;
 }
-

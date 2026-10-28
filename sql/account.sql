@@ -115,7 +115,7 @@ DROP TABLE IF EXISTS `account`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `account` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `login` varchar(30) NOT NULL DEFAULT '' COMMENT 'LOGIN_MAX_LEN=30',
   `password` varchar(255) NOT NULL DEFAULT '' COMMENT 'PASSWD_MAX_LEN=16; Argon2id PHC / legacy *SHA1',
   `social_id` varchar(18) NOT NULL DEFAULT '1234567' COMMENT 'SOCIAL_ID_MAX_LEN=18',
@@ -168,10 +168,10 @@ DROP TABLE IF EXISTS `account_block`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `account_block` (
-  `account_id` int(11) NOT NULL,
+  `account_id` bigint(20) unsigned NOT NULL,
   `ban_duration` int(11) NOT NULL DEFAULT 0,
-  `pid` int(11) NOT NULL DEFAULT 0,
-  `who` int(11) NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `who` bigint(20) unsigned NOT NULL DEFAULT 0,
   `reason` varchar(255) NOT NULL DEFAULT '',
   `status` tinyint(1) NOT NULL DEFAULT 0,
   `flush_time` datetime DEFAULT NULL
@@ -296,8 +296,8 @@ DROP TABLE IF EXISTS `itemshop_tx_journal`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `itemshop_tx_journal` (
   `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `aid` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `aid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `req_id` bigint(20) unsigned DEFAULT NULL,
   `login` varchar(30) NOT NULL DEFAULT '',
   `item_index` int(11) NOT NULL DEFAULT 0,

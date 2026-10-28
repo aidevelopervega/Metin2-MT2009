@@ -37,16 +37,16 @@ class MessengerManager : public singleton<MessengerManager>
 
 		// BLOCK MESSENGER
 		void	LoadBlockList(LPCHARACTER who);
-		void	__InsertBlockListP2P(DWORD pid, std::string name);
+		void	__InsertBlockListP2P(uint64_t pid, std::string name);
 
 		void	Block(LPCHARACTER ch, std::string targetName);
-		void	__BlockP2P(DWORD mePID, std::string targetName);
+		void	__BlockP2P(uint64_t mePID, std::string targetName);
 
 		void	Unblock(LPCHARACTER ch, std::string targetName);
-		void	__UnblockP2P(DWORD mePID, std::string targetName);
+		void	__UnblockP2P(uint64_t mePID, std::string targetName);
 
-		bool	IsBlock(DWORD whoPID, std::string targetName);
-		DWORD	GetBlockCount(DWORD whoPID);
+		bool	IsBlock(uint64_t whoPID, std::string targetName);
+		DWORD	GetBlockCount(uint64_t whoPID);
 
 	private:
 		void	SendBlockList(LPCHARACTER who);
@@ -64,8 +64,7 @@ class MessengerManager : public singleton<MessengerManager>
 		std::map<keyT, std::set<keyT> >	m_InverseRelation;
 		std::set<DWORD>			m_set_requestToAdd;
 
-		std::map<DWORD, std::set<std::string>>	m_BlockMap;
+		std::map<uint64_t, std::set<std::string>>	m_BlockMap;
 };
 
 #endif
-

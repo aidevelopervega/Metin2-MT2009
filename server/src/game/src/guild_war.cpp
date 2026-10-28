@@ -25,7 +25,7 @@ enum
 //
 // Packet
 //
-void CGuild::GuildWarPacket(DWORD dwOppGID, BYTE bWarType, BYTE bWarState)
+void CGuild::GuildWarPacket(uint64_t dwOppGID, BYTE bWarType, BYTE bWarState)
 {
 	TPacketGCGuild pack;
 	TPacketGCGuildWar pack2;
@@ -74,7 +74,7 @@ void CGuild::SendEnemyGuild(LPCHARACTER ch)
 	TPacketGCGuild p;
 	p.header = HEADER_GC_GUILD;
 	p.subheader = GUILD_SUBHEADER_GC_WAR_SCORE;
-	p.size = sizeof(p) + sizeof(DWORD) + sizeof(DWORD) + sizeof(long);
+	p.size = sizeof(p) + sizeof(uint64_t) + sizeof(uint64_t) + sizeof(int32_t);
 
 	for (itertype(m_EnemyGuild) it = m_EnemyGuild.begin(); it != m_EnemyGuild.end(); ++it)
 	{
@@ -89,21 +89,21 @@ void CGuild::SendEnemyGuild(LPCHARACTER ch)
 
 		if (it->second.state == GUILD_WAR_ON_WAR)
 		{
-			long lScore;
+			int32_t lScore;
 
 			lScore = GetWarScoreAgainstTo(pack2.dwGuildOpp);
 
 			d->BufferedPacket(&p, sizeof(p));
-			d->BufferedPacket(&pack2.dwGuildSelf, sizeof(DWORD));
-			d->BufferedPacket(&pack2.dwGuildOpp, sizeof(DWORD));
-			d->Packet(&lScore, sizeof(long));
+			d->BufferedPacket(&pack2.dwGuildSelf, sizeof(uint64_t));
+			d->BufferedPacket(&pack2.dwGuildOpp, sizeof(uint64_t));
+			d->Packet(&lScore, sizeof(int32_t));
 
 			lScore = CGuildManager::instance().TouchGuild(pack2.dwGuildOpp)->GetWarScoreAgainstTo(pack2.dwGuildSelf);
 
 			d->BufferedPacket(&p, sizeof(p));
-			d->BufferedPacket(&pack2.dwGuildOpp, sizeof(DWORD));
-			d->BufferedPacket(&pack2.dwGuildSelf, sizeof(DWORD));
-			d->Packet(&lScore, sizeof(long));
+			d->BufferedPacket(&pack2.dwGuildOpp, sizeof(uint64_t));
+			d->BufferedPacket(&pack2.dwGuildSelf, sizeof(uint64_t));
+			d->Packet(&lScore, sizeof(int32_t));
 		}
 	}
 }
@@ -111,7 +111,7 @@ void CGuild::SendEnemyGuild(LPCHARACTER ch)
 //
 // War Login
 //
-int CGuild::GetGuildWarState(DWORD dwOppGID)
+int CGuild::GetGuildWarState(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return GUILD_WAR_NONE;
@@ -120,7 +120,7 @@ int CGuild::GetGuildWarState(DWORD dwOppGID)
 	return (it != m_EnemyGuild.end()) ? (it->second.state) : static_cast<BYTE>(GUILD_WAR_NONE);
 }
 
-int CGuild::GetGuildWarType(DWORD dwOppGID)
+int CGuild::GetGuildWarType(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) git = m_EnemyGuild.find(dwOppGID);
 
@@ -130,7 +130,7 @@ int CGuild::GetGuildWarType(DWORD dwOppGID)
 	return git->second.type;
 }
 
-DWORD CGuild::GetGuildWarMapIndex(DWORD dwOppGID)
+DWORD CGuild::GetGuildWarMapIndex(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) git = m_EnemyGuild.find(dwOppGID);
 
@@ -154,7 +154,7 @@ bool CGuild::CanStartWar(BYTE bGuildWarType)
 	return GetLadderPoint() > 0 && GetMemberCount() >= GUILD_WAR_MIN_MEMBER_COUNT;
 }
 
-bool CGuild::UnderWar(DWORD dwOppGID)
+bool CGuild::UnderWar(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return false;
@@ -163,7 +163,7 @@ bool CGuild::UnderWar(DWORD dwOppGID)
 	return (it != m_EnemyGuild.end()) && (it->second.IsWarBegin());
 }
 
-DWORD CGuild::UnderAnyWar(BYTE bType)
+uint64_t CGuild::UnderAnyWar(BYTE bType)
 {
 	for (itertype(m_EnemyGuild) it = m_EnemyGuild.begin(); it != m_EnemyGuild.end(); ++it)
 	{
@@ -178,11 +178,11 @@ DWORD CGuild::UnderAnyWar(BYTE bType)
 	return 0;
 }
 
-void CGuild::SetWarScoreAgainstTo(DWORD dwOppGID, int iScore)
+void CGuild::SetWarScoreAgainstTo(uint64_t dwOppGID, int iScore)
 {
-	DWORD dwSelfGID = GetID();
+	uint64_t dwSelfGID = GetID();
 
-	sys_log(0, "GuildWarScore Set %u from %u %d", dwSelfGID, dwOppGID, iScore);
+	sys_log(0, "GuildWarScore Set %llu from %llu %d", static_cast<unsigned long long>(dwSelfGID), static_cast<unsigned long long>(dwOppGID), iScore);
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 
 	if (it != m_EnemyGuild.end())
@@ -203,14 +203,16 @@ void CGuild::SetWarScoreAgainstTo(DWORD dwOppGID, int iScore)
 
 			p.header = HEADER_GC_GUILD;
 			p.subheader = GUILD_SUBHEADER_GC_WAR_SCORE;
-			p.size = sizeof(p) + sizeof(DWORD) + sizeof(DWORD) + sizeof(long);
+			p.size = sizeof(p) + sizeof(uint64_t) + sizeof(uint64_t) + sizeof(int32_t);
+
+			int32_t s32Score = static_cast<int32_t>(iScore);
 
 			TEMP_BUFFER buf;
 			buf.write(&p, sizeof(p));
 
-			buf.write(&dwSelfGID, sizeof(DWORD));
-			buf.write(&dwOppGID, sizeof(DWORD));
-			buf.write(&iScore, sizeof(long));
+			buf.write(&dwSelfGID, sizeof(uint64_t));
+			buf.write(&dwOppGID, sizeof(uint64_t));
+			buf.write(&s32Score, sizeof(int32_t));
 
 			Packet(buf.read_peek(), buf.size());
 
@@ -222,21 +224,21 @@ void CGuild::SetWarScoreAgainstTo(DWORD dwOppGID, int iScore)
 	}
 }
 
-int CGuild::GetWarScoreAgainstTo(DWORD dwOppGID)
+int CGuild::GetWarScoreAgainstTo(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 
 	if (it != m_EnemyGuild.end())
 	{
-		sys_log(0, "GuildWarScore Get %u from %u %d", GetID(), dwOppGID, it->second.score);
+		sys_log(0, "GuildWarScore Get %llu from %llu %d", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), it->second.score);
 		return it->second.score;
 	}
 
-	sys_log(0, "GuildWarScore Get %u from %u No data", GetID(), dwOppGID);
+	sys_log(0, "GuildWarScore Get %llu from %llu No data", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 	return 0;
 }
 
-DWORD CGuild::GetWarStartTime(DWORD dwOppGID)
+DWORD CGuild::GetWarStartTime(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return 0;
@@ -290,17 +292,17 @@ void CGuild::NotifyGuildMaster(const char* msg)
 //           -> B Declare -> WaitStart -> Fail
 //                                     -> StartWar -> EndWar
 //
-void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
+void CGuild::RequestDeclareWar(uint64_t dwOppGID, BYTE type)
 {
 	if (dwOppGID == GetID())
 	{
-		sys_log(0, "GuildWar.DeclareWar.DECLARE_WAR_SELF id(%d -> %d), type(%d)", GetID(), dwOppGID, type);
+		sys_log(0, "GuildWar.DeclareWar.DECLARE_WAR_SELF id(%llu -> %llu), type(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type);
 		return;
 	}
 
 	if (type >= GUILD_WAR_TYPE_MAX_NUM)
 	{
-		sys_log(0, "GuildWar.DeclareWar.UNKNOWN_WAR_TYPE id(%d -> %d), type(%d)", GetID(), dwOppGID, type);
+		sys_log(0, "GuildWar.DeclareWar.UNKNOWN_WAR_TYPE id(%llu -> %llu), type(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type);
 		return;
 	}
 
@@ -309,8 +311,8 @@ void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
 	{
 		if (!GuildWar_IsWarMap(type))
 		{
-			sys_err("GuildWar.DeclareWar.NOT_EXIST_MAP id(%d -> %d), type(%d), map(%d)",
-					GetID(), dwOppGID, type, GuildWar_GetTypeMapIndex(type));
+			sys_err("GuildWar.DeclareWar.NOT_EXIST_MAP id(%llu -> %llu), type(%d), map(%d)",
+					static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type, GuildWar_GetTypeMapIndex(type));
 
 			map_allow_log();
 			NotifyGuildMaster(LC_TEXT("[Guild] The enemy's guild leader is offline."));
@@ -323,7 +325,7 @@ void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
 		p.dwGuildFrom = GetID();
 		p.dwGuildTo = dwOppGID;
 		db_clientdesc->DBPacket(HEADER_GD_GUILD_WAR, 0, &p, sizeof(p));
-		sys_log(0, "GuildWar.DeclareWar id(%d -> %d), type(%d)", GetID(), dwOppGID, type);
+		sys_log(0, "GuildWar.DeclareWar id(%llu -> %llu), type(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type);
 		return;
 	}
 
@@ -341,14 +343,14 @@ void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
 					p.dwGuildFrom = GetID();
 					p.dwGuildTo = dwOppGID;
 					db_clientdesc->DBPacket(HEADER_GD_GUILD_WAR, 0, &p, sizeof(p));
-					sys_log(0, "GuildWar.AcceptWar id(%d -> %d), type(%d)", GetID(), dwOppGID, saved_type);
+					sys_log(0, "GuildWar.AcceptWar id(%llu -> %llu), type(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), saved_type);
 					return;
 				}
 
 				if (!GuildWar_IsWarMap(saved_type))
 				{
-					sys_err("GuildWar.AcceptWar.NOT_EXIST_MAP id(%d -> %d), type(%d), map(%d)",
-							GetID(), dwOppGID, type, GuildWar_GetTypeMapIndex(type));
+					sys_err("GuildWar.AcceptWar.NOT_EXIST_MAP id(%llu -> %llu), type(%d), map(%d)",
+							static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type, GuildWar_GetTypeMapIndex(type));
 
 					map_allow_log();
 					NotifyGuildMaster(LC_TEXT("[Guild] The enemy's guild leader is offline."));
@@ -370,8 +372,8 @@ void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
 
 				db_clientdesc->DBPacket(HEADER_GD_GUILD_WAR, 0, &p, sizeof(p));
 
-				sys_log(0, "GuildWar.WaitStartSendToDB id(%d vs %d), type(%d), bet(%lld), map_index(%d)",
-						GetID(), dwOppGID, saved_type, guildWarInfo.iWarPrice, guildWarInfo.lMapIndex);
+				sys_log(0, "GuildWar.WaitStartSendToDB id(%llu vs %llu), type(%d), bet(%lld), map_index(%d)",
+						static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), saved_type, static_cast<long long>(guildWarInfo.iWarPrice), guildWarInfo.lMapIndex);
 
 			}
 			break;
@@ -381,13 +383,13 @@ void CGuild::RequestDeclareWar(DWORD dwOppGID, BYTE type)
 			}
 			break;
 		default:
-			sys_err("GuildWar.DeclareWar.UNKNOWN_STATE[%d]: id(%d vs %d), type(%d), guild(%s:%u)",
-					it->second.state, GetID(), dwOppGID, type, GetName(), GetID());
+			sys_err("GuildWar.DeclareWar.UNKNOWN_STATE[%d]: id(%llu vs %llu), type(%d), guild(%s:%llu)",
+					it->second.state, static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), type, GetName(), static_cast<unsigned long long>(GetID()));
 			break;
 	}
 }
 
-bool CGuild::DeclareWar(DWORD dwOppGID, BYTE type, BYTE state)
+bool CGuild::DeclareWar(uint64_t dwOppGID, BYTE type, BYTE state)
 {
 	if (m_EnemyGuild.find(dwOppGID) != m_EnemyGuild.end())
 		return false;
@@ -401,7 +403,7 @@ bool CGuild::DeclareWar(DWORD dwOppGID, BYTE type, BYTE state)
 	return true;
 }
 
-bool CGuild::CheckStartWar(DWORD dwOppGID)
+bool CGuild::CheckStartWar(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 
@@ -416,7 +418,7 @@ bool CGuild::CheckStartWar(DWORD dwOppGID)
 	return true;
 }
 
-void CGuild::StartWar(DWORD dwOppGID)
+void CGuild::StartWar(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 
@@ -437,18 +439,18 @@ void CGuild::StartWar(DWORD dwOppGID)
 		GuildWarEntryAsk(dwOppGID);
 }
 
-bool CGuild::WaitStartWar(DWORD dwOppGID)
+bool CGuild::WaitStartWar(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.DECLARE_WAR_SELF id(%u -> %u)", GetID(), dwOppGID);
+		sys_log(0 ,"GuildWar.WaitStartWar.DECLARE_WAR_SELF id(%llu -> %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return false;
 	}
 
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 	if (it == m_EnemyGuild.end())
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.UNKNOWN_ENEMY id(%u -> %u)", GetID(), dwOppGID);
+		sys_log(0 ,"GuildWar.WaitStartWar.UNKNOWN_ENEMY id(%llu -> %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return false;
 	}
 
@@ -456,7 +458,7 @@ bool CGuild::WaitStartWar(DWORD dwOppGID)
 
 	if (gw.state == GUILD_WAR_WAIT_START)
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.UNKNOWN_STATE id(%u -> %u), state(%d)", GetID(), dwOppGID, gw.state);
+		sys_log(0 ,"GuildWar.WaitStartWar.UNKNOWN_STATE id(%llu -> %llu), state(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), gw.state);
 		return false;
 	}
 
@@ -465,7 +467,7 @@ bool CGuild::WaitStartWar(DWORD dwOppGID)
 	CGuild* g = CGuildManager::instance().FindGuild(dwOppGID);
 	if (!g)
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.NOT_EXIST_GUILD id(%u -> %u)", GetID(), dwOppGID);
+		sys_log(0 ,"GuildWar.WaitStartWar.NOT_EXIST_GUILD id(%llu -> %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return false;
 	}
 
@@ -475,21 +477,21 @@ bool CGuild::WaitStartWar(DWORD dwOppGID)
 
 	if (gw.type == GUILD_WAR_TYPE_FIELD)
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.FIELD_TYPE id(%u -> %u)", GetID(), dwOppGID);
+		sys_log(0 ,"GuildWar.WaitStartWar.FIELD_TYPE id(%llu -> %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return true;
 	}
 
-	sys_log(0 ,"GuildWar.WaitStartWar.CheckWarServer id(%u -> %u), type(%d), map(%d)",
-			GetID(), dwOppGID, gw.type, rkGuildWarInfo.lMapIndex);
+	sys_log(0 ,"GuildWar.WaitStartWar.CheckWarServer id(%llu -> %llu), type(%d), map(%d)",
+			static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), gw.type, rkGuildWarInfo.lMapIndex);
 
 	if (!map_allow_find(rkGuildWarInfo.lMapIndex))
 	{
-		sys_log(0 ,"GuildWar.WaitStartWar.SKIP_WAR_MAP id(%u -> %u)", GetID(), dwOppGID);
+		sys_log(0 ,"GuildWar.WaitStartWar.SKIP_WAR_MAP id(%llu -> %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return true;
 	}
 
-	DWORD id1 = GetID();
-	DWORD id2 = dwOppGID;
+	uint64_t id1 = GetID();
+	uint64_t id2 = dwOppGID;
 
 	if (id1 > id2)
 		std::swap(id1, id2);
@@ -497,12 +499,12 @@ bool CGuild::WaitStartWar(DWORD dwOppGID)
 	DWORD lMapIndex = CWarMapManager::instance().CreateWarMap(rkGuildWarInfo, id1, id2);
 	if (!lMapIndex)
 	{
-		sys_err("GuildWar.WaitStartWar.CREATE_WARMAP_ERROR id(%u vs %u), type(%u), map(%d)", id1, id2, gw.type, rkGuildWarInfo.lMapIndex);
+		sys_err("GuildWar.WaitStartWar.CREATE_WARMAP_ERROR id(%llu vs %llu), type(%u), map(%d)", static_cast<unsigned long long>(id1), static_cast<unsigned long long>(id2), gw.type, rkGuildWarInfo.lMapIndex);
 		CGuildManager::instance().RequestEndWar(GetID(), dwOppGID);
 		return false;
 	}
 
-	sys_log(0, "GuildWar.WaitStartWar.CreateMap id(%u vs %u), type(%u), map(%d) -> map_inst(%u)", id1, id2, gw.type, rkGuildWarInfo.lMapIndex, lMapIndex);
+	sys_log(0, "GuildWar.WaitStartWar.CreateMap id(%llu vs %llu), type(%u), map(%d) -> map_inst(%u)", static_cast<unsigned long long>(id1), static_cast<unsigned long long>(id2), gw.type, rkGuildWarInfo.lMapIndex, lMapIndex);
 
 	gw.map_index = lMapIndex;
 
@@ -523,7 +525,7 @@ bool CGuild::WaitStartWar(DWORD dwOppGID)
 	return true;
 }
 
-void CGuild::RequestRefuseWar(DWORD dwOppGID)
+void CGuild::RequestRefuseWar(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return;
@@ -541,7 +543,7 @@ void CGuild::RequestRefuseWar(DWORD dwOppGID)
 	}
 }
 
-void CGuild::RefuseWar(DWORD dwOppGID)
+void CGuild::RefuseWar(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return;
@@ -557,7 +559,7 @@ void CGuild::RefuseWar(DWORD dwOppGID)
 	}
 }
 
-void CGuild::ReserveWar(DWORD dwOppGID, BYTE type)
+void CGuild::ReserveWar(uint64_t dwOppGID, BYTE type)
 {
 	if (dwOppGID == GetID())
 		return;
@@ -573,10 +575,10 @@ void CGuild::ReserveWar(DWORD dwOppGID, BYTE type)
 	else
 		it->second.state = GUILD_WAR_RESERVE;
 
-	sys_log(0, "Guild::ReserveWar %u", dwOppGID);
+	sys_log(0, "Guild::ReserveWar %llu", static_cast<unsigned long long>(dwOppGID));
 }
 
-void CGuild::EndWar(DWORD dwOppGID)
+void CGuild::EndWar(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return;
@@ -606,7 +608,7 @@ void CGuild::EndWar(DWORD dwOppGID)
 	}
 }
 
-void CGuild::SetGuildWarMapIndex(DWORD dwOppGID, long lMapIndex)
+void CGuild::SetGuildWarMapIndex(uint64_t dwOppGID, long lMapIndex)
 {
 	itertype(m_EnemyGuild) it = m_EnemyGuild.find(dwOppGID);
 
@@ -614,10 +616,10 @@ void CGuild::SetGuildWarMapIndex(DWORD dwOppGID, long lMapIndex)
 		return;
 
 	it->second.map_index = lMapIndex;
-	sys_log(0, "GuildWar.SetGuildWarMapIndex id(%d -> %d), map(%d)", GetID(), dwOppGID, lMapIndex);
+	sys_log(0, "GuildWar.SetGuildWarMapIndex id(%llu -> %llu), map(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), lMapIndex);
 }
 
-void CGuild::GuildWarEntryAccept(DWORD dwOppGID, LPCHARACTER ch)
+void CGuild::GuildWarEntryAccept(uint64_t dwOppGID, LPCHARACTER ch)
 {
 	itertype(m_EnemyGuild) git = m_EnemyGuild.find(dwOppGID);
 
@@ -658,28 +660,28 @@ void CGuild::GuildWarEntryAccept(DWORD dwOppGID, LPCHARACTER ch)
 	ch->WarpSet(pos.x, pos.y, gw.map_index);
 }
 
-void CGuild::GuildWarEntryAsk(DWORD dwOppGID)
+void CGuild::GuildWarEntryAsk(uint64_t dwOppGID)
 {
 	itertype(m_EnemyGuild) git = m_EnemyGuild.find(dwOppGID);
 	if (git == m_EnemyGuild.end())
 	{
-		sys_err("GuildWar.GuildWarEntryAsk.UNKNOWN_ENEMY(%d)", dwOppGID);
+		sys_err("GuildWar.GuildWarEntryAsk.UNKNOWN_ENEMY(%llu)", static_cast<unsigned long long>(dwOppGID));
 		return;
 	}
 
 	TGuildWar & gw(git->second);
 
-	sys_log(0, "GuildWar.GuildWarEntryAsk id(%d vs %d), map(%d)", GetID(), dwOppGID, gw.map_index);
+	sys_log(0, "GuildWar.GuildWarEntryAsk id(%llu vs %llu), map(%d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), gw.map_index);
 	if (!gw.map_index)
 	{
-		sys_err("GuildWar.GuildWarEntryAsk.NOT_EXIST_MAP id(%d vs %d)", GetID(), dwOppGID);
+		sys_err("GuildWar.GuildWarEntryAsk.NOT_EXIST_MAP id(%llu vs %llu)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID));
 		return;
 	}
 
 	PIXEL_POSITION pos;
 	if (!CWarMapManager::instance().GetStartPosition(gw.map_index, GetID() < dwOppGID ? 0 : 1, pos))
 	{
-		sys_err("GuildWar.GuildWarEntryAsk.START_POSITION_ERROR id(%d vs %d), pos(%d, %d)", GetID(), dwOppGID, pos.x, pos.y);
+		sys_err("GuildWar.GuildWarEntryAsk.START_POSITION_ERROR id(%llu vs %llu), pos(%d, %d)", static_cast<unsigned long long>(GetID()), static_cast<unsigned long long>(dwOppGID), pos.x, pos.y);
 		return;
 	}
 
@@ -695,13 +697,13 @@ void CGuild::GuildWarEntryAsk(DWORD dwOppGID)
 		unsigned int questIndex=CQuestManager::instance().GetQuestIndexByName("guild_war_join");
 		if (questIndex)
 		{
-			sys_log(0, "GuildWar.GuildWarEntryAsk.SendLetterToMember pid(%d), qid(%d)", ch->GetPlayerID(), questIndex);
+			sys_log(0, "GuildWar.GuildWarEntryAsk.SendLetterToMember pid(%llu), qid(%d)", static_cast<unsigned long long>(ch->GetPlayerID()), questIndex);
 			CQuestManager::instance().Letter(ch->GetPlayerID(), questIndex, 0);
 		}
 		else
 		{
-			sys_err("GuildWar.GuildWarEntryAsk.SendLetterToMember.QUEST_ERROR pid(%u), quest_name('guild_war_join.quest') idx(%d)",
-					ch->GetPlayerID(), questIndex);
+			sys_err("GuildWar.GuildWarEntryAsk.SendLetterToMember.QUEST_ERROR pid(%llu), quest_name('guild_war_join.quest') idx(%d)",
+					static_cast<unsigned long long>(ch->GetPlayerID()), questIndex);
 			break;
 		}
 	}
@@ -732,4 +734,3 @@ void CGuild::ChangeLadderPoint(int iChange)
 	p.lChange = iChange;
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_CHANGE_LADDER_POINT, 0, &p, sizeof(p));
 }
-

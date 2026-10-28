@@ -183,6 +183,22 @@ bool CConfig::GetParam(const char*key, int index, DWORD *Param)
 	sys_log(0, "GetParam %d", *Param);
 	return true;
 }
+
+bool CConfig::GetParam(const char*key, int index, uint64_t *Param)
+{
+	std::string * pstStr = Search(key);
+	if (!pstStr)
+		return false;
+
+	char szParam[5][32];
+
+	sscanf(pstStr->c_str(), "%s %s %s %s %s", szParam[0],szParam[1],szParam[2],szParam[3],szParam[4]);
+
+	str_to_number(*Param, szParam[index]);
+
+	sys_log(0, "GetParam %llu", static_cast<unsigned long long>(*Param));
+	return true;
+}
 const char * CConfig::Get(const char* key)
 {
 	std::string * pstStr = Search(key);
@@ -256,3 +272,13 @@ bool CConfig::GetTwoValue(const char* key, DWORD * dest1, DWORD *dest2)
 	return true;
 }
 
+bool CConfig::GetTwoValue(const char* key, uint64_t * dest1, uint64_t *dest2)
+{
+	if (!GetParam(key, 0, dest1))
+		return false;
+
+	if (!GetParam(key, 1, dest2))
+		return false;
+
+	return true;
+}

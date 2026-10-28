@@ -23,8 +23,8 @@ class CArena
 	friend class CArenaMap;
 
 	private :
-	DWORD m_dwPIDA;
-	DWORD m_dwPIDB;
+	uint64_t m_dwPIDA;
+	uint64_t m_dwPIDB;
 
 	LPEVENT m_pEvent;
 	LPEVENT m_pTimeOutEvent;
@@ -37,7 +37,7 @@ class CArena
 	DWORD m_dwSetPointOfA;
 	DWORD m_dwSetPointOfB;
 
-	std::map<DWORD, LPCHARACTER> m_mapObserver;
+	std::map<uint64_t, LPCHARACTER> m_mapObserver;
 
 	protected :
 	CArena(WORD startA_X, WORD startA_Y, WORD startB_X, WORD startB_Y);
@@ -45,22 +45,22 @@ class CArena
 	bool StartDuel(LPCHARACTER pCharFrom, LPCHARACTER pCharTo, int nSetPoint, int nMinute = 5);
 
 	bool IsEmpty() const	{ return ((m_dwPIDA==0) && (m_dwPIDB==0)); }
-	bool IsMember(DWORD dwPID) const	{ return ((m_dwPIDA==dwPID) || (m_dwPIDB==dwPID)); }
+	bool IsMember(uint64_t dwPID) const	{ return ((m_dwPIDA==dwPID) || (m_dwPIDB==dwPID)); }
 
 	bool CheckArea(WORD startA_X, WORD startA_Y, WORD startB_X, WORD startB_Y);
 	void Clear();
 
-	bool CanAttack(DWORD dwPIDA, DWORD dwPIDB);
-	bool OnDead(DWORD dwPIDA, DWORD dwPIDB);
+	bool CanAttack(uint64_t dwPIDA, uint64_t dwPIDB);
+	bool OnDead(uint64_t dwPIDA, uint64_t dwPIDB);
 
-	bool IsObserver(DWORD pid);
+	bool IsObserver(uint64_t pid);
 	bool IsMyObserver(WORD ObserverX, WORD ObserverY);
 	bool AddObserver(LPCHARACTER pChar);
 	bool RegisterObserverPtr(LPCHARACTER pChar);
 
 	public :
-	DWORD GetPlayerAPID() { return m_dwPIDA; }
-	DWORD GetPlayerBPID() { return m_dwPIDB; }
+	uint64_t GetPlayerAPID() { return m_dwPIDA; }
+	uint64_t GetPlayerBPID() { return m_dwPIDB; }
 
 	LPCHARACTER GetPlayerA() { return CHARACTER_MANAGER::instance().FindByPID(m_dwPIDA); }
 	LPCHARACTER GetPlayerB() { return CHARACTER_MANAGER::instance().FindByPID(m_dwPIDB); }
@@ -72,8 +72,8 @@ class CArena
 
 	void EndDuel();
 	void ClearEvent() { m_pEvent = NULL; }
-	void OnDisconnect(DWORD pid);
-	void RemoveObserver(DWORD pid);
+	void OnDisconnect(uint64_t pid);
+	void RemoveObserver(uint64_t pid);
 
 	void SendPacketToObserver(const void * c_pvData, int iSize);
 	void SendChatPacketToObserver(BYTE type, const char * format, ...);
@@ -95,7 +95,7 @@ class CArenaMap
 
 	bool StartDuel(LPCHARACTER pCharFrom, LPCHARACTER pCharTo, int nSetPoint, int nMinute = 5);
 	void EndAllDuel();
-	bool EndDuel(DWORD pid);
+	bool EndDuel(uint64_t pid);
 
 	int GetDuelList(lua_State* L, int index);
 
@@ -105,7 +105,7 @@ class CArenaMap
 	bool AddObserver(LPCHARACTER pChar, WORD ObserverX, WORD ObserverY);
 	bool RegisterObserverPtr(LPCHARACTER pChar, DWORD mapIdx, WORD ObserverX, WORD ObserverY);
 
-	MEMBER_IDENTITY IsMember(DWORD PID);
+	MEMBER_IDENTITY IsMember(uint64_t PID);
 };
 
 class CArenaManager : public singleton<CArenaManager>
@@ -124,7 +124,7 @@ class CArenaManager : public singleton<CArenaManager>
 		void SendArenaMapListTo(LPCHARACTER pChar);
 
 		void EndAllDuel();
-		bool EndDuel(DWORD pid);
+		bool EndDuel(uint64_t pid);
 
 		void GetDuelList(lua_State* L);
 
@@ -136,10 +136,9 @@ class CArenaManager : public singleton<CArenaManager>
 		bool RegisterObserverPtr(LPCHARACTER pChar, DWORD mapIdx, WORD ObserverX, WORD ObserverY);
 
 		bool IsArenaMap(DWORD dwMapIndex);
-		MEMBER_IDENTITY IsMember(DWORD dwMapIndex, DWORD PID);
+		MEMBER_IDENTITY IsMember(DWORD dwMapIndex, uint64_t PID);
 
 		bool IsLimitedItem( long lMapIndex, DWORD dwVnum );
 };
 
 #endif /*__CLASS_ARENA_MANAGER__*/
-

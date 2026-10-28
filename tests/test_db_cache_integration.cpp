@@ -1269,6 +1269,79 @@ int main()
                     "Senaryo 12: get_Item_Flag_Value computes unsigned bitmask for bit 18");
     }
 
+    // =========================================================================
+    // SENARYO 13: 64-Bit Kalici Kimlikler (PID > 2^32, ITEM_ID > 2^53) Önbellek ve SQL Sorgu Doğrulamasi
+    // =========================================================================
+    std::cout << "[RUN] Senaryo 13: 64-bit kalici kimlikler (PID > 2^32, ITEM_ID > 2^53) onbellek ve SQL sorgu dogrulamasi..." << std::endl;
+    {
+        SQLMsg* leftoverMsg = nullptr;
+        while (testSql->PopQueuedQuery(&leftoverMsg))
+        {
+            delete (CQueryInfo*)leftoverMsg->pvUserData;
+            delete leftoverMsg;
+        }
+
+        auto simpleEscape = [](char* dst, size_t dstSize, const char* src, size_t srcSize) -> size_t {
+            if (!dst || dstSize < srcSize * 2 + 1) return 0;
+            std::memcpy(dst, src, srcSize);
+            dst[srcSize] = '\0';
+            return srcSize;
+        };
+        testDirectSql->m_escapeHandler = simpleEscape;
+
+        const uint64_t highPid = 5000000001ULL;          // > 2^32
+        const uint64_t highItemId = 9007199254740993ULL; // > 2^53 (2^53 + 1)
+
+        TPlayerTable pt64{};
+        pt64.id = highPid;
+        strlcpy(pt64.name, "Hero64BitId", sizeof(pt64.name));
+        pt64.gold = 123456789000LL;
+        pt64.level = 99;
+        clientManager.PutPlayerCache(&pt64);
+
+        CPlayerTableCache* pkPlayer64 = clientManager.GetPlayerCache(highPid);
+        TEST_ASSERT(pkPlayer64 != nullptr && pkPlayer64->Get()->id == highPid,
+                    "Senaryo 13: CPlayerTableCache stores and retrieves PID = 5,000,000,001 (> 2^32)");
+
+        TPlayerItem item64{};
+        item64.id = highItemId;
+        item64.owner = highPid;
+        item64.window = INVENTORY;
+        item64.pos = 0;
+        item64.count = 1;
+        item64.vnum = 189;
+        clientManager.CreateItemCacheSet(highPid);
+        clientManager.PutItemCache(&item64, false);
+
+        CItemCache* pkItem64 = clientManager.GetItemCache(highItemId);
+        TEST_ASSERT(pkItem64 != nullptr && pkItem64->Get()->id == highItemId && pkItem64->Get()->owner == highPid,
+                    "Senaryo 13: CItemCache stores and retrieves ITEM_ID = 9,007,199,254,740,993 (> 2^53) & owner PID > 2^32");
+
+        uint64_t maxInRange = clientManager.GetMaxCachedItemIDInRange(9007199254740000ULL, 9007199254750000ULL);
+        TEST_ASSERT(maxInRange == highItemId,
+                    "Senaryo 13: GetMaxCachedItemIDInRange accurately tracks 64-bit ITEM_ID > 2^53");
+
+        clientManager.FlushPlayerCacheSet(highPid);
+        SQLMsg* pFlushMsg = nullptr;
+        TEST_ASSERT(testSql->PopQueuedQuery(&pFlushMsg) == true && pFlushMsg != nullptr,
+                    "Senaryo 13: FlushPlayerCacheSet(5000000001) queued SQL UPDATE");
+        TEST_ASSERT(pFlushMsg->stQuery.find("WHERE id=5000000001") != std::string::npos,
+                    "Senaryo 13: Player save SQL query preserves exact 64-bit WHERE id=5000000001");
+        pFlushMsg->uiSQLErrno = 0;
+        clientManager.AnalyzeQueryResult(pFlushMsg);
+        delete pFlushMsg;
+
+        clientManager.FlushItemCacheSet(highPid);
+        SQLMsg* iFlushMsg = nullptr;
+        TEST_ASSERT(testSql->PopQueuedQuery(&iFlushMsg) == true && iFlushMsg != nullptr,
+                    "Senaryo 13: FlushItemCacheSet(5000000001) queued SQL REPLACE INTO item");
+        TEST_ASSERT(iFlushMsg->stQuery.find("id=9007199254740993, owner_id=5000000001") != std::string::npos,
+                    "Senaryo 13: Item save SQL query preserves exact 64-bit id=9007199254740993 and owner_id=5000000001");
+        iFlushMsg->uiSQLErrno = 0;
+        clientManager.AnalyzeQueryResult(iFlushMsg);
+        delete iFlushMsg;
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << " [SUCCESS] REAL DB CACHE INTEGRATION SUITE: " << g_passCount << "/" << g_testCount << " PASSED!" << std::endl;
     std::cout << "==================================================" << std::endl;

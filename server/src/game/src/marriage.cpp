@@ -239,12 +239,12 @@ namespace marriage
 				bool is_d2_premium = d2->GetAccountTable().iPremium > get_global_time();
 				d1->ChatPacket(CHAT_TYPE_COMMAND, "lover_login %d", is_d2_premium ? 1 : 0);
 				d2->ChatPacket(CHAT_TYPE_COMMAND, "lover_login %d", is_d1_premium ? 1 : 0);
-				sys_log(0, "lover_login %u %u", m_pid1, m_pid2);
+				sys_log(0, "lover_login %llu %llu", static_cast<unsigned long long>(m_pid1), static_cast<unsigned long long>(m_pid2));
 			}
 		}
 	}
 
-	void TMarriage::Logout(DWORD pid)
+	void TMarriage::Logout(uint64_t pid)
 	{
 		if (pid == m_pid1)
 			ch1 = NULL;
@@ -315,7 +315,7 @@ namespace marriage
 			StopNearCheckEvent();
 			return;
 		}
-		sys_log(0, "NearCheck %u %u %d %d %d %d", m_pid1, m_pid2, IsNear(), isLastNear, byLastLovePoint, GetMarriagePoint());
+		sys_log(0, "NearCheck %llu %llu %d %d %d %d", static_cast<unsigned long long>(m_pid1), static_cast<unsigned long long>(m_pid2), IsNear(), isLastNear, byLastLovePoint, GetMarriagePoint());
 
 		if (IsNear() && !isLastNear)
 		{
@@ -437,7 +437,7 @@ namespace marriage
 		}
 	}
 
-	void TMarriage::WarpToWeddingMap(DWORD dwPID)
+	void TMarriage::WarpToWeddingMap(uint64_t dwPID)
 	{
 		if (!pWeddingInfo)
 			return;
@@ -482,7 +482,7 @@ namespace marriage
 		return false;
 	}
 
-	bool CManager::IsMarried(DWORD dwPlayerID)
+	bool CManager::IsMarried(uint64_t dwPlayerID)
 	{
 		TMarriage* pkMarriageFinded=Get(dwPlayerID);
 		if (pkMarriageFinded && pkMarriageFinded->is_married)
@@ -491,7 +491,7 @@ namespace marriage
 		return false;
 	}
 
-	bool CManager::IsEngaged(DWORD dwPlayerID)
+	bool CManager::IsEngaged(uint64_t dwPlayerID)
 	{
 		TMarriage* pkMarriageFinded=Get(dwPlayerID);
 		if (pkMarriageFinded && !pkMarriageFinded->is_married)
@@ -500,7 +500,7 @@ namespace marriage
 		return false;
 	}
 
-	bool CManager::IsEngagedOrMarried(DWORD dwPlayerID)
+	bool CManager::IsEngagedOrMarried(uint64_t dwPlayerID)
 	{
 		return Get(dwPlayerID) != NULL;
 	}
@@ -514,13 +514,13 @@ namespace marriage
 	{
 	}
 
-	void Align(DWORD& dwPID1, DWORD& dwPID2)
+	void Align(uint64_t& dwPID1, uint64_t& dwPID2)
 	{
 		if (dwPID1 > dwPID2)
 			std::swap(dwPID1, dwPID2);
 	}
 
-	TMarriage* CManager::Get(DWORD dwPlayerID)
+	TMarriage* CManager::Get(uint64_t dwPlayerID)
 	{
 		itertype(m_MarriageByPID) it = m_MarriageByPID.find(dwPlayerID);
 
@@ -530,7 +530,7 @@ namespace marriage
 		return NULL;
 	}
 
-	void CManager::RequestAdd(DWORD dwPID1, DWORD dwPID2, const char* szName1, const char* szName2)
+	void CManager::RequestAdd(uint64_t dwPID1, uint64_t dwPID2, const char* szName1, const char* szName2)
 	{
 		if (dwPID1 > dwPID2)
 		{
@@ -547,11 +547,11 @@ namespace marriage
 		db_clientdesc->DBPacket(HEADER_GD_MARRIAGE_ADD, 0, &p, sizeof(p));
 	}
 
-	void CManager::Add(DWORD dwPID1, DWORD dwPID2, time_t tMarryTime, const char* szName1, const char* szName2)
+	void CManager::Add(uint64_t dwPID1, uint64_t dwPID2, time_t tMarryTime, const char* szName1, const char* szName2)
 	{
 		if (IsEngagedOrMarried(dwPID1) || IsEngagedOrMarried(dwPID2))
 		{
-			sys_err("cannot marry already married character. %d - %d", dwPID1, dwPID2);
+			sys_err("cannot marry already married character. %llu - %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -579,7 +579,7 @@ namespace marriage
 		}
 	}
 
-	void CManager::RequestUpdate(DWORD dwPID1, DWORD dwPID2, int iUpdatePoint, BYTE byMarried)
+	void CManager::RequestUpdate(uint64_t dwPID1, uint64_t dwPID2, int iUpdatePoint, BYTE byMarried)
 	{
 		Align(dwPID1, dwPID2);
 
@@ -591,13 +591,13 @@ namespace marriage
 		db_clientdesc->DBPacket(HEADER_GD_MARRIAGE_UPDATE, 0, &p, sizeof(p));
 	}
 
-	void CManager::Update(DWORD dwPID1, DWORD dwPID2, long lTotalPoint, BYTE byMarried)
+	void CManager::Update(uint64_t dwPID1, uint64_t dwPID2, long lTotalPoint, BYTE byMarried)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("not under marriage : %u %u", dwPID1, dwPID2);
+			sys_err("not under marriage : %llu %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -605,7 +605,7 @@ namespace marriage
 		pMarriage->is_married = byMarried;
 	}
 
-	void CManager::RequestRemove(DWORD dwPID1, DWORD dwPID2)
+	void CManager::RequestRemove(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		Align(dwPID1, dwPID2);
 
@@ -615,12 +615,12 @@ namespace marriage
 		db_clientdesc->DBPacket(HEADER_GD_MARRIAGE_REMOVE, 0, &p, sizeof(p));
 	}
 
-	void CManager::Remove(DWORD dwPID1, DWORD dwPID2)
+	void CManager::Remove(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("not under marriage : %u %u", dwPID1, dwPID2);
+			sys_err("not under marriage : %llu %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -633,7 +633,7 @@ namespace marriage
 
 	void CManager::Login(LPCHARACTER ch)
 	{
-		DWORD pid = ch->GetPlayerID();
+		uint64_t pid = ch->GetPlayerID();
 
 		TMarriage* pMarriage = Get(pid);
 		if (!pMarriage)
@@ -642,7 +642,7 @@ namespace marriage
 		pMarriage->Login(ch);
 	}
 
-	void CManager::Logout(DWORD pid)
+	void CManager::Logout(uint64_t pid)
 	{
 		TMarriage * pMarriage = Get(pid);
 
@@ -657,12 +657,12 @@ namespace marriage
 		Logout(ch->GetPlayerID());
 	}
 
-	void CManager::WeddingReady(DWORD dwPID1, DWORD dwPID2, DWORD dwMapIndex)
+	void CManager::WeddingReady(uint64_t dwPID1, uint64_t dwPID2, DWORD dwMapIndex)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("wrong marriage %u, %u", dwPID1, dwPID2);
+			sys_err("wrong marriage %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -678,12 +678,12 @@ namespace marriage
 		pwi->dwMapIndex = dwMapIndex;
 	}
 
-	void CManager::WeddingStart(DWORD dwPID1, DWORD dwPID2)
+	void CManager::WeddingStart(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("wrong marriage %u, %u", dwPID1, dwPID2);
+			sys_err("wrong marriage %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -698,18 +698,18 @@ namespace marriage
 		m_setWedding.emplace(dwPID1, dwPID2);
 	}
 
-	void CManager::WeddingEnd(DWORD dwPID1, DWORD dwPID2)
+	void CManager::WeddingEnd(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("wrong marriage %u, %u", dwPID1, dwPID2);
+			sys_err("wrong marriage %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
 		if (!pMarriage->pWeddingInfo)
 		{
-			sys_err("not under wedding %u, %u", dwPID1, dwPID2);
+			sys_err("not under wedding %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return;
 		}
 
@@ -726,18 +726,18 @@ namespace marriage
 		m_setWedding.erase(make_pair(dwPID1, dwPID2));
 	}
 
-	bool CManager::RequestEndWedding(DWORD dwPID1, DWORD dwPID2)
+	bool CManager::RequestEndWedding(uint64_t dwPID1, uint64_t dwPID2)
 	{
 		TMarriage* pMarriage = Get(dwPID1);
 		if (!pMarriage || pMarriage->GetOther(dwPID1) != dwPID2)
 		{
-			sys_err("wrong marriage %u, %u", dwPID1, dwPID2);
+			sys_err("wrong marriage %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return false;
 		}
 
 		if (!pMarriage->pWeddingInfo)
 		{
-			sys_err("not under wedding %u, %u", dwPID1, dwPID2);
+			sys_err("not under wedding %llu, %llu", static_cast<unsigned long long>(dwPID1), static_cast<unsigned long long>(dwPID2));
 			return false;
 		}
 
@@ -766,4 +766,3 @@ namespace marriage
 		return true;
 	}
 }
-

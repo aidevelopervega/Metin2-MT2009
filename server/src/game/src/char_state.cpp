@@ -62,9 +62,14 @@ namespace
 						!pkChr->IsAffectFlag(AFF_WAR_FLAG2) &&
 						!pkChr->IsAffectFlag(AFF_WAR_FLAG3))
 				{
-					if ((DWORD) m_pkChr->GetPoint(POINT_STAT) == pkChr->GetGuild()->GetID())
+					CWarMap * pMap = m_pkChr->GetWarMap();
+					BYTE flagIdx = 0;
+					uint64_t flagGuildID = (pMap && pMap->GetFlagTeamIndex(m_pkChr, flagIdx))
+						? pMap->GetGuildID(flagIdx)
+						: static_cast<uint64_t>(static_cast<uint32_t>(m_pkChr->GetPoint(POINT_STAT)));
+
+					if (flagGuildID == pkChr->GetGuild()->GetID())
 					{
-						CWarMap * pMap = pkChr->GetWarMap();
 						BYTE idx;
 
 						if (!pMap || !pMap->GetTeamIndex(pkChr->GetGuild()->GetID(), idx))
@@ -123,16 +128,26 @@ namespace
 				{
 					CAffect * pkAff = pkChr->FindAffect(AFFECT_WAR_FLAG);
 
-					sys_log(0, "FlagBase %s dist %d aff %p flag gid %d chr gid %u",
-							pkChr->GetName(), iDist, pkAff, m_pkChr->GetPoint(POINT_STAT),
-							pkChr->GetGuild()->GetID());
+					CWarMap * pMap = pkChr->GetWarMap();
+					BYTE baseIdx = 0;
+					uint64_t baseGuildID = (pMap && pMap->GetFlagTeamIndex(m_pkChr, baseIdx))
+						? pMap->GetGuildID(baseIdx)
+						: static_cast<uint64_t>(static_cast<uint32_t>(m_pkChr->GetPoint(POINT_STAT)));
+
+					sys_log(0, "FlagBase %s dist %d aff %p flag gid %llu chr gid %llu",
+							pkChr->GetName(), iDist, pkAff, static_cast<unsigned long long>(baseGuildID),
+							static_cast<unsigned long long>(pkChr->GetGuild()->GetID()));
 
 					if (pkAff)
 					{
-						if ((DWORD) m_pkChr->GetPoint(POINT_STAT) == pkGuild->GetID() &&
-								m_pkChr->GetPoint(POINT_STAT) != pkAff->lApplyValue)
+						BYTE affIdx = 0;
+						uint64_t affGuildID = (pMap && pMap->GetAffectTeamIndex(pkAff, affIdx))
+							? pMap->GetGuildID(affIdx)
+							: static_cast<uint64_t>(static_cast<uint32_t>(pkAff->lApplyValue));
+
+						if (baseGuildID == pkGuild->GetID() &&
+								baseGuildID != affGuildID)
 						{
-							CWarMap * pMap = pkChr->GetWarMap();
 							BYTE idx;
 
 							if (!pMap || !pMap->GetTeamIndex(pkGuild->GetID(), idx))
@@ -142,7 +157,7 @@ namespace
 							{
 								BYTE idx_opp = idx == 0 ? 1 : 0;
 
-								SendGuildWarScore(m_pkChr->GetPoint(POINT_STAT), pkAff->lApplyValue, 1);
+								SendGuildWarScore(baseGuildID, affGuildID, 1);
 								//SendGuildWarScore(pkAff->lApplyValue, m_pkChr->GetPoint(POINT_STAT), -1);
 
 								pMap->ResetFlag();
@@ -1094,7 +1109,7 @@ void CHARACTER::StateFlag()
 	char buf[256];
 	BYTE idx;
 
-	if (!pMap->GetTeamIndex(GetPoint(POINT_STAT), idx))
+	if (!pMap->GetFlagTeamIndex(this, idx))
 		return;
 
 	f.m_pkChrFind->AddAffect(AFFECT_WAR_FLAG, POINT_NONE, GetPoint(POINT_STAT), idx == 0 ? AFF_WAR_FLAG1 : AFF_WAR_FLAG2, INFINITE_AFFECT_DURATION, 0, false);
@@ -1175,4 +1190,3 @@ void CHARACTER::StateHorse()
 			SendMovePacket(FUNC_WAIT, 0, 0, 0, 0);
 	}
 }
-

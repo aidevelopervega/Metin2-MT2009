@@ -374,7 +374,7 @@ typedef struct SPacketGGLogin
 {
 	BYTE	bHeader;
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	DWORD	dwPID;
+	uint64_t	dwPID;
 	BYTE	bEmpire;
 	int32_t	lMapIndex;
 	BYTE	bChannel;
@@ -425,7 +425,7 @@ typedef struct SPacketGGGuild
 {
 	BYTE	bHeader;
 	BYTE	bSubHeader;
-	DWORD	dwGuild;
+	uint64_t	dwGuild;
 } TPacketGGGuild;
 
 enum
@@ -438,7 +438,7 @@ typedef struct SPacketGGGuildChat
 {
 	BYTE	bHeader;
 	BYTE	bSubHeader;
-	DWORD	dwGuild;
+	uint64_t	dwGuild;
 	char	szText[CHAT_MAX_LEN + 1];
 } TPacketGGGuildChat;
 
@@ -446,8 +446,8 @@ typedef struct SPacketGGParty
 {
 	BYTE	header;
 	BYTE	subheader;
-	DWORD	pid;
-	DWORD	leaderpid;
+	uint64_t	pid;
+	uint64_t	leaderpid;
 } TPacketGGParty;
 
 enum
@@ -495,15 +495,15 @@ typedef struct SPacketGGMessenger
 typedef struct SPacketGGFindPosition
 {
 	BYTE header;
-	DWORD dwFromPID;
-	DWORD dwTargetPID;
+	uint64_t dwFromPID;
+	uint64_t dwTargetPID;
 	bool canWarpDungeon;
 } TPacketGGFindPosition;
 
 typedef struct SPacketGGWarpCharacter
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	int32_t x;
 	int32_t y;
 #ifdef ENABLE_CMD_WARP_IN_DUNGEON
@@ -517,8 +517,8 @@ typedef struct SPacketGGWarpCharacter
 typedef struct SPacketGGGuildWarMapIndex
 {
 	BYTE bHeader;
-	DWORD dwGuildID1;
-	DWORD dwGuildID2;
+	uint64_t dwGuildID1;
+	uint64_t dwGuildID2;
 	int32_t lMapIndex;
 } TPacketGGGuildWarMapIndex;
 
@@ -551,7 +551,7 @@ typedef struct SPacketGGDisconnectPlayer
 struct TPacketGGDisconnectPlayerId
 {
 	BYTE	bHeader;
-	DWORD	pid;
+	uint64_t	pid;
 };
 
 struct TPacketGGDisconnectHwid
@@ -570,7 +570,7 @@ typedef struct SPacketGGItemShopAuctionUpdate
 typedef struct SPacketGGDungeonFind
 {
 	BYTE bHeader;
-	DWORD dwPID;
+	uint64_t dwPID;
 	int32_t lPosX;
 	int32_t lPosY;
 	int32_t lMapIndex;
@@ -864,7 +864,7 @@ typedef struct command_quest_confirm
 {
 	BYTE header;
 	BYTE answer;
-	DWORD requestPID;
+	uint64_t requestPID;
 } TPacketCGQuestConfirm;
 
 typedef struct packet_quest_confirm
@@ -872,7 +872,7 @@ typedef struct packet_quest_confirm
 	BYTE header;
 	char msg[64+1];
 	int32_t timeout;
-	DWORD requestPID;
+	uint64_t requestPID;
 } TPacketGCQuestConfirm;
 
 typedef struct packet_handshake
@@ -927,7 +927,7 @@ typedef struct packet_login_success
 {
 	BYTE		bHeader;
 	TSimplePlayer	players[PLAYER_PER_ACCOUNT];
-	DWORD		guild_id[PLAYER_PER_ACCOUNT];
+	uint64_t	guild_id[PLAYER_PER_ACCOUNT];
 	char		guild_name[PLAYER_PER_ACCOUNT][GUILD_NAME_MAX_LEN+1];
 
 	DWORD		handle;
@@ -1008,7 +1008,7 @@ typedef struct packet_char_additional_info
 	char    name[CHARACTER_NAME_MAX_LEN + 1];
 	DWORD   awPart[CHR_EQUIPPART_NUM]; // @fixme502
 	BYTE	bEmpire;
-	DWORD   dwGuildID;
+	uint64_t dwGuildID;
 	DWORD   dwLevel;
 	short	sAlignment;
 	BYTE	bPKMode;
@@ -1030,7 +1030,7 @@ typedef struct packet_update_char
 	BYTE	bStateFlag;
 	DWORD	dwAffectFlag[2];
 
-	DWORD	dwGuildID;
+	uint64_t	dwGuildID;
 	BYTE	bLevel;
 	short	sAlignment;
 	BYTE	bPKMode;
@@ -1568,7 +1568,7 @@ typedef struct packet_target
 struct STargetDebuff
 {
 	DWORD affect;
-	int32_t duration;
+	int64_t duration;
 };
 
 typedef struct subpacket_target_debuffs
@@ -1725,7 +1725,7 @@ typedef struct paryt_parameter
 typedef struct packet_party_add
 {
 	BYTE	header;
-	DWORD	pid;
+	uint64_t	pid;
 	char	name[CHARACTER_NAME_MAX_LEN+1];
 } TPacketGCPartyAdd;
 
@@ -1751,7 +1751,7 @@ typedef struct command_party_invite_answer
 typedef struct packet_party_update
 {
 	BYTE	header;
-	DWORD	pid;
+	uint64_t	pid;
 	BYTE	role;
 	BYTE	percent_hp;
 	short	affects[7];
@@ -1764,33 +1764,33 @@ typedef struct packet_party_update
 typedef struct packet_party_remove
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 } TPacketGCPartyRemove;
 
 typedef struct packet_party_link
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	DWORD vid;
 } TPacketGCPartyLink;
 
 typedef struct packet_party_unlink
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	DWORD vid;
 } TPacketGCPartyUnlink;
 
 typedef struct command_party_remove
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 } TPacketCGPartyRemove;
 
 typedef struct command_party_set_state
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	BYTE byRole;
 	BYTE flag;
 } TPacketCGPartySetState;
@@ -1908,14 +1908,14 @@ typedef struct packet_guild_name_t
 	BYTE header;
 	WORD size;
 	BYTE subheader;
-	DWORD	guildID;
+	uint64_t	guildID;
 	char	guildName[GUILD_NAME_MAX_LEN];
 } TPacketGCGuildName;
 
 typedef struct packet_guild_war
 {
-	DWORD	dwGuildSelf;
-	DWORD	dwGuildOpp;
+	uint64_t	dwGuildSelf;
+	uint64_t	dwGuildOpp;
 	BYTE	bType;
 	BYTE 	bWarState;
 } TPacketGCGuildWar;
@@ -1935,7 +1935,7 @@ typedef struct command_guild_answer_make_guild
 typedef struct command_guild_use_skill
 {
 	DWORD	dwVnum;
-	DWORD	dwPID;
+	uint64_t	dwPID;
 } TPacketCGGuildUseSkill;
 
 // Guild Mark
@@ -1949,7 +1949,7 @@ typedef struct command_mark_login
 typedef struct command_mark_upload
 {
 	BYTE	header;
-	DWORD	gid;
+	uint64_t	gid;
 	BYTE	image[16*12*4];
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 	uint64_t	token;
@@ -1987,7 +1987,7 @@ typedef struct command_symbol_upload
 {
 	BYTE	header;
 	WORD	size;
-	DWORD	guild_id;
+	uint64_t	guild_id;
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 	uint64_t	token;
 #endif
@@ -1996,7 +1996,7 @@ typedef struct command_symbol_upload
 typedef struct command_symbol_crc
 {
 	BYTE header;
-	DWORD guild_id;
+	uint64_t guild_id;
 	DWORD crc;
 	DWORD size;
 } TPacketCGSymbolCRC;
@@ -2005,7 +2005,7 @@ typedef struct packet_symbol_data
 {
 	BYTE header;
 	WORD size;
-	DWORD guild_id;
+	uint64_t guild_id;
 } TPacketGCGuildSymbolData;
 
 // Fishing
@@ -2200,7 +2200,7 @@ typedef struct SPacketCGChangeName
 typedef struct SPacketGCChangeName
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	char name[CHARACTER_NAME_MAX_LEN+1];
 } TPacketGCChangeName;
 
@@ -2237,7 +2237,7 @@ typedef struct SLandPacketElement
 	DWORD	dwID;
 	int32_t	x, y;
 	int32_t	width, height;
-	DWORD	dwGuildID;
+	uint64_t	dwGuildID;
 } TLandPacketElement;
 
 typedef struct packet_land_list
@@ -2330,7 +2330,7 @@ typedef struct tag_GGSiege
 typedef struct SPacketGGMonarchTransfer
 {
 	BYTE	bHeader;
-	DWORD	dwTargetPID;
+	uint64_t	dwTargetPID;
 	int32_t	x;
 	int32_t	y;
 } TPacketMonarchGGTransfer;
@@ -2655,17 +2655,17 @@ namespace ikashop
 
 	struct TSubPacketGCShopExpiredGuesting 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketGCShopRemoveItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGCShopEditItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
@@ -2687,7 +2687,7 @@ namespace ikashop
 
 	struct TSubPacketGCShopSafeboxRemoveItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGCShoppingSafeboxAddItem
@@ -2827,7 +2827,7 @@ namespace ikashop
 
 	struct TSubPacketCGShopOpen 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGAddItem 
@@ -2839,12 +2839,12 @@ namespace ikashop
 
 	struct TSubPacketCGRemoveItem 
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketCGEditItem	
 	{
-		DWORD itemid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
@@ -2865,24 +2865,24 @@ namespace ikashop
 
 	struct TSubPacketCGOfferAccept 
 	{
-		DWORD offerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketCGOfferCancel 
 	{
-		DWORD offerid;
-		DWORD ownerid;
+		uint64_t offerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGShopSafeboxGetItem 
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketCGShopBuyItem 
 	{
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		bool searching;
 		int64_t seenprice;
 	};
@@ -2901,7 +2901,7 @@ namespace ikashop
 	//AUCTION
 	struct TSubPacketCGAuctionOpenRequest 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGAuctionCreate 
@@ -2912,13 +2912,13 @@ namespace ikashop
 
 	struct TSubPacketCGAuctionAddOffer 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 		TPriceInfo price;
 	};
 
 	struct TSubPacketCGAuctionExitFrom 
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 #ifdef ENABLE_IKASHOP_ENTITIES
@@ -3049,7 +3049,7 @@ struct TSubPacketGCCaptchaMeta
 
 struct TSubPacketGCCaptchaGMWho
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[PLAYER_NAME_MAX_LEN + 1];
 };
 
@@ -3070,9 +3070,9 @@ struct TSubPacketGCCaptchaGMFeedback
 struct TPacketGCGamemasterTarget
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	char playerName[PLAYER_NAME_MAX_LEN+1];
-	DWORD aid;
+	uint64_t aid;
 	char accountName[CHARACTER_NAME_MAX_LEN + 1];
 	bool isPremium;
 };
@@ -3094,7 +3094,7 @@ struct TPacketGGBlockMessenger
 
 struct TSubPacketGGBlockMessengerBlock
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[PLAYER_NAME_MAX_LEN + 1];
 };
 
@@ -3105,7 +3105,7 @@ struct TSubPacketGGBlockMessengerLoadItem
 
 struct TSubPacketGGBlockMessengerLoad
 {
-	DWORD pid;
+	uint64_t pid;
 	WORD itemCount;
 };
 
@@ -3142,4 +3142,3 @@ typedef struct SPacketAcce
 
 #pragma pack()
 #endif
-

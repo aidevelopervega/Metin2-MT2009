@@ -19,9 +19,11 @@ BanManager::~BanManager()
 {
 }
 
-bool BanManager::Block(DWORD aid, DWORD pid, DWORD duration, DWORD who, std::string reason, bool instant_block)
+bool BanManager::Block(uint64_t aid, uint64_t pid, DWORD duration, uint64_t who, std::string reason, bool instant_block)
 {
-	auto pkMsg = DBManager::instance().AccountQuery("SELECT account_id FROM account_block WHERE account_id=%d AND `status`=0", aid);
+	auto pkMsg = DBManager::instance().AccountQuery("SELECT account_id FROM account_block WHERE account_id=%llu AND `status`=0", static_cast<unsigned long long>(aid));
+	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get())
+		return false;
 	SQLResult* pRes = pkMsg->Get();
 	if (pRes->uiNumRows > 0)
 		return false;
@@ -30,8 +32,8 @@ bool BanManager::Block(DWORD aid, DWORD pid, DWORD duration, DWORD who, std::str
 	char buf[512 + 1];
 	DBManager::instance().EscapeString(buf, sizeof(buf), szReason, std::strlen(szReason));
 
-	DBManager::instance().AccountQuery("INSERT INTO account_block VALUES (%d, %d, %d, %d, '%s', %u, %s)",
-		aid, duration, pid, who, buf, instant_block ? 1 : 0, instant_block ? "NOW()" : "NULL");
+	DBManager::instance().AccountQuery("INSERT INTO account_block VALUES (%llu, %u, %llu, %llu, '%s', %u, %s)",
+		static_cast<unsigned long long>(aid), static_cast<unsigned int>(duration), static_cast<unsigned long long>(pid), static_cast<unsigned long long>(who), buf, instant_block ? 1 : 0, instant_block ? "NOW()" : "NULL");
 
 	if (instant_block)
 	{
@@ -48,15 +50,15 @@ void BanManager::BlockHWID(const char * hwid)
 	SendDisconnectHwid(hwid);
 }
 
-void BanManager::BlockAccountQuery(DWORD aid, DWORD duration)
+void BanManager::BlockAccountQuery(uint64_t aid, DWORD duration)
 {
 	if (duration >= 365 * 24 * 3600) // perm ban
 	{
-		DBManager::instance().AccountQuery("UPDATE account SET status='BLOCK' WHERE id=%d", aid);
+		DBManager::instance().AccountQuery("UPDATE account SET status='BLOCK' WHERE id=%llu", static_cast<unsigned long long>(aid));
 	}
 	else // temp ban
 	{
-		DBManager::instance().AccountQuery("UPDATE account SET availDt=FROM_UNIXTIME(%lld) WHERE id=%u", static_cast<long long>(get_global_time() + duration), static_cast<unsigned int>(aid));
+		DBManager::instance().AccountQuery("UPDATE account SET availDt=FROM_UNIXTIME(%lld) WHERE id=%llu", static_cast<long long>(get_global_time() + duration), static_cast<unsigned long long>(aid));
 	}
 }
 
@@ -72,6 +74,8 @@ int BanManager::FlushBlock()
 {
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
 "SELECT account_id, pid, ban_duration FROM account_block WHERE status=0"));
+	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get())
+		return 0;
 
 	SQLResult* pRes = pkMsg->Get();
 	if (pRes->uiNumRows > 0)
@@ -82,10 +86,10 @@ int BanManager::FlushBlock()
 		{
 			col = 0;
 
-			DWORD aid = 0;
+			uint64_t aid = 0;
 			str_to_number(aid, data[col++]);
 
-			DWORD pid = 0;
+			uint64_t pid = 0;
 			str_to_number(pid, data[col++]);
 
 			DWORD duration = 0;
@@ -106,7 +110,7 @@ int BanManager::FlushBlock()
 	return pRes->uiNumRows;
 }
 
-void BanManager::SendDisconnect(DWORD pid) // use only after ban
+void BanManager::SendDisconnect(uint64_t pid) // use only after ban
 {
 	LPCHARACTER foundPlayer = CHARACTER_MANAGER::instance().FindByPID(pid);
 	if (foundPlayer && foundPlayer->GetDesc())
@@ -147,7 +151,7 @@ void BanManager::DisconnectHwid(const char* hwid)
 			if (strcmp(hwid, d->GetAccountTable().hwid))
 				continue;
 
-			sys_log(0, "DISCONNECT HWID PLAYER success pid %d ", ch->GetPlayerID());
+			sys_log(0, "DISCONNECT HWID PLAYER success pid %llu ", static_cast<unsigned long long>(ch->GetPlayerID()));
 			DESC_MANAGER::instance().DestroyLoginKey(d);
 			d->SetPhase(PHASE_CLOSE);
 
@@ -156,39 +160,41 @@ void BanManager::DisconnectHwid(const char* hwid)
 	}
 }
 
-BanManager::BlockPlayerData BanManager::GetBlockPlayerData(DWORD pid)
+BanManager::BlockPlayerData BanManager::GetBlockPlayerData(uint64_t pid)
 {
 	BlockPlayerData data{};
 	data.pid = 0;
 
-	auto pkMsg = DBManager::instance().DirectQuery("SELECT account_id, name FROM player WHERE id=%d", pid);
-	if (pkMsg->Get()->uiNumRows > 0)
+	auto pkMsg = DBManager::instance().DirectQuery("SELECT account_id, name FROM player WHERE id=%llu", static_cast<unsigned long long>(pid));
+	if (pkMsg && pkMsg->uiSQLErrno == 0 && pkMsg->Get() && pkMsg->Get()->uiNumRows > 0)
 	{
 		MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
+		if (row && row[0] && row[1])
+		{
+			data.pid = pid;
+			str_to_number(data.aid, row[0]);
 
-		data.pid = pid;
-		str_to_number(data.aid, row[0]);
-
-		strlcpy(data.name, row[1], sizeof(data.name));
+			strlcpy(data.name, row[1], sizeof(data.name));
+		}
 	}
 	return data;
 }
 
-BanManager::BlockHwidData BanManager::GetBlockHwidData(DWORD aid)
+BanManager::BlockHwidData BanManager::GetBlockHwidData(uint64_t aid)
 {
 	BlockHwidData data{};
 
-	auto pkMsg = DBManager::instance().AccountQuery("SELECT hwid FROM account WHERE id=%d", aid);
-	if (pkMsg->Get()->uiNumRows > 0)
+	auto pkMsg = DBManager::instance().AccountQuery("SELECT hwid FROM account WHERE id=%llu", static_cast<unsigned long long>(aid));
+	if (pkMsg && pkMsg->uiSQLErrno == 0 && pkMsg->Get() && pkMsg->Get()->uiNumRows > 0)
 	{
 		MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
-		if (row[0] != nullptr)
+		if (row && row[0] != nullptr)
 			strlcpy(data.hwid, row[0], sizeof(data.hwid));
 	}
 	return data;
 }
 
-bool BanManager::CloseOfflineShop(DWORD pid)
+bool BanManager::CloseOfflineShop(uint64_t pid)
 {
 	auto pkShop = ikashop::GetManager().GetShopByOwnerID(pid);
 	if (!pkShop) {
@@ -199,4 +205,3 @@ bool BanManager::CloseOfflineShop(DWORD pid)
 		return true;
 	}
 }
-

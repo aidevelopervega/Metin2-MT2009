@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS `affect`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `affect` (
-  `dwPID` int(10) unsigned NOT NULL DEFAULT 0,
+  `dwPID` bigint(20) unsigned NOT NULL DEFAULT 0,
   `bType` smallint(5) unsigned NOT NULL DEFAULT 0,
   `bApplyOn` tinyint(4) unsigned NOT NULL DEFAULT 0,
   `lApplyValue` int(11) NOT NULL DEFAULT 0,
@@ -54,7 +54,7 @@ DROP TABLE IF EXISTS `change_empire`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `change_empire` (
-  `aid` int(10) unsigned NOT NULL,
+  `aid` bigint(20) unsigned NOT NULL,
   `change_count` int(10) unsigned NOT NULL DEFAULT 0,
   `last_time` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`aid`)
@@ -80,10 +80,10 @@ DROP TABLE IF EXISTS `guild`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(14) NOT NULL DEFAULT '' COMMENT 'snprintf(12u)',
   `sp` smallint(6) NOT NULL DEFAULT 1000,
-  `master` int(10) unsigned NOT NULL DEFAULT 0,
+  `master` bigint(20) unsigned NOT NULL DEFAULT 0,
   `level` tinyint(2) DEFAULT NULL,
   `exp` int(11) DEFAULT NULL,
   `skill_point` tinyint(2) NOT NULL DEFAULT 0,
@@ -92,7 +92,7 @@ CREATE TABLE `guild` (
   `draw` int(11) NOT NULL DEFAULT 0,
   `loss` int(11) NOT NULL DEFAULT 0,
   `ladder_point` int(11) NOT NULL DEFAULT 0,
-  `gold` bigint(19) NOT NULL DEFAULT 0,
+  `gold` bigint(20) NOT NULL DEFAULT 0,
   `token` bigint(20) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -117,8 +117,8 @@ DROP TABLE IF EXISTS `guild_comment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_comment` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `guild_id` int(10) unsigned DEFAULT NULL,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `guild_id` bigint(20) unsigned DEFAULT NULL,
   `name` varchar(24) DEFAULT NULL,
   `notice` tinyint(4) DEFAULT NULL,
   `content` varchar(50) DEFAULT NULL,
@@ -148,7 +148,7 @@ DROP TABLE IF EXISTS `guild_grade`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_grade` (
-  `guild_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `guild_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `grade` tinyint(4) NOT NULL DEFAULT 0,
   `name` varchar(12) NOT NULL DEFAULT '' COMMENT 'strlen(s) <= 12',
   `auth` set('ADD_MEMBER','REMOVE_MEMEBER','NOTICE','USE_SKILL') CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
@@ -175,8 +175,8 @@ DROP TABLE IF EXISTS `guild_land`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_land` (
-  `land_id` int(11) NOT NULL DEFAULT 0,
-  `guild_id` int(11) NOT NULL DEFAULT 0,
+  `land_id` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `guild_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`land_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -200,11 +200,11 @@ DROP TABLE IF EXISTS `guild_member`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_member` (
-  `pid` int(10) unsigned NOT NULL DEFAULT 0,
-  `guild_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `guild_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `grade` tinyint(2) DEFAULT NULL,
   `is_general` tinyint(1) NOT NULL DEFAULT 0,
-  `offer` int(10) unsigned DEFAULT NULL,
+  `offer` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`guild_id`,`pid`) USING BTREE,
   UNIQUE KEY `pid` (`pid`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -229,8 +229,8 @@ DROP TABLE IF EXISTS `guild_war`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_war` (
-  `id_from` int(11) unsigned NOT NULL DEFAULT 0,
-  `id_to` int(11) unsigned NOT NULL DEFAULT 0,
+  `id_from` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `id_to` bigint(20) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_from`,`id_to`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -255,9 +255,9 @@ DROP TABLE IF EXISTS `guild_war_bet`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_war_bet` (
   `login` varchar(30) NOT NULL DEFAULT '',
-  `gold` bigint(19) unsigned NOT NULL DEFAULT 0,
-  `guild` int(11) unsigned NOT NULL DEFAULT 0,
-  `war_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `gold` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `guild` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `war_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`war_id`,`login`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -281,9 +281,9 @@ DROP TABLE IF EXISTS `guild_war_reservation`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `guild_war_reservation` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `guild1` int(10) unsigned NOT NULL DEFAULT 0,
-  `guild2` int(10) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `guild1` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `guild2` bigint(20) unsigned NOT NULL DEFAULT 0,
   `time` datetime NOT NULL DEFAULT current_timestamp(),
   `type` tinyint(2) unsigned NOT NULL DEFAULT 0,
   `warprice` bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -291,7 +291,7 @@ CREATE TABLE `guild_war_reservation` (
   `started` tinyint(1) NOT NULL DEFAULT 0,
   `bet_from` int(10) unsigned NOT NULL DEFAULT 0,
   `bet_to` int(10) unsigned NOT NULL DEFAULT 0,
-  `winner` int(11) NOT NULL DEFAULT -1,
+  `winner` bigint(20) NOT NULL DEFAULT -1,
   `power1` int(11) NOT NULL DEFAULT 0,
   `power2` int(11) NOT NULL DEFAULT 0,
   `handicap` int(11) NOT NULL DEFAULT 0,
@@ -320,7 +320,7 @@ DROP TABLE IF EXISTS `horse_name`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `horse_name` (
-  `id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `name` varchar(16) NOT NULL DEFAULT 'NONAME' COMMENT 'CHARACTER_NAME_MAX_LEN+1 so 24+null',
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -345,8 +345,8 @@ DROP TABLE IF EXISTS `ikashop_auction_offer`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_auction_offer` (
-  `seller` int(10) unsigned NOT NULL,
-  `buyer` int(10) unsigned NOT NULL,
+  `seller` bigint(20) unsigned NOT NULL,
+  `buyer` bigint(20) unsigned NOT NULL,
   `buyer_name` varchar(30) NOT NULL,
   `price` bigint(20) unsigned NOT NULL,
   `datetime` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -374,8 +374,8 @@ DROP TABLE IF EXISTS `ikashop_notification`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_notification` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `owner` int(10) unsigned NOT NULL,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `owner` bigint(20) unsigned NOT NULL,
   `type` int(10) unsigned NOT NULL,
   `who` varchar(32) NOT NULL,
   `what` int(10) unsigned NOT NULL,
@@ -405,7 +405,7 @@ DROP TABLE IF EXISTS `ikashop_offlineshop`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_offlineshop` (
-  `owner` int(10) unsigned NOT NULL,
+  `owner` bigint(20) unsigned NOT NULL,
   `duration` int(10) unsigned NOT NULL DEFAULT 0,
   `map` int(10) unsigned NOT NULL DEFAULT 0,
   `x` int(10) unsigned NOT NULL DEFAULT 0,
@@ -440,10 +440,10 @@ DROP TABLE IF EXISTS `ikashop_private_offer`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_private_offer` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `seller` int(10) unsigned NOT NULL,
-  `buyer` int(10) unsigned NOT NULL,
-  `item` int(10) unsigned NOT NULL,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `seller` bigint(20) unsigned NOT NULL,
+  `buyer` bigint(20) unsigned NOT NULL,
+  `item` bigint(20) unsigned NOT NULL,
   `price` bigint(20) unsigned NOT NULL,
   `notified` tinyint(3) unsigned NOT NULL,
   `accepted` tinyint(3) unsigned NOT NULL,
@@ -472,7 +472,7 @@ DROP TABLE IF EXISTS `ikashop_safebox`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_safebox` (
-  `owner` int(10) unsigned NOT NULL,
+  `owner` bigint(20) unsigned NOT NULL,
   `gold` bigint(20) unsigned NOT NULL,
   `cheque` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`owner`) USING BTREE
@@ -498,7 +498,7 @@ DROP TABLE IF EXISTS `ikashop_sale`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ikashop_sale` (
-  `id` int(10) unsigned NOT NULL,
+  `id` bigint(20) unsigned NOT NULL,
   `vnum` int(10) unsigned NOT NULL,
   `count` int(10) unsigned NOT NULL,
   `price` bigint(20) unsigned NOT NULL,
@@ -525,8 +525,8 @@ DROP TABLE IF EXISTS `item`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `item` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `owner_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `owner_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `window` enum('INVENTORY','EQUIPMENT','SAFEBOX','MALL','DRAGON_SOUL_INVENTORY','BELT_INVENTORY','GROUND','IKASHOP_OFFLINESHOP','IKASHOP_SAFEBOX','IKASHOP_AUCTION') NOT NULL,
   `pos` smallint(5) unsigned NOT NULL DEFAULT 0,
   `count` int(10) unsigned NOT NULL DEFAULT 0,
@@ -574,13 +574,13 @@ DROP TABLE IF EXISTS `item_award`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `item_award` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `login` varchar(30) NOT NULL DEFAULT '' COMMENT 'LOGIN_MAX_LEN=30',
   `vnum` int(6) unsigned NOT NULL DEFAULT 0,
   `count` int(10) unsigned NOT NULL DEFAULT 1,
   `given_time` datetime NOT NULL DEFAULT current_timestamp(),
   `taken_time` datetime DEFAULT NULL,
-  `item_id` int(11) unsigned DEFAULT NULL,
+  `item_id` bigint(20) unsigned DEFAULT NULL,
   `why` varchar(128) DEFAULT NULL,
   `socket0` int(11) unsigned NOT NULL DEFAULT 0,
   `socket1` int(11) unsigned NOT NULL DEFAULT 0,
@@ -655,9 +655,9 @@ DROP TABLE IF EXISTS `lotto_list`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `lotto_list` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `server` varchar(56) DEFAULT NULL COMMENT 'server%s=get_table_postfix(); std::string so dunno; at least 6',
-  `pid` int(10) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -683,8 +683,8 @@ DROP TABLE IF EXISTS `marriage`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `marriage` (
   `is_married` tinyint(4) NOT NULL DEFAULT 0,
-  `pid1` int(10) unsigned NOT NULL DEFAULT 0,
-  `pid2` int(10) unsigned NOT NULL DEFAULT 0,
+  `pid1` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid2` bigint(20) unsigned NOT NULL DEFAULT 0,
   `love_point` int(11) unsigned DEFAULT NULL,
   `time` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`pid1`,`pid2`) USING BTREE
@@ -710,7 +710,7 @@ DROP TABLE IF EXISTS `messenger_block_list`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `messenger_block_list` (
-  `pid` int(11) NOT NULL,
+  `pid` bigint(20) unsigned NOT NULL,
   `blocked` varchar(24) NOT NULL,
   PRIMARY KEY (`pid`,`blocked`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=cp1250 COLLATE=cp1250_general_ci ROW_FORMAT=DYNAMIC;
@@ -761,7 +761,7 @@ DROP TABLE IF EXISTS `monarch`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `monarch` (
   `empire` int(10) unsigned NOT NULL DEFAULT 0,
-  `pid` int(10) unsigned DEFAULT NULL,
+  `pid` bigint(20) unsigned DEFAULT NULL,
   `windate` datetime DEFAULT NULL,
   `money` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`empire`) USING BTREE
@@ -787,7 +787,7 @@ DROP TABLE IF EXISTS `monarch_candidacy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `monarch_candidacy` (
-  `pid` int(10) unsigned NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `date` datetime DEFAULT current_timestamp(),
   `name` varchar(24) DEFAULT NULL,
   `windate` datetime DEFAULT NULL,
@@ -814,8 +814,8 @@ DROP TABLE IF EXISTS `monarch_election`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `monarch_election` (
-  `pid` int(10) unsigned NOT NULL DEFAULT 0,
-  `selectedpid` int(10) unsigned DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `selectedpid` bigint(20) unsigned DEFAULT 0,
   `electiondata` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`pid`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
@@ -840,7 +840,7 @@ DROP TABLE IF EXISTS `myshop_pricelist`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `myshop_pricelist` (
-  `owner_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `owner_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `item_vnum` int(11) unsigned NOT NULL DEFAULT 0,
   `price` bigint(20) NOT NULL DEFAULT 0,
   UNIQUE KEY `list_id` (`owner_id`,`item_vnum`) USING BTREE
@@ -866,8 +866,8 @@ DROP TABLE IF EXISTS `object`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `object` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `land_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `land_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `vnum` int(10) unsigned NOT NULL DEFAULT 0,
   `map_index` int(11) unsigned NOT NULL DEFAULT 0,
   `x` int(11) NOT NULL DEFAULT 0,
@@ -899,7 +899,7 @@ DROP TABLE IF EXISTS `pcbang_ip`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `pcbang_ip` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `pcbang_id` int(11) NOT NULL DEFAULT 0,
   `ip` varchar(15) NOT NULL DEFAULT '000.000.000.000',
   PRIMARY KEY (`id`) USING BTREE,
@@ -927,8 +927,8 @@ DROP TABLE IF EXISTS `player`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `player` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `account_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `account_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `name` varchar(24) NOT NULL DEFAULT 'NONAME',
   `job` tinyint(2) unsigned NOT NULL DEFAULT 0,
   `voice` tinyint(1) NOT NULL DEFAULT 0,
@@ -953,7 +953,7 @@ CREATE TABLE `player` (
   `dx` smallint(3) NOT NULL DEFAULT 0,
   `iq` smallint(3) NOT NULL DEFAULT 0,
   `exp` int(11) NOT NULL DEFAULT 0,
-  `gold` bigint(19) NOT NULL DEFAULT 0,
+  `gold` bigint(20) NOT NULL DEFAULT 0,
   `cheque` int(11) NOT NULL DEFAULT 0,
   `stat_point` smallint(3) NOT NULL DEFAULT 0,
   `skill_point` smallint(3) NOT NULL DEFAULT 0,
@@ -1002,8 +1002,8 @@ DROP TABLE IF EXISTS `player_deleted`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `player_deleted` (
-  `id` int(11) unsigned NOT NULL,
-  `account_id` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL,
+  `account_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `name` varchar(24) NOT NULL DEFAULT 'NONAME',
   `job` tinyint(2) unsigned NOT NULL DEFAULT 0,
   `voice` tinyint(1) NOT NULL DEFAULT 0,
@@ -1028,7 +1028,7 @@ CREATE TABLE `player_deleted` (
   `dx` smallint(3) NOT NULL DEFAULT 0,
   `iq` smallint(3) NOT NULL DEFAULT 0,
   `exp` int(11) NOT NULL DEFAULT 0,
-  `gold` bigint(19) NOT NULL DEFAULT 0,
+  `gold` bigint(20) NOT NULL DEFAULT 0,
   `cheque` int(11) NOT NULL DEFAULT 0,
   `stat_point` smallint(3) NOT NULL DEFAULT 0,
   `skill_point` smallint(3) NOT NULL DEFAULT 0,
@@ -1074,12 +1074,12 @@ DROP TABLE IF EXISTS `player_index`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `player_index` (
-  `id` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid1` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid2` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid3` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid4` int(11) unsigned NOT NULL DEFAULT 0,
-  `pid5` int(11) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid1` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid2` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid3` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid4` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `pid5` bigint(20) unsigned NOT NULL DEFAULT 0,
   `empire` tinyint(4) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   KEY `pid1_key` (`pid1`) USING BTREE,
@@ -1109,8 +1109,8 @@ DROP TABLE IF EXISTS `player_special_flag`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `player_special_flag` (
-  `pid` int(10) NOT NULL DEFAULT 0,
-  `aid` int(10) NOT NULL DEFAULT 0,
+  `pid` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `aid` bigint(20) unsigned NOT NULL DEFAULT 0,
   `flag` varchar(32) NOT NULL DEFAULT '',
   `value` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`pid`,`flag`,`aid`) USING BTREE
@@ -1136,7 +1136,7 @@ DROP TABLE IF EXISTS `quest`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `quest` (
-  `dwPID` int(10) unsigned NOT NULL DEFAULT 0,
+  `dwPID` bigint(20) unsigned NOT NULL DEFAULT 0,
   `szName` varchar(32) NOT NULL DEFAULT '',
   `szState` varchar(64) NOT NULL DEFAULT '',
   `lValue` int(11) NOT NULL DEFAULT 0,
@@ -1166,10 +1166,10 @@ DROP TABLE IF EXISTS `safebox`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `safebox` (
-  `account_id` int(10) unsigned NOT NULL DEFAULT 0,
+  `account_id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `size` tinyint(3) unsigned NOT NULL DEFAULT 0,
   `password` varchar(6) NOT NULL DEFAULT '',
-  `gold` bigint(19) NOT NULL DEFAULT 0,
+  `gold` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`account_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1193,7 +1193,7 @@ DROP TABLE IF EXISTS `sms_pool`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sms_pool` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `server` int(11) NOT NULL DEFAULT 0,
   `sender` varchar(32) DEFAULT NULL,
   `receiver` varchar(100) NOT NULL DEFAULT '',
@@ -1248,7 +1248,7 @@ commit;
 
 DROP TABLE IF EXISTS `guild_invite_limit`;
 CREATE TABLE `guild_invite_limit` (
-  `id` int(10) unsigned NOT NULL DEFAULT 0,
+  `id` bigint(20) unsigned NOT NULL DEFAULT 0,
   `value` int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC;

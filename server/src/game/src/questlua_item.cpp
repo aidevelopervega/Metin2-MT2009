@@ -68,7 +68,7 @@ namespace quest
 		{
 			return 1;
 		}
-		DWORD id = (DWORD) lua_tonumber(L, 1);
+		uint64_t id = m2_lua_touint64(L, 1);
 		LPITEM item = ITEM_MANAGER::instance().Find(id);
 
 		if (!item)
@@ -88,10 +88,10 @@ namespace quest
 
 		if (q.GetCurrentItem())
 		{
-			lua_pushnumber(L, q.GetCurrentItem()->GetID());
+			m2_lua_pushuint64(L, q.GetCurrentItem()->GetID());
 		}
 		else
-			lua_pushnumber(L, 0);
+			m2_lua_pushuint64(L, 0);
 		return 1;
 	}
 
@@ -1224,4 +1224,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("item", item_functions);
 	}
 }
-

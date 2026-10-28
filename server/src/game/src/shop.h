@@ -22,7 +22,7 @@ class CShop
 			ITEM_COUNT	count;
 
 			LPITEM	pkItem;
-			int		itemid;
+			uint64_t	itemid;
 
 			shop_item()
 			{
@@ -48,7 +48,7 @@ class CShop
 		virtual int		Buy(LPCHARACTER ch, BYTE pos);
 		void			BroadcastUpdateItem(BYTE pos);
 		int				GetNumberByVnum(DWORD dwVnum);
-		virtual bool	IsSellingItem(DWORD itemID);
+		virtual bool	IsSellingItem(uint64_t itemID);
 
 		DWORD	GetVnum() { return m_dwVnum; }
 		DWORD	GetNPCVnum() { return m_dwNPCVnum; }
@@ -70,4 +70,3 @@ class CShop
 };
 
 #endif
-

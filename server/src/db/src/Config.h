@@ -18,11 +18,13 @@ class CConfig : public singleton<CConfig>
 		bool GetWord(FILE* fp, char* dest);
 		bool GetLine(FILE* fp, char* dest);
 		bool GetTwoValue(const char* key, DWORD * dest1, DWORD *dest2);
+		bool GetTwoValue(const char* key, uint64_t * dest1, uint64_t *dest2);
 		void NextLine(FILE* fp);
 
 	private:
 		void Destroy();
 		bool GetParam(const char*key,int index, DWORD *Param);
+		bool GetParam(const char*key,int index, uint64_t *Param);
 
 		const char *	Get(const char* key);
 		std::string *	Search(const char* key);
@@ -32,4 +34,3 @@ class CConfig : public singleton<CConfig>
 };
 
 #endif
-

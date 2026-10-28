@@ -108,7 +108,7 @@ ORDER BY i.`vnum`, `audit_classification`, i.`attrtype0`;
 -- STEP 2: BACKUP TABLE & HUMAN-APPROVED OPT-IN TRANSACTIONAL MIGRATION
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `player_item_halloween_rev51_backup` (
-    `item_id` int(11) unsigned NOT NULL,
+    `item_id` bigint(20) unsigned NOT NULL,
     `vnum` int(11) unsigned NOT NULL,
     `window` enum('INVENTORY','EQUIPMENT','SAFEBOX','MALL','DRAGON_SOUL_INVENTORY','BELT_INVENTORY','GROUND','IKASHOP_OFFLINESHOP','IKASHOP_SAFEBOX','IKASHOP_AUCTION') NOT NULL,
     `pos` smallint(5) unsigned NOT NULL,

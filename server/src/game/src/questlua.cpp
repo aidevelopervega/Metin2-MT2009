@@ -159,7 +159,7 @@ namespace quest
 		lua_newtable(lua_state);
 	}
 
-	void FBuildLuaGuildWarList::operator() (DWORD g1, DWORD g2)
+	void FBuildLuaGuildWarList::operator() (uint64_t g1, uint64_t g2)
 	{
 		CGuild* g = CGuildManager::instance().FindGuild(g1);
 
@@ -173,9 +173,9 @@ namespace quest
 			return;
 
 		lua_newtable(L);
-		lua_pushnumber(L, g1);
+		m2_lua_pushuint64(L, g1);
 		lua_rawseti(L, -2, 1);
-		lua_pushnumber(L, g2);
+		m2_lua_pushuint64(L, g2);
 		lua_rawseti(L, -2, 2);
 		lua_rawseti(L, -2, m_count++);
 	}
@@ -957,8 +957,8 @@ namespace quest
 
 	EVENTINFO(confirm_timeout_event_info)
 	{
-		DWORD dwWaitPID;
-		DWORD dwReplyPID;
+		uint64_t dwWaitPID;
+		uint64_t dwReplyPID;
 
 		confirm_timeout_event_info()
 		: dwWaitPID( 0 )
@@ -1147,4 +1147,3 @@ namespace quest
 		}
 	}
 }
-

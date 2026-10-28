@@ -10,7 +10,7 @@ class CGuildWarReserveForGame
 {
 	public:
 		TGuildWarReserve				data;
-		std::map<std::string, std::pair<DWORD, YANG> > mapBet;
+		std::map<std::string, std::pair<uint64_t, YANG> > mapBet;
 };
 
 class CGuildManager : public singleton<CGuildManager>
@@ -19,40 +19,40 @@ class CGuildManager : public singleton<CGuildManager>
 		CGuildManager();
 		virtual ~CGuildManager();
 
-		DWORD		CreateGuild(TGuildCreateParameter& gcp);
-		CGuild *	FindGuild(DWORD guild_id);
+		uint64_t	CreateGuild(TGuildCreateParameter& gcp);
+		CGuild *	FindGuild(uint64_t guild_id);
 		CGuild *	FindGuildByName(const std::string guild_name);
-		void		LoadGuild(DWORD guild_id);
-		CGuild *	TouchGuild(DWORD guild_id);
-		void		DisbandGuild(DWORD guild_id);
+		void		LoadGuild(uint64_t guild_id);
+		CGuild *	TouchGuild(uint64_t guild_id);
+		void		DisbandGuild(uint64_t guild_id);
 
 		void		Initialize();
 
-		void		Link(DWORD pid, CGuild* guild);
-		void		Unlink(DWORD pid);
-		CGuild *	GetLinkedGuild(DWORD pid);
+		void		Link(uint64_t pid, CGuild* guild);
+		void		Unlink(uint64_t pid);
+		CGuild *	GetLinkedGuild(uint64_t pid);
 
 		void		LoginMember(LPCHARACTER ch);
-		void		P2PLoginMember(DWORD pid);
-		void		P2PLogoutMember(DWORD pid);
+		void		P2PLoginMember(uint64_t pid);
+		void		P2PLogoutMember(uint64_t pid);
 
 		void		SkillRecharge();
 
 		void		ShowGuildWarList(LPCHARACTER ch);
 		void		SendGuildWar(LPCHARACTER ch);
 
-		void		RequestEndWar(DWORD guild_id1, DWORD guild_id2);
-		void		RequestCancelWar(DWORD guild_id1, DWORD guild_id2);
-		void		RequestWarOver(DWORD dwGuild1, DWORD dwGuild2, DWORD dwGuildWinner, YANG lReward);
+		void		RequestEndWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		RequestCancelWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		RequestWarOver(uint64_t dwGuild1, uint64_t dwGuild2, uint64_t dwGuildWinner, YANG lReward);
 
-		void		DeclareWar(DWORD guild_id1, DWORD guild_id2, BYTE bType);
-		void		RefuseWar(DWORD guild_id1, DWORD guild_id2);
-		void		StartWar(DWORD guild_id1, DWORD guild_id2);
-		void		WaitStartWar(DWORD guild_id1, DWORD guild_id2);
-		void		WarOver(DWORD guild_id1, DWORD guild_id2, bool bDraw);
-		void		CancelWar(DWORD guild_id1, DWORD guild_id2);
-		bool		EndWar(DWORD guild_id1, DWORD guild_id2);
-		void		ReserveWar(DWORD dwGuild1, DWORD dwGuild2, BYTE bType);
+		void		DeclareWar(uint64_t guild_id1, uint64_t guild_id2, BYTE bType);
+		void		RefuseWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		StartWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		WaitStartWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		WarOver(uint64_t guild_id1, uint64_t guild_id2, bool bDraw);
+		void		CancelWar(uint64_t guild_id1, uint64_t guild_id2);
+		bool		EndWar(uint64_t guild_id1, uint64_t guild_id2);
+		void		ReserveWar(uint64_t dwGuild1, uint64_t dwGuild2, BYTE bType);
 
 		void            ReserveWarAdd(TGuildWarReserve * p);
 		void            ReserveWarDelete(DWORD dwID);
@@ -67,31 +67,31 @@ class CGuildManager : public singleton<CGuildManager>
 		int		GetRank(CGuild* g);
 		//void		GetHighRankString(DWORD dwMyGuild, char * buffer);
 		//void		GetAroundRankString(DWORD dwMyGuild, char * buffer);
-		void		GetHighRankString(DWORD dwMyGuild, char * buffer, size_t buflen);
-		void		GetAroundRankString(DWORD dwMyGuild, char * buffer, size_t buflen);
+		void		GetHighRankString(uint64_t dwMyGuild, char * buffer, size_t buflen);
+		void		GetAroundRankString(uint64_t dwMyGuild, char * buffer, size_t buflen);
 
 		template <typename Func> void for_each_war(Func & f);
 
 		int		GetDisbandDelay();
 		int		GetWithdrawDelay();
 
-		void		ChangeMaster(DWORD dwGID);
+		void		ChangeMaster(uint64_t dwGID);
 
 		#ifdef ENABLE_GUILD_TOKEN_AUTH
 		uint64_t	GenerateTokenHashNumber();
-		bool		IsCorrectGuildToken(DWORD guildID, uint64_t hashID);
+		bool		IsCorrectGuildToken(uint64_t guildID, uint64_t hashID);
 		void		SendGuildToken(LPCHARACTER ch, uint64_t token);
-		void		GuildRelink(DWORD guildID, LPCHARACTER ch);
+		void		GuildRelink(uint64_t guildID, LPCHARACTER ch);
 		#endif
 
 	private:
-		typedef std::map<DWORD, CGuild*> TGuildMap;
+		typedef std::map<uint64_t, CGuild*> TGuildMap;
 		TGuildMap m_mapGuild;
 
-		typedef std::set<std::pair<DWORD, DWORD> > TGuildWarContainer;
+		typedef std::set<std::pair<uint64_t, uint64_t> > TGuildWarContainer;
 		TGuildWarContainer m_GuildWar;
 
-		typedef std::map<std::pair<DWORD, DWORD>, DWORD> TGuildWarEndTimeContainer;
+		typedef std::map<std::pair<uint64_t, uint64_t>, DWORD> TGuildWarEndTimeContainer;
 		TGuildWarEndTimeContainer m_GuildWarEndTime;
 
 		TGuildMap				m_map_pkGuildByPID;
@@ -110,7 +110,6 @@ template <typename Func> void CGuildManager::for_each_war(Func & f)
 	}
 }
 
-extern void SendGuildWarScore(DWORD dwGuild, DWORD dwGuildOpp, int iDelta, int iBetScoreDelta = 0);
+extern void SendGuildWarScore(uint64_t dwGuild, uint64_t dwGuildOpp, int iDelta, int iBetScoreDelta = 0);
 
 #endif
-

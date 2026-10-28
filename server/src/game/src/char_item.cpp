@@ -3886,7 +3886,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										EPointTypes bonus = POINT_NONE;
 
-										AddAffect( type, bonus, 4, item->GetID(), INFINITE_AFFECT_DURATION, 0, true, false);
+										AddAffect( type, bonus, 4, static_cast<DWORD>(item->GetID()), INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
 
 										item->Lock(true);
 										item->SetSocket(0, true, true, "SOCKET_AUTOPOTION");
@@ -3895,7 +3895,8 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									}
 									else
 									{
-										if (item->GetID() == pAffect->dwFlag)
+										const uint64_t ullAffectItemID = (pAffect->lSPCost > 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
+										if (item->GetID() == ullAffectItemID)
 										{
 											RemoveAffect( pAffect );
 
@@ -3904,7 +3905,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 										}
 										else
 										{
-											LPITEM old = FindItemByID( pAffect->dwFlag );
+											LPITEM old = FindItemByID( ullAffectItemID );
 
 											if (NULL != old)
 											{
@@ -3928,7 +3929,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 												}
 											}
 
-											AddAffect( type, bonus, 4, item->GetID(), INFINITE_AFFECT_DURATION, 0, true, false);
+											AddAffect( type, bonus, 4, static_cast<DWORD>(item->GetID()), INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
 
 											item->Lock(true);
 											item->SetSocket(0, true, true, "SOCKET_AUTOPOTION");
@@ -6384,7 +6385,7 @@ LPITEM CHARACTER::FindSpecifyItem(DWORD vnum) const
 	return NULL;
 }
 
-LPITEM CHARACTER::FindItemByID(DWORD id) const
+LPITEM CHARACTER::FindItemByID(uint64_t id) const
 {
 	for (int i=0 ; i < GetInventoryMaxCount(); ++i)
 	{
@@ -7489,7 +7490,8 @@ void CHARACTER::AutoRecoveryItemProcess(const EAffectTypes type)
 
 	if (NULL != pAffect)
 	{
-		LPITEM pItem = FindItemByID(pAffect->dwFlag);
+		const uint64_t ullAffectItemID = (pAffect->lSPCost > 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
+	LPITEM pItem = FindItemByID(ullAffectItemID);
 
 		if (NULL != pItem && true == pItem->GetSocket(0))
 		{
@@ -7815,4 +7817,3 @@ void CHARACTER::OnWeaponChange(const LPITEM newItem, const LPITEM oldItem)
 		}
 	}
 }
-

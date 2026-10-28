@@ -9,7 +9,7 @@
 typedef struct _CCI
 {
 	char	szName[CHARACTER_NAME_MAX_LEN + 1];
-	DWORD	dwPID;
+	uint64_t	dwPID;
 	BYTE	bEmpire;
 	int32_t	lMapIndex;
 	BYTE	bChannel;
@@ -52,7 +52,7 @@ class P2P_MANAGER : public singleton<P2P_MANAGER>
 		void			Logout(const char * c_pszName);
 
 		CCI *			Find(const char * c_pszName);
-		CCI *			FindByPID(DWORD pid);
+		CCI *			FindByPID(uint64_t pid);
 
 		int				GetCount();
 		int				GetEmpireUserCount(int idx);
@@ -66,7 +66,7 @@ class P2P_MANAGER : public singleton<P2P_MANAGER>
 		int			m_iHandleCount;
 
 		typedef boost::unordered_map<std::string, CCI *, stringhash> TCCIMap;
-		typedef boost::unordered_map<DWORD, CCI*> TPIDCCIMap;
+		typedef boost::unordered_map<uint64_t, CCI*> TPIDCCIMap;
 
 		TR1_NS::unordered_set<LPDESC> m_set_pkPeers;
 		TCCIMap			m_map_pkCCI;
@@ -75,4 +75,3 @@ class P2P_MANAGER : public singleton<P2P_MANAGER>
 };
 
 #endif /* P2P_MANAGER_H_ */
-

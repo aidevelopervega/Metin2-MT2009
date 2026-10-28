@@ -50,22 +50,24 @@ class CWarMap
 	public:
 		friend class CGuild;
 
-		CWarMap(long lMapIndex, const TGuildWarInfo & r_info, TWarMapInfo * pkWarMapInfo, DWORD dwGuildID1, DWORD dwGuildID2);
+		CWarMap(long lMapIndex, const TGuildWarInfo & r_info, TWarMapInfo * pkWarMapInfo, uint64_t dwGuildID1, uint64_t dwGuildID2);
 		~CWarMap();
 
-		bool	GetTeamIndex(DWORD dwGuild, BYTE & bIdx);
+		bool	GetTeamIndex(uint64_t dwGuild, BYTE & bIdx);
+		bool	GetFlagTeamIndex(LPCHARACTER pkChrFlagOrBase, BYTE & bIdx);
+		bool	GetAffectTeamIndex(const CAffect * pkAff, BYTE & bIdx);
 
 		void	IncMember(LPCHARACTER ch);
 		void	DecMember(LPCHARACTER ch);
 
 		CGuild * GetGuild(BYTE bIdx);
-		DWORD	GetGuildID(BYTE bIdx);
+		uint64_t	GetGuildID(BYTE bIdx);
 
 		BYTE	GetType();
 		long	GetMapIndex();
-		DWORD	GetGuildOpponent(LPCHARACTER ch);
+		uint64_t	GetGuildOpponent(LPCHARACTER ch);
 
-		DWORD	GetWinnerGuild();
+		uint64_t	GetWinnerGuild();
 		void	UsePotion(LPCHARACTER ch, LPITEM item);
 
 		void	Draw();
@@ -79,12 +81,12 @@ class CWarMap
 		void	SetEndEvent(LPEVENT pkEv);
 		void	SetResetFlagEvent(LPEVENT pkEv);
 
-		void	UpdateScore(DWORD g1, int score1, DWORD g2, int score2);
+		void	UpdateScore(uint64_t g1, int score1, uint64_t g2, int score2);
 		bool	CheckScore();
 
 		YANG	GetRewardGold(BYTE bWinnerIdx);
 
-		bool	GetGuildIndex(DWORD dwGuild, int& iIndex);
+		bool	GetGuildIndex(uint64_t dwGuild, int& iIndex);
 
 		void	Packet(const void * pv, int size);
 		void	Notice(const char * psz);
@@ -113,7 +115,7 @@ class CWarMap
 
 		typedef struct STeamData
 		{
-			DWORD	dwID;
+			uint64_t	dwID;
 			CGuild * pkGuild;
 			int		iMemberCount;
 			YANG		iUsePotionPrice;
@@ -121,7 +123,7 @@ class CWarMap
 			LPCHARACTER pkChrFlag;
 			LPCHARACTER pkChrFlagBase;
 
-			std::set<DWORD> set_pidJoiner;
+			std::set<uint64_t> set_pidJoiner;
 
 			void Initialize();
 
@@ -154,7 +156,7 @@ class CWarMapManager : public singleton<CWarMapManager>
 		bool		GetStartPosition(long lMapIndex, BYTE bIdx, PIXEL_POSITION & pos);
 
 		template <typename Func> Func for_each(Func f);
-		long		CreateWarMap(const TGuildWarInfo & r_WarInfo, DWORD dwGuildID1, DWORD dwGuildID2);
+		long		CreateWarMap(const TGuildWarInfo & r_WarInfo, uint64_t dwGuildID1, uint64_t dwGuildID2);
 		void		DestroyWarMap(CWarMap* pMap);
 		CWarMap *	Find(long lMapIndex);
 		int		CountWarMap() { return m_mapWarMap.size(); }
@@ -175,4 +177,3 @@ template <typename Func> Func CWarMapManager::for_each(Func f)
 }
 
 #endif
-

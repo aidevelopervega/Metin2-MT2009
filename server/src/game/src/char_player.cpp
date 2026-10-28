@@ -134,7 +134,7 @@ void CHARACTER::CCharacterPlayerData::SetSpecialFlagSave(std::string flag, long 
 	}
 }
 
-void CHARACTER::CCharacterPlayerData::SaveSpecialFlag(DWORD pid, DWORD aid)
+void CHARACTER::CCharacterPlayerData::SaveSpecialFlag(uint64_t pid, uint64_t aid)
 {
 	if (m_mapSpecialFlagSave.empty())
 		return;
@@ -151,7 +151,8 @@ void CHARACTER::CCharacterPlayerData::SaveSpecialFlag(DWORD pid, DWORD aid)
 
 		if (szFlag.length() == 0)
 		{
-			sys_err("CHARACTER::CCharacterPlayerData::SaveSpecialFlag : invalid special flag data pid %d aid %d", pid, aid);
+			sys_err("CHARACTER::CCharacterPlayerData::SaveSpecialFlag : invalid special flag data pid %llu aid %llu",
+					static_cast<unsigned long long>(pid), static_cast<unsigned long long>(aid));
 			continue;
 		}
 
@@ -323,4 +324,3 @@ void CHARACTER::CCharacterPlayerData::MarkHackerReleased(LPCHARACTER ch)
 	LogManager::instance().HackLog("BOT_RELEASED", ch);
 	bMarkedHacker = false;
 }
-

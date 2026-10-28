@@ -387,7 +387,7 @@ class ITEM_MANAGER : public singleton<ITEM_MANAGER>
 		void			Update();
 		void			GracefulShutdown();
 
-		DWORD			GetNewID();
+		uint64_t		GetNewID();
 		bool			SetMaxItemID(TItemIDRangeTable range);
 		bool			SetMaxSpareItemID(TItemIDRangeTable range);
 
@@ -396,7 +396,7 @@ class ITEM_MANAGER : public singleton<ITEM_MANAGER>
 		void			SaveSingleItem(LPITEM item);
 		void			RemoveFromDelayedSave(LPITEM item);
 
-		LPITEM                  CreateItem(DWORD vnum, ITEM_COUNT count = 1, DWORD dwID = 0, bool bTryMagic = false, int iRarePct = -1, bool bSkipSave = false, int addRarePct = 0);
+		LPITEM                  CreateItem(DWORD vnum, ITEM_COUNT count = 1, uint64_t dwID = 0, bool bTryMagic = false, int iRarePct = -1, bool bSkipSave = false, int addRarePct = 0);
 #ifndef DEBUG_ALLOC
 		void DestroyItem(LPITEM item);
 #else
@@ -404,7 +404,7 @@ class ITEM_MANAGER : public singleton<ITEM_MANAGER>
 #endif
 		void			RemoveItem(LPITEM item, const char * c_pszReason=NULL);
 
-		LPITEM			Find(DWORD id);
+		LPITEM			Find(uint64_t id);
 		LPITEM                  FindByVID(DWORD vid);
 		TItemTable *            GetTable(DWORD vnum);
 		bool			GetVnum(const char * c_pszName, DWORD & r_dwVnum);
@@ -472,12 +472,12 @@ class ITEM_MANAGER : public singleton<ITEM_MANAGER>
 
 		ITEM_VID_MAP			m_VIDMap;
 		DWORD				m_dwVIDCount;
-		DWORD				m_dwCurrentID;
+		uint64_t			m_dwCurrentID;
 		TItemIDRangeTable	m_ItemIDRange;
 		TItemIDRangeTable	m_ItemIDSpareRange;
 
 		TR1_NS::unordered_set<LPITEM> m_set_pkItemForDelayedSave;
-		std::map<DWORD, LPITEM>		m_map_pkItemByID;
+		std::map<uint64_t, LPITEM>	m_map_pkItemByID;
 		std::map<DWORD, DWORD>		m_map_dwEtcItemDropProb;
 		std::map<DWORD, CDropItemGroup*> m_map_pkDropItemGroup;
 		std::map<DWORD, CSpecialItemGroup*> m_map_pkSpecialItemGroup;
@@ -518,4 +518,3 @@ class ITEM_MANAGER : public singleton<ITEM_MANAGER>
 #endif
 
 #endif
-

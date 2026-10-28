@@ -63,7 +63,7 @@ class PulseManager
 {
 public:
 	using SubKeyT = ePulse;
-	using MainKeyT = uint32_t;
+	using MainKeyT = uint64_t;
 
 #ifdef __PULSEMANAGER__M2_SUPPORT__
 	using PulseT = int;
@@ -291,4 +291,3 @@ public:
 
 };
 #endif // __COMMON__PULSEMANAGER_H__
-

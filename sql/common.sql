@@ -508,7 +508,7 @@ DROP TABLE IF EXISTS `priv_settings`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `priv_settings` (
   `priv_type` enum('PLAYER','GUILD','EMPIRE') NOT NULL DEFAULT 'EMPIRE' COMMENT 'GUILD and PLAYER are untested.',
-  `id` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'this is for empire_id, player_id or guild_id',
+  `id` bigint(20) unsigned NOT NULL DEFAULT 0 COMMENT 'this is for empire_id, player_id or guild_id',
   `type` int(10) unsigned NOT NULL DEFAULT 4 COMMENT '1:item_drop, 2:gold_drop, 3:gold10_drop, 4:exp (1~4)',
   `value` int(11) NOT NULL DEFAULT 0 COMMENT '0~1000%',
   `duration` datetime NOT NULL DEFAULT current_timestamp(),
@@ -561,7 +561,7 @@ DROP TABLE IF EXISTS `vouchers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `vouchers` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `code` varchar(20) NOT NULL,
   `max_use_count` int(11) unsigned NOT NULL DEFAULT 1,
   `use_count` int(11) unsigned NOT NULL DEFAULT 0,

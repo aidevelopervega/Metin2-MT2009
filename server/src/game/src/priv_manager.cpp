@@ -25,7 +25,7 @@ CPrivManager::CPrivManager()
 	memset(m_aakPrivEmpireData, 0, sizeof(m_aakPrivEmpireData));
 }
 
-void CPrivManager::RequestGiveGuildPriv(DWORD guild_id, BYTE type, int value, time_t duration_sec)
+void CPrivManager::RequestGiveGuildPriv(uint64_t guild_id, BYTE type, int value, time_t duration_sec)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -65,7 +65,7 @@ void CPrivManager::RequestGiveEmpirePriv(BYTE empire, BYTE type, int value, time
 	db_clientdesc->DBPacket(HEADER_GD_REQUEST_EMPIRE_PRIV, 0, &p, sizeof(p));
 }
 
-void CPrivManager::RequestGiveCharacterPriv(DWORD pid, BYTE type, int value)
+void CPrivManager::RequestGiveCharacterPriv(uint64_t pid, BYTE type, int value)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -83,7 +83,7 @@ void CPrivManager::RequestGiveCharacterPriv(DWORD pid, BYTE type, int value)
 	db_clientdesc->DBPacket(HEADER_GD_REQUEST_CHARACTER_PRIV, 0, &p, sizeof(p));
 }
 
-void CPrivManager::GiveGuildPriv(DWORD guild_id, BYTE type, int value, BYTE bLog, time_t end_time_sec)
+void CPrivManager::GiveGuildPriv(uint64_t guild_id, BYTE type, int value, BYTE bLog, time_t end_time_sec)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -91,7 +91,7 @@ void CPrivManager::GiveGuildPriv(DWORD guild_id, BYTE type, int value, BYTE bLog
 		return;
 	}
 
-	sys_log(0,"Set Guild Priv: guild_id(%u) type(%d) value(%d) duration_sec(%d)", guild_id, type, value, end_time_sec - get_global_time());
+	sys_log(0,"Set Guild Priv: guild_id(%llu) type(%d) value(%d) duration_sec(%lld)", static_cast<unsigned long long>(guild_id), type, value, static_cast<long long>(end_time_sec - get_global_time()));
 
 	value = MINMAX(0, value, 50);
 	end_time_sec = std::clamp<time_t>(end_time_sec, 0, get_global_time() + 60 * 60 * 24 * 7);
@@ -118,12 +118,12 @@ void CPrivManager::GiveGuildPriv(DWORD guild_id, BYTE type, int value, BYTE bLog
 
 		if (bLog)
 		{
-			LogManager::instance().CharLog(0, guild_id, type, value, "GUILD_PRIV", "", "");
+			LogManager::instance().CharLog(0, static_cast<DWORD>(guild_id), type, value, "GUILD_PRIV", "", "");
 		}
 	}
 }
 
-void CPrivManager::GiveCharacterPriv(DWORD pid, BYTE type, int value, BYTE bLog)
+void CPrivManager::GiveCharacterPriv(uint64_t pid, BYTE type, int value, BYTE bLog)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -131,7 +131,7 @@ void CPrivManager::GiveCharacterPriv(DWORD pid, BYTE type, int value, BYTE bLog)
 		return;
 	}
 
-	sys_log(0,"Set Character Priv %u %d %d", pid, type, value);
+	sys_log(0,"Set Character Priv %llu %d %d", static_cast<unsigned long long>(pid), type, value);
 
 	value = MINMAX(0, value, 100);
 
@@ -149,7 +149,7 @@ void CPrivManager::GiveEmpirePriv(BYTE empire, BYTE type, int value, BYTE bLog, 
 		return;
 	}
 
-	sys_log(0, "Set Empire Priv: empire(%d) type(%d) value(%d) duration_sec(%d)", empire, type, value, end_time_sec-get_global_time());
+	sys_log(0, "Set Empire Priv: empire(%d) type(%d) value(%d) duration_sec(%lld)", empire, type, value, static_cast<long long>(end_time_sec-get_global_time()));
 
 	value = MINMAX(0, value, 200);
 	end_time_sec = std::clamp<time_t>(end_time_sec, 0, get_global_time() + 60 * 60 * 24 * 7);
@@ -185,7 +185,7 @@ void CPrivManager::GiveEmpirePriv(BYTE empire, BYTE type, int value, BYTE bLog, 
 	}
 }
 
-void CPrivManager::RemoveGuildPriv(DWORD guild_id, BYTE type)
+void CPrivManager::RemoveGuildPriv(uint64_t guild_id, BYTE type)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -210,7 +210,7 @@ void CPrivManager::RemoveEmpirePriv(BYTE empire, BYTE type)
 	rkPrivEmpireData.m_end_time_sec = 0;
 }
 
-void CPrivManager::RemoveCharacterPriv(DWORD pid, BYTE type)
+void CPrivManager::RemoveCharacterPriv(uint64_t pid, BYTE type)
 {
 	if (MAX_PRIV_NUM <= type)
 	{
@@ -265,7 +265,7 @@ CPrivManager::SPrivEmpireData* CPrivManager::GetPrivByEmpireEx(BYTE bEmpire, BYT
 	return &m_aakPrivEmpireData[type][bEmpire];
 }
 
-int CPrivManager::GetPrivByGuild(DWORD guild_id, BYTE type)
+int CPrivManager::GetPrivByGuild(uint64_t guild_id, BYTE type)
 {
 	if (type >= MAX_PRIV_NUM)
 		return 0;
@@ -278,7 +278,7 @@ int CPrivManager::GetPrivByGuild(DWORD guild_id, BYTE type)
 	return itFind->second.value;
 }
 
-const CPrivManager::SPrivGuildData* CPrivManager::GetPrivByGuildEx( DWORD dwGuildID, BYTE byType ) const
+const CPrivManager::SPrivGuildData* CPrivManager::GetPrivByGuildEx( uint64_t dwGuildID, BYTE byType ) const
 {
 	if ( byType >= MAX_PRIV_NUM )
 		return NULL;
@@ -291,7 +291,7 @@ const CPrivManager::SPrivGuildData* CPrivManager::GetPrivByGuildEx( DWORD dwGuil
 	return &itFind->second;
 }
 
-int CPrivManager::GetPrivByCharacter(DWORD pid, BYTE type)
+int CPrivManager::GetPrivByCharacter(uint64_t pid, BYTE type)
 {
 	if (type >= MAX_PRIV_NUM)
 		return 0;
@@ -303,4 +303,3 @@ int CPrivManager::GetPrivByCharacter(DWORD pid, BYTE type)
 
 	return 0;
 }
-

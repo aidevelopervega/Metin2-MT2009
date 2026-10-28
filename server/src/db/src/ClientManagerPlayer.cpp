@@ -21,7 +21,7 @@ extern int g_log;
 //
 // Check all SELECT syntax on item table before change this function!!!
 //
-bool CreateItemTableFromRes(MYSQL_RES * res, std::vector<TPlayerItem> * pVec, DWORD dwPID)
+bool CreateItemTableFromRes(MYSQL_RES * res, std::vector<TPlayerItem> * pVec, uint64_t dwPID)
 {
 	if (!res)
 	{
@@ -176,7 +176,7 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 	unsigned long lenSkills = CDBManager::instance().EscapeString(text, pkTab->skills, sizeof(pkTab->skills));
 	if (sizeof(pkTab->skills) > 0 && lenSkills == 0)
 	{
-		sys_err("CreatePlayerSaveQuery: EscapeString failed for player skills (id %u, DB disconnected)", pkTab->id);
+		sys_err("CreatePlayerSaveQuery: EscapeString failed for player skills (id %llu, DB disconnected)", static_cast<unsigned long long>(pkTab->id));
 		if (pszQuery && querySize > 0)
 			pszQuery[0] = '\0';
 		return 0;
@@ -186,18 +186,18 @@ size_t CreatePlayerSaveQuery(char * pszQuery, size_t querySize, TPlayerTable * p
 	unsigned long lenQuickslot = CDBManager::instance().EscapeString(text, pkTab->quickslot, sizeof(pkTab->quickslot));
 	if (sizeof(pkTab->quickslot) > 0 && lenQuickslot == 0)
 	{
-		sys_err("CreatePlayerSaveQuery: EscapeString failed for player quickslot (id %u, DB disconnected)", pkTab->id);
+		sys_err("CreatePlayerSaveQuery: EscapeString failed for player quickslot (id %llu, DB disconnected)", static_cast<unsigned long long>(pkTab->id));
 		if (pszQuery && querySize > 0)
 			pszQuery[0] = '\0';
 		return 0;
 	}
 	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, "quickslot = '%s' ", text));
 
-	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, " WHERE id=%u", static_cast<unsigned int>(pkTab->id)));
+	queryLen += static_cast<size_t>(snprintf(pszQuery + queryLen, querySize - queryLen, " WHERE id=%llu", static_cast<unsigned long long>(pkTab->id)));
 	return queryLen;
 }
 
-CPlayerTableCache * CClientManager::GetPlayerCache(DWORD id)
+CPlayerTableCache * CClientManager::GetPlayerCache(uint64_t id)
 {
 	TPlayerTableCacheMap::iterator it = m_map_playerCache.find(id);
 
@@ -286,7 +286,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 
 		TItemCacheSet * pSet = GetItemCacheSet(pTab->id);
 
-		sys_log(0, "[PLAYER_LOAD] ID %s pid %d gold %lld ", pTab->name, pTab->id, pTab->gold);
+		sys_log(0, "[PLAYER_LOAD] ID %s pid %llu gold %lld ", pTab->name, static_cast<unsigned long long>(pTab->id), pTab->gold);
 
 		//--------------------------------------------
 
@@ -324,22 +324,22 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 
 			// Quest
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID,szName,szState,lValue FROM quest%s WHERE dwPID=%u AND lValue<>0",
-					GetTablePostfix(), static_cast<unsigned int>(pTab->id));
+					"SELECT dwPID,szName,szState,lValue FROM quest%s WHERE dwPID=%llu AND lValue<>0",
+					GetTablePostfix(), static_cast<unsigned long long>(pTab->id));
 
 			CDBManager::instance().ReturnQuery(szQuery, QID_QUEST, peer->GetHandle(), new ClientHandleInfo(dwHandle,0,packet->account_id));
 
 			// Affect
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost,itemVnum FROM affect%s WHERE dwPID=%u",
-					GetTablePostfix(), static_cast<unsigned int>(pTab->id));
+					"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost,itemVnum FROM affect%s WHERE dwPID=%llu",
+					GetTablePostfix(), static_cast<unsigned long long>(pTab->id));
 			// @fixme402 ClientHandleInfo+pTab->id
 			CDBManager::instance().ReturnQuery(szQuery, QID_AFFECT, peer->GetHandle(), new ClientHandleInfo(dwHandle, pTab->id));
 
 			// Special Flag
 			snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE (pid=%u or aid=%u) AND value<>0",
-				GetTablePostfix(), static_cast<unsigned int>(pTab->id), static_cast<unsigned int>(packet->account_id));
+				"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE (pid=%llu or aid=%llu) AND value<>0",
+				GetTablePostfix(), static_cast<unsigned long long>(pTab->id), static_cast<unsigned long long>(packet->account_id));
 
 			CDBManager::instance().ReturnQuery(szQuery, QID_SPECIAL_FLAG, peer->GetHandle(), new ClientHandleInfo(dwHandle));
 		}
@@ -350,24 +350,24 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 		{
 			snprintf(szQuery, sizeof(szQuery),
 					"SELECT id,`window`+0,pos,count,vnum,socket0,socket1,socket2,attrtype0,attrvalue0,attrtype1,attrvalue1,attrtype2,attrvalue2,attrtype3,attrvalue3,attrtype4,attrvalue4,attrtype5,attrvalue5,attrtype6,attrvalue6 "
-					"FROM item%s WHERE owner_id=%u AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))",
-					GetTablePostfix(), static_cast<unsigned int>(pTab->id));
+					"FROM item%s WHERE owner_id=%llu AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))",
+					GetTablePostfix(), static_cast<unsigned long long>(pTab->id));
 
 			CDBManager::instance().ReturnQuery(szQuery,
 					QID_ITEM,
 					peer->GetHandle(),
 					new ClientHandleInfo(dwHandle, pTab->id));
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID, szName, szState, lValue FROM quest%s WHERE dwPID=%u",
-					GetTablePostfix(), static_cast<unsigned int>(pTab->id));
+					"SELECT dwPID, szName, szState, lValue FROM quest%s WHERE dwPID=%llu",
+					GetTablePostfix(), static_cast<unsigned long long>(pTab->id));
 
 			CDBManager::instance().ReturnQuery(szQuery,
 					QID_QUEST,
 					peer->GetHandle(),
 					new ClientHandleInfo(dwHandle, pTab->id));
 			snprintf(szQuery, sizeof(szQuery),
-					"SELECT dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum FROM affect%s WHERE dwPID=%u",
-					GetTablePostfix(), static_cast<unsigned int>(pTab->id));
+					"SELECT dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum FROM affect%s WHERE dwPID=%llu",
+					GetTablePostfix(), static_cast<unsigned long long>(pTab->id));
 
 			CDBManager::instance().ReturnQuery(szQuery,
 					QID_AFFECT,
@@ -376,8 +376,8 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 
 			//SPECIAL_FLAG
 			snprintf(szQuery, sizeof(szQuery),
-				"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE pid=%u or aid=%u",
-				GetTablePostfix(), static_cast<unsigned int>(pTab->id), static_cast<unsigned int>(packet->account_id));
+				"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE pid=%llu or aid=%llu",
+				GetTablePostfix(), static_cast<unsigned long long>(pTab->id), static_cast<unsigned long long>(packet->account_id));
 
 			CDBManager::instance().ReturnQuery(szQuery,
 				QID_SPECIAL_FLAG,
@@ -392,7 +392,7 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 	//----------------------------------
 	else
 	{
-		sys_log(0, "[PLAYER_LOAD] Load from PlayerDB pid[%d]", packet->player_id);
+		sys_log(0, "[PLAYER_LOAD] Load from PlayerDB pid[%llu]", static_cast<unsigned long long>(packet->player_id));
 
 		char queryStr[QUERY_MAX_LEN];
 
@@ -412,8 +412,8 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 #ifdef ENABLE_CHEQUE_SYSTEM
 				", cheque "
 #endif
-				" FROM player%s WHERE id=%u",
-				GetTablePostfix(), static_cast<unsigned int>(packet->player_id));
+				" FROM player%s WHERE id=%llu",
+				GetTablePostfix(), static_cast<unsigned long long>(packet->player_id));
 
 		ClientHandleInfo * pkInfo = new ClientHandleInfo(dwHandle, packet->player_id);
 		pkInfo->account_id = packet->account_id;
@@ -424,29 +424,29 @@ void CClientManager::QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoad
 		//--------------------------------------------------------------
 		snprintf(queryStr, sizeof(queryStr),
 				"SELECT id,`window`+0,pos,count,vnum,socket0,socket1,socket2,attrtype0,attrvalue0,attrtype1,attrvalue1,attrtype2,attrvalue2,attrtype3,attrvalue3,attrtype4,attrvalue4,attrtype5,attrvalue5,attrtype6,attrvalue6 "
-				"FROM item%s WHERE owner_id=%u AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))",
-				GetTablePostfix(), static_cast<unsigned int>(packet->player_id));
+				"FROM item%s WHERE owner_id=%llu AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))",
+				GetTablePostfix(), static_cast<unsigned long long>(packet->player_id));
 		CDBManager::instance().ReturnQuery(queryStr, QID_ITEM, peer->GetHandle(), new ClientHandleInfo(dwHandle, packet->player_id));
 
 		//--------------------------------------------------------------
 
 		//--------------------------------------------------------------
 		snprintf(queryStr, sizeof(queryStr),
-				"SELECT dwPID,szName,szState,lValue FROM quest%s WHERE dwPID=%u",
-				GetTablePostfix(), static_cast<unsigned int>(packet->player_id));
+				"SELECT dwPID,szName,szState,lValue FROM quest%s WHERE dwPID=%llu",
+				GetTablePostfix(), static_cast<unsigned long long>(packet->player_id));
 		CDBManager::instance().ReturnQuery(queryStr, QID_QUEST, peer->GetHandle(), new ClientHandleInfo(dwHandle, packet->player_id,packet->account_id));
 
 		//--------------------------------------------------------------
 
 		//--------------------------------------------------------------
 		snprintf(queryStr, sizeof(queryStr),
-				"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost,itemVnum FROM affect%s WHERE dwPID=%u",
-				GetTablePostfix(), static_cast<unsigned int>(packet->player_id));
+				"SELECT dwPID,bType,bApplyOn,lApplyValue,dwFlag,lDuration,lSPCost,itemVnum FROM affect%s WHERE dwPID=%llu",
+				GetTablePostfix(), static_cast<unsigned long long>(packet->player_id));
 		CDBManager::instance().ReturnQuery(queryStr, QID_AFFECT, peer->GetHandle(), new ClientHandleInfo(dwHandle, packet->player_id));
 
 		snprintf(queryStr, sizeof(queryStr),
-			"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE pid=%u or aid=%u",
-			GetTablePostfix(), static_cast<unsigned int>(packet->player_id), static_cast<unsigned int>(packet->account_id));
+			"SELECT pid, aid, flag, value FROM player_special_flag%s WHERE pid=%llu or aid=%llu",
+			GetTablePostfix(), static_cast<unsigned long long>(packet->player_id), static_cast<unsigned long long>(packet->account_id));
 		CDBManager::instance().ReturnQuery(queryStr, QID_SPECIAL_FLAG, peer->GetHandle(), new ClientHandleInfo(dwHandle, packet->player_id));
 	}
 #ifdef ENABLE_IKASHOP_RENEWAL
@@ -616,7 +616,7 @@ void CClientManager::RESULT_COMPOSITE_PLAYER(CPeer * peer, SQLMsg * pMsg, DWORD 
 	switch (dwQID)
 	{
 		case QID_PLAYER:
-			sys_log(0, "QID_PLAYER %u %u", info->dwHandle, info->player_id);
+			sys_log(0, "QID_PLAYER %u %llu", info->dwHandle, static_cast<unsigned long long>(info->player_id));
 			RESULT_PLAYER_LOAD(peer, pSQLResult, info.get());
 
 			break;
@@ -730,7 +730,7 @@ void CClientManager::RESULT_PLAYER_LOAD(CPeer * peer, MYSQL_RES * pRes, ClientHa
 	}
 }
 
-void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwPID)
+void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, uint64_t dwPID)
 {
 	static std::vector<TPlayerItem> s_items;
 
@@ -743,7 +743,7 @@ void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHa
 	CreateItemCacheSet(dwPID);
 
 	// ITEM_LOAD_LOG_ATTACH_PID
-	sys_log(0, "ITEM_LOAD: count %u pid %u", dwCount, dwPID);
+	sys_log(0, "ITEM_LOAD: count %u pid %llu", dwCount, static_cast<unsigned long long>(dwPID));
 	// END_OF_ITEM_LOAD_LOG_ATTACH_PID
 
 	if (dwCount)
@@ -756,20 +756,20 @@ void CClientManager::RESULT_ITEM_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHa
 }
 
 // @fixme402 (RESULT_AFFECT_LOAD +dwRealPID)
-void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, DWORD dwRealPID)
+void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, uint64_t dwRealPID)
 {
 	uint64_t iNumRows;
 	if ((iNumRows = mysql_num_rows(pRes)) == 0)
 	{
 		// @fixme402 begin
-		static DWORD dwPID;
+		static uint64_t dwPID;
 		static DWORD dwCount = 0;
 		static std::vector<TPacketAffectElement> emptyElements;
 
 		dwPID = dwRealPID;
-		sys_log(0, "AFFECT_LOAD: count %u PID %u RealPID %u", dwCount, dwPID, dwRealPID);
+		sys_log(0, "AFFECT_LOAD: count %u PID %llu RealPID %llu", dwCount, static_cast<unsigned long long>(dwPID), static_cast<unsigned long long>(dwRealPID));
 
-		peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
+		peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(uint64_t) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
 		peer->Encode(dwPID);
 		peer->Encode(dwCount);
 		peer->Encode(emptyElements);
@@ -780,7 +780,7 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 	static std::vector<TPacketAffectElement> s_elements;
 	s_elements.resize(static_cast<size_t>(iNumRows));
 
-	DWORD dwPID = 0;
+	uint64_t dwPID = 0;
 
 	MYSQL_ROW row;
 
@@ -802,15 +802,15 @@ void CClientManager::RESULT_AFFECT_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dw
 	}
 
 	DWORD dwCount = static_cast<DWORD>(s_elements.size());
-	sys_log(0, "AFFECT_LOAD: count %d PID %u", dwCount, dwPID);
+	sys_log(0, "AFFECT_LOAD: count %d PID %llu", dwCount, static_cast<unsigned long long>(dwPID));
 
-	peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
+	peer->EncodeHeader(HEADER_DG_AFFECT_LOAD, dwHandle, static_cast<DWORD>(sizeof(uint64_t) + sizeof(DWORD) + sizeof(TPacketAffectElement) * dwCount));
 	peer->Encode(dwPID);
 	peer->Encode(dwCount);
 	peer->Encode(s_elements);
 }
 
-void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, [[maybe_unused]] DWORD pid)
+void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwHandle, [[maybe_unused]] uint64_t pid)
 {
 	uint64_t iNumRows;
 
@@ -840,14 +840,14 @@ void CClientManager::RESULT_QUEST_LOAD(CPeer * peer, MYSQL_RES * pRes, DWORD dwH
 	}
 
 	DWORD dwCount = static_cast<DWORD>(s_table.size());
-	sys_log(0, "QUEST_LOAD: count %d PID %u", dwCount, s_table[0].dwPID);
+	sys_log(0, "QUEST_LOAD: count %d PID %llu", dwCount, static_cast<unsigned long long>(s_table[0].dwPID));
 
 	peer->EncodeHeader(HEADER_DG_QUEST_LOAD, dwHandle, static_cast<DWORD>(sizeof(DWORD) + sizeof(TQuestTable) * s_table.size()));
 	peer->Encode(dwCount);
 	peer->Encode(s_table);
 }
 
-void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWORD dwHandle, [[maybe_unused]] DWORD pid)
+void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWORD dwHandle, [[maybe_unused]] uint64_t pid)
 {
 	uint64_t iNumRows;
 
@@ -876,7 +876,7 @@ void CClientManager::RESULT_SPECIAL_FLAG_LOAD(CPeer* peer, MYSQL_RES* pRes, DWOR
 		str_to_number(r.llValue, row[3]);
 	}
 
-	sys_log(0, "SPECIAL_FLAG_LOAD: count %zu PID %u AID %u", s_table.size(), s_table[0].dwPID, s_table[0].dwAID);
+	sys_log(0, "SPECIAL_FLAG_LOAD: count %zu PID %llu AID %llu", s_table.size(), static_cast<unsigned long long>(s_table[0].dwPID), static_cast<unsigned long long>(s_table[0].dwAID));
 
 	DWORD dwCount = static_cast<DWORD>(s_table.size());
 
@@ -896,7 +896,7 @@ void CClientManager::QUERY_PLAYER_SAVE([[maybe_unused]] CPeer * peer, [[maybe_un
 	PutPlayerCache(pkTab);
 }
 
-typedef std::map<DWORD, time_t> time_by_id_map_t;
+typedef std::map<uint64_t, time_t> time_by_id_map_t;
 static time_by_id_map_t s_createTimeByAccountID;
 
 /*
@@ -906,7 +906,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 {
 	char	queryStr[QUERY_MAX_LEN];
 	int		queryLen;
-	DWORD	player_id;
+	uint64_t	player_id;
 
 	if (!packet || packet->account_index >= PLAYER_PER_ACCOUNT)
 	{
@@ -938,7 +938,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 	}
 
 	queryLen = snprintf(queryStr, sizeof(queryStr),
-			"SELECT pid%u FROM player_index%s WHERE id=%u", packet->account_index + 1, GetTablePostfix(), static_cast<unsigned int>(packet->account_id));
+			"SELECT pid%u FROM player_index%s WHERE id=%llu", packet->account_index + 1, GetTablePostfix(), static_cast<unsigned long long>(packet->account_id));
 
 	auto pMsg0(CDBManager::instance().DirectQuery(queryStr));
 	if (pMsg0->Get()->uiNumRows != 0)
@@ -951,11 +951,11 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 
 		MYSQL_ROW row = mysql_fetch_row(pMsg0->Get()->pSQLResult);
 
-		DWORD dwPID = 0; str_to_number(dwPID, row[0]);
+		uint64_t dwPID = 0; str_to_number(dwPID, row[0]);
 		if (row[0] && dwPID > 0)
 		{
 			peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_ALREADY, dwHandle, 0);
-			sys_log(0, "ALREADY EXIST AccountChrIdx %d ID %d", packet->account_index, dwPID);
+			sys_log(0, "ALREADY EXIST AccountChrIdx %d ID %llu", packet->account_index, static_cast<unsigned long long>(dwPID));
 			return;
 		}
 	}
@@ -1008,7 +1008,7 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 			#endif
 			" gold, playtime, "
 			"skill_level, quickslot) "
-			"VALUES(%u, '%s', %d, %d, %d, %d, %d, "
+			"VALUES(%llu, '%s', %d, %d, %d, %d, %d, "
 			"%d, %d, %d, %d, %d, %d, "
 			"%d, %d, %d, %d, %d, %d, "
 			"%d, %d, 0, "
@@ -1017,13 +1017,13 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 			#endif
 			"%lld, 0, ",
 			GetTablePostfix(),
-			static_cast<unsigned int>(packet->account_id), szEscapedName, packet->player_table.level, packet->player_table.st, packet->player_table.ht, packet->player_table.dx, packet->player_table.iq,
+			static_cast<unsigned long long>(packet->account_id), szEscapedName, packet->player_table.level, packet->player_table.st, packet->player_table.ht, packet->player_table.dx, packet->player_table.iq,
 			packet->player_table.job, packet->player_table.voice, packet->player_table.dir, packet->player_table.x, packet->player_table.y, packet->player_table.z,
 			packet->player_table.hp, packet->player_table.sp, packet->player_table.sRandomHP, packet->player_table.sRandomSP, packet->player_table.stat_point, packet->player_table.stamina,
 			packet->player_table.part_base, packet->player_table.part_base, packet->player_table.gold);
 
-	sys_log(0, "PlayerCreate accountid %d name %s level %d gold %lld, st %d ht %d job %d",
-			packet->account_id,
+	sys_log(0, "PlayerCreate accountid %llu name %s level %d gold %lld, st %d ht %d job %d",
+			static_cast<unsigned long long>(packet->account_id),
 			packet->player_table.name,
 			packet->player_table.level,
 			packet->player_table.gold,
@@ -1064,17 +1064,17 @@ void CClientManager::__QUERY_PLAYER_CREATE(CPeer *peer, DWORD dwHandle, TPlayerC
 		return;
 	}
 
-	player_id = static_cast<DWORD>(pMsg2->Get()->uiInsertID);
+	player_id = pMsg2->Get()->ullInsertID;
 
-	snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%d=%u WHERE id=%u",
-			GetTablePostfix(), packet->account_index + 1, static_cast<unsigned int>(player_id), static_cast<unsigned int>(packet->account_id));
+	snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%d=%llu WHERE id=%llu",
+			GetTablePostfix(), packet->account_index + 1, static_cast<unsigned long long>(player_id), static_cast<unsigned long long>(packet->account_id));
 
 	auto pMsg3(CDBManager::instance().DirectQuery(queryStr));
 	if (pMsg3->Get()->uiAffectedRows == 0)
 	{
 		sys_err("QUERY_ERROR: %s", queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(player_id));
 		CDBManager::instance().DirectQuery(queryStr);
 
 		peer->EncodeHeader(HEADER_DG_PLAYER_CREATE_FAILED, dwHandle, 0);
@@ -1169,7 +1169,7 @@ void CClientManager::__QUERY_PLAYER_DELETE(CPeer* peer, DWORD dwHandle, TPlayerD
 #ifdef ENABLE_IKASHOP_RENEWAL
 	if (IsUsingIkarusShopSystem(packet->player_id))
 	{
-		sys_log(0, "PLAYER_DELETE FAILED %u IS USING OFFLINESHOP SYSTEM", packet->player_id);
+		sys_log(0, "PLAYER_DELETE FAILED %llu IS USING OFFLINESHOP SYSTEM", static_cast<unsigned long long>(packet->player_id));
 		peer->EncodeHeader(HEADER_DG_PLAYER_DELETE_FAILED, dwHandle, sizeof(BYTE) + sizeof(BYTE));
 		peer->EncodeBYTE(PLAYER_DELETE_USING_OFFLINESHOP);
 		peer->EncodeBYTE(packet->account_index);
@@ -1178,13 +1178,13 @@ void CClientManager::__QUERY_PLAYER_DELETE(CPeer* peer, DWORD dwHandle, TPlayerD
 #endif
 
 	char szQuery[128];
-	snprintf(szQuery, sizeof(szQuery), "SELECT p.id, p.level, p.name FROM player_index%s AS i, player%s AS p WHERE pid%u=%u AND pid%u=p.id",
-			GetTablePostfix(), GetTablePostfix(), packet->account_index + 1, static_cast<unsigned int>(packet->player_id), packet->account_index + 1);
+	snprintf(szQuery, sizeof(szQuery), "SELECT p.id, p.level, p.name FROM player_index%s AS i, player%s AS p WHERE pid%u=%llu AND pid%u=p.id",
+			GetTablePostfix(), GetTablePostfix(), packet->account_index + 1, static_cast<unsigned long long>(packet->player_id), packet->account_index + 1);
 
 	ClientHandleInfo * pi = new ClientHandleInfo(dwHandle, packet->player_id);
 	pi->account_index = packet->account_index;
 
-	sys_log(0, "PLAYER_DELETE TRY: %s %d pid%d", packet->login, packet->player_id, packet->account_index + 1);
+	sys_log(0, "PLAYER_DELETE TRY: %s %llu pid%d", packet->login, static_cast<unsigned long long>(packet->player_id), packet->account_index + 1);
 	CDBManager::instance().ReturnQuery(szQuery, QID_PLAYER_DELETE, peer->GetHandle(), pi);
 }
 
@@ -1200,7 +1200,7 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 	{
 		MYSQL_ROW row = mysql_fetch_row(msg->Get()->pSQLResult);
 
-		DWORD dwPID = 0;
+		uint64_t dwPID = 0;
 		str_to_number(dwPID, row[0]);
 
 		int deletedLevelLimit = 0;
@@ -1231,13 +1231,13 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 
 		char queryStr[QUERY_MAX_LEN];
 
-		snprintf(queryStr, sizeof(queryStr), "INSERT INTO player%s_deleted SELECT * FROM player%s WHERE id=%u",
-				GetTablePostfix(), GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "INSERT INTO player%s_deleted SELECT * FROM player%s WHERE id=%llu",
+				GetTablePostfix(), GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		auto pIns(CDBManager::instance().DirectQuery(queryStr));
 
 		if (pIns->Get()->uiAffectedRows == 0 || pIns->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
 		{
-			sys_log(0, "PLAYER_DELETE FAILED %u CANNOT INSERT TO player%s_deleted", dwPID, GetTablePostfix());
+			sys_log(0, "PLAYER_DELETE FAILED %llu CANNOT INSERT TO player%s_deleted", static_cast<unsigned long long>(dwPID), GetTablePostfix());
 
 			peer->EncodeHeader(HEADER_DG_PLAYER_DELETE_FAILED, pi->dwHandle, sizeof(BYTE) + sizeof(BYTE));
 			peer->EncodeBYTE(PLAYER_DELETE_GENERAL_ERROR);
@@ -1245,11 +1245,11 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 			return;
 		}
 
-		sys_log(0, "PLAYER_DELETE SUCCESS %u", dwPID);
+		sys_log(0, "PLAYER_DELETE SUCCESS %llu", static_cast<unsigned long long>(dwPID));
 
 		char account_index_string[16];
 
-		snprintf(account_index_string, sizeof(account_index_string), "player_id%d", m_iPlayerIDStart + pi->account_index);
+		snprintf(account_index_string, sizeof(account_index_string), "player_id%llu", static_cast<unsigned long long>(m_iPlayerIDStart + pi->account_index));
 
 		CPlayerTableCache * pkPlayerCache = GetPlayerCache(pi->player_id);
 
@@ -1277,11 +1277,11 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 			m_map_pkItemCacheSetPtr.erase(pi->player_id);
 		}
 
-		snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%u=0 WHERE pid%u=%u",
+		snprintf(queryStr, sizeof(queryStr), "UPDATE player_index%s SET pid%u=0 WHERE pid%u=%llu",
 				GetTablePostfix(),
 				pi->account_index + 1,
 				pi->account_index + 1,
-				static_cast<unsigned int>(pi->player_id));
+				static_cast<unsigned long long>(pi->player_id));
 
 		auto pMsg(CDBManager::instance().DirectQuery(queryStr));
 		if (pMsg->Get()->uiAffectedRows == 0 || pMsg->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
@@ -1293,23 +1293,23 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 			return;
 		}
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM player%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().DirectQuery(queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM item%s WHERE owner_id=%u AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM item%s WHERE owner_id=%llu AND (`window` in ('INVENTORY','EQUIPMENT','DRAGON_SOUL_INVENTORY','BELT_INVENTORY'))", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().DirectQuery(queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM quest%s WHERE dwPID=%u", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM quest%s WHERE dwPID=%llu", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().AsyncQuery(queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM affect%s WHERE dwPID=%u", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM affect%s WHERE dwPID=%llu", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().AsyncQuery(queryStr);
 
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM guild_member%s WHERE pid=%u", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM guild_member%s WHERE pid=%llu", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().AsyncQuery(queryStr);
 
 		// MYSHOP_PRICE_LIST
-		snprintf(queryStr, sizeof(queryStr), "DELETE FROM myshop_pricelist%s WHERE owner_id=%u", GetTablePostfix(), static_cast<unsigned int>(pi->player_id));
+		snprintf(queryStr, sizeof(queryStr), "DELETE FROM myshop_pricelist%s WHERE owner_id=%llu", GetTablePostfix(), static_cast<unsigned long long>(pi->player_id));
 		CDBManager::instance().AsyncQuery(queryStr);
 		// END_OF_MYSHOP_PRICE_LIST
 
@@ -1331,29 +1331,11 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 void CClientManager::QUERY_ADD_AFFECT([[maybe_unused]] CPeer * peer, TPacketGDAddAffect * p)
 {
 	char queryStr[QUERY_MAX_LEN];
-	/*
-	   snprintf(queryStr, sizeof(queryStr),
-	   "INSERT INTO affect%s (dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost) "
-	   "VALUES(%u, %u, %u, %d, %u, %d, %d) "
-	   "ON DUPLICATE KEY UPDATE lApplyValue=%d, dwFlag=%u, lDuration=%d, lSPCost=%d",
-	   GetTablePostfix(),
-	   p->dwPID,
-	   p->elem.dwType,
-	   p->elem.bApplyOn,
-	   p->elem.lApplyValue,
-	   p->elem.dwFlag,
-	   p->elem.lDuration,
-	   p->elem.lSPCost,
-	   p->elem.lApplyValue,
-	   p->elem.dwFlag,
-	   p->elem.lDuration,
-	   p->elem.lSPCost);
-	   */
 	snprintf(queryStr, sizeof(queryStr),
 			"REPLACE INTO affect%s (dwPID, bType, bApplyOn, lApplyValue, dwFlag, lDuration, lSPCost, itemVnum) "
-			"VALUES(%u, %u, %u, %d, %u, %lld, %lld, %u)",
+			"VALUES(%llu, %u, %u, %d, %u, %lld, %lld, %u)",
 			GetTablePostfix(),
-			static_cast<unsigned int>(p->dwPID),
+			static_cast<unsigned long long>(p->dwPID),
 			static_cast<unsigned int>(p->elem.dwType),
 			p->elem.bApplyOn,
 			p->elem.lApplyValue,
@@ -1370,20 +1352,20 @@ void CClientManager::QUERY_REMOVE_AFFECT([[maybe_unused]] CPeer * peer, TPacketG
 	char queryStr[QUERY_MAX_LEN];
 
 	snprintf(queryStr, sizeof(queryStr),
-			"DELETE FROM affect%s WHERE dwPID=%u AND bType=%u AND bApplyOn=%u",
-			GetTablePostfix(), static_cast<unsigned int>(p->dwPID), static_cast<unsigned int>(p->dwType), p->bApplyOn);
+			"DELETE FROM affect%s WHERE dwPID=%llu AND bType=%u AND bApplyOn=%u",
+			GetTablePostfix(), static_cast<unsigned long long>(p->dwPID), static_cast<unsigned int>(p->dwType), p->bApplyOn);
 
 	CDBManager::instance().AsyncQuery(queryStr);
 }
 
-void CClientManager::InsertLogoutPlayer(DWORD pid)
+void CClientManager::InsertLogoutPlayer(uint64_t pid)
 {
 	TLogoutPlayerMap::iterator it = m_map_logout.find(pid);
 
 	if (it != m_map_logout.end())
 	{
 		if (g_log)
-			sys_log(0, "LOGOUT: Update player time pid(%d)", pid);
+			sys_log(0, "LOGOUT: Update player time pid(%llu)", static_cast<unsigned long long>(pid));
 
 		it->second->time = time(0);
 		return;
@@ -1395,10 +1377,10 @@ void CClientManager::InsertLogoutPlayer(DWORD pid)
 	m_map_logout.emplace(pid, pLogout);
 
 	if (g_log)
-		sys_log(0, "LOGOUT: Insert player pid(%d)", pid);
+		sys_log(0, "LOGOUT: Insert player pid(%llu)", static_cast<unsigned long long>(pid));
 }
 
-void CClientManager::DeleteLogoutPlayer(DWORD pid)
+void CClientManager::DeleteLogoutPlayer(uint64_t pid)
 {
 	TLogoutPlayerMap::iterator it = m_map_logout.find(pid);
 
@@ -1434,7 +1416,7 @@ void CClientManager::UpdateLogoutPlayer()
 	}
 }
 
-void CClientManager::FlushPlayerCacheSet(DWORD pid)
+void CClientManager::FlushPlayerCacheSet(uint64_t pid)
 {
 	TPlayerTableCacheMap::iterator it = m_map_playerCache.find(pid);
 
@@ -1451,4 +1433,3 @@ void CClientManager::FlushPlayerCacheSet(DWORD pid)
 		}
 	}
 }
-

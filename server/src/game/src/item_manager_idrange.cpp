@@ -16,7 +16,7 @@ int touch(const char *path)
 	return 0;
 }
 
-DWORD ITEM_MANAGER::GetNewID()
+uint64_t ITEM_MANAGER::GetNewID()
 {
 	assert(m_dwCurrentID != 0);
 
@@ -31,10 +31,12 @@ DWORD ITEM_MANAGER::GetNewID()
 		}
 		else
 		{
-			sys_log(0, "ItemIDRange: First Range is full. Change to SpareRange %u ~ %u %u",
-					m_ItemIDSpareRange.dwMin, m_ItemIDSpareRange.dwMax, m_ItemIDSpareRange.dwUsableItemIDMin);
+			sys_log(0, "ItemIDRange: First Range is full. Change to SpareRange %llu ~ %llu %llu",
+					static_cast<unsigned long long>(m_ItemIDSpareRange.dwMin),
+					static_cast<unsigned long long>(m_ItemIDSpareRange.dwMax),
+					static_cast<unsigned long long>(m_ItemIDSpareRange.dwUsableItemIDMin));
 
-			db_clientdesc->DBPacket(HEADER_GD_REQ_SPARE_ITEM_ID_RANGE, 0, &m_ItemIDRange.dwMax, sizeof(DWORD));
+			db_clientdesc->DBPacket(HEADER_GD_REQ_SPARE_ITEM_ID_RANGE, 0, &m_ItemIDRange.dwMax, sizeof(uint64_t));
 
 			SetMaxItemID(m_ItemIDSpareRange);
 
@@ -61,7 +63,10 @@ bool ITEM_MANAGER::SetMaxItemID(TItemIDRangeTable range)
 
 	m_dwCurrentID = range.dwUsableItemIDMin;
 
-	sys_log(0, "ItemIDRange: %u ~ %u %u", m_ItemIDRange.dwMin, m_ItemIDRange.dwMax, m_dwCurrentID);
+	sys_log(0, "ItemIDRange: %llu ~ %llu %llu",
+			static_cast<unsigned long long>(m_ItemIDRange.dwMin),
+			static_cast<unsigned long long>(m_ItemIDRange.dwMax),
+			static_cast<unsigned long long>(m_dwCurrentID));
 
 	return true;
 }
@@ -76,9 +81,10 @@ bool ITEM_MANAGER::SetMaxSpareItemID(TItemIDRangeTable range)
 
 	m_ItemIDSpareRange = range;
 
-	sys_log(0, "ItemIDRange: New Spare ItemID Range Recv %u ~ %u %u",
-			m_ItemIDSpareRange.dwMin, m_ItemIDSpareRange.dwMax, m_ItemIDSpareRange.dwUsableItemIDMin);
+	sys_log(0, "ItemIDRange: New Spare ItemID Range Recv %llu ~ %llu %llu",
+			static_cast<unsigned long long>(m_ItemIDSpareRange.dwMin),
+			static_cast<unsigned long long>(m_ItemIDSpareRange.dwMax),
+			static_cast<unsigned long long>(m_ItemIDSpareRange.dwUsableItemIDMin));
 
 	return true;
 }
-

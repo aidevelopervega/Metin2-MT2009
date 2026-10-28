@@ -36,9 +36,9 @@ class CGuildWarReserve;
 struct TGuildDeclareInfo
 {
 	BYTE bType;
-	DWORD dwGuildID[2];
+	uint64_t dwGuildID[2];
 
-	TGuildDeclareInfo(BYTE _bType, DWORD _dwGuildID1, DWORD _dwGuildID2)
+	TGuildDeclareInfo(BYTE _bType, uint64_t _dwGuildID1, uint64_t _dwGuildID2)
 		: bType(_bType)
 	{
 		dwGuildID[0] = _dwGuildID1;
@@ -62,14 +62,14 @@ struct TGuildDeclareInfo
 struct TGuildWaitStartInfo
 {
 	BYTE			bType;
-	DWORD			GID[2];
+	uint64_t		GID[2];
 	YANG			lWarPrice;
 	long			lInitialScore;
 	CGuildWarReserve *	pkReserve;
 
 	TGuildWaitStartInfo(BYTE _bType,
-			DWORD _g1,
-			DWORD _g2,
+			uint64_t _g1,
+			uint64_t _g2,
 			YANG _lWarPrice,
 			long _lInitialScore,
 			CGuildWarReserve * _pkReserve)
@@ -89,11 +89,11 @@ struct TGuildWarPQElement
 {
 	bool	bEnd;
 	BYTE	bType;
-	DWORD	GID[2];
+	uint64_t	GID[2];
 	int	iScore[2];
 	int	iBetScore[2];
 
-	TGuildWarPQElement(BYTE _bType, DWORD GID1, DWORD GID2) : bEnd(false), bType(_bType)
+	TGuildWarPQElement(BYTE _bType, uint64_t GID1, uint64_t GID2) : bEnd(false), bType(_bType)
 	{
 		bType = _bType;
 		GID[0] = GID1;
@@ -105,11 +105,11 @@ struct TGuildWarPQElement
 
 struct TGuildSkillUsed
 {
-    DWORD GID;
+    uint64_t GID;
     DWORD dwSkillVnum;
 
     // GUILD_SKILL_COOLTIME_BUG_FIX
-    TGuildSkillUsed(DWORD _GID, DWORD _dwSkillVnum) : GID(_GID), dwSkillVnum(_dwSkillVnum)
+    TGuildSkillUsed(uint64_t _GID, DWORD _dwSkillVnum) : GID(_GID), dwSkillVnum(_dwSkillVnum)
     {
     }
     // END_OF_GUILD_SKILL_COOLTIME_BUG_FIX
@@ -160,7 +160,7 @@ class CGuildWarReserve
 	}
 
 	void	OnSetup(CPeer * peer);
-	bool	Bet(const char * pszLogin, YANG dwGold, DWORD dwGuild);
+	bool	Bet(const char * pszLogin, YANG dwGold, uint64_t dwGuild);
 	void	Draw();
 	void	End(int iScoreFrom, int iScoreTo);
 
@@ -172,7 +172,7 @@ class CGuildWarReserve
 
 	TGuildWarReserve				m_data;
 	// <login, <guild, gold>>
-	std::map<std::string, std::pair<DWORD, YANG> > mapBet;
+	std::map<std::string, std::pair<uint64_t, YANG> > mapBet;
 	int						m_iLastNoticeMin;
 };
 
@@ -184,76 +184,76 @@ class CGuildManager : public singleton<CGuildManager>
 
 	void	Initialize();
 
-	void	Load(DWORD dwGuildID);
+	void	Load(uint64_t dwGuildID);
 
-	TGuild & TouchGuild(DWORD GID);
+	TGuild & TouchGuild(uint64_t GID);
 
 	void	Update();
 
 	void	OnSetup(CPeer * peer);
-	void	StartWar(BYTE bType, DWORD GID1, DWORD GID2, CGuildWarReserve * pkReserve = NULL);
+	void	StartWar(BYTE bType, uint64_t GID1, uint64_t GID2, CGuildWarReserve * pkReserve = NULL);
 
-	void	UpdateScore(DWORD guild_gain_point, DWORD guild_opponent, int iScore, int iBetScore);
+	void	UpdateScore(uint64_t guild_gain_point, uint64_t guild_opponent, int iScore, int iBetScore);
 
-	void	AddDeclare(BYTE bType, DWORD guild_from, DWORD guild_to);
-	void	RemoveDeclare(DWORD guild_from, DWORD guild_to);
+	void	AddDeclare(BYTE bType, uint64_t guild_from, uint64_t guild_to);
+	void	RemoveDeclare(uint64_t guild_from, uint64_t guild_to);
 
-	bool	TakeBetPrice(DWORD dwGuildTo, DWORD dwGuildFrom, YANG lWarPrice);
+	bool	TakeBetPrice(uint64_t dwGuildTo, uint64_t dwGuildFrom, YANG lWarPrice);
 
 	bool	WaitStart(TPacketGuildWar * p);
 
-	void	RecvWarEnd(DWORD GID1, DWORD GID2);
-	void	RecvWarOver(DWORD dwGuildWinner, DWORD dwGuildLoser, bool bDraw, YANG lWarPrice);
+	void	RecvWarEnd(uint64_t GID1, uint64_t GID2);
+	void	RecvWarOver(uint64_t dwGuildWinner, uint64_t dwGuildLoser, bool bDraw, YANG lWarPrice);
 
-	void	ChangeLadderPoint(DWORD GID, int change);
+	void	ChangeLadderPoint(uint64_t GID, int change);
 
-	void	UseSkill(DWORD dwGuild, DWORD dwSkillVnum, DWORD dwCooltime);
+	void	UseSkill(uint64_t dwGuild, DWORD dwSkillVnum, DWORD dwCooltime);
 
-	YANG	GetGuildGold(DWORD dwGuild);
-	void	DepositMoney(DWORD dwGuild, YANG lGold);
-	void	WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG lGold);
-	void	WithdrawMoneyReply(DWORD dwGuild, BYTE bGiveSuccess, YANG lGold);
+	YANG	GetGuildGold(uint64_t dwGuild);
+	void	DepositMoney(uint64_t dwGuild, YANG lGold);
+	void	WithdrawMoney(CPeer* peer, uint64_t dwGuild, YANG lGold);
+	void	WithdrawMoneyReply(uint64_t dwGuild, BYTE bGiveSuccess, YANG lGold);
 
-	void	MoneyChange(DWORD dwGuild, YANG dwGold);
+	void	MoneyChange(uint64_t dwGuild, YANG dwGold);
 
 	void	QueryRanking();
 	void	ResultRanking(MYSQL_RES * pRes);
-	int	GetRanking(DWORD dwGID);
+	int	GetRanking(uint64_t dwGID);
 
 	// Reserve War
 
 	void	BootReserveWar();
 	bool	ReserveWar(TPacketGuildWar * p);
 	void	ProcessReserveWar();
-	bool	Bet(DWORD dwID, const char * c_pszLogin, YANG dwGold, DWORD dwGuild);
+	bool	Bet(uint64_t dwID, const char * c_pszLogin, YANG dwGold, uint64_t dwGuild);
 
-	void	CancelWar(DWORD GID1, DWORD GID2);
+	void	CancelWar(uint64_t GID1, uint64_t GID2);
 
-	bool	ChangeMaster(DWORD dwGID, DWORD dwFrom, DWORD dwTo);
+	bool	ChangeMaster(uint64_t dwGID, uint64_t dwFrom, uint64_t dwTo);
 
     private:
 	void ParseResult(SQLResult * pRes);
 
-	void RemoveWar(DWORD GID1, DWORD GID2);	// erase war from m_WarMap and set end on priority queue
+	void RemoveWar(uint64_t GID1, uint64_t GID2);	// erase war from m_WarMap and set end on priority queue
 
-	void WarEnd(DWORD GID1, DWORD GID2, bool bDraw = false);
+	void WarEnd(uint64_t GID1, uint64_t GID2, bool bDraw = false);
 
-	int GetLadderPoint(DWORD GID);
+	int GetLadderPoint(uint64_t GID);
 
-	void GuildWarWin(DWORD GID);
-	void GuildWarDraw(DWORD GID);
-	void GuildWarLose(DWORD GID);
+	void GuildWarWin(uint64_t GID);
+	void GuildWarDraw(uint64_t GID);
+	void GuildWarLose(uint64_t GID);
 
-	void ProcessDraw(DWORD dwGuildID1, DWORD dwGuildID2);
-	void ProcessWinLose(DWORD dwGuildWinner, DWORD dwGuildLoser);
+	void ProcessDraw(uint64_t dwGuildID1, uint64_t dwGuildID2);
+	void ProcessWinLose(uint64_t dwGuildWinner, uint64_t dwGuildLoser);
 
-	bool IsHalfWinLadderPoint(DWORD dwGuildWinner, DWORD dwGuildLoser);
+	bool IsHalfWinLadderPoint(uint64_t dwGuildWinner, uint64_t dwGuildLoser);
 
-	std::map<DWORD, TGuild>					m_map_kGuild;
-	std::map<DWORD, std::map<DWORD, time_t> >		m_mapGuildWarEndTime;
+	std::map<uint64_t, TGuild>					m_map_kGuild;
+	std::map<uint64_t, std::map<uint64_t, time_t> >		m_mapGuildWarEndTime;
 
 	std::set<TGuildDeclareInfo>				m_DeclareMap;
-	std::map<DWORD, std::map<DWORD, TGuildWarInfo> >	m_WarMap;
+	std::map<uint64_t, std::map<uint64_t, TGuildWarInfo> >	m_WarMap;
 
 	typedef std::pair<time_t, TGuildWarPQElement *>	stPairGuildWar;
 	typedef std::pair<time_t, TGuildSkillUsed>	stPairSkillUsed;
@@ -266,13 +266,12 @@ class CGuildManager : public singleton<CGuildManager>
 	std::priority_queue<stPairSkillUsed, std::vector<stPairSkillUsed>, std::greater<stPairSkillUsed> >
 	    m_pqSkill;
 
-	std::map<DWORD, CGuildWarReserve *>			m_map_kWarReserve;
+	std::map<uint64_t, CGuildWarReserve *>			m_map_kWarReserve;
 	CPoly							polyPower;
 	CPoly							polyHandicap;
 
 	// GID Ranking
-	std::map<DWORD, int>					map_kLadderPointRankingByGID;
+	std::map<uint64_t, int>					map_kLadderPointRankingByGID;
 };
 
 #endif
-

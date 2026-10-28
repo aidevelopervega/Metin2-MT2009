@@ -545,7 +545,7 @@ ACMD(do_restart)
 	if (ch->GetWarMap() && !ch->IsObserverMode())
 	{
 		CWarMap * pMap = ch->GetWarMap();
-		DWORD dwGuildOpponent = pMap ? pMap->GetGuildOpponent(ch) : 0;
+		uint64_t dwGuildOpponent = pMap ? pMap->GetGuildOpponent(ch) : 0;
 
 		if (dwGuildOpponent)
 		{
@@ -1014,7 +1014,7 @@ ACMD(do_war)
 			type = GUILD_WAR_TYPE_FIELD;
 	}
 
-	DWORD gm_pid = g->GetMasterPID();
+	uint64_t gm_pid = g->GetMasterPID();
 
 	if (gm_pid != ch->GetPlayerID())
 	{
@@ -1165,7 +1165,7 @@ ACMD(do_nowar)
 	if (!*arg1)
 		return;
 
-	DWORD gm_pid = g->GetMasterPID();
+	uint64_t gm_pid = g->GetMasterPID();
 
 	if (gm_pid != ch->GetPlayerID())
 	{
@@ -2269,7 +2269,7 @@ ACMD(do_in_game_mall)
 		MD5_CTX ctx;
 		const char sas_key[] = "GF9001";
 
-		snprintf(buf, sizeof(buf), "%u%u%s", static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(ch->GetAID()), sas_key);
+		snprintf(buf, sizeof(buf), "%llu%llu%s", static_cast<unsigned long long>(ch->GetPlayerID()), static_cast<unsigned long long>(ch->GetAID()), sas_key);
 
 		MD5Init(&ctx);
 		MD5Update(&ctx, (const unsigned char *) buf, static_cast<unsigned int>(strlen(buf)));
@@ -2287,8 +2287,8 @@ ACMD(do_in_game_mall)
 		sas[i+i] = '\0';
 #endif
 
-		snprintf(buf, sizeof(buf), "mall http://%s/ishop?pid=%u&c=%s&sid=%d&sas=%s",
-				g_strWebMallURL.c_str(), static_cast<unsigned int>(ch->GetPlayerID()), country_code, g_server_id, sas);
+		snprintf(buf, sizeof(buf), "mall http://%s/ishop?pid=%llu&c=%s&sid=%d&sas=%s",
+				g_strWebMallURL.c_str(), static_cast<unsigned long long>(ch->GetPlayerID()), country_code, g_server_id, sas);
 
 		ch->ChatPacket(CHAT_TYPE_COMMAND, "%s", buf);
 	}
@@ -2638,4 +2638,3 @@ ACMD(do_report_player)
 		PulseManager::Instance().IncreaseClock(target->GetPlayerID(), ePulse::ReportPlayer, std::chrono::minutes(1));
 	}
 }
-

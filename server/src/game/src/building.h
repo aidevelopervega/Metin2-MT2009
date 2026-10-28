@@ -65,8 +65,8 @@ namespace building
 			void	PutData(const TLand * data);
 
 			DWORD	GetID() const { return m_data.dwID; }
-			void	SetOwner(DWORD dwGID);
-			DWORD	GetOwner() const { return m_data.dwGuildID; }
+			void	SetOwner(uint64_t dwGID);
+			uint64_t	GetOwner() const { return m_data.dwGuildID; }
 
 			void	InsertObject(LPOBJECT pkObj);
 			LPOBJECT	FindObject(DWORD dwID);
@@ -80,7 +80,7 @@ namespace building
 			void	RequestDeleteObject(DWORD dwID);
 			void	RequestDeleteObjectByVID(DWORD dwVID);
 
-			void	RequestUpdate(DWORD dwGuild);
+			void	RequestUpdate(uint64_t dwGuild);
 
 			// LAND_CLEAR
 			void	ClearLand();
@@ -123,7 +123,7 @@ namespace building
 			bool	LoadLand(TLand * pTable);
 			CLand *	FindLand(DWORD dwID);
 			CLand *	FindLand(long lMapIndex, long x, long y);
-			CLand *	FindLandByGuild(DWORD GID);
+			CLand *	FindLandByGuild(uint64_t GID);
 			void	UpdateLand(TLand * pTable);
 
 			bool	LoadObject(TObject * pTable, bool isBoot=false);
@@ -136,7 +136,7 @@ namespace building
 
 			// LAND_CLEAR
 			void	ClearLand(DWORD dwLandID);
-			void	ClearLandByGuildID(DWORD dwGuildID);
+			void	ClearLandByGuildID(uint64_t dwGuildID);
 			// END_LAND_CLEAR
 
 		protected:
@@ -150,4 +150,3 @@ namespace building
 }
 
 #endif
-

@@ -126,7 +126,7 @@ bool DBManager::IsConnected()
 	return m_bIsConnect;
 }
 
-void DBManager::ReturnQuery(int iType, DWORD dwIdent, void * pvData, const char * c_pszFormat, ...)
+void DBManager::ReturnQuery(int iType, uint64_t dwIdent, void * pvData, const char * c_pszFormat, ...)
 {
 	//sys_log(0, "ReturnQuery %s", c_pszQuery);
 	char szQuery[4096];
@@ -260,7 +260,7 @@ void DBManager::SendAuthLogin(LPDESC d)
 	strlcpy(ptod.szHwid, pkLD->GetHWID(), sizeof(ptod.szHwid));
 
 	db_clientdesc->DBPacket(HEADER_GD_AUTH_LOGIN, d->GetHandle(), &ptod, sizeof(TPacketGDAuthLogin));
-	sys_log(0, "SendAuthLogin %s id %u key ***MASKED***", ptod.szLogin, ptod.dwID);
+	sys_log(0, "SendAuthLogin %s id %llu key ***MASKED***", ptod.szLogin, static_cast<unsigned long long>(ptod.dwID));
 
 	SendLoginPing(r.login);
 }
@@ -344,7 +344,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 					char szSocialID[SOCIAL_ID_MAX_LEN + 1] = {0, };
 					char szStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
 					char szHardwareStatus[ACCOUNT_STATUS_MAX_LEN + 1] = {0, };
-					DWORD dwID = 0;
+					uint64_t dwID = 0;
 					int64_t iPremium = 0;
 
 					struct SStoredSecretGuard
@@ -515,8 +515,8 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 							const uint32_t colMaxLen = GetAccountPasswordColumnMaxLength();
 							if (colMaxLen < 128U)
 							{
-								sys_err("QID_AUTH_LOGIN: skipping Argon2id password upgrade for account id %u because account.password column length (%u) is < 128; apply sql/migrations/rev47_account_security_upgrade.sql",
-										dwID, colMaxLen);
+								sys_err("QID_AUTH_LOGIN: skipping Argon2id password upgrade for account id %llu because account.password column length (%u) is < 128; apply sql/migrations/rev47_account_security_upgrade.sql",
+										static_cast<unsigned long long>(dwID), colMaxLen);
 							}
 							uint64_t hashUsec = 0;
 							std::string newArgon2Hash = AuthSecurity::HashPasswordArgon2id(
@@ -545,10 +545,10 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 								snprintf(
 									szUpgradeQuery,
 									sizeof(szUpgradeQuery),
-									"UPDATE account SET password='%s', last_play=NOW(), hwid='%s' WHERE id=%u AND password='%s'",
+									"UPDATE account SET password='%s', last_play=NOW(), hwid='%s' WHERE id=%llu AND password='%s'",
 									szEscapedNewHash,
 									szEscapedHWID,
-									static_cast<unsigned int>(dwID),
+									static_cast<unsigned long long>(dwID),
 									szEscapedOldHash);
 								std::unique_ptr<SQLMsg> pUpdMsg(DBManager::instance().DirectQuery("%s", szUpgradeQuery));
 								const bool bUpdOk = (pUpdMsg && pUpdMsg->uiSQLErrno == 0 && pUpdMsg->Get() != nullptr);
@@ -556,7 +556,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 								if (!bUpdOk || uiAffected == 0U)
 								{
 									char szQuery[1024];
-									snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
+									snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%llu", szEscapedHWID, static_cast<unsigned long long>(dwID));
 									DBManager::instance().Query("%s", szQuery);
 								}
 
@@ -565,7 +565,7 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 								AuthSecurity::SecureZeroMemoryBuffer(szEscapedOldHash, sizeof(szEscapedOldHash));
 								AuthSecurity::SecureZeroMemoryBuffer(szUpgradeQuery, sizeof(szUpgradeQuery));
 
-								sys_log(0, "QID_AUTH_LOGIN: Upgraded account id %u to Argon2id (affected_rows=%u, col_len=%u, verify=%llu us, hash=%llu us)", dwID, uiAffected,
+								sys_log(0, "QID_AUTH_LOGIN: Upgraded account id %llu to Argon2id (affected_rows=%u, col_len=%u, verify=%llu us, hash=%llu us)", static_cast<unsigned long long>(dwID), uiAffected,
 										colMaxLen,
 										static_cast<unsigned long long>(verifyRes.elapsed_usec),
 										static_cast<unsigned long long>(hashUsec));
@@ -573,17 +573,17 @@ void DBManager::AnalyzeReturnQuery(SQLMsg * pMsg)
 							else
 							{
 								char szQuery[1024];
-								snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
+								snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%llu", szEscapedHWID, static_cast<unsigned long long>(dwID));
 								DBManager::instance().Query("%s", szQuery);
 							}
 						}
 						else
 						{
 							char szQuery[1024];
-							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%u", szEscapedHWID, static_cast<unsigned int>(dwID));
+							snprintf(szQuery, sizeof(szQuery), "UPDATE account SET last_play=NOW(), hwid='%s' WHERE id=%llu", szEscapedHWID, static_cast<unsigned long long>(dwID));
 							DBManager::instance().Query("%s", szQuery);
-							sys_log(0, "QID_AUTH_LOGIN: Argon2id verified account id %u (%llu us)",
-									dwID, static_cast<unsigned long long>(verifyRes.elapsed_usec));
+							sys_log(0, "QID_AUTH_LOGIN: Argon2id verified account id %llu (%llu us)",
+									static_cast<unsigned long long>(dwID), static_cast<unsigned long long>(verifyRes.elapsed_usec));
 						}
 
 						TAccountTable & r = d->GetAccountTable();
@@ -715,7 +715,7 @@ void AccountDB::AsyncQuery(const char* query)
 	m_sql.AsyncQuery(query);
 }
 
-void AccountDB::ReturnQuery(int iType, DWORD dwIdent, void * pvData, const char * c_pszFormat, ...)
+void AccountDB::ReturnQuery(int iType, uint64_t dwIdent, void * pvData, const char * c_pszFormat, ...)
 {
 	char szQuery[4096];
 	va_list args;
@@ -824,4 +824,3 @@ void AccountDB::AnalyzeReturnQuery(SQLMsg * pMsg)
 
 	M2_DELETE(qi);
 }
-

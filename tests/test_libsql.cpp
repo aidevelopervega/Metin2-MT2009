@@ -594,15 +594,17 @@ int main()
 		TEST_ASSERT(msgLarge.uiSQLErrno == 1264, "uiSQLErrno marked with ER_WARN_DATA_OUT_OF_RANGE (1264) on 32-bit overflow");
 		TEST_ASSERT(msgLarge.Get()->HasValidAffectedRows() == false, "HasValidAffectedRows returns false for overflowed affected rows");
 
-		// 3. Large insert ID: 5,000,000,000 (> UINT32_MAX)
+		// 3. Large 64-bit insert ID: 5,000,000,000 (> UINT32_MAX)
+		s_mock_affected_rows = 1;
 		s_mock_insert_id = 5000000000ULL;
 		SQLMsg msgInsert;
 		msgInsert.m_pkSQL = reinterpret_cast<MYSQL*>(&s_mock_connected);
 		msgInsert.Store();
 		TEST_ASSERT(msgInsert.Get()->ullInsertID == 5000000000ULL, "ullInsertID preserves full 64-bit insert ID");
-		TEST_ASSERT(msgInsert.Get()->uiInsertID == 0, "uiInsertID sets 0 (error) on >32-bit to prevent silent ID corruption/collision in callers");
-		TEST_ASSERT(msgInsert.uiSQLErrno == 1264, "uiSQLErrno flagged with ER_WARN_DATA_OUT_OF_RANGE for unrepresentable ID");
-		TEST_ASSERT(msgInsert.Get()->HasValidInsertID() == false, "HasValidInsertID returns false for overflowed ID");
+		TEST_ASSERT(msgInsert.Get()->uiInsertID == 0, "uiInsertID sets 0 (fail-closed) on >32-bit to prevent silent ID truncation in legacy 32-bit callers");
+		TEST_ASSERT(msgInsert.uiSQLErrno == 0, "uiSQLErrno remains 0 for valid 64-bit ullInsertID > UINT32_MAX");
+		TEST_ASSERT(msgInsert.Get()->HasValidInsertID() == true, "HasValidInsertID returns true for valid 64-bit ID > UINT32_MAX");
+		TEST_ASSERT(msgInsert.Get()->HasValidInsertID32() == false, "HasValidInsertID32 returns false for >32-bit ID");
 
 		// 4. Valid normal insert ID (within 32-bit)
 		s_mock_insert_id = 12345ULL;
@@ -612,6 +614,7 @@ int main()
 		TEST_ASSERT(msgNormal.Get()->ullInsertID == 12345ULL, "ullInsertID matches valid insert ID");
 		TEST_ASSERT(msgNormal.Get()->uiInsertID == 12345, "uiInsertID matches valid insert ID");
 		TEST_ASSERT(msgNormal.Get()->HasValidInsertID() == true, "HasValidInsertID returns true for valid 32-bit ID");
+		TEST_ASSERT(msgNormal.Get()->HasValidInsertID32() == true, "HasValidInsertID32 returns true for valid 32-bit ID");
 
 		// Reset mocks
 		s_mock_affected_rows = 0;

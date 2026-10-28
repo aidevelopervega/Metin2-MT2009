@@ -515,7 +515,7 @@ void MessengerManager::SendLogout(MessengerManager::keyA account, MessengerManag
 }
 
 // BLOCK MESSENGER
-bool MessengerManager::IsBlock(DWORD whoPID, std::string targetName)
+bool MessengerManager::IsBlock(uint64_t whoPID, std::string targetName)
 {
 	auto it = m_BlockMap.find(whoPID);
 	if (it == m_BlockMap.end())
@@ -528,7 +528,7 @@ bool MessengerManager::IsBlock(DWORD whoPID, std::string targetName)
 	return blockSet.find(targetName) != blockSet.end();
 }
 
-DWORD MessengerManager::GetBlockCount(DWORD whoPID)
+DWORD MessengerManager::GetBlockCount(uint64_t whoPID)
 {
 	auto it = m_BlockMap.find(whoPID);
 	if (it == m_BlockMap.end())
@@ -542,7 +542,7 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 	if (!who)
 		return;
 
-	DWORD pid = who->GetPlayerID();
+	uint64_t pid = who->GetPlayerID();
 
 	TPacketGGBlockMessenger p{};
 	p.header = HEADER_GG_BLOCK_MESSENGER;
@@ -554,7 +554,7 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 	m_BlockMap[pid].clear();
 
 	char buf[512];
-	snprintf(buf, sizeof(buf), "SELECT blocked FROM messenger_block_list WHERE pid=%u", static_cast<unsigned int>(pid));
+	snprintf(buf, sizeof(buf), "SELECT blocked FROM messenger_block_list WHERE pid=%llu", static_cast<unsigned long long>(pid));
 
 	auto pkMsg(DBManager::instance().DirectQuery("%s", buf));
 	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get())
@@ -586,12 +586,12 @@ void MessengerManager::LoadBlockList(LPCHARACTER who)
 	}
 }
 
-void MessengerManager::__InsertBlockListP2P(DWORD pid, std::string name)
+void MessengerManager::__InsertBlockListP2P(uint64_t pid, std::string name)
 {
 	m_BlockMap[pid].insert(name);
 }
 
-void SendMessengerBlockP2PPacket(BYTE subheader, DWORD pid, const char * targetName)
+void SendMessengerBlockP2PPacket(BYTE subheader, uint64_t pid, const char * targetName)
 {
 	TPacketGGBlockMessenger p{};
 	p.header = HEADER_GG_BLOCK_MESSENGER;
@@ -625,8 +625,8 @@ void MessengerManager::Block(LPCHARACTER ch, std::string targetName)
 		return;
 	}
 
-	DWORD mePID = ch->GetPlayerID();
-	DWORD whoPID = 0;
+	uint64_t mePID = ch->GetPlayerID();
+	uint64_t whoPID = 0;
 
 	if (IsBlock(mePID, targetName))
 		return;
@@ -663,9 +663,9 @@ void MessengerManager::Block(LPCHARACTER ch, std::string targetName)
 	char buf[PLAYER_NAME_MAX_LEN*2 + 1];
 	DBManager::instance().EscapeString(buf, sizeof(buf), targetName.c_str(), targetName.length());
 
-	sys_log(0, "Messenger BlockAdd %d %s", mePID, buf);
-	DBManager::instance().Query("INSERT INTO messenger_block_list%s VALUES (%d, '%s')",
-		get_table_postfix(), mePID, buf);
+	sys_log(0, "Messenger BlockAdd %llu %s", static_cast<unsigned long long>(mePID), buf);
+	DBManager::instance().Query("INSERT INTO messenger_block_list%s VALUES (%llu, '%s')",
+		get_table_postfix(), static_cast<unsigned long long>(mePID), buf);
 
 	m_BlockMap[mePID].insert(targetName);
 
@@ -674,7 +674,7 @@ void MessengerManager::Block(LPCHARACTER ch, std::string targetName)
 	SendMessengerBlockP2PPacket(SUBHEADER_BLOCK_MESSENGER_BLOCK, mePID, targetName.c_str());
 }
 
-void MessengerManager::__BlockP2P(DWORD mePID, std::string targetName)
+void MessengerManager::__BlockP2P(uint64_t mePID, std::string targetName)
 {
 	if (IsBlock(mePID, targetName))
 		return;
@@ -693,10 +693,10 @@ void MessengerManager::Unblock(LPCHARACTER ch, std::string targetName)
 	char buf[PLAYER_NAME_MAX_LEN*2 + 1];
 	DBManager::instance().EscapeString(buf, sizeof(buf), targetName.c_str(), targetName.length());
 
-	sys_log(0, "Messenger Unblock %d %s", ch->GetPlayerID(), buf);
+	sys_log(0, "Messenger Unblock %llu %s", static_cast<unsigned long long>(ch->GetPlayerID()), buf);
 
-	DBManager::instance().Query("DELETE FROM messenger_block_list%s WHERE pid=%d AND blocked = '%s'",
-		get_table_postfix(), ch->GetPlayerID(), buf);
+	DBManager::instance().Query("DELETE FROM messenger_block_list%s WHERE pid=%llu AND blocked = '%s'",
+		get_table_postfix(), static_cast<unsigned long long>(ch->GetPlayerID()), buf);
 
 	ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MESSENGER_UNBLOCK_SUCCESS%s"), targetName.c_str());
 
@@ -707,7 +707,7 @@ void MessengerManager::Unblock(LPCHARACTER ch, std::string targetName)
 	SendMessengerBlockP2PPacket(SUBHEADER_BLOCK_MESSENGER_UNBLOCK, ch->GetPlayerID(), targetName.c_str());
 }
 
-void MessengerManager::__UnblockP2P(DWORD mePID, std::string targetName)
+void MessengerManager::__UnblockP2P(uint64_t mePID, std::string targetName)
 {
 	if (!IsBlock(mePID, targetName))
 		return;
@@ -716,4 +716,3 @@ void MessengerManager::__UnblockP2P(DWORD mePID, std::string targetName)
 }
 
 // END OF BLOCK MESSENGER
-

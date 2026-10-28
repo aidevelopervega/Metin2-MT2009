@@ -149,7 +149,7 @@ void CShop::SetShopItems(TShopItemTable * pTable, BYTE bItemCount)
 		{
 			if (IsPCShop())
 			{
-				sys_err("not empty position for pc shop %s[%d]", m_pkPC->GetName(), m_pkPC->GetPlayerID());
+				sys_err("not empty position for pc shop %s[%llu]", m_pkPC->GetName(), static_cast<unsigned long long>(m_pkPC->GetPlayerID()));
 			}
 			else
 			{
@@ -244,18 +244,18 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	{
 		if (!pkSelectedItem)
 		{
-			sys_log(0, "Shop::Buy : Critical: This user seems to be a hacker : invalid pcshop item : BuyerPID:%d SellerPID:%d",
-					ch->GetPlayerID(),
-					m_pkPC->GetPlayerID());
+			sys_log(0, "Shop::Buy : Critical: This user seems to be a hacker : invalid pcshop item : BuyerPID:%llu SellerPID:%llu",
+					static_cast<unsigned long long>(ch->GetPlayerID()),
+					static_cast<unsigned long long>(m_pkPC->GetPlayerID()));
 
 			return SHOP_SUBHEADER_GC_SOLD_OUT; // @fixme132 false to SHOP_SUBHEADER_GC_SOLD_OUT
 		}
 
 		if ((pkSelectedItem->GetOwner() != m_pkPC))
 		{
-			sys_log(0, "Shop::Buy : Critical: This user seems to be a hacker : invalid pcshop item : BuyerPID:%d SellerPID:%d",
-					ch->GetPlayerID(),
-					m_pkPC->GetPlayerID());
+			sys_log(0, "Shop::Buy : Critical: This user seems to be a hacker : invalid pcshop item : BuyerPID:%llu SellerPID:%llu",
+					static_cast<unsigned long long>(ch->GetPlayerID()),
+					static_cast<unsigned long long>(m_pkPC->GetPlayerID()));
 
 			return SHOP_SUBHEADER_GC_SOLD_OUT; // @fixme132 false to SHOP_SUBHEADER_GC_SOLD_OUT
 		}
@@ -397,7 +397,7 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 
 			if (item->GetVnum() >= 80003 && item->GetVnum() <= 80007)
 			{
-				snprintf(buf, sizeof(buf), "%s FROM: %u TO: %u PRICE: %lld", item->GetName(), static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(m_pkPC->GetPlayerID()), dwPrice);
+				snprintf(buf, sizeof(buf), "%s FROM: %llu TO: %llu PRICE: %lld", item->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()), static_cast<unsigned long long>(m_pkPC->GetPlayerID()), dwPrice);
 				LogManager::instance().GoldBarLog(ch->GetPlayerID(), item->GetID(), SHOP_BUY, buf);
 				LogManager::instance().GoldBarLog(m_pkPC->GetPlayerID(), item->GetID(), SHOP_SELL, buf);
 			}
@@ -406,10 +406,10 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 			item->AddToCharacter(ch, TItemPos(item->GetWindowInventoryEx(), iEmptyPos));
 			ITEM_MANAGER::instance().FlushDelayedSave(item);
 
-			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %u", item->GetName(), static_cast<unsigned int>(m_pkPC->GetPlayerID()), m_pkPC->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
+			snprintf(buf, sizeof(buf), "%s %llu(%s) %lld %u", item->GetName(), static_cast<unsigned long long>(m_pkPC->GetPlayerID()), m_pkPC->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
 			LogManager::instance().ItemLog(ch, item, "SHOP_BUY", buf);
 
-			snprintf(buf, sizeof(buf), "%s %u(%s) %lld %u", item->GetName(), static_cast<unsigned int>(ch->GetPlayerID()), ch->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
+			snprintf(buf, sizeof(buf), "%s %llu(%s) %lld %u", item->GetName(), static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName(), dwPrice, static_cast<unsigned int>(item->GetCount()));
 			LogManager::instance().ItemLog(m_pkPC, item, "SHOP_SELL", buf);
 		}
 
@@ -440,7 +440,7 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 	}
 
 	if (item)
-		sys_log(0, "SHOP: BUY: name %s %s(x %d):%u price %lld", ch->GetName(), item->GetName(), item->GetCount(), item->GetID(), dwPrice);
+		sys_log(0, "SHOP: BUY: name %s %s(x %d):%llu price %lld", ch->GetName(), item->GetName(), item->GetCount(), static_cast<unsigned long long>(item->GetID()), dwPrice);
 
     ch->Save();
 
@@ -651,13 +651,13 @@ int CShop::GetNumberByVnum(DWORD dwVnum)
 	return itemNumber;
 }
 
-bool CShop::IsSellingItem(DWORD itemID)
+bool CShop::IsSellingItem(uint64_t itemID)
 {
 	bool isSelling = false;
 
 	for (DWORD i = 0; i < m_itemVector.size() && i < SHOP_PLAYER_HOST_ITEM_MAX_NUM; ++i)
 	{
-		if ((unsigned int)(m_itemVector[i].itemid) == itemID)
+		if (m_itemVector[i].itemid == itemID)
 		{
 			isSelling = true;
 			break;
@@ -666,4 +666,3 @@ bool CShop::IsSellingItem(DWORD itemID)
 
 	return isSelling;
 }
-

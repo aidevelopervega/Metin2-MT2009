@@ -41,8 +41,8 @@ class CLoginData
 	int64_t			GetPremiumSubscription() { return m_iPremium; }
 	void            SetPremiumSubscription(int64_t premium);
 
-	DWORD		GetLastPlayerID() const { return m_dwLastPlayerID; }
-	void		SetLastPlayerID(DWORD id) { m_dwLastPlayerID = id; }
+	uint64_t	GetLastPlayerID() const { return m_dwLastPlayerID; }
+	void		SetLastPlayerID(uint64_t id) { m_dwLastPlayerID = id; }
 	void		SetWarpHandoffPending(bool bPending) { m_bWarpHandoffPending = bPending; }
 	bool		IsWarpHandoffPending() const { return m_bWarpHandoffPending; }
 
@@ -63,7 +63,7 @@ class CLoginData
 	time_t		m_lastPlayTime;
 	int64_t		m_aiPremiumTimes[PREMIUM_MAX_NUM];
 
-	DWORD		m_dwLastPlayerID;
+	uint64_t	m_dwLastPlayerID;
 
 	TAccountTable   m_data;
 };

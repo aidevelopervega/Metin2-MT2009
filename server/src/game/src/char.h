@@ -179,7 +179,7 @@ struct DynamicCharacterPtr {
 	}
 
 	bool is_pc;
-	uint32_t id;
+	uint64_t id;
 };
 
 typedef struct character_point
@@ -254,7 +254,7 @@ struct PlayerSlotT {
 	std::array<TQuickslot,QUICKSLOT_MAX_NUM> pQuickslot;
 
 #ifdef ENABLE_ITEM_SAFE_FLUSH
-	std::unordered_set<DWORD> setTouchedItems;
+	std::unordered_set<uint64_t> setTouchedItems;
 #endif
 };
 // @fixme199 END
@@ -464,7 +464,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		//////////////////////////////////////////////////////////////////////////////////
 		// Basic Points
 	public:
-		DWORD			GetPlayerID() const	{ return m_dwPlayerID; }
+		uint64_t		GetPlayerID() const	{ return m_dwPlayerID; }
 
 		void			SetPlayerProto(const TPlayerTable * table);
 		void			CreatePlayerProto(TPlayerTable & tab);
@@ -484,7 +484,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void			SetRace(BYTE race);
 		bool			ChangeSex();
 
-		DWORD			GetAID() const;
+		uint64_t		GetAID() const;
 		int				GetChangeEmpireCount() const;
 		void			SetChangeEmpireCount();
 		int				ChangeEmpire(BYTE empire);
@@ -689,7 +689,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		DWORD			m_dwPolymorphRace;
 		bool			m_bPolyMaintainStat;
 		DWORD			m_dwLoginPlayTime;
-		DWORD			m_dwPlayerID;
+		uint64_t		m_dwPlayerID;
 		VID				m_vid;
 		std::string		m_stName;
 		BYTE			m_bCharType;
@@ -750,7 +750,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void			SetWarpLocation(long lMapIndex, long x, long y);
 		void			WarpEnd();
 		const PIXEL_POSITION & GetWarpPosition() const { return m_posWarp; }
-		bool			WarpToPID(DWORD dwPID);
+		bool			WarpToPID(uint64_t dwPID);
 
 		void			SetExitLocation(long x, long y, long mapIndex);
 		void			SaveExitLocation();
@@ -931,7 +931,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 
 		void			PartyInviteAccept(LPCHARACTER pchInvitee);
 
-		void			PartyInviteDeny(DWORD dwPID);
+		void			PartyInviteDeny(uint64_t dwPID);
 
 		bool			BuildUpdatePartyPacket(TPacketGCPartyUpdate & out);
 		int				GetLeadershipSkillLevel() const;
@@ -967,7 +967,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		DWORD			m_dwLastDeadTime;
 		LPEVENT			m_pkPartyRequestEvent;
 
-		typedef std::map< DWORD, LPEVENT >	EventMap;
+		typedef std::map< uint64_t, LPEVENT >	EventMap;
 		EventMap		m_PartyInviteEventMap;
 
 		// END_OF_PARTY_JOIN_BUG_FIX
@@ -1092,7 +1092,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		ITEM_COUNT		CountSpecifyItem(DWORD vnum) const;
 		void			RemoveSpecifyItem(DWORD vnum, ITEM_COUNT count = 1);
 		LPITEM			FindSpecifyItem(DWORD vnum) const;
-		LPITEM			FindItemByID(DWORD id) const;
+		LPITEM			FindItemByID(uint64_t id) const;
 
 		ITEM_COUNT		CountSpecifyTypeItem(BYTE type) const;
 		void			RemoveSpecifyTypeItem(BYTE type, ITEM_COUNT count = 1);
@@ -1304,7 +1304,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 
 		DWORD				m_dwFlyTargetID;
 		TDamageMap			m_map_kDamage;
-		DWORD				m_dwKillerPID;
+		uint64_t			m_dwKillerPID;
 
 		int					m_iAlignment;		// Lawful/Chaotic value -200000 ~ 200000
 		int					m_iRealAlignment;
@@ -1527,7 +1527,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		int					m_iSafeboxLoadTime;
 		bool				m_bOpeningSafebox;
 
-		CSafebox *			m_pkMall;
+			CSafebox *			m_pkMall;
 		int					m_iMallLoadTime;
 
 		PIXEL_POSITION		m_posSafeboxOpen;
@@ -1578,10 +1578,10 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 	public:
 		void				EnterPet();
 		bool				SummonPetFromItem(LPITEM item);
-		void				AddLoadedPetItems(DWORD itemID) { m_loadedPetItems.emplace(itemID); }
-		std::unordered_set<DWORD>& GetLoadedPetItems() { return m_loadedPetItems; }
+		void				AddLoadedPetItems(uint64_t itemID) { m_loadedPetItems.emplace(itemID); }
+		std::unordered_set<uint64_t>& GetLoadedPetItems() { return m_loadedPetItems; }
 	protected:
-		std::unordered_set<DWORD> m_loadedPetItems;
+		std::unordered_set<uint64_t> m_loadedPetItems;
 #endif
 
 	protected:
@@ -1666,7 +1666,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		int					GetQuestFlag(const std::string& flag) const;
 		void				SetQuestFlag(const std::string& flag, int value);
 
-		void				ConfirmWithMsg(const char* szMsg, int iTimeout, DWORD dwRequestPID);
+		void				ConfirmWithMsg(const char* szMsg, int iTimeout, uint64_t dwRequestPID);
 
 		bool				IsQuestRunning() const;
 
@@ -1914,7 +1914,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 	public:
 		struct AttackedLog
 		{
-			DWORD 	dwPID;
+			uint64_t 	dwPID;
 			DWORD	dwAttackedTime;
 
 			AttackedLog() : dwPID(0), dwAttackedTime(0)
@@ -1938,11 +1938,11 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void GoTown();
 
 	private :
-		std::set<DWORD>	m_known_guild;
+		std::set<uint64_t>	m_known_guild;
 
 	public :
 		void SendGuildName(CGuild* pGuild);
-		void SendGuildName(DWORD dwGuildID);
+		void SendGuildName(uint64_t dwGuildID);
 
 	private :
 		DWORD m_dwLogOffInterval;
@@ -2188,7 +2188,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void StopCaptcha(bool kill_event);
 		void SendCaptchaInfo(CAPTCHA_IMAGE captcha_image, const char* captcha_code, BYTE maxAttempts, DWORD duration, bool isInvoker, LPCHARACTER target=nullptr);
 		void SendCaptchaWrongAttempt();
-		void SendCaptchaGameMasterFeedback(DWORD pid, BYTE type, const char * code, int elapsedTime=0); // only Game Master
+		void SendCaptchaGameMasterFeedback(uint64_t pid, BYTE type, const char * code, int elapsedTime=0); // only Game Master
 
 		int analyze_protect{ 0 };
 		int analyze_protect_count{ 0 };
@@ -2208,4 +2208,3 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 ESex GET_SEX(LPCHARACTER ch);
 
 #endif
-

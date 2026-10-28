@@ -951,7 +951,38 @@ int main()
         assert(lua_isstring(L, -1) && strcmp(lua_tostring(L, -1), "seven_seven_seven") == 0);
         lua_pop(L, 2);
 
-        std::cout << "  --> Fractional/negative float truncation, table indexing, -0.0, 64-bit boundaries, NaN/Inf & string formatting verified" << std::endl;
+        // 64-bit persistent ID (> 2^32 and > 2^53) exact integer round-trip (proving no IEEE-754 double precision loss)
+        const lua_Integer idAbove32 = 5000000001LL;          // > 2^32
+        const lua_Integer idAbove53 = 9007199254740993LL;    // 2^53 + 1 (would round to 9007199254740992 in IEEE-754 double!)
+        assert((double)idAbove53 == (double)(idAbove53 - 1) && "IEEE-754 double cannot distinguish 2^53+1 from 2^53");
+
+        lua_pushinteger(L, idAbove32);
+        assert(lua_isinteger(L, -1) == 1);
+        assert(lua_tointeger(L, -1) == idAbove32);
+        lua_setglobal(L, "g_test_pid_64");
+
+        lua_pushinteger(L, idAbove53);
+        assert(lua_isinteger(L, -1) == 1);
+        assert(lua_tointeger(L, -1) == idAbove53);
+        lua_setglobal(L, "g_test_itemid_64");
+
+        const char* id64_script =
+            "assert(math.type(g_test_pid_64) == 'integer', 'PID > 2^32 must be exact Lua integer')\n"
+            "assert(g_test_pid_64 == 5000000001, 'PID > 2^32 value mismatch')\n"
+            "assert(tostring(g_test_pid_64) == '5000000001', 'PID > 2^32 tostring mismatch')\n"
+            "assert(math.type(g_test_itemid_64) == 'integer', 'ITEM_ID > 2^53 must be exact Lua integer')\n"
+            "assert(g_test_itemid_64 == 9007199254740993, 'ITEM_ID > 2^53 must not round to 9007199254740992')\n"
+            "assert(g_test_itemid_64 ~= 9007199254740992, 'ITEM_ID > 2^53 distinct from 2^53')\n"
+            "assert(tostring(g_test_itemid_64) == '9007199254740993', 'ITEM_ID > 2^53 tostring mismatch')\n"
+            "g_test_itemid_64_next = g_test_itemid_64 + 2\n";
+        int id64_err = luaL_dostring(L, id64_script);
+        assert(id64_err == 0 && "64-bit persistent ID Lua script must pass");
+
+        lua_getglobal(L, "g_test_itemid_64_next");
+        assert(lua_isinteger(L, -1) == 1 && lua_tointeger(L, -1) == 9007199254740995LL);
+        lua_pop(L, 1);
+
+        std::cout << "  --> Fractional/negative float truncation, table indexing, -0.0, 64-bit boundaries (>2^32 & >2^53 IDs), NaN/Inf & string formatting verified" << std::endl;
         std::cout << "  [PASS] Test 11: Lua 5.5.1 Number Semantics & Boundary Regression Suite passed." << std::endl;
     }
 

@@ -73,7 +73,7 @@ END_OF_TIMER_EVENT:
 			if (pPC && info->name) // @fixme168
 				pPC->RemoveTimerNotCancel(info->name);
 			else
-				sys_err("quest::PC pointer null. player_id: %u", info->player_id);
+				sys_err("quest::PC pointer null. player_id: %llu", static_cast<unsigned long long>(info->player_id));
 
 			M2_DELETE_ARRAY(info->name);
 			info->name = NULL;
@@ -102,7 +102,7 @@ END_OF_TIMER_EVENT:
 		return event_create(quest_server_timer_event, info, ltime_cycle);
 	}
 
-	LPEVENT quest_create_timer_event(const char * name, unsigned int player_id, double when, unsigned int npc_id, bool loop)
+	LPEVENT quest_create_timer_event(const char * name, uint64_t player_id, double when, unsigned int npc_id, bool loop)
 	{
 		const int nameCapacity = strlen(name) + 1;
 
@@ -117,10 +117,9 @@ END_OF_TIMER_EVENT:
 		if (info->name)
 			strlcpy(info->name, name, nameCapacity);
 
-		sys_log(0, "QUEST timer name %s cycle %d pc %u npc %u loop? %d", name ? name : "<noname>", ltime_cycle, player_id, npc_id, loop ? 1 : 0);
+		sys_log(0, "QUEST timer name %s cycle %ld pc %llu npc %u loop? %d", name ? name : "<noname>", ltime_cycle, static_cast<unsigned long long>(player_id), npc_id, loop ? 1 : 0);
 
 		info->time_cycle	= loop ? ltime_cycle : 0;
 		return event_create(quest_timer_event, info, ltime_cycle);
 	}
 }
-

@@ -31,7 +31,7 @@ void CItemCache::Delete()
 		return;
 
 	if (g_test_server)
-		sys_log(0, "ItemCache::Delete : DELETE %u", m_data.id);
+		sys_log(0, "ItemCache::Delete : DELETE %llu", static_cast<unsigned long long>(m_data.id));
 
 	m_data.vnum = 0;
 	m_bNeedQuery = true;
@@ -44,11 +44,11 @@ void CItemCache::OnFlush()
 	if (m_data.vnum == 0)
 	{
 		char szQuery[QUERY_MAX_LEN];
-		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%u", GetTablePostfix(), static_cast<unsigned int>(m_data.id));
+		snprintf(szQuery, sizeof(szQuery), "DELETE FROM item%s WHERE id=%llu", GetTablePostfix(), static_cast<unsigned long long>(m_data.id));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEM_DESTROY, m_data.id, (void*)(uintptr_t)m_dwPendingSaveVersion);
 
 		if (g_test_server)
-			sys_log(0, "ItemCache::Flush : DELETE %u %s", m_data.id, szQuery);
+			sys_log(0, "ItemCache::Flush : DELETE %llu %s", static_cast<unsigned long long>(m_data.id), szQuery);
 	}
 	else
 	{
@@ -114,7 +114,7 @@ void CPlayerTableCache::OnFlush()
 	size_t queryLen = CreatePlayerSaveQuery(szQuery, sizeof(szQuery), &m_data);
 	if (queryLen == 0)
 	{
-		sys_err("PlayerTableCache::OnFlush: cannot create save query for %s (id %u) - DB disconnected or escape failed. Keeping dirty in RAM.", m_data.name, m_data.id);
+		sys_err("PlayerTableCache::OnFlush: cannot create save query for %s (id %llu) - DB disconnected or escape failed. Keeping dirty in RAM.", m_data.name, static_cast<unsigned long long>(m_data.id));
 		m_bNeedQuery = true;
 		m_bSavePending = false;
 		return;
@@ -180,26 +180,26 @@ void CItemPriceListTableCache::UpdateList(const TItemPriceListTable* pUpdateList
 	m_bNeedQuery = true;
 
 	sys_log(0,
-			"ItemPriceListTableCache::UpdateList : OwnerID[%u] Update [%u] Items, Delete [%u] Items, Total [%u] Items",
-			m_data.dwOwnerID, pUpdateList->byCount, nDeletedNum, m_data.byCount);
+			"ItemPriceListTableCache::UpdateList : OwnerID[%llu] Update [%u] Items, Delete [%u] Items, Total [%u] Items",
+			static_cast<unsigned long long>(m_data.dwOwnerID), pUpdateList->byCount, nDeletedNum, m_data.byCount);
 }
 
 void CItemPriceListTableCache::OnFlush()
 {
 	char szQuery[QUERY_MAX_LEN];
 
-	snprintf(szQuery, sizeof(szQuery), "DELETE FROM myshop_pricelist%s WHERE owner_id = %u", GetTablePostfix(), static_cast<unsigned int>(m_data.dwOwnerID));
+	snprintf(szQuery, sizeof(szQuery), "DELETE FROM myshop_pricelist%s WHERE owner_id = %llu", GetTablePostfix(), static_cast<unsigned long long>(m_data.dwOwnerID));
 	CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_DESTROY, 0, NULL);
 
 	for (int idx = 0; idx < m_data.byCount; ++idx)
 	{
 		snprintf(szQuery, sizeof(szQuery),
-				"REPLACE myshop_pricelist%s(owner_id, item_vnum, price) VALUES(%u, %u, %lld)", // @fixme204 (INSERT INTO -> REPLACE)
-				GetTablePostfix(), static_cast<unsigned int>(m_data.dwOwnerID), static_cast<unsigned int>(m_data.aPriceInfo[idx].dwVnum), static_cast<long long>(m_data.aPriceInfo[idx].dwPrice));
+				"REPLACE myshop_pricelist%s(owner_id, item_vnum, price) VALUES(%llu, %u, %lld)", // @fixme204 (INSERT INTO -> REPLACE)
+				GetTablePostfix(), static_cast<unsigned long long>(m_data.dwOwnerID), static_cast<unsigned int>(m_data.aPriceInfo[idx].dwVnum), static_cast<long long>(m_data.aPriceInfo[idx].dwPrice));
 		CDBManager::instance().ReturnQuery(szQuery, QID_ITEMPRICE_SAVE, 0, NULL);
 	}
 
-	sys_log(0, "ItemPriceListTableCache::Flush : OwnerID[%u] Update [%u]Items", m_data.dwOwnerID, m_data.byCount);
+	sys_log(0, "ItemPriceListTableCache::Flush : OwnerID[%llu] Update [%u]Items", static_cast<unsigned long long>(m_data.dwOwnerID), m_data.byCount);
 
 	m_bNeedQuery = false;
 }
@@ -209,4 +209,3 @@ CItemPriceListTableCache::~CItemPriceListTableCache()
 }
 
 // END_OF_MYSHOP_PRICE_LIST
-

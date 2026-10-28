@@ -272,7 +272,7 @@ namespace quest
 	ALUA(pc_getguild)
 	{
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
-		lua_pushnumber(L, ch->GetGuild() ? ch->GetGuild()->GetID() : 0);
+		m2_lua_pushuint64(L, ch->GetGuild() ? ch->GetGuild()->GetID() : 0);
 		return 1;
 	}
 
@@ -341,15 +341,15 @@ namespace quest
 		luaL_checknumber(L, 1);
 		luaL_checknumber(L, 2);
 
-		DWORD gid1 = (DWORD)lua_tonumber(L, 1);
-		DWORD gid2 = (DWORD)lua_tonumber(L, 2);
+		uint64_t gid1 = m2_lua_touint64(L, 1);
+		uint64_t gid2 = m2_lua_touint64(L, 2);
 
 		CGuild* g1 = CGuildManager::instance().FindGuild(gid1);
 		CGuild* g2 = CGuildManager::instance().FindGuild(gid2);
 
 		if (!g1 || !g2)
 		{
-			luaL_error(L, "no such guild with id %d %d", gid1, gid2);
+			luaL_error(L, "no such guild with id %llu %llu", static_cast<unsigned long long>(gid1), static_cast<unsigned long long>(gid2));
 		}
 
 		PIXEL_POSITION pos;
@@ -358,7 +358,7 @@ namespace quest
 
 		if (!CWarMapManager::instance().GetStartPosition(dwMapIndex, 2, pos))
 		{
-			luaL_error(L, "not under warp guild war between guild %d %d", gid1, gid2);
+			luaL_error(L, "not under warp guild war between guild %llu %llu", static_cast<unsigned long long>(gid1), static_cast<unsigned long long>(gid2));
 			return 0;
 		}
 
@@ -474,7 +474,7 @@ namespace quest
 		if (!lua_isstring(L, 1) && !lua_isnumber(L, 1))
 		{
 			sys_err("QUEST Make item call error : wrong argument");
-			lua_pushnumber (L, 0);
+			m2_lua_pushuint64 (L, 0);
 			return 1;
 		}
 
@@ -487,7 +487,7 @@ namespace quest
 		else if (!ITEM_MANAGER::instance().GetVnum(lua_tostring(L, 1), dwVnum))
 		{
 			sys_err("QUEST Make item call error : wrong item name : %s", lua_tostring(L,1));
-			lua_pushnumber (L, 0);
+			m2_lua_pushuint64 (L, 0);
 
 			return 1;
 		}
@@ -499,7 +499,7 @@ namespace quest
 			if (icount<=0)
 			{
 				sys_err("QUEST Make item call error : wrong item count : %g", lua_tonumber(L,2));
-				lua_pushnumber (L, 0);
+				m2_lua_pushuint64 (L, 0);
 				return 1;
 			}
 		}
@@ -522,9 +522,9 @@ namespace quest
 		}
 
 		if (NULL != item)
-			lua_pushnumber (L, item->GetID());
+			m2_lua_pushuint64 (L, item->GetID());
 		else
-			lua_pushnumber (L, 0);
+			m2_lua_pushuint64 (L, 0);
 		return 1;
 	}
 
@@ -534,7 +534,7 @@ namespace quest
 		if (!lua_isstring(L, 1) && !lua_isnumber(L, 1))
 		{
 			sys_err("QUEST Make item call error : wrong argument");
-			lua_pushnumber (L, 0);
+			m2_lua_pushuint64 (L, 0);
 			return 1;
 		}
 
@@ -547,7 +547,7 @@ namespace quest
 		else if (!ITEM_MANAGER::instance().GetVnum(lua_tostring(L, 1), dwVnum))
 		{
 			sys_err("QUEST Make item call error : wrong item name : %s", lua_tostring(L,1));
-			lua_pushnumber (L, 0);
+			m2_lua_pushuint64 (L, 0);
 
 			return 1;
 		}
@@ -559,7 +559,7 @@ namespace quest
 			if (icount<=0)
 			{
 				sys_err("QUEST Make item call error : wrong item count : %g", lua_tonumber(L,2));
-				lua_pushnumber(L, 0);
+				m2_lua_pushuint64(L, 0);
 				return 1;
 			}
 		}
@@ -579,7 +579,7 @@ namespace quest
 
 		LogManager::instance().QuestRewardLog(CQuestManager::instance().GetCurrentPC()->GetCurrentQuestName().c_str(), ch->GetPlayerID(), ch->GetLevel(), dwVnum, icount);
 
-		lua_pushnumber(L, (item) ? item->GetID() : 0);
+		m2_lua_pushuint64(L, (item) ? item->GetID() : 0);
 		return 1;
 	}
 #endif
@@ -730,7 +730,7 @@ namespace quest
 				return 0;
 			}
 
-			sys_log(0,"QUEST remove a item vnum %d of %s[%d]", item_vnum, CQuestManager::instance().GetCurrentCharacterPtr()->GetName(), CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID());
+			sys_log(0,"QUEST remove a item vnum %d of %s[%llu]", item_vnum, CQuestManager::instance().GetCurrentCharacterPtr()->GetName(), static_cast<unsigned long long>(CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID()));
 			CQuestManager::instance().GetCurrentCharacterPtr()->RemoveSpecifyItem(item_vnum);
 		}
 		else if (lua_gettop(L) == 2)
@@ -756,11 +756,11 @@ namespace quest
 			}
 
 			DWORD item_count = (DWORD) lua_tonumber(L, 2);
-			sys_log(0, "QUEST remove items(vnum %d) count %d of %s[%d]",
+			sys_log(0, "QUEST remove items(vnum %d) count %d of %s[%llu]",
 					item_vnum,
 					item_count,
 					CQuestManager::instance().GetCurrentCharacterPtr()->GetName(),
-					CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID());
+					static_cast<unsigned long long>(CQuestManager::instance().GetCurrentCharacterPtr()->GetPlayerID()));
 
 			CQuestManager::instance().GetCurrentCharacterPtr()->RemoveSpecifyItem(item_vnum, item_count);
 		}
@@ -1699,7 +1699,7 @@ namespace quest
 
 	ALUA(pc_select_pid)
 	{
-		DWORD pid = (DWORD) lua_tonumber(L, 1);
+		uint64_t pid = m2_lua_touint64(L, 1);
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 		LPCHARACTER new_ch = CHARACTER_MANAGER::instance().FindByPID(pid);
@@ -1708,7 +1708,7 @@ namespace quest
 		{
 			CQuestManager::instance().GetPC(new_ch->GetPlayerID());
 
-			lua_pushnumber(L, ch->GetPlayerID());
+			m2_lua_pushuint64(L, ch->GetPlayerID());
 		}
 		else
 		{
@@ -2108,7 +2108,7 @@ namespace quest
 			}
 		}
 
-		DWORD pid = ch->GetPlayerID();
+		uint64_t pid = ch->GetPlayerID();
 
 		// @fixme309 BEGIN
 		ch->Save();
@@ -2123,7 +2123,7 @@ namespace quest
 		/* change_name_log */
 		LogManager::instance().ChangeNameLog(pid, ch->GetName(), szName, ch->GetDesc()->GetHostName());
 
-		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%u", get_table_postfix(), szEscapedName, static_cast<unsigned int>(pid));
+		snprintf(szQuery, sizeof(szQuery), "UPDATE player%s SET name='%s' WHERE id=%llu", get_table_postfix(), szEscapedName, static_cast<unsigned long long>(pid));
 		auto msg = DBManager::instance().DirectQuery("%s", szQuery);
 
 		ch->SetNewName(szName);
@@ -2447,7 +2447,7 @@ namespace quest
 
 		if ( pChar != NULL )
 		{
-			lua_pushnumber( L, pChar->GetPlayerID() );
+			m2_lua_pushuint64( L, pChar->GetPlayerID() );
 		}
 		else
 		{
@@ -2465,7 +2465,7 @@ namespace quest
 		{
 			if ( pChar->GetDesc() != NULL )
 			{
-				lua_pushnumber( L, pChar->GetDesc()->GetAccountTable().id );
+				m2_lua_pushuint64( L, pChar->GetDesc()->GetAccountTable().id );
 				return 1;
 			}
 		}
@@ -2670,7 +2670,7 @@ namespace quest
 		{
 			if (ch->GetInventoryItem(i) != NULL && ch->GetInventoryItem(i)->GetSIGVnum() == group_vnum)
 			{
-				lua_pushnumber(L, ch->GetInventoryItem(i)->GetID());
+				m2_lua_pushuint64(L, ch->GetInventoryItem(i)->GetID());
 				count++;
 			}
 		}
@@ -4196,7 +4196,7 @@ namespace quest
 			return 0;
 
 		auto captchaData = ch->playerData->GetPlayerCaptcha();
-		DWORD invokerPID = captchaData.invokerPID;
+		uint64_t invokerPID = captchaData.invokerPID;
 
 		int elapsedTime = CAPTCHA_DURATION;
 		auto captchaExpireTime = captchaData.expireTime;
@@ -4664,4 +4664,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("pc", pc_functions);
 	}
 };
-

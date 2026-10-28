@@ -33,7 +33,7 @@ namespace quest
 		ClearTimer();
 	}
 
-	void PC::SetID(DWORD dwID)
+	void PC::SetID(uint64_t dwID)
 	{
 		m_dwID = dwID;
 		m_bShouldSendDone = false;
@@ -315,7 +315,7 @@ namespace quest
 				if (ch->GetPlayerID() == npc->GetQuestNPCID())
 				{
 					npc->SetQuestNPCID(0);
-					sys_log(0, "QUEST NPC lock isn't unlocked : pid %u", ch->GetPlayerID());
+					sys_log(0, "QUEST NPC lock isn't unlocked : pid %llu", static_cast<unsigned long long>(ch->GetPlayerID()));
 					CQuestManager::instance().WriteRunningStateToSyserr();
 				}
 			}
@@ -719,4 +719,3 @@ namespace quest
 		}
 	}
 }
-

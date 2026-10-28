@@ -23,12 +23,12 @@ enum
 
 struct SGuildMaster
 {
-	DWORD pid;
+	uint64_t pid;
 };
 
 typedef struct SGuildMember
 {
-	DWORD pid;
+	uint64_t pid;
 	BYTE grade;
 	BYTE is_general;
 	BYTE job;
@@ -39,13 +39,13 @@ typedef struct SGuildMember
 	std::string name;
 
 	SGuildMember(LPCHARACTER ch, BYTE grade, DWORD offer_exp);
-	SGuildMember(DWORD pid, BYTE grade, BYTE is_general, BYTE job, BYTE level, DWORD offer_exp, char* name);
+	SGuildMember(uint64_t pid, BYTE grade, BYTE is_general, BYTE job, BYTE level, DWORD offer_exp, char* name);
 } TGuildMember;
 
 #pragma pack(1)
 typedef struct SGuildMemberPacketData
 {
-	DWORD pid;
+	uint64_t pid;
 	BYTE grade;
 	BYTE is_general;
 	BYTE job;
@@ -59,8 +59,8 @@ typedef struct packet_guild_sub_info
 {
 	WORD member_count;
 	WORD max_member_count;
-	DWORD guild_id;
-	DWORD master_pid;
+	uint64_t guild_id;
+	uint64_t master_pid;
 	DWORD exp;
 	BYTE level;
 	char name[GUILD_NAME_MAX_LEN+1];
@@ -97,8 +97,8 @@ enum
 
 typedef struct SGuildData
 {
-	DWORD	guild_id;
-	DWORD	master_pid;
+	uint64_t	guild_id;
+	uint64_t	master_pid;
 	DWORD	exp;
 	BYTE	level;
 	char	name[GUILD_NAME_MAX_LEN+1];
@@ -155,14 +155,14 @@ class CGuild
 {
 	public:
 		CGuild(TGuildCreateParameter& cp);
-		explicit CGuild(DWORD guild_id) { Load(guild_id); }
+		explicit CGuild(uint64_t guild_id) { Load(guild_id); }
 		~CGuild();
 
-		DWORD		GetID() const	{ return m_data.guild_id; }
+		uint64_t	GetID() const	{ return m_data.guild_id; }
 		const char*	GetName() const	{ return m_data.name; }
 		int		GetSP() const		{ return m_data.power; }
 		int		GetMaxSP() { return m_data.max_power; }
-		DWORD		GetMasterPID() const	{ return m_data.master_pid; }
+		uint64_t	GetMasterPID() const	{ return m_data.master_pid; }
 		LPCHARACTER	GetMasterCharacter();
 		BYTE		GetLevel() const		{ return m_data.level; }
 		#ifdef ENABLE_GUILD_TOKEN_AUTH
@@ -171,52 +171,52 @@ class CGuild
 
 		void		Reset() { m_data.power = m_data.max_power; }
 
-		void		RequestDisband(DWORD pid);
+		void		RequestDisband(uint64_t pid);
 		void		Disband();
 
 		void		RequestAddMember(LPCHARACTER ch, int grade = 15);
 		void		AddMember(TPacketDGGuildMember * p);
 
-		bool		RequestRemoveMember(DWORD pid);
-		bool		RemoveMember(DWORD pid);
+		bool		RequestRemoveMember(uint64_t pid);
+		bool		RemoveMember(uint64_t pid);
 
 		void		LoginMember(LPCHARACTER ch);
-		void		P2PLoginMember(DWORD pid);
+		void		P2PLoginMember(uint64_t pid);
 
 		void		LogoutMember(LPCHARACTER ch);
-		void		P2PLogoutMember(DWORD pid);
+		void		P2PLogoutMember(uint64_t pid);
 
-		void		ChangeMemberGrade(DWORD pid, BYTE grade);
+		void		ChangeMemberGrade(uint64_t pid, BYTE grade);
 		bool		OfferExp(LPCHARACTER ch, int amount);
-		void		LevelChange(DWORD pid, BYTE level);
-		void		ChangeMemberData(DWORD pid, DWORD offer, BYTE level, BYTE grade);
+		void		LevelChange(uint64_t pid, BYTE level);
+		void		ChangeMemberData(uint64_t pid, DWORD offer, BYTE level, BYTE grade);
 
 		void		ChangeGradeName(BYTE grade, const char* grade_name);
 		void		ChangeGradeAuth(BYTE grade, BYTE auth);
 		void		P2PChangeGrade(BYTE grade);
 
-		bool		ChangeMemberGeneral(DWORD pid, BYTE is_general);
+		bool		ChangeMemberGeneral(uint64_t pid, BYTE is_general);
 
-		bool		ChangeMasterTo(DWORD dwPID);
+		bool		ChangeMasterTo(uint64_t dwPID);
 
 		void		Packet(const void* buf, int size);
 
-		void		SendOnlineRemoveOnePacket(DWORD pid);
+		void		SendOnlineRemoveOnePacket(uint64_t pid);
 		void		SendAllGradePacket(LPCHARACTER ch);
 		void		SendListPacket(LPCHARACTER ch);
-		void		SendListOneToAll(DWORD pid);
+		void		SendListOneToAll(uint64_t pid);
 		void		SendListOneToAll(LPCHARACTER ch);
 		void		SendLoginPacket(LPCHARACTER ch, LPCHARACTER chLogin);
 		void		SendLogoutPacket(LPCHARACTER ch, LPCHARACTER chLogout);
-		void		SendLoginPacket(LPCHARACTER ch, DWORD pid);
-		void		SendLogoutPacket(LPCHARACTER ch, DWORD pid);
+		void		SendLoginPacket(LPCHARACTER ch, uint64_t pid);
+		void		SendLogoutPacket(LPCHARACTER ch, uint64_t pid);
 		void		SendGuildInfoPacket(LPCHARACTER ch);
 		void		SendGuildDataUpdateToAllMember(SQLMsg* pmsg);
 
-		void		Load(DWORD guild_id);
+		void		Load(uint64_t guild_id);
 		void		SaveLevel();
 		void		SaveSkill();
-		void		SaveMember(DWORD pid);
+		void		SaveMember(uint64_t pid);
 
 		int		GetMaxMemberCount();
 		int		GetMemberCount() { return m_member.size(); }
@@ -230,8 +230,8 @@ class CGuild
 		int		GetMaxGeneralCount() const	{ return 1 /*+ GetSkillLevel(GUILD_SKILL_DEUNGYONG)/3*/;}
 		int		GetGeneralCount() const		{ return m_general_count; }
 
-		TGuildMember*	GetMember(DWORD pid);
-		DWORD			GetMemberPID(const std::string& strName);
+		TGuildMember*	GetMember(uint64_t pid);
+		uint64_t		GetMemberPID(const std::string& strName);
 
 		bool		HasGradeAuth(int grade, int auth_flag) const	{ return (bool)(m_data.grade_array[grade-1].auth_flag & auth_flag);}
 
@@ -239,11 +239,11 @@ class CGuild
 		void		DeleteComment(LPCHARACTER ch, DWORD comment_id);
 
 		void		RefreshComment(LPCHARACTER ch);
-		void		RefreshCommentForce(DWORD player_id);
+		void		RefreshCommentForce(uint64_t player_id);
 
 		int			GetSkillLevel(DWORD vnum);
 		void		SkillLevelUp(DWORD dwVnum);
-		void		UseSkill(DWORD dwVnum, LPCHARACTER ch, DWORD pid);
+		void		UseSkill(DWORD dwVnum, LPCHARACTER ch, uint64_t pid);
 
 		void		SendSkillInfoPacket(LPCHARACTER ch) const;
 		void		ComputeGuildPoints();
@@ -275,40 +275,40 @@ class CGuild
 		YANG		GetGuildMoney() const	{ return m_data.gold; }
 
 		// War general
-		void		GuildWarPacket(DWORD guild_id, BYTE bWarType, BYTE bWarState);
+		void		GuildWarPacket(uint64_t guild_id, BYTE bWarType, BYTE bWarState);
 		void		SendEnemyGuild(LPCHARACTER ch);
 
-		int		GetGuildWarState(DWORD guild_id);
+		int		GetGuildWarState(uint64_t guild_id);
 		bool		CanStartWar(BYTE bGuildWarType);
-		DWORD		GetWarStartTime(DWORD guild_id);
-		bool		UnderWar(DWORD guild_id);
-		DWORD		UnderAnyWar(BYTE bType = GUILD_WAR_TYPE_MAX_NUM);
+		DWORD		GetWarStartTime(uint64_t guild_id);
+		bool		UnderWar(uint64_t guild_id);
+		uint64_t	UnderAnyWar(BYTE bType = GUILD_WAR_TYPE_MAX_NUM);
 
 		// War map relative
-		void		SetGuildWarMapIndex(DWORD dwGuildID, long lMapIndex);
-		int			GetGuildWarType(DWORD dwGuildOpponent);
-		DWORD		GetGuildWarMapIndex(DWORD dwGuildOpponent);
+		void		SetGuildWarMapIndex(uint64_t dwGuildID, long lMapIndex);
+		int			GetGuildWarType(uint64_t dwGuildOpponent);
+		DWORD		GetGuildWarMapIndex(uint64_t dwGuildOpponent);
 
 		// War entry question
-		void		GuildWarEntryAsk(DWORD guild_opp);
-		void		GuildWarEntryAccept(DWORD guild_opp, LPCHARACTER ch);
+		void		GuildWarEntryAsk(uint64_t guild_opp);
+		void		GuildWarEntryAccept(uint64_t guild_opp, LPCHARACTER ch);
 
 		// War state relative
 		void		NotifyGuildMaster(const char* msg);
-		void		RequestDeclareWar(DWORD guild_id, BYTE type);
-		void		RequestRefuseWar(DWORD guild_id);
+		void		RequestDeclareWar(uint64_t guild_id, BYTE type);
+		void		RequestRefuseWar(uint64_t guild_id);
 
-		bool		DeclareWar(DWORD guild_id, BYTE type, BYTE state);
-		void		RefuseWar(DWORD guild_id);
-		bool		WaitStartWar(DWORD guild_id);
-		bool		CheckStartWar(DWORD guild_id);	// check if StartWar method fails (call it before StartWar)
-		void		StartWar(DWORD guild_id);
-		void		EndWar(DWORD guild_id);
-		void		ReserveWar(DWORD guild_id, BYTE type);
+		bool		DeclareWar(uint64_t guild_id, BYTE type, BYTE state);
+		void		RefuseWar(uint64_t guild_id);
+		bool		WaitStartWar(uint64_t guild_id);
+		bool		CheckStartWar(uint64_t guild_id);	// check if StartWar method fails (call it before StartWar)
+		void		StartWar(uint64_t guild_id);
+		void		EndWar(uint64_t guild_id);
+		void		ReserveWar(uint64_t guild_id, BYTE type);
 
 		// War points relative
-		void		SetWarScoreAgainstTo(DWORD guild_opponent, int newpoint);
-		int			GetWarScoreAgainstTo(DWORD guild_opponent);
+		void		SetWarScoreAgainstTo(uint64_t guild_opponent, int newpoint);
+		int			GetWarScoreAgainstTo(uint64_t guild_opponent);
 
 		int			GetLadderPoint() const	{ return m_data.ladder_point; }
 		void		SetLadderPoint(int point);
@@ -329,7 +329,7 @@ class CGuild
 
 		void		InviteAccept( LPCHARACTER pchInvitee );
 
-		void		InviteDeny( DWORD dwPID );
+		void		InviteDeny( uint64_t dwPID );
 		// END_OF_GUILD_JOIN_BUG_FIX
 
 	private:
@@ -342,13 +342,13 @@ class CGuild
 		int		m_iMemberCountBonus;
 		// END_OF_GUILD_MEMBER_COUNT_BONUS
 
-		typedef std::map<DWORD, TGuildMember> TGuildMemberContainer;
+		typedef std::map<uint64_t, TGuildMember> TGuildMemberContainer;
 		TGuildMemberContainer m_member;
 
 		typedef CHARACTER_SET TGuildMemberOnlineContainer;
 		TGuildMemberOnlineContainer m_memberOnline;
 
-		typedef std::set<DWORD>	TGuildMemberP2POnlineContainer;
+		typedef std::set<uint64_t>	TGuildMemberP2POnlineContainer;
 		TGuildMemberP2POnlineContainer m_memberP2POnline;
 
 		void LoadGuildData(SQLMsg* pmsg);
@@ -357,10 +357,10 @@ class CGuild
 
 		void __P2PUpdateGrade(SQLMsg* pmsg);
 
-		typedef std::map<DWORD, TGuildWar> TEnemyGuildContainer;
+		typedef std::map<uint64_t, TGuildWar> TEnemyGuildContainer;
 		TEnemyGuildContainer m_EnemyGuild;
 
-		std::map<DWORD, DWORD> m_mapGuildWarEndTime;
+		std::map<uint64_t, DWORD> m_mapGuildWarEndTime;
 
 		bool	abSkillUsable[GUILD_SKILL_COUNT];
 
@@ -379,7 +379,7 @@ class CGuild
 
 		GuildJoinErrCode	VerifyGuildJoinableCondition( const LPCHARACTER pchInvitee );
 
-		typedef std::map< DWORD, LPEVENT >	EventMap;
+		typedef std::map< uint64_t, LPEVENT >	EventMap;
 		EventMap	m_GuildInviteEventMap;
 		// END_OF_GUILD_JOIN_BUG_FIX
 #ifdef ENABLE_D_NJGUILD
@@ -419,4 +419,3 @@ template <class Func> void CGuild::ForEachOnMapMember (Func & f, long lMapIndex)
 #endif
 
 #endif
-

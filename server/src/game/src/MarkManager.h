@@ -22,10 +22,10 @@ class CGuildMarkManager : public singleton<CGuildMarkManager>
 		CGuildMarkManager();
 		virtual ~CGuildMarkManager();
 
-		const TGuildSymbol * GetGuildSymbol(DWORD GID);
+		const TGuildSymbol * GetGuildSymbol(uint64_t GID);
 		bool LoadSymbol(const char* filename);
 		void SaveSymbol(const char* filename);
-		void UploadSymbol(DWORD guildID, int iSize, const BYTE* pbyData);
+		void UploadSymbol(uint64_t guildID, int iSize, const BYTE* pbyData);
 
 		// Mark
 
@@ -38,15 +38,15 @@ class CGuildMarkManager : public singleton<CGuildMarkManager>
 		void SaveMarkImage(DWORD imgIdx);
 
 		bool GetMarkImageFilename(DWORD imgIdx, std::string & path) const;
-		bool AddMarkIDByGuildID(DWORD guildID, DWORD markID);
+		bool AddMarkIDByGuildID(uint64_t guildID, DWORD markID);
 		DWORD GetMarkImageCount() const;
 		DWORD GetMarkCount() const;
-		DWORD GetMarkID(DWORD guildID);
+		DWORD GetMarkID(uint64_t guildID);
 
 		// SERVER
 		void CopyMarkIdx(char * pcBuf) const;
-		DWORD SaveMark(DWORD guildID, BYTE * pbMarkImage);
-		void DeleteMark(DWORD guildID);
+		DWORD SaveMark(uint64_t guildID, BYTE * pbMarkImage);
+		void DeleteMark(uint64_t guildID);
 		void GetDiffBlocks(DWORD imgIdx, const DWORD * crcList, std::map<BYTE, const SGuildMarkBlock *> & mapDiffBlocks);
 
 		// CLIENT
@@ -60,13 +60,13 @@ class CGuildMarkManager : public singleton<CGuildMarkManager>
 		CGuildMarkImage * __NewImage();
 		void __DeleteImage(CGuildMarkImage * pkImgDel);
 
-		DWORD __AllocMarkID(DWORD guildID);
+		DWORD __AllocMarkID(uint64_t guildID);
 
 		CGuildMarkImage * __GetImage(DWORD imgIdx);
 		CGuildMarkImage * __GetImagePtr(DWORD idMark);
 
 		std::map<DWORD, CGuildMarkImage *> m_mapIdx_Image; // index = image index
-		std::map<DWORD, DWORD> m_mapGID_MarkID; // index = guild id
+		std::map<uint64_t, DWORD> m_mapGID_MarkID; // index = guild id
 
 		std::set<DWORD> m_setFreeMarkID;
 		std::string		m_pathPrefix;
@@ -75,8 +75,7 @@ class CGuildMarkManager : public singleton<CGuildMarkManager>
 
 		// Symbol
 
-		std::map<DWORD, TGuildSymbol> m_mapSymbol;
+		std::map<uint64_t, TGuildSymbol> m_mapSymbol;
 };
 
 #endif
-

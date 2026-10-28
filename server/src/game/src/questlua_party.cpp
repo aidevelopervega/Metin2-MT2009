@@ -244,11 +244,11 @@ namespace quest
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 		if (ch->GetParty())
 		{
-			lua_pushnumber(L, ch->GetParty()->GetLeaderPID());
+			m2_lua_pushuint64(L, ch->GetParty()->GetLeaderPID());
 		}
 		else
 		{
-			lua_pushnumber(L, -1);
+			lua_pushinteger(L, -1);
 		}
 		return 1;
 	}
@@ -407,7 +407,7 @@ namespace quest
 
 	struct FPartyPIDCollector
 	{
-		std::vector <DWORD> vecPIDs;
+		std::vector <uint64_t> vecPIDs;
 		FPartyPIDCollector()
 		{
 		}
@@ -428,9 +428,9 @@ namespace quest
 		FPartyPIDCollector f;
 		pParty->ForEachOnMapMember(f, ch->GetMapIndex());
 
-		for (std::vector <DWORD>::iterator it = f.vecPIDs.begin(); it != f.vecPIDs.end(); it++)
+		for (std::vector <uint64_t>::iterator it = f.vecPIDs.begin(); it != f.vecPIDs.end(); it++)
 		{
-			lua_pushnumber(L, *it);
+			m2_lua_pushuint64(L, *it);
 		}
 		return f.vecPIDs.size();
 	}
@@ -467,4 +467,3 @@ namespace quest
 		CQuestManager::instance().AddLuaFunctionTable("party", party_functions);
 	}
 }
-

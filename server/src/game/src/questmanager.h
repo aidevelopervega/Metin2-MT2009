@@ -56,7 +56,7 @@ namespace quest
 			};
 
 			typedef map<string, int>		TEventNameMap;
-			typedef map<unsigned int, PC>	PCMap;
+			typedef map<uint64_t, PC>		PCMap;
 			typedef map<string, TQuestRewardItem> QuestRewardMap;
 
 		public:
@@ -87,8 +87,8 @@ namespace quest
 			void		CloseState(QuestState& qs);
 			bool		RunState(QuestState& qs);
 
-			PC *		GetPC(unsigned int pc);
-			PC *		GetPCForce(unsigned int pc);
+			PC *		GetPC(uint64_t pc);
+			PC *		GetPCForce(uint64_t pc);
 
 			unsigned int	GetCurrentNPCRace();
 			const string & 	GetCurrentQuestName();
@@ -99,11 +99,11 @@ namespace quest
 
 			void		SetCurrentEventIndex(int index) { m_iRunningEventIndex = index; }
 
-			bool		UseItem(unsigned int pc, LPITEM item, bool bReceiveAll);
-			bool		UseTypeItem(unsigned int pc, LPITEM item, bool bReceiveAll);
-			bool		PickupItem(unsigned int pc, LPITEM item);
-			bool		SIGUse(unsigned int pc, DWORD sig_vnum, LPITEM item, bool bReceiveAll);
-			bool		TakeItem(unsigned int pc, unsigned int npc, LPITEM item);
+			bool		UseItem(uint64_t pc, LPITEM item, bool bReceiveAll);
+			bool		UseTypeItem(uint64_t pc, LPITEM item, bool bReceiveAll);
+			bool		PickupItem(uint64_t pc, LPITEM item);
+			bool		SIGUse(uint64_t pc, DWORD sig_vnum, LPITEM item, bool bReceiveAll);
+			bool		TakeItem(uint64_t pc, unsigned int npc, LPITEM item);
 			LPITEM		GetCurrentItem();
 			void		ClearCurrentItem();
 			void		SetCurrentItem(LPITEM item);
@@ -123,48 +123,48 @@ namespace quest
 			// event over state and stae
 			bool		ServerTimer(unsigned int npc, unsigned int arg);
 
-			void		Login(unsigned int pc, const char * c_pszQuestName = NULL);
-			void		Logout(unsigned int pc);
-			bool		Timer(unsigned int pc, unsigned int npc);
-			bool		Click(unsigned int pc, LPCHARACTER pkNPC);
-			void		Kill(unsigned int pc, unsigned int npc);
+			void		Login(uint64_t pc, const char * c_pszQuestName = NULL);
+			void		Logout(uint64_t pc);
+			bool		Timer(uint64_t pc, unsigned int npc);
+			bool		Click(uint64_t pc, LPCHARACTER pkNPC);
+			void		Kill(uint64_t pc, unsigned int npc);
 #ifdef ENABLE_QUEST_DIE_EVENT
-			void		Die(unsigned int pc, unsigned int npc);
+			void		Die(uint64_t pc, unsigned int npc);
 #endif
 #ifdef ENABLE_QUEST_BOOT_EVENT
 			bool		Boot();
 #endif
 #ifdef ENABLE_QUEST_DND_EVENT
-			bool		DND(uint32_t pc, LPITEM item_dnd, LPITEM item_victim, bool bReceiveAll);
+			bool		DND(uint64_t pc, LPITEM item_dnd, LPITEM item_victim, bool bReceiveAll);
 #endif
-			void		LevelUp(unsigned int pc);
-			void		AttrIn(unsigned int pc, LPCHARACTER ch, int attr);
-			void		AttrOut(unsigned int pc, LPCHARACTER ch, int attr);
-			bool		Target(unsigned int pc, DWORD dwQuestIndex, const char * c_pszTargetName, const char * c_pszVerb);
-			bool		GiveItemToPC(unsigned int pc, LPCHARACTER pkChr);
-			void		Unmount(unsigned int pc);
+			void		LevelUp(uint64_t pc);
+			void		AttrIn(uint64_t pc, LPCHARACTER ch, int attr);
+			void		AttrOut(uint64_t pc, LPCHARACTER ch, int attr);
+			bool		Target(uint64_t pc, DWORD dwQuestIndex, const char * c_pszTargetName, const char * c_pszVerb);
+			bool		GiveItemToPC(uint64_t pc, LPCHARACTER pkChr);
+			void		Unmount(uint64_t pc);
 
-			void		QuestButton(unsigned int pc, unsigned int quest_index);
-			void		QuestInfo(unsigned int pc, unsigned int quest_index);
+			void		QuestButton(uint64_t pc, unsigned int quest_index);
+			void		QuestInfo(uint64_t pc, unsigned int quest_index);
 
-			void		EnterState(DWORD pc, DWORD quest_index, int state);
-			void		LeaveState(DWORD pc, DWORD quest_index, int state);
+			void		EnterState(uint64_t pc, DWORD quest_index, int state);
+			void		LeaveState(uint64_t pc, DWORD quest_index, int state);
 
-			void		Letter(DWORD pc);
-			void		Letter(DWORD pc, DWORD quest_index, int state);
+			void		Letter(uint64_t pc);
+			void		Letter(uint64_t pc, DWORD quest_index, int state);
 
-			void		ItemInformer(unsigned int pc, unsigned int vnum);
+			void		ItemInformer(uint64_t pc, unsigned int vnum);
 
 			bool		CheckQuestLoaded(PC* pc) { return pc && pc->IsLoaded(); }
 
 			// event occurs in one state
-			void		Select(unsigned int pc, unsigned int selection);
-			void		Resume(unsigned int pc);
+			void		Select(uint64_t pc, unsigned int selection);
+			void		Resume(uint64_t pc);
 
 			int		ReadQuestCategoryFile(WORD q_index);
-			void		Input(unsigned int pc, const char* msg);
-			void		Confirm(unsigned int pc, EQuestConfirmType confirm, unsigned int pc2 = 0);
-			void		SelectItem(unsigned int pc, unsigned int selection);
+			void		Input(uint64_t pc, const char* msg);
+			void		Confirm(uint64_t pc, EQuestConfirmType confirm, uint64_t pc2 = 0);
+			void		SelectItem(uint64_t pc, unsigned int selection);
 
 			void		LogoutPC(LPCHARACTER ch);
 			void		DisconnectPC(LPCHARACTER ch);
@@ -305,19 +305,18 @@ namespace quest
 			static bool ExecuteQuestScript(PC& pc, DWORD quest_index, const int state, const char* code, const int code_size, vector<AArgScript*>* pChatScripts = NULL, bool bUseCache = true);
 
 		public:
-			void		BeginOtherPCBlock(DWORD pid);
+			void		BeginOtherPCBlock(uint64_t pid);
 			void		EndOtherPCBlock();
 			bool		IsInOtherPCBlock();
 			PC*			GetOtherPCBlockRootPC();
 
-			bool		Write(unsigned int pc, const char* c_pszMessage);
-			void		Fishing(unsigned int pc, BYTE state);
-			void		Mining(unsigned int pc, unsigned int npc, BYTE state);
+			bool		Write(uint64_t pc, const char* c_pszMessage);
+			void		Fishing(uint64_t pc, BYTE state);
+			void		Mining(uint64_t pc, unsigned int npc, BYTE state);
 		private:
 			PC*			m_pOtherPCBlockRootPC;
-			std::vector <DWORD>	m_vecPCStack;
+			std::vector <uint64_t>	m_vecPCStack;
 	};
 };
 
 #endif
-

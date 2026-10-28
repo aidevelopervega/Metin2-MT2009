@@ -27,12 +27,12 @@ struct TPrivGuildData
     BYTE type;
     int value;
     bool bRemoved;
-    DWORD guild_id;
+    uint64_t guild_id;
 
 	// ADD_GUILD_PRIV_TIME
     time_t end_time_sec;
 
-    TPrivGuildData(BYTE _type, int _value, DWORD _guild_id, time_t _end_time_sec)
+    TPrivGuildData(BYTE _type, int _value, uint64_t _guild_id, time_t _end_time_sec)
 	: type(_type), value(_value), bRemoved(false), guild_id(_guild_id), end_time_sec(_end_time_sec )
     {}
 	// END_OF_ADD_GUILD_PRIV_TIME
@@ -43,8 +43,8 @@ struct TPrivCharData
     BYTE type;
     int value;
     bool bRemoved;
-    DWORD pid;
-    TPrivCharData(BYTE _type, int _value, DWORD _pid)
+    uint64_t pid;
+    TPrivCharData(BYTE _type, int _value, uint64_t _pid)
 	: type(_type), value(_value), bRemoved(false), pid(_pid)
     {}
 };
@@ -56,14 +56,14 @@ class CPrivManager : public singleton<CPrivManager>
 	virtual ~CPrivManager();
 
 	// ADD_GUILD_PRIV_TIME
-	void AddGuildPriv(DWORD guild_id, BYTE type, int value, time_t time_sec);
+	void AddGuildPriv(uint64_t guild_id, BYTE type, int value, time_t time_sec);
 	// END_OF_ADD_GUILD_PRIV_TIME
 
 	// ADD_EMPIRE_PRIV_TIME
 	void AddEmpirePriv(BYTE empire, BYTE type, int value, time_t time_sec);
 	// END_OF_ADD_EMPIRE_PRIV_TIME
 
-	void AddCharPriv(DWORD pid, BYTE type, int value);
+	void AddCharPriv(uint64_t pid, BYTE type, int value);
 
 	void Update();
 
@@ -72,14 +72,14 @@ class CPrivManager : public singleton<CPrivManager>
     private:
 
 	// ADD_GUILD_PRIV_TIME
-	void SendChangeGuildPriv(DWORD guild_id, BYTE type, int value, time_t end_time_sec);
+	void SendChangeGuildPriv(uint64_t guild_id, BYTE type, int value, time_t end_time_sec);
 	// END_OF_ADD_GUILD_PRIV_TIME
 
 	// ADD_EMPIRE_PRIV_TIME
 	void SendChangeEmpirePriv(BYTE empire, BYTE type, int value, time_t end_time_sec);
 	// END_OF_ADD_EMPIRE_PRIV_TIME
 
-	void SendChangeCharPriv(DWORD pid, BYTE type, int value);
+	void SendChangeCharPriv(uint64_t pid, BYTE type, int value);
 
 	typedef std::pair<time_t, TPrivCharData *> stPairChar;
 	typedef std::pair<time_t, TPrivGuildData*> stPairGuild;
@@ -93,9 +93,8 @@ class CPrivManager : public singleton<CPrivManager>
 	    m_pqPrivEmpire;
 
 	TPrivEmpireData* m_aaPrivEmpire[MAX_PRIV_NUM][EMPIRE_MAX_NUM];
-	std::map<DWORD, TPrivGuildData*> m_aPrivGuild[MAX_PRIV_NUM];
-	std::map<DWORD, TPrivCharData*> m_aPrivChar[MAX_PRIV_NUM];
+	std::map<uint64_t, TPrivGuildData*> m_aPrivGuild[MAX_PRIV_NUM];
+	std::map<uint64_t, TPrivCharData*> m_aPrivChar[MAX_PRIV_NUM];
 };
 
 #endif
-
