@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `account`.`itemshop_tx_journal` (
   `vip_hours` int(11) unsigned NOT NULL DEFAULT 0,
   `is_time_auction` tinyint(1) NOT NULL DEFAULT 0,
   `auction_reserved_count` int(11) unsigned NOT NULL DEFAULT 0,
-  `state` enum('INITIATED','CHARGED','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',
+  `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',
   `delivered_item_ids` varchar(255) NOT NULL DEFAULT '',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS `account`.`itemshop_tx_journal` (
   KEY `idx_itemshop_tx_aid` (`aid`),
   KEY `idx_itemshop_tx_pid` (`pid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+
+ALTER TABLE `account`.`itemshop_tx_journal`
+  MODIFY COLUMN `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED';
 
 -- 2. Common Schema: 64-bit ItemShop Prices & Voucher Cash
 ALTER TABLE `common`.`itemshop_items`

@@ -55,7 +55,7 @@ namespace marriage
 				DWORD pid1 = 0; str_to_number(pid1, row[0]);
 				DWORD pid2 = 0; str_to_number(pid2, row[1]);
 				int love_point = 0; str_to_number(love_point, row[2]);
-				DWORD time = 0; str_to_number(time, row[3]);
+				int64_t time = 0; str_to_number(time, row[3]);
 				BYTE is_married = 0; str_to_number(is_married, row[4]);
 				const char* name1 = row[5];
 				const char* name2 = row[6];
@@ -65,7 +65,7 @@ namespace marriage
 				m_MarriageByPID.emplace(pid1, pMarriage);
 				m_MarriageByPID.emplace(pid2, pMarriage);
 
-				sys_log(0, "Marriage %u: LP:%d TM:%u ST:%d %10u:%16s %10u:%16s ", uiRow, love_point, time, is_married, pid1, name1, pid2, name2);
+				sys_log(0, "Marriage %u: LP:%d TM:%lld ST:%d %10u:%16s %10u:%16s ", uiRow, love_point, static_cast<long long>(time), is_married, pid1, name1, pid2, name2);
 			}
 		}
 		return true;
@@ -89,7 +89,7 @@ namespace marriage
 
 	void CManager::Add(DWORD dwPID1, DWORD dwPID2, const char* szName1, const char* szName2)
 	{
-		DWORD now = static_cast<DWORD>(CClientManager::instance().GetCurrentTime());
+		int64_t now = static_cast<int64_t>(CClientManager::instance().GetCurrentTime());
 		if (IsMarried(dwPID1) || IsMarried(dwPID2))
 		{
 			sys_err("cannot marry already married character. %d - %d", dwPID1, dwPID2);
@@ -99,7 +99,7 @@ namespace marriage
 		Align(dwPID1, dwPID2);
 
 		char szQuery[512];
-		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%u, %u, 0, %u)", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2), static_cast<unsigned int>(now));
+		snprintf(szQuery, sizeof(szQuery), "INSERT INTO marriage(pid1, pid2, love_point, time) VALUES (%u, %u, 0, %lld)", static_cast<unsigned int>(dwPID1), static_cast<unsigned int>(dwPID2), static_cast<long long>(now));
 
 		auto pmsg(CDBManager::instance().DirectQuery(szQuery));
 		SQLResult* res = pmsg->Get();

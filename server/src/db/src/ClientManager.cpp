@@ -1192,7 +1192,7 @@ void CClientManager::RESULT_SAFEBOX_CHANGE_SIZE(CPeer * pkPeer, SQLMsg * msg)
 
 	delete p;
 
-	if (msg->Get()->uiNumRows > 0)
+	if (msg && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->uiAffectedRows > 0 && msg->Get()->uiAffectedRows != static_cast<uint32_t>(-1))
 	{
 		pkPeer->EncodeHeader(HEADER_DG_SAFEBOX_CHANGE_SIZE, dwHandle, sizeof(BYTE));
 		pkPeer->EncodeBYTE(bSize);
@@ -4760,8 +4760,14 @@ void CClientManager::ChargeCash(const TRequestChargeCash* packet)
 
 void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer)
 {
-	if (!p)
+	if (!p || !peer)
 		return;
+
+	char rawCode[CODE_VOUCHER_MAX_LEN + 1];
+	strlcpy(rawCode, p->code, sizeof(rawCode));
+
+	char szEscapedCode[CODE_VOUCHER_MAX_LEN * 2 + 1];
+	CDBManager::Instance().EscapeString(szEscapedCode, rawCode, static_cast<unsigned long>(std::strlen(rawCode)), SQL_COMMON);
 
 	char szQuery[512];
 	snprintf(szQuery, sizeof(szQuery),
@@ -4769,7 +4775,7 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 		" id, max_use_count, use_count, cash"
 		" FROM vouchers"
 		" WHERE code='%s'",
-		p->code);
+		szEscapedCode);
 
 	BYTE bResponse = USE_VOUCHER_SUCCESS;
 	DWORD id = 0;
@@ -4777,25 +4783,29 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	DWORD use_count = 0;
 	uint64_t cash = 0;
 
-	auto pMsg = CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON);
+	std::unique_ptr<SQLMsg> pMsg(CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON));
 
-	if (pMsg->Get()->uiNumRows > 0)
+	if (pMsg && pMsg->uiSQLErrno == 0 && pMsg->Get() && pMsg->Get()->uiNumRows > 0)
 	{
 		if (pMsg->Get()->uiNumRows == 1)
 		{
-			// good
 			MYSQL_ROW row = mysql_fetch_row(pMsg->Get()->pSQLResult);
-
-			int idx = 0;
-
-			str_to_number(id, row[idx++]);
-			str_to_number(max_use_count, row[idx++]);
-			str_to_number(use_count, row[idx++]);
-			str_to_number(cash, row[idx++]);
+			if (row)
+			{
+				int idx = 0;
+				str_to_number(id, row[idx++]);
+				str_to_number(max_use_count, row[idx++]);
+				str_to_number(use_count, row[idx++]);
+				str_to_number(cash, row[idx++]);
+			}
+			else
+			{
+				bResponse = USE_VOUCHER_NO_CODE;
+			}
 		}
 		else
 		{
-			sys_err("UseCodeVoucher more than 1? (code: %s)", p->code);
+			sys_err("UseCodeVoucher more than 1? (code: %s)", rawCode);
 			bResponse = USE_VOUCHER_NO_CODE;
 		}
 	}
@@ -4808,34 +4818,49 @@ void CClientManager::UseCodeVoucher(const TRequestUseCodeVoucher* p, CPeer* peer
 	{
 		bResponse = USE_VOUCHER_TRY_AGAIN_LATER;
 	}
-	//else if (max_use_count > 0 && use_count >= max_use_count)
 	else if (use_count >= max_use_count)
 		bResponse = USE_VOUCHER_ALREADY_USED;
 	else if (cash > static_cast<uint64_t>(INT64_MAX))
 	{
 		sys_err("UseCodeVoucher: cash value overflow (%llu > INT64_MAX, code: %s)",
-			static_cast<unsigned long long>(cash), p->code);
+			static_cast<unsigned long long>(cash), rawCode);
 		bResponse = USE_VOUCHER_NO_CODE;
 	}
 
 	if (bResponse == USE_VOUCHER_SUCCESS)
 	{
-		snprintf(szQuery, sizeof(szQuery), "UPDATE vouchers SET use_count=use_count+1 WHERE code='%s'", p->code);
-		CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON);
-
-		if (cash > 0)
+		snprintf(szQuery, sizeof(szQuery),
+			"UPDATE vouchers SET use_count = use_count + 1 WHERE id = %u AND use_count < max_use_count",
+			static_cast<unsigned int>(id));
+		std::unique_ptr<SQLMsg> pUpdateMsg(CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON));
+		if (!pUpdateMsg || pUpdateMsg->uiSQLErrno != 0 || !pUpdateMsg->Get() || pUpdateMsg->Get()->uiAffectedRows != 1)
 		{
-			TRequestChargeCash packet{};
-			packet.dwAID = p->dwAID;
-			packet.eChargeType = ERequestChargeType::ERequestCharge_Cash;
-			packet.lAmount = static_cast<int64_t>(cash);
-			ChargeCash(&packet);
+			bResponse = USE_VOUCHER_ALREADY_USED;
+		}
+		else if (cash > 0)
+		{
+			snprintf(szQuery, sizeof(szQuery),
+				"UPDATE account SET `cash` = `cash` + %llu "
+				"WHERE id = %u AND `cash` >= 0 AND `cash` <= %lld - %llu LIMIT 1",
+				static_cast<unsigned long long>(cash),
+				static_cast<unsigned int>(p->dwAID),
+				static_cast<long long>(INT64_MAX),
+				static_cast<unsigned long long>(cash));
+			std::unique_ptr<SQLMsg> pCashMsg(CDBManager::Instance().DirectQuery(szQuery, SQL_ACCOUNT));
+			if (!pCashMsg || pCashMsg->uiSQLErrno != 0 || !pCashMsg->Get() || pCashMsg->Get()->uiAffectedRows != 1)
+			{
+				snprintf(szQuery, sizeof(szQuery),
+					"UPDATE vouchers SET use_count = CASE WHEN use_count > 0 THEN use_count - 1 ELSE 0 END WHERE id = %u",
+					static_cast<unsigned int>(id));
+				CDBManager::Instance().DirectQuery(szQuery, SQL_COMMON);
+				bResponse = USE_VOUCHER_TRY_AGAIN_LATER;
+			}
 		}
 	}
 
 	TRequestUseCodeVoucherResponse packRes{};
 	packRes.dwPID = p->dwPID;
-	strlcpy(packRes.szCode, p->code, sizeof(packRes.szCode));
+	strlcpy(packRes.szCode, rawCode, sizeof(packRes.szCode));
 	packRes.bResponse = bResponse;
 
 	peer->EncodeHeader(HEADER_DG_USE_CODE_VOUCHER, 0, sizeof(packRes));

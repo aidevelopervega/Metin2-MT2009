@@ -330,8 +330,8 @@ void CGuildManager::OnSetup(CPeer* peer)
 				continue;
 
 			FSendPeerWar(p->bType, GUILD_WAR_ON_WAR, g1, g2) (peer);
-			FSendGuildWarScore(p->GID[0], p->GID[1], p->iScore[0], p->iBetScore[0]);
-			FSendGuildWarScore(p->GID[1], p->GID[0], p->iScore[1], p->iBetScore[1]);
+			FSendGuildWarScore(p->GID[0], p->GID[1], p->iScore[0], p->iBetScore[0]) (peer);
+			FSendGuildWarScore(p->GID[1], p->GID[0], p->iScore[1], p->iBetScore[1]) (peer);
 		}
 
 	for_all(m_DeclareMap, it)

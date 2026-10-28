@@ -48,12 +48,12 @@ namespace marriage
 		DWORD pid1;
 		DWORD pid2;
 		int   love_point;
-		DWORD time;
+		int64_t time;
 		BYTE is_married;
 		std::string name1;
 		std::string name2;
 
-		TMarriage(DWORD _pid1, DWORD _pid2, int _love_point, DWORD _time, BYTE _is_married, const char* _name1, const char* _name2)
+		TMarriage(DWORD _pid1, DWORD _pid2, int _love_point, int64_t _time, BYTE _is_married, const char* _name1, const char* _name2)
 			: pid1(_pid1), pid2(_pid2), love_point(_love_point), time(_time), is_married(_is_married), name1(_name1), name2(_name2)
 		{
 		}

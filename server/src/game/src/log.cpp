@@ -153,7 +153,7 @@ void LogManager::ItemLog(LPCHARACTER ch, LPITEM item, const char * c_pszText, co
 	else
 		snprintf(buf, sizeof(buf), "%s", c_pszHint);
 
-	ItemLog(ch->GetPlayerID(), ch->GetX(), ch->GetY(), item->GetID(),
+	ItemLog(ch->GetPlayerID(), static_cast<DWORD>(ch->GetX()), static_cast<DWORD>(ch->GetY()), item->GetID(),
 			NULL == c_pszText ? "" : c_pszText,
 		buf, ch->GetDesc() ? ch->GetDesc()->GetHostName() : "",
 		   	item->GetOriginalVnum());
@@ -162,7 +162,7 @@ void LogManager::ItemLog(LPCHARACTER ch, LPITEM item, const char * c_pszText, co
 void LogManager::ItemLog(LPCHARACTER ch, int itemID, int itemVnum, const char * c_pszText, const char * c_pszHint)
 {
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MIN);
-	ItemLog(ch->GetPlayerID(), ch->GetX(), ch->GetY(), itemID, c_pszText, c_pszHint, ch->GetDesc() ? ch->GetDesc()->GetHostName() : "", itemVnum);
+	ItemLog(ch->GetPlayerID(), static_cast<DWORD>(ch->GetX()), static_cast<DWORD>(ch->GetY()), static_cast<DWORD>(itemID), c_pszText, c_pszHint, ch->GetDesc() ? ch->GetDesc()->GetHostName() : "", static_cast<DWORD>(itemVnum));
 }
 
 void LogManager::ItemSocketLog(DWORD who, DWORD itemID, DWORD itemVnum, BYTE socket, int value, const char* what)
@@ -203,7 +203,7 @@ void LogManager::CharLog(LPCHARACTER ch, long long dw, const char * c_pszText, c
 {
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MIN);
 	if (ch)
-		CharLog(ch->GetPlayerID(), ch->GetX(), ch->GetY(), dw, c_pszText, c_pszHint, ch->GetDesc() ? ch->GetDesc()->GetHostName() : "");
+		CharLog(ch->GetPlayerID(), static_cast<DWORD>(ch->GetX()), static_cast<DWORD>(ch->GetY()), dw, c_pszText, c_pszHint, ch->GetDesc() ? ch->GetDesc()->GetHostName() : "");
 	else
 		CharLog(0, 0, 0, dw, c_pszText, c_pszHint, "");
 }
@@ -469,10 +469,28 @@ void LogManager::DragonSlayLog(DWORD dwGuildID, DWORD dwDragonVnum, DWORD dwStar
 
 void LogManager::ChatLog(DWORD where, DWORD who_id, const char* who_name, DWORD whom_id, const char* whom_name, const char* type, const char* msg, const char* ip)
 {
+	const char* safeWhoName = who_name ? who_name : "";
+	const char* safeWhomName = whom_name ? whom_name : "";
+	const char* safeType = type ? type : "NORMAL";
+	const char* safeMsg = msg ? msg : "";
+	const char* safeIp = ip ? ip : "";
+
+	char szEscWhoName[CHARACTER_NAME_MAX_LEN * 2 + 1];
+	char szEscWhomName[CHARACTER_NAME_MAX_LEN * 2 + 1];
+	char szEscType[32 * 2 + 1];
+	char szEscMsg[CHAT_MAX_LEN * 2 + 1];
+	char szEscIp[64 * 2 + 1];
+
+	m_sql.EscapeString(szEscWhoName, sizeof(szEscWhoName), safeWhoName, std::min<size_t>(std::strlen(safeWhoName), CHARACTER_NAME_MAX_LEN));
+	m_sql.EscapeString(szEscWhomName, sizeof(szEscWhomName), safeWhomName, std::min<size_t>(std::strlen(safeWhomName), CHARACTER_NAME_MAX_LEN));
+	m_sql.EscapeString(szEscType, sizeof(szEscType), safeType, std::min<size_t>(std::strlen(safeType), 32));
+	m_sql.EscapeString(szEscMsg, sizeof(szEscMsg), safeMsg, std::min<size_t>(std::strlen(safeMsg), CHAT_MAX_LEN));
+	m_sql.EscapeString(szEscIp, sizeof(szEscIp), safeIp, std::min<size_t>(std::strlen(safeIp), 64));
+
 	Query("INSERT INTO `chat_log%s` (`where`, `who_id`, `who_name`, `whom_id`, `whom_name`, `type`, `msg`, `when`, `ip`) "
 		"VALUES (%u, %u, '%s', %u, '%s', '%s', '%s', NOW(), '%s');",
 		get_table_postfix(),
-		where, who_id, who_name, whom_id, whom_name, type, msg, ip);
+		where, who_id, szEscWhoName, whom_id, szEscWhomName, szEscType, szEscMsg, szEscIp);
 }
 
 void LogManager::CaptchaLog(LPCHARACTER ch, const char* action, const char* code)
@@ -486,7 +504,7 @@ void LogManager::CaptchaLog(LPCHARACTER ch, const char* action, const char* code
 	auto captcha = ch->playerData->GetPlayerCaptcha();
 	DWORD leftDuration = 0;
 	if (captcha.expireTime > get_global_time())
-		leftDuration = captcha.expireTime - get_global_time();
+		leftDuration = static_cast<DWORD>(captcha.expireTime - get_global_time());
 
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MIN);
 	Query("INSERT INTO captcha_log%s VALUES( %d, %d, NOW(), '%s', '%s', %d )",

@@ -1520,6 +1520,48 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		checks_passed++;
 	}
 
+	// Check 15 (G3.1 & G3.2): RECOVERING State Mid-Recovery Crash Resumption & Split (Inventory + item_award) Delivery Recovery
+	{
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 5000, `cash_mark` = 0 WHERE `id` = 990701");
+
+		// 15a: Journal row left in 'RECOVERING' (simulating crash mid-recovery) is resumed and refunded
+		auto insRecState = DBManager::instance().AccountQuery(
+			"INSERT INTO `itemshop_tx_journal` "
+			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`) "
+			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -600, 600, 5600, 'RECOVERING')",
+			static_cast<unsigned int>(ERequestCharge_Cash));
+		RUNTIME_ASSERT(insRecState && insRecState->uiSQLErrno == 0 && insRecState->Get(), "Inserted RECOVERING row");
+		uint64_t txRecState = insRecState->Get()->ullInsertID;
+		int rec15a = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto bal15a = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(rec15a == 1 && queryJournalState(txRecState) == "REFUNDED" && bal15a.dwDragonCoins == 5600,
+			"G3.1: Row interrupted in RECOVERING state is selected and refunded on next startup recovery");
+
+		// 15b: Split delivery (2 items in player.item via INV_PENDING:77099 + 2 items in item_award = 4 total) is finalized as DELIVERED
+		DBManager::instance().DirectQuery(
+			"INSERT INTO `item` (`id`, `owner_id`, `window`, `pos`, `count`, `vnum`) VALUES (77099, 880701, 'INVENTORY', 1, 2, 71084)");
+		auto insSplit = DBManager::instance().AccountQuery(
+			"INSERT INTO `itemshop_tx_journal` "
+			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`, `delivered_item_ids`) "
+			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 2, 4, %u, -1200, 1200, 6800, 'CHARGED', 'INV_PENDING:77099')",
+			static_cast<unsigned int>(ERequestCharge_Cash));
+		RUNTIME_ASSERT(insSplit && insSplit->uiSQLErrno == 0 && insSplit->Get(), "Inserted split-delivery CHARGED row");
+		uint64_t txSplit = insSplit->Get()->ullInsertID;
+		DBManager::instance().DirectQuery(
+			"INSERT INTO `item_award` (`login`, `vnum`, `count`, `given_time`, `why`, `mall`) "
+			"VALUES ('real_itemshop_buyer', 71084, 2, NOW(), 'ITEMSHOP_TX_%llu#1', 1)",
+			static_cast<unsigned long long>(txSplit));
+		int rec15b = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto bal15b = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		auto msgSplitItem = DBManager::instance().DirectQuery("SELECT COUNT(*) FROM `item` WHERE `id` = 77099 AND `owner_id` = 880701");
+		MYSQL_ROW rSplitItem = (msgSplitItem && msgSplitItem->Get()) ? mysql_fetch_row(msgSplitItem->Get()->pSQLResult) : nullptr;
+		int splitInvStillExists = (rSplitItem && rSplitItem[0]) ? std::atoi(rSplitItem[0]) : 0;
+		RUNTIME_ASSERT(rec15b == 1 && queryJournalState(txSplit) == "DELIVERED" && splitInvStillExists == 1 && bal15b.dwDragonCoins == 5600,
+			"G3.2: Split delivery across player.item and item_award is finalized as DELIVERED without deleting inventory items or false refund");
+		std::cout << "  [PASS] Check 15 (G3.1 & G3.2): RECOVERING state resumption & split (inventory + item_award) delivery recovery verified" << std::endl;
+		checks_passed++;
+	}
+
 	// Cleanup isolated tables
 	DBManager::instance().AccountQuery("DROP TABLE IF EXISTS `itemshop_tx_journal`, `account`");
 	DBManager::instance().DirectQuery("DROP TABLE IF EXISTS `item_award`, `item`, `itemshop_time_auction`, `itemshop`");
@@ -1540,7 +1582,7 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	std::remove("packet_info.txt");
 
 	std::cout << "==================================================" << std::endl;
-	std::cout << " [SUCCESS] REAL CItemShopManager LIVE SUITE: " << checks_passed << "/14 CHECKS PASSED!" << std::endl;
+	std::cout << " [SUCCESS] REAL CItemShopManager LIVE SUITE: " << checks_passed << "/15 CHECKS PASSED!" << std::endl;
 	std::cout << "==================================================" << std::endl;
 	return 0;
 }

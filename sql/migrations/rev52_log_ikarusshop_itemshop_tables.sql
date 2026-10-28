@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS `itemshop` (
   `currency` tinyint(4) NOT NULL DEFAULT 0,
   `item_id` int(10) unsigned DEFAULT NULL,
   `date` datetime NOT NULL DEFAULT current_timestamp(),
-  `money_before_buy` int(10) unsigned NOT NULL DEFAULT 0,
+  `money_before_buy` bigint(20) NOT NULL DEFAULT 0,
   KEY `idx_itemshop_pid` (`pid`),
   KEY `idx_itemshop_account_id` (`account_id`),
   KEY `idx_itemshop_date` (`date`)

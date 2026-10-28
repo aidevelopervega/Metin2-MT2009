@@ -71,11 +71,18 @@ void CheckHardware::Block(const std::string& id)
 	if (!id.size())
 		return;
 
-	DBManager::instance().AccountQuery("UPDATE hardware_status SET status='BLOCK' WHERE hwid='%s'", id.c_str());
+	char szEscapedId[HWID_MAX_LEN * 2 + 1];
+	DBManager::instance().EscapeString(szEscapedId, sizeof(szEscapedId), id.c_str(), std::min<size_t>(id.size(), HWID_MAX_LEN));
+	std::unique_ptr<SQLMsg> pMsg(DBManager::instance().AccountQuery("UPDATE hardware_status SET status='BLOCK' WHERE hwid='%s'", szEscapedId));
 }
 
 void CheckHardware::Unblock(std::string id)
 {
-	DBManager::instance().DirectQuery("UPDATE hardware_status SET status='OK' WHERE hwid='%s'", id.c_str());
+	if (!id.size())
+		return;
+
+	char szEscapedId[HWID_MAX_LEN * 2 + 1];
+	DBManager::instance().EscapeString(szEscapedId, sizeof(szEscapedId), id.c_str(), std::min<size_t>(id.size(), HWID_MAX_LEN));
+	std::unique_ptr<SQLMsg> pMsg(DBManager::instance().AccountQuery("UPDATE hardware_status SET status='OK' WHERE hwid='%s'", szEscapedId));
 }
 

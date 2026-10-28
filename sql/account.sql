@@ -312,7 +312,7 @@ CREATE TABLE `itemshop_tx_journal` (
   `vip_hours` int(11) unsigned NOT NULL DEFAULT 0,
   `is_time_auction` tinyint(1) NOT NULL DEFAULT 0,
   `auction_reserved_count` int(11) unsigned NOT NULL DEFAULT 0,
-  `state` enum('INITIATED','CHARGED','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',
+  `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',
   `delivered_item_ids` varchar(255) NOT NULL DEFAULT '',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

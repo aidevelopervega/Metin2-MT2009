@@ -1215,6 +1215,7 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 			peer->EncodeHeader(HEADER_DG_PLAYER_DELETE_FAILED, pi->dwHandle, sizeof(BYTE) + sizeof(BYTE));
 			peer->EncodeBYTE(PLAYER_DELETE_ABOVE_LEVEL_LIMIT);
 			peer->EncodeBYTE(pi->account_index);
+			delete pi;
 			return;
 		}
 
@@ -1224,6 +1225,7 @@ void CClientManager::__RESULT_PLAYER_DELETE(CPeer *peer, SQLMsg* msg)
 			peer->EncodeHeader(HEADER_DG_PLAYER_DELETE_FAILED, pi->dwHandle, sizeof(BYTE) + sizeof(BYTE));
 			peer->EncodeBYTE(PLAYER_DELETE_GENERAL_ERROR);
 			peer->EncodeBYTE(pi->account_index);
+			delete pi;
 			return;
 		}
 

@@ -266,8 +266,8 @@ bool CMonarch::DelMonarch(int Empire)
 	char szQuery[256];
 	snprintf(szQuery, sizeof(szQuery), "DELETE FROM monarch WHERE empire=%d", Empire);
 
-	auto pMsg = CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER);
-	if (pMsg->Get()->uiNumRows == 0)
+	std::unique_ptr<SQLMsg> pMsg(CDBManager::instance().DirectQuery(szQuery, SQL_PLAYER));
+	if (!pMsg || pMsg->uiSQLErrno != 0 || !pMsg->Get() || pMsg->Get()->uiAffectedRows == 0 || pMsg->Get()->uiAffectedRows == static_cast<uint32_t>(-1))
 		return false;
 
 	memset(m_MonarchInfo.name[Empire], 0, sizeof(m_MonarchInfo.name[Empire]));

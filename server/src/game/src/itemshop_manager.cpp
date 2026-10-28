@@ -52,7 +52,16 @@ bool CItemShopManager::Initialize(TItemShopItem* pTable, int iSize)
 		}
 	}
 
-	// Refresh auction buy amount
+	if (EnsureTransactionJournalSchema())
+	{
+		const int recovered = RecoverIncompleteTransactions();
+		if (recovered > 0)
+		{
+			sys_log(0, "ItemShop: Recovered %d incomplete transaction(s) from itemshop_tx_journal", recovered);
+		}
+	}
+
+	// Refresh auction buy amount after startup journal recovery so any rolled-back auction counts are reflected
 	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().DirectQuery("SELECT item_index, buy_count FROM itemshop_time_auction"));
 	if (pkMsg && pkMsg->uiSQLErrno == 0 && pkMsg->Get() && pkMsg->Get()->uiNumRows > 0)
 	{
@@ -65,15 +74,6 @@ bool CItemShopManager::Initialize(TItemShopItem* pTable, int iSize)
 			str_to_number(item_index, row[col++]);
 			str_to_number(buy_count, row[col++]);
 			UpdateAuctionBuyAmount(item_index, buy_count);
-		}
-	}
-
-	if (EnsureTransactionJournalSchema())
-	{
-		const int recovered = RecoverIncompleteTransactions();
-		if (recovered > 0)
-		{
-			sys_log(0, "ItemShop: Recovered %d incomplete transaction(s) from itemshop_tx_journal", recovered);
 		}
 	}
 
@@ -257,17 +257,14 @@ bool CItemShopManager::CheckIfCanBuyTimeAuctionAndUpdate(TItemShopItem item, LPC
 			item.timeAuction.dwCurrentBuyAmount = new_buy_count;
 			DWORD new_progress = GetTimeAuctionProgress(item);
 			buyer->ChatDebug("%d != %d", current_progress, new_progress);
-			if (current_progress != new_progress)
-			{
-				buyer->ChatDebug("wysylam!");
-				TPacketGGItemShopAuctionUpdate p;
-				p.bHeader = HEADER_GG_ITEMSHOP_AUCTION_UPDATE;
-				p.dwItemIndex = item.dwIndex;
-				p.dwBuyAmount = item.timeAuction.dwCurrentBuyAmount;
 
-				P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
-				UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
-			}
+			TPacketGGItemShopAuctionUpdate p;
+			p.bHeader = HEADER_GG_ITEMSHOP_AUCTION_UPDATE;
+			p.dwItemIndex = item.dwIndex;
+			p.dwBuyAmount = item.timeAuction.dwCurrentBuyAmount;
+
+			P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
+			UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
 		}
 
 		if (MAX_BUY_PER_ACCOUNT > 0)
@@ -690,15 +687,12 @@ void CItemShopManager::SendUseCodeVoucher(LPCHARACTER ch, const char* code)
 		return;
 	}
 
-	char szCode[CODE_VOUCHER_MAX_LEN * 2 + 1];
-	DBManager::instance().EscapeString(szCode, sizeof(szCode), code, std::strlen(code));
-
-	ch->ChatDebug("checkCode %s", szCode);
-
-	TRequestUseCodeVoucher packet;
+	TRequestUseCodeVoucher packet{};
 	packet.dwPID = ch->GetPlayerID();
 	packet.dwAID = ch->GetDesc()->GetAccountTable().id;
-	strlcpy(packet.code, szCode, sizeof(packet.code));
+	strlcpy(packet.code, code, sizeof(packet.code));
+
+	ch->ChatDebug("checkCode %s", packet.code);
 
 	db_clientdesc->DBPacketHeader(HEADER_GD_REQUEST_USE_VOUCHER, 0, sizeof(TRequestUseCodeVoucher));
 	db_clientdesc->Packet(&packet, sizeof(packet));
@@ -1014,7 +1008,7 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 			"  `vip_hours` int(11) unsigned NOT NULL DEFAULT 0,"
 			"  `is_time_auction` tinyint(1) NOT NULL DEFAULT 0,"
 			"  `auction_reserved_count` int(11) unsigned NOT NULL DEFAULT 0,"
-			"  `state` enum('INITIATED','CHARGED','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',"
+			"  `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED',"
 			"  `delivered_item_ids` varchar(255) NOT NULL DEFAULT '',"
 			"  `created_at` datetime NOT NULL DEFAULT current_timestamp(),"
 			"  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),"
@@ -1024,6 +1018,26 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 			"  KEY `idx_itemshop_tx_pid` (`pid`)"
 			") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC"));
 		journalOk = (pkCreate && pkCreate->uiSQLErrno == 0);
+	}
+	else
+	{
+		std::unique_ptr<SQLMsg> pkCheckEnum(DBManager::instance().AccountQuery(
+			"SELECT COUNT(*) FROM information_schema.COLUMNS "
+			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'itemshop_tx_journal' "
+			"AND COLUMN_NAME = 'state' AND COLUMN_TYPE LIKE '%%RECOVERING%%'"));
+		uint64_t hasRecoveringState = 0;
+		if (pkCheckEnum && pkCheckEnum->uiSQLErrno == 0 && pkCheckEnum->Get() && pkCheckEnum->Get()->uiNumRows == 1)
+		{
+			MYSQL_ROW enumRow = mysql_fetch_row(pkCheckEnum->Get()->pSQLResult);
+			if (enumRow && enumRow[0])
+				str_to_number(hasRecoveringState, enumRow[0]);
+		}
+		if (hasRecoveringState == 0)
+		{
+			DBManager::instance().AccountQuery(
+				"ALTER TABLE `itemshop_tx_journal` "
+				"MODIFY COLUMN `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED'");
+		}
 	}
 	if (!journalOk)
 		return false;
@@ -1057,7 +1071,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		"SELECT tx_id, aid, pid, item_index, vnum, quantity, item_count, charge_type, "
 		"cash_delta, mark_delta, money_before_buy, is_vip, is_time_auction, auction_reserved_count, state, delivered_item_ids "
 		"FROM itemshop_tx_journal "
-		"WHERE state IN ('INITIATED', 'CHARGED') "
+		"WHERE state IN ('INITIATED', 'CHARGED', 'RECOVERING') "
 		"ORDER BY tx_id ASC"));
 	if (!pkSelect || pkSelect->uiSQLErrno != 0 || !pkSelect->Get())
 		return -1;
@@ -1152,16 +1166,27 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			continue;
 		}
 
-		if (tx.state != "CHARGED")
+		if (tx.state != "CHARGED" && tx.state != "RECOVERING")
 			continue;
 
-		// Check direct inventory delivery crash window (Question 6: INV_PENDING:<id1>,<id2>)
+		// Atomically claim CHARGED -> RECOVERING before touching any partial item / item_award rows
+		if (tx.state == "CHARGED")
+		{
+			std::unique_ptr<SQLMsg> pkClaimRec(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET state = 'RECOVERING' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				static_cast<unsigned long long>(tx.txId)));
+			if (!pkClaimRec || pkClaimRec->uiSQLErrno != 0 || !pkClaimRec->Get() || pkClaimRec->Get()->uiAffectedRows != 1)
+				continue;
+		}
+
+		// Inspect both direct inventory delivery (INV_PENDING:<id1>,<id2>) and item_award delivery BEFORE deleting partial rows
 		std::string csvInvIds;
 		size_t invIdCount = 0;
+		uint64_t invRows = 0;
+		uint64_t invSumCount = 0;
 		if (tx.isVip == 0 && ExtractSafeIdListFromInvPending(tx.deliveredItemIds, csvInvIds, invIdCount))
 		{
-			uint64_t invRows = 0;
-			uint64_t invSumCount = 0;
 			std::unique_ptr<SQLMsg> pkInvCheck(DBManager::instance().DirectQuery(
 				"SELECT COUNT(*), COALESCE(SUM(count), 0) FROM item WHERE id IN (%s) AND owner_id = %u",
 				csvInvIds.c_str(),
@@ -1175,36 +1200,8 @@ int CItemShopManager::RecoverIncompleteTransactions()
 					if (iRow[1]) str_to_number(invSumCount, iRow[1]);
 				}
 			}
-
-			if (tx.itemCount > 0 && invSumCount >= static_cast<uint64_t>(tx.itemCount))
-			{
-				std::unique_ptr<SQLMsg> pkFinalizeInv(DBManager::instance().AccountQuery(
-					"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'RECOVERED_INVENTORY' "
-					"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-					static_cast<unsigned long long>(tx.txId)));
-				if (pkFinalizeInv && pkFinalizeInv->uiSQLErrno == 0 && pkFinalizeInv->Get() && pkFinalizeInv->Get()->uiAffectedRows == 1)
-					++recoveredCount;
-				continue;
-			}
-
-			if (invRows > 0)
-			{
-				std::unique_ptr<SQLMsg> pkCleanInv(DBManager::instance().DirectQuery(
-					"DELETE FROM item WHERE id IN (%s) AND owner_id = %u",
-					csvInvIds.c_str(),
-					static_cast<unsigned int>(tx.pid)));
-				if (!pkCleanInv || pkCleanInv->uiSQLErrno != 0)
-				{
-					DBManager::instance().AccountQuery(
-						"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_INVENTORY_DELETE_FAILED' "
-						"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-						static_cast<unsigned long long>(tx.txId));
-					continue;
-				}
-			}
 		}
 
-		// Check if item_award already received the items for this tx_id right before crash
 		uint64_t awardRows = 0;
 		uint64_t awardSumCount = 0;
 		uint64_t awardTakenRows = 0;
@@ -1228,12 +1225,16 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			}
 		}
 
-		// Subcase A: Full item_award delivery had already completed before crash -> finalize as DELIVERED (0 double-delivery, 0 false refund)
-		if (tx.isVip == 0 && tx.itemCount > 0 && awardSumCount >= static_cast<uint64_t>(tx.itemCount))
+		// Subcase A: Full delivery (inventory, item_award, or split across both) had already completed before crash -> finalize as DELIVERED
+		if (tx.isVip == 0 && tx.itemCount > 0 && (invSumCount + awardSumCount) >= static_cast<uint64_t>(tx.itemCount))
 		{
+			const char* recLabel = (invSumCount > 0 && awardSumCount > 0)
+				? "RECOVERED_SPLIT_DELIVERY"
+				: ((invSumCount > 0) ? "RECOVERED_INVENTORY" : "RECOVERED_AWARD");
 			std::unique_ptr<SQLMsg> pkFinalize(DBManager::instance().AccountQuery(
-				"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'RECOVERED_AWARD' "
-				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = '%s' "
+				"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
+				recLabel,
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkFinalize && pkFinalize->uiSQLErrno == 0 && pkFinalize->Get() && pkFinalize->Get()->uiAffectedRows == 1)
 				++recoveredCount;
@@ -1245,14 +1246,30 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		{
 			std::unique_ptr<SQLMsg> pkReview(DBManager::instance().AccountQuery(
 				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_AWARD_TAKEN' "
-				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkReview && pkReview->uiSQLErrno == 0 && pkReview->Get() && pkReview->Get()->uiAffectedRows == 1)
 				++recoveredCount;
 			continue;
 		}
 
-		// Subcase C: Clean up any untaken partial item_award rows before refunding
+		// Subcase C: Clean up any partial inventory rows and untaken partial item_award rows before refunding
+		if (invRows > 0 && !csvInvIds.empty())
+		{
+			std::unique_ptr<SQLMsg> pkCleanInv(DBManager::instance().DirectQuery(
+				"DELETE FROM item WHERE id IN (%s) AND owner_id = %u",
+				csvInvIds.c_str(),
+				static_cast<unsigned int>(tx.pid)));
+			if (!pkCleanInv || pkCleanInv->uiSQLErrno != 0)
+			{
+				DBManager::instance().AccountQuery(
+					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_INVENTORY_DELETE_FAILED' "
+					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
+					static_cast<unsigned long long>(tx.txId));
+				continue;
+			}
+		}
+
 		if (awardRows > 0)
 		{
 			std::unique_ptr<SQLMsg> pkCleanAward(DBManager::instance().DirectQuery(
@@ -1263,7 +1280,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			{
 				DBManager::instance().AccountQuery(
 					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_AWARD_DELETE_FAILED' "
-					"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 					static_cast<unsigned long long>(tx.txId));
 				continue;
 			}
@@ -1276,7 +1293,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		{
 			std::unique_ptr<SQLMsg> pkInvalidDelta(DBManager::instance().AccountQuery(
 				"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'INVALID_JOURNAL_DELTA' "
-				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkInvalidDelta && pkInvalidDelta->uiSQLErrno == 0 && pkInvalidDelta->Get() && pkInvalidDelta->Get()->uiAffectedRows == 1)
 				++recoveredCount;
@@ -1294,7 +1311,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 
 		std::unique_ptr<SQLMsg> pkClaimRefund(DBManager::instance().AccountQuery(
 			"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'CRASH_REFUNDED' "
-			"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+			"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 			static_cast<unsigned long long>(tx.txId)));
 		if (!pkClaimRefund || pkClaimRefund->uiSQLErrno != 0 || !pkClaimRefund->Get() || pkClaimRefund->Get()->uiAffectedRows != 1)
 		{
@@ -1340,7 +1357,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 			{
 				DBManager::instance().AccountQuery(
 					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'ACCOUNT_REFUND_FAILED' "
-					"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 					static_cast<unsigned long long>(tx.txId));
 				sys_err("[CRITICAL][ITEMSHOP_RECOVERY_MANUAL_REVIEW] Failed to refund account for tx_id=%llu (aid=%u, pid=%u)",
 					static_cast<unsigned long long>(tx.txId),
@@ -1504,7 +1521,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	{
 		uint64_t pendingForAid = 0;
 		std::unique_ptr<SQLMsg> pkPendingCheck(DBManager::instance().AccountQuery(
-			"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED')",
+			"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
 			static_cast<unsigned int>(aid)));
 		if (pkPendingCheck && pkPendingCheck->uiSQLErrno == 0 && pkPendingCheck->Get() && pkPendingCheck->Get()->uiNumRows == 1)
 		{
@@ -1517,7 +1534,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 			RecoverIncompleteTransactions();
 			pendingForAid = 0;
 			std::unique_ptr<SQLMsg> pkRecheck(DBManager::instance().AccountQuery(
-				"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED')",
+				"SELECT COUNT(*) FROM itemshop_tx_journal WHERE aid = %u AND state IN ('INITIATED', 'CHARGED', 'RECOVERING')",
 				static_cast<unsigned int>(aid)));
 			if (!pkRecheck || pkRecheck->uiSQLErrno != 0 || !pkRecheck->Get() || pkRecheck->Get()->uiNumRows != 1)
 				return false;
@@ -1750,6 +1767,7 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 
 	std::string itemId = "null";
 	bool deliveryOk = true;
+	bool vipJournalFinalizedInTx = false;
 	std::vector<LPITEM> createdItems;
 	std::vector<uint64_t> awardInsertIds;
 
@@ -1757,7 +1775,49 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	{
 		BYTE premiumType = static_cast<BYTE>(itemTable->alValues[0]);
 		DWORD durationInHours = static_cast<DWORD>(itemTable->alValues[1]);
-		deliveryOk = AddVIP(ch, premiumType, durationInHours);
+		if (m_bCrashAfterDeliveryBeforeJournalForTest)
+		{
+			deliveryOk = AddVIP(ch, premiumType, durationInHours);
+		}
+		else
+		{
+			const uint64_t vipConnBefore = GetAccountDBConnectionId();
+			std::unique_ptr<SQLMsg> pkBeginVip(DBManager::instance().AccountQuery("START TRANSACTION"));
+			if (vipConnBefore == 0 || !pkBeginVip || pkBeginVip->uiSQLErrno != 0)
+			{
+				deliveryOk = false;
+			}
+			else
+			{
+				deliveryOk = AddVIP(ch, premiumType, durationInHours);
+				if (deliveryOk)
+				{
+					std::unique_ptr<SQLMsg> pkMarkVipDelivered(DBManager::instance().AccountQuery(
+						"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'VIP' "
+						"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+						static_cast<unsigned long long>(txId)));
+					if (!pkMarkVipDelivered || pkMarkVipDelivered->uiSQLErrno != 0 || !pkMarkVipDelivered->Get() || pkMarkVipDelivered->Get()->uiAffectedRows != 1)
+						deliveryOk = false;
+				}
+				const uint64_t vipConnAfter = GetAccountDBConnectionId();
+				if (deliveryOk && vipConnAfter == vipConnBefore)
+				{
+					std::unique_ptr<SQLMsg> pkCommitVip(DBManager::instance().AccountQuery("COMMIT"));
+					if (pkCommitVip && pkCommitVip->uiSQLErrno == 0)
+						vipJournalFinalizedInTx = true;
+					else
+						deliveryOk = false;
+				}
+				else
+				{
+					deliveryOk = false;
+				}
+				if (!deliveryOk)
+				{
+					DBManager::instance().AccountQuery("ROLLBACK");
+				}
+			}
+		}
 	}
 	else
 	{
@@ -1971,7 +2031,14 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	for (LPITEM createdItem : createdItems)
 	{
 		if (createdItem)
+		{
 			ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
+			if (db_clientdesc && db_clientdesc->GetSocket() != INVALID_SOCKET)
+			{
+				DWORD dwItemID = createdItem->GetID();
+				db_clientdesc->DBPacket(HEADER_GD_ITEM_FLUSH, 0, &dwItemID, sizeof(DWORD));
+			}
+		}
 	}
 
 	if (m_bCrashAfterDeliveryBeforeJournalForTest)
@@ -1981,16 +2048,19 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		return true;
 	}
 
-	std::string deliveredSummary = isVIPEffect ? "VIP" : itemId;
-	if (!awardInsertIds.empty())
+	if (!vipJournalFinalizedInTx)
 	{
-		deliveredSummary = "AWARD:" + std::to_string(awardInsertIds.front());
+		std::string deliveredSummary = isVIPEffect ? "VIP" : itemId;
+		if (!awardInsertIds.empty())
+		{
+			deliveredSummary = "AWARD:" + std::to_string(awardInsertIds.front());
+		}
+		DBManager::instance().AccountQuery(
+			"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = '%s' "
+			"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+			deliveredSummary.c_str(),
+			static_cast<unsigned long long>(txId));
 	}
-	DBManager::instance().AccountQuery(
-		"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = '%s' "
-		"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-		deliveredSummary.c_str(),
-		static_cast<unsigned long long>(txId));
 
 	if (isTimeAuction)
 	{
@@ -2025,17 +2095,14 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		item.timeAuction.dwCurrentBuyAmount = new_buy_count;
 		DWORD new_progress = GetTimeAuctionProgress(item);
 		ch->ChatDebug("%d != %d", current_progress, new_progress);
-		if (current_progress != new_progress)
-		{
-			ch->ChatDebug("wysylam!");
-			TPacketGGItemShopAuctionUpdate p;
-			p.bHeader = HEADER_GG_ITEMSHOP_AUCTION_UPDATE;
-			p.dwItemIndex = item.dwIndex;
-			p.dwBuyAmount = item.timeAuction.dwCurrentBuyAmount;
 
-			P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
-			UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
-		}
+		TPacketGGItemShopAuctionUpdate p;
+		p.bHeader = HEADER_GG_ITEMSHOP_AUCTION_UPDATE;
+		p.dwItemIndex = item.dwIndex;
+		p.dwBuyAmount = item.timeAuction.dwCurrentBuyAmount;
+
+		P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGItemShopAuctionUpdate));
+		UpdateAuctionBuyAmount(item.dwIndex, item.timeAuction.dwCurrentBuyAmount);
 	}
 
 	SendBalance(ch);

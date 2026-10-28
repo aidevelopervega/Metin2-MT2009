@@ -758,9 +758,9 @@ void AccountDB::Process()
 				AnalyzeReturnQuery(pMsg);
 				break;
 		}
-	}
 
-	delete pMsg;
+		delete pMsg;
+	}
 }
 
 extern unsigned int g_uiSpamReloadCycle;
