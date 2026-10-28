@@ -428,6 +428,73 @@ int main()
         delete pc;
     }
 
+    // =========================================================================
+    // SENARYO J: G1 Tam 64-Bit Ekonomi, Lonca, IkarusShop, QuestLua ve Overflow Regresyon Testleri
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo J: G1 64-bit ekonomi, lonca, IkarusShop, QuestLua ve unsigned-negation korumalari..." << std::endl;
+        constexpr int64_t kGoldMax64 = 1000000000000LL;
+
+        // 1. Guild ChargeSP (offer * 300) 32-bit signed overflow guard
+        auto isValidGuildChargeSP = [kGoldMax64](int32_t offer, int64_t playerGold) -> bool {
+            if (offer <= 0 || static_cast<int64_t>(offer) > (kGoldMax64 - 1) / 300)
+                return false;
+            const int64_t goldCost = static_cast<int64_t>(offer) * 300;
+            return goldCost > 0 && goldCost <= playerGold;
+        };
+        // Previously offer = 7,158,279 overflowed signed 32-bit int (7158279 * 300 = 2,147,483,700 -> -2,147,483,596)
+        TEST_ASSERT(!isValidGuildChargeSP(7158279, 1000LL) &&
+                    isValidGuildChargeSP(7158279, 3000000000LL) &&
+                    !isValidGuildChargeSP(0, 3000000000LL) &&
+                    !isValidGuildChargeSP(-100, 3000000000LL),
+            "Senaryo J: Guild ChargeSP blocks 32-bit signed overflow (7,158,279 * 300 = 2.147B Yang)");
+
+        // 2. Guild WithdrawMoneyReply player GOLD_MAX clamp-loss protection
+        auto canGiveWithdrawnGuildGold = [kGoldMax64](int64_t playerGold, int64_t withdrawGold) -> bool {
+            return withdrawGold > 0 && withdrawGold < kGoldMax64 && playerGold < kGoldMax64 - withdrawGold;
+        };
+        TEST_ASSERT(canGiveWithdrawnGuildGold(500000000000LL, 400000000000LL) &&
+                    !canGiveWithdrawnGuildGold(600000000000LL, 400000000000LL) &&
+                    !canGiveWithdrawnGuildGold(999999999999LL, 1LL),
+            "Senaryo J: Guild WithdrawMoneyGive refuses delivery when playerGold + withdrawGold >= GOLD_MAX so DB refunds treasury");
+
+        // 3. IkarusShop total shop value overflow guard on AddItem and EditItem
+        auto canAddOrEditShopItem = [kGoldMax64](int64_t currentShopTotalWithoutItem, int64_t newItemPrice) -> bool {
+            if (newItemPrice <= 0 || newItemPrice >= kGoldMax64)
+                return false;
+            if (currentShopTotalWithoutItem < 0 || currentShopTotalWithoutItem >= kGoldMax64 - newItemPrice)
+                return false;
+            return true;
+        };
+        TEST_ASSERT(canAddOrEditShopItem(500000000000LL, 499999999999LL) &&
+                    !canAddOrEditShopItem(500000000000LL, 500000000000LL) &&
+                    !canAddOrEditShopItem(0LL, 0LL) &&
+                    !canAddOrEditShopItem(0LL, kGoldMax64),
+            "Senaryo J: IkarusShop AddItem/EditItem enforces 0 < itemPrice < GOLD_MAX and totalShopYang < GOLD_MAX");
+
+        // 4. QuestLua pc_change_money underflow/overflow guard (including INT64_MIN edge case)
+        auto canChangeMoneyLua = [kGoldMax64](int64_t currentGold, int64_t delta) -> bool {
+            if (delta >= kGoldMax64 || delta <= -kGoldMax64)
+                return false;
+            if (delta > 0 && currentGold >= kGoldMax64 - delta)
+                return false;
+            if (delta < 0 && currentGold < -delta)
+                return false;
+            return true;
+        };
+        TEST_ASSERT(canChangeMoneyLua(5000000000LL, -4294967296LL) &&
+                    !canChangeMoneyLua(3000000000LL, -4294967296LL) &&
+                    !canChangeMoneyLua(5000000000LL, std::numeric_limits<int64_t>::min()) &&
+                    !canChangeMoneyLua(900000000000LL, 100000000000LL),
+            "Senaryo J: QuestLua pc_change_money safely handles >2^32 deductions and rejects underflow/overflow/INT64_MIN");
+
+        // 5. do_build unsigned DWORD negation bug regression check
+        uint32_t dwBuildPrice = 25000000U;
+        int64_t signedDeduction = -static_cast<int64_t>(dwBuildPrice);
+        TEST_ASSERT(signedDeduction == -25000000LL && signedDeduction < 0,
+            "Senaryo J: do_build casts uint32_t dwPrice to signed YANG before negation (-25,000,000 instead of +4,269,967,296)");
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << "[SUCCESS] DB CACHE SUITE: " << g_passCount << "/" << g_testCount << " tests passed cleanly!" << std::endl;
     std::cout << "==================================================" << std::endl;

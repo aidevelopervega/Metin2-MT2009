@@ -2160,7 +2160,7 @@ void CClientManager::RemoveOfferOnShop(DWORD dwOwnerID)
 #endif
 
 		SendIkarusShopOfferCancel(offer->ownerid, offer->offerid, true);//ikashop-updated 05/08/19
-		m_offlineshopOfferCache.CancelOffer(offer->itemid, offer->ownerid);
+		m_offlineshopOfferCache.CancelOffer(offer->offerid, offer->ownerid);
 	}
 }
 

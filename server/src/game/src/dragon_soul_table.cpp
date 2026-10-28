@@ -355,7 +355,8 @@ bool DragonSoulTable::CheckRefineGradeTables()
 		{
 			for (int j = 0; j < DRAGON_SOUL_GRADE_MAX - 1; j++)
 			{
-				int need_count, fee;
+				int need_count;
+				YANG fee;
 				std::vector <float> vec_probs;
 				if (!GetRefineGradeValues(m_vecDragonSoulTypes[i], j, need_count, fee, vec_probs))
 				{
@@ -369,7 +370,7 @@ bool DragonSoulTable::CheckRefineGradeTables()
 						m_vecDragonSoulNames[i].c_str(), g_astGradeName[j].c_str());
 					return false;
 				}
-				if (fee < 0)
+				if (fee < 0 || fee >= GOLD_MAX)
 				{
 					sys_err ("In %s group of RefineGradeTables, fee of Grade(%s) is less than 0.",
 						m_vecDragonSoulNames[i].c_str(), g_astGradeName[j].c_str());
@@ -409,7 +410,8 @@ bool DragonSoulTable::CheckRefineStepTables ()
 		{
 			for (int j = 0; j < DRAGON_SOUL_STEP_MAX - 1; j++)
 			{
-				int need_count, fee;
+				int need_count;
+				YANG fee;
 				std::vector <float> vec_probs;
 				if (!GetRefineStepValues(m_vecDragonSoulTypes[i], j, need_count, fee, vec_probs))
 				{
@@ -423,7 +425,7 @@ bool DragonSoulTable::CheckRefineStepTables ()
 						m_vecDragonSoulNames[i].c_str(), g_astStepName[j].c_str());
 					return false;
 				}
-				if (fee < 0)
+				if (fee < 0 || fee >= GOLD_MAX)
 				{
 					sys_err ("In %s group of RefineStepTables, fee of Step(%s) is less than 0.",
 						m_vecDragonSoulNames[i].c_str(), g_astStepName[j].c_str());
@@ -464,7 +466,7 @@ bool DragonSoulTable::CheckRefineStrengthTables()
 	{
 		for (int j = MATERIAL_DS_REFINE_NORMAL; j <= MATERIAL_DS_REFINE_HOLLY; j++)
 		{
-			int fee;
+			YANG fee;
 			float prob;
 			for (int k = 0; k < DRAGON_SOUL_STRENGTH_MAX -1; k++)
 			{
@@ -474,7 +476,7 @@ bool DragonSoulTable::CheckRefineStrengthTables()
 						m_vecDragonSoulNames[i].c_str(), g_astMaterialName[j].c_str(), k);
 					return false;
 				}
-				if (fee < 0)
+				if (fee < 0 || fee >= GOLD_MAX)
 				{
 					sys_err ("In %s group of RefineStrengthTables, fee of Material(%s) is less than 0.",
 						m_vecDragonSoulNames[i].c_str(), g_astMaterialName[j].c_str());
@@ -679,7 +681,7 @@ bool DragonSoulTable::GetWeight(BYTE ds_type, BYTE grade_idx, BYTE step_index, B
 	return false;
 }
 
-bool DragonSoulTable::GetRefineGradeValues(BYTE ds_type, BYTE grade_idx, OUT int& need_count, OUT int& fee, OUT std::vector<float>& vec_probs)
+bool DragonSoulTable::GetRefineGradeValues(BYTE ds_type, BYTE grade_idx, OUT int& need_count, OUT YANG& fee, OUT std::vector<float>& vec_probs)
 {
 	if (grade_idx >= DRAGON_SOUL_GRADE_MAX -1)
 	{
@@ -727,7 +729,7 @@ bool DragonSoulTable::GetRefineGradeValues(BYTE ds_type, BYTE grade_idx, OUT int
 	return true;
 }
 
-bool DragonSoulTable::GetRefineStepValues(BYTE ds_type, BYTE step_idx, OUT int& need_count, OUT int& fee, OUT std::vector<float>& vec_probs)
+bool DragonSoulTable::GetRefineStepValues(BYTE ds_type, BYTE step_idx, OUT int& need_count, OUT YANG& fee, OUT std::vector<float>& vec_probs)
 {
 	if (step_idx >= DRAGON_SOUL_STEP_MAX - 1)
 	{
@@ -775,7 +777,7 @@ bool DragonSoulTable::GetRefineStepValues(BYTE ds_type, BYTE step_idx, OUT int& 
 	return true;
 }
 
-bool DragonSoulTable::GetRefineStrengthValues(BYTE ds_type, BYTE material_type, BYTE strength_idx, OUT int& fee, OUT float& prob)
+bool DragonSoulTable::GetRefineStrengthValues(BYTE ds_type, BYTE material_type, BYTE strength_idx, OUT YANG& fee, OUT float& prob)
 {
 	if (material_type < MATERIAL_DS_REFINE_NORMAL || material_type > MATERIAL_DS_REFINE_HOLLY)
 	{

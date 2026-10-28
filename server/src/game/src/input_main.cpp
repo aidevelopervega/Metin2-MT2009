@@ -2763,7 +2763,7 @@ size_t GetSubPacketSize(const GUILD_SUBHEADER_CG& header)
 {
 	switch (header)
 	{
-		case GUILD_SUBHEADER_CG_DEPOSIT_MONEY:				return sizeof(int);
+		case GUILD_SUBHEADER_CG_DEPOSIT_MONEY:				return sizeof(YANG);
 		case GUILD_SUBHEADER_CG_WITHDRAW_MONEY:				return sizeof(YANG);
 		case GUILD_SUBHEADER_CG_ADD_MEMBER:					return sizeof(DWORD);
 		case GUILD_SUBHEADER_CG_REMOVE_MEMBER:				return sizeof(DWORD);
@@ -2823,7 +2823,7 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 			{
 				return SubPacketLen; // return on start so its unavailable
 
-				const int gold = MIN(*reinterpret_cast<const int*>(c_pData), __deposit_limit());
+				const YANG gold = MIN(*reinterpret_cast<const YANG*>(c_pData), static_cast<YANG>(__deposit_limit()));
 
 				if (gold < 0)
 				{
@@ -3010,9 +3010,15 @@ int CInputMain::Guild(LPCHARACTER ch, const char * data, size_t uiBytes)
 		case GUILD_SUBHEADER_CG_CHARGE_GSP:
 			{
 				const int offer = *reinterpret_cast<const int*>(c_pData);
-				const int gold = offer * 100;
+				if (offer <= 0 || static_cast<YANG>(offer) > (GOLD_MAX - 1) / 300)
+				{
+					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] Insufficient Yang in the guild treasury."));
+					return SubPacketLen;
+				}
 
-				if (offer < 0 || gold < offer || gold < 0 || ch->GetGold() < gold)
+				const YANG gold = static_cast<YANG>(offer) * 300;
+
+				if (ch->GetGold() < gold)
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] Insufficient Yang in the guild treasury."));
 					return SubPacketLen;

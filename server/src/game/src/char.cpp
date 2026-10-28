@@ -3127,6 +3127,9 @@ int CHARACTER::GetLimitPoint(BYTE type) const
 		return 0;
 	}
 
+	if (type == POINT_GOLD)
+		return static_cast<int>(std::clamp<YANG>(GetGold(), 0, INT_MAX));
+
 	int val = m_pointsInstant.points[type];
 	int max_val = INT_MAX;
 	int limit = INT_MAX;

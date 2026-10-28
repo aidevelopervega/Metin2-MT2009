@@ -13,7 +13,7 @@ bool CRefineManager::Initialize(TRefineTable * table, int size)
 {
 	for (int i = 0; i < size; ++i, ++table)
 	{
-		sys_log(0, "REFINE %d prob %d cost %d", table->id, table->prob, table->cost);
+		sys_log(0, "REFINE %d prob %d cost %lld", table->id, table->prob, static_cast<long long>(table->cost));
 		m_map_RefineRecipe.emplace(table->id, *table);
 	}
 

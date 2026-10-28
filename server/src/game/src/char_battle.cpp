@@ -985,7 +985,7 @@ void CHARACTER::RewardGold(LPCHARACTER pkAttacker)
 
 	PIXEL_POSITION pos = GetXYZ(); // @fixme194 GetMovablePosition is useless here
 
-	int iTotalGold = 0;
+	YANG iTotalGold = 0;
 	int iGoldPercent = MobRankStats[GetMobRank()].iGoldPercent;
 
 	if (pkAttacker->IsPC())
@@ -1035,22 +1035,24 @@ void CHARACTER::RewardGold(LPCHARACTER pkAttacker)
 
 		for (int i = 0; i < iSplitCount; ++i)
 		{
-			int iGold = number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax) / iSplitCount;
+			YANG iGold = static_cast<YANG>(number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax)) / iSplitCount;
 			if (test_server)
-				sys_log(0, "iGold %d", iGold);
+				sys_log(0, "iGold %lld", static_cast<long long>(iGold));
 			iGold = iGold * CHARACTER_MANAGER::instance().GetMobGoldAmountRate(pkAttacker) / 100;
 			iGold *= iGoldMultipler;
 
-			if (iGold == 0)
+			if (iGold <= 0)
 				continue;
+
+			const int iDropGold = static_cast<int>(std::min<YANG>(iGold, INT_MAX));
 
 			if (test_server)
 			{
 				sys_log(0, "Drop Moeny MobGoldAmountRate %d %d", CHARACTER_MANAGER::instance().GetMobGoldAmountRate(pkAttacker), iGoldMultipler);
-				sys_log(0, "Drop Money gold %d GoldMin %d GoldMax %d", iGold, GetMobTable().dwGoldMax, GetMobTable().dwGoldMax);
+				sys_log(0, "Drop Money gold %d GoldMin %d GoldMax %d", iDropGold, GetMobTable().dwGoldMax, GetMobTable().dwGoldMax);
 			}
 
-			if ((item = ITEM_MANAGER::instance().CreateItem(1, iGold)))
+			if ((item = ITEM_MANAGER::instance().CreateItem(1, iDropGold)))
 			{
 				pos.x = GetX() + ((number(-7, 7) + number(-7, 7)) * 23);
 				pos.y = GetY() + ((number(-7, 7) + number(-7, 7)) * 23);
@@ -1058,13 +1060,13 @@ void CHARACTER::RewardGold(LPCHARACTER pkAttacker)
 				item->AddToGround(GetMapIndex(), pos);
 				item->StartDestroyEvent();
 
-				iTotalGold += iGold; // Total gold
+				iTotalGold += iDropGold; // Total gold
 			}
 		}
 	}
 	else
 	{
-		int iGold = number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax);
+		YANG iGold = static_cast<YANG>(number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax));
 		iGold = iGold * CHARACTER_MANAGER::instance().GetMobGoldAmountRate(pkAttacker) / 100;
 		iGold *= iGoldMultipler;
 
@@ -1080,17 +1082,18 @@ void CHARACTER::RewardGold(LPCHARACTER pkAttacker)
 		else
 			iSplitCount = 1;
 
-		if (iGold != 0)
+		if (iGold > 0)
 		{
 			iTotalGold += iGold; // Total gold
 
 			for (int i = 0; i < iSplitCount; ++i)
 			{
+				const YANG splitGold = iGold / iSplitCount;
 				if (isAutoLoot)
 				{
-					pkAttacker->GiveGold(iGold / iSplitCount);
+					pkAttacker->GiveGold(splitGold);
 				}
-				else if ((item = ITEM_MANAGER::instance().CreateItem(1, iGold / iSplitCount)))
+				else if ((item = ITEM_MANAGER::instance().CreateItem(1, static_cast<int>(std::min<YANG>(splitGold, INT_MAX)))))
 				{
 					pos.x = GetX() + (number(-7, 7) * 20);
 					pos.y = GetY() + (number(-7, 7) * 20);
@@ -1115,9 +1118,10 @@ void CHARACTER::Reward(bool bItemDrop)
 		// @fixme194 END
 
 		LPITEM item;
-		int iGold = number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax);
-		iGold = iGold * CHARACTER_MANAGER::instance().GetMobGoldAmountRate(NULL) / 100;
-		iGold *= GetGoldMultipler();
+		YANG llGold = static_cast<YANG>(number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax));
+		llGold = llGold * CHARACTER_MANAGER::instance().GetMobGoldAmountRate(NULL) / 100;
+		llGold *= GetGoldMultipler();
+		int iGold = static_cast<int>(std::clamp<YANG>(llGold, 0, INT_MAX));
 		int iSplitCount = number(25, 35);
 
 		sys_log(0, "WAEGU Dead gold %d split %d", iGold, iSplitCount);

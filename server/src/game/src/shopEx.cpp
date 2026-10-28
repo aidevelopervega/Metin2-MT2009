@@ -148,7 +148,7 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 	TShopTableEx& shopTab = m_vec_shopTabs[tabIdx];
 	TShopItemTable& r_item = shopTab.items[slotPos];
 
-	if (r_item.price <= 0)
+	if (r_item.price <= 0 || r_item.price >= GOLD_MAX)
 	{
 		LogManager::instance().HackLog("SHOP_BUY_GOLD_OVERFLOW", ch);
 		return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
@@ -159,8 +159,16 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 	switch (shopTab.coinType)
 	{
 	case SHOP_COIN_TYPE_GOLD:
+#ifdef ENABLE_NEWSTUFF
+		if (it->second && !g_bEmpireShopPriceTripleDisable)	// if other empire, price is triple
+#else
 		if (it->second)	// if other empire, price is triple
+#endif
+		{
+			if (dwPrice > (GOLD_MAX - 1) / 3)
+				return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
 			dwPrice *= 3;
+		}
 
 		if (ch->GetGold() < dwPrice)
 		{

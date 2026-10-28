@@ -186,6 +186,8 @@ namespace quest
 		}
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
+		if (!ch || !ch->GetDesc())
+			return 0;
 
 		TPacketGDGuildWarBet p;
 
@@ -193,6 +195,12 @@ namespace quest
 		strlcpy(p.szLogin, ch->GetDesc()->GetAccountTable().login, sizeof(p.szLogin));
 		p.dwGuild = (DWORD) lua_tonumber(L, 2);
 		p.dwGold = (YANG) lua_tonumber(L, 3);
+
+		if (p.dwGold <= 0 || p.dwGold >= GOLD_MAX)
+		{
+			sys_err("guild_war_bet: invalid gold %lld", static_cast<long long>(p.dwGold));
+			return 0;
+		}
 
 		sys_log(0, "GUILD_WAR_BET: %s login %s war_id %u guild %u gold %lld",
 				ch->GetName(), p.szLogin, p.dwWarID, p.dwGuild, p.dwGold);

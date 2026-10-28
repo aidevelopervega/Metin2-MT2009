@@ -3236,7 +3236,7 @@ ACMD(do_build)
 						return;
 					}
 
-					if (ch->GetGold() < (int)t->dwPrice)
+					if (ch->GetGold() < static_cast<YANG>(t->dwPrice))
 					{
 						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Your guild does not have enough Yang to erect this building."));
 						return;
@@ -3286,7 +3286,7 @@ ACMD(do_build)
 				if (test_server || GMLevel == GM_PLAYER)
 
 				{
-					ch->ChangeGold(-t->dwPrice);
+					ch->ChangeGold(-static_cast<YANG>(t->dwPrice));
 
 					{
 						int i;
@@ -4052,7 +4052,7 @@ ACMD(do_temp)
 
 	int	empire = 0;
 	str_to_number(empire, arg1);
-	int	money = 0;
+	YANG money = 0;
 	str_to_number(money, arg2);
 
 	CMonarch::instance().SendtoDBAddMoney(money, empire, ch);

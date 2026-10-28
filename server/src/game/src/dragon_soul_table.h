@@ -29,9 +29,9 @@ public:
 
 	bool	GetApplyNumSettings(BYTE ds_type, BYTE grade_idx, OUT int& basis, OUT int& add_min, OUT int& add_max);
 	bool	GetWeight(BYTE ds_type, BYTE grade_idx, BYTE step_index, BYTE strength_idx, OUT float& fWeight);
-	bool	GetRefineGradeValues(BYTE ds_type, BYTE grade_idx, OUT int& need_count, OUT int& fee, OUT std::vector<float>& vec_probs);
-	bool	GetRefineStepValues(BYTE ds_type, BYTE step_idx, OUT int& need_count, OUT int& fee, OUT std::vector<float>& vec_probs);
-	bool	GetRefineStrengthValues(BYTE ds_type, BYTE material_type, BYTE strength_idx, OUT int& fee, OUT float& prob);
+	bool	GetRefineGradeValues(BYTE ds_type, BYTE grade_idx, OUT int& need_count, OUT YANG& fee, OUT std::vector<float>& vec_probs);
+	bool	GetRefineStepValues(BYTE ds_type, BYTE step_idx, OUT int& need_count, OUT YANG& fee, OUT std::vector<float>& vec_probs);
+	bool	GetRefineStrengthValues(BYTE ds_type, BYTE material_type, BYTE strength_idx, OUT YANG& fee, OUT float& prob);
 	bool	GetDragonHeartExtValues(BYTE ds_type, BYTE grade_idx, OUT std::vector<float>& vec_chargings, OUT std::vector<float>& vec_probs);
 	bool	GetDragonSoulExtValues(BYTE ds_type, BYTE grade_idx, OUT float& prob, OUT DWORD& by_product);
 

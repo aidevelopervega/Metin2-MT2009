@@ -81,6 +81,8 @@ bool IsGoodSalePrice(const ikashop::TPriceInfo price) {
 	else if (price.cheque >= CHEQUE_MAX || price.cheque < 0)
 		return false;
 #endif
+	if (price.GetTotalYangAmount() <= 0 || price.GetTotalYangAmount() >= GOLD_MAX)
+		return false;
 	return true;
 }
 
@@ -1143,6 +1145,16 @@ namespace ikashop
 		auto shopItem = shop->GetItem(itemid);
 		if (!shopItem)
 			return false;
+
+		const YANG currentShopTotal = shop->GetTotalYangValue();
+		const YANG oldItemYang = shopItem->GetPrice().GetTotalYangAmount();
+		const YANG baseShopTotal = (currentShopTotal > oldItemYang && oldItemYang > 0) ? (currentShopTotal - oldItemYang) : 0;
+		const YANG newItemYang = price.GetTotalYangAmount();
+		if (newItemYang <= 0 || baseShopTotal >= GOLD_MAX - newItemYang)
+		{
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
+			return false;
+		}
 
 		// patch with warp check
 		ch->SetIkarusShopUseTime();
@@ -2337,6 +2349,36 @@ namespace ikashop
 			return false;
 		}
 
+		if (bItemCount > SHOP_PLAYER_HOST_ITEM_MAX_NUM)
+			return false;
+
+		if (bItemCount > 0 && !pItemTable)
+			return false;
+
+		YANG totalShopYang = 0;
+		for (size_t i = 0; i < bItemCount; ++i)
+		{
+			auto item = ch->GetItem(pItemTable[i].pos);
+			if (!item)
+			{
+				sys_err("OpenOfflineShop item is NULL pid %d ", ch->GetPlayerID());
+				return false;
+			}
+			const TPriceInfo price{ pItemTable[i].price };
+			if (!IsGoodSalePrice(price))
+			{
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_ITEM_WRONG_PRICE%s"), item->GetName());
+				return false;
+			}
+			const YANG itemYang = price.GetTotalYangAmount();
+			if (totalShopYang >= GOLD_MAX - itemYang)
+			{
+				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
+				return false;
+			}
+			totalShopYang += itemYang;
+		}
+
 		// patch with warp check
 		ch->SetIkarusShopUseTime();
 		ch->SetIkarusShopOpenClosedTime();
@@ -3258,12 +3300,6 @@ namespace ikashop
 			return false;
 		}
 
-		if (shop->GetTotalYangValue() + price.GetTotalYangAmount() > GOLD_MAX)
-		{
-			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
-			return false;
-		}
-
 		auto item = ch->GetItem(pos);
 		if(!item)
 			return false;
@@ -3274,6 +3310,14 @@ namespace ikashop
 		if (!IsGoodSalePrice(price))
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_ITEM_WRONG_PRICE%s"), item->GetName());
+			return false;
+		}
+
+		const YANG currentShopTotal = std::max<YANG>(0, shop->GetTotalYangValue());
+		const YANG addYang = price.GetTotalYangAmount();
+		if (addYang <= 0 || currentShopTotal >= GOLD_MAX - addYang)
+		{
+			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
 			return false;
 		}
 

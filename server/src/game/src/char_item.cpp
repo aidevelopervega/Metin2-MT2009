@@ -1003,7 +1003,6 @@ bool CHARACTER::DoRefine(LPITEM item, bool bMoneyOnly, BYTE refineType)
 
 				BYTE bCell = item->GetCell();
 
-				DBManager::instance().SendMoneyLog(MONEY_LOG_REFINE, item->GetVnum(), -prt->cost);
 				ITEM_MANAGER::instance().RemoveItem(item, "REMOVE (REFINE FAIL)");
 
 				pkNewItem->AddToCharacter(this, TItemPos(INVENTORY, bCell));
@@ -3637,8 +3636,15 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 							case ITEM_ELK_VNUM:
 								{
 									YANG iGold = item->GetSocket(0);
+									if (iGold <= 0 || iGold >= GOLD_MAX)
+										return false;
+									if (GetGold() >= GOLD_MAX - iGold)
+									{
+										ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have too much Yang in your inventory."));
+										return false;
+									}
 									ITEM_MANAGER::instance().RemoveItem(item);
-									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have received %d Yang."), iGold);
+									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have received %lld Yang."), static_cast<long long>(iGold));
 									ChangeGold(iGold);
 								}
 								break;

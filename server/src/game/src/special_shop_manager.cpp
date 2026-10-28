@@ -431,7 +431,7 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 	// check price
 	if (item->priceType == SPECIAL_SHOP_PRICE_GOLD)
 	{
-		if (ch->GetGold() < item->price)
+		if (item->price < 0 || item->price >= GOLD_MAX || ch->GetGold() < item->price)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not have enough Yang."));
 			return;

@@ -178,6 +178,10 @@ static bool FN_check_cube_data (CUBE_DATA *cube_data)
 		if ( cube_data->reward[i].vnum == 0 )	return false;
 		if ( cube_data->reward[i].count == 0 )	return false;
 	}
+
+	if (cube_data->gold < 0 || cube_data->gold >= GOLD_MAX)
+		return false;
+
 	return true;
 }
 
@@ -347,7 +351,8 @@ bool Cube_load (const char *file)
 {
 	FILE	*fp;
 	char	one_line[256];
-	int		value1, value2;
+	YANG	value1;
+	int		value2;
 	const char	*delim = " \t\r\n";
 	char	*v, *token_string;
 	CUBE_DATA	*cube_data = NULL;
@@ -388,21 +393,21 @@ bool Cube_load (const char *file)
 		}
 		else TOKEN("item")
 		{
-			cube_value.vnum		= value1;
+			cube_value.vnum		= static_cast<DWORD>(value1);
 			cube_value.count	= value2;
 
 			cube_data->item.emplace_back(cube_value);
 		}
 		else TOKEN("reward")
 		{
-			cube_value.vnum		= value1;
+			cube_value.vnum		= static_cast<DWORD>(value1);
 			cube_value.count	= value2;
 
 			cube_data->reward.emplace_back(cube_value);
 		}
 		else TOKEN("percent")
 		{
-			cube_data->percent = value1;
+			cube_data->percent = static_cast<int>(value1);
 		}
 		else TOKEN("gold")
 		{
@@ -509,7 +514,7 @@ bool Cube_make (LPCHARACTER ch)
 		return false;
 	}
 	YANG cube_gold = cube_proto->gold;
-	if (cube_gold < 0 || ch->GetGold() < cube_gold)
+	if (cube_gold < 0 || cube_gold >= GOLD_MAX || ch->GetGold() < cube_gold)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Not enough Yang or not enough space in the inventory."));
 		return false;
@@ -529,7 +534,7 @@ bool Cube_make (LPCHARACTER ch)
 		new_item = ch->AutoGiveItem(reward_value->vnum, reward_value->count);
 
 		LogManager::instance().CubeLog(ch->GetPlayerID(), ch->GetX(), ch->GetY(),
-				reward_value->vnum, new_item->GetID(), reward_value->count, 1);
+				reward_value->vnum, new_item ? new_item->GetID() : 0, reward_value->count, 1);
 		return true;
 	}
 	else

@@ -97,6 +97,21 @@ namespace ikashop
 		if(!cache)
 			return false;
 
+		YANG total_val = 0;
+		for (const auto& existing : cache->itemsmap)
+		{
+			if (existing.first == item.id)
+				continue;
+			const YANG itemYang = existing.second->price.GetTotalYangAmount();
+			if (itemYang < 0 || total_val >= GOLD_MAX - itemYang)
+				return false;
+			total_val += itemYang;
+		}
+
+		const YANG newYang = item.price.GetTotalYangAmount();
+		if (newYang <= 0 || total_val >= GOLD_MAX - newYang)
+			return false;
+
 		// refreshing table datas
 		std::string query = CreateShopCacheUpdateItemQuery(item);
 		CDBManager::instance().ReturnQuery(query.c_str(), queryType, 0, new SQueryInfoAddItem(item));
@@ -866,11 +881,13 @@ namespace ikashop
 		auto it = m_findOffersByShop.find(dwOwnerID);
 		// removing from vector
 		if(it != m_findOffersByShop.end())
+		{
 			std::erase(it->second, cache);
 
-		// checking if vector is empty
-		if(it->second.empty())
-			m_findOffersByShop.erase(it);
+			// checking if vector is empty
+			if(it->second.empty())
+				m_findOffersByShop.erase(it);
+		}
 
 		// removing offer from map
 		m_mapOffersByBuyer.erase(dwOfferID);
@@ -954,7 +971,7 @@ namespace ikashop
 	{
 		auto handle = std::make_shared<TAuctionInfo>(auction);
 		m_mapAuction[auction.owner]	= handle;
-		m_mapAuctionOffer[auction.id] = {};
+		m_mapAuctionOffer[auction.owner] = {};
 		return true;
 	}
 
@@ -1257,7 +1274,7 @@ namespace ikashop
 
 	std::string CreateOfferCacheUpdateNotifiedQuery(DWORD dwOfferID)
 	{
-		return fmt::format("UPDATE `ikashop_private_offer` SET `notified` = 1 WHERE `buyer` = {};", dwOfferID);
+		return fmt::format("UPDATE `ikashop_private_offer` SET `notified` = 1 WHERE `id` = {};", dwOfferID);
 	}
 
 	std::string CreateOfferCacheUpdateAcceptedQuery(DWORD dwOfferID)

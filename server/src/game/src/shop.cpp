@@ -273,7 +273,11 @@ int CShop::Buy(LPCHARACTER ch, BYTE pos)
 #ifdef ENABLE_SHOP_USE_CHEQUE
 	DWORD dwCheque = r_item.cheque;
 #endif
+#ifdef ENABLE_NEWSTUFF
+	if (!IsPCShop() && it->second && !g_bEmpireShopPriceTripleDisable)	// if other empire, price is triple
+#else
 	if (!IsPCShop() && it->second)	// if other empire, price is triple
+#endif
 	{
 		if (dwPrice > (GOLD_MAX - 1) / 3)
 			return SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY;
@@ -518,7 +522,10 @@ bool CShop::AddGuest(LPCHARACTER ch, DWORD owner_vid, bool bOtherEmpire)
 		if (bOtherEmpire) // no empire price penalty for pc shop
 #endif
 		{
-			price *= 3;
+			if (price > (GOLD_MAX - 1) / 3)
+				price = GOLD_MAX - 1;
+			else
+				price *= 3;
 		}
 
 		if (GetVnum() == 9 && quest::CQuestManager::instance().GetEventFlag("valentine_event")) // marriage items

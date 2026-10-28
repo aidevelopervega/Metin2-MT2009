@@ -314,6 +314,8 @@ namespace quest
 	ALUA(pc_give_gold)
 	{
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
+		if (!ch)
+			return 0;
 
 		if (!lua_isnumber(L, 1))
 		{
@@ -323,7 +325,7 @@ namespace quest
 
 		YANG iAmount = (YANG) lua_tonumber(L, 1);
 
-		if (iAmount <= 0)
+		if (iAmount <= 0 || iAmount >= GOLD_MAX)
 		{
 			sys_err("QUEST : gold amount less then zero");
 			return 0;
@@ -1024,7 +1026,10 @@ namespace quest
 
 	ALUA(pc_change_money)
 	{
-		YANG gold = (YANG)lua_tonumber(L, -1);
+		if (!lua_isnumber(L, 1))
+			return 0;
+
+		YANG gold = (YANG)lua_tonumber(L, 1);
 
 		auto& q = CQuestManager::instance();
 		auto pPC = q.GetCurrentPC();
@@ -1033,7 +1038,7 @@ namespace quest
 		if (!pPC || !ch)
 			return 0;
 
-		if (gold + ch->GetGold() < 0)
+		if (gold < 0 && (gold <= -GOLD_MAX || ch->GetGold() < -gold))
 			sys_err("QUEST wrong ChangeGold %lld (now %lld)", gold, ch->GetGold());
 		else
 		{

@@ -525,7 +525,7 @@ bool DSManager::DoRefineGrade(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL
 
 	int count = set_items.size();
 	int need_count = 0;
-	int fee = 0;
+	YANG fee = 0;
 	std::vector <float> vec_probs;
 	//float prob_sum;
 
@@ -572,7 +572,7 @@ bool DSManager::DoRefineGrade(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL
 		return false;
 	}
 
-	if (ch->GetGold() < fee)
+	if (fee < 0 || fee >= GOLD_MAX || ch->GetGold() < fee)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not have enough Yang to use this item."));
 		SendRefineResultPacket(ch, DS_SUB_HEADER_REFINE_FAIL_NOT_ENOUGH_MONEY, NPOS);
@@ -671,7 +671,7 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 	std::string stGroupName;
 	int count = static_cast<int>(set_items.size());
 	int need_count = 0;
-	int fee = 0;
+	YANG fee = 0;
 	std::vector <float> vec_probs;
 
 	BYTE ds_type, grade_idx, step_idx, strength_idx;
@@ -714,7 +714,7 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 		return false;
 	}
 
-	if (ch->GetGold() < fee)
+	if (fee < 0 || fee >= GOLD_MAX || ch->GetGold() < fee)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not have enough Yang to use this item."));
 		SendRefineResultPacket(ch, DS_SUB_HEADER_REFINE_FAIL_NOT_ENOUGH_MONEY, NPOS);
@@ -811,7 +811,7 @@ bool DSManager::DoRefineStrength(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_S
 		return false;
 	}
 
-	int fee;
+	YANG fee = 0;
 
 	LPITEM pRefineStone = NULL;
 	LPITEM pDragonSoul = NULL;
@@ -887,7 +887,7 @@ bool DSManager::DoRefineStrength(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_S
 		return false;
 	}
 
-	if (ch->GetGold() < fee)
+	if (fee < 0 || fee >= GOLD_MAX || ch->GetGold() < fee)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not have enough Yang to use this item."));
 		SendRefineResultPacket(ch, DS_SUB_HEADER_REFINE_FAIL_NOT_ENOUGH_MONEY, NPOS);

@@ -783,7 +783,7 @@ void CGuildManager::MoneyChange(DWORD dwGuild, YANG dwGold)
 
 void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 {
-	if (iGold <= 0)
+	if (iGold <= 0 || iGold >= GOLD_MAX)
 		return;
 
 	itertype(m_map_kGuild) it = m_map_kGuild.find(dwGuild);
@@ -794,7 +794,13 @@ void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 		return;
 	}
 
-	it->second.gold += iGold;
+	if (it->second.gold < 0)
+		it->second.gold = 0;
+
+	if (iGold >= GOLD_MAX - it->second.gold)
+		it->second.gold = GOLD_MAX - 1;
+	else
+		it->second.gold += iGold;
 	sys_log(0, "GUILD: %u Deposit %lld Total %lld", dwGuild, iGold, it->second.gold);
 
 	MoneyChange(dwGuild, it->second.gold);
@@ -802,6 +808,9 @@ void CGuildManager::DepositMoney(DWORD dwGuild, YANG iGold)
 
 void CGuildManager::WithdrawMoney(CPeer* peer, DWORD dwGuild, YANG iGold)
 {
+	if (iGold <= 0 || iGold >= GOLD_MAX)
+		return;
+
 	itertype(m_map_kGuild) it = m_map_kGuild.find(dwGuild);
 
 	if (it == m_map_kGuild.end())
@@ -834,7 +843,17 @@ void CGuildManager::WithdrawMoneyReply(DWORD dwGuild, BYTE bGiveSuccess, YANG iG
 	sys_log(0, "GuildManager::WithdrawMoneyReply : guild %u success %d gold %lld", dwGuild, bGiveSuccess, iGold);
 
 	if (!bGiveSuccess)
-		it->second.gold += iGold;
+	{
+		if (iGold > 0)
+		{
+			if (it->second.gold < 0)
+				it->second.gold = 0;
+			if (iGold >= GOLD_MAX - it->second.gold)
+				it->second.gold = GOLD_MAX - 1;
+			else
+				it->second.gold += iGold;
+		}
+	}
 	else
 		MoneyChange(dwGuild, it->second.gold);
 }

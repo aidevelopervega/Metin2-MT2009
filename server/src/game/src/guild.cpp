@@ -1648,18 +1648,20 @@ bool CGuild::ChargeSP(LPCHARACTER ch, int iSP)
 		return false;
 	}
 
-	YANG gold = iSP * 300;
-
-	if (gold < iSP || ch->GetGold() < gold)
+	if (iSP <= 0 || static_cast<YANG>(iSP) > (GOLD_MAX - 1) / 300)
 		return false;
 
 	int iRemainSP = m_data.max_power - m_data.power;
+	if (iRemainSP <= 0)
+		return false;
 
 	if (iSP > iRemainSP)
-	{
 		iSP = iRemainSP;
-		gold = iSP * 300;
-	}
+
+	const YANG gold = static_cast<YANG>(iSP) * 300;
+
+	if (gold <= 0 || ch->GetGold() < gold)
+		return false;
 
 	ch->ChangeGold(-gold);
 	DBManager::instance().SendMoneyLog(MONEY_LOG_GUILD, 1, -gold);
@@ -1728,6 +1730,9 @@ void CGuild::AdvanceLevel(int iLevel)
 
 void CGuild::RequestDepositMoney(LPCHARACTER ch, YANG iGold)
 {
+	if (!ch || iGold <= 0 || iGold >= GOLD_MAX)
+		return;
+
 	if (false==ch->CanDeposit())
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] Please try again later."));
@@ -1736,6 +1741,12 @@ void CGuild::RequestDepositMoney(LPCHARACTER ch, YANG iGold)
 
 	if (ch->GetGold() < iGold)
 		return;
+
+	if (m_data.gold < 0 || iGold >= GOLD_MAX - m_data.gold)
+	{
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
+		return;
+	}
 
 	ch->ChangeGold(-iGold);
 
@@ -1754,6 +1765,9 @@ void CGuild::RequestDepositMoney(LPCHARACTER ch, YANG iGold)
 
 void CGuild::RequestWithdrawMoney(LPCHARACTER ch, YANG iGold)
 {
+	if (!ch || iGold <= 0 || iGold >= GOLD_MAX)
+		return;
+
 	if (false==ch->CanDeposit())
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] Please try again later."));
@@ -1769,6 +1783,12 @@ void CGuild::RequestWithdrawMoney(LPCHARACTER ch, YANG iGold)
 	if (m_data.gold < iGold)
 	{
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("[Guild] You do not have enough Yang."));
+		return;
+	}
+
+	if (ch->GetGold() < 0 || iGold >= GOLD_MAX - ch->GetGold())
+	{
+		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MONEY_WILL_EXCEED_OVER_LIMIT"));
 		return;
 	}
 
@@ -1806,17 +1826,19 @@ void CGuild::RecvMoneyChange(YANG iGold)
 void CGuild::RecvWithdrawMoneyGive(YANG iChangeGold)
 {
 	LPCHARACTER ch = GetMasterCharacter();
+	bool bGiveSuccess = false;
 
-	if (ch)
+	if (ch && iChangeGold > 0 && ch->GetGold() >= 0 && iChangeGold < GOLD_MAX - ch->GetGold())
 	{
 		ch->ChangeGold(iChangeGold);
 		sys_log(0, "GUILD: WITHDRAW %s:%u player %s[%u] gold %lld", GetName(), GetID(), ch->GetName(), ch->GetPlayerID(), iChangeGold);
+		bGiveSuccess = true;
 	}
 
 	TPacketGDGuildMoneyWithdrawGiveReply p;
 	p.dwGuild = GetID();
 	p.iChangeGold = iChangeGold;
-	p.bGiveSuccess = ch ? 1 : 0;
+	p.bGiveSuccess = bGiveSuccess ? 1 : 0;
 	db_clientdesc->DBPacket(HEADER_GD_GUILD_WITHDRAW_MONEY_GIVE_REPLY, 0, &p, sizeof(p));
 }
 
