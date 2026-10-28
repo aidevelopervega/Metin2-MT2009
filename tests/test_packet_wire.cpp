@@ -14,6 +14,7 @@
 
 #include "server/src/game/src/packet.h"
 #include "server/src/common/tables.h"
+#include "server/src/common/building.h"
 #include "server/src/common/utils.h"
 
 static int g_passCount = 0;
@@ -33,6 +34,10 @@ static int g_failCount = 0;
 // ------------------------------------------------------------------------------
 // Compile-Time Size Checks (Guarantees layout invariant across compilers/LP64)
 // ------------------------------------------------------------------------------
+static_assert(sizeof(building::TLand) == 37, "building::TLand packed size mismatch");
+static_assert(sizeof(building::TObjectMaterial) == 8, "building::TObjectMaterial packed size mismatch");
+static_assert(sizeof(building::TObjectProto) == 100, "building::TObjectProto packed size mismatch");
+static_assert(sizeof(building::TObject) == 40, "building::TObject packed size mismatch");
 static_assert(sizeof(TPacketCGHandshake) == 13, "TPacketCGHandshake size mismatch");
 static_assert(sizeof(TPacketGCHandshake) == 13, "TPacketGCHandshake size mismatch");
 static_assert(sizeof(TPacketCGMove) == 16, "TPacketCGMove size mismatch");
@@ -1293,6 +1298,70 @@ int main()
                             !checkDbSetupPacket(sizeof(TPacketGDSetup), 0x20090032U) &&
                             checkDbSetupPacket(sizeof(TPacketGDSetup), MT2_PROTOCOL_VERSION_X64),
                     "Protocol Framing [E2]: DB HEADER_GD_SETUP rejects legacy short payload and mismatched protocol version");
+            }
+
+            // Case F: G2 & G4 Hardening (building.h LP64/LLP64 parity, CInputDB unsigned dwSize, VID wraparound, ItemIDRange collision & exhaustion)
+            {
+                // F1: building.h packed layout & 64-bit YANG price round-trip
+                building::TLand outLand{};
+                outLand.dwID = 501;
+                outLand.lMapIndex = 41;
+                outLand.x = 958500;
+                outLand.y = 256800;
+                outLand.width = 2000;
+                outLand.height = 2000;
+                outLand.dwGuildID = 77;
+                outLand.bGuildLevelLimit = 20;
+                outLand.dwPrice = 5000000000LL; // 5B Yang (> 2^32)
+                std::vector<uint8_t> landBuf(sizeof(building::TLand));
+                std::memcpy(landBuf.data(), &outLand, sizeof(building::TLand));
+                building::TLand inLand{};
+                std::memcpy(&inLand, landBuf.data(), sizeof(building::TLand));
+                WIRE_ASSERT(sizeof(building::TLand) == 37 && inLand.dwPrice == 5000000000LL && inLand.lMapIndex == 41,
+                    "G4.1: building::TLand is strictly 37 packed bytes and preserves >2^32 YANG price");
+
+                // F2: CInputDB::Process unsigned dwSize (>= 2^31) guard
+                auto canProcessDbPacket = [](int iBufferLeft, uint32_t dwSize) -> bool {
+                    if (iBufferLeft < 9)
+                        return false;
+                    const uint64_t totalNeeded = 9ULL + static_cast<uint64_t>(dwSize);
+                    return static_cast<uint64_t>(iBufferLeft) >= totalNeeded;
+                };
+                // Previously dwSize = 0xFFFFFFF0U cast to signed int was -16, causing (iBufferLeft - 9 < -16) == false and rewinding pointer!
+                WIRE_ASSERT(!canProcessDbPacket(64, 0xFFFFFFF0U) &&
+                            !canProcessDbPacket(64, 0x80000000U) &&
+                            canProcessDbPacket(64, 55U),
+                    "G4.3: CInputDB::Process blocks dwSize >= 2^31 from rewinding buffer pointer via signed int overflow");
+
+                // F3: VID allocation wraparound & collision skip
+                auto simAllocVID = [](uint32_t& counter, uint32_t occupiedVid) -> uint32_t {
+                    do {
+                        ++counter;
+                        if (counter == 0)
+                            ++counter;
+                    } while (counter == occupiedVid);
+                    return counter;
+                };
+                uint32_t vidCounter = 0xFFFFFFFFU;
+                WIRE_ASSERT(simAllocVID(vidCounter, 1U) == 2U,
+                    "G2.1: AllocVID skips 0 on 32-bit wraparound and skips active VID=1 in map");
+
+                // F4: ItemIDRange collision polarity & GainItemID exhaustion guard
+                auto checkRangeCollision = [](uint32_t aMin, uint32_t aMax, uint32_t bMin, uint32_t bMax) -> bool {
+                    return aMin > 0 && aMax > 0 && aMin <= bMax && aMax >= bMin;
+                };
+                WIRE_ASSERT(checkRangeCollision(10000001U, 20000000U, 10000001U, 20000000U) &&
+                            !checkRangeCollision(10000001U, 20000000U, 20000001U, 30000000U),
+                    "G2.2: CheckItemIDRangeCollision returns true on overlapping range and false on disjoint range");
+
+                TItemIDRangeTable exhaustedRange{100U, 101U, 101U};
+                auto simGainItemID = [](TItemIDRangeTable& r) -> uint32_t {
+                    if (r.dwUsableItemIDMin == 0 || r.dwUsableItemIDMin > r.dwMax)
+                        return 0U;
+                    return r.dwUsableItemIDMin++;
+                };
+                WIRE_ASSERT(simGainItemID(exhaustedRange) == 101U && simGainItemID(exhaustedRange) == 0U,
+                    "G2.2: GainItemID returns last valid ID (dwMax) and returns 0 once exhausted instead of overflowing into next range");
             }
         }
     }

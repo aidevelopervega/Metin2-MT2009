@@ -4845,10 +4845,10 @@ ACMD(do_set_special_flag)
 
 	if (*arg1 && *arg2)
 	{
-		if (!isdigit(*arg2))
+		if (!isdigit(static_cast<unsigned char>(*arg2)) && *arg2 != '-')
 			return;
 
-		int value = 0;
+		int64_t value = 0;
 		str_to_number(value, arg2);
 
 		ch->SetSpecialFlag(arg1, value, false);
@@ -4863,7 +4863,7 @@ ACMD(do_get_special_flag)
 	if (*arg1)
 	{
 		std::string flag = std::string(arg1);
-		ch->ChatPacket(CHAT_TYPE_INFO, "special flag %s value %d", flag.c_str(), ch->GetSpecialFlag(arg1));
+		ch->ChatPacket(CHAT_TYPE_INFO, "special flag %s value %lld", flag.c_str(), static_cast<long long>(ch->GetSpecialFlag(arg1)));
 	}
 }
 

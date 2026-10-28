@@ -146,7 +146,7 @@ bool CInputProcessor::Process(LPDESC lpDesc, const void * c_pvOrig, int iBytes, 
 
 			int iExtraPacketSize = Analyze(lpDesc, bHeader, c_pData);
 
-			if (iExtraPacketSize < 0)
+			if (iExtraPacketSize < 0 || iExtraPacketSize > m_iBufferLeft - iPacketLen)
 				return true;
 
 			iPacketLen += iExtraPacketSize;

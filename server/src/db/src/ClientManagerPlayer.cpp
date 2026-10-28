@@ -470,16 +470,16 @@ void CClientManager::ItemAward([[maybe_unused]] CPeer * peer, char* login)
 	{
 		TItemAward * pItemAward = *(it++);
 		char* whyStr = pItemAward->szWhy;
-		char cmdStr[100] = "";
-		strcpy(cmdStr,whyStr);
+		char cmdStr[ITEM_AWARD_WHY_MAX_LEN + 1] = "";
+		strlcpy(cmdStr, whyStr, sizeof(cmdStr));
 		char command[20] = "";
 		// @fixme203 directly GetCommand instead of strcpy
 		GetCommand(cmdStr, command);
 		if( !(strcmp(command,"GIFT") ))
 		{
-			TPacketItemAwardInfromer giftData;
-			strcpy(giftData.login, pItemAward->szLogin);
-			strcpy(giftData.command, command);
+			TPacketItemAwardInfromer giftData{};
+			strlcpy(giftData.login, pItemAward->szLogin, sizeof(giftData.login));
+			strlcpy(giftData.command, command, sizeof(giftData.command));
 			giftData.vnum = pItemAward->dwVnum;
 			ForwardPacket(HEADER_DG_ITEMAWARD_INFORMER,&giftData,sizeof(TPacketItemAwardInfromer));
 		}
@@ -487,12 +487,13 @@ void CClientManager::ItemAward([[maybe_unused]] CPeer * peer, char* login)
 }
 char* CClientManager::GetCommand(char* str, char* command) // @fixme203
 {
-	char* tok;
+	command[0] = '\0';
 
-	if( str[0] == '[' )
+	if (str && str[0] == '[')
 	{
-		tok = strtok(str,"]");
-		strcat(command,&tok[1]);
+		char* tok = strtok(str, "]");
+		if (tok && tok[0] == '[')
+			strlcpy(command, &tok[1], 20);
 	}
 
 	return command;

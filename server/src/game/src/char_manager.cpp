@@ -79,7 +79,12 @@ void CHARACTER_MANAGER::GracefulShutdown()
 
 DWORD CHARACTER_MANAGER::AllocVID()
 {
-	++m_iVIDCount;
+	do
+	{
+		++m_iVIDCount;
+		if (m_iVIDCount == 0)
+			++m_iVIDCount;
+	} while (m_map_pkChrByVID.find(m_iVIDCount) != m_map_pkChrByVID.end());
 	return m_iVIDCount;
 }
 

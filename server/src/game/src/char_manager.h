@@ -122,7 +122,7 @@ class CHARACTER_MANAGER : public singleton<CHARACTER_MANAGER>
 
 		int					m_iUserDamageRate;
 		int					m_iUserDamageRatePremium;
-		int					m_iVIDCount;
+		DWORD				m_iVIDCount;
 
 		std::unordered_map<DWORD, LPCHARACTER> m_map_pkChrByVID;
 		std::unordered_map<DWORD, LPCHARACTER> m_map_pkChrByPID;

@@ -2586,9 +2586,10 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_SETUP:
-				if (dwLength < sizeof(TPacketGDSetup))
+				if (dwLength < sizeof(TPacketGDSetup) ||
+					static_cast<uint64_t>(dwLength) < sizeof(TPacketGDSetup) + static_cast<uint64_t>(((const TPacketGDSetup*)data)->dwLoginCount) * sizeof(TPacketLoginOnSetup))
 				{
-					sys_err("HEADER_GD_SETUP: rejected peer %p with legacy/short packet size %u (expected %zu)",
+					sys_err("HEADER_GD_SETUP: rejected peer %p with legacy/short packet size %u (expected >= %zu)",
 						peer, static_cast<unsigned int>(dwLength), sizeof(TPacketGDSetup));
 					peer->Close();
 					break;
@@ -2782,6 +2783,13 @@ void CClientManager::ProcessPackets(CPeer * peer)
 
 				// MYSHOP_PRICE_LIST
 			case HEADER_GD_MYSHOP_PRICELIST_UPDATE:
+				if (dwLength < sizeof(DWORD) + sizeof(BYTE) ||
+					((const TItemPriceListTable*)data)->byCount > SHOP_PRICELIST_MAX_NUM ||
+					dwLength < sizeof(DWORD) + sizeof(BYTE) + sizeof(TItemPriceInfo) * ((const TItemPriceListTable*)data)->byCount)
+				{
+					sys_err("HEADER_GD_MYSHOP_PRICELIST_UPDATE: invalid packet size %u", static_cast<unsigned int>(dwLength));
+					break;
+				}
 				MyshopPricelistUpdate((TItemPriceListTable*)data); // @fixme403 (TPacketMyshopPricelistHeader to TItemPriceListTable)
 				break;
 
@@ -3610,12 +3618,30 @@ bool CClientManager::InitializeNowItemID()
 
 DWORD CClientManager::GainItemID()
 {
+	if (m_itemRange.dwUsableItemIDMin == 0 || m_itemRange.dwUsableItemIDMin > m_itemRange.dwMax)
+	{
+		sys_err("GainItemID: range exhausted (%u ~ %u, usable=%u)",
+				m_itemRange.dwMin, m_itemRange.dwMax, m_itemRange.dwUsableItemIDMin);
+		return 0;
+	}
 	return m_itemRange.dwUsableItemIDMin++;
 }
 
 DWORD CClientManager::GetItemID()
 {
 	return m_itemRange.dwUsableItemIDMin;
+}
+
+DWORD CClientManager::GetMaxCachedItemIDInRange(DWORD dwMin, DWORD dwMax) const
+{
+	DWORD dwMaxCached = 0;
+	for (const auto& kv : m_map_itemCache)
+	{
+		const DWORD dwID = kv.first;
+		if (dwID >= dwMin && dwID <= dwMax && dwID > dwMaxCached)
+			dwMaxCached = dwID;
+	}
+	return dwMaxCached;
 }
 // ITEM_UNIQUE_ID_END
 //BOOT_LOCALIZATION

@@ -108,17 +108,17 @@ void ItemAwardManager::Load(SQLMsg * pMsg)
 			strlcpy(kData->szWhy, row[col], sizeof(kData->szWhy));
 
 			char* whyStr = kData->szWhy;
-			char cmdStr[100] = "";
-			strcpy(cmdStr,whyStr);
+			char cmdStr[ITEM_AWARD_WHY_MAX_LEN + 1] = "";
+			strlcpy(cmdStr, whyStr, sizeof(cmdStr));
 			char command[20] = "";
 			// @fixme203 directly GetCommand instead of strcpy
 			CClientManager::instance().GetCommand(cmdStr, command);
 			//sys_err("%d,  %s",pItemAward->dwID,command);
 			if( !(strcmp(command,"GIFT") ))
 			{
-				TPacketItemAwardInfromer giftData;
-				strcpy(giftData.login, kData->szLogin);
-				strcpy(giftData.command, command);
+				TPacketItemAwardInfromer giftData{};
+				strlcpy(giftData.login, kData->szLogin, sizeof(giftData.login));
+				strlcpy(giftData.command, command, sizeof(giftData.command));
 				giftData.vnum = kData->dwVnum;
 				CClientManager::instance().ForwardPacket(HEADER_DG_ITEMAWARD_INFORMER,&giftData,sizeof(TPacketItemAwardInfromer));
 			}

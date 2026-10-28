@@ -227,7 +227,11 @@ Aşağıdaki ortak paketlerde eski `long` / `DWORD` alanları, 64-bit derleyicil
 | `TPacketCGExchange` | `HEADER_CG_EXCHANGE (27)` | `sub_header` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`BYTE`), `Pos` (`TItemPos`) | `13 B` |
 | `TPacketGCExchange` | `HEADER_GC_EXCHANGE (42)` | `sub_header` (`BYTE`), `is_me` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`TItemPos`), `arg3` (`uint32_t`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `50 B` |
 | `TPacketGCLandList` | `HEADER_GC_LAND_LIST (130)` | `TLandPacketElement`: `dwID` (`uint32_t`), `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint32_t`) | `3 B + N * 24 B` |
-| `TPacketGCAffectAdd` | `HEADER_GC_AFFECT_ADD (126)` | `TPacketAffectElement`: `dwType` (`uint32_t`), `bApplyOn` (`BYTE`), `lApplyValue` (`int32_t`), `dwFlag` (`uint32_t`), `lDuration` (`int32_t`), `lSPCost` (`int32_t`) | `22 B` |
+| `building::TLand` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID` (`uint32_t`), `lMapIndex`, `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint32_t`), `bGuildLevelLimit` (`BYTE`), `dwPrice` (`YANG` / `int64_t`) | `37 B` |
+| `building::TObjectMaterial` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwItemVnum` (`uint32_t`), `dwCount` (`ITEM_COUNT` / `uint32_t`) | `8 B` |
+| `building::TObjectProto` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwVnum` (`uint32_t`), `dwPrice` (`YANG`), `kMaterials[5]` (`40 B`), `dwUpgradeVnum`, `dwUpgradeLimitTime` (`uint32_t`), `lLife`, `lRegion[4]` (`int32_t`), `dwNPCVnum` (`uint32_t`), `lNPCX`, `lNPCY` (`int32_t`), `dwGroupVnum`, `dwDependOnGroupVnum` (`uint32_t`) | `100 B` |
+| `building::TObject` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID`, `dwLandID`, `dwVnum` (`uint32_t`), `lMapIndex`, `x`, `y` (`int32_t`), `xRot`, `yRot`, `zRot` (`float`), `lLife` (`int32_t`) | `40 B` |
+| `TPacketGCAffectAdd` & `CAffect` | `HEADER_GC_AFFECT_ADD (126)` | `TPacketAffectElement` & `CAffect`: `dwType` (`uint32_t`), `bApplyOn` (`BYTE`), `lApplyValue` (`int32_t`), `dwFlag` (`uint32_t`), `lDuration` (`int64_t`), `lSPCost` (`int64_t`), `dwItemVnum` (`uint32_t`) | `34 B` |
 | `TPacketGCAffectRemove` | `HEADER_GC_AFFECT_REMOVE (127)` | `dwType` (`uint32_t`), `bApplyOn` (`BYTE`) | `6 B` |
 | `TPacketGCQuestConfirm` | `HEADER_GC_QUEST_CONFIRM (46)` | `msg[64]`, `timeout` (`int32_t`), `requestPID` (`uint32_t`) | `73 B` |
 | `TPacketGCGuildWar` | `HEADER_GC_GUILD` alt paketi | `dwGuildSelf` (`uint32_t`), `dwGuildOpp` (`uint32_t`), `bType` (`BYTE`), `bWarState` (`BYTE`) | `10 B` |

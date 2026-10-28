@@ -561,37 +561,55 @@ void CInputP2P::DelayedShutdown(const char* c_pData)
 
 int CInputP2P::BlockMessenger(const char* c_pData)
 {
+	if (m_iBufferLeft < static_cast<int>(sizeof(TPacketGGBlockMessenger)))
+		return -1;
+
+	const size_t availExtra = static_cast<size_t>(m_iBufferLeft) - sizeof(TPacketGGBlockMessenger);
 	const auto& p = Decode<TPacketGGBlockMessenger>(c_pData);
 
 	switch (p.subheader)
 	{
 	case SUBHEADER_BLOCK_MESSENGER_BLOCK:
 		{
+			if (availExtra < sizeof(TSubPacketGGBlockMessengerBlock))
+				return -1;
 			const auto& pack = Decode<TSubPacketGGBlockMessengerBlock>(c_pData);
-			MessengerManager::instance().__BlockP2P(pack.pid, pack.name);
+			char szName[CHARACTER_NAME_MAX_LEN + 1];
+			strlcpy(szName, pack.name, sizeof(szName));
+			MessengerManager::instance().__BlockP2P(pack.pid, szName);
 			return sizeof(TSubPacketGGBlockMessengerBlock);
 		}
 	case SUBHEADER_BLOCK_MESSENGER_UNBLOCK:
 		{
+			if (availExtra < sizeof(TSubPacketGGBlockMessengerBlock))
+				return -1;
 			const auto& pack = Decode<TSubPacketGGBlockMessengerBlock>(c_pData);
-			MessengerManager::instance().__UnblockP2P(pack.pid, pack.name);
+			char szName[CHARACTER_NAME_MAX_LEN + 1];
+			strlcpy(szName, pack.name, sizeof(szName));
+			MessengerManager::instance().__UnblockP2P(pack.pid, szName);
 			return sizeof(TSubPacketGGBlockMessengerBlock);
 		}
 	case SUBHEADER_BLOCK_MESSENGER_LOAD:
 		{
+			if (availExtra < sizeof(TSubPacketGGBlockMessengerLoad))
+				return -1;
 			const auto& pack = Decode<TSubPacketGGBlockMessengerLoad>(c_pData);
+			const size_t itemsBytes = sizeof(TSubPacketGGBlockMessengerLoadItem) * static_cast<size_t>(pack.itemCount);
+			if (availExtra - sizeof(TSubPacketGGBlockMessengerLoad) < itemsBytes)
+				return -1;
 
 			for (int i = 0; i < pack.itemCount; i++)
 			{
 				const auto& item = Decode<TSubPacketGGBlockMessengerLoadItem>(c_pData);
-				MessengerManager::instance().__InsertBlockListP2P(pack.pid, item.name);
+				char szName[CHARACTER_NAME_MAX_LEN + 1];
+				strlcpy(szName, item.name, sizeof(szName));
+				MessengerManager::instance().__InsertBlockListP2P(pack.pid, szName);
 			}
-			return sizeof(TSubPacketGGBlockMessengerLoad) + sizeof(TSubPacketGGBlockMessengerLoadItem) * pack.itemCount;
+			return static_cast<int>(sizeof(TSubPacketGGBlockMessengerLoad) + itemsBytes);
 		}
 	default:
-		break;
+		return -1;
 	}
-	return 0;
 }
 
 void CInputP2P::IamAwake(LPDESC d, [[maybe_unused]] const char * c_pData)

@@ -181,6 +181,7 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	void			AnalyzeFailedQuery(SQLMsg * msg);
 	int			AnalyzeErrorMsg(CPeer * peer, SQLMsg * msg);
 	void		FlushPlayerCacheSet(DWORD pid);
+	DWORD		GetMaxCachedItemIDInRange(DWORD dwMin, DWORD dwMax) const;
 	void		QUERY_PLAYER_LOAD(CPeer * peer, DWORD dwHandle, TPlayerLoadPacket * packet);
 	void		InsertLoginData(CLoginData * pkLD);
 	CLoginData *	GetLoginDataByAID(DWORD dwAID);

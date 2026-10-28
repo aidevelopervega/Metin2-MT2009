@@ -256,7 +256,13 @@ LPITEM ITEM_MANAGER::CreateItem(DWORD vnum, ITEM_COUNT count, DWORD id, bool bTr
 	else
 		count = 1;
 
-	item->SetVID(++m_dwVIDCount);
+	do
+	{
+		++m_dwVIDCount;
+		if (m_dwVIDCount == 0)
+			++m_dwVIDCount;
+	} while (m_VIDMap.find(m_dwVIDCount) != m_VIDMap.end());
+	item->SetVID(m_dwVIDCount);
 
 	if (bSkipSave == false)
 		m_VIDMap.emplace(item->GetVID(), item);
@@ -539,7 +545,7 @@ void ITEM_MANAGER::DestroyItem(LPITEM item, const char* file, size_t line)
 
 	if (item->GetOwner())
 	{
-		if (CHARACTER_MANAGER::instance().Find(item->GetOwner()->GetPlayerID()) != NULL)
+		if (CHARACTER_MANAGER::instance().FindByPID(item->GetOwner()->GetPlayerID()) != NULL)
 		{
 			sys_err("DestroyItem: GetOwner %s %s!!", item->GetName(), item->GetOwner()->GetName());
 			item->RemoveFromCharacter();

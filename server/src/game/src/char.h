@@ -886,9 +886,9 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		void			StartAffectEvent();
 		void			ClearAffect(bool bSave=false);
 		void			ComputeAffect(CAffect * pkAff, bool bAdd, bool bOverride = false);
-		bool			CanAddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD dwFlag, long lDuration);
-		void			OnAddAffect(DWORD dwType, BYTE& bApplyOn, long& lApplyValue, DWORD dwFlag, long lDuration);
-		bool			AddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD dwFlag, long lDuration, long lSPCost, bool bOverride, bool IsCube = false, DWORD itemVnum = 0);
+		bool			CanAddAffect(DWORD dwType, BYTE bApplyOn, int32_t lApplyValue, DWORD dwFlag, int64_t lDuration);
+		void			OnAddAffect(DWORD dwType, BYTE& bApplyOn, int32_t& lApplyValue, DWORD dwFlag, int64_t lDuration);
+		bool			AddAffect(DWORD dwType, BYTE bApplyOn, int32_t lApplyValue, DWORD dwFlag, int64_t lDuration, int64_t lSPCost, bool bOverride, bool IsCube = false, DWORD itemVnum = 0);
 		void			RefreshAffect();
 		bool			RemoveAffect(DWORD dwType);
 		bool			IsAffectFlag(DWORD dwAff) const;

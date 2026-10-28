@@ -15,6 +15,7 @@ CLoginData::CLoginData()
 	m_lastPlayTime = 0;
 	m_dwLastPlayerID = 0;
 	m_iPremium = 0;
+	memset(m_aiPremiumTimes, 0, sizeof(m_aiPremiumTimes));
 
 	m_dwClientVersion = 0;
 	memset(m_szHwid, 0, sizeof(m_szHwid));

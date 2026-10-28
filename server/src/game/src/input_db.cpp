@@ -3122,7 +3122,7 @@ bool CInputDB::Process(LPDESC d, const void * orig, int bytes, int & r_iBytesPro
 {
 	const char *	c_pData = (const char *) orig;
 	BYTE		bHeader, bLastHeader = 0;
-	int			iSize;
+	DWORD		dwSize;
 	int			iLastPacketLen = 0;
 
 	for (m_iBufferLeft = bytes; m_iBufferLeft > 0;)
@@ -3130,13 +3130,14 @@ bool CInputDB::Process(LPDESC d, const void * orig, int bytes, int & r_iBytesPro
 		if (m_iBufferLeft < 9)
 			return true;
 
-		bHeader		= *((BYTE *) (c_pData));	// 1
-		m_dwHandle	= *((DWORD *) (c_pData + 1));	// 4
-		iSize		= *((DWORD *) (c_pData + 5));	// 4
+		bHeader		= *((const BYTE *) (c_pData));	// 1
+		m_dwHandle	= *((const DWORD *) (c_pData + 1));	// 4
+		dwSize		= *((const DWORD *) (c_pData + 5));	// 4
 
-		sys_log(1, "DBCLIENT: header %d handle %d size %d bytes %d", bHeader, m_dwHandle, iSize, bytes);
+		sys_log(1, "DBCLIENT: header %d handle %u size %u bytes %d", bHeader, m_dwHandle, dwSize, bytes);
 
-		if (m_iBufferLeft - 9 < iSize)
+		const uint64_t totalNeeded = 9ULL + static_cast<uint64_t>(dwSize);
+		if (static_cast<uint64_t>(m_iBufferLeft) < totalNeeded)
 			return true;
 
 		const char * pRealData = (c_pData + 9);
@@ -3150,11 +3151,11 @@ bool CInputDB::Process(LPDESC d, const void * orig, int bytes, int & r_iBytesPro
 			//d->SetPhase(PHASE_CLOSE);
 		}
 
-		c_pData		+= 9 + iSize;
-		m_iBufferLeft	-= 9 + iSize;
-		r_iBytesProceed	+= 9 + iSize;
+		c_pData		+= totalNeeded;
+		m_iBufferLeft	-= static_cast<int>(totalNeeded);
+		r_iBytesProceed	+= static_cast<int>(totalNeeded);
 
-		iLastPacketLen	= 9 + iSize;
+		iLastPacketLen	= static_cast<int>(totalNeeded);
 		bLastHeader	= bHeader;
 	}
 

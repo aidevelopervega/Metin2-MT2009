@@ -1,6 +1,8 @@
 #ifndef __METIN_II_COMMON_BUILDING_H__
 #define __METIN_II_COMMON_BUILDING_H__
 
+#include <cstdint>
+
 namespace building
 {
 	enum
@@ -8,12 +10,13 @@ namespace building
 		OBJECT_MATERIAL_MAX_NUM = 5,
 	};
 
+#pragma pack(1)
 	typedef struct SLand
 	{
 		DWORD	dwID;
-		long	lMapIndex;
-		long	x, y;
-		long	width, height;
+		int32_t	lMapIndex;
+		int32_t	x, y;
+		int32_t	width, height;
 		DWORD	dwGuildID;
 		BYTE	bGuildLevelLimit;
 		YANG	dwPrice;
@@ -34,12 +37,12 @@ namespace building
 
 		DWORD	dwUpgradeVnum;
 		DWORD	dwUpgradeLimitTime;
-		long	lLife;
-		long	lRegion[4];
+		int32_t	lLife;
+		int32_t	lRegion[4];
 
 		DWORD	dwNPCVnum;
-		long	lNPCX;
-		long	lNPCY;
+		int32_t	lNPCX;
+		int32_t	lNPCY;
 
 		DWORD	dwGroupVnum;
 		DWORD	dwDependOnGroupVnum;
@@ -50,14 +53,15 @@ namespace building
 		DWORD	dwID;
 		DWORD	dwLandID;
 		DWORD	dwVnum;
-		long	lMapIndex;
-		long	x, y;
+		int32_t	lMapIndex;
+		int32_t	x, y;
 
 		float	xRot;
 		float	yRot;
 		float	zRot;
-		long	lLife;
+		int32_t	lLife;
 	} TObject;
+#pragma pack()
 };
 
 #endif

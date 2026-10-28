@@ -571,7 +571,7 @@ void CHARACTER::LoadAffect(DWORD dwCount, TPacketAffectElement * pElements)
 	// @fixme118 END
 }
 
-bool CHARACTER::CanAddAffect(DWORD dwType, BYTE bApplyOn, [[maybe_unused]] long lApplyValue, DWORD dwFlag, [[maybe_unused]] long lDuration)
+bool CHARACTER::CanAddAffect(DWORD dwType, BYTE bApplyOn, [[maybe_unused]] int32_t lApplyValue, DWORD dwFlag, [[maybe_unused]] int64_t lDuration)
 {
 	if (dwType == AFFECT_HEAVEN_PROTECTION
 		&& dwFlag == AFF_HEAVEN_PROTECTION
@@ -590,7 +590,7 @@ bool CHARACTER::CanAddAffect(DWORD dwType, BYTE bApplyOn, [[maybe_unused]] long 
 	return true;
 }
 
-void CHARACTER::OnAddAffect(DWORD dwType, BYTE& bApplyOn, long& lApplyValue, DWORD dwFlag, long lDuration)
+void CHARACTER::OnAddAffect(DWORD dwType, BYTE& bApplyOn, int32_t& lApplyValue, DWORD dwFlag, int64_t lDuration)
 {
 
 	switch (dwType) {
@@ -663,7 +663,7 @@ void CHARACTER::OnAddAffect(DWORD dwType, BYTE& bApplyOn, long& lApplyValue, DWO
 	}
 }
 
-bool CHARACTER::AddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD dwFlag, long lDuration, long lSPCost, bool bOverride, bool IsCube, DWORD itemVnum)
+bool CHARACTER::AddAffect(DWORD dwType, BYTE bApplyOn, int32_t lApplyValue, DWORD dwFlag, int64_t lDuration, int64_t lSPCost, bool bOverride, bool IsCube, DWORD itemVnum)
 {
 	if (!CanAddAffect(dwType, bApplyOn, lApplyValue, dwFlag, lDuration))
 		return false;
@@ -672,7 +672,7 @@ bool CHARACTER::AddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD d
 
 	if (lDuration == 0)
 	{
-		sys_err("Character::AddAffect lDuration == 0 (%ld) type %u", lDuration, static_cast<unsigned int>(dwType));
+		sys_err("Character::AddAffect lDuration == 0 (%lld) type %u", static_cast<long long>(lDuration), static_cast<unsigned int>(dwType));
 		lDuration = 1;
 	}
 
@@ -711,8 +711,8 @@ bool CHARACTER::AddAffect(DWORD dwType, BYTE bApplyOn, long lApplyValue, DWORD d
 
 	}
 
-	sys_log(1, "AddAffect %s type %d apply %d %d flag %u duration %d", GetName(), dwType, bApplyOn, lApplyValue, dwFlag, lDuration);
-	sys_log(0, "AddAffect %s type %d apply %d %d flag %u duration %d", GetName(), dwType, bApplyOn, lApplyValue, dwFlag, lDuration);
+	sys_log(1, "AddAffect %s type %u apply %d %d flag %u duration %lld", GetName(), static_cast<unsigned int>(dwType), bApplyOn, lApplyValue, static_cast<unsigned int>(dwFlag), static_cast<long long>(lDuration));
+	sys_log(0, "AddAffect %s type %u apply %d %d flag %u duration %lld", GetName(), static_cast<unsigned int>(dwType), bApplyOn, lApplyValue, static_cast<unsigned int>(dwFlag), static_cast<long long>(lDuration));
 
 	pkAff->dwType	= dwType;
 	pkAff->bApplyOn	= bApplyOn;

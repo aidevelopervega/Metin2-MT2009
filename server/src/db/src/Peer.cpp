@@ -46,11 +46,22 @@ void CPeer::OnClose()
 	sys_log(0, "Connection closed. (host: %s)", m_host);
 	sys_log(0, "ItemIDRange: returned. %u ~ %u", m_itemRange.dwMin, m_itemRange.dwMax);
 
-	CItemIDRangeManager::instance().UpdateRange(m_itemRange.dwMin, m_itemRange.dwMax);
+	if (m_itemRange.dwMin != 0 && m_itemRange.dwMax != 0)
+		CItemIDRangeManager::instance().UpdateRange(m_itemRange.dwMin, m_itemRange.dwMax);
 
 	m_itemRange.dwMin = 0;
 	m_itemRange.dwMax = 0;
 	m_itemRange.dwUsableItemIDMin = 0;
+
+	if (m_itemSpareRange.dwMin != 0 && m_itemSpareRange.dwMax != 0)
+	{
+		sys_log(0, "ItemIDRange: spare returned. %u ~ %u", m_itemSpareRange.dwMin, m_itemSpareRange.dwMax);
+		CItemIDRangeManager::instance().UpdateRange(m_itemSpareRange.dwMin, m_itemSpareRange.dwMax);
+	}
+
+	m_itemSpareRange.dwMin = 0;
+	m_itemSpareRange.dwMax = 0;
+	m_itemSpareRange.dwUsableItemIDMin = 0;
 }
 
 DWORD CPeer::GetHandle()
@@ -183,20 +194,22 @@ bool CPeer::SetSpareItemIDRange(TItemIDRangeTable itemRange)
 
 bool CPeer::CheckItemIDRangeCollision(TItemIDRangeTable itemRange)
 {
-	if (m_itemRange.dwMin < itemRange.dwMax && m_itemRange.dwMax > itemRange.dwMin)
+	if (m_itemRange.dwMin > 0 && m_itemRange.dwMax > 0 &&
+		m_itemRange.dwMin <= itemRange.dwMax && m_itemRange.dwMax >= itemRange.dwMin)
 	{
 		sys_err("ItemIDRange: Collision!! this %u ~ %u check %u ~ %u",
 				m_itemRange.dwMin, m_itemRange.dwMax, itemRange.dwMin, itemRange.dwMax);
-		return false;
+		return true;
 	}
 
-	if (m_itemSpareRange.dwMin < itemRange.dwMax && m_itemSpareRange.dwMax > itemRange.dwMin)
+	if (m_itemSpareRange.dwMin > 0 && m_itemSpareRange.dwMax > 0 &&
+		m_itemSpareRange.dwMin <= itemRange.dwMax && m_itemSpareRange.dwMax >= itemRange.dwMin)
 	{
 		sys_err("ItemIDRange: Collision with spare range this %u ~ %u check %u ~ %u",
 				m_itemSpareRange.dwMin, m_itemSpareRange.dwMax, itemRange.dwMin, itemRange.dwMax);
-		return false;
+		return true;
 	}
 
-	return true;
+	return false;
 }
 

@@ -72,7 +72,7 @@ TItemIDRangeTable CItemIDRangeManager::GetRange()
 			m_listData.pop_front();
 
 			FCheckCollision f(ret);
-			CClientManager::instance().for_each_peer(f);
+			f = CClientManager::instance().for_each_peer(f);
 
 			if (f.hasCollision == false) return ret;
 		}
@@ -101,6 +101,10 @@ bool CItemIDRangeManager::BuildRange(DWORD dwMin, DWORD dwMax, TItemIDRangeTable
 			str_to_number(dwItemMaxID, row[0]);
 		}
 	}
+
+	const DWORD dwCachedMaxID = CClientManager::instance().GetMaxCachedItemIDInRange(dwMin, dwMax);
+	if (dwCachedMaxID > dwItemMaxID)
+		dwItemMaxID = dwCachedMaxID;
 
 	if (dwItemMaxID == 0)
 		dwItemMaxID = dwMin;

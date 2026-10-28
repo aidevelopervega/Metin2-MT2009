@@ -34,8 +34,8 @@ namespace quest
 		if (ch->FindAffect(AFFECT_QUEST_START_IDX, applyOn))
 			return 0;
 
-		long value = (long) lua_tonumber(L, 2);
-		long duration = (long) lua_tonumber(L, 3);
+		int32_t value = static_cast<int32_t>(lua_tonumber(L, 2));
+		int64_t duration = static_cast<int64_t>(lua_tonumber(L, 3));
 
 		ch->AddAffect(AFFECT_QUEST_START_IDX, applyOn, value, 0, duration, 0, false);
 
@@ -55,7 +55,7 @@ namespace quest
 		DWORD affectType = (DWORD)lua_tonumber(L, 1);
 
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
-		BYTE pointType = (long)lua_tonumber(L, 2);
+		BYTE pointType = (BYTE)lua_tonumber(L, 2);
 
 		if (pointType >= POINT_MAX_NUM)
 		{
@@ -63,8 +63,8 @@ namespace quest
 			return 0;
 		}
 
-		long value = (long)lua_tonumber(L, 3);
-		long duration = (long)lua_tonumber(L, 4);
+		int32_t value = static_cast<int32_t>(lua_tonumber(L, 3));
+		int64_t duration = static_cast<int64_t>(lua_tonumber(L, 4));
 		DWORD flag = lua_isnumber(L, 5) ? (DWORD)lua_tonumber(L, 5) : static_cast<DWORD>(AFF_NONE);
 		bool bOverride = lua_isboolean(L, 6) ? (bool)lua_toboolean(L, 6) : false;
 		bool bCube = lua_isboolean(L, 7) ? (bool)lua_toboolean(L, 7) : false;
@@ -174,7 +174,7 @@ namespace quest
 			return 0;
 		}
 
-		long value = (long) lua_tonumber(L, 2);
+		int32_t value = static_cast<int32_t>(lua_tonumber(L, 2));
 
 		CAffect* pkAff = ch->FindAffect(AFFECT_COLLECT, point_type);
 		if (pkAff)
@@ -300,12 +300,12 @@ namespace quest
 			return 0;
 		}
 
-		const long value = static_cast<long>(dValue);
-		const long duration = static_cast<long>(dDuration);
+		const int32_t value = static_cast<int32_t>(dValue);
+		const int64_t duration = static_cast<int64_t>(dDuration);
 
 		if (duration <= 0 || duration > INFINITE_AFFECT_DURATION)
 		{
-			sys_err("hair affect duration is out of range : %ld", duration);
+			sys_err("hair affect duration is out of range : %lld", static_cast<long long>(duration));
 			return 0;
 		}
 
