@@ -62,6 +62,8 @@ void DESC::Initialize()
 	m_lpOutputBuffer = NULL;
 
 	m_pkPingEvent = NULL;
+	m_pkPartialLoginEvent = NULL;
+	m_iPartialLoginBytes = 0;
 	m_lpCharacter = NULL;
 	memset( &m_accountTable, 0, sizeof(m_accountTable) );
 
@@ -140,6 +142,7 @@ void DESC::Destroy()
 	SAFE_BUFFER_DELETE(m_lpInputBuffer);
 
 	event_cancel(&m_pkPingEvent);
+	event_cancel(&m_pkPartialLoginEvent);
 	event_cancel(&m_pkDisconnectEvent);
 
 	if (!g_bAuthServer)
@@ -174,6 +177,85 @@ void DESC::Destroy()
 #ifdef ENABLE_SEQUENCE_SYSTEM
 	m_seq_vector.clear();
 #endif
+}
+
+EVENTFUNC(partial_login_event)
+{
+	DESC::desc_event_info* info = dynamic_cast<DESC::desc_event_info*>(event->info);
+
+	if (info == NULL || info->desc == NULL)
+		return 0;
+
+	LPDESC desc = info->desc;
+	desc->CancelPartialLoginCheck();
+
+	if (desc->IsPhase(PHASE_CLOSE) || desc->m_pkDisconnectEvent != NULL)
+		return 0;
+
+	const int iBuffered = desc->GetInputBufferSize();
+	if (iBuffered <= 0)
+		return 0;
+
+	if ((desc->IsPhase(PHASE_AUTH) || desc->IsPhase(PHASE_LOGIN)) && desc->GetClientVersion() == 0)
+	{
+		sys_log(0, "PARTIAL_LOGIN_EVENT: rejected incomplete/legacy login frame (%d bytes, phase %d) from %s",
+			iBuffered, desc->GetPhase(), desc->GetHostName());
+		TPacketGCLoginFailure failurePacket{};
+		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
+		strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
+		desc->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+		desc->ClearInputBuffers();
+		desc->DelayedDisconnect(3);
+	}
+	else if (desc->IsPhase(PHASE_P2P) && desc->GetClientVersion() == 0)
+	{
+		sys_err("PARTIAL_LOGIN_EVENT: rejected incomplete/legacy P2P setup frame (%d bytes) from %s",
+			iBuffered, desc->GetHostName());
+		desc->ClearInputBuffers();
+		desc->SetPhase(PHASE_CLOSE);
+	}
+
+	return 0;
+}
+
+void DESC::SchedulePartialLoginCheck(int iBufferedBytes)
+{
+	if (iBufferedBytes <= 0 || IsPhase(PHASE_CLOSE) || m_pkDisconnectEvent != NULL)
+	{
+		CancelPartialLoginCheck();
+		return;
+	}
+
+	if (m_pkPartialLoginEvent != NULL && m_iPartialLoginBytes == iBufferedBytes)
+		return;
+
+	event_cancel(&m_pkPartialLoginEvent);
+	m_iPartialLoginBytes = iBufferedBytes;
+
+	desc_event_info* info = AllocEventInfo<desc_event_info>();
+	info->desc = this;
+	m_pkPartialLoginEvent = event_create(partial_login_event, info, MAX(1, PASSES_PER_SEC(1) / 4));
+}
+
+void DESC::CancelPartialLoginCheck()
+{
+	event_cancel(&m_pkPartialLoginEvent);
+	m_iPartialLoginBytes = 0;
+}
+
+void DESC::ClearInputBuffers()
+{
+	CancelPartialLoginCheck();
+	if (m_lpInputBuffer)
+		buffer_reset(m_lpInputBuffer);
+#ifdef USE_IMPROVED_PACKET_DECRYPTED_BUFFER
+	m_lpInputDecryptedBuffer.reset();
+#endif
+}
+
+int DESC::GetInputBufferSize() const
+{
+	return m_lpInputBuffer ? buffer_size(m_lpInputBuffer) : 0;
 }
 
 EVENTFUNC(ping_event)
@@ -368,58 +450,92 @@ int DESC::ProcessInput()
 #endif
 	}
 #else
-	else if (!m_bEncrypted)
-	{
-		int iBytesProceed = 0;
-
-		while (!m_pInputProcessor->Process(this, buffer_read_peek(m_lpInputBuffer), buffer_size(m_lpInputBuffer), iBytesProceed))
-		{
-			buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
-			iBytesProceed = 0;
-		}
-
-		buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
-	}
 	else
 	{
-		int iSizeBuffer = buffer_size(m_lpInputBuffer);
-
-		if (iSizeBuffer & 7)
-			iSizeBuffer -= iSizeBuffer & 7;
-
-		if (iSizeBuffer > 0)
+		if (!m_bEncrypted)
 		{
-			TEMP_BUFFER	tempbuf;
-			LPBUFFER lpBufferDecrypt = tempbuf.getptr();
-			buffer_adjust_size(lpBufferDecrypt, iSizeBuffer);
-
-			int iSizeAfter = TEA_Decrypt((DWORD *) buffer_write_peek(lpBufferDecrypt),
-					(DWORD *) buffer_read_peek(m_lpInputBuffer),
-					GetDecryptionKey(),
-					iSizeBuffer);
-
-			buffer_write_proceed(lpBufferDecrypt, iSizeAfter);
-
 			int iBytesProceed = 0;
 
-			while (!m_pInputProcessor->Process(this, buffer_read_peek(lpBufferDecrypt), buffer_size(lpBufferDecrypt), iBytesProceed))
+			while (!m_bEncrypted && !m_pInputProcessor->Process(this, buffer_read_peek(m_lpInputBuffer), buffer_size(m_lpInputBuffer), iBytesProceed))
 			{
-				if (iBytesProceed > iSizeBuffer)
-				{
-					buffer_read_proceed(m_lpInputBuffer, iSizeBuffer);
-					iSizeBuffer = 0;
-					iBytesProceed = 0;
-					break;
-				}
-
 				buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
-				iSizeBuffer -= iBytesProceed;
-
-				buffer_read_proceed(lpBufferDecrypt, iBytesProceed);
 				iBytesProceed = 0;
 			}
 
 			buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
+		}
+
+		if (m_bEncrypted && m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
+		{
+			while (buffer_size(m_lpInputBuffer) >= 8 && !IsPhase(PHASE_CLOSE) && m_pkDisconnectEvent == NULL)
+			{
+				int iSizeBuffer = buffer_size(m_lpInputBuffer);
+
+				if (iSizeBuffer & 7)
+					iSizeBuffer -= iSizeBuffer & 7;
+
+				if (iSizeBuffer <= 0)
+					break;
+
+				DWORD adwKeyBefore[4];
+				thecore_memcpy(adwKeyBefore, GetDecryptionKey(), sizeof(adwKeyBefore));
+
+				TEMP_BUFFER	tempbuf;
+				LPBUFFER lpBufferDecrypt = tempbuf.getptr();
+				buffer_adjust_size(lpBufferDecrypt, iSizeBuffer);
+
+				int iSizeAfter = TEA_Decrypt((DWORD *) buffer_write_peek(lpBufferDecrypt),
+						(DWORD *) buffer_read_peek(m_lpInputBuffer),
+						GetDecryptionKey(),
+						iSizeBuffer);
+
+				buffer_write_proceed(lpBufferDecrypt, iSizeAfter);
+
+				int iBytesProceed = 0;
+				bool bKeyChanged = false;
+
+				while (!m_pInputProcessor->Process(this, buffer_read_peek(lpBufferDecrypt), buffer_size(lpBufferDecrypt), iBytesProceed))
+				{
+					if (iBytesProceed > iSizeBuffer)
+					{
+						buffer_read_proceed(m_lpInputBuffer, iSizeBuffer);
+						iSizeBuffer = 0;
+						iBytesProceed = 0;
+						break;
+					}
+
+					buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
+					iSizeBuffer -= iBytesProceed;
+
+					buffer_read_proceed(lpBufferDecrypt, iBytesProceed);
+					iBytesProceed = 0;
+
+					if (memcmp(adwKeyBefore, GetDecryptionKey(), sizeof(adwKeyBefore)) != 0)
+					{
+						bKeyChanged = true;
+						break;
+					}
+				}
+
+				if (!bKeyChanged)
+				{
+					buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
+					break;
+				}
+			}
+		}
+
+		if (!IsPhase(PHASE_CLOSE) && m_pkDisconnectEvent == NULL && m_lpInputBuffer &&
+		    ((IsPhase(PHASE_AUTH) || IsPhase(PHASE_LOGIN) || IsPhase(PHASE_P2P)) && GetClientVersion() == 0))
+		{
+			if (buffer_size(m_lpInputBuffer) > 0)
+				SchedulePartialLoginCheck(buffer_size(m_lpInputBuffer));
+			else
+				CancelPartialLoginCheck();
+		}
+		else
+		{
+			CancelPartialLoginCheck();
 		}
 	}
 #endif // _IMPROVED_PACKET_ENCRYPTION_
@@ -571,6 +687,7 @@ void DESC::LargePacket(const void * c_pvData, int iSize)
 
 void DESC::SetPhase(int _phase)
 {
+	CancelPartialLoginCheck();
 	m_iPhase = _phase;
 
 	TPacketGCPhase pack;

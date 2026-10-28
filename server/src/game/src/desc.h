@@ -150,7 +150,12 @@ class DESC
 		LPCHARACTER		GetCharacter()		{ return m_lpCharacter; }
 
 		bool			IsPhase(int phase) const	{ return m_iPhase == phase ? true : false; }
-		bool			GetPhase() const			{ return m_iPhase; }
+		int				GetPhase() const			{ return m_iPhase; }
+
+		void			SchedulePartialLoginCheck(int iBufferedBytes);
+		void			CancelPartialLoginCheck();
+		void			ClearInputBuffers();
+		int				GetInputBufferSize() const;
 
 		const struct sockaddr_in & GetAddr()		{ return m_SockAddr;	}
 
@@ -252,6 +257,8 @@ class DESC
 		LPBUFFER		m_lpOutputBuffer;
 
 		LPEVENT			m_pkPingEvent;
+		LPEVENT			m_pkPartialLoginEvent;
+		int				m_iPartialLoginBytes;
 		LPCHARACTER		m_lpCharacter;
 		TAccountTable		m_accountTable;
 

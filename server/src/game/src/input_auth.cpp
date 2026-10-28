@@ -131,10 +131,12 @@ void CInputAuth::Login(LPDESC d, const char * c_pData)
 			static_cast<unsigned int>(d->GetClientVersion()),
 			d->GetHostName());
 		LoginFailure(d, "VERSION");
+		d->ClearInputBuffers();
 		d->DelayedDisconnect(3);
 		return;
 	}
 
+	d->CancelPartialLoginCheck();
 	d->SetClientVersion(pinfo->dwProtocolVersion);
 
 	if (d->GetClientVersion() < g_dwClientVersion)

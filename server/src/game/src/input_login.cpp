@@ -146,10 +146,12 @@ void CInputLogin::LoginByKey(LPDESC d, const char * data)
 		failurePacket.header = HEADER_GC_LOGIN_FAILURE;
 		strlcpy(failurePacket.szStatus, "VERSION", sizeof(failurePacket.szStatus));
 		d->Packet(&failurePacket, sizeof(TPacketGCLoginFailure));
+		d->ClearInputBuffers();
 		d->DelayedDisconnect(3);
 		return;
 	}
 
+	d->CancelPartialLoginCheck();
 	d->SetClientVersion(pinfo->dwProtocolVersion);
 
 	if (!AuthSecurity::IsFieldNullTerminated(pinfo->login, sizeof(pinfo->login), 2, LOGIN_MAX_LEN) ||

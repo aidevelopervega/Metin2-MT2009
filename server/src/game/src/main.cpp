@@ -363,7 +363,7 @@ int main(int argc, char **argv)
 		return RunGameQuestRuntimeTests();
 	}
 
-	if (argc > 1 && (strcmp(argv[1], "--test-itemshop") == 0 || strcmp(argv[1], "--test-itemshop-crash-child") == 0))
+	if (argc > 1 && strncmp(argv[1], "--test-itemshop", 15) == 0)
 	{
 		extern int RunGameItemShopLiveTests(int argc, char** argv);
 		return RunGameItemShopLiveTests(argc, argv);

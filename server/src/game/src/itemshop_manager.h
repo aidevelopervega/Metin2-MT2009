@@ -52,7 +52,9 @@ public:
 
 	bool CheckBalance(LPCHARACTER ch, BYTE chargeType, int64_t amount, PlayerAccountBalance& currentBalance, bool addMarks = true);
 	bool AddCash(LPCHARACTER ch, BYTE chargeType, int64_t amount, bool checkBalance = true, int64_t customSecondAmount = -1);
-	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity);
+	bool BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint64_t requestId = 0);
+	uint64_t LookupTransactionByRequestId(DWORD aid, uint64_t requestId, std::string* outState = nullptr);
+	bool PersistInventoryItemSynchronously(LPITEM item);
 	LPITEM GiveItem(LPCHARACTER ch, int itemIndex, DWORD itemVnum, DWORD itemCount, bool* outDeliveredToAward = nullptr, uint64_t* outAwardInsertId = nullptr, uint64_t txId = 0, DWORD slotIndex = 0);
 	void RefreshItemShop(LPCHARACTER ch);
 	void OpenItemShop(LPCHARACTER ch, bool refresh = false);
@@ -75,6 +77,9 @@ public:
 	void SetCrashAfterChargeForTest(bool bEnable) { m_bCrashAfterChargeForTest = bEnable; }
 	void SetHardExitAfterChargeForTest(bool bEnable) { m_bHardExitAfterChargeForTest = bEnable; }
 	void SetCrashAfterDeliveryBeforeJournalForTest(bool bEnable) { m_bCrashAfterDeliveryBeforeJournalForTest = bEnable; }
+	void SetCrashAfterGiveItemBeforeSqlPersistForTest(bool bEnable) { m_bCrashAfterGiveItemBeforeSqlPersistForTest = bEnable; }
+	void SetHardExitAfterGiveItemBeforeSqlPersistForTest(bool bEnable) { m_bHardExitAfterGiveItemBeforeSqlPersistForTest = bEnable; }
+	void SetHardExitAfterClaimRecoveringForTest(bool bEnable) { m_bHardExitAfterClaimRecoveringForTest = bEnable; }
 
 private:
 	std::map<DWORD, TItemShopItem> m_map_ItemShopItems;
@@ -86,6 +91,9 @@ private:
 	bool m_bCrashAfterChargeForTest = false;
 	bool m_bHardExitAfterChargeForTest = false;
 	bool m_bCrashAfterDeliveryBeforeJournalForTest = false;
+	bool m_bCrashAfterGiveItemBeforeSqlPersistForTest = false;
+	bool m_bHardExitAfterGiveItemBeforeSqlPersistForTest = false;
+	bool m_bHardExitAfterClaimRecoveringForTest = false;
 
 	DWORD GetTimeAuctionProgress(TItemShopItem item);
 	void GetPacketDataFromItem(struct TItemShopItemClient& pack, int& i, TItemShopItem item);

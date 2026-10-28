@@ -292,9 +292,12 @@ void CInputP2P::Setup(LPDESC d, const char * c_pData)
 		sys_err("P2P: rejected Setup from %s:%u with incompatible protocol version 0x%08x (expected 0x%08x)",
 			d->GetHostName(), static_cast<unsigned int>(p->wPort),
 			static_cast<unsigned int>(p->dwProtocolVersion), static_cast<unsigned int>(MT2_PROTOCOL_VERSION_X64));
+		d->ClearInputBuffers();
 		d->SetPhase(PHASE_CLOSE);
 		return;
 	}
+	d->CancelPartialLoginCheck();
+	d->SetClientVersion(p->dwProtocolVersion);
 	sys_log(0, "P2P: Setup %s:%d", d->GetHostName(), p->wPort);
 	d->SetP2P(d->GetHostName(), p->wPort, p->bChannel);
 }

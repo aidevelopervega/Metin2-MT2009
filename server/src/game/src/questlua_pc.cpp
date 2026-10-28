@@ -3726,10 +3726,13 @@ namespace quest
 		{
 			return 0;
 		}
-		const int item_index = lua_isnumber(L, 1) ? (long)lua_tonumber(L, 1) : 0;
-		const int item_count = lua_isnumber(L, 2) ? (long)lua_tonumber(L, 2) : 1;
+		const int item_index = lua_isnumber(L, 1) ? static_cast<int>(lua_tonumber(L, 1)) : 0;
+		const int item_count = lua_isnumber(L, 2) ? static_cast<int>(lua_tonumber(L, 2)) : 1;
+		const uint64_t request_id = lua_isinteger(L, 3)
+			? static_cast<uint64_t>(lua_tointeger(L, 3))
+			: (lua_isnumber(L, 3) ? static_cast<uint64_t>(lua_tonumber(L, 3)) : 0ULL);
 		if (item_index > 0 && item_count > 0)
-			CItemShopManager::instance().BuyItem(ch, item_index, item_count);
+			CItemShopManager::instance().BuyItem(ch, item_index, item_count, request_id);
 		return 0;
 	}
 

@@ -876,13 +876,53 @@ namespace
 	{
 	public:
 		CTestItemShopCharacter() : CHARACTER(false) {}
+		virtual ~CTestItemShopCharacter()
+		{
+			ClearTestInventory();
+		}
 		void SetTestPlayerID(DWORD pid) { m_dwPlayerID = pid; }
+		void EnableDirectInventory(bool enable)
+		{
+			if (enable)
+			{
+				if (!m_PlayerSlots)
+					m_PlayerSlots = std::make_unique<PlayerSlotT>();
+				m_bCharType = CHAR_TYPE_PC;
+			}
+			else
+			{
+				ClearTestInventory();
+				m_PlayerSlots.reset();
+				m_bCharType = CHAR_TYPE_MONSTER;
+			}
+		}
+		void ClearTestInventory()
+		{
+			if (!m_PlayerSlots)
+				return;
+			for (int i = 0; i < INVENTORY_AND_EQUIP_SLOT_MAX; ++i)
+			{
+				LPITEM item = m_PlayerSlots->pItems[i];
+				if (item)
+				{
+					item->SetSkipSave(true);
+					item->RemoveFromCharacter();
+					m_PlayerSlots->pItems[i] = nullptr;
+					ITEM_MANAGER::instance().RemoveFromDelayedSave(item);
+					M2_DESTROY_ITEM(item);
+				}
+			}
+			m_PlayerSlots->bItemGrid.fill(0);
+		}
 	};
 }
 
 int RunGameItemShopLiveTests(int argc, char** argv)
 {
 	const bool isCrashChildMode = (argc > 1 && std::strcmp(argv[1], "--test-itemshop-crash-child") == 0);
+	const bool isCrashRecoveringChildMode = (argc > 1 && std::strcmp(argv[1], "--test-itemshop-crash-recovering-child") == 0);
+	const bool isCrashPreSqlChildMode = (argc > 1 && std::strcmp(argv[1], "--test-itemshop-crash-pre-sql-child") == 0);
+	const bool isRecoverWorkerChildMode = (argc > 1 && std::strcmp(argv[1], "--test-itemshop-recover-child") == 0);
 
 	std::string host = "127.0.0.1";
 	int port = 3306;
@@ -905,6 +945,18 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	if (const char* env_user = std::getenv("MT2_TEST_USER")) user = env_user;
 	if (const char* env_pwd = std::getenv("MT2_TEST_PASSWORD")) password = env_pwd;
 	if (const char* env_db = std::getenv("MT2_TEST_DB")) dbname = env_db;
+
+	struct FileCleanupGuard
+	{
+		~FileCleanupGuard()
+		{
+			std::remove("sql_log_spool.dat");
+			std::remove("sql_log_spool.dat.lock");
+			std::remove("sql_log_spool.dat.quarantine");
+			std::remove("p2p_packet_info.txt");
+			std::remove("packet_info.txt");
+		}
+	} fileCleanupGuard;
 
 	std::unique_ptr<CArenaManager> local_am = std::make_unique<CArenaManager>();
 	std::unique_ptr<quest::CQuestManager> local_qm = std::make_unique<quest::CQuestManager>();
@@ -929,8 +981,13 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	DBManager::instance().DirectQuery(
 		"SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
 
-	// Register item prototypes in ITEM_MANAGER (using ITEM_DS so HasSlotForItem routes to item_award DB table)
-	TItemTable protoItems[2]{};
+	// Register item prototypes in ITEM_MANAGER:
+	// - 71084: Stackable ITEM_DS (routes to item_award when inventory is not used)
+	// - 72001: Non-stackable ITEM_DS (tests multi-slot non-stackable item_award delivery)
+	// - 72101: VIP subscription item (ITEM_USE / USE_VIP, alValues[0]=PREMIUM_EXP, alValues[1]=24 hours)
+	// - 80014: Dragon Scroll voucher item (ITEM_USE / USE_SPECIAL, alValues[0]=500 voucher value, stackable)
+	// - 71085: Direct-inventory stackable item (ITEM_USE / USE_SPECIAL, bSize=1, dwMaxStack=200)
+	TItemTable protoItems[5]{};
 	protoItems[0].dwVnum = 71084;
 	strlcpy(protoItems[0].szName, "EnchantItem", sizeof(protoItems[0].szName));
 	strlcpy(protoItems[0].szLocaleName, "EnchantItem", sizeof(protoItems[0].szLocaleName));
@@ -946,13 +1003,48 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	protoItems[1].bType = ITEM_DS;
 	protoItems[1].bSubType = 0;
 	protoItems[1].bSize = 1;
-	protoItems[1].dwFlags = ITEM_FLAG_STACKABLE;
-	protoItems[1].dwMaxStack = 200;
+	protoItems[1].dwFlags = 0; // Non-stackable
+	protoItems[1].dwAntiFlags = ITEM_ANTIFLAG_STACK;
+	protoItems[1].dwMaxStack = 1;
 
-	RUNTIME_ASSERT(ITEM_MANAGER::instance().Initialize(protoItems, 2), "ITEM_MANAGER::Initialize with test prototypes succeeded");
+	protoItems[2].dwVnum = 72101;
+	strlcpy(protoItems[2].szName, "VIPGold24h", sizeof(protoItems[2].szName));
+	strlcpy(protoItems[2].szLocaleName, "VIPGold24h", sizeof(protoItems[2].szLocaleName));
+	protoItems[2].bType = ITEM_USE;
+	protoItems[2].bSubType = USE_VIP;
+	protoItems[2].bSize = 1;
+	protoItems[2].alValues[0] = 0; // silver_expire
+	protoItems[2].alValues[1] = 24; // 24 hours
+
+	protoItems[3].dwVnum = 80014;
+	strlcpy(protoItems[3].szName, "DragonCoinVoucher500", sizeof(protoItems[3].szName));
+	strlcpy(protoItems[3].szLocaleName, "DragonCoinVoucher500", sizeof(protoItems[3].szLocaleName));
+	protoItems[3].bType = ITEM_DS;
+	protoItems[3].bSubType = 0;
+	protoItems[3].bSize = 1;
+	protoItems[3].dwFlags = 0;
+	protoItems[3].dwAntiFlags = ITEM_ANTIFLAG_STACK;
+	protoItems[3].alValues[0] = 500;
+
+	protoItems[4].dwVnum = 71085;
+	strlcpy(protoItems[4].szName, "DirectInvBlessing", sizeof(protoItems[4].szName));
+	strlcpy(protoItems[4].szLocaleName, "DirectInvBlessing", sizeof(protoItems[4].szLocaleName));
+	protoItems[4].bType = ITEM_USE;
+	protoItems[4].bSubType = USE_TUNING;
+	protoItems[4].bSize = 1;
+	protoItems[4].dwFlags = ITEM_FLAG_STACKABLE;
+	protoItems[4].dwMaxStack = 200;
+
+	RUNTIME_ASSERT(ITEM_MANAGER::instance().Initialize(protoItems, 5), "ITEM_MANAGER::Initialize with test prototypes succeeded");
+
+	TItemIDRangeTable testIdRange{};
+	testIdRange.dwMin = 700001;
+	testIdRange.dwMax = 799999;
+	testIdRange.dwUsableItemIDMin = 700001;
+	RUNTIME_ASSERT(ITEM_MANAGER::instance().SetMaxItemID(testIdRange), "ITEM_MANAGER::SetMaxItemID succeeded");
 
 	const int64_t nowSec = static_cast<int64_t>(get_global_time());
-	TItemShopItem shopItems[3]{};
+	TItemShopItem shopItems[6]{};
 	shopItems[0].dwIndex = 101;
 	shopItems[0].dwVnum = 71084;
 	shopItems[0].dwCount = 2;
@@ -978,10 +1070,31 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	shopItems[2].timeAuction.dwMaxBuyAmount = 5;
 	shopItems[2].timeAuction.dwCurrentBuyAmount = 0;
 
-	// If invoked as the isolated crash-injection child process (Question 10), run BuyItem with hard _Exit(99) right after CHARGED commit!
+	shopItems[3].dwIndex = 103; // VIP 24h
+	shopItems[3].dwVnum = 72101;
+	shopItems[3].dwCount = 1;
+	shopItems[3].dwPrice = 300;
+	shopItems[3].bCurrency = CItemShopManager::CURRENCY_DRAGON_COIN;
+	shopItems[3].bMinLevel = 1;
+
+	shopItems[4].dwIndex = 104; // Dragon Scroll Voucher (price=550, voucher value=500 -> marks=50)
+	shopItems[4].dwVnum = 80014;
+	shopItems[4].dwCount = 1;
+	shopItems[4].dwPrice = 550;
+	shopItems[4].bCurrency = CItemShopManager::CURRENCY_DRAGON_COIN;
+	shopItems[4].bMinLevel = 1;
+
+	shopItems[5].dwIndex = 105; // Direct inventory item (71085)
+	shopItems[5].dwVnum = 71085;
+	shopItems[5].dwCount = 3;
+	shopItems[5].dwPrice = 250;
+	shopItems[5].bCurrency = CItemShopManager::CURRENCY_DRAGON_COIN;
+	shopItems[5].bMinLevel = 1;
+
+	// Child mode 1: crash with _Exit(99) immediately after CHARGED commit
 	if (isCrashChildMode)
 	{
-		RUNTIME_ASSERT(CItemShopManager::instance().Initialize(shopItems, 3), "Child CItemShopManager::Initialize succeeded");
+		RUNTIME_ASSERT(CItemShopManager::instance().Initialize(shopItems, 6), "Child CItemShopManager::Initialize succeeded");
 		DESC childDesc;
 		childDesc.GetAccountTable().id = 990701;
 		strlcpy(childDesc.GetAccountTable().login, "real_itemshop_buyer", sizeof(childDesc.GetAccountTable().login));
@@ -990,11 +1103,48 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		childBuyer->SetLevel(50);
 		childBuyer->BindDesc(&childDesc);
 
-		PulseManager::Instance().clockMap.clear();
 		CItemShopManager::instance().SetHardExitAfterChargeForTest(true);
-		// This call commits state='CHARGED' (deducting 5,000,000,000 coins) and immediately calls std::_Exit(99)!
 		CItemShopManager::instance().BuyItem(childBuyer.get(), 102, 1);
-		return 1; // Should never reach here
+		return 1;
+	}
+
+	// Child mode 2 (G3.H): claim CHARGED -> RECOVERING via real RecoverIncompleteTransactions() and crash with _Exit(97)
+	if (isCrashRecoveringChildMode)
+	{
+		CItemShopManager::instance().SetHardExitAfterClaimRecoveringForTest(true);
+		CItemShopManager::instance().RecoverIncompleteTransactions();
+		return 1;
+	}
+
+	// Child mode 3 (G3.L): give item into RAM + record INV_PENDING:<id> in journal, then crash with _Exit(98) before SQL player.item write
+	if (isCrashPreSqlChildMode)
+	{
+		TItemIDRangeTable childRange{};
+		childRange.dwMin = 750001;
+		childRange.dwMax = 759999;
+		childRange.dwUsableItemIDMin = 750001;
+		ITEM_MANAGER::instance().SetMaxItemID(childRange);
+		RUNTIME_ASSERT(CItemShopManager::instance().Initialize(shopItems, 6), "Pre-SQL crash child Initialize succeeded");
+
+		DESC childDesc;
+		childDesc.GetAccountTable().id = 990701;
+		strlcpy(childDesc.GetAccountTable().login, "real_itemshop_buyer", sizeof(childDesc.GetAccountTable().login));
+		std::unique_ptr<CTestItemShopCharacter> childBuyer = std::make_unique<CTestItemShopCharacter>();
+		childBuyer->SetTestPlayerID(880701);
+		childBuyer->SetLevel(50);
+		childBuyer->BindDesc(&childDesc);
+		childBuyer->EnableDirectInventory(true);
+
+		CItemShopManager::instance().SetHardExitAfterGiveItemBeforeSqlPersistForTest(true);
+		CItemShopManager::instance().BuyItem(childBuyer.get(), 105, 1);
+		return 1;
+	}
+
+	// Child mode 4 (G3.I): run real RecoverIncompleteTransactions() in a separate OS process
+	if (isRecoverWorkerChildMode)
+	{
+		int rec = CItemShopManager::instance().RecoverIncompleteTransactions();
+		return (rec >= 0) ? (10 + rec) : 1;
 	}
 
 	std::cout << "==================================================" << std::endl;
@@ -1051,10 +1201,27 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		"CREATE TABLE `item` ("
 		"  `id` int(11) unsigned NOT NULL DEFAULT 0,"
 		"  `owner_id` int(11) unsigned NOT NULL DEFAULT 0,"
-		"  `window` varchar(20) NOT NULL DEFAULT 'INVENTORY',"
+		"  `window` varchar(32) NOT NULL DEFAULT 'INVENTORY',"
 		"  `pos` smallint(5) unsigned NOT NULL DEFAULT 0,"
 		"  `count` int(10) unsigned NOT NULL DEFAULT 0,"
 		"  `vnum` int(11) unsigned NOT NULL DEFAULT 0,"
+		"  `socket0` bigint(20) NOT NULL DEFAULT 0,"
+		"  `socket1` bigint(20) NOT NULL DEFAULT 0,"
+		"  `socket2` bigint(20) NOT NULL DEFAULT 0,"
+		"  `attrtype0` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue0` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype1` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue1` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype2` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue2` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype3` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue3` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype4` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue4` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype5` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue5` smallint(6) NOT NULL DEFAULT 0,"
+		"  `attrtype6` tinyint(3) unsigned NOT NULL DEFAULT 0,"
+		"  `attrvalue6` smallint(6) NOT NULL DEFAULT 0,"
 		"  PRIMARY KEY (`id`),"
 		"  KEY `owner_id_idx` (`owner_id`)"
 		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -1082,12 +1249,28 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		"  `money_before_buy` bigint(20) NOT NULL DEFAULT 0"
 		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 	RUNTIME_ASSERT(rCreateLog && rCreateLog->uiSQLErrno == 0, "Isolated 64-bit itemshop log table created");
+
+	DBManager::instance().DirectQuery("DROP TABLE IF EXISTS `log`");
+	auto rCreateGenLog = DBManager::instance().DirectQuery(
+		"CREATE TABLE `log` ("
+		"  `type` varchar(20) NOT NULL DEFAULT 'ITEM',"
+		"  `time` datetime NOT NULL DEFAULT current_timestamp(),"
+		"  `who` int(10) unsigned NOT NULL DEFAULT 0,"
+		"  `x` int(10) unsigned NOT NULL DEFAULT 0,"
+		"  `y` int(10) unsigned NOT NULL DEFAULT 0,"
+		"  `what` bigint(20) unsigned NOT NULL DEFAULT 0,"
+		"  `how` varchar(50) NOT NULL DEFAULT '',"
+		"  `hint` text DEFAULT NULL,"
+		"  `ip` varchar(20) NOT NULL DEFAULT '',"
+		"  `vnum` int(10) unsigned NOT NULL DEFAULT 0"
+		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+	RUNTIME_ASSERT(rCreateGenLog && rCreateGenLog->uiSQLErrno == 0, "Isolated general log table created");
 	checks_passed++;
 
 	DBManager::instance().DirectQuery("INSERT INTO `itemshop_time_auction` (`item_index`, `buy_count`) VALUES (201, 0)");
 
-	RUNTIME_ASSERT(CItemShopManager::instance().Initialize(shopItems, 3),
-		"CItemShopManager::Initialize created itemshop_tx_journal, enforced idx_item_award_why UNIQUE index, and loaded items");
+	RUNTIME_ASSERT(CItemShopManager::instance().Initialize(shopItems, 6),
+		"CItemShopManager::Initialize created itemshop_tx_journal, enforced idx_item_award_why & idx_itemshop_tx_aid_req UNIQUE indexes, and loaded items");
 	checks_passed++;
 
 	// Prepare test buyer CHARACTER and DESC
@@ -1131,8 +1314,26 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		return 0ULL;
 	};
 
+	auto runChildMode = [&](const char* modeFlag) -> int {
+		std::string selfExe = argv[0];
+		std::string cmd = "\"" + selfExe + "\" " + modeFlag
+			+ " --host \"" + host + "\""
+			+ " --port " + std::to_string(port)
+			+ " --user \"" + user + "\""
+			+ " --db \"" + dbname + "\"";
+		if (!password.empty())
+			cmd += " --password \"" + password + "\"";
+#ifdef _WIN32
+		std::string fullCmd = "\"" + cmd + "\"";
+		int rawStatus = std::system(fullCmd.c_str());
+		return rawStatus;
+#else
+		int rawStatus = std::system(cmd.c_str());
+		return WIFEXITED(rawStatus) ? WEXITSTATUS(rawStatus) : rawStatus;
+#endif
+	};
+
 	// Check 4: Normal purchase via real CItemShopManager::BuyItem (INITIATED -> CHARGED -> DELIVERED)
-	PulseManager::Instance().clockMap.clear();
 	bool buy1Ok = CItemShopManager::instance().BuyItem(buyer.get(), 101, 2); // 2 packs * 600 = 1200 coins, 4 items
 	uint64_t tx1 = CItemShopManager::instance().GetLastTransactionId();
 	auto bal1 = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
@@ -1145,7 +1346,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	checks_passed++;
 
 	// Check 5: Simulated crash immediately after CHARGED (before delivery) -> RecoverIncompleteTransactions()
-	PulseManager::Instance().clockMap.clear();
 	CItemShopManager::instance().SetCrashAfterChargeForTest(true);
 	bool buy2Ok = CItemShopManager::instance().BuyItem(buyer.get(), 201, 1); // Time auction item, costs 400 coins
 	CItemShopManager::instance().SetCrashAfterChargeForTest(false);
@@ -1157,7 +1357,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	RUNTIME_ASSERT(queryJournalState(tx2) == "CHARGED" && queryAwardCountForTx(tx2) == 0,
 		"Before recovery: journal state is CHARGED and 0 items were delivered");
 
-	// Run startup/retry recovery
 	int recCount1 = CItemShopManager::instance().RecoverIncompleteTransactions();
 	auto balAfterRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
 	auto msgAuc = DBManager::instance().DirectQuery("SELECT buy_count FROM itemshop_time_auction WHERE item_index = 201");
@@ -1168,7 +1367,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	RUNTIME_ASSERT(balAfterRec.dwDragonCoins == 800 && balAfterRec.dwDragonMarks == 1300 && aucBuyCount == 0,
 		"RecoverIncompleteTransactions() restored Dragon Coins (400->800), Dragon Marks (1700->1300), and time-auction buy_count (1->0)");
 
-	// Verify idempotency: running RecoverIncompleteTransactions() a second time does NOT double-refund
 	int recCount2 = CItemShopManager::instance().RecoverIncompleteTransactions();
 	auto balAfterSecondRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
 	RUNTIME_ASSERT(recCount2 == 0 && balAfterSecondRec.dwDragonCoins == 800 && balAfterSecondRec.dwDragonMarks == 1300,
@@ -1177,7 +1375,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 	checks_passed++;
 
 	// Check 6: Simulated crash AFTER item_award delivery but BEFORE journal DELIVERED update -> RecoverIncompleteTransactions()
-	PulseManager::Instance().clockMap.clear();
 	CItemShopManager::instance().SetCrashAfterDeliveryBeforeJournalForTest(true);
 	bool buy3Ok = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1); // 1 pack = 600 coins, 2 items
 	CItemShopManager::instance().SetCrashAfterDeliveryBeforeJournalForTest(false);
@@ -1196,7 +1393,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 
 	// Check 7: 64-bit high-value (> 2^32) balance & item purchase via real CItemShopManager
 	DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 8000000000, `cash_mark` = 100000000 WHERE `id` = 990701");
-	PulseManager::Instance().clockMap.clear();
 	bool buy64Ok = CItemShopManager::instance().BuyItem(buyer.get(), 102, 1); // Costs 5,000,000,000 Dragon Coins
 	uint64_t tx4 = CItemShopManager::instance().GetLastTransactionId();
 	auto bal64 = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
@@ -1230,7 +1426,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 7777777777 WHERE `id` = 990701");
 		uint64_t accConnInTx2 = getConnId(true);
 
-		// Read from PlayerDB connection (separate session) BEFORE COMMIT -> must still see committed 3,000,000,000
 		auto msgIso = DBManager::instance().DirectQuery("SELECT `cash` FROM `account` WHERE `id` = 990701");
 		MYSQL_ROW rIso = (msgIso && msgIso->Get()) ? mysql_fetch_row(msgIso->Get()->pSQLResult) : nullptr;
 		int64_t isolatedCash = 0;
@@ -1246,161 +1441,214 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		checks_passed++;
 	}
 
-	// Check 9 (Section 3 Q2 & Q4): Duplicate Request Throttle, Pending-Tx Guard & item_award.why UNIQUE Constraint
+	// Check 9 (G3.A, G3.B, G3.C, G3.D & Q4): Persistent DB Request Idempotency (req_id), Intentional Repeat Buys & Reconnect/Cross-Process tx_id Preservation
 	{
-		// Q2a: Immediate duplicate request within 1000ms cooldown is blocked without creating a new tx_id
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 10000, `cash_mark` = 0 WHERE `id` = 990701");
 		PulseManager::Instance().clockMap.clear();
-		bool firstBuy = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1);
-		uint64_t txFirst = CItemShopManager::instance().GetLastTransactionId();
-		bool immediateDupBuy = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1); // Do NOT clear PulseManager!
-		uint64_t txAfterDup = CItemShopManager::instance().GetLastTransactionId();
-		RUNTIME_ASSERT(firstBuy && !immediateDupBuy && txFirst == txAfterDup,
-			"Duplicate network BuyItem request within 1000ms window is blocked without creating a new tx_id");
 
-		// Q4: Attempting to insert a duplicate item_award row with the same why='ITEMSHOP_TX_<txFirst>' fails with ER_DUP_ENTRY (1062)
+		// G3.A & G3.B: Purchase with req_id=900001 succeeds; duplicate network retry with req_id=900001 (even with PulseManager cleared / >1s elapsed) is blocked by DB without creating a new tx_id
+		bool reqBuy1 = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1, 900001ULL);
+		uint64_t txReq1 = CItemShopManager::instance().GetLastTransactionId();
+		PulseManager::Instance().clockMap.clear(); // Prove we do NOT rely on 1s in-memory PulseManager filter (G3.B)
+		bool reqBuyDup = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1, 900001ULL);
+		uint64_t txAfterDup = CItemShopManager::instance().GetLastTransactionId();
+		auto balAfterDup = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(reqBuy1 && !reqBuyDup && txReq1 == txAfterDup && balAfterDup.dwDragonCoins == 9400,
+			"G3.A/B: Persistent DB req_id idempotency blocked duplicate retry without in-memory filter, new tx_id, or double charge");
+
+		// G3.D: Player disconnects & reconnects (or moves to another GAME process) and retries req_id=900001 -> original tx_id is preserved
+		DESC reconnectedDesc;
+		reconnectedDesc.GetAccountTable().id = 990701;
+		strlcpy(reconnectedDesc.GetAccountTable().login, "real_itemshop_buyer", sizeof(reconnectedDesc.GetAccountTable().login));
+		std::unique_ptr<CTestItemShopCharacter> reconnectedBuyer = std::make_unique<CTestItemShopCharacter>();
+		reconnectedBuyer->SetTestPlayerID(880701);
+		reconnectedBuyer->SetLevel(50);
+		reconnectedBuyer->BindDesc(&reconnectedDesc);
+		bool reqAfterReconnect = CItemShopManager::instance().BuyItem(reconnectedBuyer.get(), 101, 1, 900001ULL);
+		uint64_t txAfterReconnect = CItemShopManager::instance().GetLastTransactionId();
+		std::string lookedUpState;
+		uint64_t lookedUpTx = CItemShopManager::instance().LookupTransactionByRequestId(990701, 900001ULL, &lookedUpState);
+		reconnectedBuyer->BindDesc(nullptr);
+		RUNTIME_ASSERT(!reqAfterReconnect && txAfterReconnect == txReq1 && lookedUpTx == txReq1 && lookedUpState == "DELIVERED",
+			"G3.D: Original transaction identity (tx_id) is preserved across player reconnect / separate GAME instance");
+
+		// G3.C: Two separate, intentional purchases of the exact same item (index=101, qty=1) within the same millisecond succeed as two distinct transactions
+		bool intentionalBuyA = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1, 900002ULL);
+		uint64_t txIntentionalA = CItemShopManager::instance().GetLastTransactionId();
+		bool intentionalBuyB = CItemShopManager::instance().BuyItem(buyer.get(), 101, 1, 900003ULL);
+		uint64_t txIntentionalB = CItemShopManager::instance().GetLastTransactionId();
+		auto balAfterIntentional = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(intentionalBuyA && intentionalBuyB && txIntentionalA > txReq1 && txIntentionalB > txIntentionalA && balAfterIntentional.dwDragonCoins == 8200,
+			"G3.C: Two intentional identical purchases back-to-back within <1s both succeeded with distinct tx_ids");
+
+		// Q4: Attempting to insert a duplicate item_award row with the same why='ITEMSHOP_TX_<txReq1>' fails with ER_DUP_ENTRY (1062)
 		auto dupAward = DBManager::instance().DirectQuery(
 			"INSERT INTO `item_award` (`login`, `vnum`, `count`, `given_time`, `why`, `mall`) "
 			"VALUES ('real_itemshop_buyer', 71084, 2, NOW(), 'ITEMSHOP_TX_%llu', 1)",
-			static_cast<unsigned long long>(txFirst));
+			static_cast<unsigned long long>(txReq1));
 		RUNTIME_ASSERT(!dupAward || dupAward->uiSQLErrno == 1062,
 			"MariaDB UNIQUE KEY idx_item_award_why rejected duplicate ITEMSHOP_TX_<tx_id> with ER_DUP_ENTRY (1062)");
-		std::cout << "  [PASS] Check 9 (Q2 & Q4): Duplicate request guard & item_award.why DB-level UNIQUE constraint (errno=1062) verified" << std::endl;
+		std::cout << "  [PASS] Check 9 (G3.A-D & Q4): Persistent req_id idempotency, reconnect tx_id preservation & intentional repeat purchases verified" << std::endl;
 		checks_passed++;
 	}
 
-	// Check 10 (Section 3 Q3): Two Concurrent Recovery Workers Racing on the Same CHARGED Transaction
+	// Check 10 (G3.E, G3.K & Q3): Multi-Slot Non-Stackable item_award Delivery, VIP & Dragon Scroll Voucher Safety, and Real 2-Process Recovery Race
 	{
+		// G3.E: Non-stackable item (index=102, vnum=72001, dwFlags=0/ITEM_ANTIFLAG_STACK) bought with quantity=3 creates 3 distinct item_award rows (ITEMSHOP_TX_<tx>, #1, #2) without violating idx_item_award_why!
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 20000000000, `cash_mark` = 0 WHERE `id` = 990701");
+		bool multiNonStackOk = CItemShopManager::instance().BuyItem(buyer.get(), 102, 3); // 3 * 5B = 15B coins, 3 non-stackable items
+		uint64_t txMultiNonStack = CItemShopManager::instance().GetLastTransactionId();
+		auto msgAwardRows = DBManager::instance().DirectQuery(
+			"SELECT COUNT(*), COALESCE(SUM(count), 0) FROM item_award WHERE why = 'ITEMSHOP_TX_%llu' OR why LIKE 'ITEMSHOP_TX_%llu#%%'",
+			static_cast<unsigned long long>(txMultiNonStack),
+			static_cast<unsigned long long>(txMultiNonStack));
+		MYSQL_ROW rAwardRows = (msgAwardRows && msgAwardRows->Get()) ? mysql_fetch_row(msgAwardRows->Get()->pSQLResult) : nullptr;
+		int distinctAwardRows = (rAwardRows && rAwardRows[0]) ? std::atoi(rAwardRows[0]) : 0;
+		int totalAwardCount = (rAwardRows && rAwardRows[1]) ? std::atoi(rAwardRows[1]) : 0;
+		RUNTIME_ASSERT(multiNonStackOk && queryJournalState(txMultiNonStack) == "DELIVERED" && distinctAwardRows == 3 && totalAwardCount == 3,
+			"G3.E: Multi-item non-stackable purchase inserted 3 distinct item_award rows under UNIQUE idx_item_award_why");
+
+		// G3.K (VIP + Dragon Scroll Voucher normal & crash-recovery safety):
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 2000, `cash_mark` = 0, `silver_expire` = '2020-01-01 00:00:00' WHERE `id` = 990701");
+		bool vipBuyOk = CItemShopManager::instance().BuyItem(buyer.get(), 103, 1); // VIP 24h, 300 coins
+		uint64_t txVip = CItemShopManager::instance().GetLastTransactionId();
+		auto msgVipExp = DBManager::instance().AccountQuery("SELECT (`silver_expire` > NOW()) FROM `account` WHERE `id` = 990701");
+		MYSQL_ROW rVipExp = (msgVipExp && msgVipExp->Get()) ? mysql_fetch_row(msgVipExp->Get()->pSQLResult) : nullptr;
+		int vipActive = (rVipExp && rVipExp[0]) ? std::atoi(rVipExp[0]) : 0;
+		RUNTIME_ASSERT(vipBuyOk && queryJournalState(txVip) == "DELIVERED" && vipActive == 1,
+			"G3.K: VIP purchase atomically updated account.silver_expire and finalized journal as DELIVERED");
+
+		// Dragon Scroll Voucher (index=104, price=550, voucher value=500 -> marks=50): crash after CHARGED + recovery, then normal purchase
+		CItemShopManager::instance().SetCrashAfterChargeForTest(true);
+		bool voucherCrashOk = CItemShopManager::instance().BuyItem(buyer.get(), 104, 1);
+		CItemShopManager::instance().SetCrashAfterChargeForTest(false);
+		uint64_t txVoucherCrash = CItemShopManager::instance().GetLastTransactionId();
+		auto balVoucherMid = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(!voucherCrashOk && balVoucherMid.dwDragonCoins == 1150 && balVoucherMid.dwDragonMarks == 350,
+			"G3.K: Dragon Scroll Voucher crash after CHARGED deducted 550 coins and added only 50 marks (300->350)");
+		int recVoucher = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto balVoucherRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(recVoucher == 1 && queryJournalState(txVoucherCrash) == "REFUNDED" && balVoucherRec.dwDragonCoins == 1700 && balVoucherRec.dwDragonMarks == 300,
+			"G3.K: Dragon Scroll Voucher crash recovery refunded 550 coins and rolled back 50 marks accurately");
+		bool voucherBuyOk = CItemShopManager::instance().BuyItem(buyer.get(), 104, 1);
+		uint64_t txVoucherOk = CItemShopManager::instance().GetLastTransactionId();
+		RUNTIME_ASSERT(voucherBuyOk && queryJournalState(txVoucherOk) == "DELIVERED" && queryAwardCountForTx(txVoucherOk) == 1,
+			"G3.K: Dragon Scroll Voucher normal purchase succeeded");
+
+		// G3.I & Q3: Two real GAME processes racing on RecoverIncompleteTransactions() simultaneously
 		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 10000, `cash_mark` = 0 WHERE `id` = 990701");
-		auto insRace = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -1000, 1000, 11000, 'CHARGED')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		RUNTIME_ASSERT(insRace && insRace->uiSQLErrno == 0 && insRace->Get() && insRace->Get()->ullInsertID > 0, "Inserted CHARGED row for concurrency race");
-		const uint64_t raceTxId = insRace->Get()->ullInsertID;
+		CItemShopManager::instance().SetCrashAfterChargeForTest(true);
+		CItemShopManager::instance().BuyItem(buyer.get(), 101, 1); // Creates real CHARGED row (-600 coins -> 9400)
+		CItemShopManager::instance().SetCrashAfterChargeForTest(false);
+		uint64_t raceTxId = CItemShopManager::instance().GetLastTransactionId();
 
-		// Spawn an independent second MariaDB connection in a concurrent thread racing against RecoverIncompleteTransactions()
-		std::atomic<bool> startGate{false};
-		std::atomic<int> workerWon{0};
-		std::thread secondGameProcess([&]() {
-			CAsyncSQL conn2;
-			if (!conn2.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port))
-				return;
-			while (!startGate.load(std::memory_order_acquire)) {}
-			std::unique_ptr<SQLMsg> mBegin(conn2.DirectQuery("START TRANSACTION"));
-			char qClaim[256];
-			std::snprintf(qClaim, sizeof(qClaim),
-				"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'CRASH_REFUNDED_WORKER2' "
-				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-				static_cast<unsigned long long>(raceTxId));
-			std::unique_ptr<SQLMsg> mClaim(conn2.DirectQuery(qClaim));
-			if (mClaim && mClaim->uiSQLErrno == 0 && mClaim->Get() && mClaim->Get()->uiAffectedRows == 1)
-			{
-				std::unique_ptr<SQLMsg> mRef(conn2.DirectQuery(
-					"UPDATE account SET cash = cash + 1000 WHERE id = 990701 AND cash >= 0 LIMIT 1"));
-				if (mRef && mRef->uiSQLErrno == 0 && mRef->Get() && mRef->Get()->uiAffectedRows == 1)
-				{
-					std::unique_ptr<SQLMsg> mCom(conn2.DirectQuery("COMMIT"));
-					if (mCom && mCom->uiSQLErrno == 0)
-						workerWon.store(1, std::memory_order_release);
-				}
-				else
-				{
-					conn2.DirectQuery("ROLLBACK");
-				}
-			}
-			else
-			{
-				conn2.DirectQuery("ROLLBACK");
-			}
+		std::atomic<int> childRecovered{0};
+		std::thread childProcessThread([&]() {
+			int code = runChildMode("--test-itemshop-recover-child");
+			if (code >= 10)
+				childRecovered.store(code - 10, std::memory_order_release);
 		});
-
-		startGate.store(true, std::memory_order_release);
-		int mainWon = CItemShopManager::instance().RecoverIncompleteTransactions();
-		secondGameProcess.join();
+		int parentRecovered = CItemShopManager::instance().RecoverIncompleteTransactions();
+		childProcessThread.join();
 
 		auto balRace = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
-		RUNTIME_ASSERT((mainWon + workerWon.load()) == 1 && queryJournalState(raceTxId) == "REFUNDED" && balRace.dwDragonCoins == 11000,
-			"Exactly 1 of 2 concurrent recovery workers succeeded on CHARGED row (10000->11000, 0 double refund)");
-		std::cout << "  [PASS] Check 10 (Q3): Concurrent 2-worker recovery race on tx_id=" << raceTxId << " (winners=" << (mainWon + workerWon.load()) << ", final_cash=" << balRace.dwDragonCoins << ")" << std::endl;
+		RUNTIME_ASSERT((parentRecovered + childRecovered.load()) == 1 && queryJournalState(raceTxId) == "REFUNDED" && balRace.dwDragonCoins == 10000,
+			"G3.I: Two concurrent GAME processes running real RecoverIncompleteTransactions() had 0 interference and 0 double-refund");
+		std::cout << "  [PASS] Check 10 (G3.E, G3.I, G3.K & Q3): Multi-slot non-stackable award, VIP/Voucher safety & 2-process recovery race verified" << std::endl;
 		checks_passed++;
 	}
 
-	// Check 11 (Section 3 Q5 & Q6): log.itemshop Separation & Direct Inventory (INV_PENDING:<id>) Crash Recovery
+	// Check 11 (G3.F, G3.G, G3.L, Q5 & Q6): Synchronous Direct-Inventory SQL Persistence, Pre-Existing Same-Vnum Isolation & Pre-SQL Crash Subprocess
 	{
-		// Q5: Presence of a log.itemshop row does NOT prevent refund when neither item_award nor player.item has the item
 		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 5000, `cash_mark` = 0 WHERE `id` = 990701");
-		auto insLogTest = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -600, 600, 5600, 'CHARGED')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		uint64_t txLogTest = insLogTest->Get()->ullInsertID;
-		DBManager::instance().DirectQuery(
-			"INSERT INTO `itemshop` (`pid`, `account_id`, `item_index`, `vnum`, `count`, `price`, `currency`, `item_id`, `date`, `money_before_buy`) "
-			"VALUES (880701, 990701, 101, 71084, 1, 600, 1, 999999, NOW(), 5600)");
-		int recLog = CItemShopManager::instance().RecoverIncompleteTransactions();
-		auto balLog = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
-		RUNTIME_ASSERT(recLog == 1 && queryJournalState(txLogTest) == "REFUNDED" && balLog.dwDragonCoins == 5600,
-			"Q5: log.itemshop row alone is never treated as item delivery proof; undelivered CHARGED row was refunded (5000->5600)");
 
-		// Q6: Direct inventory delivery (INV_PENDING:77001) persisted in player.item before crash -> finalized as DELIVERED without refund!
-		DBManager::instance().DirectQuery(
-			"INSERT INTO `item` (`id`, `owner_id`, `window`, `pos`, `count`, `vnum`) VALUES (77001, 880701, 'INVENTORY', 0, 2, 71084)");
-		auto insInvDelivered = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`, `delivered_item_ids`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -600, 600, 6200, 'CHARGED', 'INV_PENDING:77001')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		uint64_t txInvDelivered = insInvDelivered->Get()->ullInsertID;
-		int recInv1 = CItemShopManager::instance().RecoverIncompleteTransactions();
-		auto balInv1 = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
-		RUNTIME_ASSERT(recInv1 == 1 && queryJournalState(txInvDelivered) == "DELIVERED" && balInv1.dwDragonCoins == 5600,
-			"Q6: Direct inventory item persisted in player.item before crash is finalized as DELIVERED without false refund");
+		// G3.G: Real direct-inventory purchase via AutoGiveItem + PersistInventoryItemSynchronously writes to player.item before DELIVERED
+		buyer->EnableDirectInventory(true);
+		bool directBuyOk = CItemShopManager::instance().BuyItem(buyer.get(), 105, 2); // 2 * 3 = 6 items of vnum 71085, price = 500
+		uint64_t txDirectOk = CItemShopManager::instance().GetLastTransactionId();
+		auto msgDirectItem = DBManager::instance().DirectQuery(
+			"SELECT id, count FROM `item` WHERE `owner_id` = 880701 AND `vnum` = 71085");
+		MYSQL_ROW rDirect = (msgDirectItem && msgDirectItem->Get()) ? mysql_fetch_row(msgDirectItem->Get()->pSQLResult) : nullptr;
+		uint64_t preExistingItemId = 0;
+		uint64_t preExistingCount = 0;
+		if (rDirect && rDirect[0]) str_to_number(preExistingItemId, rDirect[0]);
+		if (rDirect && rDirect[1]) str_to_number(preExistingCount, rDirect[1]);
+		RUNTIME_ASSERT(directBuyOk && queryJournalState(txDirectOk) == "DELIVERED" && preExistingItemId >= 700001 && preExistingCount == 6,
+			"G3.G: BuyItem synchronously persisted direct-inventory item to player.item in MariaDB before marking DELIVERED");
 
-		// Q6b: Direct inventory delivery (INV_PENDING:77002) NOT persisted in player.item before crash -> refunded!
-		auto insInvUnflushed = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`, `delivered_item_ids`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -600, 600, 6200, 'CHARGED', 'INV_PENDING:77002')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		uint64_t txInvUnflushed = insInvUnflushed->Get()->ullInsertID;
-		int recInv2 = CItemShopManager::instance().RecoverIncompleteTransactions();
-		auto balInv2 = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
-		RUNTIME_ASSERT(recInv2 == 1 && queryJournalState(txInvUnflushed) == "REFUNDED" && balInv2.dwDragonCoins == 6200,
-			"Q6b: Direct inventory item not yet persisted in player.item before crash is safely refunded (5600->6200)");
-		std::cout << "  [PASS] Check 11 (Q5 & Q6): log.itemshop audit separation & direct inventory (player.item) crash recovery verified" << std::endl;
+		// G3.F & G3.L: Player ALREADY owns vnum=71085 (id=preExistingItemId, count=6) in player.item.
+		// Now spawn a real child OS process (--test-itemshop-crash-pre-sql-child) that buys vnum=71085 (index=105, qty=1, cost=250),
+		// gives the new item in RAM, records INV_PENDING:<new_id> in itemshop_tx_journal, and crashes with _Exit(98) BEFORE SQL player.item write!
+		int preSqlExit = runChildMode("--test-itemshop-crash-pre-sql-child");
+		RUNTIME_ASSERT(preSqlExit == 98,
+			"G3.L: Child process exited via _Exit(98) after GiveItem + INV_PENDING before player.item SQL persistence");
+
+		auto msgPreSqlTx = DBManager::instance().AccountQuery(
+			"SELECT tx_id, state, delivered_item_ids FROM itemshop_tx_journal WHERE aid = 990701 ORDER BY tx_id DESC LIMIT 1");
+		MYSQL_ROW rPreSql = (msgPreSqlTx && msgPreSqlTx->Get()) ? mysql_fetch_row(msgPreSqlTx->Get()->pSQLResult) : nullptr;
+		uint64_t txPreSql = 0;
+		std::string statePreSql = (rPreSql && rPreSql[1]) ? rPreSql[1] : "";
+		std::string idsPreSql = (rPreSql && rPreSql[2]) ? rPreSql[2] : "";
+		if (rPreSql && rPreSql[0]) str_to_number(txPreSql, rPreSql[0]);
+		RUNTIME_ASSERT(txPreSql > txDirectOk && statePreSql == "CHARGED" && idsPreSql.rfind("INV_PENDING:", 0) == 0,
+			"G3.L: Crashed pre-SQL child left CHARGED row with INV_PENDING:<new_id>");
+
+		// Run RecoverIncompleteTransactions(): must NOT mistake preExistingItemId (also vnum=71085!) for the crashed purchase (G3.F),
+		// must refund the 250 coins (4250 -> 4500), and must keep preExistingItemId intact in player.item!
+		int recPreSql = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto balAfterPreSqlRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		auto msgExistingStillThere = DBManager::instance().DirectQuery(
+			"SELECT count FROM `item` WHERE `id` = %llu AND `owner_id` = 880701",
+			static_cast<unsigned long long>(preExistingItemId));
+		MYSQL_ROW rExisting = (msgExistingStillThere && msgExistingStillThere->Get()) ? mysql_fetch_row(msgExistingStillThere->Get()->pSQLResult) : nullptr;
+		int existingCountAfter = (rExisting && rExisting[0]) ? std::atoi(rExisting[0]) : 0;
+		RUNTIME_ASSERT(recPreSql == 1 && queryJournalState(txPreSql) == "REFUNDED" && balAfterPreSqlRec.dwDragonCoins == 4500 && existingCountAfter == 6,
+			"G3.F & G3.L: Pre-existing same-vnum item in player.item was never mistaken for new delivery; pre-SQL crash was refunded and existing item preserved");
+
+		// Q6: If direct-inventory item WAS persisted to player.item before crash (crash right before DELIVERED journal update), recovery finalizes as DELIVERED!
+		CItemShopManager::instance().SetCrashAfterDeliveryBeforeJournalForTest(true);
+		bool buyInvCrashAfterSql = CItemShopManager::instance().BuyItem(buyer.get(), 105, 1); // 250 coins -> 4250
+		CItemShopManager::instance().SetCrashAfterDeliveryBeforeJournalForTest(false);
+		uint64_t txInvDelivered = CItemShopManager::instance().GetLastTransactionId();
+		int recInvDelivered = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto balAfterInvDelivered = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(buyInvCrashAfterSql && recInvDelivered == 1 && queryJournalState(txInvDelivered) == "DELIVERED" && balAfterInvDelivered.dwDragonCoins == 4250,
+			"Q6: Direct-inventory item persisted in player.item before crash is finalized as DELIVERED without false refund");
+
+		buyer->EnableDirectInventory(false);
+		std::cout << "  [PASS] Check 11 (G3.F, G3.G, G3.L, Q5 & Q6): Synchronous item SQL persistence, pre-existing vnum isolation & pre-SQL crash recovery verified" << std::endl;
 		checks_passed++;
 	}
 
-	// Check 12 (Section 3 Q7, Q8 & Q9): Concurrent Auction Rollback vs Buy, Disconnect Retry & INT64_MAX Overflow / Invalid Delta Guard
+	// Check 12 (G3.J, Q7, Q8 & Q9): Cross-DB Auction/Item/Account Consistency, Disconnect Retry & INT64_MAX Overflow / Invalid Delta Guard
 	{
-		// Q7: Player A reserves 2 auction items (0->2) and crashes at CHARGED; Player B buys 2 auction items (2->4); recovery rolls back Player A (4->2)
-		DBManager::instance().DirectQuery("UPDATE `itemshop_time_auction` SET `buy_count` = 2 WHERE `item_index` = 201");
-		auto insAucA = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `is_time_auction`, `auction_reserved_count`, `state`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 201, 71084, 2, 2, %u, -800, 800, 7000, 1, 2, 'CHARGED')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		uint64_t txAucA = insAucA->Get()->ullInsertID;
-		// Concurrent Player B reserves 2 items in DB before Player A's recovery runs
+		// G3.J & Q7: Player A reserves 2 auction items via real BuyItem (0->2) and crashes at CHARGED; Player B buys 2 auction items (2->4); recovery rolls back Player A (4->2)
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 7000, `cash_mark` = 0 WHERE `id` = 990701");
+		DBManager::instance().DirectQuery("UPDATE `itemshop_time_auction` SET `buy_count` = 0 WHERE `item_index` = 201");
+		CItemShopManager::instance().UpdateAuctionBuyAmount(201, 0);
+
+		CItemShopManager::instance().SetCrashAfterChargeForTest(true);
+		CItemShopManager::instance().BuyItem(buyer.get(), 201, 2); // Reserves 2 auction items (0->2), charges 800 coins (7000->6200), crashes at CHARGED
+		CItemShopManager::instance().SetCrashAfterChargeForTest(false);
+		uint64_t txAucA = CItemShopManager::instance().GetLastTransactionId();
+
+		// Concurrent Player B reserves 2 items in DB before Player A's recovery runs (2->4)
 		DBManager::instance().DirectQuery(
 			"UPDATE `itemshop_time_auction` SET `buy_count` = `buy_count` + 2 WHERE `item_index` = 201 AND `buy_count` + 2 <= 5");
 		int recAuc = CItemShopManager::instance().RecoverIncompleteTransactions();
 		auto msgAucAfter = DBManager::instance().DirectQuery("SELECT `buy_count` FROM `itemshop_time_auction` WHERE `item_index` = 201");
 		MYSQL_ROW rAucAfter = (msgAucAfter && msgAucAfter->Get()) ? mysql_fetch_row(msgAucAfter->Get()->pSQLResult) : nullptr;
 		int finalBuyCount = (rAucAfter && rAucAfter[0]) ? std::atoi(rAucAfter[0]) : -1;
-		RUNTIME_ASSERT(recAuc == 1 && queryJournalState(txAucA) == "REFUNDED" && finalBuyCount == 2,
-			"Q7: Relative auction rollback preserved concurrent Player B's purchase count (0 + 2[A] + 2[B] - 2[A] = 2)");
+		auto balAfterAucRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		RUNTIME_ASSERT(recAuc == 1 && queryJournalState(txAucA) == "REFUNDED" && finalBuyCount == 2 && balAfterAucRec.dwDragonCoins == 7000,
+			"G3.J & Q7: Cross-DB recovery rolled back Player A's auction count (4->2) and refunded coins (6200->7000) while preserving Player B's count");
 
 		// Q8: Simulated connection drop mid-recovery (uncommitted transaction on dropped connection rolls back cleanly; retry recovers)
 		{
-			auto insDrop = DBManager::instance().AccountQuery(
-				"INSERT INTO `itemshop_tx_journal` "
-				"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`) "
-				"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -500, 500, 7500, 'CHARGED')",
-				static_cast<unsigned int>(ERequestCharge_Cash));
-			uint64_t txDrop = insDrop->Get()->ullInsertID;
+			CItemShopManager::instance().SetCrashAfterChargeForTest(true);
+			CItemShopManager::instance().BuyItem(buyer.get(), 101, 1); // -600 coins -> 6400, CHARGED
+			CItemShopManager::instance().SetCrashAfterChargeForTest(false);
+			uint64_t txDrop = CItemShopManager::instance().GetLastTransactionId();
 			{
 				CAsyncSQL transientConn;
 				RUNTIME_ASSERT(transientConn.Setup(host.c_str(), user.c_str(), password.c_str(), dbname.c_str(), "utf8mb4", true, port),
@@ -1411,7 +1659,6 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 					"UPDATE itemshop_tx_journal SET state = 'REFUNDED' WHERE tx_id = %llu",
 					static_cast<unsigned long long>(txDrop));
 				transientConn.DirectQuery(qUncommitted);
-				// transientConn closes without COMMIT -> MariaDB rolls back automatically
 			}
 			int recAfterDrop = CItemShopManager::instance().RecoverIncompleteTransactions();
 			RUNTIME_ASSERT(recAfterDrop == 1 && queryJournalState(txDrop) == "REFUNDED",
@@ -1442,49 +1689,38 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 			"Q9: Refund that would overflow INT64_MAX was blocked and marked NEEDS_MANUAL_REVIEW without modifying balance");
 		RUNTIME_ASSERT(queryJournalState(txBadDelta) == "NEEDS_MANUAL_REVIEW",
 			"Q9b: Corrupted positive cash_delta on CHARGED row was blocked and marked NEEDS_MANUAL_REVIEW");
-		std::cout << "  [PASS] Check 12 (Q7, Q8 & Q9): Concurrent auction rollback, disconnect retry & INT64_MAX overflow protection verified" << std::endl;
+		std::cout << "  [PASS] Check 12 (G3.J, Q7, Q8 & Q9): Cross-DB auction rollback, disconnect retry & INT64_MAX overflow protection verified" << std::endl;
 		checks_passed++;
 	}
 
-	// Check 13 (Section 3 Q10): Real OS Subprocess Crash Injection (--test-itemshop-crash-child calling std::_Exit(99))
+	// Check 13 (G3.H & Q10): Real OS Subprocess Crash Injection (_Exit(99) at CHARGED -> _Exit(97) in 2nd Process at RECOVERING -> Parent Reclaim)
 	{
 		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 10000000000, `cash_mark` = 0 WHERE `id` = 990701");
-		std::string selfExe = argv[0];
-		std::string cmd = "\"" + selfExe + "\" --test-itemshop-crash-child"
-			+ " --host \"" + host + "\""
-			+ " --port " + std::to_string(port)
-			+ " --user \"" + user + "\""
-			+ " --db \"" + dbname + "\"";
-		if (!password.empty())
-			cmd += " --password \"" + password + "\"";
-#ifdef _WIN32
-		std::string fullCmd = "\"" + cmd + "\"";
-		int rawStatus = std::system(fullCmd.c_str());
-		int childExitCode = rawStatus;
-#else
-		int rawStatus = std::system(cmd.c_str());
-		int childExitCode = WIFEXITED(rawStatus) ? WEXITSTATUS(rawStatus) : rawStatus;
-#endif
-		RUNTIME_ASSERT(childExitCode == 99,
-			"Q10: Isolated child process terminated via real std::_Exit(99) immediately after committing CHARGED");
+		int child1Exit = runChildMode("--test-itemshop-crash-child");
+		RUNTIME_ASSERT(child1Exit == 99,
+			"Q10: First child process terminated via real std::_Exit(99) immediately after committing CHARGED");
 
-		// Verify in parent process that child left a real CHARGED row in MariaDB and deducted 5,000,000,000 coins
-		auto balAfterChildCrash = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		auto balAfterChild1 = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
 		auto msgChildTx = DBManager::instance().AccountQuery(
 			"SELECT tx_id, state FROM itemshop_tx_journal WHERE aid = 990701 ORDER BY tx_id DESC LIMIT 1");
 		MYSQL_ROW rChild = (msgChildTx && msgChildTx->Get()) ? mysql_fetch_row(msgChildTx->Get()->pSQLResult) : nullptr;
 		uint64_t childTxId = 0;
-		std::string childState = "";
+		std::string childState = (rChild && rChild[1]) ? rChild[1] : "";
 		if (rChild && rChild[0]) str_to_number(childTxId, rChild[0]);
-		if (rChild && rChild[1]) childState = rChild[1];
-		RUNTIME_ASSERT(childTxId > 0 && childState == "CHARGED" && balAfterChildCrash.dwDragonCoins == 5000000000LL,
-			"Q10: Parent verified child process committed CHARGED (10B -> 5B coins) before dying with _Exit(99)");
+		RUNTIME_ASSERT(childTxId > 0 && childState == "CHARGED" && balAfterChild1.dwDragonCoins == 5000000000LL,
+			"Q10: Parent verified first child process committed CHARGED (10B -> 5B coins) before dying with _Exit(99)");
 
+		// G3.H: Spawn a SECOND real child OS process that starts RecoverIncompleteTransactions(), claims CHARGED -> RECOVERING, and crashes with _Exit(97)!
+		int child2Exit = runChildMode("--test-itemshop-crash-recovering-child");
+		RUNTIME_ASSERT(child2Exit == 97 && queryJournalState(childTxId) == "RECOVERING",
+			"G3.H: Second child process claimed CHARGED -> RECOVERING and crashed via std::_Exit(97)");
+
+		// Parent now runs RecoverIncompleteTransactions() and reclaims the orphaned RECOVERING transaction!
 		int recChild = CItemShopManager::instance().RecoverIncompleteTransactions();
 		auto balAfterParentRec = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
 		RUNTIME_ASSERT(recChild == 1 && queryJournalState(childTxId) == "REFUNDED" && balAfterParentRec.dwDragonCoins == 10000000000LL,
-			"Q10: Parent RecoverIncompleteTransactions() refunded crashed child's CHARGED transaction (5B -> 10B coins)");
-		std::cout << "  [PASS] Check 13 (Q10): Real OS child process crash (_Exit(99), tx_id=" << childTxId << ") & parent recovery verified" << std::endl;
+			"G3.H & Q10: Parent RecoverIncompleteTransactions() reclaimed RECOVERING row after second process crash and refunded (5B -> 10B coins)");
+		std::cout << "  [PASS] Check 13 (G3.H & Q10): Real 2-stage OS child process crashes (_Exit(99) CHARGED -> _Exit(97) RECOVERING -> REFUNDED, tx_id=" << childTxId << ") verified" << std::endl;
 		checks_passed++;
 	}
 
@@ -1493,26 +1729,23 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		static_assert(GOLD_MAX == 1000000000000LL, "GOLD_MAX must be 1,000,000,000,000 (1 Trillion Yang)");
 		static_assert(EXCHANGE_GOLD_MAX == 1000000000000LL, "EXCHANGE_GOLD_MAX must be 1,000,000,000,000 (1 Trillion Yang)");
 
-		// ComputeRefineFee at 2^31, 2^32, and 6B (must NOT clamp at legacy 1,999,999,999)
 		const YANG fee2Pow31 = buyer->ComputeRefineFee(2147483648LL, 1);
 		const YANG fee2Pow32 = buyer->ComputeRefineFee(4294967296LL, 1);
-		const YANG fee6B = buyer->ComputeRefineFee(6000000000LL, 5); // 6.0B
-		const YANG feeClamp = buyer->ComputeRefineFee(2500000000000LL, 5); // 2.5T -> clamped to GOLD_MAX - 1
+		const YANG fee6B = buyer->ComputeRefineFee(6000000000LL, 5);
+		const YANG feeClamp = buyer->ComputeRefineFee(2500000000000LL, 5);
 		RUNTIME_ASSERT(fee2Pow31 == 2147483648LL && fee2Pow32 == 4294967296LL && fee6B == 6000000000LL && feeClamp == (GOLD_MAX - 1),
 			"ComputeRefineFee supports >2^31 (2.14B), >2^32 (4.29B), 6B, and clamps safely at GOLD_MAX - 1 (999,999,999,999)");
 
-		// CHARACTER::PointChange(POINT_GOLD) and ChangeGold at >2^31 and >2^32
 		buyer->SetGold(0);
-		buyer->PointChange(POINT_GOLD, 3000000000LL); // 3B (> 2^31)
+		buyer->PointChange(POINT_GOLD, 3000000000LL);
 		RUNTIME_ASSERT(buyer->GetGold() == 3000000000LL, "PointChange(POINT_GOLD) holds 3,000,000,000 (> 2^31) Yang");
-		buyer->ChangeGold(3500000000LL); // +3.5B = 6.5B (> 2^32)
+		buyer->ChangeGold(3500000000LL);
 		RUNTIME_ASSERT(buyer->GetGold() == 6500000000LL, "ChangeGold holds 6,500,000,000 (> 2^32) Yang");
-		buyer->PointChange(POINT_GOLD, GOLD_MAX); // Clamps at GOLD_MAX - 1 without signed overflow
+		buyer->PointChange(POINT_GOLD, GOLD_MAX);
 		RUNTIME_ASSERT(buyer->GetGold() == (GOLD_MAX - 1), "PointChange(POINT_GOLD) clamps safely at GOLD_MAX - 1 (999,999,999,999)");
 
-		// Monarch 64-bit treasury check
 		TMonarchInfo monarchInfo{};
-		monarchInfo.money[1] = 8000000000LL; // 8B (> 2^32)
+		monarchInfo.money[1] = 8000000000LL;
 		CMonarch::instance().SetMonarchInfo(&monarchInfo);
 		RUNTIME_ASSERT(CMonarch::instance().IsMoneyOk(5000000000LL, 1) && !CMonarch::instance().IsMoneyOk(9000000000LL, 1),
 			"CMonarch::IsMoneyOk supports 64-bit (> 2^32) empire treasury amounts");
@@ -1520,24 +1753,11 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 		checks_passed++;
 	}
 
-	// Check 15 (G3.1 & G3.2): RECOVERING State Mid-Recovery Crash Resumption & Split (Inventory + item_award) Delivery Recovery
+	// Check 15 (G3.1, G3.2 & G3.J): Split (Inventory + item_award) Delivery Recovery & Partial Delivery Cleanup + Refund
 	{
-		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 5000, `cash_mark` = 0 WHERE `id` = 990701");
+		DBManager::instance().AccountQuery("UPDATE `account` SET `cash` = 5600, `cash_mark` = 0 WHERE `id` = 990701");
 
-		// 15a: Journal row left in 'RECOVERING' (simulating crash mid-recovery) is resumed and refunded
-		auto insRecState = DBManager::instance().AccountQuery(
-			"INSERT INTO `itemshop_tx_journal` "
-			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`) "
-			"VALUES (990701, 880701, 'real_itemshop_buyer', 101, 71084, 1, 2, %u, -600, 600, 5600, 'RECOVERING')",
-			static_cast<unsigned int>(ERequestCharge_Cash));
-		RUNTIME_ASSERT(insRecState && insRecState->uiSQLErrno == 0 && insRecState->Get(), "Inserted RECOVERING row");
-		uint64_t txRecState = insRecState->Get()->ullInsertID;
-		int rec15a = CItemShopManager::instance().RecoverIncompleteTransactions();
-		auto bal15a = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
-		RUNTIME_ASSERT(rec15a == 1 && queryJournalState(txRecState) == "REFUNDED" && bal15a.dwDragonCoins == 5600,
-			"G3.1: Row interrupted in RECOVERING state is selected and refunded on next startup recovery");
-
-		// 15b: Split delivery (2 items in player.item via INV_PENDING:77099 + 2 items in item_award = 4 total) is finalized as DELIVERED
+		// 15a: Split delivery (2 items in player.item via INV_PENDING:77099 + 2 items in item_award = 4 total) is finalized as DELIVERED
 		DBManager::instance().DirectQuery(
 			"INSERT INTO `item` (`id`, `owner_id`, `window`, `pos`, `count`, `vnum`) VALUES (77099, 880701, 'INVENTORY', 1, 2, 71084)");
 		auto insSplit = DBManager::instance().AccountQuery(
@@ -1551,20 +1771,42 @@ int RunGameItemShopLiveTests(int argc, char** argv)
 			"INSERT INTO `item_award` (`login`, `vnum`, `count`, `given_time`, `why`, `mall`) "
 			"VALUES ('real_itemshop_buyer', 71084, 2, NOW(), 'ITEMSHOP_TX_%llu#1', 1)",
 			static_cast<unsigned long long>(txSplit));
-		int rec15b = CItemShopManager::instance().RecoverIncompleteTransactions();
-		auto bal15b = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		int rec15a = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto bal15a = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
 		auto msgSplitItem = DBManager::instance().DirectQuery("SELECT COUNT(*) FROM `item` WHERE `id` = 77099 AND `owner_id` = 880701");
 		MYSQL_ROW rSplitItem = (msgSplitItem && msgSplitItem->Get()) ? mysql_fetch_row(msgSplitItem->Get()->pSQLResult) : nullptr;
 		int splitInvStillExists = (rSplitItem && rSplitItem[0]) ? std::atoi(rSplitItem[0]) : 0;
-		RUNTIME_ASSERT(rec15b == 1 && queryJournalState(txSplit) == "DELIVERED" && splitInvStillExists == 1 && bal15b.dwDragonCoins == 5600,
+		RUNTIME_ASSERT(rec15a == 1 && queryJournalState(txSplit) == "DELIVERED" && splitInvStillExists == 1 && bal15a.dwDragonCoins == 5600,
 			"G3.2: Split delivery across player.item and item_award is finalized as DELIVERED without deleting inventory items or false refund");
-		std::cout << "  [PASS] Check 15 (G3.1 & G3.2): RECOVERING state resumption & split (inventory + item_award) delivery recovery verified" << std::endl;
+
+		// 15b: Partial incomplete delivery (only 1 of 3 items in player.item via INV_PENDING:77100 + 1 of 3 in item_award = 2 < 3 required) -> cleans up partial rows & refunds!
+		DBManager::instance().DirectQuery(
+			"INSERT INTO `item` (`id`, `owner_id`, `window`, `pos`, `count`, `vnum`) VALUES (77100, 880701, 'INVENTORY', 2, 1, 72001)");
+		auto insPartial = DBManager::instance().AccountQuery(
+			"INSERT INTO `itemshop_tx_journal` "
+			"(`aid`, `pid`, `login`, `item_index`, `vnum`, `quantity`, `item_count`, `charge_type`, `cash_delta`, `mark_delta`, `money_before_buy`, `state`, `delivered_item_ids`) "
+			"VALUES (990701, 880701, 'real_itemshop_buyer', 102, 72001, 3, 3, %u, -600, 600, 6200, 'RECOVERING', 'INV_PENDING:77100')",
+			static_cast<unsigned int>(ERequestCharge_Cash));
+		uint64_t txPartial = insPartial->Get()->ullInsertID;
+		DBManager::instance().DirectQuery(
+			"INSERT INTO `item_award` (`login`, `vnum`, `count`, `given_time`, `why`, `mall`) "
+			"VALUES ('real_itemshop_buyer', 72001, 1, NOW(), 'ITEMSHOP_TX_%llu#1', 1)",
+			static_cast<unsigned long long>(txPartial));
+		int rec15b = CItemShopManager::instance().RecoverIncompleteTransactions();
+		auto bal15b = CItemShopManager::instance().GetPlayerAccountBalance(buyer.get());
+		auto msgPartItem = DBManager::instance().DirectQuery("SELECT COUNT(*) FROM `item` WHERE `id` = 77100");
+		MYSQL_ROW rPartItem = (msgPartItem && msgPartItem->Get()) ? mysql_fetch_row(msgPartItem->Get()->pSQLResult) : nullptr;
+		int partInvLeft = (rPartItem && rPartItem[0]) ? std::atoi(rPartItem[0]) : -1;
+		RUNTIME_ASSERT(rec15b == 1 && queryJournalState(txPartial) == "REFUNDED" && partInvLeft == 0 && queryAwardCountForTx(txPartial) == 0 && bal15b.dwDragonCoins == 6200,
+			"G3.J: Partial incomplete delivery across player.item and item_award was cleaned up and refunded atomically");
+		std::cout << "  [PASS] Check 15 (G3.1, G3.2 & G3.J): Split delivery finalization & partial cross-DB cleanup + refund verified" << std::endl;
 		checks_passed++;
 	}
 
 	// Cleanup isolated tables
 	DBManager::instance().AccountQuery("DROP TABLE IF EXISTS `itemshop_tx_journal`, `account`");
-	DBManager::instance().DirectQuery("DROP TABLE IF EXISTS `item_award`, `item`, `itemshop_time_auction`, `itemshop`");
+	DBManager::instance().DirectQuery("DROP TABLE IF EXISTS `item_award`, `item`, `itemshop_time_auction`, `itemshop`, `log`");
+	buyer->EnableDirectInventory(false);
 	buyer->BindDesc(nullptr);
 	buyer.reset();
 	db_clientdesc = prevDbClientDesc;

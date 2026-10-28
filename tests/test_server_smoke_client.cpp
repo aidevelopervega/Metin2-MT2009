@@ -1693,13 +1693,7 @@ static int run_protocol_framing_audit(int auth_port, int game_port, const char* 
 		return true;
 	};
 
-	// 1. Legacy 321-byte Login3 (missing 4-byte dwProtocolVersion, TEA-padded to 328 bytes with 0x00000000) -> rejected with VERSION
-	{
-		sock_t s = connect_with_retry(auth_port, 60);
-		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-legacy-login3")) {
-			if (s != INVALID_SOCKET) CLOSESOCK(s);
-			return 1;
-		}
+	auto buildValidLogin3 = [&](uint32_t protoVer, uint8_t encOut[328]) -> int {
 		SmokePacketCGLogin3 pkt{};
 		pkt.header = 111;
 		std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
@@ -1709,21 +1703,59 @@ static int run_protocol_framing_audit(int auth_port, int game_port, const char* 
 		pkt.adwClientKey[2] = 0x99AABBCCu;
 		pkt.adwClientKey[3] = 0xDDEEFF00u;
 		std::snprintf(pkt.hwid, sizeof(pkt.hwid), "%s", hwid_hex);
-		pkt.dwProtocolVersion = 0; // Legacy 321-byte packet zero-padded by TEA to 328 bytes
-
+		pkt.dwProtocolVersion = protoVer;
 		uint8_t plainBuf[328]{};
+		std::memcpy(plainBuf, &pkt, sizeof(pkt));
+		return smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encOut), reinterpret_cast<const uint32_t*>(plainBuf), initKey, static_cast<int>(sizeof(pkt)));
+	};
+
+	auto expectAuthSuccess = [&](sock_t s, const char* subtag, uint32_t* outLoginKey = nullptr) -> bool {
+		uint8_t respEnc[8]{};
+		uint8_t respDec[8]{};
+		if (!recv_exact_timeout(s, respEnc, 8, 8)) {
+			std::fprintf(stderr, "[protocol-framing-audit:%s] FAIL: timeout waiting for HEADER_GC_AUTH_SUCCESS\n", subtag);
+			return false;
+		}
+		smoke_tea_decrypt(reinterpret_cast<uint32_t*>(respDec), reinterpret_cast<const uint32_t*>(respEnc), initKey, 8);
+		SmokePacketGCAuthSuccess authOk{};
+		std::memcpy(&authOk, respDec, sizeof(authOk));
+		if (authOk.bHeader != 150 || authOk.bResult != 1 || authOk.dwLoginKey == 0) {
+			std::fprintf(stderr, "[protocol-framing-audit:%s] FAIL: unexpected auth response hdr=%u res=%u key=%u\n",
+				subtag, static_cast<unsigned>(authOk.bHeader), static_cast<unsigned>(authOk.bResult), authOk.dwLoginKey);
+			return false;
+		}
+		if (outLoginKey)
+			*outLoginKey = authOk.dwLoginKey;
+		return true;
+	};
+
+	auto paceAuthPulse = []() {
+#ifdef _WIN32
+		Sleep(180);
+#else
+		usleep(180000);
+#endif
+	};
+
+	// 1. Legacy 321-byte Login3 (missing 4-byte dwProtocolVersion, TEA-padded to 328 bytes with 0x00000000) -> rejected with VERSION
+	{
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-legacy-321b-login3")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
 		uint8_t encBuf[328]{};
-		std::memcpy(plainBuf, &pkt, 321); // Copy only legacy 321 bytes
-		int encLen = smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encBuf), reinterpret_cast<const uint32_t*>(plainBuf), initKey, 321);
+		int encLen = buildValidLogin3(0u, encBuf);
 		if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen || !expectAuthVersionFailure(s, "legacy-321B-login3")) {
 			CLOSESOCK(s);
 			return 1;
 		}
 		CLOSESOCK(s);
-		std::printf("  [PASS] [protocol-framing-audit:1/4] Legacy 321-byte Login3 rejected by AUTH_SERVER with HEADER_GC_LOGIN_FAILURE status='VERSION'\n");
+		paceAuthPulse();
+		std::printf("  [PASS] [protocol-framing-audit:1/10] Legacy 321-byte Login3 rejected by AUTH_SERVER with HEADER_GC_LOGIN_FAILURE status='VERSION'\n");
 	}
 
-	// 2. Legacy 130-byte Login3 (64-byte HWID legacy layout, TEA-padded to 136 bytes) -> rejected with VERSION
+	// 2. Legacy 130-byte Login3 (64-byte HWID legacy layout, TEA-padded to 136 bytes) + trailing bytes -> rejected via idle frame detector with VERSION
 	{
 		sock_t s = connect_with_retry(auth_port, 60);
 		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-legacy-130b-login3")) {
@@ -1739,7 +1771,7 @@ static int run_protocol_framing_audit(int auth_port, int game_port, const char* 
 			return 1;
 		}
 		CLOSESOCK(s);
-		std::printf("  [PASS] [protocol-framing-audit:2/4] Legacy 130-byte Login3 (136B TEA) rejected by AUTH_SERVER with HEADER_GC_LOGIN_FAILURE status='VERSION'\n");
+		std::printf("  [PASS] [protocol-framing-audit:2/10] Legacy 130-byte Login3 (136B TEA) rejected by AUTH_SERVER with HEADER_GC_LOGIN_FAILURE status='VERSION'\n");
 	}
 
 	// 3. Legacy 52-byte Login2 (missing 4-byte dwProtocolVersion) + trailing payload on GAME_SERVER -> rejected with VERSION and trailing bytes drained
@@ -1770,16 +1802,174 @@ static int run_protocol_framing_audit(int auth_port, int game_port, const char* 
 			return 1;
 		}
 		CLOSESOCK(s);
-		std::printf("  [PASS] [protocol-framing-audit:3/4] Legacy 52-byte Login2 + trailing payload rejected by GAME_SERVER with status='VERSION' and trailing bytes drained\n");
+		std::printf("  [PASS] [protocol-framing-audit:3/10] Legacy 52-byte Login2 + trailing payload rejected by GAME_SERVER with status='VERSION' and trailing bytes drained\n");
 	}
 
-	// 4. Fragmented TCP stream delivery of valid 325-byte x64 Login3 (sent as 24B + 304B TEA fragments) -> accepted and returns HEADER_GC_AUTH_SUCCESS(150)
+	// 4. Wrong explicit protocol version (0x20090032 on Login3 + trailing payload) -> rejected with VERSION and trailing bytes drained
 	{
 		sock_t s = connect_with_retry(auth_port, 60);
-		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-frag-login3")) {
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-wrong-ver-login3")) {
 			if (s != INVALID_SOCKET) CLOSESOCK(s);
 			return 1;
 		}
+		SmokePacketCGLogin3 pkt{};
+		pkt.header = 111;
+		std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
+		std::snprintf(pkt.passwd, sizeof(pkt.passwd), "%s", passwd);
+		pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_LEGACY_X86;
+		uint8_t plainBuf[336]{};
+		uint8_t encBuf[336]{};
+		std::memcpy(plainBuf, &pkt, sizeof(pkt));
+		plainBuf[328] = 0xFE; // Trailing HEADER_CG_PONG
+		int encLen = smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encBuf), reinterpret_cast<const uint32_t*>(plainBuf), initKey, 336);
+		if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen || !expectAuthVersionFailure(s, "wrong-ver-login3")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+		CLOSESOCK(s);
+		paceAuthPulse();
+		std::printf("  [PASS] [protocol-framing-audit:4/10] Wrong dwProtocolVersion (0x20090032) + trailing bytes rejected with status='VERSION'\n");
+	}
+
+	// 5. Multi-segment TCP Login3 split across ALL critical boundaries (24 -> 52 -> 56 -> 130 -> 136 -> 321 -> 328 bytes) -> NEVER falsely rejected early!
+	{
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-boundary-login3")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
+		uint8_t encBuf[328]{};
+		buildValidLogin3(MT2_PROTOCOL_VERSION_X64, encBuf);
+		const int boundaries[] = { 24, 52, 56, 130, 136, 321, 328 };
+		int prev = 0;
+		for (int b : boundaries) {
+			int chunkLen = b - prev;
+			if (send(s, reinterpret_cast<const char*>(encBuf + prev), chunkLen, 0) != chunkLen) {
+				CLOSESOCK(s);
+				return 1;
+			}
+			prev = b;
+#ifdef _WIN32
+			Sleep(25);
+#else
+			usleep(25000);
+#endif
+		}
+		if (!expectAuthSuccess(s, "boundary-24-52-56-130-136-321-328")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+		CLOSESOCK(s);
+		paceAuthPulse();
+		std::printf("  [PASS] [protocol-framing-audit:5/10] Multi-segment x64 Login3 split at 24/52/56/130/136/321/328B boundaries reassembled & authenticated\n");
+	}
+
+	// 6. 1-byte TCP stream chunks (328 separate 1-byte sends for Login3) -> reassembled and authenticated
+	uint32_t validKeyForLogin2 = 0;
+	{
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-1byte-login3")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
+		uint8_t encBuf[328]{};
+		int encLen = buildValidLogin3(MT2_PROTOCOL_VERSION_X64, encBuf);
+		for (int i = 0; i < encLen; ++i) {
+			if (send(s, reinterpret_cast<const char*>(encBuf + i), 1, 0) != 1) {
+				CLOSESOCK(s);
+				return 1;
+			}
+			if (i == 129 || i == 135 || i == 320) {
+#ifdef _WIN32
+				Sleep(15);
+#else
+				usleep(15000);
+#endif
+			}
+		}
+		if (!expectAuthSuccess(s, "1byte-login3", &validKeyForLogin2)) {
+			CLOSESOCK(s);
+			return 1;
+		}
+		CLOSESOCK(s);
+		paceAuthPulse();
+		std::printf("  [PASS] [protocol-framing-audit:6/10] 1-byte TCP chunks (328x 1B sends) for x64 Login3 reassembled & authenticated\n");
+	}
+
+	// 7. Fragmented x64 Login2 split at legacy 52-byte boundary (24B + 28B[=52B] + 4B[=56B]) on GAME_SERVER -> reassembled and accepted
+	{
+		sock_t s = connect_with_retry(game_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 2 /* PHASE_LOGIN */, "audit-frag-login2")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
+		SmokePacketCGLogin2 pkt{};
+		pkt.header = 109; // HEADER_CG_LOGIN2
+		std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
+		pkt.dwLoginKey = validKeyForLogin2;
+		pkt.adwClientKey[0] = 0x11223344u;
+		pkt.adwClientKey[1] = 0x55667788u;
+		pkt.adwClientKey[2] = 0x99AABBCCu;
+		pkt.adwClientKey[3] = 0xDDEEFF00u;
+		pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+
+		uint8_t plainBuf[56]{};
+		uint8_t encBuf[56]{};
+		std::memcpy(plainBuf, &pkt, sizeof(pkt));
+		smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encBuf), reinterpret_cast<const uint32_t*>(plainBuf), initKey, 56);
+
+		// Send 24B, then 28B (reaching exact 52B legacy Login2 size!), wait 25ms, then send final 4B (reaching 56B)
+		if (send(s, reinterpret_cast<const char*>(encBuf), 24, 0) != 24) { CLOSESOCK(s); return 1; }
+#ifdef _WIN32
+		Sleep(20);
+#else
+		usleep(20000);
+#endif
+		if (send(s, reinterpret_cast<const char*>(encBuf + 24), 28, 0) != 28) { CLOSESOCK(s); return 1; }
+#ifdef _WIN32
+		Sleep(25);
+#else
+		usleep(25000);
+#endif
+		if (send(s, reinterpret_cast<const char*>(encBuf + 52), 4, 0) != 4) { CLOSESOCK(s); return 1; }
+
+		// Expect PHASE_SELECT (HEADER_GC_PHASE = 0xFD, phase = 3) or HEADER_GC_LOGIN_SUCCESS, encrypted with serverEncKey
+		uint32_t serverEncKey[4]{};
+		compute_security_tea_key(pkt.adwClientKey, serverEncKey);
+		SmokeGameStreamState st{};
+		bool gotLoginAccept = false;
+		for (int step = 0; step < 40; ++step) {
+			if (!pump_gc_packets(s, st, serverEncKey, 200))
+				break;
+			if (st.sawLoginFailure) {
+				std::fprintf(stderr, "[protocol-framing-audit:frag-login2] FAIL: fragmented x64 Login2 (24B+28B+4B) was falsely rejected!\n");
+				CLOSESOCK(s);
+				return 1;
+			}
+			if (st.sawPhaseSelect || st.sawLoginSuccess) {
+				gotLoginAccept = true;
+				break;
+			}
+		}
+		CLOSESOCK(s);
+		paceAuthPulse();
+		if (!gotLoginAccept) {
+			std::fprintf(stderr, "[protocol-framing-audit:frag-login2] FAIL: did not reach PHASE_SELECT after fragmented 24B+28B(=52B)+4B(=56B) Login2\n");
+			return 1;
+		}
+		std::printf("  [PASS] [protocol-framing-audit:7/10] Fragmented x64 Login2 split at legacy 52B boundary (24B+28B+4B) reassembled & entered PHASE_SELECT\n");
+	}
+
+	// 8. Back-to-back packets in the SAME TCP segment: HEADER_CG_PONG(8B TEA) + TPacketCGLogin3(328B TEA) coalesced in a single 336-byte send()
+	{
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-coalesced-login3")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
+		uint8_t plainCombined[336]{};
+		uint8_t encCombined[336]{};
+		plainCombined[0] = 0xFE; // HEADER_CG_PONG (1 byte + 7 zero padding bytes in first 8B TEA block, or followed immediately by Login3)
 		SmokePacketCGLogin3 pkt{};
 		pkt.header = 111;
 		std::snprintf(pkt.login, sizeof(pkt.login), "%s", login);
@@ -1790,41 +1980,67 @@ static int run_protocol_framing_audit(int auth_port, int game_port, const char* 
 		pkt.adwClientKey[3] = 0xDDEEFF00u;
 		std::snprintf(pkt.hwid, sizeof(pkt.hwid), "%s", hwid_hex);
 		pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
-
-		uint8_t plainBuf[328]{};
-		uint8_t encBuf[328]{};
-		std::memcpy(plainBuf, &pkt, sizeof(pkt));
-		int encLen = smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encBuf), reinterpret_cast<const uint32_t*>(plainBuf), initKey, static_cast<int>(sizeof(pkt)));
-		if (send(s, reinterpret_cast<const char*>(encBuf), 24, 0) != 24) {
+		std::memcpy(plainCombined + 8, &pkt, sizeof(pkt));
+		int encLen = smoke_tea_encrypt(reinterpret_cast<uint32_t*>(encCombined), reinterpret_cast<const uint32_t*>(plainCombined), initKey, 336);
+		if (send(s, reinterpret_cast<const char*>(encCombined), encLen, 0) != encLen || !expectAuthSuccess(s, "coalesced-pong+login3")) {
 			CLOSESOCK(s);
 			return 1;
 		}
-#ifdef _WIN32
-		Sleep(40);
-#else
-		usleep(40000);
-#endif
-		if (send(s, reinterpret_cast<const char*>(encBuf + 24), encLen - 24, 0) != (encLen - 24)) {
-			CLOSESOCK(s);
-			return 1;
-		}
-		uint8_t respEnc[8]{};
-		uint8_t respDec[8]{};
-		if (!recv_exact_timeout(s, respEnc, 8, 8)) {
-			std::fprintf(stderr, "[protocol-framing-audit:frag-login3] FAIL: timeout waiting for HEADER_GC_AUTH_SUCCESS\n");
-			CLOSESOCK(s);
-			return 1;
-		}
-		smoke_tea_decrypt(reinterpret_cast<uint32_t*>(respDec), reinterpret_cast<const uint32_t*>(respEnc), initKey, 8);
-		SmokePacketGCAuthSuccess authOk{};
-		std::memcpy(&authOk, respDec, sizeof(authOk));
 		CLOSESOCK(s);
-		if (authOk.bHeader != 150 || authOk.bResult != 1 || authOk.dwLoginKey == 0) {
-			std::fprintf(stderr, "[protocol-framing-audit:frag-login3] FAIL: unexpected auth response hdr=%u res=%u\n",
-				static_cast<unsigned>(authOk.bHeader), static_cast<unsigned>(authOk.bResult));
+		paceAuthPulse();
+		std::printf("  [PASS] [protocol-framing-audit:8/10] Two back-to-back packets in single TCP segment (PONG + x64 Login3, 336B) processed in order\n");
+	}
+
+	// 9. Incomplete packet + immediate client disconnect AND incomplete 24-byte packet + idle timeout
+	{
+		// 9a: Send 1 byte and immediately close socket; send 130 bytes and immediately close socket
+		for (int partialLen : { 1, 24, 130 }) {
+			sock_t s = connect_with_retry(auth_port, 60);
+			if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-partial-close")) {
+				if (s != INVALID_SOCKET) CLOSESOCK(s);
+				return 1;
+			}
+			uint8_t encBuf[328]{};
+			buildValidLogin3(MT2_PROTOCOL_VERSION_X64, encBuf);
+			send(s, reinterpret_cast<const char*>(encBuf), partialLen, 0);
+			CLOSESOCK(s);
+		}
+		// 9b: Send 24 bytes and keep socket open -> server must reject with VERSION after idle partial-frame timeout (~250ms)
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-partial-timeout")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
 			return 1;
 		}
-		std::printf("  [PASS] [protocol-framing-audit:4/4] Fragmented TCP x64 Login3 (24B + 304B) reassembled and authenticated -> HEADER_GC_AUTH_SUCCESS(150)\n");
+		uint8_t encBuf[328]{};
+		buildValidLogin3(MT2_PROTOCOL_VERSION_X64, encBuf);
+		if (send(s, reinterpret_cast<const char*>(encBuf), 24, 0) != 24 || !expectAuthVersionFailure(s, "partial-24B-timeout")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+		CLOSESOCK(s);
+		std::printf("  [PASS] [protocol-framing-audit:9/10] Incomplete frames (1B/24B/130B + disconnect, and 24B + idle timeout) cleaned up & rejected deterministically\n");
+	}
+
+	// 10. Post-abuse health check: valid x64 Login3 immediately after all malformed/fragmented/aborted connections succeeds cleanly
+	{
+		sock_t s = connect_with_retry(auth_port, 60);
+		if (s == INVALID_SOCKET || !complete_wire_handshake(s, 10 /* PHASE_AUTH */, "audit-post-health")) {
+			if (s != INVALID_SOCKET) CLOSESOCK(s);
+			return 1;
+		}
+		uint8_t encBuf[328]{};
+		int encLen = buildValidLogin3(MT2_PROTOCOL_VERSION_X64, encBuf);
+		if (send(s, reinterpret_cast<const char*>(encBuf), encLen, 0) != encLen || !expectAuthSuccess(s, "post-health-login3")) {
+			CLOSESOCK(s);
+			return 1;
+		}
+		CLOSESOCK(s);
+#ifdef _WIN32
+		Sleep(100);
+#else
+		usleep(100000);
+#endif
+		std::printf("  [PASS] [protocol-framing-audit:10/10] Post-framing-audit valid x64 Login3 succeeded cleanly with zero descriptor or buffer corruption\n");
 	}
 
 	return 0;

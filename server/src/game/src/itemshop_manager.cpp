@@ -994,6 +994,7 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 			"  `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,"
 			"  `aid` int(11) unsigned NOT NULL DEFAULT 0,"
 			"  `pid` int(11) unsigned NOT NULL DEFAULT 0,"
+			"  `req_id` bigint(20) unsigned DEFAULT NULL,"
 			"  `login` varchar(30) NOT NULL DEFAULT '',"
 			"  `item_index` int(11) NOT NULL DEFAULT 0,"
 			"  `vnum` int(11) unsigned NOT NULL DEFAULT 0,"
@@ -1013,6 +1014,7 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 			"  `created_at` datetime NOT NULL DEFAULT current_timestamp(),"
 			"  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),"
 			"  PRIMARY KEY (`tx_id`),"
+			"  UNIQUE KEY `idx_itemshop_tx_aid_req` (`aid`,`req_id`),"
 			"  KEY `idx_itemshop_tx_state` (`state`),"
 			"  KEY `idx_itemshop_tx_aid` (`aid`),"
 			"  KEY `idx_itemshop_tx_pid` (`pid`)"
@@ -1037,6 +1039,42 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 			DBManager::instance().AccountQuery(
 				"ALTER TABLE `itemshop_tx_journal` "
 				"MODIFY COLUMN `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED'");
+		}
+
+		std::unique_ptr<SQLMsg> pkCheckReqCol(DBManager::instance().AccountQuery(
+			"SELECT COUNT(*) FROM information_schema.COLUMNS "
+			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'itemshop_tx_journal' "
+			"AND COLUMN_NAME = 'req_id'"));
+		uint64_t hasReqCol = 0;
+		if (pkCheckReqCol && pkCheckReqCol->uiSQLErrno == 0 && pkCheckReqCol->Get() && pkCheckReqCol->Get()->uiNumRows == 1)
+		{
+			MYSQL_ROW reqRow = mysql_fetch_row(pkCheckReqCol->Get()->pSQLResult);
+			if (reqRow && reqRow[0])
+				str_to_number(hasReqCol, reqRow[0]);
+		}
+		if (hasReqCol == 0)
+		{
+			DBManager::instance().AccountQuery(
+				"ALTER TABLE `itemshop_tx_journal` "
+				"ADD COLUMN `req_id` bigint(20) unsigned DEFAULT NULL AFTER `pid`");
+		}
+
+		std::unique_ptr<SQLMsg> pkCheckReqIdx(DBManager::instance().AccountQuery(
+			"SELECT COUNT(*) FROM information_schema.STATISTICS "
+			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'itemshop_tx_journal' "
+			"AND INDEX_NAME = 'idx_itemshop_tx_aid_req'"));
+		uint64_t hasReqIdx = 0;
+		if (pkCheckReqIdx && pkCheckReqIdx->uiSQLErrno == 0 && pkCheckReqIdx->Get() && pkCheckReqIdx->Get()->uiNumRows == 1)
+		{
+			MYSQL_ROW reqIdxRow = mysql_fetch_row(pkCheckReqIdx->Get()->pSQLResult);
+			if (reqIdxRow && reqIdxRow[0])
+				str_to_number(hasReqIdx, reqIdxRow[0]);
+		}
+		if (hasReqIdx == 0)
+		{
+			DBManager::instance().AccountQuery(
+				"ALTER TABLE `itemshop_tx_journal` "
+				"ADD UNIQUE KEY `idx_itemshop_tx_aid_req` (`aid`, `req_id`)");
 		}
 	}
 	if (!journalOk)
@@ -1063,6 +1101,101 @@ bool CItemShopManager::EnsureTransactionJournalSchema()
 	}
 
 	return true;
+}
+
+uint64_t CItemShopManager::LookupTransactionByRequestId(DWORD aid, uint64_t requestId, std::string* outState)
+{
+	if (outState)
+		outState->clear();
+	if (aid == 0 || requestId == 0)
+		return 0;
+
+	std::unique_ptr<SQLMsg> pkMsg(DBManager::instance().AccountQuery(
+		"SELECT tx_id, state FROM itemshop_tx_journal WHERE aid = %u AND req_id = %llu LIMIT 1",
+		static_cast<unsigned int>(aid),
+		static_cast<unsigned long long>(requestId)));
+	if (!pkMsg || pkMsg->uiSQLErrno != 0 || !pkMsg->Get() || pkMsg->Get()->uiNumRows != 1)
+		return 0;
+
+	MYSQL_ROW row = mysql_fetch_row(pkMsg->Get()->pSQLResult);
+	if (!row || !row[0])
+		return 0;
+
+	uint64_t txId = 0;
+	str_to_number(txId, row[0]);
+	if (outState && row[1])
+		*outState = row[1];
+	return txId;
+}
+
+bool CItemShopManager::PersistInventoryItemSynchronously(LPITEM item)
+{
+	if (!item || item->GetID() == 0 || !item->GetOwner() || item->GetOwner()->GetPlayerID() == 0)
+		return false;
+
+	const char* szWindow = "INVENTORY";
+	switch (item->GetWindow())
+	{
+	case INVENTORY:
+		szWindow = "INVENTORY";
+		break;
+	case EQUIPMENT:
+		szWindow = "EQUIPMENT";
+		break;
+	case SAFEBOX:
+		szWindow = "SAFEBOX";
+		break;
+	case MALL:
+		szWindow = "MALL";
+		break;
+	case DRAGON_SOUL_INVENTORY:
+		szWindow = "DRAGON_SOUL_INVENTORY";
+		break;
+	case BELT_INVENTORY:
+		szWindow = "BELT_INVENTORY";
+		break;
+	default:
+		szWindow = "INVENTORY";
+		break;
+	}
+
+	std::unique_ptr<SQLMsg> pkPersist(DBManager::instance().DirectQuery(
+		"INSERT INTO item%s "
+		"(id, owner_id, `window`, pos, count, vnum, socket0, socket1, socket2, "
+		"attrtype0, attrvalue0, attrtype1, attrvalue1, attrtype2, attrvalue2, attrtype3, attrvalue3, "
+		"attrtype4, attrvalue4, attrtype5, attrvalue5, attrtype6, attrvalue6) "
+		"VALUES (%u, %u, '%s', %u, %u, %u, %lld, %lld, %lld, "
+		"%u, %d, %u, %d, %u, %d, %u, %d, %u, %d, %u, %d, %u, %d) "
+		"ON DUPLICATE KEY UPDATE "
+		"owner_id = VALUES(owner_id), `window` = VALUES(`window`), pos = VALUES(pos), "
+		"count = VALUES(count), vnum = VALUES(vnum), "
+		"socket0 = VALUES(socket0), socket1 = VALUES(socket1), socket2 = VALUES(socket2), "
+		"attrtype0 = VALUES(attrtype0), attrvalue0 = VALUES(attrvalue0), "
+		"attrtype1 = VALUES(attrtype1), attrvalue1 = VALUES(attrvalue1), "
+		"attrtype2 = VALUES(attrtype2), attrvalue2 = VALUES(attrvalue2), "
+		"attrtype3 = VALUES(attrtype3), attrvalue3 = VALUES(attrvalue3), "
+		"attrtype4 = VALUES(attrtype4), attrvalue4 = VALUES(attrvalue4), "
+		"attrtype5 = VALUES(attrtype5), attrvalue5 = VALUES(attrvalue5), "
+		"attrtype6 = VALUES(attrtype6), attrvalue6 = VALUES(attrvalue6)",
+		get_table_postfix(),
+		static_cast<unsigned int>(item->GetID()),
+		static_cast<unsigned int>(item->GetOwner()->GetPlayerID()),
+		szWindow,
+		static_cast<unsigned int>(item->GetCell()),
+		static_cast<unsigned int>(item->GetCount()),
+		static_cast<unsigned int>(item->GetVnum()),
+		static_cast<long long>(item->GetSocket(0)),
+		static_cast<long long>(item->GetSocket(1)),
+		static_cast<long long>(item->GetSocket(2)),
+		static_cast<unsigned int>(item->GetAttributeType(0)), static_cast<int>(item->GetAttributeValue(0)),
+		static_cast<unsigned int>(item->GetAttributeType(1)), static_cast<int>(item->GetAttributeValue(1)),
+		static_cast<unsigned int>(item->GetAttributeType(2)), static_cast<int>(item->GetAttributeValue(2)),
+		static_cast<unsigned int>(item->GetAttributeType(3)), static_cast<int>(item->GetAttributeValue(3)),
+		static_cast<unsigned int>(item->GetAttributeType(4)), static_cast<int>(item->GetAttributeValue(4)),
+		static_cast<unsigned int>(item->GetAttributeType(5)), static_cast<int>(item->GetAttributeValue(5)),
+		static_cast<unsigned int>(item->GetAttributeType(6)), static_cast<int>(item->GetAttributeValue(6))));
+
+	return (pkPersist && pkPersist->uiSQLErrno == 0 && pkPersist->Get());
 }
 
 int CItemShopManager::RecoverIncompleteTransactions()
@@ -1142,32 +1275,85 @@ int CItemShopManager::RecoverIncompleteTransactions()
 	}
 
 	int recoveredCount = 0;
-	for (const IncompleteTxRow& tx : pendingRows)
+	for (IncompleteTxRow& tx : pendingRows)
 	{
+		// Per-transaction session-scoped MariaDB advisory lock prevents concurrent GAME recovery workers from interfering (G3.H & G3.I)
+		char szLockName[64];
+		std::snprintf(szLockName, sizeof(szLockName), "mt2_is_tx_%llu", static_cast<unsigned long long>(tx.txId));
+		std::unique_ptr<SQLMsg> pkLock(DBManager::instance().AccountQuery("SELECT GET_LOCK('%s', 0)", szLockName));
+		int lockAcquired = 0;
+		if (pkLock && pkLock->uiSQLErrno == 0 && pkLock->Get() && pkLock->Get()->uiNumRows == 1)
+		{
+			MYSQL_ROW lRow = mysql_fetch_row(pkLock->Get()->pSQLResult);
+			if (lRow && lRow[0])
+				str_to_number(lockAcquired, lRow[0]);
+		}
+		if (lockAcquired != 1)
+			continue;
+
+		auto releaseTxLock = [&]() {
+			DBManager::instance().AccountQuery("DO RELEASE_LOCK('%s')", szLockName);
+		};
+
+		// Re-verify live row state and fields under the per-tx lock in case another process completed it before lock acquisition
+		{
+			std::unique_ptr<SQLMsg> pkRefresh(DBManager::instance().AccountQuery(
+				"SELECT state, delivered_item_ids, auction_reserved_count FROM itemshop_tx_journal WHERE tx_id = %llu LIMIT 1",
+				static_cast<unsigned long long>(tx.txId)));
+			if (!pkRefresh || pkRefresh->uiSQLErrno != 0 || !pkRefresh->Get() || pkRefresh->Get()->uiNumRows != 1)
+			{
+				releaseTxLock();
+				continue;
+			}
+			MYSQL_ROW rRow = mysql_fetch_row(pkRefresh->Get()->pSQLResult);
+			if (!rRow || !rRow[0])
+			{
+				releaseTxLock();
+				continue;
+			}
+			tx.state = rRow[0];
+			tx.deliveredItemIds = rRow[1] ? rRow[1] : "";
+			if (rRow[2])
+				str_to_number(tx.auctionReservedCount, rRow[2]);
+		}
+
 		if (tx.state == "INITIATED")
 		{
+			if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
+			{
+				std::unique_ptr<SQLMsg> pkAucRb(DBManager::instance().DirectQuery(
+					"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
+					"WHERE item_index = %u",
+					static_cast<unsigned int>(tx.auctionReservedCount),
+					static_cast<unsigned int>(tx.auctionReservedCount),
+					static_cast<unsigned int>(tx.itemIndex)));
+				if (pkAucRb && pkAucRb->uiSQLErrno == 0)
+				{
+					DBManager::instance().AccountQuery(
+						"UPDATE itemshop_tx_journal SET auction_reserved_count = 0 "
+						"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
+						static_cast<unsigned long long>(tx.txId));
+					tx.auctionReservedCount = 0;
+				}
+			}
+
 			std::unique_ptr<SQLMsg> pkAbort(DBManager::instance().AccountQuery(
 				"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'ABORTED_BEFORE_CHARGE' "
 				"WHERE tx_id = %llu AND state = 'INITIATED' LIMIT 1",
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkAbort && pkAbort->uiSQLErrno == 0 && pkAbort->Get() && pkAbort->Get()->uiAffectedRows == 1)
 			{
-				if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
-				{
-					DBManager::instance().DirectQuery(
-						"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
-						"WHERE item_index = %u",
-						static_cast<unsigned int>(tx.auctionReservedCount),
-						static_cast<unsigned int>(tx.auctionReservedCount),
-						static_cast<unsigned int>(tx.itemIndex));
-				}
 				++recoveredCount;
 			}
+			releaseTxLock();
 			continue;
 		}
 
 		if (tx.state != "CHARGED" && tx.state != "RECOVERING")
+		{
+			releaseTxLock();
 			continue;
+		}
 
 		// Atomically claim CHARGED -> RECOVERING before touching any partial item / item_award rows
 		if (tx.state == "CHARGED")
@@ -1177,7 +1363,17 @@ int CItemShopManager::RecoverIncompleteTransactions()
 				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
 				static_cast<unsigned long long>(tx.txId)));
 			if (!pkClaimRec || pkClaimRec->uiSQLErrno != 0 || !pkClaimRec->Get() || pkClaimRec->Get()->uiAffectedRows != 1)
+			{
+				releaseTxLock();
 				continue;
+			}
+			tx.state = "RECOVERING";
+
+			if (m_bHardExitAfterClaimRecoveringForTest)
+			{
+				std::fflush(nullptr);
+				std::_Exit(97);
+			}
 		}
 
 		// Inspect both direct inventory delivery (INV_PENDING:<id1>,<id2>) and item_award delivery BEFORE deleting partial rows
@@ -1238,6 +1434,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkFinalize && pkFinalize->uiSQLErrno == 0 && pkFinalize->Get() && pkFinalize->Get()->uiAffectedRows == 1)
 				++recoveredCount;
+			releaseTxLock();
 			continue;
 		}
 
@@ -1250,6 +1447,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkReview && pkReview->uiSQLErrno == 0 && pkReview->Get() && pkReview->Get()->uiAffectedRows == 1)
 				++recoveredCount;
+			releaseTxLock();
 			continue;
 		}
 
@@ -1266,6 +1464,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_INVENTORY_DELETE_FAILED' "
 					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 					static_cast<unsigned long long>(tx.txId));
+				releaseTxLock();
 				continue;
 			}
 		}
@@ -1282,6 +1481,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 					"UPDATE itemshop_tx_journal SET state = 'NEEDS_MANUAL_REVIEW', delivered_item_ids = 'PARTIAL_AWARD_DELETE_FAILED' "
 					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
 					static_cast<unsigned long long>(tx.txId));
+				releaseTxLock();
 				continue;
 			}
 		}
@@ -1297,17 +1497,43 @@ int CItemShopManager::RecoverIncompleteTransactions()
 				static_cast<unsigned long long>(tx.txId)));
 			if (pkInvalidDelta && pkInvalidDelta->uiSQLErrno == 0 && pkInvalidDelta->Get() && pkInvalidDelta->Get()->uiAffectedRows == 1)
 				++recoveredCount;
+			releaseTxLock();
 			continue;
+		}
+
+		// Roll back reserved time-auction buy_count idempotently before finalizing REFUNDED (G3.J)
+		if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
+		{
+			std::unique_ptr<SQLMsg> pkAucRb(DBManager::instance().DirectQuery(
+				"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
+				"WHERE item_index = %u",
+				static_cast<unsigned int>(tx.auctionReservedCount),
+				static_cast<unsigned int>(tx.auctionReservedCount),
+				static_cast<unsigned int>(tx.itemIndex)));
+			if (pkAucRb && pkAucRb->uiSQLErrno == 0)
+			{
+				DBManager::instance().AccountQuery(
+					"UPDATE itemshop_tx_journal SET auction_reserved_count = 0 "
+					"WHERE tx_id = %llu AND state IN ('CHARGED', 'RECOVERING') LIMIT 1",
+					static_cast<unsigned long long>(tx.txId));
+				tx.auctionReservedCount = 0;
+			}
 		}
 
 		// Perform atomic, idempotent refund on AccountDB (verified on a single physical MariaDB connection)
 		const uint64_t connIdBefore = GetAccountDBConnectionId();
 		if (connIdBefore == 0)
+		{
+			releaseTxLock();
 			continue;
+		}
 
 		std::unique_ptr<SQLMsg> pkBegin(DBManager::instance().AccountQuery("START TRANSACTION"));
 		if (!pkBegin || pkBegin->uiSQLErrno != 0)
+		{
+			releaseTxLock();
 			continue;
+		}
 
 		std::unique_ptr<SQLMsg> pkClaimRefund(DBManager::instance().AccountQuery(
 			"UPDATE itemshop_tx_journal SET state = 'REFUNDED', delivered_item_ids = 'CRASH_REFUNDED' "
@@ -1316,6 +1542,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		if (!pkClaimRefund || pkClaimRefund->uiSQLErrno != 0 || !pkClaimRefund->Get() || pkClaimRefund->Get()->uiAffectedRows != 1)
 		{
 			DBManager::instance().AccountQuery("ROLLBACK");
+			releaseTxLock();
 			continue;
 		}
 
@@ -1364,6 +1591,7 @@ int CItemShopManager::RecoverIncompleteTransactions()
 					static_cast<unsigned int>(tx.aid),
 					static_cast<unsigned int>(tx.pid));
 			}
+			releaseTxLock();
 			continue;
 		}
 
@@ -1371,35 +1599,21 @@ int CItemShopManager::RecoverIncompleteTransactions()
 		if (!pkCommit || pkCommit->uiSQLErrno != 0)
 		{
 			DBManager::instance().AccountQuery("ROLLBACK");
+			releaseTxLock();
 			continue;
 		}
 
-		if (tx.isTimeAuction != 0 && tx.auctionReservedCount > 0 && tx.itemIndex > 0)
-		{
-			DBManager::instance().DirectQuery(
-				"UPDATE itemshop_time_auction SET buy_count = CASE WHEN buy_count >= %u THEN buy_count - %u ELSE 0 END "
-				"WHERE item_index = %u",
-				static_cast<unsigned int>(tx.auctionReservedCount),
-				static_cast<unsigned int>(tx.auctionReservedCount),
-				static_cast<unsigned int>(tx.itemIndex));
-		}
-
+		releaseTxLock();
 		++recoveredCount;
 	}
 
 	return recoveredCount;
 }
 
-bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
+bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity, uint64_t requestId)
 {
 	if (!ch || !ch->GetDesc() || !db_clientdesc || db_clientdesc->GetSocket() == INVALID_SOCKET)
 		return false;
-
-	if (!PulseManager::Instance().IncreaseClock(ch->GetPlayerID(), ePulse::ItemShopBuy, std::chrono::milliseconds(1000)))
-	{
-		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("NEXT_ACTION_WAIT_NO_FORMAT"));
-		return false;
-	}
 
 	if (!ch->CanHandleItem())
 		return false;
@@ -1409,6 +1623,31 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 
 	if (quantity < 1 || quantity > 10)
 		return false;
+
+	const DWORD aid = ch->GetDesc()->GetAccountTable().id;
+	if (aid == 0)
+		return false;
+
+	// Persistent DB-backed request idempotency across retries, reconnects, and multiple GAME processes (G3.A, G3.B, G3.C, G3.D)
+	if (requestId > 0)
+	{
+		std::string existingState;
+		const uint64_t existingTxId = LookupTransactionByRequestId(aid, requestId, &existingState);
+		if (existingTxId > 0)
+		{
+			m_ullLastTxId = existingTxId;
+			if (existingState == "INITIATED" || existingState == "CHARGED" || existingState == "RECOVERING")
+			{
+				RecoverIncompleteTransactions();
+			}
+			sys_log(0, "ItemShop::BuyItem suppressed duplicate requestId=%llu for aid=%u (existing tx_id=%llu, state=%s)",
+				static_cast<unsigned long long>(requestId),
+				static_cast<unsigned int>(aid),
+				static_cast<unsigned long long>(existingTxId),
+				existingState.c_str());
+			return false;
+		}
+	}
 
 	TItemShopItem item = GetItem(itemIndex);
 	if (!IsProperItem(item))
@@ -1438,10 +1677,6 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	{
 		if (itemTable->alValues[0] < 0 || itemTable->alValues[0] >= PREMIUM_MAX_NUM || itemTable->alValues[1] <= 0)
 			return false;
-	}
-
-	if (IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_STACK) || !IS_SET(itemTable->dwFlags, ITEM_FLAG_STACKABLE))
-	{
 		quantity = 1;
 	}
 
@@ -1500,7 +1735,8 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	int64_t dragonMarkAmount = 0;
 	if (isItemDragonScroll && item.bCurrency == CURRENCY_DRAGON_COIN)
 	{
-		dragonMarkAmount = llPrice - static_cast<int64_t>(itemTable->alValues[0]);
+		const int64_t scrollVoucherValue = static_cast<int64_t>(itemTable->alValues[0]) * static_cast<int64_t>(quantity);
+		dragonMarkAmount = llPrice - scrollVoucherValue;
 		if (dragonMarkAmount < 0)
 			dragonMarkAmount = 0;
 		else if (dragonMarkAmount > llPrice)
@@ -1517,7 +1753,6 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		balance.dwDragonMarks += dragonMarkAmount;
 	}
 
-	const DWORD aid = ch->GetDesc()->GetAccountTable().id;
 	{
 		uint64_t pendingForAid = 0;
 		std::unique_ptr<SQLMsg> pkPendingCheck(DBManager::instance().AccountQuery(
@@ -1667,13 +1902,20 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	const DWORD vipHours = isVIPEffect ? static_cast<DWORD>(itemTable->alValues[1]) : 0;
 	const DWORD journalItemCount = isVIPEffect ? 0U : static_cast<DWORD>(totalItemCountU64);
 
+	char szReqIdSql[32];
+	if (requestId > 0)
+		std::snprintf(szReqIdSql, sizeof(szReqIdSql), "%llu", static_cast<unsigned long long>(requestId));
+	else
+		strlcpy(szReqIdSql, "NULL", sizeof(szReqIdSql));
+
 	std::unique_ptr<SQLMsg> pkInitJournal(DBManager::instance().AccountQuery(
 		"INSERT INTO itemshop_tx_journal "
-		"(aid, pid, login, item_index, vnum, quantity, item_count, charge_type, cash_delta, mark_delta, money_before_buy, "
+		"(aid, pid, req_id, login, item_index, vnum, quantity, item_count, charge_type, cash_delta, mark_delta, money_before_buy, "
 		"is_vip, vip_type, vip_hours, is_time_auction, auction_reserved_count, state, delivered_item_ids, created_at, updated_at) "
-		"VALUES (%u, %u, '%s', %d, %u, %d, %u, %u, %lld, %lld, %lld, %d, %u, %u, %d, %u, 'INITIATED', '', NOW(), NOW())",
+		"VALUES (%u, %u, %s, '%s', %d, %u, %d, %u, %u, %lld, %lld, %lld, %d, %u, %u, %d, %u, 'INITIATED', '', NOW(), NOW())",
 		static_cast<unsigned int>(aid),
 		static_cast<unsigned int>(ch->GetPlayerID()),
+		szReqIdSql,
 		szEscapedLogin,
 		itemIndex,
 		static_cast<unsigned int>(item.dwVnum),
@@ -1690,8 +1932,14 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		static_cast<unsigned int>(auctionReservedInDB ? auctionItemCount : 0U)));
 	if (!pkInitJournal || pkInitJournal->uiSQLErrno != 0 || !pkInitJournal->Get() || pkInitJournal->Get()->ullInsertID == 0)
 	{
-		sys_err("ItemShop::BuyItem failed to record INITIATED journal entry (pid=%u, aid=%u, itemIndex=%d)",
-			static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(aid), itemIndex);
+		if (requestId > 0 && pkInitJournal && pkInitJournal->uiSQLErrno == 1062)
+		{
+			const uint64_t existingTxId = LookupTransactionByRequestId(aid, requestId);
+			if (existingTxId > 0)
+				m_ullLastTxId = existingTxId;
+		}
+		sys_err("ItemShop::BuyItem failed to record INITIATED journal entry (pid=%u, aid=%u, itemIndex=%d, reqId=%llu)",
+			static_cast<unsigned int>(ch->GetPlayerID()), static_cast<unsigned int>(aid), itemIndex, static_cast<unsigned long long>(requestId));
 		rollbackAuctionInDB();
 		return false;
 	}
@@ -1775,47 +2023,40 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	{
 		BYTE premiumType = static_cast<BYTE>(itemTable->alValues[0]);
 		DWORD durationInHours = static_cast<DWORD>(itemTable->alValues[1]);
-		if (m_bCrashAfterDeliveryBeforeJournalForTest)
+		const uint64_t vipConnBefore = GetAccountDBConnectionId();
+		std::unique_ptr<SQLMsg> pkBeginVip(DBManager::instance().AccountQuery("START TRANSACTION"));
+		if (vipConnBefore == 0 || !pkBeginVip || pkBeginVip->uiSQLErrno != 0)
 		{
-			deliveryOk = AddVIP(ch, premiumType, durationInHours);
+			deliveryOk = false;
 		}
 		else
 		{
-			const uint64_t vipConnBefore = GetAccountDBConnectionId();
-			std::unique_ptr<SQLMsg> pkBeginVip(DBManager::instance().AccountQuery("START TRANSACTION"));
-			if (vipConnBefore == 0 || !pkBeginVip || pkBeginVip->uiSQLErrno != 0)
+			deliveryOk = AddVIP(ch, premiumType, durationInHours);
+			if (deliveryOk)
 			{
-				deliveryOk = false;
+				std::unique_ptr<SQLMsg> pkMarkVipDelivered(DBManager::instance().AccountQuery(
+					"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'VIP' "
+					"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+					static_cast<unsigned long long>(txId)));
+				if (!pkMarkVipDelivered || pkMarkVipDelivered->uiSQLErrno != 0 || !pkMarkVipDelivered->Get() || pkMarkVipDelivered->Get()->uiAffectedRows != 1)
+					deliveryOk = false;
+			}
+			const uint64_t vipConnAfter = GetAccountDBConnectionId();
+			if (deliveryOk && vipConnAfter == vipConnBefore)
+			{
+				std::unique_ptr<SQLMsg> pkCommitVip(DBManager::instance().AccountQuery("COMMIT"));
+				if (pkCommitVip && pkCommitVip->uiSQLErrno == 0)
+					vipJournalFinalizedInTx = true;
+				else
+					deliveryOk = false;
 			}
 			else
 			{
-				deliveryOk = AddVIP(ch, premiumType, durationInHours);
-				if (deliveryOk)
-				{
-					std::unique_ptr<SQLMsg> pkMarkVipDelivered(DBManager::instance().AccountQuery(
-						"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = 'VIP' "
-						"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-						static_cast<unsigned long long>(txId)));
-					if (!pkMarkVipDelivered || pkMarkVipDelivered->uiSQLErrno != 0 || !pkMarkVipDelivered->Get() || pkMarkVipDelivered->Get()->uiAffectedRows != 1)
-						deliveryOk = false;
-				}
-				const uint64_t vipConnAfter = GetAccountDBConnectionId();
-				if (deliveryOk && vipConnAfter == vipConnBefore)
-				{
-					std::unique_ptr<SQLMsg> pkCommitVip(DBManager::instance().AccountQuery("COMMIT"));
-					if (pkCommitVip && pkCommitVip->uiSQLErrno == 0)
-						vipJournalFinalizedInTx = true;
-					else
-						deliveryOk = false;
-				}
-				else
-				{
-					deliveryOk = false;
-				}
-				if (!deliveryOk)
-				{
-					DBManager::instance().AccountQuery("ROLLBACK");
-				}
+				deliveryOk = false;
+			}
+			if (!deliveryOk)
+			{
+				DBManager::instance().AccountQuery("ROLLBACK");
 			}
 		}
 	}
@@ -1825,9 +2066,12 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		DWORD itemCount = static_cast<DWORD>(totalItemCountU64);
 		DWORD maxI = 0;
 		DWORD r = 0;
-		DWORD max_item_stack = (itemTable->dwMaxStack > 0)
-			? std::min<DWORD>(itemTable->dwMaxStack, static_cast<DWORD>(INT32_MAX))
-			: static_cast<DWORD>(ITEM_MAX_COUNT);
+		const bool isStackable = IS_SET(itemTable->dwFlags, ITEM_FLAG_STACKABLE) && !IS_SET(itemTable->dwAntiFlags, ITEM_ANTIFLAG_STACK);
+		DWORD max_item_stack = isStackable
+			? ((itemTable->dwMaxStack > 0)
+				? std::min<DWORD>(itemTable->dwMaxStack, static_cast<DWORD>(INT32_MAX))
+				: static_cast<DWORD>(ITEM_MAX_COUNT))
+			: 1U;
 		if (itemCount > max_item_stack)
 		{
 			maxI = itemCount / max_item_stack;
@@ -1883,12 +2127,91 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		}
 	}
 
+	// For direct inventory items, record INV_PENDING:<ids> in the journal and synchronously persist to player.item BEFORE marking DELIVERED (G3.G & G3.L)
+	if (deliveryOk && !createdItems.empty())
+	{
+		std::string invPendingList = "INV_PENDING:";
+		for (size_t idx = 0; idx < createdItems.size(); ++idx)
+		{
+			if (!createdItems[idx])
+				continue;
+			if (invPendingList.size() > 12)
+				invPendingList.push_back(',');
+			invPendingList += std::to_string(createdItems[idx]->GetID());
+		}
+		if (invPendingList.size() <= 12 || invPendingList.size() >= 250)
+		{
+			deliveryOk = false;
+		}
+		else
+		{
+			std::unique_ptr<SQLMsg> pkRecPending(DBManager::instance().AccountQuery(
+				"UPDATE itemshop_tx_journal SET delivered_item_ids = '%s' "
+				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
+				invPendingList.c_str(),
+				static_cast<unsigned long long>(txId)));
+			if (!pkRecPending || pkRecPending->uiSQLErrno != 0 || !pkRecPending->Get() || pkRecPending->Get()->uiAffectedRows != 1)
+			{
+				deliveryOk = false;
+			}
+		}
+
+		if (deliveryOk && m_bHardExitAfterGiveItemBeforeSqlPersistForTest)
+		{
+			std::fflush(nullptr);
+			std::_Exit(98);
+		}
+
+		if (deliveryOk && m_bCrashAfterGiveItemBeforeSqlPersistForTest)
+		{
+			for (LPITEM createdItem : createdItems)
+			{
+				if (createdItem)
+					ITEM_MANAGER::instance().RemoveItem(createdItem, "ITEMSHOP_PRE_SQL_CRASH_SIM");
+			}
+			sys_log(0, "ItemShop::BuyItem simulated crash after GiveItem before SQL persistence (tx_id=%llu)",
+				static_cast<unsigned long long>(txId));
+			return false;
+		}
+
+		if (deliveryOk)
+		{
+			for (LPITEM createdItem : createdItems)
+			{
+				if (!createdItem)
+					continue;
+				if (!PersistInventoryItemSynchronously(createdItem))
+				{
+					deliveryOk = false;
+					break;
+				}
+				ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
+				if (db_clientdesc && db_clientdesc->GetSocket() != INVALID_SOCKET)
+				{
+					DWORD dwItemID = createdItem->GetID();
+					db_clientdesc->DBPacket(HEADER_GD_ITEM_FLUSH, 0, &dwItemID, sizeof(DWORD));
+				}
+			}
+		}
+	}
+
 	if (!deliveryOk)
 	{
 		for (LPITEM createdItem : createdItems)
 		{
 			if (createdItem)
+			{
+				const DWORD dwCreatedId = createdItem->GetID();
 				ITEM_MANAGER::instance().RemoveItem(createdItem, "ITEMSHOP_ROLLBACK");
+				if (dwCreatedId > 0)
+				{
+					DBManager::instance().DirectQuery(
+						"DELETE FROM item%s WHERE id = %u AND owner_id = %u",
+						get_table_postfix(),
+						static_cast<unsigned int>(dwCreatedId),
+						static_cast<unsigned int>(ch->GetPlayerID()));
+				}
+			}
 		}
 		for (uint64_t awardId : awardInsertIds)
 		{
@@ -2007,40 +2330,6 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 		return false;
 	}
 
-	if (!createdItems.empty())
-	{
-		std::string invPendingList = "INV_PENDING:";
-		for (size_t idx = 0; idx < createdItems.size(); ++idx)
-		{
-			if (!createdItems[idx])
-				continue;
-			if (invPendingList.size() > 12)
-				invPendingList.push_back(',');
-			invPendingList += std::to_string(createdItems[idx]->GetID());
-		}
-		if (invPendingList.size() > 12 && invPendingList.size() < 250)
-		{
-			DBManager::instance().AccountQuery(
-				"UPDATE itemshop_tx_journal SET delivered_item_ids = '%s' "
-				"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",
-				invPendingList.c_str(),
-				static_cast<unsigned long long>(txId));
-		}
-	}
-
-	for (LPITEM createdItem : createdItems)
-	{
-		if (createdItem)
-		{
-			ITEM_MANAGER::instance().FlushDelayedSave(createdItem);
-			if (db_clientdesc && db_clientdesc->GetSocket() != INVALID_SOCKET)
-			{
-				DWORD dwItemID = createdItem->GetID();
-				db_clientdesc->DBPacket(HEADER_GD_ITEM_FLUSH, 0, &dwItemID, sizeof(DWORD));
-			}
-		}
-	}
-
 	if (m_bCrashAfterDeliveryBeforeJournalForTest)
 	{
 		sys_log(0, "ItemShop::BuyItem simulated crash after delivery before DELIVERED journal update (tx_id=%llu)",
@@ -2051,10 +2340,43 @@ bool CItemShopManager::BuyItem(LPCHARACTER ch, int itemIndex, int quantity)
 	if (!vipJournalFinalizedInTx)
 	{
 		std::string deliveredSummary = isVIPEffect ? "VIP" : itemId;
-		if (!awardInsertIds.empty())
+		if (!createdItems.empty() && !awardInsertIds.empty())
 		{
-			deliveredSummary = "AWARD:" + std::to_string(awardInsertIds.front());
+			deliveredSummary = "INV:";
+			for (size_t idx = 0; idx < createdItems.size(); ++idx)
+			{
+				if (!createdItems[idx]) continue;
+				if (deliveredSummary.size() > 4) deliveredSummary.push_back(',');
+				deliveredSummary += std::to_string(createdItems[idx]->GetID());
+			}
+			deliveredSummary += ";AWARD:";
+			for (size_t idx = 0; idx < awardInsertIds.size(); ++idx)
+			{
+				if (idx > 0) deliveredSummary.push_back(',');
+				deliveredSummary += std::to_string(awardInsertIds[idx]);
+			}
 		}
+		else if (!createdItems.empty())
+		{
+			deliveredSummary.clear();
+			for (size_t idx = 0; idx < createdItems.size(); ++idx)
+			{
+				if (!createdItems[idx]) continue;
+				if (!deliveredSummary.empty()) deliveredSummary.push_back(',');
+				deliveredSummary += std::to_string(createdItems[idx]->GetID());
+			}
+		}
+		else if (!awardInsertIds.empty())
+		{
+			deliveredSummary = "AWARD:";
+			for (size_t idx = 0; idx < awardInsertIds.size(); ++idx)
+			{
+				if (idx > 0) deliveredSummary.push_back(',');
+				deliveredSummary += std::to_string(awardInsertIds[idx]);
+			}
+		}
+		if (deliveredSummary.size() >= 250)
+			deliveredSummary.resize(250);
 		DBManager::instance().AccountQuery(
 			"UPDATE itemshop_tx_journal SET state = 'DELIVERED', delivered_item_ids = '%s' "
 			"WHERE tx_id = %llu AND state = 'CHARGED' LIMIT 1",

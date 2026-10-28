@@ -298,6 +298,7 @@ CREATE TABLE `itemshop_tx_journal` (
   `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `aid` int(11) unsigned NOT NULL DEFAULT 0,
   `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `req_id` bigint(20) unsigned DEFAULT NULL,
   `login` varchar(30) NOT NULL DEFAULT '',
   `item_index` int(11) NOT NULL DEFAULT 0,
   `vnum` int(11) unsigned NOT NULL DEFAULT 0,
@@ -317,6 +318,7 @@ CREATE TABLE `itemshop_tx_journal` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`tx_id`),
+  UNIQUE KEY `idx_itemshop_tx_aid_req` (`aid`,`req_id`),
   KEY `idx_itemshop_tx_state` (`state`),
   KEY `idx_itemshop_tx_aid` (`aid`),
   KEY `idx_itemshop_tx_pid` (`pid`)

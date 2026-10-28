@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `account`.`itemshop_tx_journal` (
   `tx_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `aid` int(11) unsigned NOT NULL DEFAULT 0,
   `pid` int(11) unsigned NOT NULL DEFAULT 0,
+  `req_id` bigint(20) unsigned DEFAULT NULL,
   `login` varchar(30) NOT NULL DEFAULT '',
   `item_index` int(11) NOT NULL DEFAULT 0,
   `vnum` int(11) unsigned NOT NULL DEFAULT 0,
@@ -34,12 +35,15 @@ CREATE TABLE IF NOT EXISTS `account`.`itemshop_tx_journal` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`tx_id`),
+  UNIQUE KEY `idx_itemshop_tx_aid_req` (`aid`,`req_id`),
   KEY `idx_itemshop_tx_state` (`state`),
   KEY `idx_itemshop_tx_aid` (`aid`),
   KEY `idx_itemshop_tx_pid` (`pid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 ALTER TABLE `account`.`itemshop_tx_journal`
+  ADD COLUMN IF NOT EXISTS `req_id` bigint(20) unsigned DEFAULT NULL AFTER `pid`,
+  ADD UNIQUE KEY IF NOT EXISTS `idx_itemshop_tx_aid_req` (`aid`,`req_id`),
   MODIFY COLUMN `state` enum('INITIATED','CHARGED','RECOVERING','DELIVERED','REFUNDED','NEEDS_MANUAL_REVIEW') NOT NULL DEFAULT 'INITIATED';
 
 -- 2. Common Schema: 64-bit ItemShop Prices & Voucher Cash
