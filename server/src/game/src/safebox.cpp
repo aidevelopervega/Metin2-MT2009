@@ -53,7 +53,7 @@ void CSafebox::__Destroy()
 	}
 
 	if (m_pkGrid.get()) // @fixme191
-		m_pkGrid.release();
+		m_pkGrid.reset();
 }
 
 bool CSafebox::Add(DWORD dwPos, LPITEM pkItem)
@@ -64,7 +64,7 @@ bool CSafebox::Add(DWORD dwPos, LPITEM pkItem)
 		return false;
 	}
 
-	if (!m_pkChrOwner)
+	if (!m_pkChrOwner || !m_pkChrOwner->GetDesc())
 		return false;
 
 	if (m_pkChrOwner->IsBusy(BUSY_SAFEBOX))
@@ -109,7 +109,7 @@ LPITEM CSafebox::Remove(DWORD dwPos)
 	if (!pkItem)
 		return NULL;
 
-	if (!m_pkChrOwner)
+	if (!m_pkChrOwner || !m_pkChrOwner->GetDesc())
 		return NULL;
 
 	if (m_pkChrOwner->IsBusy(BUSY_SAFEBOX))
@@ -177,7 +177,11 @@ void CSafebox::Save()
 
 	memset(&t, 0, sizeof(TSafeboxTable));
 
-	t.dwID = m_pkChrOwner->GetDesc()->GetAccountTable().id;
+	if (!m_pkChrOwner)
+		return;
+	t.dwID = m_pkChrOwner->GetDesc() ? m_pkChrOwner->GetDesc()->GetAccountTable().id : m_pkChrOwner->GetAID();
+	if (t.dwID == 0)
+		return;
 	t.dwGold = m_lGold;
 
 	db_clientdesc->DBPacket(HEADER_GD_SAFEBOX_SAVE, 0, &t, sizeof(TSafeboxTable));
@@ -201,7 +205,7 @@ void CSafebox::ChangeSize(int iSize)
 
 	std::unique_ptr<CGrid> pkOldGrid = std::move(m_pkGrid); // @fixme191
 
-	if (m_pkGrid.get())
+	if (pkOldGrid.get())
 		m_pkGrid = std::make_unique<CGrid>(pkOldGrid.get(), SAFEBOX_PAGE_WIDTH, m_iSize * SAFEBOX_PAGE_HEIGHT);
 	else
 		m_pkGrid = std::make_unique<CGrid>(SAFEBOX_PAGE_WIDTH, m_iSize * SAFEBOX_PAGE_HEIGHT);

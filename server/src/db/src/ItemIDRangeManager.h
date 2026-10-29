@@ -5,7 +5,7 @@
 class CItemIDRangeManager : public singleton<CItemIDRangeManager>
 {
 	private :
-		const static uint64_t cs_dwMaxItemID = 18446744000000000000ULL;
+		const static uint64_t cs_dwMaxItemID = 9223372000000000000ULL;
 		const static uint64_t cs_dwDefaultPrebuildMaxItemID = 4290000000ULL;
 		const static uint64_t cs_dwMinimumRange = 10000000ULL;
 		const static uint64_t cs_dwMinimumRemainCount = 10000ULL;

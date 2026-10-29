@@ -1368,7 +1368,7 @@ const TItemPos NPOS (RESERVED_WINDOW, WORD_MAX);
 typedef struct SItemPosEx
 {
 	TItemPos pos;
-	int id{ 0 };
+	uint64_t id{ 0 };
 } TItemPosEx;
 
 typedef enum

@@ -223,7 +223,7 @@ namespace quest
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 		LPCHARACTER npc = q.GetCurrentNPCCharacterPtr();
 
-		if ( npc != NULL )
+		if ( npc != NULL && ch != NULL )
 		{
 			if (npc->IsPC())
 				return 0;
@@ -242,7 +242,7 @@ namespace quest
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 		LPCHARACTER npc = q.GetCurrentNPCCharacterPtr();
 
-		if (!npc || npc->IsPC())
+		if (!npc || npc->IsPC() || !ch)
 		{
 			lua_pushboolean(L, TRUE);
 			return 1;

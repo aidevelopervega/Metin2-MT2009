@@ -1274,6 +1274,9 @@ void CHARACTER::FlushDelayedSaveItem()
 	for (int i = 0; i < INVENTORY_AND_EQUIP_SLOT_MAX; ++i)
 		if ((item = GetInventoryItem(i)))
 			ITEM_MANAGER::instance().FlushDelayedSave(item);
+	for (int i = 0; i < DRAGON_SOUL_INVENTORY_MAX_NUM; ++i)
+		if ((item = GetItem(TItemPos(DRAGON_SOUL_INVENTORY, i))))
+			ITEM_MANAGER::instance().FlushDelayedSave(item);
 }
 
 void CHARACTER::Disconnect(const char * c_pszReason)
@@ -6585,6 +6588,8 @@ void CHARACTER::SetQuestNPCID(uint64_t vid)
 
 LPCHARACTER CHARACTER::GetQuestNPC() const
 {
+	if (m_dwQuestNPCVID == 0 || m_dwQuestNPCVID > UINT32_MAX)
+		return NULL;
 	return CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(m_dwQuestNPCVID));
 }
 
@@ -8101,7 +8106,7 @@ bool CHARACTER::WonExchange(const std::string & option, int value)
 		return false;
 	}
 
-	if (value <= 0)
+	if (value <= 0 || value > CHEQUE_MAX)
 	{
 		ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Invalid won exchange value parameter %d."), value);
 		return false;
@@ -8718,6 +8723,7 @@ void CHARACTER::RefineAcceMaterials()
 
 			LogManager::instance().AcceLog(GetPlayerID(), GetX(), GetY(), dwItemVnum, 0, 0, 0, 0);
 
+			SetAcceMaterial(1, nullptr);
 			pkItemMaterial[1] = NULL;
 		}
 
@@ -8863,15 +8869,15 @@ bool CHARACTER::IsInOwnM2City()
 #ifdef ENABLE_MOVE_CHANNEL
 EVENTINFO(move_channel_info)
 {
-	LPCHARACTER		ch;
+	DynamicCharacterPtr	ch;
 	int				left_second;
 	BYTE			bDestChannel;
 
 	move_channel_info(const LPCHARACTER m_ch, const int m_sec, const BYTE m_bDestChannel) :
-		ch(m_ch),
+		ch(),
 		left_second(m_sec),
 		bDestChannel(m_bDestChannel)
-	{}
+	{ ch = m_ch; }
 };
 
 EVENTFUNC(move_channel_event)
@@ -8913,6 +8919,8 @@ EVENTFUNC(move_channel_event)
 
 void CHARACTER::CreateMoveChannelEvent(BYTE bDestChannel)
 {
+	if (m_pkTimedEvent)
+		event_cancel(&m_pkTimedEvent);
 	m_pkTimedEvent = event_create(move_channel_event, new move_channel_info(this, IsPosition(POS_FIGHTING) ? 10 : 3, bDestChannel), 1);
 }
 
@@ -9043,13 +9051,13 @@ bool CHARACTER::ChangeChannel(const TRespondMoveChannel * respond)
 
 EVENTINFO(leave_guild_war_event_info)
 {
-	LPCHARACTER		ch;
+	DynamicCharacterPtr	ch;
 	int				left_second;
 
 	leave_guild_war_event_info(const LPCHARACTER m_ch, const int m_sec) :
-		ch(m_ch),
+		ch(),
 		left_second(m_sec)
-	{}
+	{ ch = m_ch; }
 };
 
 EVENTFUNC(leave_guild_war_event)

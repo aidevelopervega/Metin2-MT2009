@@ -310,7 +310,7 @@ namespace quest
 			LPCHARACTER npc = CQuestManager::instance().GetCurrentNPCCharacterPtr();
 			LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 
-			if (npc && !npc->IsPC())
+			if (npc && !npc->IsPC() && ch)
 			{
 				if (ch->GetPlayerID() == npc->GetQuestNPCID())
 				{

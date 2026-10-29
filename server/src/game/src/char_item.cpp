@@ -5606,6 +5606,7 @@ bool CHARACTER::MoveItem(TItemPos Cell, TItemPos DestCell, ITEM_COUNT count)
 
 		if ((item2 = GetItem(DestCell)) && item != item2 && item2->IsStackable() &&
 				!IS_SET(item2->GetAntiFlag(), ITEM_ANTIFLAG_STACK) &&
+				!item2->IsExchanging() && !item2->isLocked() &&
 				item2->GetVnum() == item->GetVnum())
 		{
 			for (int i = 0; i < ITEM_SOCKET_MAX_NUM; ++i)
@@ -5993,6 +5994,9 @@ bool CHARACTER::SwapItem(BYTE bCell, BYTE bDestCell)
 	}
 
 	if (!item1 || !item2)
+		return false;
+
+	if (item1->IsExchanging() || item1->isLocked() || item2->IsExchanging() || item2->isLocked())
 		return false;
 
 	if (item1 == item2)
@@ -6577,22 +6581,27 @@ std::pair<bool, LPITEM> CHARACTER::AutoStackItemProto(DWORD dwItemVnum, ITEM_COU
 	if (!p)
 		return {false, nullptr};
 
-	if (p->dwFlags & ITEM_FLAG_STACKABLE && p->bType != ITEM_BLEND)
+	if ((p->dwFlags & ITEM_FLAG_STACKABLE) && !IS_SET(p->dwAntiFlags, ITEM_ANTIFLAG_STACK) && p->bType != ITEM_BLEND)
 	{
+		if (IS_SET(p->dwFlags, ITEM_FLAG_MAKECOUNT))
+		{
+			if (p->alValues[1] > 0 && bCount < static_cast<ITEM_COUNT>(p->alValues[1]))
+				bCount = static_cast<ITEM_COUNT>(p->alValues[1]);
+		}
+
 		for (int i = 0; i < GetInventoryMaxCount(); ++i)
 		{
 			LPITEM item = GetInventoryItem(i);
 			if (!item)
 				continue;
 
+			if (item->GetCount() >= item->GetMaxStack() ||
+				item->IsExchanging() || item->isLocked() ||
+				(m_pkMyShop && m_pkMyShop->IsSellingItem(item->GetID())))
+				continue;
+
 			if (item->GetVnum() == dwItemVnum && FN_check_item_socket(item))
 			{
-				if (IS_SET(p->dwFlags, ITEM_FLAG_MAKECOUNT))
-				{
-					if (p->alValues[1] > 0 && bCount < static_cast<ITEM_COUNT>(p->alValues[1]))
-						bCount = static_cast<ITEM_COUNT>(p->alValues[1]);
-				}
-
 				auto bCount2 = MIN(item->GetMaxStack() - item->GetCount(), bCount);
 				bCount -= bCount2;
 				item->SetCount(item->GetCount() + bCount2);
@@ -6621,6 +6630,11 @@ LPITEM CHARACTER::AutoStackItem(LPITEM item)
 			if (item == item2)
 				continue;
 
+			if (item2->GetCount() >= item2->GetMaxStack() ||
+				item2->IsExchanging() || item2->isLocked() ||
+				(m_pkMyShop && m_pkMyShop->IsSellingItem(item2->GetID())))
+				continue;
+
 			if (item2->GetVnum() == item->GetVnum())
 			{
 				int j = 0;
@@ -6643,7 +6657,8 @@ LPITEM CHARACTER::AutoStackItem(LPITEM item)
 			}
 		}
 
-		item->SetCount(bCount);
+		if (bCount != item->GetCount())
+			item->SetCount(bCount);
 	}
 
 	return nullptr;
@@ -6703,6 +6718,10 @@ LPITEM CHARACTER::AutoGiveItem(DWORD dwItemVnum, ITEM_COUNT bCount, int iRarePct
 			LPITEM inv_item = GetInventoryItem(i);
 
 			if (inv_item == NULL) continue;
+
+			if (inv_item->IsExchanging() || inv_item->isLocked() ||
+				(m_pkMyShop && m_pkMyShop->IsSellingItem(inv_item->GetID())))
+				continue;
 
 			if (inv_item->GetType() == ITEM_BLEND)
 			{

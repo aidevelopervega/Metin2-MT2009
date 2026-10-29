@@ -516,7 +516,7 @@ namespace quest
 
 		LPITEM item = ch->AutoGiveItem(dwVnum, icount, iRarePct);
 
-		if ( dwVnum >= 80003 && dwVnum <= 80007 )
+		if ( NULL != item && dwVnum >= 80003 && dwVnum <= 80007 )
 		{
 			LogManager::instance().GoldBarLog(ch->GetPlayerID(), item->GetID(), QUEST, "quest: give_item2");
 		}
@@ -566,6 +566,11 @@ namespace quest
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();
 		LPITEM item = ITEM_MANAGER::instance().CreateItem(dwVnum, icount);
+		if (!item)
+		{
+			m2_lua_pushuint64(L, 0);
+			return 1;
+		}
 		if (ch->GetParty())
 		{
 			FPartyDropDiceRoll f(item, ch);
@@ -628,7 +633,7 @@ namespace quest
 		if (NULL != item)
 			CQuestManager::Instance().SetCurrentItem(item);
 
-		if ( dwVnum >= 80003 && dwVnum <= 80007 )
+		if ( NULL != item && dwVnum >= 80003 && dwVnum <= 80007 )
 		{
 			LogManager::instance().GoldBarLog(ch->GetPlayerID(), item->GetID(), QUEST, "quest: give_item2");
 		}

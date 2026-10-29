@@ -993,7 +993,15 @@ int main()
         assert(lua_isinteger(L, -1) == 1 && static_cast<uint64_t>(lua_tointeger(L, -1)) == idMaxUint64);
         lua_setglobal(L, "g_test_id_uint64_max");
 
+        const uint64_t idMaxItemRange = 9223372000000000000ULL;            // CItemIDRangeManager::cs_dwMaxItemID (<= INT64_MAX)
+        lua_pushinteger(L, static_cast<lua_Integer>(idMaxItemRange));
+        assert(lua_isinteger(L, -1) == 1 && lua_tointeger(L, -1) > 0);
+        lua_setglobal(L, "g_test_id_max_item_range");
+
         const char* uint64_high_script =
+            "assert(math.type(g_test_id_max_item_range) == 'integer' and g_test_id_max_item_range > 0, 'cs_dwMaxItemID must be positive lua_Integer')\n"
+            "assert(string.format('%d', g_test_id_max_item_range) == '9223372000000000000', '%d SQL formatting of cs_dwMaxItemID must be positive')\n"
+            "assert(string.format('%u', g_test_id_max_item_range) == string.format('%d', g_test_id_max_item_range), '%u and %d must match for cs_dwMaxItemID')\n"
             "assert(math.type(g_test_id_2pow63) == 'integer', '2^63 ID must remain exact integer subtype')\n"
             "assert(math.type(g_test_id_uint64_max) == 'integer', 'UINT64_MAX ID must remain exact integer subtype')\n"
             "assert(string.format('%u', g_test_id_2pow63) == '9223372036854775808', '%u formatting of 2^63 failed')\n"

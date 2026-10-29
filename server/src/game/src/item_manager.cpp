@@ -475,7 +475,12 @@ void ITEM_MANAGER::SaveSingleItem(LPITEM item)
 	{
 		case SAFEBOX:
 		case MALL:
-			t.owner = item->GetOwner()->GetDesc()->GetAccountTable().id;
+			t.owner = item->GetOwner()->GetDesc() ? item->GetOwner()->GetDesc()->GetAccountTable().id : item->GetOwner()->GetAID();
+			if (t.owner == 0)
+			{
+				sys_err("SAFEBOX/MALL SaveSingleItem: zero account owner for item %llu", static_cast<unsigned long long>(item->GetID()));
+				return;
+			}
 			break;
 		default:
 			t.owner = item->GetOwner()->GetPlayerID();

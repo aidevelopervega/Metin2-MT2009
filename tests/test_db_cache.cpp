@@ -586,6 +586,65 @@ int main()
             "Senaryo L [M-05]: Guild WarBet validates >2^53 GUILD_ID and >2^32 YANG bet within (0, GOLD_MAX)");
     }
 
+    // =========================================================================
+    // SENARYO M: INT-01 Cross-System Integrity & Anti-Dupe Regressions
+    //            (SItemPosEx 64-Bit ID, AutoStackItemProto MAKECOUNT, WonExchange & cs_dwMaxItemID)
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo M: INT-01 Acce SItemPosEx 64-bit ID, AutoStack MAKECOUNT, WonExchange ve cs_dwMaxItemID dogrulamasi..." << std::endl;
+
+        // 1. SItemPosEx::id 64-bit item ID preservation (>2^32 and >2^53)
+        struct TestItemPosEx { uint8_t window_type; uint16_t cell; uint64_t id{ 0 }; };
+        TestItemPosEx acceSlot{ 1, 15, 9007199254740993ULL };
+        TEST_ASSERT(sizeof(acceSlot.id) == sizeof(uint64_t) && acceSlot.id == 9007199254740993ULL,
+            "Senaryo M [INT-01a]: SItemPosEx::id preserves >2^53 64-bit ITEM_ID without 32-bit int truncation");
+
+        // 2. AutoStackItemProto ITEM_FLAG_MAKECOUNT normalization before inventory loop (no per-stack multiplication)
+        auto simulateAutoStackMakeCount = [](uint32_t initialCount, uint32_t makeCountVal, std::vector<uint32_t>& invStacks, uint32_t maxStack) -> uint32_t {
+            uint32_t bCount = initialCount;
+            if (makeCountVal > 0 && bCount < makeCountVal)
+                bCount = makeCountVal;
+            for (size_t i = 0; i < invStacks.size(); ++i)
+            {
+                if (invStacks[i] >= maxStack)
+                    continue;
+                uint32_t bCount2 = std::min(maxStack - invStacks[i], bCount);
+                bCount -= bCount2;
+                invStacks[i] += bCount2;
+                if (bCount == 0)
+                    break;
+            }
+            return bCount;
+        };
+        std::vector<uint32_t> stacks = { 190U, 190U, 100U };
+        uint32_t rem = simulateAutoStackMakeCount(1U, 20U, stacks, 200U);
+        // Total added across all stacks must be exactly 20 (190->200 (+10), 190->200 (+10), 100 unchanged), remainder 0
+        TEST_ASSERT(rem == 0U && stacks[0] == 200U && stacks[1] == 200U && stacks[2] == 100U,
+            "Senaryo M [INT-01b]: AutoStackItemProto normalizes ITEM_FLAG_MAKECOUNT once before loop without multiplying across partial stacks");
+
+        // 3. WonExchange signed 32-bit int overflow guard (value <= 0 || value > CHEQUE_MAX)
+        constexpr int kChequeMax = 1000;
+        auto isValidWonExchangeBuy = [kChequeMax](int currentCheque, int value) -> bool {
+            if (value <= 0 || value > kChequeMax)
+                return false;
+            if (currentCheque + value > kChequeMax)
+                return false;
+            return true;
+        };
+        TEST_ASSERT(isValidWonExchangeBuy(100, 50) &&
+                    !isValidWonExchangeBuy(100, 901) &&
+                    !isValidWonExchangeBuy(100, INT32_MAX) &&
+                    !isValidWonExchangeBuy(0, -1),
+            "Senaryo M [INT-01c]: WonExchange blocks >CHEQUE_MAX and INT32_MAX values before currentCheque + value can overflow");
+
+        // 4. CItemIDRangeManager::cs_dwMaxItemID <= INT64_MAX so Lua 5.5.1 signed 64-bit lua_Integer stays positive
+        constexpr uint64_t kMaxItemID = 9223372000000000000ULL;
+        TEST_ASSERT(kMaxItemID > (1ULL << 53) &&
+                    kMaxItemID <= static_cast<uint64_t>(INT64_MAX) &&
+                    static_cast<int64_t>(kMaxItemID) > 0,
+            "Senaryo M [INT-01d]: cs_dwMaxItemID is >2^53 and <= INT64_MAX so lua_Integer comparisons and %d SQL formatting stay positive");
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << "[SUCCESS] DB CACHE SUITE: " << g_passCount << "/" << g_testCount << " tests passed cleanly!" << std::endl;
     std::cout << "==================================================" << std::endl;

@@ -505,6 +505,8 @@ bool DSManager::DoRefineGrade(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL
 		LPITEM pItem = ch->GetItem(aItemPoses[i]);
 		if (NULL != pItem)
 		{
+			if (pItem->IsEquipped() || pItem->IsExchanging() || pItem->isLocked())
+				return false;
 			if (!pItem->IsDragonSoul())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This item is not required for improving the clarity level."));
@@ -649,9 +651,13 @@ bool DSManager::DoRefineStep(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_SOUL_
 	std::set <LPITEM> set_items;
 	for (int i = 0; i < DRAGON_SOUL_REFINE_GRID_SIZE; i++)
 	{
+		if (aItemPoses[i].IsEquipPosition())
+			return false;
 		LPITEM pItem = ch->GetItem(aItemPoses[i]);
 		if (NULL != pItem)
 		{
+			if (pItem->IsEquipped() || pItem->IsExchanging() || pItem->isLocked())
+				return false;
 			if (!pItem->IsDragonSoul())
 			{
 				ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You do not own the materials required to strengthen the Dragon Stone."));
@@ -800,9 +806,13 @@ bool DSManager::DoRefineStrength(LPCHARACTER ch, TItemPos (&aItemPoses)[DRAGON_S
 	std::set <LPITEM> set_items;
 	for (int i = 0; i < DRAGON_SOUL_REFINE_GRID_SIZE; i++)
 	{
+		if (aItemPoses[i].IsEquipPosition())
+			return false;
 		LPITEM pItem = ch->GetItem(aItemPoses[i]);
 		if (pItem)
 		{
+			if (pItem->IsEquipped() || pItem->IsExchanging() || pItem->isLocked())
+				return false;
 			set_items.emplace(pItem);
 		}
 	}

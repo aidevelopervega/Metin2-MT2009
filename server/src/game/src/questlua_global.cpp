@@ -350,11 +350,11 @@ namespace quest
 		CQuestManager& q = CQuestManager::instance();
 		LPCHARACTER ch = q.GetCurrentCharacterPtr();
 
-		DWORD what = 0;
+		uint64_t what = 0;
 		const char* how = "";
 		const char* hint = "";
 
-		if (lua_isnumber(L, 1)) what = (DWORD)lua_tonumber(L, 1);
+		if (lua_isnumber(L, 1)) what = m2_lua_touint64(L, 1);
 		if (lua_isstring(L, 2)) how = lua_tostring(L, 2);
 		if (lua_tostring(L, 3)) hint = lua_tostring(L, 3);
 
