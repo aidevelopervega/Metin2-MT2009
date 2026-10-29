@@ -9,7 +9,8 @@
 typedef	DWORD IDENT;
 
 typedef DWORD	ITEM_COUNT;
-typedef int64_t	YANG;
+typedef long long	YANG;
+static_assert(sizeof(YANG) == 8, "YANG must be 64-bit signed integer across LLP64 and LP64");
 
 // Explicit Server-Side x64 Wire Protocol Contract
 // Little-endian (LE), #pragma pack(1), fixed-width integer types across Windows LLP64 & FreeBSD LP64.

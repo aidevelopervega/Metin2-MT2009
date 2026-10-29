@@ -154,7 +154,7 @@ LPCHARACTER DynamicCharacterPtr::Get() const {
 	if (is_pc) {
 		p = CHARACTER_MANAGER::instance().FindByPID(id);
 	} else {
-		p = CHARACTER_MANAGER::instance().Find(id);
+		p = CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(id));
 	}
 	return p;
 }

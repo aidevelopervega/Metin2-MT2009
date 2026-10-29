@@ -245,7 +245,7 @@ namespace ikashop
 		void SetUnlockCount(BYTE unlockCount) { m_unlockCount = unlockCount; }
 		BYTE GetUnlockCount() { return m_unlockCount; }
 
-		DWORD GetLastEditTime() { return m_LastEditTime; }
+		time_t GetLastEditTime() const { return m_LastEditTime; }
 
 		void SetEntity(ENTITY_HANDLE handle);
 		ENTITY_HANDLE GetEntity() const;

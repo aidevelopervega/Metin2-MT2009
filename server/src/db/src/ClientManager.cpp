@@ -768,7 +768,7 @@ void CClientManager::QUERY_SPECIAL_FLAG_SAVE(CPeer* pkPeer, TSpecialFlagTable* p
 		{
 			snprintf(szQuery, sizeof(szQuery),
 				"REPLACE INTO player_special_flag%s (pid, aid, flag, value) VALUES(%llu, %llu, '%s', %lld)",
-				GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), static_cast<unsigned long long>(pTable->dwAID), pTable->szFlag, pTable->llValue);
+				GetTablePostfix(), static_cast<unsigned long long>(pTable->dwPID), static_cast<unsigned long long>(pTable->dwAID), pTable->szFlag, static_cast<long long>(pTable->llValue));
 		}
 
 		CDBManager::instance().ReturnQuery(szQuery, QID_SPECIAL_FLAG_SAVE, pkPeer->GetHandle(), NULL);

@@ -142,7 +142,7 @@ bool CMonarch::AddMoney(int Empire, int64_t Money)
 	int64_t Money64 = m_MonarchInfo.money[Empire];
 
 	char szQuery[1024];
-	snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET money=%lld WHERE empire=%d", Money64, Empire);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET money=%lld WHERE empire=%d", static_cast<long long>(Money64), Empire);
 
 	CDBManager::instance().AsyncQuery(szQuery);
 
@@ -161,7 +161,7 @@ bool CMonarch::DecMoney(int Empire, int64_t Money)
 	int64_t Money64 = m_MonarchInfo.money[Empire];
 
 	char szQuery[1024];
-	snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET money=%lld WHERE empire=%d", Money64, Empire);
+	snprintf(szQuery, sizeof(szQuery), "UPDATE monarch SET money=%lld WHERE empire=%d", static_cast<long long>(Money64), Empire);
 
 	CDBManager::instance().AsyncQuery(szQuery);
 	return true;
