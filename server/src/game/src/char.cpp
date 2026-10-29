@@ -6589,7 +6589,7 @@ void CHARACTER::SetQuestNPCID(uint64_t vid)
 
 LPCHARACTER CHARACTER::GetQuestNPC() const
 {
-	if (m_dwQuestNPCVID == 0 || m_dwQuestNPCVID > UINT32_MAX)
+	if (IsNPC() || m_dwQuestNPCVID == 0 || m_dwQuestNPCVID > UINT32_MAX)
 		return NULL;
 	return CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(m_dwQuestNPCVID));
 }

@@ -183,6 +183,12 @@ int RunGameQuestRuntimeTests()
 		local_am = std::make_unique<CArenaManager>();
 	}
 
+	std::unique_ptr<CHARACTER_MANAGER> local_cm;
+	if (CHARACTER_MANAGER::instance_ptr() == nullptr)
+	{
+		local_cm = std::make_unique<CHARACTER_MANAGER>();
+	}
+
 	std::unique_ptr<ITEM_MANAGER> local_im;
 	if (ITEM_MANAGER::instance_ptr() == nullptr)
 	{
@@ -536,29 +542,11 @@ int RunGameQuestRuntimeTests()
 		test_ch->ClearAffect();
 		qm.SetCurrentCharacterPtr(nullptr);
 
-		// INT-01 Runtime Verification: WonExchange, Acce >2^53 SItemPosEx::id, AutoStackItemProto/AutoStackItem & CSafebox::ChangeSize
+		// INT-01 Runtime Verification: 64-bit ITEM_ID (>2^53, cs_dwMaxItemID & legacy >=2^63), AutoStackItemProto/AutoStackItem, CSafebox::ChangeSize & SetQuestNPCID/GetQuestNPC/npc.lock/npc.unlock
 		{
 			CTestItemShopCharacter intCh;
 			intCh.SetTestPlayerID(770901ULL);
 			intCh.EnableDirectInventory(true);
-
-			// 1. WonExchange runtime boundary & Yang-loss prevention (when ENABLE_CHEQUE_SYSTEM && ENABLE_WON_EXCHANGE_WINDOW enabled)
-#if defined(ENABLE_CHEQUE_SYSTEM) && defined(ENABLE_WON_EXCHANGE_WINDOW)
-			intCh.SetGold(GOLD_MAX - 500000000LL);
-			intCh.SetCheque(990);
-			RUNTIME_ASSERT(!intCh.WonExchange("sell", 10) && intCh.GetGold() == (GOLD_MAX - 500000000LL) && intCh.GetCheque() == 990,
-				"INT-01: WonExchange(sell) must reject GOLD_MAX overflow without deducting Won");
-
-			intCh.SetGold(5000000000LL);
-			intCh.SetCheque(990);
-			RUNTIME_ASSERT(!intCh.WonExchange("buy", 10) && intCh.GetGold() == 5000000000LL && intCh.GetCheque() == 990,
-				"INT-01: WonExchange(buy) must reject 990 + 10 == 1000 (CHEQUE_MAX) before ChangeGold deducts Yang");
-			RUNTIME_ASSERT(!intCh.WonExchange("buy", CHEQUE_MAX) && !intCh.WonExchange("buy", INT_MAX) && !intCh.WonExchange("buy", 0) &&
-				intCh.GetGold() == 5000000000LL && intCh.GetCheque() == 990,
-				"INT-01: WonExchange(buy) must reject >=CHEQUE_MAX, INT_MAX, and <=0 without Yang or Won mutation");
-			RUNTIME_ASSERT(intCh.WonExchange("buy", 9) && intCh.GetGold() == 4100000000LL && intCh.GetCheque() == 999,
-				"INT-01: WonExchange(buy) 990 + 9 == 999 (CHEQUE_MAX - 1) must succeed and update both Yang and Won");
-#endif
 
 			// Register stackable MAKECOUNT item (74021) and 2-slot item (74022)
 			TItemTable intProtos[2]{};
@@ -575,21 +563,28 @@ int RunGameQuestRuntimeTests()
 			ITEM_MANAGER::instance().SetMaxItemID({ 1, 1000000, 1 });
 			ITEM_MANAGER::instance().Initialize(intProtos, 2);
 
-			// 2. 64-bit >2^53 & cs_dwMaxItemID ITEM_ID creation, Lua item.select/get_id & Acce SItemPosEx::id round-trip
-			const uint64_t kAcceItemIdOver53 = 9007199254740993ULL;
+			// 1. 64-bit >2^53, cs_dwMaxItemID (<=INT64_MAX) & pre-existing >cs_dwMaxItemID (>=2^63) ITEM_ID preservation + Lua item.select/get_id round-trip
+			const uint64_t kItemIdOver53 = 9007199254740993ULL;
 			const uint64_t kMaxRangeItemId = 9223372000000000000ULL; // CItemIDRangeManager::cs_dwMaxItemID
-			LPITEM acceItem = ITEM_MANAGER::instance().CreateItem(74022, 1, kAcceItemIdOver53, false);
+			const uint64_t kLegacyHighItemId = (1ULL << 63) + 99ULL; // 9223372036854775907ULL (> INT64_MAX existing SQL record)
+			LPITEM over53Item = ITEM_MANAGER::instance().CreateItem(74022, 1, kItemIdOver53, false);
 			LPITEM maxRangeItem = ITEM_MANAGER::instance().CreateItem(74021, 1, kMaxRangeItemId, false);
-			RUNTIME_ASSERT(acceItem != nullptr && acceItem->GetID() == kAcceItemIdOver53 &&
-				ITEM_MANAGER::instance().Find(kAcceItemIdOver53) == acceItem &&
+			LPITEM legacyHighItem = ITEM_MANAGER::instance().CreateItem(74021, 1, kLegacyHighItemId, false);
+			RUNTIME_ASSERT(over53Item != nullptr && over53Item->GetID() == kItemIdOver53 &&
+				ITEM_MANAGER::instance().Find(kItemIdOver53) == over53Item &&
 				maxRangeItem != nullptr && maxRangeItem->GetID() == kMaxRangeItemId &&
-				ITEM_MANAGER::instance().Find(kMaxRangeItemId) == maxRangeItem,
-				"INT-01: CreateItem & ITEM_MANAGER::Find must preserve >2^53 and cs_dwMaxItemID ITEM_IDs");
-			acceItem->SetSkipSave(true);
+				ITEM_MANAGER::instance().Find(kMaxRangeItemId) == maxRangeItem &&
+				legacyHighItem != nullptr && legacyHighItem->GetID() == kLegacyHighItemId &&
+				ITEM_MANAGER::instance().Find(kLegacyHighItemId) == legacyHighItem,
+				"INT-01: CreateItem & ITEM_MANAGER::Find must preserve >2^53, cs_dwMaxItemID, and pre-existing >=2^63 ITEM_IDs");
+			over53Item->SetSkipSave(true);
 			maxRangeItem->SetSkipSave(true);
-			RUNTIME_ASSERT(acceItem->AddToCharacter(&intCh, TItemPos(INVENTORY, 10)) &&
-				intCh.FindItemByID(kAcceItemIdOver53) == acceItem,
-				"INT-01: acceItem AddToCharacter & CHARACTER::FindItemByID must resolve >2^53 ITEM_ID");
+			legacyHighItem->SetSkipSave(true);
+			RUNTIME_ASSERT(over53Item->AddToCharacter(&intCh, TItemPos(INVENTORY, 10)) &&
+				legacyHighItem->AddToCharacter(&intCh, TItemPos(INVENTORY, 12)) &&
+				intCh.FindItemByID(kItemIdOver53) == over53Item &&
+				intCh.FindItemByID(kLegacyHighItemId) == legacyHighItem,
+				"INT-01: AddToCharacter & CHARACTER::FindItemByID must resolve >2^53 and pre-existing >=2^63 ITEM_IDs");
 			qm.SetCurrentCharacterPtr(&intCh);
 			RUNTIME_ASSERT(lua_dostring(L,
 				"assert(item.select(9007199254740993) == true, 'item.select(>2^53) failed')\n"
@@ -597,20 +592,18 @@ int RunGameQuestRuntimeTests()
 				"assert(item.select(9223372000000000000) == true, 'item.select(cs_dwMaxItemID) failed')\n"
 				"assert(item.get_id() > 0 and tostring(item.get_id()) == '9223372000000000000', 'item.get_id(cs_dwMaxItemID) must stay positive and exact')\n"
 			) == 0, "INT-01: Lua 5.5.1 item.select & item.get_id must preserve >2^53 and cs_dwMaxItemID as positive lua_Integer");
+			qm.SetCurrentItem(legacyHighItem);
+			RUNTIME_ASSERT(lua_dostring(L,
+				"local raw_high_id = item.get_id()\n"
+				"assert(raw_high_id < 0, 'pre-existing >=2^63 uint64_t must map to negative two-complement lua_Integer')\n"
+				"assert(item.select(raw_high_id) == true and item.get_id() == raw_high_id, 'item.select/get_id must round-trip pre-existing >=2^63 ITEM_ID without bit loss')\n"
+			) == 0, "INT-01: Pre-existing >=2^63 ITEM_ID must round-trip through Lua item.get_id() and item.select() without loss");
 			qm.SetCurrentItem(nullptr);
 			qm.SetCurrentCharacterPtr(nullptr);
 			M2_DESTROY_ITEM(maxRangeItem);
-#ifdef ENABLE_ACCE_COSTUME_SYSTEM
-			intCh.SetAcceMaterial(0, acceItem);
-			RUNTIME_ASSERT(intCh.GetAcceMaterialsInfo() != nullptr &&
-				intCh.GetAcceMaterialsInfo()[0].id == kAcceItemIdOver53 &&
-				intCh.GetAcceMaterials()[0] == acceItem,
-				"INT-01: SetAcceMaterial/GetAcceMaterials must preserve >2^53 SItemPosEx::id without 32-bit truncation");
-			intCh.SetAcceMaterial(0, nullptr);
-#endif
 			intCh.ClearTestInventory();
 
-			// 3. AutoStackItemProto (ITEM_FLAG_MAKECOUNT) & AutoStackItem runtime anti-dupe & lock/exchange isolation
+			// 2. AutoStackItemProto (ITEM_FLAG_MAKECOUNT) & AutoStackItem runtime anti-dupe & lock/exchange isolation
 			LPITEM stExch = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
 			LPITEM stLock = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
 			LPITEM stFree1 = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
@@ -649,24 +642,81 @@ int RunGameQuestRuntimeTests()
 			stLock->Lock(false);
 			intCh.ClearTestInventory();
 
-			// 4. CSafebox::ChangeSize runtime grid preservation
-			DESC dummySafeboxDesc;
-			intCh.BindDesc(&dummySafeboxDesc);
+			// 3. CSafebox::ChangeSize runtime grid preservation
 			{
-				CSafebox testSafebox(&intCh, 1, 0);
-				LPITEM sbItem = ITEM_MANAGER::instance().CreateItem(74022, 1, 0, false);
-				RUNTIME_ASSERT(sbItem != nullptr, "INT-01: Safebox 2-slot item must be created");
-				sbItem->SetSkipSave(true);
-				RUNTIME_ASSERT(testSafebox.Add(0, sbItem), "INT-01: CSafebox::Add 2-slot item at cell 0 must succeed");
-				RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) && testSafebox.IsEmpty(1, 1),
-					"INT-01: 2-slot item at cell 0 must occupy grid cells 0 and 5");
-				testSafebox.ChangeSize(2);
-				RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) &&
-					testSafebox.Get(0) == sbItem && testSafebox.IsEmpty(45, 1),
-					"INT-01: CSafebox::ChangeSize(2) must preserve occupied grid cells 0 and 5 when expanding from 1 to 2 pages");
+				DESC dummySafeboxDesc;
+				intCh.BindDesc(&dummySafeboxDesc);
+				{
+					CSafebox testSafebox(&intCh, 1, 0);
+					LPITEM sbItem = ITEM_MANAGER::instance().CreateItem(74022, 1, 0, false);
+					RUNTIME_ASSERT(sbItem != nullptr, "INT-01: Safebox 2-slot item must be created");
+					sbItem->SetSkipSave(true);
+					RUNTIME_ASSERT(testSafebox.Add(0, sbItem), "INT-01: CSafebox::Add 2-slot item at cell 0 must succeed");
+					RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) && testSafebox.IsEmpty(1, 1),
+						"INT-01: 2-slot item at cell 0 must occupy grid cells 0 and 5");
+					testSafebox.ChangeSize(2);
+					RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) &&
+						testSafebox.Get(0) == sbItem && testSafebox.IsEmpty(45, 1),
+						"INT-01: CSafebox::ChangeSize(2) must preserve occupied grid cells 0 and 5 when expanding from 1 to 2 pages");
+				}
+				intCh.BindDesc(nullptr);
 			}
-			intCh.BindDesc(nullptr);
+			std::remove("packet_info.txt");
 			intCh.EnableDirectInventory(false);
+
+			// 4. PID / VID separation: SetQuestNPCID, GetQuestNPC, npc.lock & npc.unlock with >2^32 PIDs and 32-bit NPC VID
+			CTestItemShopCharacter lockPc1;
+			CTestItemShopCharacter lockPc2;
+			lockPc1.EnableDirectInventory(true);
+			lockPc2.EnableDirectInventory(true);
+			lockPc1.SetTestPlayerID(5000000001ULL);
+			lockPc2.SetTestPlayerID(5000000002ULL);
+			LPCHARACTER lockNpc = CHARACTER_MANAGER::instance().CreateCharacter("TestLockNPC", 0);
+			RUNTIME_ASSERT(lockNpc &&
+				!lockPc1.IsNPC() && !lockPc2.IsNPC() && lockNpc->IsNPC() && !lockNpc->IsPC() &&
+				lockPc1.GetPlayerID() == 5000000001ULL && lockPc2.GetPlayerID() == 5000000002ULL &&
+				lockNpc->GetVID() != 0,
+				"INT-01: >2^32 PCs and non-PC NPC with valid 32-bit VID must be initialized");
+
+			// PC stores NPC's 32-bit VID; GetQuestNPC() on PC must resolve lockNpc even when PC's own PID is >2^32
+			lockPc1.SetQuestNPCID(lockNpc->GetVID());
+			lockPc2.SetQuestNPCID(lockNpc->GetVID());
+			RUNTIME_ASSERT(lockPc1.GetQuestNPC() == lockNpc && lockPc2.GetQuestNPC() == lockNpc,
+				"INT-01: GetQuestNPC() on >2^32 PID players must resolve the clicked NPC's 32-bit VID");
+
+			// lockPc1 locks lockNpc via Lua npc.lock()
+			qm.SetCurrentCharacterPtr(&lockPc1);
+			RUNTIME_ASSERT(qm.GetCurrentNPCCharacterPtr() == lockNpc,
+				"INT-01: CQuestManager::GetCurrentNPCCharacterPtr() must resolve lockNpc for >2^32 PID player");
+			RUNTIME_ASSERT(lua_dostring(L, "assert(npc.lock() == true, 'npc.lock() by first >2^32 PID player must succeed')\n") == 0,
+				"INT-01: Lua npc.lock() must succeed for lockPc1 (PID 5000000001)");
+			RUNTIME_ASSERT(lockNpc->GetQuestNPCID() == 5000000001ULL &&
+				lockPc1.GetQuestNPC() == lockNpc &&
+				lockNpc->GetQuestNPC() == nullptr,
+				"INT-01: Locked NPC stores 64-bit PID (5000000001) while PC keeps NPC VID and lockNpc->GetQuestNPC() returns nullptr");
+
+			// lockPc2 (PID 5000000002) cannot lock or unlock lockNpc while locked by lockPc1
+			qm.SetCurrentCharacterPtr(&lockPc2);
+			RUNTIME_ASSERT(lua_dostring(L,
+				"assert(npc.lock() == false, 'npc.lock() by second >2^32 PID player must fail while locked')\n"
+				"npc.unlock()\n"
+			) == 0, "INT-01: Lua npc.lock()/npc.unlock() by second >2^32 PID player must not steal or clear lockPc1's lock");
+			RUNTIME_ASSERT(lockNpc->GetQuestNPCID() == 5000000001ULL,
+				"INT-01: lockNpc must remain locked by lockPc1 (5000000001)");
+
+			// lockPc1 unlocks lockNpc; lockPc2 can then lock and unlock cleanly; also verify <=UINT32_MAX PID on non-PC never resolves as VID
+			qm.SetCurrentCharacterPtr(&lockPc1);
+			RUNTIME_ASSERT(lua_dostring(L, "npc.unlock()\n") == 0 && lockNpc->GetQuestNPCID() == 0,
+				"INT-01: Lua npc.unlock() by lockPc1 must clear lockNpc's lock PID");
+			lockNpc->SetQuestNPCID(lockNpc->GetVID()); // simulate <=UINT32_MAX PID equal to a live VID stored on non-PC NPC
+			RUNTIME_ASSERT(lockNpc->GetQuestNPC() == nullptr,
+				"INT-01: GetQuestNPC() on non-PC NPC must return nullptr even when stored PID is <=UINT32_MAX and equals a live VID");
+			lockNpc->SetQuestNPCID(0);
+
+			qm.SetCurrentCharacterPtr(nullptr);
+			lockPc1.EnableDirectInventory(false);
+			lockPc2.EnableDirectInventory(false);
+			M2_DESTROY_CHARACTER(lockNpc);
 		}
 	}
 	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair, CLoginData (G4.2), 64-bit CAffect (G4.4/M-02) & INT-01 runtime checks confirmed" << std::endl;

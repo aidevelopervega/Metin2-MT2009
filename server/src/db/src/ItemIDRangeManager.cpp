@@ -37,8 +37,31 @@ void CItemIDRangeManager::Build()
 		}
 	}
 
-	// Also build 64-bit ranges above 2^32 if high item IDs (<= cs_dwMaxItemID) exist in DB or active range
+	// Observe any pre-existing records above cs_dwMaxItemID (> INT64_MAX range) without modifying or reusing them
 	char szQuery[256];
+	snprintf(szQuery, sizeof(szQuery), "SELECT COUNT(*), MIN(id), MAX(id) FROM item%s WHERE id > %llu",
+		GetTablePostfix(), static_cast<unsigned long long>(cs_dwMaxItemID));
+	if (auto pHighMsg = CDBManager::instance().DirectQuery(szQuery))
+	{
+		if (pHighMsg->Get()->uiNumRows > 0)
+		{
+			MYSQL_ROW row = mysql_fetch_row(pHighMsg->Get()->pSQLResult);
+			uint64_t highCount = 0, highMin = 0, highMax = 0;
+			if (row && row[0]) str_to_number(highCount, row[0]);
+			if (row && row[1]) str_to_number(highMin, row[1]);
+			if (row && row[2]) str_to_number(highMax, row[2]);
+			if (highCount > 0)
+			{
+				sys_log(0, "ItemIDRange: Preserving %llu existing item record(s) above cs_dwMaxItemID (%llu ~ %llu); new allocations stay <= %llu",
+					static_cast<unsigned long long>(highCount),
+					static_cast<unsigned long long>(highMin),
+					static_cast<unsigned long long>(highMax),
+					static_cast<unsigned long long>(cs_dwMaxItemID));
+			}
+		}
+	}
+
+	// Build 64-bit ranges above 2^32 when high item IDs (<= cs_dwMaxItemID) exist or 32-bit pool has fewer than 16 ranges
 	snprintf(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM item%s WHERE id <= %llu",
 		GetTablePostfix(), static_cast<unsigned long long>(cs_dwMaxItemID));
 	uint64_t ullGlobalMaxID = (dbRange.dwMax <= cs_dwMaxItemID) ? dbRange.dwMax : 0;
@@ -53,14 +76,18 @@ void CItemIDRangeManager::Build()
 			ullGlobalMaxID = dbMax;
 	}
 
-	if (ullGlobalMaxID >= cs_dwDefaultPrebuildMaxItemID)
+	if (ullGlobalMaxID >= cs_dwDefaultPrebuildMaxItemID || m_listData.size() < 16)
 	{
+		const uint64_t min64Chunk = cs_dwDefaultPrebuildMaxItemID / cs_dwMinimumRange;
 		const uint64_t maxChunk = cs_dwMaxItemID / cs_dwMinimumRange;
 		uint64_t baseChunk = ullGlobalMaxID / cs_dwMinimumRange;
+		if (baseChunk < min64Chunk)
+			baseChunk = min64Chunk;
 		if (baseChunk >= maxChunk && maxChunk > 0)
 			baseChunk = maxChunk - 1;
 
-		for (uint64_t offset = 0; offset < 16; ++offset)
+		size_t built64 = 0;
+		for (uint64_t offset = 0; offset < 16 && built64 < 16; ++offset)
 		{
 			dwMin = cs_dwMinimumRange * (baseChunk + offset) + 1;
 			dwMax = cs_dwMinimumRange * (baseChunk + offset + 1);
@@ -74,6 +101,29 @@ void CItemIDRangeManager::Build()
 			if (BuildRange(dwMin, dwMax, range) == true)
 			{
 				m_listData.emplace_back(range);
+				++built64;
+			}
+		}
+
+		// Fallback scan from min64Chunk if baseChunk was at/near cs_dwMaxItemID (e.g., sparse high test ID)
+		if (built64 < 16 && baseChunk > min64Chunk)
+		{
+			for (uint64_t chunk = min64Chunk; chunk < baseChunk && built64 < 16 && (chunk - min64Chunk) < 64; ++chunk)
+			{
+				dwMin = cs_dwMinimumRange * chunk + 1;
+				dwMax = cs_dwMinimumRange * (chunk + 1);
+				if (dwMax > cs_dwMaxItemID)
+					break;
+				if (dbRange.dwMin > 0 && dbRange.dwMax > 0 &&
+					dbRange.dwMin <= dwMax && dbRange.dwMax >= dwMin)
+				{
+					continue;
+				}
+				if (BuildRange(dwMin, dwMax, range) == true)
+				{
+					m_listData.emplace_back(range);
+					++built64;
+				}
 			}
 		}
 	}
@@ -133,13 +183,6 @@ bool CItemIDRangeManager::BuildRange(uint64_t dwMin, uint64_t dwMax, TItemIDRang
 {
 	if (dwMin == 0 || dwMax == 0 || dwMin >= dwMax || dwMax > cs_dwMaxItemID)
 		return false;
-
-	const TItemIDRangeTable& dbRange = CClientManager::instance().GetItemRange();
-	if (dbRange.dwMin > 0 && dbRange.dwMax > 0 &&
-		dbRange.dwMin <= dwMax && dbRange.dwMax >= dwMin)
-	{
-		return false;
-	}
 
 	char szQuery[1024];
 	uint64_t dwItemMaxID = 0;
@@ -217,6 +260,12 @@ bool CItemIDRangeManager::BuildRange(uint64_t dwMin, uint64_t dwMax, TItemIDRang
 void CItemIDRangeManager::UpdateRange(uint64_t dwMin, uint64_t dwMax)
 {
 	TItemIDRangeTable range;
+	const TItemIDRangeTable& dbRange = CClientManager::instance().GetItemRange();
+	if (dbRange.dwMin > 0 && dbRange.dwMax > 0 &&
+		dbRange.dwMin <= dwMax && dbRange.dwMax >= dwMin)
+	{
+		return;
+	}
 
 	if (BuildRange(dwMin, dwMax, range) == true)
 	{
