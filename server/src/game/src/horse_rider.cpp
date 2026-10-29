@@ -308,7 +308,7 @@ void CHorseRider::ResetHorseHealthDropTime()
 
 void CHorseRider::CheckHorseHealthDropTime(bool bSend)
 {
-	DWORD now = get_global_time();
+	time_t now = get_global_time();
 
 	while (m_Horse.dwHorseHealthDropTime < now)
 	{

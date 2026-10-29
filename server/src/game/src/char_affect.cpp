@@ -507,7 +507,7 @@ void CHARACTER::LoadAffect(DWORD dwCount, TPacketAffectElement * pElements)
 
 		if (AFFECT_AUTO_HP_RECOVERY == pElements->dwType || AFFECT_AUTO_SP_RECOVERY == pElements->dwType)
 		{
-			const uint64_t ullAffectItemID = (pElements->lSPCost > 0) ? static_cast<uint64_t>(pElements->lSPCost) : static_cast<uint64_t>(pElements->dwFlag);
+			const uint64_t ullAffectItemID = (pElements->lSPCost != 0) ? static_cast<uint64_t>(pElements->lSPCost) : static_cast<uint64_t>(pElements->dwFlag);
 			LPITEM item = FindItemByID(ullAffectItemID);
 
 			if (NULL == item)

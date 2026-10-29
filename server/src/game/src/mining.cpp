@@ -183,7 +183,7 @@ namespace mining
 
 	EVENTINFO(mining_event_info)
 	{
-		DWORD pid;
+		uint64_t pid;
 		DWORD vid_load;
 
 		mining_event_info()
@@ -260,7 +260,11 @@ namespace mining
 
 		if (!Pick_Check(*item))
 		{
-			sys_err("REFINE_PICK_HACK pid(%u) item(%s:%d) type(%d)", ch->GetPlayerID(), item->GetName(), item->GetID(), item->GetType());
+			sys_err("REFINE_PICK_HACK pid(%llu) item(%s:%llu) type(%d)",
+				static_cast<unsigned long long>(ch->GetPlayerID()),
+				item->GetName(),
+				static_cast<unsigned long long>(item->GetID()),
+				item->GetType());
 			rkLogMgr.RefineLog(ch->GetPlayerID(), item->GetName(), item->GetID(), -1, 1, "PICK_HACK");
 			return 2;
 		}

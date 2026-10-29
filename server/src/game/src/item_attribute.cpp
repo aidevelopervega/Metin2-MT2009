@@ -311,7 +311,7 @@ void CItem::ChangeAttribute(const int* aiChangeProb)
 	}
 	snprintf(buf, sizeof(buf), "%s", attrs.str().c_str());
 
-	DWORD dwPID = 0;
+	uint64_t dwPID = 0;
 	if (GetOwner())
 		dwPID = GetOwner()->GetPlayerID();
 	LogManager::instance().ItemMetaLog(dwPID, GetID(), GetOriginalVnum(), buf, "CHANGE_ATTR");
@@ -335,7 +335,7 @@ void CItem::AddAttribute()
 			LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MAX);
 			int index = attrCountAfter - 1;
 
-			DWORD dwPID = 0;
+			uint64_t dwPID = 0;
 			if (GetOwner())
 				dwPID = GetOwner()->GetPlayerID();
 			char buf[96 + 1];
@@ -432,7 +432,7 @@ void CItem::SetForceAttribute(int i, BYTE bType, short sValue)
 
 	if (bType)
 	{
-		DWORD dwPID = 0;
+		uint64_t dwPID = 0;
 		if (GetOwner())
 			dwPID = GetOwner()->GetPlayerID();
 

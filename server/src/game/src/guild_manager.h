@@ -55,10 +55,10 @@ class CGuildManager : public singleton<CGuildManager>
 		void		ReserveWar(uint64_t dwGuild1, uint64_t dwGuild2, BYTE bType);
 
 		void            ReserveWarAdd(TGuildWarReserve * p);
-		void            ReserveWarDelete(DWORD dwID);
+		void            ReserveWarDelete(uint64_t dwID);
 		std::vector<CGuildWarReserveForGame *> & GetReserveWarRef();
 		void		ReserveWarBet(TPacketGDGuildWarBet * p);
-		bool		IsBet(DWORD dwID, const char * c_pszLogin);
+		bool		IsBet(uint64_t dwID, const char * c_pszLogin);
 
 		void		StopAllGuildWar();
 
@@ -91,12 +91,12 @@ class CGuildManager : public singleton<CGuildManager>
 		typedef std::set<std::pair<uint64_t, uint64_t> > TGuildWarContainer;
 		TGuildWarContainer m_GuildWar;
 
-		typedef std::map<std::pair<uint64_t, uint64_t>, DWORD> TGuildWarEndTimeContainer;
+		typedef std::map<std::pair<uint64_t, uint64_t>, time_t> TGuildWarEndTimeContainer;
 		TGuildWarEndTimeContainer m_GuildWarEndTime;
 
 		TGuildMap				m_map_pkGuildByPID;
 
-		std::map<DWORD, CGuildWarReserveForGame *>	m_map_kReserveWar;
+		std::map<uint64_t, CGuildWarReserveForGame *>	m_map_kReserveWar;
 		std::vector<CGuildWarReserveForGame *>		m_vec_kReserveWar;
 
 		friend class CGuild;

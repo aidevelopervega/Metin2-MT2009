@@ -81,7 +81,7 @@ class LogManager : public singleton<LogManager>
 		void		QuestStateLog(const char * c_pszQuestName, const char* c_pszQuestState, uint64_t dwPID);
 		void		DetailLoginLog(bool isLogin, LPCHARACTER ch);
 		void		DetailLoginLog(bool isLogin, LPDESC d, uint64_t pid);
-		void		DragonSlayLog(uint64_t dwGuildID, DWORD dwDragonVnum, DWORD dwStartTime, DWORD dwEndTime);
+		void		DragonSlayLog(uint64_t dwGuildID, DWORD dwDragonVnum, time_t startTime, time_t endTime);
 		void		ChatLog(DWORD where, uint64_t who_id, const char* who_name, uint64_t whom_id, const char* whom_name, const char* type, const char* msg, const char* ip);
 		void		CaptchaLog(LPCHARACTER ch, const char* action, const char* code);
 		void		VoucherCodeLog(LPCHARACTER ch, const char* code);

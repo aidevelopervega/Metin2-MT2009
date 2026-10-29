@@ -454,9 +454,9 @@ LPCHARACTER CHARACTER_MANAGER::SpawnMob(DWORD dwVnum, long lMapIndex, long x, lo
 		{
 			// SPAWN_BLOCK_LOG
 			static bool s_isLog=quest::CQuestManager::instance().GetEventFlag("spawn_block_log");
-			static DWORD s_nextTime=get_global_time()+10000;
+			static time_t s_nextTime=get_global_time()+10000;
 
-			DWORD curTime=get_global_time();
+			time_t curTime=get_global_time();
 
 			if (curTime>s_nextTime)
 			{

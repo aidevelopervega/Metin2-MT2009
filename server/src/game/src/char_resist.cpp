@@ -28,7 +28,7 @@ EVENTINFO(TPoisonEventInfo)
 {
 	DynamicCharacterPtr ch;
 	int		count;
-	DWORD	attacker_pid;
+	uint64_t	attacker_pid;
 
 	TPoisonEventInfo()
 	: ch()
@@ -101,7 +101,7 @@ EVENTINFO(TBleedingEventInfo)
 {
 	DynamicCharacterPtr ch;
 	int		count;
-	DWORD	attacker_pid;
+	uint64_t	attacker_pid;
 
 	TBleedingEventInfo()
 	: ch()
@@ -154,7 +154,7 @@ EVENTINFO(TFireEventInfo)
 	DynamicCharacterPtr ch;
 	int		count;
 	int		amount;
-	DWORD	attacker_pid;
+	uint64_t	attacker_pid;
 
 	TFireEventInfo()
 	: ch()

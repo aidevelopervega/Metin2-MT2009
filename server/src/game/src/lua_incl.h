@@ -60,18 +60,37 @@ static inline int m2_lua_resume(lua_State* L, int nargs) {
 #define LUA_YIELD 1
 #endif
 
+#include <ctype.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 static inline uint64_t m2_lua_touint64(lua_State* L, int idx) {
 	if (lua_isinteger(L, idx))
 		return static_cast<uint64_t>(lua_tointeger(L, idx));
-	if (lua_isnumber(L, idx))
-		return static_cast<uint64_t>(lua_tonumber(L, idx));
-	if (lua_isstring(L, idx)) {
+	if (lua_type(L, idx) == LUA_TSTRING) {
 		const char* s = lua_tostring(L, idx);
-		if (s)
-			return static_cast<uint64_t>(strtoull(s, NULL, 10));
+		if (!s)
+			return 0ULL;
+		while (isspace(static_cast<unsigned char>(*s)))
+			++s;
+		if (*s == '\0' || *s == '-')
+			return 0ULL;
+		errno = 0;
+		char* endptr = NULL;
+		unsigned long long val = strtoull(s, &endptr, 0);
+		if (endptr == s || errno == ERANGE)
+			return 0ULL;
+		while (isspace(static_cast<unsigned char>(*endptr)))
+			++endptr;
+		if (*endptr != '\0')
+			return 0ULL;
+		return static_cast<uint64_t>(val);
+	}
+	if (lua_type(L, idx) == LUA_TNUMBER) {
+		const lua_Number n = lua_tonumber(L, idx);
+		if (n >= 0.0 && n < 18446744073709551616.0)
+			return static_cast<uint64_t>(n);
 	}
 	return 0ULL;
 }

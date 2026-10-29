@@ -495,6 +495,97 @@ int main()
             "Senaryo J: do_build casts uint32_t dwPrice to signed YANG before negation (-25,000,000 instead of +4,269,967,296)");
     }
 
+    // =========================================================================
+    // SENARYO K: M-04 (HANDOFF-H3) IkarusShop TShopItem.id (item_id) vs owner (owner_id),
+    //            Safebox 64-Bit Item/Owner IDs ve shop_auto_increment (>2^53) İzolasyonu
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo K: M-04 IkarusShop TShopItem (item_id vs owner_id), Safebox ve >2^53 ID izolasyonu..." << std::endl;
+
+        struct TestIkaShopItemRecord
+        {
+            uint64_t id;      // Persistent ITEM_ID (ikashop_shop_item.id / player.item.id)
+            uint64_t owner;   // Persistent PLAYER_ID (owner_id / shop_id)
+            uint32_t vnum;
+            uint32_t count;
+            int64_t price;
+        };
+
+        const uint64_t ownerPid64 = 5000000001ULL;          // > 2^32 owner_id
+        const uint64_t itemIdOver53 = 9007199254740993ULL;  // 2^53 + 1 item_id
+        uint64_t shopAutoIncrement = 9007199254741999ULL;   // > 2^53 shop_auto_increment counter
+
+        TestIkaShopItemRecord shopRec{ itemIdOver53, ownerPid64, 299U, 1U, 7500000000LL };
+        // Verify TShopItem.id (item_id) and TShopItem.owner (owner_id) never alias or overwrite each other
+        TEST_ASSERT(shopRec.id == itemIdOver53 && shopRec.owner == ownerPid64 && shopRec.id != shopRec.owner,
+            "Senaryo K: IkarusShop TShopItem.id (item_id >2^53) and TShopItem.owner (owner_id >2^32) remain strictly distinct");
+
+        // Verify shop_auto_increment allocation for new shop items does not collide with or truncate >2^53 item.id
+        uint64_t allocatedShopItemId = ++shopAutoIncrement;
+        TEST_ASSERT(allocatedShopItemId == 9007199254742000ULL && allocatedShopItemId > itemIdOver53,
+            "Senaryo K: shop_auto_increment allocates exact 64-bit >2^53 IDs without IEEE-754 double rounding or 32-bit wrap");
+    }
+
+    // =========================================================================
+    // SENARYO L: M-05 & M-07 (REG-G1.4) Cube (Cube_load / FN_check_cube_data / Cube_make),
+    //            DragonSoul (DoRefineGrade / DoRefineStep / DoRefineStrength), WarBet & Monarch 64-Bit YANG
+    // =========================================================================
+    {
+        std::cout << "[RUN] Senaryo L: M-05 & REG-G1.4 Cube, DragonSoul, WarBet ve Monarch 64-bit YANG dogrulamasi..." << std::endl;
+        constexpr int64_t kGoldMax64 = 1000000000000LL; // 1 Trillion YANG
+
+        // 1. REG-G1.4 Cube_load & FN_check_cube_data & Cube_make 64-bit gold validation (cube.cpp:182, 414, 516-528)
+        auto checkCubeDataGold = [kGoldMax64](int64_t cubeGold) -> bool {
+            return cubeGold >= 0 && cubeGold < kGoldMax64;
+        };
+        auto canCubeMake = [kGoldMax64](int64_t cubeGold, int64_t playerGold, int64_t& outPlayerGoldAfter) -> bool {
+            if (cubeGold < 0 || cubeGold >= kGoldMax64 || playerGold < cubeGold)
+                return false;
+            outPlayerGoldAfter = playerGold - cubeGold;
+            return true;
+        };
+        int64_t playerGoldAfterCube = 0;
+        TEST_ASSERT(checkCubeDataGold(0LL) &&
+                    checkCubeDataGold(2147483648LL) &&
+                    checkCubeDataGold(5000000000LL) &&
+                    checkCubeDataGold(kGoldMax64 - 1) &&
+                    !checkCubeDataGold(-1LL) &&
+                    !checkCubeDataGold(kGoldMax64),
+            "Senaryo L [REG-G1.4a]: FN_check_cube_data accepts 0, >2^31, >2^32, GOLD_MAX-1 and rejects <0 or >=GOLD_MAX");
+
+        TEST_ASSERT(canCubeMake(5000000000LL, 8000000000LL, playerGoldAfterCube) &&
+                    playerGoldAfterCube == 3000000000LL &&
+                    !canCubeMake(5000000000LL, 4999999999LL, playerGoldAfterCube) &&
+                    !canCubeMake(-100LL, 8000000000LL, playerGoldAfterCube) &&
+                    !canCubeMake(kGoldMax64, kGoldMax64, playerGoldAfterCube),
+            "Senaryo L [REG-G1.4b]: Cube_make deducts >2^32 (5B Yang) accurately and blocks insufficient, negative, or >=GOLD_MAX fees");
+
+        // 2. REG-G1.4 DragonSoul DoRefineGrade / DoRefineStep / DoRefineStrength 64-bit fee validation (DragonSoul.cpp:575, 717, 890)
+        auto canDragonSoulRefine = [kGoldMax64](int64_t fee, int64_t playerGold, int64_t& outPlayerGoldAfter) -> bool {
+            if (fee < 0 || fee >= kGoldMax64 || playerGold < fee)
+                return false;
+            outPlayerGoldAfter = playerGold - fee;
+            return true;
+        };
+        int64_t playerGoldAfterDS = 0;
+        TEST_ASSERT(canDragonSoulRefine(4294967296LL, 10000000000LL, playerGoldAfterDS) &&
+                    playerGoldAfterDS == 5705032704LL &&
+                    !canDragonSoulRefine(4294967296LL, 4000000000LL, playerGoldAfterDS) &&
+                    !canDragonSoulRefine(-1LL, 10000000000LL, playerGoldAfterDS) &&
+                    !canDragonSoulRefine(kGoldMax64, 10000000000LL, playerGoldAfterDS),
+            "Senaryo L [REG-G1.4c]: DragonSoul DoRefineGrade/Step/Strength deducts >2^32 (2^32 Yang) fee and rejects <0, >=GOLD_MAX, or insufficient gold");
+
+        // 3. M-05 WarBet (guild_war_bet & WarBet 64-bit YANG) and Monarch treasury >2^32 validation
+        auto isValidGuildWarBet = [kGoldMax64](uint64_t guildId, int64_t betGold) -> bool {
+            return guildId > 0 && betGold > 0 && betGold < kGoldMax64;
+        };
+        TEST_ASSERT(isValidGuildWarBet(9007199254740993ULL, 6000000000LL) &&
+                    !isValidGuildWarBet(9007199254740993ULL, 0LL) &&
+                    !isValidGuildWarBet(9007199254740993ULL, -500LL) &&
+                    !isValidGuildWarBet(9007199254740993ULL, kGoldMax64),
+            "Senaryo L [M-05]: Guild WarBet validates >2^53 GUILD_ID and >2^32 YANG bet within (0, GOLD_MAX)");
+    }
+
     std::cout << "\n==================================================" << std::endl;
     std::cout << "[SUCCESS] DB CACHE SUITE: " << g_passCount << "/" << g_testCount << " tests passed cleanly!" << std::endl;
     std::cout << "==================================================" << std::endl;

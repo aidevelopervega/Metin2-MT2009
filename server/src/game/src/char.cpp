@@ -6578,14 +6578,14 @@ void CHARACTER::MonsterChat(BYTE bMonsterChatType)
 	PacketAround(buf.read_peek(), buf.size());
 }
 
-void CHARACTER::SetQuestNPCID(DWORD vid)
+void CHARACTER::SetQuestNPCID(uint64_t vid)
 {
 	m_dwQuestNPCVID = vid;
 }
 
 LPCHARACTER CHARACTER::GetQuestNPC() const
 {
-	return CHARACTER_MANAGER::instance().Find(m_dwQuestNPCVID);
+	return CHARACTER_MANAGER::instance().Find(static_cast<DWORD>(m_dwQuestNPCVID));
 }
 
 void CHARACTER::SetQuestItemPtr(LPITEM item)
@@ -7122,7 +7122,7 @@ void CHARACTER::ConfirmWithMsg(const char* szMsg, int iTimeout, uint64_t dwReque
 	TPacketGCQuestConfirm p;
 
 	p.header = HEADER_GC_QUEST_CONFIRM;
-	p.requestPID = static_cast<DWORD>(dwRequestPID);
+	p.requestPID = dwRequestPID;
 	p.timeout = iTimeout;
 	strlcpy(p.msg, szMsg, sizeof(p.msg));
 
@@ -7788,7 +7788,7 @@ void CHARACTER::SendGuildName(CGuild* pGuild)
 	pack.header		= HEADER_GC_GUILD;
 	pack.subheader	= GUILD_SUBHEADER_GC_GUILD_NAME;
 	pack.size		= sizeof(TPacketGCGuildName);
-	pack.guildID	= static_cast<DWORD>(pGuild->GetID());
+	pack.guildID	= pGuild->GetID();
 	memcpy(pack.guildName, pGuild->GetName(), GUILD_NAME_MAX_LEN);
 
 	desc->Packet(pack);
@@ -9646,10 +9646,10 @@ void CHARACTER::SendCaptchaGameMasterFeedback(uint64_t pid, BYTE type, const cha
 	TPacketGCCaptcha p{};
 	p.header = HEADER_GC_CAPTCHA;
 	p.subheader = SUBHEADER_GC_CAPTCHA_GM_FEEDBACK;
-	p.size = sizeof(TPacketGCCaptcha) + sizeof(TSubPacketGCCaptchaGMFeedback);
+	p.size = sizeof(TPacketGCCaptcha) + sizeof(TSubPacketGCCaptchaGMWho) + sizeof(TSubPacketGCCaptchaGMFeedback);
 
 	TSubPacketGCCaptchaGMWho who{};
-	who.pid = static_cast<DWORD>(pid);
+	who.pid = pid;
 
 	TSubPacketGCCaptchaGMFeedback sub{};
 	sub.type = type;

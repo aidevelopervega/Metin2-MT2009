@@ -2793,6 +2793,11 @@ void CClientManager::ProcessPackets(CPeer * peer)
 				break;
 
 			case HEADER_GD_MYSHOP_PRICELIST_REQ:
+				if (dwLength < sizeof(uint64_t))
+				{
+					sys_err("HEADER_GD_MYSHOP_PRICELIST_REQ: invalid packet size %u", static_cast<unsigned int>(dwLength));
+					break;
+				}
 				MyshopPricelistRequest(peer, dwHandle, *(const uint64_t*)data);
 				break;
 				// END_OF_MYSHOP_PRICE_LIST

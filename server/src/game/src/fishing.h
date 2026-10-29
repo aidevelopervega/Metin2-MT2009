@@ -14,7 +14,7 @@ namespace fishing
 
 	EVENTINFO(fishing_event_info)
 	{
-		DWORD	pid;
+		uint64_t	pid;
 		int		step;
 		int		cooldown;
 
@@ -40,7 +40,7 @@ namespace fishing
 
 	EVENTINFO(pre_fishing_event_info)
 	{
-		DWORD	pid;
+		uint64_t	pid;
 		DWORD	step;
 
 		pre_fishing_event_info()

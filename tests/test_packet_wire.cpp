@@ -73,7 +73,8 @@ static_assert(sizeof(TPlayerItem) == 60, "TPlayerItem size mismatch");
 static_assert(sizeof(TSimplePlayer) == 71, "TSimplePlayer size mismatch");
 static_assert(sizeof(TItemLimit) == 5, "TItemLimit size mismatch");
 static_assert(sizeof(TItemApply) == 5, "TItemApply size mismatch");
-static_assert(sizeof(TPacketAffectElement) == 25, "TPacketAffectElement size mismatch");
+static_assert(sizeof(TPacketAffectElement) == 33, "TPacketAffectElement size mismatch (x64 64-bit lDuration & lSPCost)");
+static_assert(sizeof(TPacketGDAddAffect) == 41, "TPacketGDAddAffect size mismatch (x64 64-bit dwPID + TPacketAffectElement)");
 static_assert(sizeof(TPacketGDSetup) == 159, "TPacketGDSetup size mismatch");
 static_assert(offsetof(TPacketGDSetup, dwProtocolVersion) == 155, "TPacketGDSetup.dwProtocolVersion offset mismatch");
 static_assert(sizeof(TPacketGGSetup) == 8, "TPacketGGSetup size mismatch");
@@ -97,7 +98,7 @@ static_assert(sizeof(TPacketGCSkillLevel) == 1591, "TPacketGCSkillLevel size mis
 static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 66, "TPacketGCCharacterAdditionalInfo size mismatch");
 static_assert(sizeof(TPacketGCCharacterUpdate) == 48, "TPacketGCCharacterUpdate size mismatch");
 static_assert(sizeof(TPacketGCCharacterDelete) == 5, "TPacketGCCharacterDelete size mismatch");
-static_assert(sizeof(TPacketGCAffectAdd) == 26, "TPacketGCAffectAdd size mismatch");
+static_assert(sizeof(TPacketGCAffectAdd) == 34, "TPacketGCAffectAdd size mismatch (x64 64-bit lDuration & lSPCost)");
 static_assert(sizeof(TPacketGCAffectRemove) == 6, "TPacketGCAffectRemove size mismatch");
 static_assert(sizeof(TPacketGCWalkMode) == 6, "TPacketGCWalkMode size mismatch");
 static_assert(sizeof(TPacketGCChangeSkillGroup) == 2, "TPacketGCChangeSkillGroup size mismatch");
@@ -106,12 +107,14 @@ static_assert(sizeof(TPacketGCChannel) == 2, "TPacketGCChannel size mismatch");
 static_assert(sizeof(TPacketGCGoldUpdate) == 9, "TPacketGCGoldUpdate size mismatch");
 static_assert(sizeof(TPacketGCSpecialFlag) == 42, "TPacketGCSpecialFlag size mismatch");
 static_assert(sizeof(TPacketGCGuildToken) == 9, "TPacketGCGuildToken size mismatch");
+static_assert(sizeof(TPacketGCGuildName) == 26, "TPacketGCGuildName size mismatch (x64 64-bit guildID)");
 static_assert(sizeof(TPacketGCSpecificEffect) == 133, "TPacketGCSpecificEffect size mismatch");
 static_assert(sizeof(TPacketGCItemShopBalance) == 16, "TPacketGCItemShopBalance size mismatch");
 static_assert(sizeof(TPacketGCItemShopHappyHour) == 12, "TPacketGCItemShopHappyHour size mismatch");
 static_assert(sizeof(TPacketGCItemShopLatestTimeAuction) == 8, "TPacketGCItemShopLatestTimeAuction size mismatch");
 static_assert(sizeof(TPacketGCRefineInformation) == 64, "TPacketGCRefineInformation size mismatch");
 static_assert(sizeof(TSubPacketGCCaptchaMeta) == 9, "TSubPacketGCCaptchaMeta size mismatch");
+static_assert(sizeof(TSubPacketGCCaptchaGMWho) == 23, "TSubPacketGCCaptchaGMWho size mismatch (x64 64-bit pid)");
 
 // ------------------------------------------------------------------------------
 // Compile-Time Offset Checks (Guarantees no internal padding/misalignment)
@@ -1405,6 +1408,133 @@ int main()
                             shopItem64.id == idOver53 && shopItem64.owner == idOver32 &&
                             offer64.offerid == idOver53 && offer64.itemid == idOver53 + 2ULL,
                     "G2.5: Auth, Marriage, and IkarusShop packets preserve >2^32 and >2^53 AID/PID/ITEM_ID/SHOP_ID/OFFER_ID");
+
+                // F6 (M-02 / CONTEXT-H4): ConfirmWithMsg, SendGuildName, SendCaptchaGameMasterFeedback & Autopotion Affect 64-bit ID preservation
+                TPacketGCQuestConfirm qConfirm64{};
+                qConfirm64.header = HEADER_GC_QUEST_CONFIRM;
+                qConfirm64.timeout = 30;
+                qConfirm64.requestPID = idOver53; // char.cpp:7125 no longer truncates to DWORD
+                TPacketGCQuestConfirm qConfirmIn{};
+                std::memcpy(&qConfirmIn, &qConfirm64, sizeof(qConfirm64));
+                WIRE_ASSERT(qConfirmIn.requestPID == idOver53 && sizeof(qConfirm64) == 78,
+                    "M-02 [1]: TPacketGCQuestConfirm::requestPID preserves >2^53 PID without DWORD narrowing");
+
+                TPacketGCGuildName guildName64{};
+                guildName64.header = HEADER_GC_GUILD;
+                guildName64.size = sizeof(TPacketGCGuildName);
+                guildName64.subheader = GUILD_SUBHEADER_GC_GUILD_NAME;
+                guildName64.guildID = idOver53; // char.cpp:7791 no longer truncates to DWORD
+                std::strncpy(guildName64.guildName, "AlphaGuild", sizeof(guildName64.guildName));
+                TPacketGCGuildName guildNameIn{};
+                std::memcpy(&guildNameIn, &guildName64, sizeof(guildName64));
+                WIRE_ASSERT(guildNameIn.guildID == idOver53 && sizeof(guildName64) == 26,
+                    "M-02 [2]: TPacketGCGuildName::guildID preserves >2^53 GUILD_ID without DWORD narrowing");
+
+                TSubPacketGCCaptchaGMWho captchaWho64{};
+                captchaWho64.pid = idOver53; // char.cpp:9652 no longer truncates to DWORD
+                std::strncpy(captchaWho64.name, "BotSuspect", sizeof(captchaWho64.name) - 1);
+                TSubPacketGCCaptchaGMWho captchaWhoIn{};
+                std::memcpy(&captchaWhoIn, &captchaWho64, sizeof(captchaWho64));
+                WIRE_ASSERT(captchaWhoIn.pid == idOver53 && sizeof(captchaWho64) == 23,
+                    "M-02 [3]: TSubPacketGCCaptchaGMWho::pid preserves >2^53 PID without DWORD narrowing");
+
+                // Autopotion AddAffect/LoadAffect/AutoRecoveryItemProcess: dwFlag=AFF_NONE(0) avoids TAffectFlag bit corruption while lSPCost stores full 64-bit item ID (including >= 2^63)
+                const uint64_t autoPotionItemIdLowBitsIn1To63 = (1ULL << 40) | 7ULL; // low 32 bits = 7 (within 1..63 AFF_BITS_MAX)
+                const uint64_t autoPotionItemIdHighBit = (static_cast<uint64_t>(INT64_MAX) + 99ULL); // >= 2^63 (negative as signed int64_t)
+                TPacketGDAddAffect addAff1{};
+                addAff1.dwPID = idOver32;
+                addAff1.elem.dwType = 534; // AFFECT_AUTO_HP_RECOVERY
+                addAff1.elem.bApplyOn = 0;
+                addAff1.elem.lApplyValue = 0;
+                addAff1.elem.dwFlag = 0; // AFF_NONE (fixed in char_item.cpp:3889, 3932)
+                addAff1.elem.lDuration = 60LL * 365 * 24 * 60 * 60; // INFINITE_AFFECT_DURATION (1,892,160,000)
+                addAff1.elem.lSPCost = static_cast<int64_t>(autoPotionItemIdLowBitsIn1To63);
+                const uint64_t recoveredId1 = (addAff1.elem.lSPCost != 0)
+                    ? static_cast<uint64_t>(addAff1.elem.lSPCost)
+                    : static_cast<uint64_t>(addAff1.elem.dwFlag);
+
+                TPacketGDAddAffect addAff2{};
+                addAff2.dwPID = idOver53;
+                addAff2.elem.dwType = 535; // AFFECT_AUTO_SP_RECOVERY
+                addAff2.elem.dwFlag = 0;   // AFF_NONE
+                addAff2.elem.lDuration = 5000000000LL; // > 2^32 duration
+                addAff2.elem.lSPCost = static_cast<int64_t>(autoPotionItemIdHighBit);
+                const uint64_t recoveredId2 = (addAff2.elem.lSPCost != 0)
+                    ? static_cast<uint64_t>(addAff2.elem.lSPCost)
+                    : static_cast<uint64_t>(addAff2.elem.dwFlag);
+                WIRE_ASSERT(addAff1.elem.dwFlag == 0 &&
+                            recoveredId1 == autoPotionItemIdLowBitsIn1To63 &&
+                            recoveredId2 == autoPotionItemIdHighBit &&
+                            addAff2.elem.lDuration == 5000000000LL,
+                    "M-02 [4] & REG-G4.4: TPacketAffectElement & Autopotion preserve >2^32 duration, >2^40 & >=2^63 item IDs in lSPCost with dwFlag=AFF_NONE");
+
+                // F7 (REG-G4.4): TPacketGCSpecialFlag & TSpecialFlagTable 64-bit llValue round-trip
+                TPacketGCSpecialFlag specFlag64{};
+                specFlag64.header = HEADER_GC_SPECIAL_FLAG;
+                std::strncpy(specFlag64.cFlag, "dragon_coin_bonus_64", sizeof(specFlag64.cFlag) - 1);
+                specFlag64.llValue = -5000000000LL; // negative >2^32 signed 64-bit value
+                TSpecialFlagTable specTable64{};
+                specTable64.dwPID = idOver53;
+                specTable64.dwAID = idOver32;
+                std::strncpy(specTable64.szFlag, specFlag64.cFlag, sizeof(specTable64.szFlag) - 1);
+                specTable64.llValue = 9007199254740993LL; // > 2^53
+                WIRE_ASSERT(specFlag64.llValue == -5000000000LL &&
+                            specTable64.dwPID == idOver53 &&
+                            specTable64.dwAID == idOver32 &&
+                            specTable64.llValue == 9007199254740993LL,
+                    "REG-G4.4: TPacketGCSpecialFlag and TSpecialFlagTable preserve signed 64-bit llValue (>2^32, >2^53, negative)");
+
+                // F8 (REG-G2.3): ItemAward 128-byte why buffer & GetCommand 20-byte command buffer truncation safety
+                auto safeGetAwardCommand = [](const char* rawWhy, char (&outCmd)[20]) {
+                    outCmd[0] = '\0';
+                    char cmdStr[ITEM_AWARD_WHY_MAX_LEN + 1] = "";
+                    std::snprintf(cmdStr, sizeof(cmdStr), "%s", rawWhy ? rawWhy : "");
+                    if (cmdStr[0] == '[') {
+                        char* tok = std::strtok(cmdStr, "]");
+                        if (tok && tok[0] == '[') {
+                            std::snprintf(outCmd, sizeof(outCmd), "%s", &tok[1]);
+                        }
+                    }
+                };
+                char cmdGift[20]{};
+                safeGetAwardCommand("[GIFT] ItemShop Reward #9007199254740993", cmdGift);
+                std::string longBracketWhy = "[" + std::string(120, 'A') + "]_overflow_attempt_beyond_128_bytes";
+                char cmdLong[20]{};
+                safeGetAwardCommand(longBracketWhy.c_str(), cmdLong);
+                WIRE_ASSERT(std::strcmp(cmdGift, "GIFT") == 0 &&
+                            std::strlen(cmdLong) == 19 &&
+                            cmdLong[19] == '\0',
+                    "REG-G2.3: ItemAward 128-byte why & GetCommand 20-byte command buffer prevent overflow on long bracketed strings");
+
+                // F9 (M-08 / HANDOFF-H6 & HANDOFF-H7): Post-2038 (>2^31) and Post-2106 (>2^32) 64-bit timestamps & LogManager 64-bit formatting
+                const int64_t time2040 = 2208988800LL; // 2040-01-01 00:00:00 UTC (> INT32_MAX = 2,147,483,647)
+                const int64_t time2110 = 4417977600LL; // 2110-01-01 00:00:00 UTC (> UINT32_MAX = 4,294,967,295)
+                TPacketGCTime pktTime2040{};
+                pktTime2040.bHeader = HEADER_GC_TIME;
+                pktTime2040.time = time2110;
+                TSubPacketGCCaptchaMeta pktCaptchaTime{};
+                pktCaptchaTime.captchaExpireTime = time2040;
+                pktCaptchaTime.attemptCount = 3;
+                TPacketMarriageAdd pktMarryTime{};
+                pktMarryTime.dwPID1 = idOver32;
+                pktMarryTime.dwPID2 = idOver53;
+                pktMarryTime.tMarryTime = static_cast<time_t>(time2040);
+                WIRE_ASSERT(pktTime2040.time == time2110 &&
+                            pktCaptchaTime.captchaExpireTime == time2040 &&
+                            static_cast<int64_t>(pktMarryTime.tMarryTime) == time2040,
+                    "M-08 [HANDOFF-H7]: TPacketGCTime, TSubPacketGCCaptchaMeta, and TPacketMarriageAdd preserve post-2038 (>2^31) and post-2106 (>2^32) 64-bit timestamps");
+
+                char logHintBuf[128]{};
+                std::snprintf(logHintBuf, sizeof(logHintBuf), "Item(id=%llu) guild_id=%llu gold=%lld start=%lld",
+                    static_cast<unsigned long long>(idOver53),
+                    static_cast<unsigned long long>(idOver32),
+                    static_cast<long long>(999999999999LL),
+                    static_cast<long long>(time2040));
+                WIRE_ASSERT(std::strstr(logHintBuf, "Item(id=9007199254740993)") != nullptr &&
+                            std::strstr(logHintBuf, "guild_id=5000000001") != nullptr &&
+                            std::strstr(logHintBuf, "gold=999999999999") != nullptr &&
+                            std::strstr(logHintBuf, "start=2208988800") != nullptr,
+                    "M-08 [HANDOFF-H6]: LogManager & char_item/priv_manager/over9refine/shopEx format >2^53 ITEM_ID, >2^32 GUILD_ID, GOLD_MAX-1, and post-2038 time_t without truncation");
             }
         }
     }

@@ -193,7 +193,7 @@ ACMD(do_emotion)
 				{
 					const marriage::TMarriage* marriageInfo = marriage::CManager::instance().Get( ch->GetPlayerID() );
 
-					const DWORD other = marriageInfo->GetOther( ch->GetPlayerID() );
+					const uint64_t other = marriageInfo->GetOther( ch->GetPlayerID() );
 
 					if (0 == other || other != victim->GetPlayerID())
 					{

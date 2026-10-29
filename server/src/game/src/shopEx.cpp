@@ -230,9 +230,9 @@ int CShopEx::Buy(LPCHARACTER ch, BYTE pos)
 	DBManager::instance().SendMoneyLog(MONEY_LOG_SHOP, item->GetVnum(), -dwPrice);
 
 	if (item)
-		sys_log(0, "ShopEx: BUY: name %s %s(x %u):%u price %lld",
+		sys_log(0, "ShopEx: BUY: name %s %s(x %u):%llu price %lld",
 			ch->GetName(), item->GetName(),
-			static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetID()),
+			static_cast<unsigned int>(item->GetCount()), static_cast<unsigned long long>(item->GetID()),
 			static_cast<long long>(dwPrice));
 
 	ch->Save();

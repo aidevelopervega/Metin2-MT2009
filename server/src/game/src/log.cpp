@@ -463,12 +463,12 @@ void LogManager::DetailLoginLog(bool isLogin, LPDESC d, uint64_t pid)
 	}
 }
 
-void LogManager::DragonSlayLog(uint64_t dwGuildID, DWORD dwDragonVnum, DWORD dwStartTime, DWORD dwEndTime)
+void LogManager::DragonSlayLog(uint64_t dwGuildID, DWORD dwDragonVnum, time_t startTime, time_t endTime)
 {
 	LOG_LEVEL_CHECK_N_RET(LOG_LEVEL_MAX);
-	Query( "INSERT INTO dragon_slay_log%s VALUES( %llu, %u, FROM_UNIXTIME(%u), FROM_UNIXTIME(%u) )",
+	Query( "INSERT INTO dragon_slay_log%s VALUES( %llu, %u, FROM_UNIXTIME(%lld), FROM_UNIXTIME(%lld) )",
 			get_table_postfix(),
-			static_cast<unsigned long long>(dwGuildID), dwDragonVnum, dwStartTime, dwEndTime);
+			static_cast<unsigned long long>(dwGuildID), dwDragonVnum, static_cast<long long>(startTime), static_cast<long long>(endTime));
 }
 
 void LogManager::ChatLog(DWORD where, uint64_t who_id, const char* who_name, uint64_t whom_id, const char* whom_name, const char* type, const char* msg, const char* ip)

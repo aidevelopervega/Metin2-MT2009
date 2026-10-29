@@ -20,9 +20,9 @@ enum OXEventStatus
 class COXEventManager : public singleton<COXEventManager>
 {
 	private :
-		std::map<DWORD, DWORD> m_map_char;
-		std::map<DWORD, DWORD> m_map_attender;
-		std::map<DWORD, DWORD> m_map_miss;
+		std::map<uint64_t, uint64_t> m_map_char;
+		std::map<uint64_t, uint64_t> m_map_attender;
+		std::map<uint64_t, uint64_t> m_map_miss;
 
 		std::vector<std::vector<tag_Quiz> > m_vec_quiz;
 

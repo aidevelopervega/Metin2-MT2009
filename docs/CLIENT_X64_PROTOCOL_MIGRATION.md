@@ -238,6 +238,8 @@ Aşağıdaki ortak paketlerde eski `long` / `DWORD` alanları, 64-bit derleyicil
 | `TPacketGCAffectRemove` | `HEADER_GC_AFFECT_REMOVE (127)` | `dwType` (`uint32_t`), `bApplyOn` (`BYTE`) | `6 B` |
 | `TPacketGCQuestConfirm` | `HEADER_GC_QUEST_CONFIRM (46)` | `msg[64]`, `timeout` (`int32_t`), `requestPID` (`uint64_t`) | `78 B` |
 | `TPacketGCGuildWar` | `HEADER_GC_GUILD` alt paketi | `dwGuildSelf` (`uint64_t`), `dwGuildOpp` (`uint64_t`), `bType` (`BYTE`), `bWarState` (`BYTE`) | `18 B` |
+| `TPacketGCGuildName` | `HEADER_GC_GUILD` alt paketi (`GUILD_SUBHEADER_GC_GUILD_NAME`) | `header` (`BYTE`), `size` (`uint16_t`), `subheader` (`BYTE`), `guildID` (`uint64_t`), `guildName[GUILD_NAME_MAX_LEN + 2]` (`14 B`) | `26 B` |
+| `TSubPacketGCCaptchaGMWho` | `HEADER_GC_CAPTCHA` alt paketi (`CAPTCHA_SUBHEADER_GC_GM_WHO`) | `targetPid` (`uint64_t`), `requestId[CAPTCHA_REQUEST_ID_MAX_LEN + 1]` (`15 B`) | `23 B` |
 
 ---
 
@@ -257,6 +259,10 @@ Client modernizasyonu aşaması başlatıldığında aşağıdaki testlerin %100
    - `static_assert(sizeof(TItemShopItem) == 102);`
    - `static_assert(sizeof(TSpecialShopItemClient) == 55);`
    - `static_assert(sizeof(TSubPacketGCCaptchaMeta) == 9);`
+   - `static_assert(sizeof(TSubPacketGCCaptchaGMWho) == 23);`
+   - `static_assert(sizeof(TPacketGCAffectAdd) == 34);`
+   - `static_assert(sizeof(TPacketGCQuestConfirm) == 78);`
+   - `static_assert(sizeof(TPacketGCGuildName) == 26);`
 2. **Sürüm El Sıkışması Testi (`MT2_PROTOCOL_VERSION_X64`):**
    - `adwClientKey[3] == 0x20090064U` ile `AUTH` ve `GAME` bağlantısının kabul edilmesi.
    - `adwClientKey[3] == 0x20090032U` (eski istemci) ile `WRONGVER` yanıtının alınması.

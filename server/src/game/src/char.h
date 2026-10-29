@@ -1646,8 +1646,8 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		// QUEST
 
 	public:
-		void				SetQuestNPCID(DWORD vid);
-		DWORD				GetQuestNPCID() const { return m_dwQuestNPCVID; }
+		void				SetQuestNPCID(uint64_t vid);
+		uint64_t			GetQuestNPCID() const { return m_dwQuestNPCVID; }
 		LPCHARACTER			GetQuestNPC() const;
 
 		void				SetQuestItemPtr(LPITEM item);
@@ -1671,7 +1671,7 @@ class CHARACTER : public CEntity, public CFSM, public CHorseRider
 		bool				IsQuestRunning() const;
 
 	private:
-		DWORD				m_dwQuestNPCVID;
+		uint64_t			m_dwQuestNPCVID;
 		DWORD				m_dwQuestByVnum;
 		DWORD				m_dwQuestItemVID{}; // @fixme304 (LPITEM -> DWORD)
 #ifdef ENABLE_QUEST_DND_EVENT

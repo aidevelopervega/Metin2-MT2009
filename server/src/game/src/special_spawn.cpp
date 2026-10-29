@@ -183,7 +183,7 @@ void SpecialSpawn::StartEvent(int delay)
 		delay = GetSpawnDelay();
 	}
 	
-	end_event_time = static_cast<DWORD>(get_global_time() + delay);
+	end_event_time = get_global_time() + delay;
 	spawn_event = event_create(special_spawn_event, info, PASSES_PER_SEC(delay));
 }
 

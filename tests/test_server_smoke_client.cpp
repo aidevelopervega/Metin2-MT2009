@@ -855,7 +855,7 @@ static size_t get_gc_packet_unpadded_size(const uint8_t blk8[8]) {
 		case 123: return 13;   // HEADER_GC_TARGET_UPDATE
 		case 124: return 5;    // HEADER_GC_TARGET_DELETE
 		case 125: return 43;   // HEADER_GC_TARGET_CREATE
-		case 126: return 26;   // HEADER_GC_AFFECT_ADD
+		case 126: return 34;   // HEADER_GC_AFFECT_ADD (x64 64-bit lDuration & lSPCost: 1 + 33)
 		case 127: return 6;    // HEADER_GC_AFFECT_REMOVE
 		case 131: return 27;   // HEADER_GC_LOVER_INFO
 		case 132: return 2;    // HEADER_GC_LOVE_POINT_UPDATE

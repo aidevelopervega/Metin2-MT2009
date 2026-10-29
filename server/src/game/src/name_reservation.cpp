@@ -13,7 +13,7 @@ bool CNameReservationManager::Initialize(TNameReservationTable* p, WORD wSize)
 	{
 		char name[CHARACTER_NAME_MAX_LEN + 1];
 		lower_string(p->name, name, sizeof(name));
-		sys_log(0, "jest rezerwacja %s dla %d", name, p->dwOwner);
+		sys_log(0, "jest rezerwacja %s dla %llu", name, static_cast<unsigned long long>(p->dwOwner));
 		m_map_NameReservations[name] = p->dwOwner;
 	}
 
@@ -23,7 +23,7 @@ bool CNameReservationManager::Initialize(TNameReservationTable* p, WORD wSize)
 	return true;
 }
 
-DWORD CNameReservationManager::FindOwner(const char* c_pszString)
+uint64_t CNameReservationManager::FindOwner(const char* c_pszString)
 {
 	auto it = m_map_NameReservations.find(c_pszString);
 	if (it != m_map_NameReservations.end()) {
@@ -35,13 +35,13 @@ DWORD CNameReservationManager::FindOwner(const char* c_pszString)
 	return 0;
 }
 
-BYTE CNameReservationManager::CheckReservation(DWORD account_id, const char* c_pszString)
+BYTE CNameReservationManager::CheckReservation(uint64_t account_id, const char* c_pszString)
 {
 	char name[CHARACTER_NAME_MAX_LEN + 1];
 	lower_string(c_pszString, name, sizeof(name));
 
-	DWORD owner = FindOwner(name);
-	sys_log(0, "found owner %d==%d of name %s", account_id, owner, name);
+	uint64_t owner = FindOwner(name);
+	sys_log(0, "found owner %llu==%llu of name %s", static_cast<unsigned long long>(account_id), static_cast<unsigned long long>(owner), name);
 	if (owner == 0)
 		return 0; // the name is not reserved
 

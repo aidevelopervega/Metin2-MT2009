@@ -1624,8 +1624,8 @@ void CHARACTER::UseSilkBotaryReal(const TPacketMyshopPricelistHeader* p)
 void CHARACTER::UseSilkBotary(void)
 {
 	if (m_bNoOpenedShop) {
-		DWORD dwPlayerID = GetPlayerID();
-		db_clientdesc->DBPacket(HEADER_GD_MYSHOP_PRICELIST_REQ, GetDesc()->GetHandle(), &dwPlayerID, sizeof(DWORD));
+		uint64_t dwPlayerID = GetPlayerID();
+		db_clientdesc->DBPacket(HEADER_GD_MYSHOP_PRICELIST_REQ, GetDesc()->GetHandle(), &dwPlayerID, sizeof(uint64_t));
 		m_bNoOpenedShop = false;
 	} else {
 		__OpenPrivateShop();
@@ -3451,8 +3451,8 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 										item2->SetSocket(idx, 1, true, "SOCKET_DETACHMENT");
 
 										char buf[256+1];
-										snprintf(buf, sizeof(buf), "%s(%u) %s(%u)",
-												item2->GetName(), static_cast<unsigned int>(item2->GetID()), pItemReward->GetName(), static_cast<unsigned int>(pItemReward->GetID()));
+										snprintf(buf, sizeof(buf), "%s(%llu) %s(%llu)",
+												item2->GetName(), static_cast<unsigned long long>(item2->GetID()), pItemReward->GetName(), static_cast<unsigned long long>(pItemReward->GetID()));
 										LogManager::instance().ItemLog(this, item, "USE_DETACHMENT_ONE", buf);
 
 										item->SetCount(item->GetCount() - 1);
@@ -3724,7 +3724,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										int iAddedIdx = item2->GetRareAttrCount() + 4;
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 
 										LogManager::instance().ItemLog(
 												GetPlayerID(),
@@ -3774,7 +3774,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 #endif
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_RARE_ATTR", buf);
 
 										item->SetCount(item->GetCount() - 1);
@@ -3886,7 +3886,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										EPointTypes bonus = POINT_NONE;
 
-										AddAffect( type, bonus, 4, static_cast<DWORD>(item->GetID()), INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
+										AddAffect(type, bonus, 4, AFF_NONE, INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
 
 										item->Lock(true);
 										item->SetSocket(0, true, true, "SOCKET_AUTOPOTION");
@@ -3895,7 +3895,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									}
 									else
 									{
-										const uint64_t ullAffectItemID = (pAffect->lSPCost > 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
+										const uint64_t ullAffectItemID = (pAffect->lSPCost != 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
 										if (item->GetID() == ullAffectItemID)
 										{
 											RemoveAffect( pAffect );
@@ -3929,7 +3929,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 												}
 											}
 
-											AddAffect( type, bonus, 4, static_cast<DWORD>(item->GetID()), INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
+											AddAffect(type, bonus, 4, AFF_NONE, INFINITE_AFFECT_DURATION, static_cast<int64_t>(item->GetID()), true, false);
 
 											item->Lock(true);
 											item->SetSocket(0, true, true, "SOCKET_AUTOPOTION");
@@ -4416,7 +4416,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									item2->ChangeAttribute();
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_COSTUME_ATTR", buf);
 									}
 									break;
@@ -4425,7 +4425,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									item2->AlterToMagicItem();
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "RESET_COSTUME_ATTR", buf);
 									}
 									break;
@@ -4512,7 +4512,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 
 										{
 											char buf[21];
-											snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+											snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 											LogManager::instance().ItemLog(this, item, "CLEAN_SOCKET", buf);
 										}
 
@@ -4588,7 +4588,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have changed the upgrade."));
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 										LogManager::instance().ItemLog(this, item, "CHANGE_ATTRIBUTE", buf);
 									}
 
@@ -4631,7 +4631,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 											}
 										}
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 
 										if (number(1, 100) <= aiItemAttributeAddPercent[item2->GetAttributeCount()])
 										{
@@ -4674,7 +4674,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									if (item2->GetAttributeCount() == 4)
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 
 										if (number(1, 100) <= aiItemAttributeAddPercent[item2->GetAttributeCount()])
 										{
@@ -4718,7 +4718,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 								case USE_ADD_ACCESSORY_SOCKET:
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 
 										if (item2->IsAccessoryForSocket())
 										{
@@ -4759,7 +4759,7 @@ bool CHARACTER::UseItemEx(LPITEM item, TItemPos DestCell)
 									if (item2->IsAccessoryForSocket() && item->CanPutInto(item2))
 									{
 										char buf[21];
-										snprintf(buf, sizeof(buf), "%u", static_cast<unsigned int>(item2->GetID()));
+										snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(item2->GetID()));
 
 										if (item2->GetAccessorySocketGrade() < item2->GetAccessorySocketMaxGrade())
 										{
@@ -5275,6 +5275,7 @@ bool CHARACTER::UseItem(TItemPos Cell, TItemPos DestCell)
 	if (IS_SET(item->GetFlag(), ITEM_FLAG_LOG))
 	{
 		DWORD vid = item->GetVID();
+		const uint64_t ullItemID = (item->GetID() != 0) ? item->GetID() : static_cast<uint64_t>(vid);
 		ITEM_COUNT oldCount = item->GetCount();
 		DWORD vnum = item->GetVnum();
 
@@ -5288,12 +5289,12 @@ bool CHARACTER::UseItem(TItemPos Cell, TItemPos DestCell)
 
 		if (NULL == ITEM_MANAGER::instance().FindByVID(vid))
 		{
-			LogManager::instance().ItemLog(this, vid, vnum, "REMOVE", hint);
+			LogManager::instance().ItemLog(this, ullItemID, vnum, "REMOVE", hint);
 		}
 		else if (oldCount != item->GetCount())
 		{
 			snprintf(hint + len, sizeof(hint) - len, " %u", static_cast<unsigned int>(oldCount - 1));
-			LogManager::instance().ItemLog(this, vid, vnum, "USE_ITEM", hint);
+			LogManager::instance().ItemLog(this, ullItemID, vnum, "USE_ITEM", hint);
 		}
 		return (ret);
 	}
@@ -5375,7 +5376,7 @@ bool CHARACTER::DropItem(TItemPos Cell, ITEM_COUNT bCount)
 		FN_copy_item_socket(pkItemToDrop, item);
 
 		char szBuf[51 + 1];
-		snprintf(szBuf, sizeof(szBuf), "%u %u", static_cast<unsigned int>(pkItemToDrop->GetID()), static_cast<unsigned int>(pkItemToDrop->GetCount()));
+		snprintf(szBuf, sizeof(szBuf), "%llu %u", static_cast<unsigned long long>(pkItemToDrop->GetID()), static_cast<unsigned int>(pkItemToDrop->GetCount()));
 		LogManager::instance().ItemLog(this, item, "ITEM_SPLIT", szBuf);
 	}
 
@@ -5659,7 +5660,7 @@ bool CHARACTER::MoveItem(TItemPos Cell, TItemPos DestCell, ITEM_COUNT count)
 			splitItem->AddToCharacter(this, DestCell);
 
 			char szBuf[51+1];
-			snprintf(szBuf, sizeof(szBuf), "%u %u %u %u ", static_cast<unsigned int>(splitItem->GetID()), static_cast<unsigned int>(splitItem->GetCount()), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetCount() + splitItem->GetCount()));
+			snprintf(szBuf, sizeof(szBuf), "%llu %u %u %u ", static_cast<unsigned long long>(splitItem->GetID()), static_cast<unsigned int>(splitItem->GetCount()), static_cast<unsigned int>(item->GetCount()), static_cast<unsigned int>(item->GetCount() + splitItem->GetCount()));
 			LogManager::instance().ItemLog(this, item, "ITEM_SPLIT", szBuf);
 		}
 	}
@@ -7490,7 +7491,7 @@ void CHARACTER::AutoRecoveryItemProcess(const EAffectTypes type)
 
 	if (NULL != pAffect)
 	{
-		const uint64_t ullAffectItemID = (pAffect->lSPCost > 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
+		const uint64_t ullAffectItemID = (pAffect->lSPCost != 0) ? static_cast<uint64_t>(pAffect->lSPCost) : static_cast<uint64_t>(pAffect->dwFlag);
 	LPITEM pItem = FindItemByID(ullAffectItemID);
 
 		if (NULL != pItem && true == pItem->GetSocket(0))

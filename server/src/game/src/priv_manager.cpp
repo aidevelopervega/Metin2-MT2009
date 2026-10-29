@@ -118,7 +118,10 @@ void CPrivManager::GiveGuildPriv(uint64_t guild_id, BYTE type, int value, BYTE b
 
 		if (bLog)
 		{
-			LogManager::instance().CharLog(0, static_cast<DWORD>(guild_id), type, value, "GUILD_PRIV", "", "");
+			char szGuildHint[32];
+			snprintf(szGuildHint, sizeof(szGuildHint), "guild_id=%llu", static_cast<unsigned long long>(guild_id));
+			const DWORD dwLegacyGuildX = (guild_id <= UINT32_MAX) ? static_cast<DWORD>(guild_id) : 0u;
+			LogManager::instance().CharLog(guild_id, dwLegacyGuildX, type, value, "GUILD_PRIV", szGuildHint, "");
 		}
 	}
 }

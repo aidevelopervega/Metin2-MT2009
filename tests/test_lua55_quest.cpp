@@ -982,7 +982,28 @@ int main()
         assert(lua_isinteger(L, -1) == 1 && lua_tointeger(L, -1) == 9007199254740995LL);
         lua_pop(L, 1);
 
-        std::cout << "  --> Fractional/negative float truncation, table indexing, -0.0, 64-bit boundaries (>2^32 & >2^53 IDs), NaN/Inf & string formatting verified" << std::endl;
+        // Full 64-bit unsigned ID (>= 2^63 up to UINT64_MAX) policy & string/integer round-trip
+        const uint64_t id2Pow63 = static_cast<uint64_t>(INT64_MAX) + 1ULL; // 9223372036854775808ULL
+        const uint64_t idMaxUint64 = UINT64_MAX;                           // 18446744073709551615ULL
+        lua_pushinteger(L, static_cast<lua_Integer>(id2Pow63));
+        assert(lua_isinteger(L, -1) == 1 && static_cast<uint64_t>(lua_tointeger(L, -1)) == id2Pow63);
+        lua_setglobal(L, "g_test_id_2pow63");
+
+        lua_pushinteger(L, static_cast<lua_Integer>(idMaxUint64));
+        assert(lua_isinteger(L, -1) == 1 && static_cast<uint64_t>(lua_tointeger(L, -1)) == idMaxUint64);
+        lua_setglobal(L, "g_test_id_uint64_max");
+
+        const char* uint64_high_script =
+            "assert(math.type(g_test_id_2pow63) == 'integer', '2^63 ID must remain exact integer subtype')\n"
+            "assert(math.type(g_test_id_uint64_max) == 'integer', 'UINT64_MAX ID must remain exact integer subtype')\n"
+            "assert(string.format('%u', g_test_id_2pow63) == '9223372036854775808', '%u formatting of 2^63 failed')\n"
+            "assert(string.format('%u', g_test_id_uint64_max) == '18446744073709551615', '%u formatting of UINT64_MAX failed')\n"
+            "assert(math.ult(9223372036854775807, g_test_id_2pow63), 'math.ult(INT64_MAX, 2^63) must be true')\n"
+            "assert(math.ult(g_test_id_2pow63, g_test_id_uint64_max), 'math.ult(2^63, UINT64_MAX) must be true')\n";
+        int uint64_high_err = luaL_dostring(L, uint64_high_script);
+        assert(uint64_high_err == 0 && ">=2^63 unsigned 64-bit ID Lua script must pass");
+
+        std::cout << "  --> Fractional/negative float truncation, table indexing, -0.0, 64-bit boundaries (>2^32, >2^53 & >=2^63 IDs), NaN/Inf & string formatting verified" << std::endl;
         std::cout << "  [PASS] Test 11: Lua 5.5.1 Number Semantics & Boundary Regression Suite passed." << std::endl;
     }
 

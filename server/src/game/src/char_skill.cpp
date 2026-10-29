@@ -399,7 +399,7 @@ bool CHARACTER::LearnGrandMasterSkill(DWORD dwSkillVnum)
 	if (pkAff)
 		RemoveAffect(pkAff);
 
-	DWORD nextTime = get_global_time() + 3600 * 12;
+	time_t nextTime = get_global_time() + 3600 * 12;
 	DWORD chance = 30;
 
 	if (iTotalReadCount < iMinReadCount)

@@ -115,7 +115,7 @@ bool COXEventManager::Enter(LPCHARACTER pkChar)
 
 bool COXEventManager::EnterAttender(LPCHARACTER pkChar)
 {
-	DWORD pid = pkChar->GetPlayerID();
+	uint64_t pid = pkChar->GetPlayerID();
 
 	m_map_char.emplace(pid, pid);
 	m_map_attender.emplace(pid, pid);
@@ -125,7 +125,7 @@ bool COXEventManager::EnterAttender(LPCHARACTER pkChar)
 
 bool COXEventManager::EnterAudience(LPCHARACTER pkChar)
 {
-	DWORD pid = pkChar->GetPlayerID();
+	uint64_t pid = pkChar->GetPlayerID();
 
 	m_map_char.emplace(pid, pid);
 

@@ -713,12 +713,12 @@ bool DESC_MANAGER::IsOnHandshakeWhitelist(const struct sockaddr_in& c_rSockAddr)
 
 void DESC_MANAGER::ConnectionCollector()
 {
-	static const DWORD HANDSHAKE_ELAPSE_TIME = 5;
+	static const time_t HANDSHAKE_ELAPSE_TIME = 5;
 
 	std::unordered_set<LPDESC> s_garbage;
 	for (const auto& rRec : m_map_handshake)
 	{
-		if (rRec.second->IsPhase(PHASE_HANDSHAKE) && rRec.second->GetCreationTime() + HANDSHAKE_ELAPSE_TIME < static_cast<DWORD>(get_global_time()))
+		if (rRec.second->IsPhase(PHASE_HANDSHAKE) && rRec.second->GetCreationTime() + HANDSHAKE_ELAPSE_TIME < get_global_time())
 			s_garbage.insert(rRec.second);
 	}
 

@@ -14,11 +14,11 @@
 
 struct FWarpToDragronLairWithGuildMembers
 {
-	DWORD dwGuildID;
+	uint64_t dwGuildID;
 	long mapIndex;
 	long x, y;
 
-	FWarpToDragronLairWithGuildMembers( DWORD guildID, long map, long X, long Y )
+	FWarpToDragronLairWithGuildMembers( uint64_t guildID, long map, long X, long Y )
 		: dwGuildID(guildID), mapIndex(map), x(X), y(Y)
 	{
 	}
@@ -119,10 +119,10 @@ EVENTFUNC( DragonLair_Collapse_Event )
 	return 0;
 }
 
-CDragonLair::CDragonLair(DWORD guildID, long BaseMapID, long PrivateMapID)
+CDragonLair::CDragonLair(uint64_t guildID, long BaseMapID, long PrivateMapID)
 	: GuildID_(guildID), BaseMapIndex_(BaseMapID), PrivateMapIndex_(PrivateMapID)
 {
-	StartTime_ = (DWORD)get_global_time();
+	StartTime_ = get_global_time();
 }
 
 CDragonLair::~CDragonLair()
@@ -131,14 +131,15 @@ CDragonLair::~CDragonLair()
 
 DWORD CDragonLair::GetEstimatedTime() const
 {
-	return (DWORD)get_global_time() - StartTime_;
+	const time_t now = get_global_time();
+	return (now > StartTime_) ? static_cast<DWORD>(now - StartTime_) : 0U;
 }
 
 void CDragonLair::OnDragonDead(LPCHARACTER pDragon)
 {
 	sys_log(0, "DragonLair: 도라곤이 죽어써효");
 
-	LogManager::instance().DragonSlayLog(  GuildID_, pDragon->GetMobTable().dwVnum, StartTime_, (DWORD)get_global_time() );
+	LogManager::instance().DragonSlayLog( GuildID_, pDragon->GetMobTable().dwVnum, StartTime_, get_global_time() );
 }
 
 CDragonLairManager::CDragonLairManager()
@@ -149,7 +150,7 @@ CDragonLairManager::~CDragonLairManager()
 {
 }
 
-bool CDragonLairManager::Start(long MapIndexFrom, long BaseMapIndex, DWORD GuildID)
+bool CDragonLairManager::Start(long MapIndexFrom, long BaseMapIndex, uint64_t GuildID)
 {
 	long instanceMapIndex = SECTREE_MANAGER::instance().CreatePrivateMap(BaseMapIndex);
 	if (instanceMapIndex == 0) {
@@ -193,7 +194,7 @@ bool CDragonLairManager::Start(long MapIndexFrom, long BaseMapIndex, DWORD Guild
 	return false;
 }
 
-void CDragonLairManager::OnDragonDead(LPCHARACTER pDragon, DWORD KillerGuildID)
+void CDragonLairManager::OnDragonDead(LPCHARACTER pDragon, uint64_t KillerGuildID)
 {
 	if (NULL == pDragon)
 		return;
@@ -201,7 +202,7 @@ void CDragonLairManager::OnDragonDead(LPCHARACTER pDragon, DWORD KillerGuildID)
 	if (false == pDragon->IsMonster())
 		return;
 
-	boost::unordered_map<DWORD, CDragonLair*>::iterator iter = LairMap_.find( KillerGuildID );
+	boost::unordered_map<uint64_t, CDragonLair*>::iterator iter = LairMap_.find( KillerGuildID );
 
 	if (LairMap_.end() == iter)
 	{

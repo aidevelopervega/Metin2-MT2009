@@ -3728,9 +3728,7 @@ namespace quest
 		}
 		const int item_index = lua_isnumber(L, 1) ? static_cast<int>(lua_tonumber(L, 1)) : 0;
 		const int item_count = lua_isnumber(L, 2) ? static_cast<int>(lua_tonumber(L, 2)) : 1;
-		const uint64_t request_id = lua_isinteger(L, 3)
-			? static_cast<uint64_t>(lua_tointeger(L, 3))
-			: (lua_isnumber(L, 3) ? static_cast<uint64_t>(lua_tonumber(L, 3)) : 0ULL);
+		const uint64_t request_id = m2_lua_touint64(L, 3);
 		if (item_index > 0 && item_count > 0)
 			CItemShopManager::instance().BuyItem(ch, item_index, item_count, request_id);
 		return 0;
@@ -3750,7 +3748,9 @@ namespace quest
 
 	ALUA(pc_charge_cash)
 	{
-		const int64_t amount = lua_isnumber(L, 1) ? static_cast<int64_t>(lua_tonumber(L, 1)) : 0;
+		const int64_t amount = lua_isinteger(L, 1)
+			? static_cast<int64_t>(lua_tointeger(L, 1))
+			: (lua_isnumber(L, 1) ? static_cast<int64_t>(lua_tonumber(L, 1)) : 0);
 		const int chargeType = lua_isnumber(L, 2) ? (int)lua_tonumber(L, 2) : ERequestCharge_Cash;
 
 		LPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();

@@ -7,7 +7,7 @@ class CSpecialShopManager : public singleton<CSpecialShopManager>
 	typedef std::map<DWORD, TSpecialShopItemList> TSpecialShopMap;
 
 	// PIDs
-	typedef std::set<DWORD> GUEST_SET;
+	typedef std::set<uint64_t> GUEST_SET;
 
 public:
 	CSpecialShopManager();
@@ -33,11 +33,11 @@ public:
 	void					OpenShop(LPCHARACTER ch, LPCHARACTER seller, DWORD shop_vnum);
 	void					CloseShop(LPCHARACTER ch);
 
-	void					AddGuest(DWORD shop_vnum, DWORD pid);
+	void					AddGuest(DWORD shop_vnum, uint64_t pid);
 	void					UpdateAllGuests(DWORD shop_vnum);
 	void					RemoveAllGuests(DWORD shop_vnum);
-	void					RemoveGuest(DWORD shop_vnum, DWORD pid);
-	bool					IsPlayerGuest(DWORD shop_vnum, DWORD pid);
+	void					RemoveGuest(DWORD shop_vnum, uint64_t pid);
+	bool					IsPlayerGuest(DWORD shop_vnum, uint64_t pid);
 	GUEST_SET&				GetGuestSet(DWORD shop_vnum);
 
 private:

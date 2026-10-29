@@ -122,7 +122,7 @@ public:
 	void MarkHackerReleased(LPCHARACTER ch);
 
 	YANG totalGoldSession{};
-	DWORD startGoldSessionTimeStamp{};
+	time_t startGoldSessionTimeStamp{};
 	YANG GetTotalGoldSession() { return totalGoldSession; }
 	void AddTotalGoldSession(YANG val) { totalGoldSession += val; }
 };

@@ -32,9 +32,9 @@ class CThreeWayWar : public singleton<CThreeWayWar>
 		int GetKillScore (BYTE empire) const;
 		void SetKillScore (BYTE empire, int count);
 
-		void SetReviveTokenForPlayer (DWORD PlayerID, int count);
-		int GetReviveTokenForPlayer (DWORD PlayerID);
-		void DecreaseReviveTokenForPlayer (DWORD PlayerID);
+		void SetReviveTokenForPlayer (uint64_t PlayerID, int count);
+		int GetReviveTokenForPlayer (uint64_t PlayerID);
+		void DecreaseReviveTokenForPlayer (uint64_t PlayerID);
 
 		const ForkedPassMapInfo& GetEventPassMapInfo () const;
 		const ForkedSungziMapInfo& GetEventSungZiMapInfo () const;
@@ -44,8 +44,8 @@ class CThreeWayWar : public singleton<CThreeWayWar>
 
 		void RandomEventMapSet ();
 
-		void RegisterUser (DWORD PlayerID);
-		bool IsRegisteredUser (DWORD PlayerID) const;
+		void RegisterUser (uint64_t PlayerID);
+		bool IsRegisteredUser (uint64_t PlayerID) const;
 
 		void onDead (LPCHARACTER pChar, LPCHARACTER pKiller);
 
@@ -62,8 +62,8 @@ class CThreeWayWar : public singleton<CThreeWayWar>
 		std::vector<ForkedPassMapInfo>	PassInfoMap_;
 		std::vector<ForkedSungziMapInfo>	SungZiInfoMap_;
 
-		boost::unordered_map<DWORD, DWORD>	RegisterUserMap_;
-		boost::unordered_map<DWORD, int>	ReviveTokenMap_;
+		boost::unordered_map<uint64_t, uint64_t>	RegisterUserMap_;
+		boost::unordered_map<uint64_t, int>	ReviveTokenMap_;
 };
 
 const char* GetSungziMapPath();

@@ -26,6 +26,7 @@
 #include "p2p.h"
 #include "itemshop_manager.h"
 #include "monarch.h"
+#include "login_data.h"
 #include "../../common/PulseManager.h"
 #include <thread>
 #include <cstdlib>
@@ -177,7 +178,47 @@ int RunGameQuestRuntimeTests()
 		"assert(tostring(1000000.0) == '1000000', 'integral float tostring failed')\n"
 	);
 	RUNTIME_ASSERT(shim_err == 0, "Compatibility shims & numeric boundary execution must return 0");
-	std::cout << "  --> Shims, fractional/negative float truncation, table indexing, -0.0, 64-bit limits, NaN/Inf & integral float formatting verified" << std::endl;
+	{
+		const uint64_t kIdOver32 = 5000000001ULL;
+		const uint64_t kIdOver53 = 9007199254740993ULL;
+		const uint64_t kIdMaxSigned = static_cast<uint64_t>(INT64_MAX);
+		const uint64_t kId2Pow63 = static_cast<uint64_t>(INT64_MAX) + 1ULL; // 9223372036854775808ULL
+		const uint64_t kIdMaxUint64 = UINT64_MAX;                           // 18446744073709551615ULL
+
+		const uint64_t testIds[] = { kIdOver32, kIdOver53, kIdMaxSigned, kId2Pow63, kIdMaxUint64 };
+		for (uint64_t expectedId : testIds)
+		{
+			m2_lua_pushuint64(L, expectedId);
+			RUNTIME_ASSERT(lua_isinteger(L, -1) == 1, "m2_lua_pushuint64 must push exact 64-bit integer subtype");
+			RUNTIME_ASSERT(m2_lua_touint64(L, -1) == expectedId, "m2_lua_touint64 must losslessly round-trip full uint64_t range including >=2^63");
+			lua_pop(L, 1);
+		}
+
+		lua_pushstring(L, "9007199254740993");
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == kIdOver53, "m2_lua_touint64 must parse >2^53 decimal string without double rounding");
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "9223372036854775808");
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == kId2Pow63, "m2_lua_touint64 must parse 2^63 decimal string without double rounding");
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "18446744073709551615");
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == kIdMaxUint64, "m2_lua_touint64 must parse UINT64_MAX decimal string without UB");
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "-1");
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == 0ULL, "m2_lua_touint64 must reject negative string");
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "18446744073709551616");
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == 0ULL, "m2_lua_touint64 must reject >UINT64_MAX string overflow");
+		lua_pop(L, 1);
+
+		lua_pushnumber(L, -5.5);
+		RUNTIME_ASSERT(m2_lua_touint64(L, -1) == 0ULL, "m2_lua_touint64 must reject negative float");
+		lua_pop(L, 1);
+	}
+	std::cout << "  --> Shims, fractional/negative float truncation, table indexing, -0.0, 64-bit limits (>2^53 & >=2^63 uint64_t), NaN/Inf & integral float formatting verified" << std::endl;
 	checks_passed++;
 
 	// 4. Global Namespace & Function Tables
@@ -404,10 +445,37 @@ int RunGameQuestRuntimeTests()
 		RUNTIME_ASSERT(test_ch->FindAffect(AFFECT_MOV_SPEED) != nullptr && test_ch->GetPoint(POINT_MOV_SPEED) == 20, "Unrelated AFFECT_MOV_SPEED must remain untouched");
 		RUNTIME_ASSERT(test_ch->FindAffect(AFFECT_COLLECT) != nullptr && test_ch->GetPoint(POINT_ATTBONUS_HUMAN) == 10, "Unrelated AFFECT_COLLECT must remain untouched");
 
+		// REG-G4.2: Verify CLoginData::CLoginData() deterministically zero-initializes m_aiPremiumTimes[PREMIUM_MAX_NUM] even over dirty memory
+		alignas(CLoginData) unsigned char dirtyLoginBuf[sizeof(CLoginData)];
+		std::memset(dirtyLoginBuf, 0xAA, sizeof(dirtyLoginBuf));
+		CLoginData* pDirtyLogin = new (dirtyLoginBuf) CLoginData();
+		for (int pt = 0; pt < PREMIUM_MAX_NUM; ++pt)
+		{
+			RUNTIME_ASSERT(pDirtyLogin->GetPremium(static_cast<BYTE>(pt)) == 0, "REG-G4.2: CLoginData() must zero-initialize all m_aiPremiumTimes slots");
+		}
+		pDirtyLogin->~CLoginData();
+
+		// REG-G4.4 & M-02: Verify CAffect 64-bit lDuration (>2^32) and 64-bit lSPCost (>=2^63 item ID) with dwFlag=AFF_NONE (0) does not corrupt m_afAffectFlag bits
+		const uint64_t kAutoPotionIdBit7 = (1ULL << 40) | 7ULL; // low 32 bits = 7 (AFF_BITS_MAX range 1..63)
+		const uint64_t kAutoPotionIdHighBit = static_cast<uint64_t>(INT64_MAX) + 77ULL; // >= 2^63
+		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_AUTO_HP_RECOVERY, POINT_NONE, 0, AFF_NONE, 5000000000LL, static_cast<int64_t>(kAutoPotionIdBit7), false),
+			"M-02 & REG-G4.4: AddAffect AFFECT_AUTO_HP_RECOVERY with >2^32 duration and >2^40 item ID in lSPCost must succeed");
+		RUNTIME_ASSERT(!test_ch->IsAffectFlag(7),
+			"M-02: Autopotion AddAffect with dwFlag=AFF_NONE must not set m_afAffectFlag bit 7 when low 32 bits of item ID equal 7");
+		CAffect* pkAutoHp = test_ch->FindAffect(AFFECT_AUTO_HP_RECOVERY);
+		RUNTIME_ASSERT(pkAutoHp != nullptr && pkAutoHp->lDuration == 5000000000LL && static_cast<uint64_t>(pkAutoHp->lSPCost) == kAutoPotionIdBit7,
+			"REG-G4.4: CAffect preserves 64-bit lDuration (5B) and >2^40 lSPCost item ID");
+
+		RUNTIME_ASSERT(test_ch->AddAffect(AFFECT_AUTO_SP_RECOVERY, POINT_NONE, 0, AFF_NONE, INFINITE_AFFECT_DURATION, static_cast<int64_t>(kAutoPotionIdHighBit), false),
+			"M-02 & REG-G4.4: AddAffect AFFECT_AUTO_SP_RECOVERY with >=2^63 item ID in lSPCost must succeed");
+		CAffect* pkAutoSp = test_ch->FindAffect(AFFECT_AUTO_SP_RECOVERY);
+		RUNTIME_ASSERT(pkAutoSp != nullptr && pkAutoSp->lSPCost != 0 && static_cast<uint64_t>(pkAutoSp->lSPCost) == kAutoPotionIdHighBit,
+			"M-02 & REG-G4.4: CAffect lSPCost != 0 check recovers exact >=2^63 uint64_t item ID");
+
 		test_ch->ClearAffect();
 		qm.SetCurrentCharacterPtr(nullptr);
 	}
-	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair & item.set_value (7 hair options + MaxHP/MaxSP recalculation) confirmed" << std::endl;
+	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair, CLoginData zero-init (G4.2) & 64-bit CAffect/Autopotion (G4.4/M-02) confirmed" << std::endl;
 	checks_passed++;
 
 	// 5. select(...) Nil-Argument Preservation & m2_lua_getn
@@ -880,7 +948,7 @@ namespace
 		{
 			ClearTestInventory();
 		}
-		void SetTestPlayerID(DWORD pid) { m_dwPlayerID = pid; }
+		void SetTestPlayerID(uint64_t pid) { m_dwPlayerID = pid; }
 		void EnableDirectInventory(bool enable)
 		{
 			if (enable)

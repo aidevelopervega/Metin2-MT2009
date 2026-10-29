@@ -10,7 +10,7 @@ class CPVP
 
 		typedef struct _player
 		{
-			DWORD	dwPID;
+			uint64_t	dwPID;
 			DWORD	dwVID;
 			bool	bAgree;
 			bool	bCanRevenge;
@@ -20,16 +20,16 @@ class CPVP
 			}
 		} TPlayer;
 
-		CPVP(DWORD dwID1, DWORD dwID2);
+		CPVP(uint64_t dwID1, uint64_t dwID2);
 		CPVP(CPVP & v);
 		~CPVP();
 
-		void	Win(DWORD dwPID);
-		bool	CanRevenge(DWORD dwPID);
+		void	Win(uint64_t dwPID);
+		bool	CanRevenge(uint64_t dwPID);
 		bool	IsFight();
-		bool	Agree(DWORD dwPID);
+		bool	Agree(uint64_t dwPID);
 
-		void	SetVID(DWORD dwPID, DWORD dwVID);
+		void	SetVID(uint64_t dwPID, DWORD dwVID);
 		void	Packet(bool bDelete = false);
 
 		void	SetLastFightTime();
@@ -47,7 +47,7 @@ class CPVP
 
 class CPVPManager : public singleton<CPVPManager>
 {
-	typedef std::map<DWORD, TR1_NS::unordered_set<CPVP*> > CPVPSetMap;
+	typedef std::map<uint64_t, TR1_NS::unordered_set<CPVP*> > CPVPSetMap;
 
 	public:
 	CPVPManager();
@@ -55,13 +55,13 @@ class CPVPManager : public singleton<CPVPManager>
 
 #ifdef ENABLE_NEWSTUFF
 	bool			IsFighting(LPCHARACTER pkChr);
-	bool			IsFighting(DWORD dwPID);
+	bool			IsFighting(uint64_t dwPID);
 #endif
 
 	void			Insert(LPCHARACTER pkChr, LPCHARACTER pkVictim);
 	bool			CanAttack(LPCHARACTER pkChr, LPCHARACTER pkVictim);
-	bool			Dead(LPCHARACTER pkChr, DWORD dwKillerPID);
-	void			GiveUp(LPCHARACTER pkChr, DWORD dwKillerPID);
+	bool			Dead(LPCHARACTER pkChr, uint64_t dwKillerPID);
+	void			GiveUp(LPCHARACTER pkChr, uint64_t dwKillerPID);
 	void			Connect(LPCHARACTER pkChr);
 	void			Disconnect(LPCHARACTER pkChr);
 

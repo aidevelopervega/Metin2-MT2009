@@ -186,6 +186,19 @@ def main() -> int:
     extern_unique_by_flag: Counter[str] = Counter()
     errors_count = 0
     sample_first_party: list[str] = []
+    high_risk_first_party: list[str] = []
+    domain_64_to_32_narrowing: list[str] = []
+
+    high_risk_flags = {
+        "-Wformat",
+        "-Wformat-extra-args",
+        "-Wformat-zero-length",
+        "-Wshadow",
+        "-Wcast-align",
+        "-Wpointer-arith",
+        "-Wstrict-aliasing",
+        "-Wundef",
+    }
 
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
         futures = [
@@ -206,6 +219,7 @@ def main() -> int:
                 line_no = m.group("line")
                 col_no = m.group("col")
                 flag = m.group("flag") or "-Wunknown"
+                msg = m.group("msg")
                 raw_by_flag[flag] += 1
                 key = (f_path.replace("\\", "/").lower(), line_no, col_no, flag)
                 if key not in unique_seen:
@@ -214,10 +228,16 @@ def main() -> int:
                     scope = classify_path(f_path, repo_root)
                     if scope == "server/src":
                         first_party_unique_by_flag[flag] += 1
+                        formatted = f"{f_path}:{line_no}:{col_no}: [{flag}] {msg}"
                         if len(sample_first_party) < 25:
-                            sample_first_party.append(
-                                f"{f_path}:{line_no}:{col_no}: [{flag}] {m.group('msg')}"
-                            )
+                            sample_first_party.append(formatted)
+                        if flag in high_risk_flags:
+                            high_risk_first_party.append(formatted)
+                        if flag == "-Wconversion":
+                            if any(t in msg for t in ("'YANG'", "'uint64_t'", "'int64_t'", "'time_t'")) and not any(
+                                c in msg for c in ("size_type", "difference_type", "size_t", "streamoff", "ptrdiff_t", "float", "double")
+                            ):
+                                domain_64_to_32_narrowing.append(formatted)
                     elif scope == "extern":
                         extern_unique_by_flag[flag] += 1
 
@@ -239,6 +259,8 @@ def main() -> int:
         f"{sum(extern_unique_by_flag.values()):>12} "
         f"{sum(raw_by_flag.values()):>12}"
     )
+    print(f"High-risk server/src warnings (-Wformat/-Wshadow/-Wcast-align/-Wpointer-arith/-Wstrict-aliasing/-Wundef): {len(high_risk_first_party)}")
+    print(f"64-bit domain (YANG/uint64_t/int64_t/time_t -> narrower int) in server/src: {len(domain_64_to_32_narrowing)}")
     print(f"Syntax-only TU errors: {errors_count}")
 
     if args.json_out:
@@ -251,6 +273,10 @@ def main() -> int:
             "unique_by_flag": dict(unique_by_flag),
             "first_party_unique_by_flag": dict(first_party_unique_by_flag),
             "extern_unique_by_flag": dict(extern_unique_by_flag),
+            "high_risk_first_party_count": len(high_risk_first_party),
+            "high_risk_first_party": high_risk_first_party,
+            "domain_64_to_32_narrowing_count": len(domain_64_to_32_narrowing),
+            "domain_64_to_32_narrowing": domain_64_to_32_narrowing,
             "sample_first_party": sample_first_party,
         }
         Path(args.json_out).write_text(json.dumps(out_data, indent=2), encoding="utf-8")

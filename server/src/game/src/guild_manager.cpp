@@ -786,10 +786,10 @@ void CGuildManager::ShowGuildWarList(LPCHARACTER ch)
 
 		if (A && B)
 		{
-			ch->ChatPacket(CHAT_TYPE_NOTICE, "%s[%llu] vs %s[%llu] time %u sec.",
+			ch->ChatPacket(CHAT_TYPE_NOTICE, "%s[%llu] vs %s[%llu] time %lld sec.",
 					A->GetName(), static_cast<unsigned long long>(A->GetID()),
 					B->GetName(), static_cast<unsigned long long>(B->GetID()),
-					get_global_time() - A->GetWarStartTime(B->GetID()));
+					static_cast<long long>(get_global_time() - A->GetWarStartTime(B->GetID())));
 		}
 	}
 }
@@ -893,8 +893,8 @@ void CGuildManager::ReserveWarAdd(TGuildWarReserve * p)
 
 	thecore_memcpy(&pkReserve->data, p, sizeof(TGuildWarReserve));
 
-	sys_log(0, "ReserveWarAdd %u gid1 %llu power %d gid2 %llu power %d handicap %d",
-			pkReserve->data.dwID, static_cast<unsigned long long>(p->dwGuildFrom), p->lPowerFrom, static_cast<unsigned long long>(p->dwGuildTo), p->lPowerTo, p->lHandicap);
+	sys_log(0, "ReserveWarAdd %llu gid1 %llu power %d gid2 %llu power %d handicap %d",
+			static_cast<unsigned long long>(pkReserve->data.dwID), static_cast<unsigned long long>(p->dwGuildFrom), p->lPowerFrom, static_cast<unsigned long long>(p->dwGuildTo), p->lPowerTo, p->lHandicap);
 }
 
 void CGuildManager::ReserveWarBet(TPacketGDGuildWarBet * p)
@@ -907,7 +907,7 @@ void CGuildManager::ReserveWarBet(TPacketGDGuildWarBet * p)
 	it->second->mapBet.emplace(p->szLogin, std::make_pair(p->dwGuild, p->dwGold));
 }
 
-bool CGuildManager::IsBet(DWORD dwID, const char * c_pszLogin)
+bool CGuildManager::IsBet(uint64_t dwID, const char * c_pszLogin)
 {
 	itertype(m_map_kReserveWar) it = m_map_kReserveWar.find(dwID);
 
@@ -917,9 +917,9 @@ bool CGuildManager::IsBet(DWORD dwID, const char * c_pszLogin)
 	return it->second->mapBet.end() != it->second->mapBet.find(c_pszLogin);
 }
 
-void CGuildManager::ReserveWarDelete(DWORD dwID)
+void CGuildManager::ReserveWarDelete(uint64_t dwID)
 {
-	sys_log(0, "ReserveWarDelete %u", dwID);
+	sys_log(0, "ReserveWarDelete %llu", static_cast<unsigned long long>(dwID));
 	itertype(m_map_kReserveWar) it = m_map_kReserveWar.find(dwID);
 
 	if (it == m_map_kReserveWar.end())

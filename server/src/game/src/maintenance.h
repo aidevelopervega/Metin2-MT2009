@@ -17,7 +17,7 @@ class CMaintenance : public singleton<CMaintenance>
 	private:
 		LPEVENT m_pkMaintenanceEvent;
 
-		DWORD m_dwExecuteTime;
+		time_t m_dwExecuteTime;
 		DWORD m_dwTimeUntil;
 		DWORD m_dwDuration;
 };

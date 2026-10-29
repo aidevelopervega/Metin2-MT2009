@@ -550,7 +550,7 @@ void CSpecialShopManager::CloseShop(LPCHARACTER ch)
 	ch->SetExchangeTime();
 }
 
-void CSpecialShopManager::AddGuest(DWORD shop_vnum, DWORD pid)
+void CSpecialShopManager::AddGuest(DWORD shop_vnum, uint64_t pid)
 {
 	auto& guests = GetGuestSet(shop_vnum);
 	guests.insert(pid);
@@ -594,13 +594,13 @@ void CSpecialShopManager::RemoveAllGuests(DWORD shop_vnum)
 	m_map_SpecialShopGuestMap.clear();
 }
 
-void CSpecialShopManager::RemoveGuest(DWORD shop_vnum, DWORD pid)
+void CSpecialShopManager::RemoveGuest(DWORD shop_vnum, uint64_t pid)
 {
 	auto& guests = GetGuestSet(shop_vnum);
 	guests.erase(pid);
 }
 
-bool CSpecialShopManager::IsPlayerGuest(DWORD shop_vnum, DWORD pid)
+bool CSpecialShopManager::IsPlayerGuest(DWORD shop_vnum, uint64_t pid)
 {
 	auto guests = GetGuestSet(shop_vnum);
 	return guests.find(pid) != guests.end();

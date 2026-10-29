@@ -523,8 +523,8 @@ bool CHARACTER::Attack(LPCHARACTER pkVictim, BYTE bType, BYTE skill_vnum)
 		{
 			if (dwCurrentTime - m_dwLastSkillTime > 1500)
 			{
-				sys_log(1, "HACK: Too long skill using term. Name(%s) PID(%u) delta(%u)",
-						GetName(), GetPlayerID(), (dwCurrentTime - m_dwLastSkillTime));
+				sys_log(1, "HACK: Too long skill using term. Name(%s) PID(%llu) delta(%u)",
+						GetName(), static_cast<unsigned long long>(GetPlayerID()), (dwCurrentTime - m_dwLastSkillTime));
 				return false;
 			}
 		}
@@ -878,7 +878,7 @@ void CHARACTER::Stun()
 EVENTINFO(SCharDeadEventInfo)
 {
 	bool isPC;
-	uint32_t dwID;
+	uint64_t dwID;
 
 	SCharDeadEventInfo()
 	: isPC(0)
@@ -905,12 +905,12 @@ EVENTFUNC(dead_event)
 	}
 	else
 	{
-		ch = CHARACTER_MANAGER::instance().Find( info->dwID );
+		ch = CHARACTER_MANAGER::instance().Find( static_cast<DWORD>(info->dwID) );
 	}
 
 	if (NULL == ch)
 	{
-		sys_err("DEAD_EVENT: cannot find char pointer with %s id(%d)", info->isPC ? "PC" : "MOB", info->dwID );
+		sys_err("DEAD_EVENT: cannot find char pointer with %s id(%llu)", info->isPC ? "PC" : "MOB", static_cast<unsigned long long>(info->dwID) );
 		return 0;
 	}
 
@@ -1437,7 +1437,7 @@ void CHARACTER::ItemDropPenalty(LPCHARACTER pkKiller)
 
 		if (noItemDeathPenaltyAff) {
 			int value = noItemDeathPenaltyAff->lApplyValue;
-			int leftDuration = noItemDeathPenaltyAff->lDuration;
+			int64_t leftDuration = noItemDeathPenaltyAff->lDuration;
 			if (value > 1)
 			{
 				AddAffect(AFFECT_NO_ITEM_DEATH_PENALTY, POINT_DEATH_PENALTY, value-1, AFF_NONE, leftDuration, 0, true);

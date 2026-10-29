@@ -131,7 +131,7 @@ struct TGuildCreateParameter
 
 typedef struct SGuildWar
 {
-	DWORD war_start_time;
+	time_t war_start_time;
 	DWORD score;
 	DWORD state;
 	BYTE type;
@@ -280,7 +280,7 @@ class CGuild
 
 		int		GetGuildWarState(uint64_t guild_id);
 		bool		CanStartWar(BYTE bGuildWarType);
-		DWORD		GetWarStartTime(uint64_t guild_id);
+		time_t		GetWarStartTime(uint64_t guild_id);
 		bool		UnderWar(uint64_t guild_id);
 		uint64_t	UnderAnyWar(BYTE bType = GUILD_WAR_TYPE_MAX_NUM);
 

@@ -15,7 +15,7 @@
 
 using namespace std;
 
-CPVP::CPVP(DWORD dwPID1, DWORD dwPID2)
+CPVP::CPVP(uint64_t dwPID1, uint64_t dwPID2)
 {
 	if (dwPID1 > dwPID2)
 	{
@@ -30,10 +30,10 @@ CPVP::CPVP(DWORD dwPID1, DWORD dwPID2)
 		m_players[1].bAgree = true;
 	}
 
-	DWORD adwID[2];
+	uint64_t adwID[2];
 	adwID[0] = m_players[0].dwPID;
 	adwID[1] = m_players[1].dwPID;
-	m_dwCRC = GetFastHash((const char *) &adwID, 8);
+	m_dwCRC = GetFastHash((const char *) &adwID, sizeof(adwID));
 	m_bRevenge = false;
 
 	SetLastFightTime();
@@ -108,7 +108,7 @@ void CPVP::Packet(bool bDelete)
 	}
 }
 
-bool CPVP::Agree(DWORD dwPID)
+bool CPVP::Agree(uint64_t dwPID)
 {
 	m_players[m_players[0].dwPID != dwPID ? 1 : 0].bAgree = true;
 
@@ -126,7 +126,7 @@ bool CPVP::IsFight()
 	return (m_players[0].bAgree == m_players[1].bAgree) && m_players[0].bAgree;
 }
 
-void CPVP::Win(DWORD dwPID)
+void CPVP::Win(uint64_t dwPID)
 {
 	int iSlot = m_players[0].dwPID != dwPID ? 1 : 0;
 
@@ -139,12 +139,12 @@ void CPVP::Win(DWORD dwPID)
 	Packet();
 }
 
-bool CPVP::CanRevenge(DWORD dwPID)
+bool CPVP::CanRevenge(uint64_t dwPID)
 {
 	return m_players[m_players[0].dwPID != dwPID ? 1 : 0].bCanRevenge;
 }
 
-void CPVP::SetVID(DWORD dwPID, DWORD dwVID)
+void CPVP::SetVID(uint64_t dwPID, DWORD dwVID)
 {
 	if (m_players[0].dwPID == dwPID)
 		m_players[0].dwVID = dwVID;
@@ -239,7 +239,7 @@ bool CPVPManager::IsFighting(LPCHARACTER pkChr)
 	return IsFighting(pkChr->GetPlayerID());
 }
 
-bool CPVPManager::IsFighting(DWORD dwPID)
+bool CPVPManager::IsFighting(uint64_t dwPID)
 {
 	CPVPSetMap::iterator it = m_map_pkPVPSetByID.find(dwPID);
 
@@ -287,21 +287,21 @@ void CPVPManager::Disconnect([[maybe_unused]] LPCHARACTER pkChr)
 	//ConnectEx(pkChr, true);
 }
 
-void CPVPManager::GiveUp(LPCHARACTER pkChr, DWORD dwKillerPID) // This method is calling from no where yet.
+void CPVPManager::GiveUp(LPCHARACTER pkChr, uint64_t dwKillerPID) // This method is calling from no where yet.
 {
 	CPVPSetMap::iterator it = m_map_pkPVPSetByID.find(pkChr->GetPlayerID());
 
 	if (it == m_map_pkPVPSetByID.end())
 		return;
 
-	sys_log(1, "PVPManager::Dead %d", pkChr->GetPlayerID());
+	sys_log(1, "PVPManager::Dead %llu", static_cast<unsigned long long>(pkChr->GetPlayerID()));
 	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{
 		CPVP * pkPVP = *it2++;
 
-		DWORD dwCompanionPID;
+		uint64_t dwCompanionPID;
 
 		if (pkPVP->m_players[0].dwPID == pkChr->GetPlayerID())
 			dwCompanionPID = pkPVP->m_players[1].dwPID;
@@ -328,7 +328,7 @@ void CPVPManager::GiveUp(LPCHARACTER pkChr, DWORD dwKillerPID) // This method is
 	}
 }
 
-bool CPVPManager::Dead(LPCHARACTER pkChr, DWORD dwKillerPID)
+bool CPVPManager::Dead(LPCHARACTER pkChr, uint64_t dwKillerPID)
 {
 	CPVPSetMap::iterator it = m_map_pkPVPSetByID.find(pkChr->GetPlayerID());
 
@@ -337,14 +337,14 @@ bool CPVPManager::Dead(LPCHARACTER pkChr, DWORD dwKillerPID)
 
 	bool found = false;
 
-	sys_log(1, "PVPManager::Dead %d", pkChr->GetPlayerID());
+	sys_log(1, "PVPManager::Dead %llu", static_cast<unsigned long long>(pkChr->GetPlayerID()));
 	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{
 		CPVP * pkPVP = *it2++;
 
-		DWORD dwCompanionPID;
+		uint64_t dwCompanionPID;
 
 		if (pkPVP->m_players[0].dwPID == pkChr->GetPlayerID())
 			dwCompanionPID = pkPVP->m_players[1].dwPID;

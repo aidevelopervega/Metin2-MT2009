@@ -961,8 +961,8 @@ typedef struct TPacketAffectElement
 	BYTE	bApplyOn;
 	int32_t	lApplyValue;
 	DWORD	dwFlag;
-	int32_t	lDuration;
-	int32_t	lSPCost;
+	int64_t	lDuration;
+	int64_t	lSPCost;
 	DWORD	dwItemVnum;
 } TPacketAffectElement;
 

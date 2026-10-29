@@ -109,7 +109,7 @@ void CThreeWayWar::SetKillScore( BYTE empire, int count )
 	KillScore_[empire-1] = count;
 }
 
-void CThreeWayWar::SetReviveTokenForPlayer(DWORD PlayerID, int count)
+void CThreeWayWar::SetReviveTokenForPlayer(uint64_t PlayerID, int count)
 {
 	if (0 == PlayerID)
 		return;
@@ -117,7 +117,7 @@ void CThreeWayWar::SetReviveTokenForPlayer(DWORD PlayerID, int count)
 	ReviveTokenMap_[PlayerID] = count;
 }
 
-int CThreeWayWar::GetReviveTokenForPlayer(DWORD PlayerID)
+int CThreeWayWar::GetReviveTokenForPlayer(uint64_t PlayerID)
 {
 	if (0 == PlayerID)
 		return 0;
@@ -125,7 +125,7 @@ int CThreeWayWar::GetReviveTokenForPlayer(DWORD PlayerID)
 	return ReviveTokenMap_[PlayerID];
 }
 
-void CThreeWayWar::DecreaseReviveTokenForPlayer(DWORD PlayerID)
+void CThreeWayWar::DecreaseReviveTokenForPlayer(uint64_t PlayerID)
 {
 	if (0 == PlayerID)
 		return;
@@ -247,9 +247,9 @@ void CThreeWayWar::RandomEventMapSet()
 	quest::CQuestManager::instance().RequestSetEventFlag( "threeway_war_pass_idx", pass_idx );
 }
 
-bool CThreeWayWar::IsRegisteredUser(DWORD PlayerID) const
+bool CThreeWayWar::IsRegisteredUser(uint64_t PlayerID) const
 {
-	boost::unordered_map<DWORD, DWORD>::const_iterator iter = RegisterUserMap_.find(PlayerID);
+	boost::unordered_map<uint64_t, uint64_t>::const_iterator iter = RegisterUserMap_.find(PlayerID);
 
 	if (iter == RegisterUserMap_.end())
 	{
@@ -259,7 +259,7 @@ bool CThreeWayWar::IsRegisteredUser(DWORD PlayerID) const
 	return true;
 }
 
-void CThreeWayWar::RegisterUser(DWORD PlayerID)
+void CThreeWayWar::RegisterUser(uint64_t PlayerID)
 {
 	if (0 == PlayerID)
 		return;

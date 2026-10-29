@@ -53,7 +53,10 @@ DWORD CEventFunctionHandler::GetDelay(const std::string& event_name)
 {
 	auto ptr = GetHandlerByName(event_name);
 	if (ptr)
-		return (ptr->time >= static_cast<DWORD>(get_global_time())) ? (ptr->time - get_global_time()) : 0;
+	{
+		const size_t now = static_cast<size_t>(get_global_time());
+		return (ptr->time >= now) ? static_cast<DWORD>(ptr->time - now) : 0;
+	}
 	else
 		return 0;
 }
@@ -64,9 +67,10 @@ void CEventFunctionHandler::Process()
 		return;
 
 	std::vector<std::string> v_delete;
+	const size_t now = static_cast<size_t>(get_global_time());
 	for (const auto& event : m_event)
 	{
-		if (static_cast<DWORD>(get_global_time()) >= (event.second).get()->time)
+		if (now >= (event.second).get()->time)
 		{
 			// Data Safety - if event below triggers RemoveEvent, that might crash the channel
 			v_delete.push_back(event.first);

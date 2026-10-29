@@ -280,7 +280,7 @@ namespace ikashop
 		bool bIsPremium = false;
 		bool bIsEdited = false;
 
-		DWORD m_LastEditTime{};
+		time_t m_LastEditTime{};
 	};
 
 

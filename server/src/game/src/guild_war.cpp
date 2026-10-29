@@ -238,7 +238,7 @@ int CGuild::GetWarScoreAgainstTo(uint64_t dwOppGID)
 	return 0;
 }
 
-DWORD CGuild::GetWarStartTime(uint64_t dwOppGID)
+time_t CGuild::GetWarStartTime(uint64_t dwOppGID)
 {
 	if (dwOppGID == GetID())
 		return 0;
@@ -431,7 +431,7 @@ void CGuild::StartWar(uint64_t dwOppGID)
 		return;
 
 	gw.state = GUILD_WAR_ON_WAR;
-	gw.war_start_time = static_cast<DWORD>(get_global_time());
+	gw.war_start_time = get_global_time();
 
 	GuildWarPacket(dwOppGID, gw.type, GUILD_WAR_ON_WAR);
 

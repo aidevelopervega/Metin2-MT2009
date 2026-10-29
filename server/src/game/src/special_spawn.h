@@ -52,7 +52,7 @@ public:
 	std::string reqEventFlag = "";
 
 	LPEVENT	spawn_event;
-	DWORD end_event_time;
+	time_t end_event_time;
 
 	bool DoSpawn();
 	void StartEvent(int delay = -1);
