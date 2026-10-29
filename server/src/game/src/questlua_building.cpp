@@ -23,7 +23,7 @@ namespace quest
 		}
 
 		CLand * pkLand = CManager::instance().FindLand((int) lua_tonumber(L, 1), (int) lua_tonumber(L, 2), (int) lua_tonumber(L, 3));
-		lua_pushnumber(L, pkLand ? pkLand->GetID() : 0);
+		m2_lua_pushuint64(L, pkLand ? pkLand->GetID() : 0);
 		return 1;
 	}
 

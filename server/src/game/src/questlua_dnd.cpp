@@ -62,7 +62,7 @@ namespace quest
 		{
 			return 1;
 		}
-		DWORD id = (DWORD) lua_tonumber(L, 1);
+		uint64_t id = m2_lua_touint64(L, 1);
 		LPITEM item = ITEM_MANAGER::instance().Find(id);
 
 		if (!item)
@@ -82,10 +82,10 @@ namespace quest
 
 		if (q.GetCurrentDNDItem())
 		{
-			lua_pushnumber(L, q.GetCurrentDNDItem()->GetID());
+			m2_lua_pushuint64(L, q.GetCurrentDNDItem()->GetID());
 		}
 		else
-			lua_pushnumber(L, 0);
+			lua_pushinteger(L, 0);
 		return 1;
 	}
 

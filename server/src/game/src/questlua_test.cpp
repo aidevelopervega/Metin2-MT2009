@@ -27,6 +27,7 @@
 #include "itemshop_manager.h"
 #include "monarch.h"
 #include "login_data.h"
+#include "safebox.h"
 #include "../../common/PulseManager.h"
 #include <thread>
 #include <cstdlib>
@@ -70,6 +71,66 @@ static int DummyAddGotoNpcForMonkeyDungeon(lua_State* L)
 {
 	(void)L;
 	return 0;
+}
+
+namespace
+{
+	class CTestItemShopClientDesc : public CLIENT_DESC
+	{
+	public:
+		CTestItemShopClientDesc()
+		{
+			m_sock = static_cast<socket_t>(1);
+		}
+		virtual ~CTestItemShopClientDesc()
+		{
+			m_sock = INVALID_SOCKET;
+		}
+	};
+
+	class CTestItemShopCharacter : public CHARACTER
+	{
+	public:
+		CTestItemShopCharacter() : CHARACTER(false) {}
+		virtual ~CTestItemShopCharacter()
+		{
+			ClearTestInventory();
+		}
+		void SetTestPlayerID(uint64_t pid) { m_dwPlayerID = pid; }
+		void EnableDirectInventory(bool enable)
+		{
+			if (enable)
+			{
+				if (!m_PlayerSlots)
+					m_PlayerSlots = std::make_unique<PlayerSlotT>();
+				m_bCharType = CHAR_TYPE_PC;
+			}
+			else
+			{
+				ClearTestInventory();
+				m_PlayerSlots.reset();
+				m_bCharType = CHAR_TYPE_MONSTER;
+			}
+		}
+		void ClearTestInventory()
+		{
+			if (!m_PlayerSlots)
+				return;
+			for (int i = 0; i < INVENTORY_AND_EQUIP_SLOT_MAX; ++i)
+			{
+				LPITEM item = m_PlayerSlots->pItems[i];
+				if (item)
+				{
+					item->SetSkipSave(true);
+					item->RemoveFromCharacter();
+					m_PlayerSlots->pItems[i] = nullptr;
+					ITEM_MANAGER::instance().RemoveFromDelayedSave(item);
+					M2_DESTROY_ITEM(item);
+				}
+			}
+			m_PlayerSlots->bItemGrid.fill(0);
+		}
+	};
 }
 
 int RunGameQuestRuntimeTests()
@@ -474,8 +535,141 @@ int RunGameQuestRuntimeTests()
 
 		test_ch->ClearAffect();
 		qm.SetCurrentCharacterPtr(nullptr);
+
+		// INT-01 Runtime Verification: WonExchange, Acce >2^53 SItemPosEx::id, AutoStackItemProto/AutoStackItem & CSafebox::ChangeSize
+		{
+			CTestItemShopCharacter intCh;
+			intCh.SetTestPlayerID(770901ULL);
+			intCh.EnableDirectInventory(true);
+
+			// 1. WonExchange runtime boundary & Yang-loss prevention (when ENABLE_CHEQUE_SYSTEM && ENABLE_WON_EXCHANGE_WINDOW enabled)
+#if defined(ENABLE_CHEQUE_SYSTEM) && defined(ENABLE_WON_EXCHANGE_WINDOW)
+			intCh.SetGold(GOLD_MAX - 500000000LL);
+			intCh.SetCheque(990);
+			RUNTIME_ASSERT(!intCh.WonExchange("sell", 10) && intCh.GetGold() == (GOLD_MAX - 500000000LL) && intCh.GetCheque() == 990,
+				"INT-01: WonExchange(sell) must reject GOLD_MAX overflow without deducting Won");
+
+			intCh.SetGold(5000000000LL);
+			intCh.SetCheque(990);
+			RUNTIME_ASSERT(!intCh.WonExchange("buy", 10) && intCh.GetGold() == 5000000000LL && intCh.GetCheque() == 990,
+				"INT-01: WonExchange(buy) must reject 990 + 10 == 1000 (CHEQUE_MAX) before ChangeGold deducts Yang");
+			RUNTIME_ASSERT(!intCh.WonExchange("buy", CHEQUE_MAX) && !intCh.WonExchange("buy", INT_MAX) && !intCh.WonExchange("buy", 0) &&
+				intCh.GetGold() == 5000000000LL && intCh.GetCheque() == 990,
+				"INT-01: WonExchange(buy) must reject >=CHEQUE_MAX, INT_MAX, and <=0 without Yang or Won mutation");
+			RUNTIME_ASSERT(intCh.WonExchange("buy", 9) && intCh.GetGold() == 4100000000LL && intCh.GetCheque() == 999,
+				"INT-01: WonExchange(buy) 990 + 9 == 999 (CHEQUE_MAX - 1) must succeed and update both Yang and Won");
+#endif
+
+			// Register stackable MAKECOUNT item (74021) and 2-slot item (74022)
+			TItemTable intProtos[2]{};
+			intProtos[0].dwVnum = 74021;
+			intProtos[0].bType = ITEM_USE;
+			intProtos[0].dwFlags = ITEM_FLAG_STACKABLE | ITEM_FLAG_MAKECOUNT;
+			intProtos[0].alValues[1] = 20;
+			intProtos[0].bSize = 1;
+			intProtos[0].dwMaxStack = 200;
+			intProtos[1].dwVnum = 74022;
+			intProtos[1].bType = ITEM_WEAPON;
+			intProtos[1].bSize = 2;
+			intProtos[1].dwMaxStack = 1;
+			ITEM_MANAGER::instance().SetMaxItemID({ 1, 1000000, 1 });
+			ITEM_MANAGER::instance().Initialize(intProtos, 2);
+
+			// 2. 64-bit >2^53 & cs_dwMaxItemID ITEM_ID creation, Lua item.select/get_id & Acce SItemPosEx::id round-trip
+			const uint64_t kAcceItemIdOver53 = 9007199254740993ULL;
+			const uint64_t kMaxRangeItemId = 9223372000000000000ULL; // CItemIDRangeManager::cs_dwMaxItemID
+			LPITEM acceItem = ITEM_MANAGER::instance().CreateItem(74022, 1, kAcceItemIdOver53, false);
+			LPITEM maxRangeItem = ITEM_MANAGER::instance().CreateItem(74021, 1, kMaxRangeItemId, false);
+			RUNTIME_ASSERT(acceItem != nullptr && acceItem->GetID() == kAcceItemIdOver53 &&
+				ITEM_MANAGER::instance().Find(kAcceItemIdOver53) == acceItem &&
+				maxRangeItem != nullptr && maxRangeItem->GetID() == kMaxRangeItemId &&
+				ITEM_MANAGER::instance().Find(kMaxRangeItemId) == maxRangeItem,
+				"INT-01: CreateItem & ITEM_MANAGER::Find must preserve >2^53 and cs_dwMaxItemID ITEM_IDs");
+			acceItem->SetSkipSave(true);
+			maxRangeItem->SetSkipSave(true);
+			RUNTIME_ASSERT(acceItem->AddToCharacter(&intCh, TItemPos(INVENTORY, 10)) &&
+				intCh.FindItemByID(kAcceItemIdOver53) == acceItem,
+				"INT-01: acceItem AddToCharacter & CHARACTER::FindItemByID must resolve >2^53 ITEM_ID");
+			qm.SetCurrentCharacterPtr(&intCh);
+			RUNTIME_ASSERT(lua_dostring(L,
+				"assert(item.select(9007199254740993) == true, 'item.select(>2^53) failed')\n"
+				"assert(item.get_id() > 0 and tostring(item.get_id()) == '9007199254740993', 'item.get_id(>2^53) mismatch')\n"
+				"assert(item.select(9223372000000000000) == true, 'item.select(cs_dwMaxItemID) failed')\n"
+				"assert(item.get_id() > 0 and tostring(item.get_id()) == '9223372000000000000', 'item.get_id(cs_dwMaxItemID) must stay positive and exact')\n"
+			) == 0, "INT-01: Lua 5.5.1 item.select & item.get_id must preserve >2^53 and cs_dwMaxItemID as positive lua_Integer");
+			qm.SetCurrentItem(nullptr);
+			qm.SetCurrentCharacterPtr(nullptr);
+			M2_DESTROY_ITEM(maxRangeItem);
+#ifdef ENABLE_ACCE_COSTUME_SYSTEM
+			intCh.SetAcceMaterial(0, acceItem);
+			RUNTIME_ASSERT(intCh.GetAcceMaterialsInfo() != nullptr &&
+				intCh.GetAcceMaterialsInfo()[0].id == kAcceItemIdOver53 &&
+				intCh.GetAcceMaterials()[0] == acceItem,
+				"INT-01: SetAcceMaterial/GetAcceMaterials must preserve >2^53 SItemPosEx::id without 32-bit truncation");
+			intCh.SetAcceMaterial(0, nullptr);
+#endif
+			intCh.ClearTestInventory();
+
+			// 3. AutoStackItemProto (ITEM_FLAG_MAKECOUNT) & AutoStackItem runtime anti-dupe & lock/exchange isolation
+			LPITEM stExch = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
+			LPITEM stLock = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
+			LPITEM stFree1 = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
+			LPITEM stFree2 = ITEM_MANAGER::instance().CreateItem(74021, 190, 0, false);
+			RUNTIME_ASSERT(stExch && stLock && stFree1 && stFree2, "INT-01: Partial stack items must be created");
+			stExch->SetSkipSave(true); stLock->SetSkipSave(true); stFree1->SetSkipSave(true); stFree2->SetSkipSave(true);
+			RUNTIME_ASSERT(stExch->AddToCharacter(&intCh, TItemPos(INVENTORY, 0)) &&
+				stLock->AddToCharacter(&intCh, TItemPos(INVENTORY, 1)) &&
+				stFree1->AddToCharacter(&intCh, TItemPos(INVENTORY, 2)) &&
+				stFree2->AddToCharacter(&intCh, TItemPos(INVENTORY, 3)),
+				"INT-01: Partial stacks must be placed in inventory slots 0..3");
+			stExch->SetExchanging(true);
+			stLock->Lock(true);
+
+			ITEM_COUNT makeCount = 1;
+			auto stackRes = intCh.AutoStackItemProto(74021, makeCount);
+			RUNTIME_ASSERT(stackRes.first && stackRes.second == stFree2 && makeCount == 0 &&
+				stExch->GetCount() == 190 && stLock->GetCount() == 190 &&
+				stFree1->GetCount() == 200 && stFree2->GetCount() == 200,
+				"INT-01: AutoStackItemProto must skip exchanging/locked stacks and normalize ITEM_FLAG_MAKECOUNT (20) once across partial stacks");
+
+			stFree1->SetCount(190);
+			LPITEM looseItem = ITEM_MANAGER::instance().CreateItem(74021, 25, 0, false);
+			RUNTIME_ASSERT(looseItem != nullptr, "INT-01: Loose stack item must be created");
+			looseItem->SetSkipSave(true);
+			LPITEM merged = intCh.AutoStackItem(looseItem);
+			RUNTIME_ASSERT(merged == nullptr &&
+				stExch->GetCount() == 190 && stLock->GetCount() == 190 &&
+				stFree1->GetCount() == 200 && looseItem->GetCount() == 15,
+				"INT-01: AutoStackItem must skip exchanging/locked stacks and preserve exact remainder (190+25 -> 200+15)");
+			stFree2->SetCount(180);
+			merged = intCh.AutoStackItem(looseItem);
+			RUNTIME_ASSERT(merged == stFree2 && stFree2->GetCount() == 195,
+				"INT-01: AutoStackItem must merge remaining 15 into stFree2 (180 -> 195) and destroy source item");
+			stExch->SetExchanging(false);
+			stLock->Lock(false);
+			intCh.ClearTestInventory();
+
+			// 4. CSafebox::ChangeSize runtime grid preservation
+			DESC dummySafeboxDesc;
+			intCh.BindDesc(&dummySafeboxDesc);
+			{
+				CSafebox testSafebox(&intCh, 1, 0);
+				LPITEM sbItem = ITEM_MANAGER::instance().CreateItem(74022, 1, 0, false);
+				RUNTIME_ASSERT(sbItem != nullptr, "INT-01: Safebox 2-slot item must be created");
+				sbItem->SetSkipSave(true);
+				RUNTIME_ASSERT(testSafebox.Add(0, sbItem), "INT-01: CSafebox::Add 2-slot item at cell 0 must succeed");
+				RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) && testSafebox.IsEmpty(1, 1),
+					"INT-01: 2-slot item at cell 0 must occupy grid cells 0 and 5");
+				testSafebox.ChangeSize(2);
+				RUNTIME_ASSERT(!testSafebox.IsEmpty(0, 1) && !testSafebox.IsEmpty(5, 1) &&
+					testSafebox.Get(0) == sbItem && testSafebox.IsEmpty(45, 1),
+					"INT-01: CSafebox::ChangeSize(2) must preserve occupied grid cells 0 and 5 when expanding from 1 to 2 pages");
+			}
+			intCh.BindDesc(nullptr);
+			intCh.EnableDirectInventory(false);
+		}
 	}
-	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair, CLoginData zero-init (G4.2) & 64-bit CAffect/Autopotion (G4.4/M-02) confirmed" << std::endl;
+	std::cout << "  --> pc, q, say, select, affect.add_hair/remove_hair, CLoginData (G4.2), 64-bit CAffect (G4.4/M-02) & INT-01 runtime checks confirmed" << std::endl;
 	checks_passed++;
 
 	// 5. select(...) Nil-Argument Preservation & m2_lua_getn
@@ -923,66 +1117,6 @@ int RunGameQuestRuntimeTests()
 	std::cout << " [SUCCESS] METIN2 QUEST RUNTIME: " << checks_passed << "/11 CHECKS PASSED!" << std::endl;
 	std::cout << "==================================================" << std::endl;
 	return 0;
-}
-
-namespace
-{
-	class CTestItemShopClientDesc : public CLIENT_DESC
-	{
-	public:
-		CTestItemShopClientDesc()
-		{
-			m_sock = static_cast<socket_t>(1);
-		}
-		virtual ~CTestItemShopClientDesc()
-		{
-			m_sock = INVALID_SOCKET;
-		}
-	};
-
-	class CTestItemShopCharacter : public CHARACTER
-	{
-	public:
-		CTestItemShopCharacter() : CHARACTER(false) {}
-		virtual ~CTestItemShopCharacter()
-		{
-			ClearTestInventory();
-		}
-		void SetTestPlayerID(uint64_t pid) { m_dwPlayerID = pid; }
-		void EnableDirectInventory(bool enable)
-		{
-			if (enable)
-			{
-				if (!m_PlayerSlots)
-					m_PlayerSlots = std::make_unique<PlayerSlotT>();
-				m_bCharType = CHAR_TYPE_PC;
-			}
-			else
-			{
-				ClearTestInventory();
-				m_PlayerSlots.reset();
-				m_bCharType = CHAR_TYPE_MONSTER;
-			}
-		}
-		void ClearTestInventory()
-		{
-			if (!m_PlayerSlots)
-				return;
-			for (int i = 0; i < INVENTORY_AND_EQUIP_SLOT_MAX; ++i)
-			{
-				LPITEM item = m_PlayerSlots->pItems[i];
-				if (item)
-				{
-					item->SetSkipSave(true);
-					item->RemoveFromCharacter();
-					m_PlayerSlots->pItems[i] = nullptr;
-					ITEM_MANAGER::instance().RemoveFromDelayedSave(item);
-					M2_DESTROY_ITEM(item);
-				}
-			}
-			m_PlayerSlots->bItemGrid.fill(0);
-		}
-	};
 }
 
 int RunGameItemShopLiveTests(int argc, char** argv)

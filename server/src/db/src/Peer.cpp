@@ -44,7 +44,8 @@ void CPeer::OnClose()
 	m_state = STATE_CLOSE;
 
 	sys_log(0, "Connection closed. (host: %s)", m_host);
-	sys_log(0, "ItemIDRange: returned. %u ~ %u", m_itemRange.dwMin, m_itemRange.dwMax);
+	sys_log(0, "ItemIDRange: returned. %llu ~ %llu",
+		static_cast<unsigned long long>(m_itemRange.dwMin), static_cast<unsigned long long>(m_itemRange.dwMax));
 
 	if (m_itemRange.dwMin != 0 && m_itemRange.dwMax != 0)
 		CItemIDRangeManager::instance().UpdateRange(m_itemRange.dwMin, m_itemRange.dwMax);
@@ -55,7 +56,8 @@ void CPeer::OnClose()
 
 	if (m_itemSpareRange.dwMin != 0 && m_itemSpareRange.dwMax != 0)
 	{
-		sys_log(0, "ItemIDRange: spare returned. %u ~ %u", m_itemSpareRange.dwMin, m_itemSpareRange.dwMax);
+		sys_log(0, "ItemIDRange: spare returned. %llu ~ %llu",
+			static_cast<unsigned long long>(m_itemSpareRange.dwMin), static_cast<unsigned long long>(m_itemSpareRange.dwMax));
 		CItemIDRangeManager::instance().UpdateRange(m_itemSpareRange.dwMin, m_itemSpareRange.dwMax);
 	}
 

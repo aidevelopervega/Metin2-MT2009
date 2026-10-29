@@ -3635,13 +3635,14 @@ void CHARACTER::PointChange(BYTE type, int64_t llAmount, bool bAmount, bool bBro
 		case POINT_CHEQUE:
 		{
 			const int64_t nTotalCheque = static_cast<int64_t>(GetCheque()) + static_cast<int64_t>(amount);
-			if (CHEQUE_MAX <= nTotalCheque)
+			if (nTotalCheque < 0 || CHEQUE_MAX <= nTotalCheque)
 			{
-				sys_err("[OVERFLOW_CHEQUE] OriCheque %d AddedCheque %d id %u Name %s ", GetCheque(), amount, GetPlayerID(), GetName());
-				LogManager::instance().CharLog(this, GetCheque() + amount, "OVERFLOW_CHEQUE", "");
+				sys_err("[OVERFLOW_CHEQUE] OriCheque %d AddedCheque %d id %llu Name %s ",
+					GetCheque(), amount, static_cast<unsigned long long>(GetPlayerID()), GetName());
+				LogManager::instance().CharLog(this, nTotalCheque, "OVERFLOW_CHEQUE", "");
 				return;
 			}
-			SetCheque(GetCheque() + amount);
+			SetCheque(static_cast<int>(nTotalCheque));
 			val = GetCheque();
 		}
 		break;
@@ -6037,7 +6038,7 @@ void CHARACTER::LoadSafebox(int iSize, YANG dwGold, int iItemCount, TPlayerItem 
 
 			if (!item)
 			{
-				sys_err("cannot create item vnum %d id %u (name: %s)", pItems->vnum, pItems->id, GetName());
+				sys_err("cannot create item vnum %d id %llu (name: %s)", pItems->vnum, static_cast<unsigned long long>(pItems->id), GetName());
 				continue;
 			}
 
@@ -6145,7 +6146,7 @@ void CHARACTER::LoadMall(int iItemCount, TPlayerItem * pItems)
 
 			if (!item)
 			{
-				sys_err("cannot create item vnum %d id %u (name: %s)", pItems->vnum, pItems->id, GetName());
+				sys_err("cannot create item vnum %d id %llu (name: %s)", pItems->vnum, static_cast<unsigned long long>(pItems->id), GetName());
 				continue;
 			}
 
@@ -8106,7 +8107,7 @@ bool CHARACTER::WonExchange(const std::string & option, int value)
 		return false;
 	}
 
-	if (value <= 0 || value > CHEQUE_MAX)
+	if (value <= 0 || value >= CHEQUE_MAX)
 	{
 		ChatPacket(CHAT_TYPE_INFO, LC_TEXT("Invalid won exchange value parameter %d."), value);
 		return false;
@@ -8120,7 +8121,7 @@ bool CHARACTER::WonExchange(const std::string & option, int value)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You don't have enough won for the exchange. Required %d, owned %d."), value, GetCheque());
 			return false;
 		}
-		if (GetGold() + totalYang >= GOLD_MAX)
+		if (GetGold() < 0 || totalYang >= GOLD_MAX - GetGold())
 		{
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have too many yangs for the exchange. Reduce your yangs first."));
 			return false;
@@ -8138,7 +8139,8 @@ bool CHARACTER::WonExchange(const std::string & option, int value)
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You don't have enough yangs for the exchange. Required %s, owned %d."), FormatNumberWithDots(totalYang).c_str(), (int)MIN(GetGold(), (YANG)INT_MAX));
 			return false;
 		}
-		if (GetCheque() + value > CHEQUE_MAX)
+		const int64_t nTotalCheque = static_cast<int64_t>(GetCheque()) + static_cast<int64_t>(value);
+		if (GetCheque() < 0 || nTotalCheque >= CHEQUE_MAX)
 		{
 			ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have too many won for the exchange. Reduce your won first."));
 			return false;

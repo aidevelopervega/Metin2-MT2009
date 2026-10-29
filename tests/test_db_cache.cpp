@@ -622,27 +622,50 @@ int main()
         TEST_ASSERT(rem == 0U && stacks[0] == 200U && stacks[1] == 200U && stacks[2] == 100U,
             "Senaryo M [INT-01b]: AutoStackItemProto normalizes ITEM_FLAG_MAKECOUNT once before loop without multiplying across partial stacks");
 
-        // 3. WonExchange signed 32-bit int overflow guard (value <= 0 || value > CHEQUE_MAX)
+        // 3. WonExchange signed 64-bit cheque addition & exclusive CHEQUE_MAX (1000) boundary guard
         constexpr int kChequeMax = 1000;
         auto isValidWonExchangeBuy = [kChequeMax](int currentCheque, int value) -> bool {
-            if (value <= 0 || value > kChequeMax)
+            if (value <= 0 || value >= kChequeMax)
                 return false;
-            if (currentCheque + value > kChequeMax)
+            const int64_t nTotalCheque = static_cast<int64_t>(currentCheque) + static_cast<int64_t>(value);
+            if (currentCheque < 0 || nTotalCheque >= kChequeMax)
                 return false;
             return true;
         };
         TEST_ASSERT(isValidWonExchangeBuy(100, 50) &&
-                    !isValidWonExchangeBuy(100, 901) &&
+                    isValidWonExchangeBuy(990, 9) &&
+                    !isValidWonExchangeBuy(990, 10) &&
+                    !isValidWonExchangeBuy(0, kChequeMax) &&
                     !isValidWonExchangeBuy(100, INT32_MAX) &&
+                    !isValidWonExchangeBuy(-1, 10) &&
                     !isValidWonExchangeBuy(0, -1),
-            "Senaryo M [INT-01c]: WonExchange blocks >CHEQUE_MAX and INT32_MAX values before currentCheque + value can overflow");
+            "Senaryo M [INT-01c]: WonExchange enforces 0 < value < CHEQUE_MAX and currentCheque + value < CHEQUE_MAX without Yang loss or overflow");
 
-        // 4. CItemIDRangeManager::cs_dwMaxItemID <= INT64_MAX so Lua 5.5.1 signed 64-bit lua_Integer stays positive
+        // 4. CItemIDRangeManager::cs_dwMaxItemID <= INT64_MAX, interval overlap & high legacy ID filter
         constexpr uint64_t kMaxItemID = 9223372000000000000ULL;
+        constexpr uint64_t kMinRange = 10000000ULL;
+        auto rangesOverlap = [](uint64_t aMin, uint64_t aMax, uint64_t bMin, uint64_t bMax) -> bool {
+            return aMin > 0 && aMax > 0 && aMin <= bMax && aMax >= bMin;
+        };
+        // Even if a legacy/test SQL record has id >= 2^63, filtering WHERE id <= cs_dwMaxItemID selects 5,000,000,001ULL
+        const uint64_t sqlIds[] = { 5000000001ULL, 9223372036854775808ULL };
+        uint64_t filteredMaxId = 0;
+        for (uint64_t id : sqlIds)
+        {
+            if (id <= kMaxItemID && id > filteredMaxId)
+                filteredMaxId = id;
+        }
+        const uint64_t nextChunkMin = kMinRange * (filteredMaxId / kMinRange) + 1;
+        const uint64_t nextChunkMax = kMinRange * ((filteredMaxId / kMinRange) + 1);
         TEST_ASSERT(kMaxItemID > (1ULL << 53) &&
                     kMaxItemID <= static_cast<uint64_t>(INT64_MAX) &&
-                    static_cast<int64_t>(kMaxItemID) > 0,
-            "Senaryo M [INT-01d]: cs_dwMaxItemID is >2^53 and <= INT64_MAX so lua_Integer comparisons and %d SQL formatting stay positive");
+                    (kMaxItemID % kMinRange) == 0ULL &&
+                    static_cast<int64_t>(kMaxItemID) > 0 &&
+                    filteredMaxId == 5000000001ULL &&
+                    nextChunkMin == 5000000001ULL && nextChunkMax == 5010000000ULL &&
+                    rangesOverlap(5005000000ULL, 5015000000ULL, nextChunkMin, nextChunkMax) &&
+                    !rangesOverlap(5010000001ULL, 5020000000ULL, nextChunkMin, nextChunkMax),
+            "Senaryo M [INT-01d]: cs_dwMaxItemID <= INT64_MAX filters out >INT64_MAX legacy IDs and detects partial range overlaps");
     }
 
     std::cout << "\n==================================================" << std::endl;
