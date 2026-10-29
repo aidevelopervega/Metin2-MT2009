@@ -627,7 +627,7 @@ DROP TABLE IF EXISTS quest_reward_proto;
 CREATE TABLE quest_reward_proto (
   quest_name VARCHAR(64) NOT NULL DEFAULT '',
   exp INT UNSIGNED NOT NULL DEFAULT 0,
-  gold INT UNSIGNED NOT NULL DEFAULT 0,
+  gold BIGINT NOT NULL DEFAULT 0,
   alignment INT NOT NULL DEFAULT 0,
   items VARCHAR(255) NOT NULL DEFAULT '',
   warrior_items VARCHAR(255) NOT NULL DEFAULT '',
@@ -651,7 +651,7 @@ CREATE TABLE shop_special_proto (
   count INT UNSIGNED NOT NULL DEFAULT 1,
   rare_pct TINYINT UNSIGNED NOT NULL DEFAULT 0,
   price_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  price INT UNSIGNED NOT NULL DEFAULT 0,
+  price BIGINT NOT NULL DEFAULT 0,
   items VARCHAR(255) NOT NULL DEFAULT '',
   random_item_count INT UNSIGNED NOT NULL DEFAULT 0,
   random_item_group INT UNSIGNED NOT NULL DEFAULT 0,
@@ -680,9 +680,9 @@ HASH_PLAYER_LIFE_SEC = 600
 BACKUP_LIMIT_SEC = 3600
 PLAYER_CACHE_FLUSH_SECONDS = 1
 ITEM_CACHE_FLUSH_SECONDS = 1
-PLAYER_ID_START = 100
+PLAYER_ID_START = 5000000001
 PLAYER_DELETE_LEVEL_LIMIT = 70
-ITEM_ID_RANGE = 10000000 20000000
+ITEM_ID_RANGE = 5000000001 5100000000
 DISABLE_HOTBACKUP = 1
 PROTO_FROM_DB = 1
 MIRROR2DB = 0
@@ -980,7 +980,9 @@ DELETE FROM affect;
 DELETE FROM player_special_flag;
 DELETE FROM player_index;
 DELETE FROM `player`;
-ALTER TABLE `player` AUTO_INCREMENT = 1;
+UPDATE account SET id = 5000000001 WHERE login = 'smk_hero64';
+ALTER TABLE `player` AUTO_INCREMENT = 5000000001;
+ALTER TABLE `item` AUTO_INCREMENT = 5000000001;
 EOF_RESET
 
     start_db_auth_and_game_cluster "$STAGE_TAG" "$LABEL" "$GAME_BIN" "$HOSTNAME_TAG" "$AUTH_PORT" "$AUTH_P2P_PORT" "$GAME_PORT" "$GAME_P2P_PORT"
@@ -1022,6 +1024,14 @@ EOF_RESET
     fi
     sleep 0.4 2>/dev/null || sleep 1
 
+    # 1b. Protocol Framing Audit (G4.5: 10/10 checks on legacy 52B/130B, wrong version, TCP fragmentation, coalesced packets & partial timeout)
+    if ! "$BUILD_DIR/test_server_smoke_client" --protocol-framing-audit "$AUTH_PORT" "$GAME_PORT" "@ENV" "@ENV" "$SMOKE_HWID_HEX"; then
+        echo "HATA: $STAGE_TAG $LABEL --protocol-framing-audit (10/10) başarısız oldu!" >&2
+        dump_stage_logs
+        exit 1
+    fi
+    sleep 0.4 2>/dev/null || sleep 1
+
     # 2. First Login: Authenticate Argon2id account via AUTH_SERVER -> LoginByKey -> PHASE_SELECT (0 chars) -> Empire 1 + CharacterCreate('SmokeHero') -> PHASE_GAME + Quest/NPC Coroutine
     KEY_FILE="$AUTH_WORK/login_key.txt"
     rm -f "$KEY_FILE"
@@ -1057,25 +1067,25 @@ EOF_RESET
         exit 1
     fi
 
-    # 3. Verify that the newly created character (SmokeHero), player_index, starter item (vnum=19), and quest state flags were persisted to SQL
+    # 3. Verify that the newly created character (SmokeHero, pid=5000000001 > 2^32), player_index, starter item (vnum=19), and quest state flags were persisted to SQL
     CREATED_PID="0"
     for _ in $(seq 1 10); do
         CREATED_PID=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT id FROM \`player\` WHERE name='SmokeHero' LIMIT 1;")
         QUEST_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM quest WHERE szName='smoke_world' AND ((szState='login_verified' AND lValue=1) OR (szState='npc_flow_done' AND lValue=1) OR (szState='login_count' AND lValue=1));")
-        ITEM_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM item WHERE vnum=19;")
-        if [ -n "$CREATED_PID" ] && [ "$CREATED_PID" != "0" ] && [ "$QUEST_SAVED_COUNT" = "3" ] && [ "$ITEM_SAVED_COUNT" = "1" ]; then
+        ITEM_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM item WHERE vnum=19 AND id >= 5000000001 AND owner_id = 5000000001;")
+        if [ "$CREATED_PID" = "5000000001" ] && [ "$QUEST_SAVED_COUNT" = "3" ] && [ "$ITEM_SAVED_COUNT" = "1" ]; then
             break
         fi
         sleep 1
     done
 
-    INDEX_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM player_index WHERE pid1=${CREATED_PID:-0} AND empire=1;")
-    if [ -z "$CREATED_PID" ] || [ "$CREATED_PID" = "0" ] || [ "$INDEX_MATCH" != "1" ] || [ "$QUEST_SAVED_COUNT" != "3" ] || [ "$ITEM_SAVED_COUNT" != "1" ]; then
-        echo "HATA: $STAGE_TAG $LABEL yeni oluşturulan karakter/envanter/quest veritabanına tam kaydedilmedi (pid=$CREATED_PID, index_match=$INDEX_MATCH, item19=$ITEM_SAVED_COUNT, quest_flags=$QUEST_SAVED_COUNT)!" >&2
+    INDEX_MATCH=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM player_index WHERE id=5000000001 AND pid1=${CREATED_PID:-0} AND empire=1;")
+    if [ "$CREATED_PID" != "5000000001" ] || [ "$INDEX_MATCH" != "1" ] || [ "$QUEST_SAVED_COUNT" != "3" ] || [ "$ITEM_SAVED_COUNT" != "1" ]; then
+        echo "HATA: $STAGE_TAG $LABEL yeni oluşturulan >2^32 karakter/envanter/quest veritabanına tam kaydedilmedi (pid=$CREATED_PID, index_match=$INDEX_MATCH, item19=$ITEM_SAVED_COUNT, quest_flags=$QUEST_SAVED_COUNT)!" >&2
         dump_stage_logs
         exit 1
     fi
-    echo "  [PASS] $STAGE_TAG $LABEL yeni karakter (SmokeHero, pid=$CREATED_PID, empire=1), envanter (vnum=19) ve quest bayrakları (login_count=1, login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
+    echo "  [PASS] $STAGE_TAG $LABEL yeni >2^32 karakter (SmokeHero, aid=5000000001, pid=$CREATED_PID, empire=1), >2^32 envanter (vnum=19) ve quest bayrakları (login_count=1, login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
 
     # 4. Restart db_r41023 + AUTH_SERVER + GAME_SERVER and log in a SECOND time with the SAME Argon2id account and persisted character
     echo "  [INFO] $STAGE_TAG $LABEL sunucu kümesi (db_r41023 + AUTH_SERVER + GAME_SERVER) yeniden başlatılıyor..."

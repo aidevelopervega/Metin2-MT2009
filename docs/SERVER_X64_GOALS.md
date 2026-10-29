@@ -187,9 +187,12 @@ Devir sırasında `D:\mt22009\scratch\handoff\session_scripts_original\` altınd
    - `ClientManager.cpp:771` (`pTable->llValue`) ve `Monarch.cpp:145, 164` (`Money64`) içinde `int64_t` (`LP64` üzerinde `long int`) değişkenlerin `snprintf(..., "%lld", ...)` çağrısına doğrudan geçilmesi nedeniyle FreeBSD GCC 14 üzerinde oluşan `-Wformat=` uyarıları `static_cast<long long>(...)` ile giderildi.
 3. **FreeBSD `run_freebsd_serverfiles_test.sh` `125` vs `126` InnoDB Tablo Sayısı Uyuşmazlığı (`tests/run_freebsd_serverfiles_test.sh:617, 635-642, 808`):**
    - `G3.1` kapsamında `sql/account.sql` şemasına `itemshop_tx_journal` tablosu eklendiğinden 5 şemadaki toplam temel InnoDB tablo sayısı `125`'ten `126`'ya (`account=10, common=10, log=39, player=40, world=27`) çıkmıştı. `tests/run_freebsd_serverfiles_test.sh` içindeki `[Bonus 4.E]` kontrolü `126/126` olarak güncellendi.
-4. **FreeBSD `run_server_smoke_test.sh` Satır İçi Şema 64-Bit Hizalaması (`tests/run_server_smoke_test.sh:563, 570, 576`):**
-   - `tests/run_server_smoke_test.sh` içindeki satır içi `name_reservation.account_id`, `land.id` ve `land.guild_id` sütunları `sql/player.sql` ile birebir uyumlu olacak şekilde `BIGINT UNSIGNED` yapıldı.
-5. **Kalan 2 Adet `64 -> 32-Bit` Daraltma Uyarısının Temizlenmesi (`server/src/game/src/ikarus_shop.h:248`, `server/src/game/src/char.cpp:157`):**
+4. **FreeBSD `run_server_smoke_test.sh` Satır İçi Şema 64-Bit Hizalaması, `> 2^32` Kimlik ve `--protocol-framing-audit` (`tests/run_server_smoke_test.sh`):**
+   - `tests/run_server_smoke_test.sh` içindeki satır içi `name_reservation.account_id`, `land.id` ve `land.guild_id` sütunları `BIGINT UNSIGNED`, `quest_reward_proto.gold` ve `shop_special_proto.price` sütunları `BIGINT` yapılarak `sql/player.sql` ve `sql/world.sql` ile birebir hizalandı.
+   - `PLAYER_ID_START = 5000000001`, `ITEM_ID_RANGE = 5000000001 5100000000`, `account.id = 5000000001`, `player AUTO_INCREMENT = 5000000001`, `item AUTO_INCREMENT = 5000000001` ve `test_server_smoke_client --protocol-framing-audit` (`10/10 PASS`) kontrolü `run_server_smoke_test.sh` `[4/4]` akışına eklendi.
+5. **FreeBSD `run_live_tests.sh` (`--test-itemshop`) ve `run_freebsd_serverfiles_test.sh` (`test_db_cache_integration` Canlı `187/187`) Entegrasyonu:**
+   - `tests/run_live_tests.sh` içine `game_r41023 --test-itemshop` (`15/15 PASS`) ve `tests/run_freebsd_serverfiles_test.sh` `[Bonus 4.0]` içine canlı `test_db_cache_integration` (`187/187 PASS`, `Senaryo 11D` dahil) adımları eklendi.
+6. **Kalan 2 Adet `64 -> 32-Bit` Daraltma Uyarısının Temizlenmesi (`server/src/game/src/ikarus_shop.h:248`, `server/src/game/src/char.cpp:157`):**
    - `ikarus_shop.h:248` içinde `m_LastEditTime` (`time_t`) değerini 32-bit `DWORD`'a daraltan `DWORD GetLastEditTime()` fonksiyonu `time_t GetLastEditTime() const` olarak düzeltildi; `char.cpp:157` içinde `DynamicCharacterPtr::Get()` NPC dalındaki `VID` çağrısına açık `static_cast<DWORD>(id)` eklendi (`scan_compiler_warnings.py --modified-only`: `64-bit domain narrowing = 0`, `High-risk warnings = 0`).
 
 

@@ -306,6 +306,19 @@ if grep -rnF "$PASS" "$ARTIFACT_DIR" >/dev/null 2>&1 || grep -rnF "$RUNTIME_ADMI
 fi
 echo "  -> Verified 0 secret leaks in collected logs and artifacts"
 
+DB_CACHE_TEST_BIN="$BUILD_DIR/test_db_cache_integration"
+if [ ! -x "$DB_CACHE_TEST_BIN" ] && [ -x "$ROOT_DIR/build/freebsd-gcc14/tests/test_db_cache_integration" ]; then
+    DB_CACHE_TEST_BIN="$ROOT_DIR/build/freebsd-gcc14/tests/test_db_cache_integration"
+fi
+if [ -x "$DB_CACHE_TEST_BIN" ]; then
+    echo "=== [Bonus 4.0] Running Live MariaDB 12.3 LTS DB Cache Integration (187/187 checks incl. live Senaryo 11D) ==="
+    MT2_DB_HOST="$HOST" \
+    MT2_DB_PORT="$PORT" \
+    MT2_DB_USER="${MT2_TEST_USER:-$USER}" \
+    MT2_DB_PASS="${MT2_TEST_PASSWORD:-$PASS}" \
+    "$DB_CACHE_TEST_BIN"
+fi
+
 if [ -n "${MT2_BACKUP_DB_USER:-}" ] && [ -n "${MT2_BACKUP_DB_PASS:-}" ]; then
     echo "=== [Bonus 4.A] Verifying FreeBSD MariaDB Socket Isolation (sockstat 127.0.0.1:$PORT, 0 external 3306) ==="
     if command -v sockstat >/dev/null 2>&1; then

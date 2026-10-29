@@ -78,6 +78,14 @@ $CXX $FLAGS $RPATH \
     $LIB_EXTRA -lpthread \
     -o "$BUILD_DIR/test_live_db"
 
+GAME_BIN="${MT2_SMOKE_GAME55_BIN:-$ROOT_DIR/server/src/game/game_r41023}"
+if [ -x "$GAME_BIN" ]; then
+    echo "=================================================="
+    echo " METIN2 MT2009 - LIVE ITEMSHOP CRASH & ANTI-DUPE SUITE ($ENGINE)"
+    echo "=================================================="
+    "$GAME_BIN" --test-itemshop
+fi
+
 echo "Çalıştırılıyor: $BUILD_DIR/test_live_db..."
 export RUN_LIVE_DB_TESTS=1
 "$BUILD_DIR/test_live_db" \
