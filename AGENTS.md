@@ -34,10 +34,11 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Yeni bir göreve başlamadan önce `git status` ve `PROJECT_STATE.md` dosyasının içeriği mutlaka kontrol edilmelidir.
 4. **Dal (Branch) Yönetimi ve Yerel Güvenlik Koruması:**
    * `main` dalı doğrudan değiştirilmeyecektir. Yeni geliştirmeler, modernizasyonlar ve CMake geçişi ayrı özellik dallarında (`feature/...` veya `dev/...`) yürütülecektir.
-   * Depo genelinde `.githooks/` (`pre-commit`, `pre-push`) yapılandırması (`core.hooksPath = .githooks`) aktiftir. Yerel ortamda `main` dalına doğrudan commit atılması veya `main` dalına doğrudan/force push yapılması engellenmiştir.
+   * Depo genelinde `.githooks/` (`pre-commit`, `pre-push`) kancaları aktiftir; `.githooks/install.ps1` / `.githooks/install.sh` ile kalıcı `.git/hooks` dizinine kurulur ve `core.hooksPath = D:/mt22009/.git/hooks` olarak yapılandırılmıştır. Yerel ortamda `main` dalına doğrudan commit atılması veya `main` dalına doğrudan/force push yapılması engellenmiştir.
 5. **Belge Kirliliğini Önleme:**
-   * Projede yönetim ve hafıza amacıyla yalnızca `AGENTS.md` ve `PROJECT_STATE.md` kullanılacaktır.
+   * Projede yönetim ve hafıza amacıyla yalnızca `AGENTS.md` (kurallar) ve `PROJECT_STATE.md` (durum) kullanılacaktır.
    * Yeni MD, TXT, günlük (log), rapor veya tarihçe dosyaları oluşturulması yasaktır.
+   * **Kullanıcının açıkça talep ettiği kapalı istisna listesi:** `docs/SERVER_X64_GOALS.md`, `docs/CLIENT_X64_PROTOCOL_MIGRATION.md`, `docs/ANTIGRAVITY_ACCOUNT_HANDOFF.md`, `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md` ve tarihsel `docs/migration/*`. Bu belgeler kural kaynağı değildir; `AGENTS.md` ile çelişirse `AGENTS.md` geçerlidir. Listeye yeni belge yalnızca kullanıcının açık talebiyle eklenebilir.
 6. **Güvenlik, Gizlilik ve Arşiv Yönetimi:**
    * Şifreler, veritabanı bağlantı parolaları, tokenlar ve özel anahtarlar kesinlikle Git takibine alınamaz ve GitHub'a yüklenemez.
    * Eski `mt2009 - FULL SOURCE/new_ftp.tar.gz` arşivi içindeki tüm oyun verilerinin (`share/data`, `share/locale/poland`, `share/package` — toplam `14,341` dosya) eksiksiz olarak temiz ve parolasız `server/serverfiles_share.tar.xz` arşivine aktarıldığı SHA256 düzeyinde doğrulandıktan sonra, kullanıcı kararıyla `mt2009 - FULL SOURCE/new_ftp.tar.gz` çalışma ağacından kalıcı olarak kaldırılmıştır; taşınabilir kurulumlar için tek resmî kaynak arşiv `server/serverfiles_share.tar.xz` dosyasıdır.
@@ -62,7 +63,7 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 5. **Dürüst Doğrulama ve Belge Disiplini:**
    * Hiçbir sorun gerçekte test edilmeden "çözüldü" olarak işaretlenemez.
    * Bir aşamada çözülemeyen bir engel varsa sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kullanıcıya raporlanacaktır.
-   * `AGENTS.md` ve `PROJECT_STATE.md` dışında hiçbir yeni Markdown belgesi oluşturulmayacaktır.
+   * `AGENTS.md` ve `PROJECT_STATE.md` dışında, §2.5'teki kapalı istisna listesi haricinde hiçbir yeni Markdown belgesi oluşturulmayacaktır.
 
 ---
 
@@ -135,7 +136,7 @@ GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güv
 
 ## 6. KALICI GİT, GİTHUB VE CI ÇALIŞMA STANDARDI
 
-**Proje:** `D:\mt22009` | **Geliştirme Dalı:** `dev/windows-gcc-baseline` | **Uzak Depo:** `x64bit-source/Metin2-MT2009`
+**Proje:** `D:\mt22009` | **Geliştirme Dalı:** `dev/windows-gcc-baseline` | **Uzak Depo:** `aidevelopervega/Metin2-MT2009` (PUBLIC; `gh` oturum hesabı: `x64bit-source`, depoda `ADMIN` yetkili)
 
 Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının tek merkezden, güvenilir ve kanıta dayalı olarak yürütülmesini belirler. Antigravity, tüm işlemleri kendi terminalinden yürütecek; kullanıcıdan normal geliştirme sürecinde manuel PowerShell veya Git yönlendirmesi talep edilmeyecektir.
 
@@ -292,3 +293,17 @@ Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E
    * `CTest`, MariaDB entegrasyon testleri, Lua ve Quest testleri, Packet Wire testleri, Python analiz/kaynak taramaları, Git işlemleri ve diğer tüm geliştirme/sistem işlemlerine **CPU hard-cap, affinity daraltması, `BelowNormal` öncelik veya yapay paralellik sınırı uygulanmaz**.
    * Bu işlemler Windows'un standart CPU zamanlayıcısı (`CPU_RATE_CONTROL_HARD_CAP = INACTIVE`), varsayılan işlem önceliği (`Normal`, `0x20`) ve tüm kullanılabilir mantıksal işlemcilerle (`0xFFF`, 12/12 LP) çalışır.
    * Kullanıcının diğer uygulamalarına veya sistem geneli kalıcı CPU/affinity/priority ayarlarına kesinlikle dokunulmaz.
+
+---
+
+## 13. ANTIGRAVITY HESAP VE OTURUM BAĞIMSIZLIĞI
+
+1. **Hesaptan Bağımsız Hafıza:**
+   * Proje bilgisi yalnızca depodaki belgelerde tutulur. Antigravity sohbet geçmişi, `brain/`, `conversations/` veya oturum `scratch` klasörleri hesaba bağlıdır ve proje hafızası sayılmaz.
+2. **Oturum Yolu Yasağı:**
+   * `C:\Users\...\.gemini\antigravity\brain\<conversation-id>\scratch` gibi oturuma özel yollar kalıcı test prosedürü olarak kullanılamaz. Tekrar çalıştırılması gereken test betikleri sırsız ve parametreli olarak `tests/` altında Git'e alınır.
+   * Git'e konamayan yerel ikili test bağımlılıkları (ör. taşınabilir MariaDB 12.3.3) Git dışında `D:\mt22009\scratch\handoff\` altında tutulur; bu klasör silinmez ve içeriği commit edilmez.
+3. **Hesap Değişiminde İlk İş:**
+   * Yeni bir Antigravity hesabı veya yeni bir oturum, geliştirmeye başlamadan önce `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md` içindeki salt-okunur denetimleri yapar. Önceki hesabın test sonuçları yeni hesapta yeniden çalıştırılmadıkça doğrulanmış sayılmaz.
+4. **Sır ve Oturum Verisi:**
+   * Google oturumu, cookie, OAuth, API anahtarı, GitHub tokenı, SSH özel anahtarı ve veritabanı parolaları okunmaz, belgeye yazılmaz, Git'e eklenmez ve hesaplar arasında kopyalanmaz. Depo PUBLIC olduğundan her commit öncesinde sır denetimi zorunludur.
