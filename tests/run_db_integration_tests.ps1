@@ -2,7 +2,18 @@
 # Metin2 MT2009 - Gerçek DB Cache / ACK Entegrasyon Test Çalıştırıcısı (Windows)
 # ==============================================================================
 
+param (
+    [switch]$AutoProvision,
+    [int]$Port = 3307
+)
+
 $ErrorActionPreference = "Stop"
+
+if ($AutoProvision) {
+    $isoPort = if ($Port -eq 3306) { 3307 } else { $Port }
+    & (Join-Path $PSScriptRoot "run_kademe_c_live.ps1") -Port $isoPort -SkipProtocolSmoke
+    exit $LASTEXITCODE
+}
 
 try {
     $RootDir = (Resolve-Path "$PSScriptRoot\..").Path

@@ -1616,17 +1616,18 @@ Projenin modernizasyonunda takip edilecek değişmez operasyonel sıra:
   - Kritik bulgu: Kademe C betikleri ve MariaDB 12.3.3 taşınabilir ikilisi yalnızca eski oturumun `scratch` klasöründeydi; silinmeden Git dışı `D:\mt22009\scratch\handoff\` altına kopyalandı.
   - Düzeltilen belge hataları: uzak depo / görünürlük (`aidevelopervega`, **PUBLIC**), CI `40182578376` gerçek sonucu (**FAILURE**), `AGENTS.md` içindeki `hooksPath`, uzak depo adı ve yeni belge yasağıyla kullanıcı talebinin çelişmesi (kapalı istisna listesi), yeni `AGENTS.md` §13 (hesap/oturum bağımsızlığı).
   - Oluşturulan belgeler: `docs/ANTIGRAVITY_ACCOUNT_HANDOFF.md`, `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md`.
-* **Açık Hedefler (ayrıntı: `docs/ANTIGRAVITY_ACCOUNT_HANDOFF.md` §9):**
-  - `H-1` Kademe C betiklerini sırsız/parametreli `tests/` betiğine dönüştürüp Windows'ta çalıştırarak doğrulamak — **OPEN**
-  - `H-2` FreeBSD CI `40182578376` `[4.A]` kalıcılık adımı hatasının kök nedeni — **OPEN / FAILURE**
-  - `H-3` `374a3f41`…`9a3956c2` x64 değişikliklerinin FreeBSD 15.1 GCC 14 doğrulaması — **UNVERIFIED**
-  - `H-4` Kalan 64→32-bit kimlik daraltmaları (`char.cpp:7125, 7791, 9652`, `char_item.cpp:3889, 3932`, `priv_manager.cpp:121`) — **OPEN**
-  - `H-5` Lua `lua_Integer` `>= 2^63` sınırı — **BİLİNEN SINIR / test edilmedi**
-  - `H-6` Genişletilmiş uyarı seti (`-Wconversion` vb.) için depoda tekrarlanabilir sıfır kanıtı — **OPEN**
-  - `H-7` `G1.4`, `G2.3`, `G4.2`, `G4.4` için özel test eksikliği — **WEAK EVIDENCE**
-  - `H-8` İstemci x64 protokol uyarlaması — **BLOCKED (istemci ambargosu)**
-  - `H-9` `actionlint` PATH'te yok — **OPEN**
+* **Açık Hedefler (ayrıntı: `docs/SERVER_X64_GOALS.md` §4 & §5):**
+  - `H-1` (`M-01`) Kademe C betiklerini sırsız/parametreli `tests/` betiğine (`tests/run_kademe_c_live.ps1`, `tests/scan_compiler_warnings.py`, `-AutoProvision`) dönüştürmek, `serverfiles.env` eski UUID yolunu onarmak ve `CAsyncSQL` dayanıklı spool (`test_live_db.cpp:1125` Senaryo 4) yarış koşulunu `m_bDurableQueryInFlight` + `WaitForDurableQueueIdle` ile kök nedeninden çözüp ardışık `20/20` (`toplam 40/40`) `354/354 PASS` ve 6 aşamalı `run_kademe_c_live.ps1 -IncludeSecurityAndBackup` ile doğrulamak — **VERIFIED**
+  - `H-2` (`M-10`) FreeBSD CI `40182578376` `[4.A]` kalıcılık adımı hatasının kök nedeni (`run_freebsd_serverfiles_test.sh` içinde `0|OFF` yerelde düzeltildi; FreeBSD CI kullanıcı izni olmadan çalıştırılmadı) — **UNVERIFIED (FreeBSD CI)**
+  - `H-3` (`M-10`) `374a3f41`… sonrası x64 değişikliklerinin FreeBSD 15.1 GCC 14 doğrulaması — **UNVERIFIED**
+  - `H-4` (`M-02`) Kalan 64→32-bit kimlik daraltmaları (`char.cpp:7125, 7791, 9652`, `char_item.cpp:3889, 3932`, `priv_manager.cpp:121`) — **IN_PROGRESS**
+  - `H-5` (`M-06`) Lua `lua_Integer` `>= 2^63` sınırı — **OPEN**
+  - `H-6` (`M-09`) Genişletilmiş uyarı seti (`-Wconversion` vb.) için depoda tekrarlanabilir sıfır kanıtı (`tests/scan_compiler_warnings.py` eklendi) — **IN_PROGRESS**
+  - `H-7` (`M-07`) `G1.4`, `G2.3`, `G4.2`, `G4.4` için özel davranışsal regresyon testleri — **OPEN**
+  - `H-8` (`M-11`) İstemci x64 protokol uyarlaması — **DEFERRED / BLOCKED (istemci ambargosu)**
+  - `H-9` (`M-12`) `actionlint` / YAML doğrulaması — **OPEN**
 * **Sıradaki Güvenli Adım:**
-   1. Yeni Antigravity hesabı `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md` Bölüm 1–5'i salt-okunur uygular, ardından Bölüm 6.1–6.4'ü kendi kanıtıyla yeniden üretir.
-   2. İlk geliştirme işi `H-1`, ardından `H-2` (CI yeniden çalıştırma yalnızca kök neden yerelde düzeltildikten ve kullanıcı izin verdikten sonra).
+   1. `P1` (`M-02` / `H-4`): Kalan 6 adet 64→32-bit kimlik daraltma noktasının (`char.cpp:7125, 7791, 9652`, `char_item.cpp:3889, 3932`, `priv_manager.cpp:121`) ve uçtan uca 64-bit kimlik zincirlerinin düzeltilip regresyon testleriyle doğrulanması.
+   2. `P1` (`M-04`, `M-05`, `M-06`) ve `P2` (`M-07`, `M-08`, `M-09`) hedeflerinin sırasıyla tamamlanıp doğrulanması.
    3. İstemci x64 uyarlaması ve FreeBSD CI yalnızca kullanıcının açık talimatıyla.
+

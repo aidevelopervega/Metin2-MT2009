@@ -208,6 +208,7 @@ class CAsyncSQL
 			uint64_t ullReconnectSuccessCount{0};
 			uint64_t ullAdoptedOrphanCount{0};
 			size_t   spoolBytes{0};
+			bool     bQueryInFlight{false};
 		};
 
 		CAsyncSQL();
@@ -263,6 +264,7 @@ class CAsyncSQL
 		void		SetNoBackslashEscapes(bool bEnable) { m_bNoBackslashEscapes.store(bEnable, std::memory_order_relaxed); }
 		bool		IsNoBackslashEscapes() const { return m_bNoBackslashEscapes.load(std::memory_order_relaxed); }
 		TDurableSpoolStats GetDurableSpoolStats();
+		bool		WaitForDurableQueueIdle(DWORD dwMaxWaitMs = 5000);
 		bool		FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs = 3000);
 		bool		ReplayDurableSpoolNow();
 		const std::string & GetSpoolFilePath() const { return m_stSpoolFilePath; }
@@ -339,6 +341,7 @@ class CAsyncSQL
 
 		bool		m_bDurableSpoolEnabled{false};
 		bool		m_bSpoolingActive{false};
+		bool		m_bDurableQueryInFlight{false};
 		std::string	m_stSpoolRequestedPath;
 		std::string	m_stSpoolFilePath;
 		std::string	m_stSpoolLockPath;

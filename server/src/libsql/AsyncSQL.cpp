@@ -1775,10 +1775,43 @@ CAsyncSQL::TDurableSpoolStats CAsyncSQL::GetDurableSpoolStats()
 	stats.ullReconnectSuccessCount = m_ullReconnectSuccessCount;
 	stats.ullAdoptedOrphanCount = m_ullAdoptedOrphanCount;
 	stats.spoolBytes = m_spoolBytes;
+	stats.bQueryInFlight = m_bDurableQueryInFlight;
 
 	if (!bAlreadyLockedByThisThread)
 		MUTEX_UNLOCK(m_mtxQuery.get());
 	return stats;
+}
+
+bool CAsyncSQL::WaitForDurableQueueIdle(DWORD dwMaxWaitMs)
+{
+	if (!m_bDurableSpoolEnabled || !m_mtxQuery)
+		return true;
+
+	m_sem.Release();
+	uint64_t startMs = GetMonotonicMs();
+	while (true)
+	{
+		MUTEX_LOCK(m_mtxQuery.get());
+		bool bIdle = m_bConnected &&
+					 m_queue_query.empty() &&
+					 m_queue_query_copy.empty() &&
+					 m_dequeSpool.empty() &&
+					 !m_bDurableQueryInFlight;
+		MUTEX_UNLOCK(m_mtxQuery.get());
+
+		if (bIdle)
+			return true;
+
+		if ((GetMonotonicMs() - startMs) >= dwMaxWaitMs)
+			return false;
+
+		m_sem.Release();
+#ifndef __WIN32__
+		usleep(10000);
+#else
+		::Sleep(10);
+#endif
+	}
 }
 
 bool CAsyncSQL::LoadSpoolFileIntoDequeLocked(const std::string & filePath, bool bRemapSeqToMonotonic, bool & bOutOverflowed)
@@ -2286,6 +2319,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 			else
 				m_queryQueueBytes = 0;
 			++m_iCopiedQuery;
+			m_bDurableQueryInFlight = true;
 			MUTEX_UNLOCK(m_mtxQuery.get());
 
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
@@ -2309,6 +2343,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				{
 					m_bConnected = false;
 					MUTEX_LOCK(m_mtxQuery.get());
+					m_bDurableQueryInFlight = false;
 					if (p->uiSQLErrno == CR_SERVER_LOST || p->uiSQLErrno == 1053 || p->uiSQLErrno == 1927)
 					{
 						++m_ullUncertainInFlightRetries;
@@ -2325,6 +2360,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				else
 				{
 					MUTEX_LOCK(m_mtxQuery.get());
+					m_bDurableQueryInFlight = false;
 					++m_ullQuarantinedCount;
 					++m_iQueryFinished;
 					AppendQuarantineRecordLocked(p->ullSeqID, p->uiSQLErrno, p->stQuery);
@@ -2343,6 +2379,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 
 			delete p;
 			MUTEX_LOCK(m_mtxQuery.get());
+			m_bDurableQueryInFlight = false;
 			++m_ullCommittedCount;
 			++m_iQueryFinished;
 			MUTEX_UNLOCK(m_mtxQuery.get());
@@ -2350,6 +2387,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 		else
 		{
 			TDurableSpoolEntry entry = m_dequeSpool.front();
+			m_bDurableQueryInFlight = true;
 			MUTEX_UNLOCK(m_mtxQuery.get());
 
 			if (m_ulThreadID != mysql_thread_id(&m_hDB))
@@ -2374,6 +2412,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				{
 					m_bConnected = false;
 					MUTEX_LOCK(m_mtxQuery.get());
+					m_bDurableQueryInFlight = false;
 					if (err == CR_SERVER_LOST || err == 1053 || err == 1927)
 					{
 						++m_ullUncertainInFlightRetries;
@@ -2388,6 +2427,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 				else
 				{
 					MUTEX_LOCK(m_mtxQuery.get());
+					m_bDurableQueryInFlight = false;
 					if (!m_dequeSpool.empty() && m_dequeSpool.front().ullSeqID == entry.ullSeqID)
 					{
 						if (m_spoolBytes >= m_dequeSpool.front().stQuery.size())
@@ -2415,6 +2455,7 @@ bool CAsyncSQL::ReplayDurableSpoolNow()
 			} while (!mysql_next_result(&m_hDB));
 
 			MUTEX_LOCK(m_mtxQuery.get());
+			m_bDurableQueryInFlight = false;
 			if (!m_dequeSpool.empty() && m_dequeSpool.front().ullSeqID == entry.ullSeqID)
 			{
 				if (m_spoolBytes >= m_dequeSpool.front().stQuery.size())
@@ -2485,7 +2526,7 @@ void CAsyncSQL::DurableChildLoop()
 			continue;
 
 		MUTEX_LOCK(m_mtxQuery.get());
-		bool bIdle = m_queue_query.empty() && m_dequeSpool.empty() && m_bConnected;
+		bool bIdle = m_queue_query.empty() && m_dequeSpool.empty() && !m_bDurableQueryInFlight && m_bConnected;
 		MUTEX_UNLOCK(m_mtxQuery.get());
 
 		if (bIdle && !m_bEnd)
@@ -2501,6 +2542,7 @@ void CAsyncSQL::DurableChildLoop()
 	}
 
 	MUTEX_LOCK(m_mtxQuery.get());
+	m_bDurableQueryInFlight = false;
 	if (!m_queue_query.empty() || !m_queue_query_copy.empty())
 	{
 		DrainMemoryQueueToSpoolLocked();
@@ -2532,12 +2574,13 @@ bool CAsyncSQL::FlushAndSpoolOnShutdown(DWORD dwMaxWaitMs)
 			MUTEX_LOCK(m_mtxQuery.get());
 			bool bMemEmpty = m_queue_query.empty() && m_queue_query_copy.empty();
 			bool bSpoolEmpty = m_dequeSpool.empty();
+			bool bInFlight = m_bDurableQueryInFlight;
 			bool bConn = m_bConnected;
 			MUTEX_UNLOCK(m_mtxQuery.get());
 
-			if (bConn && bMemEmpty && bSpoolEmpty)
+			if (bConn && bMemEmpty && bSpoolEmpty && !bInFlight)
 				break;
-			if (!bConn && bMemEmpty)
+			if (!bConn && bMemEmpty && !bInFlight)
 				break;
 
 			m_sem.Release();

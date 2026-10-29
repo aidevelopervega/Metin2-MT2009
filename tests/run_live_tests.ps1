@@ -8,10 +8,18 @@ param (
     [string]$User = $(if ($env:MT2_TEST_USER) { $env:MT2_TEST_USER } else { "mt2test" }),
     [string]$Password = $(if ($env:MT2_TEST_PASSWORD) { $env:MT2_TEST_PASSWORD } else { "" }),
     [string]$Database = $(if ($env:MT2_TEST_DB) { $env:MT2_TEST_DB } else { "mt2_testdb" }),
-    [string]$Engine = $(if ($env:MT2_TEST_ENGINE) { $env:MT2_TEST_ENGINE } else { "MariaDB 12.3 LTS" })
+    [string]$Engine = $(if ($env:MT2_TEST_ENGINE) { $env:MT2_TEST_ENGINE } else { "MariaDB 12.3 LTS" }),
+    [switch]$AutoProvision,
+    [int]$SpoolRepeatCount = 1
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($AutoProvision) {
+    $isoPort = if ($Port -eq 3306) { 3307 } else { $Port }
+    & (Join-Path $PSScriptRoot "run_kademe_c_live.ps1") -Port $isoPort -SpoolRepeatCount $SpoolRepeatCount -SkipProtocolSmoke
+    exit $LASTEXITCODE
+}
 
 $RootDir = (Resolve-Path "$PSScriptRoot\..").Path
 $BuildDir = "$RootDir\tests\build"

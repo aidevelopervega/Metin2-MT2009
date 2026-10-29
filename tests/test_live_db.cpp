@@ -1088,6 +1088,7 @@ int main(int argc, char* argv[])
 				logSql.AsyncQuery(makeLogQuery("S1_NORMAL", "Normal game item log").c_str());
 			}
 			LIVE_ASSERT(waitForCommittedRows(5) == 5, "Scenario 1: All 5 normal SQL logs committed immediately (sent=5, committed=5, lost=0)");
+			logSql.WaitForDurableQueueIdle(3000);
 
 			// Scenario 2 & 3 & 12: Temporary MariaDB outage + multiple logs generated while disconnected (including offline EscapeString with quotes & non-blocking main loop check)
 			logProxy.SetBlackhole(true);
@@ -1111,8 +1112,13 @@ int main(int argc, char* argv[])
 			auto gameCheck = verifyConn.DirectQuery("SELECT 1 + 1;");
 			LIVE_ASSERT(gameCheck != nullptr && !gameCheck->IsError(), "Scenario 12: Normal game DB connection operates unblocked during log outage");
 
-			std::this_thread::sleep_for(std::chrono::milliseconds(450));
-			auto stOutage = logSql.GetDurableSpoolStats();
+			CAsyncSQL::TDurableSpoolStats stOutage{};
+			for (int w = 0; w < 80; ++w) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(25));
+				stOutage = logSql.GetDurableSpoolStats();
+				if (stOutage.ullSpooledCount >= 10 && stOutage.ullReconnectAttempts >= 1 && !stOutage.bQueryInFlight)
+					break;
+			}
 			LIVE_ASSERT(stOutage.ullSpooledCount >= 10, "Scenario 2 & 3: All 10 outage logs captured in durable spool without loss");
 			LIVE_ASSERT(stOutage.ullReconnectAttempts >= 1, "Scenario 5: Controlled background reconnect attempts recorded during outage");
 
@@ -1120,9 +1126,10 @@ int main(int argc, char* argv[])
 			logProxy.SetBlackhole(false);
 			LIVE_ASSERT(waitForCommittedRows(15, 6000) == 15,
 				"Scenario 4: MariaDB reconnected and all 10 spooled outage logs replayed to DB (sent=15, committed=15, lost=0)");
+			bool bS4Idle = logSql.WaitForDurableQueueIdle(3000);
 			auto stRecovered = logSql.GetDurableSpoolStats();
 			LIVE_ASSERT(stRecovered.ullReconnectSuccessCount >= 1, "Scenario 5: Background reconnect succeeded cleanly");
-			LIVE_ASSERT(stRecovered.ullPendingSpoolCount == 0 && stRecovered.ullPendingMemoryCount == 0,
+			LIVE_ASSERT(bS4Idle && !stRecovered.bQueryInFlight && stRecovered.ullPendingSpoolCount == 0 && stRecovered.ullPendingMemoryCount == 0,
 				"Scenario 4: Spool and memory queues completely emptied after replay");
 
 			// Scenario 6: Queue capacity overflow (queueCap=4, push 12 logs while proxy is blackholed so queue fills and overflows to spool)
@@ -1131,14 +1138,22 @@ int main(int argc, char* argv[])
 			for (int i = 0; i < 12; ++i) {
 				logSql.AsyncQuery(makeLogQuery("S6_OVERFLOW", "Burst overflow log entry").c_str());
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(250));
-			auto stOverflow = logSql.GetDurableSpoolStats();
+			CAsyncSQL::TDurableSpoolStats stOverflow{};
+			for (int w = 0; w < 80; ++w) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(25));
+				stOverflow = logSql.GetDurableSpoolStats();
+				if (stOverflow.ullPendingMemoryCount <= 4 &&
+					(stOverflow.ullPendingSpoolCount + stOverflow.ullPendingMemoryCount == 12) &&
+					!stOverflow.bQueryInFlight)
+					break;
+			}
 			LIVE_ASSERT(stOverflow.ullPendingMemoryCount <= 4, "Scenario 6: In-memory queue strictly bounded by queueCap=4");
 			LIVE_ASSERT(stOverflow.ullPendingSpoolCount + stOverflow.ullPendingMemoryCount == 12,
 				"Scenario 6: All 12 burst logs preserved across bounded memory queue and durable disk spool");
 			logProxy.SetBlackhole(false);
 			LIVE_ASSERT(waitForCommittedRows(27, 6000) == 27,
 				"Scenario 6: All 12 overflow logs replayed and committed in exact order (sent=27, committed=27, lost=0)");
+			logSql.WaitForDurableQueueIdle(3000);
 
 			// Scenario 9 & 11: Malformed/poison SQL record quarantine + sensitive password/token sanitization
 			logSql.AsyncQuery("INSERT INTO non_existent_poison_log_table (bad_col) VALUES ('test', password='LeakedSecretPassword123', token='SecretTokenABC');");
@@ -1147,6 +1162,7 @@ int main(int argc, char* argv[])
 			}
 			LIVE_ASSERT(waitForCommittedRows(30, 5000) == 30,
 				"Scenario 9: Poison SQL query quarantined without blocking subsequent 3 valid logs (committed=30)");
+			logSql.WaitForDurableQueueIdle(3000);
 			auto stQuarantine = logSql.GetDurableSpoolStats();
 			LIVE_ASSERT(stQuarantine.ullQuarantinedCount == 1, "Scenario 9: Exactly 1 malformed SQL query recorded in ullQuarantinedCount");
 
@@ -1161,7 +1177,7 @@ int main(int argc, char* argv[])
 					nextSeqNo);
 				logSql.AsyncQuery(subBuf);
 			}
-			LIVE_ASSERT(logSql.FlushAndSpoolOnShutdown(400) == true,
+			LIVE_ASSERT(logSql.FlushAndSpoolOnShutdown(800) == true,
 				"Scenario 7: Controlled FlushAndSpoolOnShutdown completed cleanly while MariaDB was offline");
 			auto stShutdown = logSql.GetDurableSpoolStats();
 			LIVE_ASSERT(stShutdown.ullPendingSpoolCount == 6 && stShutdown.ullDroppedSpoolFullCount == 0,
@@ -1209,6 +1225,7 @@ int main(int argc, char* argv[])
 
 			LIVE_ASSERT(waitForCommittedRows(40, 6000) == 40,
 				"Scenario 8: All 6 spooled records + 4 post-restart records committed to MariaDB (total=40, lost=0)");
+			restartedLogSql.WaitForDurableQueueIdle(3000);
 			restartedLogSql.FlushAndSpoolOnShutdown(1000);
 
 			auto stFinalRestart = restartedLogSql.GetDurableSpoolStats();
@@ -1779,7 +1796,7 @@ int main(int argc, char* argv[])
 						break;
 					std::this_thread::sleep_for(std::chrono::milliseconds(50));
 				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				asyncLogSql.WaitForDurableQueueIdle(3000);
 
 				auto spoolStats = asyncLogSql.GetDurableSpoolStats();
 				LIVE_ASSERT(spoolStats.ullQuarantinedCount == 0 && spoolStats.ullCommittedCount >= 3,
