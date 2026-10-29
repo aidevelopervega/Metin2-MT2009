@@ -4,6 +4,8 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <limits>
+#include <algorithm>
 #include <cstdint>
 #include <cassert>
 #include "cache.h"
