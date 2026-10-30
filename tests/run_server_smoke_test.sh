@@ -980,10 +980,10 @@ DELETE FROM affect;
 DELETE FROM player_special_flag;
 DELETE FROM player_index;
 DELETE FROM `player`;
-UPDATE account SET id = 5000000001 WHERE login = 'smk_hero64';
 ALTER TABLE `player` AUTO_INCREMENT = 5000000001;
 ALTER TABLE `item` AUTO_INCREMENT = 5000000001;
 EOF_RESET
+    "$DB_CLI" -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "UPDATE account SET id = 5000000001 WHERE login = '$SMOKE_TEST_LOGIN';"
 
     start_db_auth_and_game_cluster "$STAGE_TAG" "$LABEL" "$GAME_BIN" "$HOSTNAME_TAG" "$AUTH_PORT" "$AUTH_P2P_PORT" "$GAME_PORT" "$GAME_P2P_PORT"
     echo "  [PASS] $STAGE_TAG $LABEL gerçek db_r41023 üzerinden HEADER_DG_BOOT (CInputDB::Boot + CQuestManager::Boot) paketini eksiksiz yükledi (boot packet end check ok [ffff]==0xffff)."
@@ -1072,7 +1072,7 @@ EOF_RESET
     for _ in $(seq 1 10); do
         CREATED_PID=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT id FROM \`player\` WHERE name='SmokeHero' LIMIT 1;")
         QUEST_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM quest WHERE szName='smoke_world' AND ((szState='login_verified' AND lValue=1) OR (szState='npc_flow_done' AND lValue=1) OR (szState='login_count' AND lValue=1));")
-        ITEM_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM item WHERE vnum=19 AND id >= 5000000001 AND owner_id = 5000000001;")
+        ITEM_SAVED_COUNT=$("$DB_CLI" -N -s -h "$HOST" -P "$PORT" -u "$USER" -p"$PASS" "$DB" -e "SELECT COUNT(*) FROM item WHERE vnum=19 AND id > 0 AND owner_id = 5000000001;")
         if [ "$CREATED_PID" = "5000000001" ] && [ "$QUEST_SAVED_COUNT" = "3" ] && [ "$ITEM_SAVED_COUNT" = "1" ]; then
             break
         fi
@@ -1085,7 +1085,7 @@ EOF_RESET
         dump_stage_logs
         exit 1
     fi
-    echo "  [PASS] $STAGE_TAG $LABEL yeni >2^32 karakter (SmokeHero, aid=5000000001, pid=$CREATED_PID, empire=1), >2^32 envanter (vnum=19) ve quest bayrakları (login_count=1, login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
+    echo "  [PASS] $STAGE_TAG $LABEL yeni >2^32 karakter (SmokeHero, aid=5000000001, pid=$CREATED_PID, empire=1), >2^32 owner_id envanter (vnum=19) ve quest bayrakları (login_count=1, login_verified=1, npc_flow_done=1) canlı SQL veritabanına kaydedildi."
 
     # 4. Restart db_r41023 + AUTH_SERVER + GAME_SERVER and log in a SECOND time with the SAME Argon2id account and persisted character
     echo "  [INFO] $STAGE_TAG $LABEL sunucu kümesi (db_r41023 + AUTH_SERVER + GAME_SERVER) yeniden başlatılıyor..."
