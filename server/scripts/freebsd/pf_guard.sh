@@ -187,26 +187,31 @@ verify_template_rules() {
         exit 1
     fi
 
-    # 5. If running on FreeBSD with pfctl available, run dry-run syntax parse (`pfctl -nf`)
-    if [ "$(uname -s 2>/dev/null || true)" = "FreeBSD" ] && command -v pfctl >/dev/null 2>&1; then
+    # 5. If running on FreeBSD with pfctl available (or MT2_PFCTL_CMD override), run dry-run syntax parse (`pfctl -nf`)
+    pfctl_cmd="${MT2_PFCTL_CMD:-}"
+    if [ -z "$pfctl_cmd" ] && [ "$(uname -s 2>/dev/null || true)" = "FreeBSD" ] && command -v pfctl >/dev/null 2>&1; then
+        pfctl_cmd="pfctl"
+    fi
+    if [ -n "$pfctl_cmd" ]; then
         tmp_pf="/tmp/mt2_pf_syntax_$$.conf"
         sed 's/ext_if[[:space:]]*=[[:space:]]*"[^"]*"/ext_if = "lo0"/' "$PF_CONF" > "$tmp_pf"
-        if pfctl -nf "$tmp_pf" >/dev/null 2>&1; then
+        if ! "$pfctl_cmd" -nf "$tmp_pf" >/dev/null 2>&1; then
+            if [ "$(uname -s 2>/dev/null || true)" = "FreeBSD" ] && command -v kldload >/dev/null 2>&1; then
+                if ! kldload -n pf >/dev/null 2>&1; then
+                    kld_err=$(kldload -n pf 2>&1 || true)
+                    echo "[ERROR] Failed to load FreeBSD pf kernel module (kldload -n pf): $kld_err" >&2
+                fi
+            fi
+        fi
+        if "$pfctl_cmd" -nf "$tmp_pf" >/dev/null 2>&1; then
+            rm -f "$tmp_pf"
             echo "[OK] FreeBSD pfctl -nf dry-run syntax validation passed (no kernel rules modified)."
         else
-            pf_err=$(pfctl -nf "$tmp_pf" 2>&1 || true)
+            pf_err=$("$pfctl_cmd" -nf "$tmp_pf" 2>&1 || true)
             rm -f "$tmp_pf"
-            case "$pf_err" in
-                *"/dev/pf"*|*"Failed to open netlink"*|*"Operation not permitted"*|*"Permission denied"*)
-                    echo "[OK] PF syntax verified (pfctl reported unloaded kernel PF/netlink or restricted /dev/pf)."
-                    ;;
-                *)
-                    echo "[ERROR] pfctl -nf syntax validation failed: $pf_err" >&2
-                    exit 1
-                    ;;
-            esac
+            echo "[ERROR] pfctl -nf syntax validation failed: $pf_err" >&2
+            exit 1
         fi
-        rm -f "$tmp_pf"
     fi
 
     echo "[OK] PF firewall policy template verified ($PF_CONF): SQL(3306/3307), DB(18000), P2P($p2p_ports) & UDP blocked on WAN; Player TCP($player_ports) & SSH protected."
