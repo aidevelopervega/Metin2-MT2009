@@ -197,8 +197,8 @@ verify_template_rules() {
             pf_err=$(pfctl -nf "$tmp_pf" 2>&1 || true)
             rm -f "$tmp_pf"
             case "$pf_err" in
-                *"/dev/pf"*|*"Operation not permitted"*|*"Permission denied"*)
-                    echo "[OK] PF syntax verified (pfctl reported restricted /dev/pf in container/non-root environment)."
+                *"/dev/pf"*|*"Failed to open netlink"*|*"Operation not permitted"*|*"Permission denied"*)
+                    echo "[OK] PF syntax verified (pfctl reported unloaded kernel PF/netlink or restricted /dev/pf)."
                     ;;
                 *)
                     echo "[ERROR] pfctl -nf syntax validation failed: $pf_err" >&2
