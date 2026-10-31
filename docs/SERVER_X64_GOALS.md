@@ -248,9 +248,10 @@ Sunucu tarafında (`server/src/common/tables.h`, `server/src/common/building.h`,
 * **Sunucu İçi İmparatorluk Hazinesi (`TMonarchInfo` & `TPacketGDTakeMonarchMoney` — `server/src/common/tables.h`):**
   - `TMonarchInfo::money[4]` alanı `int[4]` (`16 B`) yerine `YANG[4]` (`int64_t[4]`, `32 B`) yapılmıştır (`sizeof(TMonarchInfo) == 144 B`).
   - `TPacketGDTakeMonarchMoney::llMoney` alanı `int` (`4 B`) yerine `YANG` (`int64_t`, `8 B`) yapılmıştır (`sizeof(TPacketGDTakeMonarchMoney) == 16 B`); `player.monarch.money` sütunu `bigint(20)` olarak güncellenmiştir.
-* **Kimlik (`ID`) Türleri ve Lua Sınır Sözleşmesi:**
+* **Kimlik (`ID`) Türleri, SQL / WS / Kalıcı Veri Kapsamı ve Lua Sınır Sözleşmesi:**
   - **64-Bit Kalıcı Kimlikler (`uint64_t` / `bigint(20) unsigned`):** `ACCOUNT_ID` (`AID`), `PLAYER_ID` (`PID`), `ITEM_ID` (`TItemIDRangeTable` 64-bit aralık tablosu, `cs_dwMaxItemID = 9.223.372.000.000.000.000ULL <= INT64_MAX`), `GUILD_ID`, `SHOP_ID`, `AUCTION_ID`, `OFFER_ID`, `account.itemshop_tx_journal.tx_id` (`TRANSACTION_ID`) ve `player.guild.token` (`GUILD_TOKEN`).
   - **Oturum İçi Geçici Varlık Kimliği (`uint32_t` / `DWORD`):** `VID` (`CHARACTER_MANAGER::AllocVID()`, `0` ve yaşayan varlık çakışma korumalı 32-bit çalışma zamanı kimliği).
+  - **SQL, Migration ve WS Bileşenleri:** Mevcut SQL tabloları, migration betikleri ve projedeki WS bileşenleri x64 uyumluluk kapsamındadır; `AID`, `PID`, `ITEM_ID`, ilgili kalıcı kimlikler, Yang/ekonomi değerleri ile `PRIMARY KEY`, `FOREIGN KEY` ve `JOIN` sütunlarında tip/işaretlilik (`signed`/`unsigned`) uyumu ve SQL şeması, C++ tipleri, serileştirme, önbellek (`cache`) ile ağ protokolü arasında tam tutarlılık zorunludur. SQL tabloları x86/x64 ikilisi olmadığından tüm `INT` sütunları körü körüne `BIGINT` yapılmaz; yalnızca kanıtlanmış gerçek bir şema hatası varsa yeni migration oluşturulur ve üretim veritabanlarına asla dokunulmaz.
 
 ---
 
@@ -411,8 +412,8 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 
 ## 11. Native x64 İstemci (`PE32+`) Mimari Envanteri ve Gerçek SDK/ABI Engelleri (`UNVERIFIED`)
 
-> **Platform ve Mimari Ayrımı:**
-> 32-bit Windows işletim sistemi 64-bit (`PE32+`) ikilileri çalıştıramaz; 64-bit Windows ise WoW64 alt sistemi üzerinden 32-bit (`PE32`) ikilileri çalıştırabilir. Bu projenin istemci hedefi WoW64'e dayanan 32-bit istemci **değildir**; yalnızca 64-bit Windows üzerinde çalışan, tüm statik kütüphaneleri (`.lib`), nesne dosyaları (`.obj`) ve dinamik kütüphaneleri (`.dll`) gerçek **x86_64 (`PE32+` / `COFF AMD64`)** olan **gerçek native x64 istemcidir**.
+> **Platform ve Mimari Ayrımı (Sahte Stub ve WoW64 Yasağı):**
+> 32-bit istemci 64-bit Windows üzerinde (WoW64) çalışabilir; gerçek 64-bit (`PE32+`) istemci ise 32-bit Windows üzerinde çalışamaz. Bu projenin istemci hedefi 64-bit Windows üzerinde 32-bit uygulama çalıştırmak **değildir**; tüm statik kütüphaneleri (`.lib`), nesne dosyaları (`.obj`), Python uzantıları (`.pyd`) ve dinamik kütüphaneleri (`.dll`) gerçek **x86_64 (`PE32+` / `COFF AMD64`)** olan **gerçek native x64 istemcidir**. Gereken veya lisanslı bir x64 SDK/ikili eksikse sahte stub (`no-op`), çalışmayan kütüphane veya WoW64 çözümüyle başarı ilan edilemez; gerçek engel kanıtıyla raporlanır.
 
 ### 11.1 `Metin2Client.sln` İçindeki 16 İstemci Modülü
 
@@ -451,27 +452,27 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 4. **DirectX 9 ve Windows SDK Kütüphaneleri (`EterLib`, `UserInterface`):**
    - `extern/client/lib/` içindeki `d3d9.lib`, `d3dx9.lib`, `ddraw.lib`, `dxguid.lib`, `dmoguids.lib` 32-bit kütüphanelerdir; `client/files/d3dx9_43.dll` 32-bit (`PE32`) DLL'dir.
    - **x64 Gereksinimi:** Windows 10/11 SDK `um\x64` altındaki resmi 64-bit sistem kütüphaneleri (`d3d9.lib`, `dinput8.lib`, `dxguid.lib`, `dmoguids.lib`, `strmiids.lib`, `ddraw.lib`, `winmm.lib`, `imm32.lib`, `ws2_32.lib`, `version.lib`, `imagehlp.lib`, `uuid.lib`) ve DirectX End-User Runtime (June 2010) `x64` `d3dx9.lib` + 64-bit `d3dx9_43.dll` kullanılmalıdır.
-5. **Python 2.7 ve Statik Modül Kütüphaneleri (`ScriptLib`, `EterPythonLib`, `UserInterface`):**
+5. **Python 2.7 ve Statik/Dinamik Modül Kütüphaneleri (`ScriptLib`, `EterPythonLib`, `UserInterface`, `.pyd`):**
    - `extern/client/lib/python27-static.lib` (`30,4 MB`), `python27_d-static.lib` (`12,6 MB`), `liblib.lib` (`26,6 MB` — Cython ile derlenmiş gömülü UI/root modülleri) ve `extern/client/lib/*.obj` (`121` adet 32-bit COFF nesne dosyası) tamamen 32-bit (`x86`) derlenmiştir.
    - `extern/client/include/Python27/pyconfig.h` içinde 32-bit sabitler (`SIZEOF_VOID_P = 4`) bulunmaktadır.
-   - **x64 Gereksinimi:** Python çalışma zamanı ve `liblib` statik modülleri `_WIN64` / `x64` (`SIZEOF_VOID_P = 8`, `Py_ssize_t = int64_t`) olarak derlenmeli; `ScriptLib` / `UserInterface` içindeki `PyTuple_GetInteger`, `PyTuple_GetLong`, `PyTuple_GetUnsignedLong` ve `Py_BuildValue` çağrılarında 64-bit tam sayı (`int64_t` / `uint64_t`) ve 64-bit pencere/nesne tanıtıcısı (`capsule` / `ull`) kesilmeleri giderilmelidir.
+   - **x64 Gereksinimi:** Python çalışma zamanı, `liblib` statik modülleri ve varsa harici `.pyd` uzantıları `_WIN64` / `x64` (`SIZEOF_VOID_P = 8`, `Py_ssize_t = int64_t`) olarak derlenmeli; `ScriptLib` / `UserInterface` içindeki `PyTuple_GetInteger`, `PyTuple_GetLong`, `PyTuple_GetUnsignedLong` ve `Py_BuildValue` çağrılarında 64-bit tam sayı (`int64_t` / `uint64_t`) ve 64-bit pencere/nesne tanıtıcısı (`capsule` / `ull`) kesilmeleri giderilmelidir.
 6. **Açık Kaynak / Yeniden Derlenebilir Statik ve Dinamik Kütüphaneler (`extern/client/lib/`):**
    - Mevcut 32-bit `.lib` dosyaları: `cryptlib-Release.lib` / `cryptlib-Debug.lib` (`110,8 MB`, Git-ignored), `libboost_filesystem-vc141-mt-s-x32-1_67.lib`, `libboost_system-vc141-mt-s-x32-1_67.lib`, `devil.lib` / `DevIL-1.7.8.lib` / `ILU.lib` / `ILUT.lib` (ve `client/files/devil.dll`), `lzo2.lib`, `liblz4_static-Release.lib`, `snappy.lib`, `libjpeg-MT.lib`, `libpngd.lib`, `zlibd.lib`, `minIni-Release-x86-mt.lib`, `discord_rpc_r.lib` / `discord_rpc_d.lib`, `WebView2Loader.dll`.
    - **x64 Gereksinimi:** İstemcinin fiilen bağladığı tüm yardımcı kütüphaneler gerçek native `x64` (`/MACHINE:X64`) olarak derlenmeli veya x64 sürümleriyle değiştirilmeli; kullanılmayan 32-bit kütüphaneler (`opencv_*`, `libmysql.lib`, `mysqlclient.lib` vb.) bağlayıcı girdilerinden çıkarılmalıdır.
-7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32` ve İşaretçi Kesilmesi (`Pointer Truncation`) Engelleri:**
+7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32`, Çağrı Kuralları ve İşaretçi Kesilmesi (`Pointer Truncation`) Engelleri:**
    - MSVC x64 (`cl.exe` amd64) satır içi `__asm { ... }` bloklarını desteklemez. `EterBase`, `EterPack`, `UserInterface` ve `SecureEngineCustomVMs_VC_inline.h` / `ThemidaSDK.h` (`SecureEngineSDK32.lib`) içindeki x86 `__asm` kullanımları standart C++ veya `<intrin.h>` intrinsic fonksiyonlarına dönüştürülmelidir.
-   - Win32 API ve motor sınıflarında 8 baytlık işaretçileri (`void*`, `HWND`, `HINSTANCE`, `WNDPROC`, `LPARAM`, `WPARAM`, `DWORD_PTR`, `ULONG_PTR`) 32-bit `DWORD`, `int` veya `long` türlerine dönüştüren tüm noktalar (`SetWindowLong` -> `SetWindowLongPtr`, `GetWindowLong` -> `GetWindowLongPtr`, `GCL_*` -> `GCLP_*`) 64-bit güvenli hale getirilmelidir.
+   - Win32 API ve motor sınıflarında 8 baytlık işaretçileri ve tanıtıcıları (`void*`, `HWND`, `HINSTANCE`, `WNDPROC`, `LPARAM`, `WPARAM`, `DWORD_PTR`, `ULONG_PTR`, `uintptr_t`, `intptr_t`) 32-bit `DWORD`, `int` veya `long` türlerine dönüştüren tüm noktalar (`SetWindowLong` -> `SetWindowLongPtr`, `GetWindowLong` -> `GetWindowLongPtr`, `GCL_*` -> `GCLP_*`) ile x86'ya özgü çağrı kuralı (`__stdcall` / `__fastcall` / `__cdecl` geri çağırım imzası) uyumsuzlukları 64-bit güvenli hale getirilmelidir.
    - Ağ paketlerinde ve dosya formatlarında (`EterPack`, `GameLib`, `Packet.h`) bellek içi işaretçi boyutu (`sizeof(void*) == 8`) ile disk/ağ üzerindeki sabit genişlikli yapıların (`#pragma pack(1)`, `sizeof`, `offsetof`, `alignof`) birbirine karıştırılmaması zorunludur.
 
 ---
 
 ## 12. Native x64 İstemci ve Protokol Uyarlaması Kabul Kriterleri (`UNVERIFIED`)
 
-İstemci dönüşümü tamamlandığında aşağıdaki somut doğrulamaların tamamı gerçek derleme ve canlı çalışma zamanında `PASS` olmadan `M-11` asla `VERIFIED` olarak işaretlenemez:
+İstemci dönüşümü tamamlandığında aşağıdaki somut doğrulamaların tamamı gerçek derleme ve canlı çalışma zamanında `PASS` olmadan istemci dönüşümü asla `VERIFIED` olarak işaretlenemez:
 
 1. **Gerçek Native x64 (`PE32+`) İkili ve Bağımlılık Doğrulaması:**
    - `Metin2Client.sln` içindeki 16 modülün tamamının `x64` (`Release|x64` / `Debug|x64`) hedefinde `0` hata ile derlenmesi ve üretilen `metin2client.exe` dosyasının `PE32+ executable (GUI) x86-64` (`IMAGE_FILE_MACHINE_AMD64 = 0x8664`) olduğunun kanıtlanması.
-   - Çalışma zamanında yüklenen tüm DLL dosyalarının `PE32+` (`x64`) olduğunun ve hiçbir 32-bit (`x86`) `.lib` / `.obj` / `.dll` bağımlılığının kalmadığının doğrulanması.
+   - Çalışma zamanında yüklenen tüm DLL/ `.pyd` dosyalarının `PE32+` (`x64`) olduğunun, hiçbir 32-bit (`x86`) `.lib` / `.obj` / `.dll` / `.pyd` bağımlılığının kalmadığının ve eksik bir SDK için sahte stub kullanılmadığının doğrulanması.
 2. **Derleme Zamanı `static_assert` Kontrolleri (`client/src/UserInterface/Packet.h` — En Az 15 Zorunlu Kontrol):**
    - `static_assert(sizeof(TPacketGCTime) == 9);`
    - `static_assert(sizeof(TPacketGCPoints) == 2041);`

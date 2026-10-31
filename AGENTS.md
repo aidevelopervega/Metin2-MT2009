@@ -13,8 +13,9 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * **Sunucu (`server/src/**`, `tests/**`):** Her iki platformda da yalnızca **GCC** (Windows tarafında MinGW-w64 / UCRT64 GCC, FreeBSD tarafında amd64 GCC) kullanılacaktır; sunucu derlemesinde Visual Studio ve MSVC kullanılmaz.
    * **İstemci (`client/src/**`, `Metin2Client.sln`):** Mevcut MSVC / Visual Studio çözümünün ve uygun gerçek **native x64 (`PE32+`)** araç zincirinin kullanılmasına izin verilir; istemci gereksiz biçimde GCC'ye zorlanmaz.
 3. **Öncelik: Gerçek Native 64-Bit Uyumluluğu:**
-   * Sunucu (`ELF64` / `PE32+`) ve istemci (`PE32+`) doğrudan 64-bit (`amd64`) mimarisini hedefler; istemcide hedef WoW64'e dayanan 32-bit ikili değil, **gerçek native x64 istemcidir**.
-   * Windows (`LLP64`) ile FreeBSD (`LP64`) arasındaki `long` türü farklarına, istemcide ise `sizeof`, `offsetof`, `alignof`, 8 baytlık işaretçi genişliği ve doğru serileştirme kurallarına azami dikkat gösterilecektir.
+   * Sunucu (`ELF64` / `PE32+`) ve istemci (`PE32+`) çalıştırılabilir dosyaları ile yüklenen tüm yerel DLL, paylaşımlı kütüphane (`.so`) ve ikili bağımlılıklar (`.lib`, `.a`, `.obj`, `.pyd`) gerçek 64-bit (`amd64`) olmak zorundadır; zorunlu 32-bit (`x86`) kütüphane veya 32-bit süreç bağımlılığı bulunamaz.
+   * 32-bit istemci 64-bit Windows üzerinde (WoW64) çalışabilir; gerçek 64-bit istemci ise 32-bit Windows üzerinde çalışamaz. Hedef 64-bit Windows'ta 32-bit uygulama çalıştırmak değil, **gerçek native x64 (`PE32+`) istemcidir**.
+   * İşaretçi (`pointer`), tanıtıcı (`handle`), boyut (`size`), hizalama (`alignment`) ve ABI dönüşümlerinde 32-bit kırpılması (`truncation`) olamaz; `uint64_t`, `int64_t`, `uintptr_t`, `intptr_t` ve `size_t` yalnızca gerçekten gereken yerlerde doğru kullanılır. Windows (`LLP64`) ile FreeBSD (`LP64`) arasındaki `long` türü farklarına, istemcide ise `sizeof`, `offsetof`, `alignof`, 8 baytlık işaretçi genişliği ve doğru serileştirme kurallarına azami dikkat gösterilecektir.
 4. **C++ Standardı:**
    * Başlangıç standardı **C++20**'dir (`-std=c++20` / `/std:c++20`).
    * Standart yükseltmesi (C++23 vb.) ancak tüm platformlarda ve bağımlılıklarda uyumluluk kesin olarak doğrulandıktan sonra gündeme gelebilir.
@@ -53,12 +54,19 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 
 ## 3. KESİN MODÜL TAMAMLAMA, KÖK NEDEN VE SADELİK POLİTİKASI
 
-1. **Aşama ve Modül Geçiş Yasağı (`Stop-the-Line`):**
-   * Mevcut modüldeki/aşamada tespit edilmiş tüm derleme hataları, derleyici uyarıları, platform uyumsuzlukları ve test eksikleri tamamen çözülmeden kesinlikle bir sonraki modüle geçilemez.
-2. **Kök Neden Çözümü ve Kod Sadeliği (Bloat Yasağı):**
-   * Hatalar ve uyarılar geçici derleme bayraklarıyla (`-D...`, `-Wno-*` geçici yamalarıyla) veya uyarıları görmezden gelerek/bastırarak çözülemez; her sorunun ilk gerçek kök nedeni tespit edilerek minimum kalıcı düzeltme uygulanır.
-   * Gereksiz kod, wrapper, abstraction, framework, compatibility layer, refactor, bağımlılık, tekrar test ve doküman üretilmez.
-   * Çalışan kod yalnızca bir görev listesinde yazıyor diye değiştirilmez.
+1. **Stop-the-Line — Gerçek Hatayı Çözmeden Geçme:**
+   * Geliştirme, derleme, SQL, paket protokolü, çalışma zamanı, istemci veya CI sırasında gerçek bir hata çıktığında:
+     1. İlk gerçek kök neden tespit edilir.
+     2. Yalnızca o kök nedeni çözen en küçük kalıcı düzeltme uygulanır.
+     3. Etkilenen test veya derleme çalıştırılır.
+     4. Gerçek `PASS` alınmadan o iş kapatılmaz ve etkilenen alanda bir sonraki adıma geçilmez.
+     5. Eksik harici SDK/ikili bağımlılık gibi kodla çözülemeyen gerçek bir engel varsa sahte çözüm veya sahte stub uydurulmaz; kanıtıyla açıkça `BLOCKED` olarak raporlanır.
+   * Başarısız testi atlamak, hatayı veya uyarıyı geçici derleme bayraklarıyla (`-D...`, `-Wno-*`) bastırmak ya da sahte `PASS` üretmek kesinlikle yasaktır.
+2. **Minimum Doğru Kod ve Performans Disiplini (Bloat Yasağı):**
+   * Gereksiz sınıf, wrapper, soyutlama (`abstraction`), fallback, uyumluluk katmanı (`compatibility layer`), framework, bağımlılık veya doküman eklenmez.
+   * İstenmeyen refactor, toplu kod değişimi veya tekrar test yapılmaz; çalışan kod yalnızca bir görev listesinde yazıyor diye değiştirilmez.
+   * Daha kısa kod uğruna doğruluk, güvenlik ve bakım yapılabilirlik feda edilmez; öncelik kod miktarında değil, doğruluk, sadelik ve gerçek çalışma sonucundadır.
+   * Gereksiz bellek ayırma (`allocation`), kopyalama, kilit çekişmesi (`lock contention`), SQL sorgusu, ağ paketi ve gecikme (`latency`) oluşturulmaz; ölçülmemiş mikro-optimizasyonlarla kod karmaşıklaştırılmaz.
    * Yeni VM, yeni CI altyapısı veya gereksiz test sistemi önerilmez.
 3. **Çift Platform Bütünlüğü (Windows & FreeBSD):**
    * Windows amd64 için yapılan düzeltmeler FreeBSD amd64 kodunu asla bozmayacaktır (`#ifdef __WIN32__` blokları izole tutulacaktır).
@@ -81,11 +89,11 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
    * Proje yalnızca **MariaDB 12.3 LTS** veritabanı motorunu zorunlu destek ve test standardı olarak kullanır.
    * **MySQL 8.4 LTS** (ve **MariaDB 11.4 LTS**) desteği kalıcı olarak sona ermiştir; gelecekteki Windows ve FreeBSD CI testleri, paketleme, kurulum, veri migrasyonu ve regresyon testleri yalnızca **MariaDB 12.3 LTS** ile çalışır.
    * MariaDB Connector/C (`libmariadb`) tarafından kullanılan MySQL uyumlu C API (`mysql.h`, `mysql_*` fonksiyonları, `include/mysql` başlık yolu veya C++ kodundaki legacy `libmysql` adlandırmaları) eski MySQL sunucusu bağımlılığı sayılmaz; MariaDB'nin çalışması için gerekli bu C API uyumluluk katmanları korunur.
-2. **Kapsam:**
+2. **Kapsam (SQL, Migration ve WS Bileşenleri):**
    * `libsql` bağlantı/soyutlama katmanı ve MariaDB Connector/C (`libmariadb`) istemci kütüphanesi.
    * `db` sunucusundaki veritabanı işlemleri, sorgular ve önbellek mekanizmaları.
    * `game` sunucusundaki veritabanı kullanan bütün sistemler (karakter, envanter, lonca, pazar, log vb.).
-   * Mevcut tüm SQL dosyaları, tablo şemaları (`sql/*.sql`), indeksler ve başlangıç verileri.
+   * Mevcut tüm SQL dosyaları, tablo şemaları (`sql/*.sql`), indeksler, başlangıç verileri, migration betikleri ve projede bulunan WS bileşenleri x64 uyumluluk kapsamındadır.
    * Gerekli tüm sunucu kaynak kodları, yapılandırma dosyaları ve veri dönüşüm (migration) mekanizmaları.
 3. **SQL Mode Dokunulmazlığı:**
    * SQL mode (`STRICT_TRANS_TABLES`, `NO_ZERO_DATE`, `ONLY_FULL_GROUP_BY` vb.) devre dışı bırakılamaz veya uyumluluk sağlamak adına gevşetilemez/kapatılamaz.
@@ -95,11 +103,13 @@ Bu kural seti, projenin veritabanı altyapısı, `libsql` kütüphanesi, `db` ve
    * Uyumsuzlukların kök nedenleri kod ve şema seviyesinde kalıcı olarak çözülecektir; geçici hileler ve yamalar yasaktır.
 5. **Şeffaf Uyumluluk Katmanı:**
    * MariaDB Connector/C ve MariaDB 12.3 LTS gereksinimleri açık, temiz, belgelenmiş ve test edilebilir katmanlarla yönetilecektir.
-6. **Veri Tipleri ve Bütünlük Standartları:**
+6. **Veri Tipleri, 64-Bit Kimlik/Ekonomi Tutarlılığı ve Bütünlük Standartları:**
    * Veri tipleri, `PRIMARY KEY`, indeksler, `AUTO_INCREMENT`, `NULL`/`NOT NULL` kuralları, `DEFAULT` değerleri, tarih/saat alanları (`DATETIME`, `TIMESTAMP`), karakter setleri (`utf8mb4`), collation ve transaction (ACID) davranışları titizlikle incelenecek ve standartlaştırılacaktır.
+   * `AID`, `PID`, `ITEM_ID` ve ilgili kalıcı kimlikler, Yang/ekonomi değerleri ile `PRIMARY KEY`, `FOREIGN KEY` ve `JOIN` sütunlarında tip ve işaretlilik (`signed` / `unsigned`) uyumu; SQL şeması, C++ tipleri, serileştirme, önbellek (`cache`) ve ağ protokolü arasında tam tutarlılık zorunludur.
+   * **SQL tabloları x86/x64 ikilisi değildir:** Sırf 64-bit hedefi nedeniyle tüm `INT` sütunları körü körüne `BIGINT` yapılmaz; yalnızca kanıtlanmış gerçek bir şema hatası varsa yeni migration oluşturulur.
 7. **Veri Güvenliği ve Geri Dönüş Güvencesi:**
-   * Mevcut tablolar ve kullanıcı verileri korunacaktır.
-   * Veri kaybı doğurabilecek yapısal dönüşümler öncesinde doğrulanmış yedek ve geri dönüş (rollback) planı bulunmak zorundadır.
+   * Mevcut tablolar ve kullanıcı verileri korunacaktır; kimlik daralması (`ID narrowing`), taşma (`overflow`), kırpılma (`truncation`), hatalı `JOIN` ve item/Yang dupe riski oluşturulamaz.
+   * Üretim veritabanlarına asla dokunulmaz; veri kaybı doğurabilecek yapısal dönüşümler öncesinde doğrulanmış yedek ve geri dönüş (rollback) planı bulunmak zorundadır.
 8. **Çift Senaryo Doğrulaması:**
    * Hem sıfırdan temiz kurulum (yeni veritabanı oluşturma) hem de mevcut MT2009 veritabanını yükseltme (migration) senaryoları test edilecektir.
 9. **Bütünsel Mimari:**
@@ -231,10 +241,10 @@ Server ve Common Extern bağımlılıklarının en güncel kararlı resmî sür�
 ## 8. NATIVE X64 İSTEMCİ GELİŞTİRME İZNİ VE KAPSAM SINIRI
 
 Kullanıcı gerçek **native x64 istemci (`PE32+`)** geliştirmesine açık izin vermiştir:
-1. Eski `client/**`, `client/src/**`, `extern/client/**` ve gerekli istemci derleme/yapılandırma alanlarının x64 dönüşümüne ilişkin mutlak ambargo kaldırılmıştır.
-2. **Kapsam Sınırı:** İzin kapsamı yalnızca istemcinin gerçek **native x64 mimarisine (`PE32+`, x64 SDK/DLL/statik kütüphane, 64-bit işaretçi/ABI/tür/hizalama güvenliği)** ve sunucu **x64 ağ protokolüne (`MT2_PROTOCOL_VERSION_X64 = 0x20090064U`, `docs/SERVER_X64_GOALS.md`)** dönüştürülmesiyle sınırlıdır.
-3. İstemci için mevcut MSVC / Visual Studio çözümünün (`Metin2Client.sln`) ve uygun gerçek native x64 araç zincirinin kullanılmasına izin verilir; istemci gereksiz biçimde GCC'ye zorlanmaz.
-4. Mevcut oyun mantığı, formüller ve çalışan sistemler x64 dönüşümü gerektirmediği sürece değiştirilmez; gereksiz wrapper, soyutlama katmanı veya yapay refactor üretilmez.
+1. **Kapsam ve Hedef:** Eski `client/**`, `client/src/**`, `extern/client/**` ve gerekli istemci derleme/yapılandırma alanlarının x64 dönüşümüne ilişkin mutlak ambargo kaldırılmıştır. Hedef WoW64'e dayanan 32-bit ikili değil, gerçek **Windows x64 çalıştırılabilir dosyasıdır (`PE32+`)**.
+2. **İkili Bağımlılık, SDK ve Sahte Stub Yasağı:** İstemcinin yüklediği tüm yerel DLL, `.pyd`, `.lib`, `.obj` ve SDK bağımlılıklarının (Granny, SpeedTree, Miles, DirectX, Python vb.) mimari ve ABI uyumu gerçek dosyalar üzerinden doğrulanır; yalnız x86 olan ikililer x64 varsayılmaz. Gereken veya lisanslı bir x64 SDK/ikili eksikse sahte stub (`no-op`), çalışmayan kütüphane veya WoW64 çözümüyle başarı ilan edilemez; gerçek engel kanıtıyla raporlanır.
+3. **Araç Zinciri ve 64-Bit ABI/Bellek Güvenliği:** İstemci için mevcut MSVC / Visual Studio x64 araç zincirinin (`Metin2Client.sln`) kullanılmasına izin verilir; istemci gereksiz biçimde GCC'ye zorlanmaz. İşaretçi (`pointer`), tanıtıcı (`handle`), paketleme (`#pragma pack(1)`), hizalama (`alignment`), çağrı kuralı (`calling convention`) ve bellek tipi hataları kök nedeninden düzeltilir.
+4. **Protokol Sözleşmesi ve Oyun Mantığı Korunumu:** Sunucu ve istemci `MT2_PROTOCOL_VERSION_X64 = 0x20090064U` paket sözleşmesini (`sizeof`, `offsetof`, serileştirme ve alan genişlikleri, bkz. `docs/SERVER_X64_GOALS.md`) iki tarafta birebir tutturmak zorundadır. Kasıtlı olarak `uint32_t` / `int32_t` kalan `VID`, `opcode`, `flag` gibi alanlar x86 bağımlılığı değildir ve keyfi olarak genişletilmez. Mevcut oyun mantığı, formüller ve çalışan sistemler x64 dönüşümü gerektirmediği sürece değiştirilmez.
 
 ---
 
@@ -254,32 +264,21 @@ Kullanıcı gerçek **native x64 istemci (`PE32+`)** geliştirmesine açık izin
 
 ---
 
-## 10. GÖREV DİSİPLİNİ VE BELGE YETKİ SINIRI
+## 10. GÖREV DİSİPLİNİ, BELGE YETKİ SINIRI VE GEREKSİZ YÖNLENDİRME YASAĞI
 
 1. **Belge Yetki Sınırı:**
    * `AGENTS.md` kalıcı kuralları, `PROJECT_STATE.md` güncel durumu, `docs/SERVER_X64_GOALS.md` ise teknik kabul kriterlerini belirler. Bu belgelerin hiçbiri kendiliğinden yeni iş başlatma yetkisi vermez.
-2. **Görev ve Kod Şişirme Yasağı:**
-   * Yeni `M/G/INT/H` görev kodları, görev listeleri, takip belgeleri veya otomatik roadmap oluşturulmaz.
-   * Tamamlanan iş kapatılır ve `PROJECT_STATE.md` güncellenir.
+2. **Gereksiz Yönlendirme, Görev ve Kod Şişirme Yasağı:**
+   * Yeni `M/G/INT/H` hedef kodları, yapay görevler, görev listeleri, takip belgeleri veya otomatik roadmap oluşturulmaz; geçmiş görevler yeni iş gibi ele alınmaz.
+   * Tamamlanmış ve `VERIFIED` kanıtlı işler sebepsiz yeniden doğrulanmaz; yalnızca yeni oturum açıldı diye derleme veya test döngüsü başlatılmaz.
+   * Yeni `.md` dosyası, yeni VM veya yeni CI altyapısı oluşturulmaz.
+   * Doğrudan çözülebilecek gerçek bir bug gereksiz analiz ve rapor sürecine dönüştürülmez; tamamlanan iş kapatılır ve `PROJECT_STATE.md` güncellenir.
 3. **Kalıcı Kural Dokunulmazlığı:**
    * Kurallar her oturumda yeniden keşfedilmeyecek; `AGENTS.md` değişmez anayasa olarak uygulanacaktır.
 
 ---
 
-## 11. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI
-
-Projenin modernizasyonunda takip edilen operasyonel sıra:
-
-1. **Mevcut FreeBSD ve Windows x64 Sunucu (`game`/`db`/`qc`) Başarısını Koru:**
-   * Doğrulanmış `ELF64` ve `PE32+` `game`, `db`, `qc` derleme, bağlama, CMake + Ninja, Lua 5.5.1, MariaDB 12.3 LTS ve `0x20090064U` wire protokolü başarısı her aşamada korunacak; tamamlanmış ve `VERIFIED` kanıtlı adımlar değişiklik yapılmadıkça tekrarlanmayacaktır.
-2. **Sunucu Veri Bütünlüğü ve Güvenlik Kontrollerini Koru:**
-   * Mevcut item/Yang dupe korumaları, ACID işlem günlüğü, SQL güvenliği, tek kullanımlık `LoginByKey` (`anti-replay`), taşma (`overflow`), yarış koşulları (`race condition`) ve protokol bütünlüğü korunacaktır.
-3. **Native x64 İstemci (`PE32+`) Dönüşümü:**
-   * İstemci kaynak kodu (`client/src/**`) ve bağımlılıkları (`extern/client/**`), `docs/SERVER_X64_GOALS.md` içindeki gerçek native x64 (`PE32+`) ve `0x20090064U` protokol kabul kriterlerine göre adım adım dönüştürülecek ve doğrulanacaktır.
-
----
-
-## 12. WINDOWS YEREL GELİŞTİRME DERLEME CPU VE ÇEKİRDEK SINIRLANDIRMASI (YALNIZCA DERLEME)
+## 11. WINDOWS YEREL GELİŞTİRME DERLEME CPU VE ÇEKİRDEK SINIRLANDIRMASI (YALNIZCA DERLEME)
 
 Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E-core], 12 mantıksal işlemci) geliştirme bilgisayarında kaynak sınırlandırması **yalnızca derleme süreçlerine** uygulanır; derleme dışındaki test, analiz ve geliştirme işlemlerine hiçbir yapay kısıtlama uygulanmaz:
 
@@ -295,7 +294,7 @@ Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E
 
 ---
 
-## 13. ANTIGRAVITY HESAP VE OTURUM BAĞIMSIZLIĞI
+## 12. ANTIGRAVITY HESAP VE OTURUM BAĞIMSIZLIĞI
 
 1. **Hesaptan Bağımsız Hafıza:**
    * Proje bilgisi yalnızca depodaki 3 ana belgede (`AGENTS.md`, `PROJECT_STATE.md`, `docs/SERVER_X64_GOALS.md`) tutulur. Antigravity sohbet geçmişi, `brain/`, `conversations/` veya oturum `scratch` klasörleri hesaba bağlıdır ve proje hafızası sayılmaz.
