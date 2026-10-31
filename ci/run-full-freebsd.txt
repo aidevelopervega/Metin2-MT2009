@@ -17,7 +17,7 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=m10-x64-integration-and-lp64-freebsd-verification-r3
-APPROVED_SOURCE_COMMIT=997784ff1dc9ab4d001fa34a8d11df770e625865
-PREVIOUS_FAILED_RUN_ID=40951271092
+TRIGGER_REVISION=m10-x64-integration-and-lp64-freebsd-verification-r4
+APPROVED_SOURCE_COMMIT=d256b6da785e61ce2bde3345a6b5e5996c3c4a7b
+PREVIOUS_FAILED_RUN_ID=41117999529
 STATUS=TRIGGERED
