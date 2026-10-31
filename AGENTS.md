@@ -6,20 +6,21 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 
 ## 1. TEMEL MİMARİ VE PLATFORM PRENSİPLERİ
 
-1. **Tek Kaynak Kod (Single-Source):**
+1. **Temel Amaç ve Tek Kaynak Kod (Single-Source):**
+   * Temel amaç; güvenli, mantıksal olarak doğru, performanslı, düşük gecikmeli, kararlı ve eksiksiz **native x64 sunucu ve istemci** geliştirmesidir.
    * Metin2 sunucusu (Game, DB ve çekirdek kütüphaneler), hem **Windows amd64 (x86_64)** hem de **FreeBSD amd64 (x86_64)** üzerinde çalışabilen tek bir kod tabanından geliştirilecektir.
-2. **Derleyici Standardı:**
-   * Her iki platformda da yalnızca **GCC** (veya platform uyumlu Clang) kullanılacaktır.
-   * **Visual Studio ve MSVC KESİNLİKLE KULLANILMAYACAKTIR.** (Windows tarafında MinGW-w64 / UCRT64 GCC kullanılacaktır).
-3. **Öncelik: Güvenli Native 64-Bit Uyumluluğu:**
-   * Sunucu doğrudan 64-bit (amd64) mimarisini hedefleyecektir.
-   * Windows (LLP64) ile FreeBSD (LP64) arasındaki `long` türü farklarına azami dikkat gösterilecektir.
+2. **Derleyici ve Araç Zinciri Standardı:**
+   * **Sunucu (`server/src/**`, `tests/**`):** Her iki platformda da yalnızca **GCC** (Windows tarafında MinGW-w64 / UCRT64 GCC, FreeBSD tarafında amd64 GCC) kullanılacaktır; sunucu derlemesinde Visual Studio ve MSVC kullanılmaz.
+   * **İstemci (`client/src/**`, `Metin2Client.sln`):** Mevcut MSVC / Visual Studio çözümünün ve uygun gerçek **native x64 (`PE32+`)** araç zincirinin kullanılmasına izin verilir; istemci gereksiz biçimde GCC'ye zorlanmaz.
+3. **Öncelik: Gerçek Native 64-Bit Uyumluluğu:**
+   * Sunucu (`ELF64` / `PE32+`) ve istemci (`PE32+`) doğrudan 64-bit (`amd64`) mimarisini hedefler; istemcide hedef WoW64'e dayanan 32-bit ikili değil, **gerçek native x64 istemcidir**.
+   * Windows (`LLP64`) ile FreeBSD (`LP64`) arasındaki `long` türü farklarına, istemcide ise `sizeof`, `offsetof`, `alignof`, 8 baytlık işaretçi genişliği ve doğru serileştirme kurallarına azami dikkat gösterilecektir.
 4. **C++ Standardı:**
-   * Başlangıç standardı **C++20**'dir (`-std=c++20`).
+   * Başlangıç standardı **C++20**'dir (`-std=c++20` / `/std:c++20`).
    * Standart yükseltmesi (C++23 vb.) ancak tüm platformlarda ve bağımlılıklarda uyumluluk kesin olarak doğrulandıktan sonra gündeme gelebilir.
-5. **Oyun Mantığı ve Ağ Protokolü Dokunulmazlığı:**
-   * Mevcut MT2009 oyun mekanikleri, formülleri ve istemci-sunucu ağ paket protokolü (`packet.h`, `Packet.h`) korunacaktır.
-   * İstemci 32-bit Windows binary'si olduğu için sunucu tarafındaki paket boyutları ve struct hizalamaları (`#pragma pack(1)`) bozulamaz.
+5. **Oyun Mantığı, Veri Bütünlüğü ve Ağ Protokolü Dokunulmazlığı:**
+   * Mevcut MT2009 oyun mekanikleri, formülleri, item/Yang dupe korumaları, ACID garantileri, SQL güvenliği, tek kullanımlık `LoginByKey` (`anti-replay`), taşma (`overflow`), yarış koşulları (`race condition`) ve istemci-sunucu x64 ağ paket protokolü (`MT2_PROTOCOL_VERSION_X64 = 0x20090064U`, `packet.h`, `Packet.h`, `#pragma pack(1)`) korunacaktır.
+   * **32-bit veri alanı $\neq$ x86 bağımlılığı:** Protokol gereği `uint32_t` / `int32_t` kalan `VID`, `flag`, `opcode`, `vnum`, soket veya koordinat gibi sabit genişlikli alanlar sırf x64 hedefi nedeniyle değiştirilmez.
 
 ---
 
@@ -29,41 +30,46 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Aynı anda birden fazla ajan aynı kaynak dosyalarını veya modülleri değiştiremez.
 2. **Ölçülebilir Başarı ve Test Zorunluluğu:**
    * Her görev için baştan belirlenmiş somut başarı kriterleri bulunacaktır.
-   * Derlenip yerel olarak test edilmemiş hiçbir işlem "tamamlandı" kabul edilemez.
+   * Somut bug veya güvenlik açığı varsa ilk gerçek kök neden bulunur, minimum kalıcı düzeltme uygulanır; etkilenen doğrulama `PASS` olmadan o iş tamamlanmış kabul edilmez veya sorun görmezden gelinerek ilerlenmez.
 3. **Görev Öncesi Doğrulama:**
    * Yeni bir göreve başlamadan önce `git status` ve `PROJECT_STATE.md` dosyasının içeriği mutlaka kontrol edilmelidir.
 4. **Dal (Branch) Yönetimi ve Yerel Güvenlik Koruması:**
-   * `main` dalı doğrudan değiştirilmeyecektir. Yeni geliştirmeler, modernizasyonlar ve CMake geçişi ayrı özellik dallarında (`feature/...` veya `dev/...`) yürütülecektir.
+   * `main` dalı doğrudan değiştirilmeyecektir. Tüm geliştirmeler `dev/windows-gcc-baseline` dalında yürütülecektir.
    * Depo genelinde `.githooks/` (`pre-commit`, `pre-push`) kancaları aktiftir; `.githooks/install.ps1` / `.githooks/install.sh` ile kalıcı `.git/hooks` dizinine kurulur ve `core.hooksPath = D:/mt22009/.git/hooks` olarak yapılandırılmıştır. Yerel ortamda `main` dalına doğrudan commit atılması veya `main` dalına doğrudan/force push yapılması engellenmiştir.
-5. **Belge Kirliliğini Önleme:**
-   * Projede yönetim ve hafıza amacıyla yalnızca `AGENTS.md` (kurallar) ve `PROJECT_STATE.md` (durum) kullanılacaktır.
-   * Yeni MD, TXT, günlük (log), rapor veya tarihçe dosyaları oluşturulması yasaktır.
-   * **Kullanıcının açıkça talep ettiği kapalı istisna listesi:** `docs/SERVER_X64_GOALS.md`, `docs/CLIENT_X64_PROTOCOL_MIGRATION.md`, `docs/ANTIGRAVITY_ACCOUNT_HANDOFF.md`, `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md` ve tarihsel `docs/migration/*`. Bu belgeler kural kaynağı değildir; `AGENTS.md` ile çelişirse `AGENTS.md` geçerlidir. Listeye yeni belge yalnızca kullanıcının açık talebiyle eklenebilir.
+5. **Belge Kirliliğini Önleme (Kesin 3 Belge Sınırı):**
+   * Depoda Git tarafından izlenen yalnızca **3 Markdown belgesi** bulunur:
+     1. `AGENTS.md` — Kalıcı geliştirme, güvenlik ve çalışma kuralları.
+     2. `PROJECT_STATE.md` — Güncel, doğrulanmış proje durumu ve önemli teknik kararlar.
+     3. `docs/SERVER_X64_GOALS.md` — Sunucu + istemci native x64 teknik sözleşmesi, gerçek engeller ve kabul kriterleri.
+   * Bu belgelerin hiçbiri kendiliğinden yeni iş başlatma yetkisi vermez; `docs/SERVER_X64_GOALS.md` kural kaynağı değildir, `AGENTS.md` ile çelişirse `AGENTS.md` geçerlidir.
+   * Yeni `.md`, `.txt`, görev numarası (`M/G/INT/H` kodları), görev listesi, takip belgesi, otomatik roadmap, checklist, handoff, revizyon günlüğü veya rapor dosyası oluşturulması kesinlikle yasaktır.
 6. **Güvenlik, Gizlilik ve Arşiv Yönetimi:**
    * Şifreler, veritabanı bağlantı parolaları, tokenlar ve özel anahtarlar kesinlikle Git takibine alınamaz ve GitHub'a yüklenemez.
-   * Eski `mt2009 - FULL SOURCE/new_ftp.tar.gz` arşivi içindeki tüm oyun verilerinin (`share/data`, `share/locale/poland`, `share/package` — toplam `14,341` dosya) eksiksiz olarak temiz ve parolasız `server/serverfiles_share.tar.xz` arşivine aktarıldığı SHA256 düzeyinde doğrulandıktan sonra, kullanıcı kararıyla `mt2009 - FULL SOURCE/new_ftp.tar.gz` çalışma ağacından kalıcı olarak kaldırılmıştır; taşınabilir kurulumlar için tek resmî kaynak arşiv `server/serverfiles_share.tar.xz` dosyasıdır.
+   * Taşınabilir sunucu kurulumları için oyun verilerinin (`share/data`, `share/locale/poland`, `share/package` — toplam `14,341` dosya) tek resmî ve parolasız kaynak arşivi `server/serverfiles_share.tar.xz` dosyasıdır.
 7. **Kullanıcı Odaklı İletişim:**
    * Proje sahibi kodlama bilmemektedir. Tüm açıklamalar, raporlar ve bilgilendirmeler açık, sade ve Türkçe olacaktır.
 
 ---
 
-## 3. KESİN MODÜL TAMAMLAMA VE KALICI DÜZELTME POLİTİKASI
+## 3. KESİN MODÜL TAMAMLAMA, KÖK NEDEN VE SADELİK POLİTİKASI
 
-1. **Aşama ve Modül Geçiş Yasağı:**
+1. **Aşama ve Modül Geçiş Yasağı (`Stop-the-Line`):**
    * Mevcut modüldeki/aşamada tespit edilmiş tüm derleme hataları, derleyici uyarıları, platform uyumsuzlukları ve test eksikleri tamamen çözülmeden kesinlikle bir sonraki modüle geçilemez.
-2. **Kök Neden Çözümü (Geçici Bayrak ve Bastırma Yasağı):**
-   * Hatalar ve uyarılar geçici derleme bayraklarıyla (`-D...` geçici yamalarıyla) veya uyarıları görmezden gelerek/bastırarak çözülemez.
-   * Her sorunun kök nedeni tespit edilecek; kod seviyesinde doğru, kalıcı ve standartlara uygun çözümler uygulanacaktır.
+2. **Kök Neden Çözümü ve Kod Sadeliği (Bloat Yasağı):**
+   * Hatalar ve uyarılar geçici derleme bayraklarıyla (`-D...`, `-Wno-*` geçici yamalarıyla) veya uyarıları görmezden gelerek/bastırarak çözülemez; her sorunun ilk gerçek kök nedeni tespit edilerek minimum kalıcı düzeltme uygulanır.
+   * Gereksiz kod, wrapper, abstraction, framework, compatibility layer, refactor, bağımlılık, tekrar test ve doküman üretilmez.
+   * Çalışan kod yalnızca bir görev listesinde yazıyor diye değiştirilmez.
+   * Yeni VM, yeni CI altyapısı veya gereksiz test sistemi önerilmez.
 3. **Çift Platform Bütünlüğü (Windows & FreeBSD):**
    * Windows amd64 için yapılan düzeltmeler FreeBSD amd64 kodunu asla bozmayacaktır (`#ifdef __WIN32__` blokları izole tutulacaktır).
-   * Test ortamı bulunmayan platformlar (ör. şu an aktif olmayan FreeBSD ortamı) raporda ve `PROJECT_STATE.md` içinde açıkça "test edilmedi/doğrulanmadı" olarak belirtilecek; denenmemiş platformlar asla başarılı ilan edilmeyecektir.
-4. **Tekrar Çalıştırılabilir ve Kalıcı Testler:**
-   * Testler tek kullanımlık (geçici) olmayacaktır. Modüllere ait küçük, hızlı ve otomatik çalıştırılabilir test kaynakları ve betikleri Git deposunda saklanacaktır.
-   * Her düzeltmeden sonra modül temiz ortamda yeniden derlenecek; hem yeni işlevler hem de önceki sistemler regresyon testleriyle doğrulanacaktır.
+   * Doğrulanmamış platform veya bileşenler raporda ve `PROJECT_STATE.md` içinde açıkça `UNVERIFIED` olarak belirtilecek; denenmemiş hiçbir adım `VERIFIED` ilan edilmeyecektir.
+4. **Tekrar Çalıştırılabilir Testler ve Gereksiz Tekrar Test Yasağı:**
+   * Testler tek kullanımlık (geçici) olmayacaktır. Modüllere ait küçük, hızlı ve otomatik çalıştırılabilir test kaynakları ve betikleri Git deposunda (`tests/`) saklanacaktır.
+   * Önceden `VERIFIED` olarak kanıtlanmış işler, yeni oturum veya hesap açıldığında otomatik olarak tekrar test edilmez; yalnızca yapılan değişiklik ilgili alanı gerçekten etkiliyorsa ilgili regresyon testi çalıştırılır.
 5. **Dürüst Doğrulama ve Belge Disiplini:**
    * Hiçbir sorun gerçekte test edilmeden "çözüldü" olarak işaretlenemez.
    * Bir aşamada çözülemeyen bir engel varsa sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kullanıcıya raporlanacaktır.
-   * `AGENTS.md` ve `PROJECT_STATE.md` dışında, §2.5'teki kapalı istisna listesi haricinde hiçbir yeni Markdown belgesi oluşturulmayacaktır.
+   * `AGENTS.md`, `PROJECT_STATE.md` ve `docs/SERVER_X64_GOALS.md` dışında hiçbir yeni Markdown belgesi oluşturulmayacaktır.
 
 ---
 
@@ -222,14 +228,13 @@ Server ve Common Extern bağımlılıklarının en güncel kararlı resmî sür�
 
 ---
 
-## 8. İSTEMCİ KAYNAK VE SDK DOKUNULMAZLIĞI (CLIENT STRICT EMBARGO)
+## 8. NATIVE X64 İSTEMCİ GELİŞTİRME İZNİ VE KAPSAM SINIRI
 
-Kullanıcı açıkça yeni bir İstemci Modernizasyonu aşaması başlatana kadar:
-1. `client/src/` altındaki hiçbir dosya değiştirilemez.
-2. `client/files/` altındaki hiçbir dosya değiştirilemez.
-3. `extern/client/` altındaki hiçbir başlık veya kütüphane değiştirilemez.
-4. Client x64 derlemesi veya SDK (Granny, Miles Sound, SpeedTree, DirectX, Python) yükseltmesi başlatılamaz.
-5. İstemci kaynakları yalnızca 32-bit ağ protokolü ve veri yapıları için **salt-okunur (read-only) referans** olarak kullanılır.
+Kullanıcı gerçek **native x64 istemci (`PE32+`)** geliştirmesine açık izin vermiştir:
+1. Eski `client/**`, `client/src/**`, `extern/client/**` ve gerekli istemci derleme/yapılandırma alanlarının x64 dönüşümüne ilişkin mutlak ambargo kaldırılmıştır.
+2. **Kapsam Sınırı:** İzin kapsamı yalnızca istemcinin gerçek **native x64 mimarisine (`PE32+`, x64 SDK/DLL/statik kütüphane, 64-bit işaretçi/ABI/tür/hizalama güvenliği)** ve sunucu **x64 ağ protokolüne (`MT2_PROTOCOL_VERSION_X64 = 0x20090064U`, `docs/SERVER_X64_GOALS.md`)** dönüştürülmesiyle sınırlıdır.
+3. İstemci için mevcut MSVC / Visual Studio çözümünün (`Metin2Client.sln`) ve uygun gerçek native x64 araç zincirinin kullanılmasına izin verilir; istemci gereksiz biçimde GCC'ye zorlanmaz.
+4. Mevcut oyun mantığı, formüller ve çalışan sistemler x64 dönüşümü gerektirmediği sürece değiştirilmez; gereksiz wrapper, soyutlama katmanı veya yapay refactor üretilmez.
 
 ---
 
@@ -249,13 +254,13 @@ Kullanıcı açıkça yeni bir İstemci Modernizasyonu aşaması başlatana kada
 
 ---
 
-## 10. SÜREKLİ VE OTONOM GELİŞTİRME PROTOKOLÜ (NO REDUNDANT PROMPTS)
+## 10. GÖREV DİSİPLİNİ VE BELGE YETKİ SINIRI
 
-1. **Gereksiz Prompt Bekleme Yasağı:**
-   * Her küçük görev sonunda kullanıcıdan yeni ve uzun prompt istenmeyecektir.
-   * Tamamlanan iş kapatılacak; `PROJECT_STATE.md` güncellenecek; sıradaki somut ve güvenli adıma doğrudan kurallara dayanarak devam edilecektir.
-2. **Tek Doğruluk Kaynağı:**
-   * `PROJECT_STATE.md` gerçekleşen işler, açık engeller, aktif aşama, ortam commit'leri ve test sonuçları için tek güncel durum belgesidir.
+1. **Belge Yetki Sınırı:**
+   * `AGENTS.md` kalıcı kuralları, `PROJECT_STATE.md` güncel durumu, `docs/SERVER_X64_GOALS.md` ise teknik kabul kriterlerini belirler. Bu belgelerin hiçbiri kendiliğinden yeni iş başlatma yetkisi vermez.
+2. **Görev ve Kod Şişirme Yasağı:**
+   * Yeni `M/G/INT/H` görev kodları, görev listeleri, takip belgeleri veya otomatik roadmap oluşturulmaz.
+   * Tamamlanan iş kapatılır ve `PROJECT_STATE.md` güncellenir.
 3. **Kalıcı Kural Dokunulmazlığı:**
    * Kurallar her oturumda yeniden keşfedilmeyecek; `AGENTS.md` değişmez anayasa olarak uygulanacaktır.
 
@@ -263,20 +268,14 @@ Kullanıcı açıkça yeni bir İstemci Modernizasyonu aşaması başlatana kada
 
 ## 11. KALICI GELİŞTİRME YOL HARİTASI VE ÇALIŞMA SIRASI
 
-Bu sıra, projenin modernizasyonunda takip edilecek değişmez operasyonel iş akışını belirler:
+Projenin modernizasyonunda takip edilen operasyonel sıra:
 
-1. **Mevcut FreeBSD x64 game/db Başarısını Koru:**
-   * Doğrulanmış ELF64 `game` ve `db` derleme, bağlama ve wire protokolü başarısı her aşamada korunacak; tamamlanmış adımlar tekrarlanmayacaktır.
-2. **CMake + Ninja Derleme Altyapısı:**
-   * Windows MinGW-w64 GCC 16.2 UCRT ve FreeBSD 15.1 amd64 GCC 14 için birleşik, tek merkezî `CMakeLists.txt` ve Ninja derleme mimarisi kurulacaktır.
-3. **CMake ile Gerçek İkili ve Test Doğrulaması:**
-   * CMake üzerinden FreeBSD ortamında gerçek `game` ve `db` ELF64 binary'leri, Windows tarafında ise sunucu kütüphaneleri ve regresyon testleri doğrulanacaktır.
-4. **Eski Makefile Eşdeğerlik Güvencesi:**
-   * Mevcut Makefile sistemleri, CMake altyapısının %100 eşdeğerliği ve başarısı kanıtlanıncaya kadar depoda korunacaktır; aceleyle silinmeyecektir.
-5. **Aşamalı Server/Common Extern Sürüm Yükseltmesi:**
-   * Server ve Common Extern bağımlılıkları (Crypto++, Boost, DevIL, Lua, RapidJSON, fmt vb.) CMake altyapısı üzerinden en son doğrulanmış resmi kararlı sürümlere adım adım yükseltilecektir.
-6. **Bütünsel Test ve Çoklu Ortam Doğrulaması:**
-   * Her aşamada ilgili birim, entegrasyon, canlı SQL ve wire protokolü testleri çalıştırılacak; platform bağımlılıkları ve Git/CI senkronizasyonu kanıtlanacaktır.
+1. **Mevcut FreeBSD ve Windows x64 Sunucu (`game`/`db`/`qc`) Başarısını Koru:**
+   * Doğrulanmış `ELF64` ve `PE32+` `game`, `db`, `qc` derleme, bağlama, CMake + Ninja, Lua 5.5.1, MariaDB 12.3 LTS ve `0x20090064U` wire protokolü başarısı her aşamada korunacak; tamamlanmış ve `VERIFIED` kanıtlı adımlar değişiklik yapılmadıkça tekrarlanmayacaktır.
+2. **Sunucu Veri Bütünlüğü ve Güvenlik Kontrollerini Koru:**
+   * Mevcut item/Yang dupe korumaları, ACID işlem günlüğü, SQL güvenliği, tek kullanımlık `LoginByKey` (`anti-replay`), taşma (`overflow`), yarış koşulları (`race condition`) ve protokol bütünlüğü korunacaktır.
+3. **Native x64 İstemci (`PE32+`) Dönüşümü:**
+   * İstemci kaynak kodu (`client/src/**`) ve bağımlılıkları (`extern/client/**`), `docs/SERVER_X64_GOALS.md` içindeki gerçek native x64 (`PE32+`) ve `0x20090064U` protokol kabul kriterlerine göre adım adım dönüştürülecek ve doğrulanacaktır.
 
 ---
 
@@ -284,7 +283,7 @@ Bu sıra, projenin modernizasyonunda takip edilecek değişmez operasyonel iş a
 
 Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E-core], 12 mantıksal işlemci) geliştirme bilgisayarında kaynak sınırlandırması **yalnızca derleme süreçlerine** uygulanır; derleme dışındaki test, analiz ve geliştirme işlemlerine hiçbir yapay kısıtlama uygulanmaz:
 
-1. **Yalnızca Derleme Süreçleri İçin Sınırlar (`CMake`, `Ninja`, `Make`, `GCC`, `G++`, `linker`):**
+1. **Yalnızca Derleme Süreçleri İçin Sınırlar (`CMake`, `Ninja`, `Make`, `GCC`, `G++`, `MSVC/cl`, `linker`):**
    * **CPU Hard-Cap (`JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP`):** Derleme işlem ağacının toplam sistem CPU kullanımı en fazla **%50 (`CpuRate = 5000/10000`)** ile sınırlandırılır.
    * **Hibrit CPU Affinity (`JOB_OBJECT_LIMIT_AFFINITY` — 6 Mantıksal İşlemci):** Intel Core i5-12450H hibrit topolojisinde (`P-core LP 0..7 [0x0FF]`, `E-core LP 8..11 [0xF00]`) ilk 3 fiziksel P-core'u (`LP 0..5`, `0x03F`) kullanıcıya tamamen serbest bırakmak için derleme iş grubu **6 mantıksal işlemciye (`0xFC0` -> `LP 6..11`: 1 P-core [2 LP, `0x0C0`] + 4 E-core [4 LP, `0xF00`])** sabitlenir (eski `0xF00` 4-LP maskesi kaldırılmıştır).
    * **Derleme Paralelliği:** Maksimum **6 paralel derleme işi** (`CMAKE_BUILD_PARALLEL_LEVEL=6`, `-j6`) çalıştırılır.
@@ -299,11 +298,11 @@ Windows 11 Pro x64 (`Intel Core i5-12450H`, 8 fiziksel çekirdek [4 P-core + 4 E
 ## 13. ANTIGRAVITY HESAP VE OTURUM BAĞIMSIZLIĞI
 
 1. **Hesaptan Bağımsız Hafıza:**
-   * Proje bilgisi yalnızca depodaki belgelerde tutulur. Antigravity sohbet geçmişi, `brain/`, `conversations/` veya oturum `scratch` klasörleri hesaba bağlıdır ve proje hafızası sayılmaz.
+   * Proje bilgisi yalnızca depodaki 3 ana belgede (`AGENTS.md`, `PROJECT_STATE.md`, `docs/SERVER_X64_GOALS.md`) tutulur. Antigravity sohbet geçmişi, `brain/`, `conversations/` veya oturum `scratch` klasörleri hesaba bağlıdır ve proje hafızası sayılmaz.
 2. **Oturum Yolu Yasağı:**
    * `C:\Users\...\.gemini\antigravity\brain\<conversation-id>\scratch` gibi oturuma özel yollar kalıcı test prosedürü olarak kullanılamaz. Tekrar çalıştırılması gereken test betikleri sırsız ve parametreli olarak `tests/` altında Git'e alınır.
    * Git'e konamayan yerel ikili test bağımlılıkları (ör. taşınabilir MariaDB 12.3.3) Git dışında `D:\mt22009\scratch\handoff\` altında tutulur; bu klasör silinmez ve içeriği commit edilmez.
-3. **Hesap Değişiminde İlk İş:**
-   * Yeni bir Antigravity hesabı veya yeni bir oturum, geliştirmeye başlamadan önce `docs/ANTIGRAVITY_NEW_ACCOUNT_CHECKLIST.md` içindeki salt-okunur denetimleri yapar. Önceki hesabın test sonuçları yeni hesapta yeniden çalıştırılmadıkça doğrulanmış sayılmaz.
+3. **Yeni Oturum ve Hesap Geçiş Kuralı:**
+   * Yeni bir Antigravity hesabı veya oturumu açıldığında `git status`, `AGENTS.md`, `PROJECT_STATE.md` ve `docs/SERVER_X64_GOALS.md` kontrol edilir. Önceden `VERIFIED` olarak kanıtlanmış işler yeni oturum veya hesap açıldığında otomatik olarak tekrar test edilmez; yalnızca ilgili kodu değiştiren bir geliştirme yapıldığında ilgili test çalıştırılır.
 4. **Sır ve Oturum Verisi:**
    * Google oturumu, cookie, OAuth, API anahtarı, GitHub tokenı, SSH özel anahtarı ve veritabanı parolaları okunmaz, belgeye yazılmaz, Git'e eklenmez ve hesaplar arasında kopyalanmaz. Depo PUBLIC olduğundan her commit öncesinde sır denetimi zorunludur.
