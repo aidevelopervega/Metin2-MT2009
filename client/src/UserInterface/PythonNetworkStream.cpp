@@ -275,7 +275,7 @@ bool CPythonNetworkStream::__IsNotPing()
 	return false;
 }
 
-DWORD CPythonNetworkStream::GetGuildID()
+uint64_t CPythonNetworkStream::GetGuildID()
 {
 	return m_dwGuildID;
 }
@@ -409,7 +409,7 @@ bool CPythonNetworkStream::IsSelectedEmpire()
 	return false;
 }
 
-UINT CPythonNetworkStream::GetAccountCharacterSlotDatau(UINT iSlot, UINT eType)
+uint64_t CPythonNetworkStream::GetAccountCharacterSlotDatau(UINT iSlot, UINT eType)
 {
 	if (iSlot >= PLAYER_PER_ACCOUNT4)
 		return 0;

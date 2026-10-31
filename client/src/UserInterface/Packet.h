@@ -4,7 +4,13 @@
 #include "../gamelib/RaceData.h"
 #include "../gamelib/ItemData.h"
 
+#include <cstddef>
+#include <cstdint>
+
 typedef BYTE TPacketHeader;
+
+inline constexpr uint32_t MT2_PROTOCOL_VERSION_LEGACY_X86 = 0x20090032U;
+inline constexpr uint32_t MT2_PROTOCOL_VERSION_X64        = 0x20090064U;
 
 enum
 {
@@ -485,6 +491,7 @@ typedef struct command_login2
 	char	name[ID_MAX_NUM + 1];
 	DWORD	login_key;
     DWORD	adwClientKey[4];
+	uint32_t	dwProtocolVersion;
 } TPacketCGLogin2;
 
 typedef struct command_login3
@@ -494,6 +501,7 @@ typedef struct command_login3
     char	pwd[PASS_MAX_NUM + 1];
     DWORD	adwClientKey[4];
 	char	hwid[HWID_MAX_LEN + 1];
+	uint32_t	dwProtocolVersion;
 } TPacketCGLogin3;
 
 typedef struct command_direct_enter
@@ -1201,7 +1209,7 @@ typedef struct packet_header_large_dynamic_size
 
 typedef struct SSimplePlayerInformation
 {
-    DWORD               dwID;
+    uint64_t            dwID;
     char                szName[CHARACTER_NAME_MAX_LEN + 1];
     BYTE                byJob;
     BYTE                byLevel;
@@ -1224,7 +1232,7 @@ typedef struct packet_login_success3
 {
 	BYTE						header;
 	TSimplePlayerInformation	akSimplePlayerInformation[PLAYER_PER_ACCOUNT3];
-    DWORD						guild_id[PLAYER_PER_ACCOUNT3];
+    uint64_t					guild_id[PLAYER_PER_ACCOUNT3];
     char						guild_name[PLAYER_PER_ACCOUNT3][GUILD_NAME_MAX_LEN+1];
 	DWORD handle;
 	DWORD random_key;
@@ -1234,7 +1242,7 @@ typedef struct packet_login_success4
 {
 	BYTE						header;
 	TSimplePlayerInformation	akSimplePlayerInformation[PLAYER_PER_ACCOUNT4];
-    DWORD						guild_id[PLAYER_PER_ACCOUNT4];
+    uint64_t					guild_id[PLAYER_PER_ACCOUNT4];
     char						guild_name[PLAYER_PER_ACCOUNT4][GUILD_NAME_MAX_LEN+1];
 	DWORD handle;
 	DWORD random_key;
@@ -1245,7 +1253,7 @@ typedef struct packet_login_success5
 {
 	BYTE						header;
 	TSimplePlayerInformation	akSimplePlayerInformation[PLAYER_PER_ACCOUNT5];
-    DWORD						guild_id[PLAYER_PER_ACCOUNT5];
+    uint64_t					guild_id[PLAYER_PER_ACCOUNT5];
     char						guild_name[PLAYER_PER_ACCOUNT5][GUILD_NAME_MAX_LEN+1];
 	DWORD handle;
 	DWORD random_key;
@@ -1324,7 +1332,7 @@ typedef struct packet_char_additional_info
 	char    name[CHARACTER_NAME_MAX_LEN + 1];
 	DWORD   awPart[PART_MAX_NUM]; // @fixme502
 	BYTE	bEmpire;
-	DWORD   dwGuildID;
+	uint64_t	dwGuildID;
 	DWORD   dwLevel;
 	short   sAlignment;
 	BYTE    bPKMode;
@@ -1377,7 +1385,7 @@ typedef struct packet_add_char2
     DWORD       dwAffectFlag[2];
     BYTE        bEmpire;
 
-    DWORD       dwGuild;
+    uint64_t    dwGuild;
     short       sAlignment;
 	BYTE		bPKMode;
 	DWORD		dwMountVnum;
@@ -1398,7 +1406,7 @@ typedef struct packet_update_char
     BYTE        bStateFlag;
     DWORD       dwAffectFlag[2];
 
-	DWORD		dwGuildID;
+	uint64_t	dwGuildID;
 	BYTE		bLevel;
     short       sAlignment;
 	BYTE		bPKMode;
@@ -2251,7 +2259,7 @@ struct TPacketGCDeleteCharacterError
 typedef struct SPacketGCChangeName
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
     char name[CHARACTER_NAME_MAX_LEN+1];
 } TPacketGCChangeName;
 
@@ -3343,6 +3351,71 @@ struct TPacketGCGamemasterTarget
 // END OF GAMEMASTER TARGET
 
 #pragma pack(pop)
+
+static_assert(MT2_PROTOCOL_VERSION_X64 == 0x20090064U, "MT2_PROTOCOL_VERSION_X64 mismatch");
+
+static_assert(sizeof(TPacketCGLogin2) == 56, "TPacketCGLogin2 size mismatch");
+static_assert(offsetof(TPacketCGLogin2, dwProtocolVersion) == 52, "TPacketCGLogin2::dwProtocolVersion offset mismatch");
+
+static_assert(sizeof(TPacketCGLogin3) == 325, "TPacketCGLogin3 size mismatch");
+static_assert(offsetof(TPacketCGLogin3, dwProtocolVersion) == 321, "TPacketCGLogin3::dwProtocolVersion offset mismatch");
+
+static_assert(sizeof(TPacketGCPhase) == 2, "TPacketGCPhase size mismatch");
+static_assert(offsetof(TPacketGCPhase, phase) == 1, "TPacketGCPhase::phase offset mismatch");
+
+static_assert(sizeof(TPacketGCAuthSuccess) == 6, "TPacketGCAuthSuccess size mismatch");
+static_assert(offsetof(TPacketGCAuthSuccess, dwLoginKey) == 1, "TPacketGCAuthSuccess::dwLoginKey offset mismatch");
+static_assert(offsetof(TPacketGCAuthSuccess, bResult) == 5, "TPacketGCAuthSuccess::bResult offset mismatch");
+
+static_assert(sizeof(TPacketGCLoginFailure) == 10, "TPacketGCLoginFailure size mismatch");
+static_assert(offsetof(TPacketGCLoginFailure, szStatus) == 1, "TPacketGCLoginFailure::szStatus offset mismatch");
+
+#ifndef ENABLE_ACCE_COSTUME_SYSTEM
+static_assert(sizeof(TSimplePlayerInformation) == 71, "TSimplePlayerInformation size mismatch");
+static_assert(offsetof(TSimplePlayerInformation, dwID) == 0, "TSimplePlayerInformation::dwID offset mismatch");
+static_assert(offsetof(TSimplePlayerInformation, szName) == 8, "TSimplePlayerInformation::szName offset mismatch");
+static_assert(offsetof(TSimplePlayerInformation, x) == 56, "TSimplePlayerInformation::x offset mismatch");
+static_assert(offsetof(TSimplePlayerInformation, lAddr) == 64, "TSimplePlayerInformation::lAddr offset mismatch");
+static_assert(offsetof(TSimplePlayerInformation, wPort) == 68, "TSimplePlayerInformation::wPort offset mismatch");
+static_assert(offsetof(TSimplePlayerInformation, bySkillGroup) == 70, "TSimplePlayerInformation::bySkillGroup offset mismatch");
+
+static_assert(sizeof(TPacketGCLoginSuccess3) == 291, "TPacketGCLoginSuccess3 size mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess3, akSimplePlayerInformation) == 1, "TPacketGCLoginSuccess3::akSimplePlayerInformation offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess3, guild_id) == 214, "TPacketGCLoginSuccess3::guild_id offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess3, guild_name) == 238, "TPacketGCLoginSuccess3::guild_name offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess3, handle) == 283, "TPacketGCLoginSuccess3::handle offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess3, random_key) == 287, "TPacketGCLoginSuccess3::random_key offset mismatch");
+
+#ifndef ENABLE_PLAYER_PER_ACCOUNT5
+static_assert(sizeof(TPacketGCLoginSuccess4) == 385, "TPacketGCLoginSuccess4 size mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess4, akSimplePlayerInformation) == 1, "TPacketGCLoginSuccess4::akSimplePlayerInformation offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess4, guild_id) == 285, "TPacketGCLoginSuccess4::guild_id offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess4, guild_name) == 317, "TPacketGCLoginSuccess4::guild_name offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess4, handle) == 377, "TPacketGCLoginSuccess4::handle offset mismatch");
+static_assert(offsetof(TPacketGCLoginSuccess4, random_key) == 381, "TPacketGCLoginSuccess4::random_key offset mismatch");
+#endif
+
+static_assert(sizeof(TPacketGCPlayerCreateSuccess) == 73, "TPacketGCPlayerCreateSuccess size mismatch");
+static_assert(offsetof(TPacketGCPlayerCreateSuccess, bAccountCharacterSlot) == 1, "TPacketGCPlayerCreateSuccess::bAccountCharacterSlot offset mismatch");
+static_assert(offsetof(TPacketGCPlayerCreateSuccess, kSimplePlayerInfomation) == 2, "TPacketGCPlayerCreateSuccess::kSimplePlayerInfomation offset mismatch");
+#endif
+
+static_assert(sizeof(TPacketGCChangeName) == 34, "TPacketGCChangeName size mismatch");
+static_assert(offsetof(TPacketGCChangeName, pid) == 1, "TPacketGCChangeName::pid offset mismatch");
+static_assert(offsetof(TPacketGCChangeName, name) == 9, "TPacketGCChangeName::name offset mismatch");
+
+#if !defined(ENABLE_ACCE_COSTUME_SYSTEM) && !defined(ENABLE_QUIVER_SYSTEM)
+static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 66, "TPacketGCCharacterAdditionalInfo size mismatch");
+static_assert(offsetof(TPacketGCCharacterAdditionalInfo, dwGuildID) == 47, "TPacketGCCharacterAdditionalInfo::dwGuildID offset mismatch");
+static_assert(offsetof(TPacketGCCharacterAdditionalInfo, dwLevel) == 55, "TPacketGCCharacterAdditionalInfo::dwLevel offset mismatch");
+
+static_assert(sizeof(TPacketGCCharacterAdd2) == 94, "TPacketGCCharacterAdd2 size mismatch");
+static_assert(offsetof(TPacketGCCharacterAdd2, dwGuild) == 79, "TPacketGCCharacterAdd2::dwGuild offset mismatch");
+
+static_assert(sizeof(TPacketGCCharacterUpdate) == 48, "TPacketGCCharacterUpdate size mismatch");
+static_assert(offsetof(TPacketGCCharacterUpdate, dwGuildID) == 32, "TPacketGCCharacterUpdate::dwGuildID offset mismatch");
+static_assert(offsetof(TPacketGCCharacterUpdate, bLevel) == 40, "TPacketGCCharacterUpdate::bLevel offset mismatch");
+#endif
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

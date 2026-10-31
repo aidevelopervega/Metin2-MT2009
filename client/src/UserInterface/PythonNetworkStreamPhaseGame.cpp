@@ -203,7 +203,7 @@ void CPythonNetworkStream::__RefreshEquipmentWindow()
 	m_isRefreshEquipmentWnd=true;
 }
 
-void CPythonNetworkStream::__SetGuildID(DWORD id)
+void CPythonNetworkStream::__SetGuildID(uint64_t id)
 {
 	if (m_dwGuildID != id)
 	{

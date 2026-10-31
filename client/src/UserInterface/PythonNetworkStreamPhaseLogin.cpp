@@ -203,6 +203,7 @@ bool CPythonNetworkStream::__RecvLoginFailurePacket()
 	if (!Recv(sizeof(TPacketGCLoginFailure), &packet_failure))
 		return false;
 
+	packet_failure.szStatus[LOGIN_STATUS_MAX_LEN] = '\0';
 	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_LOGIN], "OnLoginFailure", Py_BuildValue("(s)", packet_failure.szStatus));
 #ifdef _DEBUG
 	Tracef(" RecvLoginFailurePacket : [%s]\n", packet_failure.szStatus);
@@ -249,7 +250,8 @@ bool CPythonNetworkStream::SendLoginPacket(const char* c_szName, const char* c_s
 
 bool CPythonNetworkStream::SendLoginPacketNew(const char * c_szName, const char * c_szPassword)
 {
-	TPacketCGLogin2 LoginPacket;
+	TPacketCGLogin2 LoginPacket{};
+	LoginPacket.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 	LoginPacket.header = HEADER_CG_LOGIN2;
 	LoginPacket.login_key = m_dwLoginKey;
 

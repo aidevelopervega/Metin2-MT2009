@@ -119,7 +119,7 @@ bool CAccountConnector::__AuthState_Process()
 	if (!__AnalyzePacket(HEADER_GC_AUTH_SUCCESS, sizeof(TPacketGCAuthSuccess), &CAccountConnector::__AuthState_RecvAuthSuccess))
 		return true;
 
-	if (!__AnalyzePacket(HEADER_GC_LOGIN_FAILURE, sizeof(TPacketGCAuthSuccess), &CAccountConnector::__AuthState_RecvAuthFailure))
+	if (!__AnalyzePacket(HEADER_GC_LOGIN_FAILURE, sizeof(TPacketGCLoginFailure), &CAccountConnector::__AuthState_RecvAuthFailure))
 		return true;
 
 	if (!__AnalyzePacket(HEADER_GC_HANDSHAKE, sizeof(TPacketGCHandshake), &CAccountConnector::__AuthState_RecvHandshake))
@@ -183,7 +183,8 @@ bool CAccountConnector::__AuthState_RecvPhase()
 			return false;
 		}
 
-		TPacketCGLogin3 LoginPacket;
+		TPacketCGLogin3 LoginPacket{};
+		LoginPacket.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
 		LoginPacket.header = HEADER_CG_LOGIN3;
 
 		strncpy(LoginPacket.name, m_strID.c_str(), ID_MAX_NUM);
@@ -348,6 +349,7 @@ bool CAccountConnector::__AuthState_RecvAuthFailure()
 	if (!Recv(sizeof(TPacketGCLoginFailure), &packet_failure))
 		return false;
 
+	packet_failure.szStatus[LOGIN_STATUS_MAX_LEN] = '\0';
 	if (m_poHandler)
 		PyCallClassMemberFunc(m_poHandler, "OnLoginFailure", Py_BuildValue("(s)", packet_failure.szStatus));
 

@@ -6,8 +6,8 @@
 #include "../eterGrnLib/Thing.h"
 #include "GameLibDefines.h"
 
-#include "../../Server/common/length.h"
-#include "../../Server/common/item_length.h"
+#include "../../../server/src/common/length.h"
+#include "../../../server/src/common/item_length.h"
 
 typedef	DWORD		ITEM_COUNT;
 typedef long long	YANG;

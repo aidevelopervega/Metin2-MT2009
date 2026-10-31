@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../eterGrnLib/Thing.h"
-#include "../../Server/common/length.h"
+#include "../../../server/src/common/length.h"
 
 class CRaceMotionData;
 class CAttributeData;

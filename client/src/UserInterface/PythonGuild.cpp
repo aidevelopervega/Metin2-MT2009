@@ -134,7 +134,7 @@ void CPythonGuild::RemoveMember(DWORD dwPID)
 	m_GuildMemberDataVector.erase(itor);
 }
 
-void CPythonGuild::RegisterGuildName(DWORD dwID, const char * c_szName)
+void CPythonGuild::RegisterGuildName(uint64_t dwID, const char * c_szName)
 {
 	m_GuildNameMap.insert(make_pair(dwID, std::string(c_szName)));
 }
@@ -238,7 +238,7 @@ CPythonGuild::TGuildSkillData & CPythonGuild::GetGuildSkillDataRef()
 	return m_GuildSkillData;
 }
 
-bool CPythonGuild::GetGuildName(DWORD dwID, std::string * pstrGuildName)
+bool CPythonGuild::GetGuildName(uint64_t dwID, std::string * pstrGuildName)
 {
 	if (m_GuildNameMap.end() == m_GuildNameMap.find(dwID))
 		return false;

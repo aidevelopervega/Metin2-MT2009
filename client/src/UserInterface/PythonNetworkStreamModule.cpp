@@ -120,7 +120,7 @@ PyObject* netUploadSymbol(PyObject* poSelf, PyObject* poArgs)
 PyObject* netGetGuildID(PyObject* poSelf, PyObject* poArgs)
 {
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	return Py_BuildValue("i", rkNetStream.GetGuildID());
+	return PyLong_FromUnsignedLongLong(rkNetStream.GetGuildID());
 }
 
 PyObject* netGetEmpireID(PyObject* poSelf, PyObject* poArgs)
@@ -170,8 +170,13 @@ PyObject* netGetAccountCharacterSlotDataInteger(PyObject* poSelf, PyObject* poAr
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	UINT uResult=rkNetStream.GetAccountCharacterSlotDatau(nIndex, nType);
-	return Py_BuildValue("i", uResult);
+	uint64_t uResult=rkNetStream.GetAccountCharacterSlotDatau(nIndex, nType);
+	if (nType == CPythonNetworkStream::ACCOUNT_CHARACTER_SLOT_ID ||
+		nType == CPythonNetworkStream::ACCOUNT_CHARACTER_SLOT_GUILD_ID)
+	{
+		return PyLong_FromUnsignedLongLong(uResult);
+	}
+	return Py_BuildValue("i", static_cast<int>(uResult));
 }
 
 PyObject* netGetAccountCharacterSlotDataString(PyObject* poSelf, PyObject* poArgs)

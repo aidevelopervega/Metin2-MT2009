@@ -43,7 +43,7 @@ struct SNetworkActorData
 	BYTE	m_byPKMode;
 	DWORD	m_dwMountVnum;
 
-	DWORD	m_dwGuildID;
+	uint64_t	m_dwGuildID;
 	DWORD	m_dwLevel;
 
 	SNetworkActorData();
@@ -86,7 +86,7 @@ struct SNetworkMoveActorData
 struct SNetworkUpdateActorData
 {
 	DWORD m_dwVID;
-	DWORD m_dwGuildID;
+	uint64_t m_dwGuildID;
 	DWORD m_dwArmor;
 	DWORD m_dwWeapon;
 	DWORD m_dwHair;

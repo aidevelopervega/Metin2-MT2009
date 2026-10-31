@@ -105,7 +105,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		bool IsChatInsultIn(const char* c_szMsg);
 		bool IsInsultIn(const char* c_szMsg);
 
-		DWORD GetGuildID();
+		uint64_t GetGuildID();
 
 		UINT UploadMark(const char* c_szImageFileName);
 		UINT UploadSymbol(const char* c_szImageFileName);
@@ -113,7 +113,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		bool LoadInsultList(const char* c_szInsultListFileName);
 		bool LoadConvertTable(DWORD dwEmpireID, const char* c_szFileName);
 
-		UINT		GetAccountCharacterSlotDatau(UINT iSlot, UINT eType);
+		uint64_t	GetAccountCharacterSlotDatau(UINT iSlot, UINT eType);
 		const char* GetAccountCharacterSlotDataz(UINT iSlot, UINT eType);
 
 		// SUPPORT_BGM
@@ -744,7 +744,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 
 		void __FilterInsult(char* szLine, UINT uLineLen);
 
-		void __SetGuildID(DWORD id);
+		void __SetGuildID(uint64_t id);
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 		void __SetGuildToken(uint64_t token);
 #endif
@@ -760,7 +760,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		BOOL m_isGameOnline;
 		BOOL m_isStartGame;
 
-		DWORD m_dwGuildID;
+		uint64_t m_dwGuildID;
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 		uint64_t m_dwGuildToken{};
 #endif
@@ -795,7 +795,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		PyObject*							m_poSerCommandParserWnd;
 
 		TSimplePlayerInformation			m_akSimplePlayerInfo[PLAYER_PER_ACCOUNT4];
-		DWORD								m_adwGuildID[PLAYER_PER_ACCOUNT4];
+		uint64_t							m_adwGuildID[PLAYER_PER_ACCOUNT4];
 		std::string							m_astrGuildName[PLAYER_PER_ACCOUNT4];
 		bool m_bSimplePlayerInfo;
 

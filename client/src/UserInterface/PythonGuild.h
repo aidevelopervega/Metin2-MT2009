@@ -62,7 +62,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 			WORD wMaxGuildPoint;
 		} TGuildSkillData;
 
-		typedef std::map<DWORD, std::string> TGuildNameMap;
+		typedef std::map<uint64_t, std::string> TGuildNameMap;
 
 	public:
 		CPythonGuild();
@@ -82,7 +82,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 		void ChangeGuildMemberGrade(DWORD dwPID, BYTE byGrade);
 		void ChangeGuildMemberGeneralFlag(DWORD dwPID, BYTE byFlag);
 		void RemoveMember(DWORD dwPID);
-		void RegisterGuildName(DWORD dwID, const char * c_szName);
+		void RegisterGuildName(uint64_t dwID, const char * c_szName);
 
 		BOOL IsMainPlayer(DWORD dwPID);
 		BOOL IsGuildEnable();
@@ -97,7 +97,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 		DWORD GetGuildMemberLevelAverage();
 		DWORD GetGuildExperienceSummary();
 		TGuildSkillData & GetGuildSkillDataRef();
-		bool GetGuildName(DWORD dwID, std::string * pstrGuildName);
+		bool GetGuildName(uint64_t dwID, std::string * pstrGuildName);
 		DWORD GetGuildID();
 		BOOL HasGuildLand();
 
