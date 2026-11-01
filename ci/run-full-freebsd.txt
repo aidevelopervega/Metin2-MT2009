@@ -17,7 +17,7 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=shopex-bounds-hardening-freebsd-verification-r1
-APPROVED_SOURCE_COMMIT=e8184b9eda6f3da45161a23fdbff319c180a10e5
+TRIGGER_REVISION=shopex-bounds-hardening-freebsd-verification-r2
+APPROVED_SOURCE_COMMIT=dd9da03097cb8a97e45def0b300c258e11888210
 PREVIOUS_VERIFIED_RUN_ID=41183346026
 STATUS=TRIGGERED

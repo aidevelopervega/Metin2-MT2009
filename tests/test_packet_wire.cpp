@@ -1685,7 +1685,7 @@ int main()
                 static_assert(POINT_MAX_NUM == 177, "POINT_MAX_NUM must be 177 across server and client");
                 static_assert(POINT_GOLD == 11, "POINT_GOLD must be 11");
                 static_assert(GOLD_MAX == 1000000000000LL, "GOLD_MAX must be 1,000,000,000,000 (10^12)");
-                static_assert(sizeof(YANG) == 8 && std::is_same_v<YANG, int64_t>, "YANG must be signed 64-bit int64_t");
+                static_assert(sizeof(YANG) == 8 && sizeof(YANG) == sizeof(int64_t) && std::is_signed_v<YANG> && std::is_integral_v<YANG>, "YANG must be a signed 64-bit integral type across LLP64 and LP64");
                 static_assert(sizeof(TPacketGCPoints) == 1417 && offsetof(TPacketGCPoints, header) == 0 && offsetof(TPacketGCPoints, points) == 1 && sizeof(TPacketGCPoints::points) == 1416, "TPacketGCPoints layout mismatch");
                 static_assert(sizeof(TPacketGCPointChange) == 25 && offsetof(TPacketGCPointChange, header) == 0 && offsetof(TPacketGCPointChange, dwVID) == 4 && offsetof(TPacketGCPointChange, type) == 8 && offsetof(TPacketGCPointChange, amount) == 9 && offsetof(TPacketGCPointChange, value) == 17, "TPacketGCPointChange layout mismatch");
                 static_assert(sizeof(TPacketGCGoldUpdate) == 9 && offsetof(TPacketGCGoldUpdate, bHeader) == 0 && offsetof(TPacketGCGoldUpdate, totalGold) == 1, "TPacketGCGoldUpdate layout mismatch");

@@ -37,13 +37,14 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
 4. **Dal (Branch) Yönetimi ve Yerel Güvenlik Koruması:**
    * `main` dalı doğrudan değiştirilmeyecektir. Tüm geliştirmeler `dev/windows-gcc-baseline` dalında yürütülecektir.
    * Depo genelinde `.githooks/` (`pre-commit`, `pre-push`) kancaları aktiftir; `.githooks/install.ps1` / `.githooks/install.sh` ile kalıcı `.git/hooks` dizinine kurulur ve `core.hooksPath = D:/mt22009/.git/hooks` olarak yapılandırılmıştır. Yerel ortamda `main` dalına doğrudan commit atılması veya `main` dalına doğrudan/force push yapılması engellenmiştir.
-5. **Belge Kirliliğini Önleme (Kesin 3 Belge Sınırı):**
-   * Depoda Git tarafından izlenen yalnızca **3 Markdown belgesi** bulunur:
+5. **Belge Kirliliğini Önleme (Kesin 3 Belge Sınırı ve Skill İstisnası):**
+   * Depoda Git tarafından izlenen yalnızca **3 kanonik proje Markdown belgesi** bulunur (`docs/SERVER_X64_GOALS.md` kanonik teknik sözleşmedir; ayrı bir kök `GOAL.md` oluşturulmaz):
      1. `AGENTS.md` — Kalıcı geliştirme, güvenlik ve çalışma kuralları.
      2. `PROJECT_STATE.md` — Güncel, doğrulanmış proje durumu ve önemli teknik kararlar.
      3. `docs/SERVER_X64_GOALS.md` — Sunucu + istemci native x64 teknik sözleşmesi, gerçek engeller ve kabul kriterleri.
-   * Bu belgelerin hiçbiri kendiliğinden yeni iş başlatma yetkisi vermez; `docs/SERVER_X64_GOALS.md` kural kaynağı değildir, `AGENTS.md` ile çelişirse `AGENTS.md` geçerlidir.
-   * Yeni `.md`, `.txt`, görev numarası (`M/G/INT/H` kodları), görev listesi, takip belgesi, otomatik roadmap, checklist, handoff, revizyon günlüğü veya rapor dosyası oluşturulması kesinlikle yasaktır.
+   * **Uzmanlık Skill İstisnası:** `.agents/skills/**/SKILL.md` altındaki Antigravity uzmanlık skill tanımları ve Git kapsamı dışındaki (`scratch/autopilot/state.json`) kalıcı otonom checkpoint durumu bu 3 belge sınırının tek açık istisnasıdır.
+   * Bu belgelerin hiçbiri tek başına kendiliğinden yeni iş başlatma yetkisi vermez (`docs/SERVER_X64_GOALS.md` kural kaynağı değildir, `AGENTS.md` ile çelişirse `AGENTS.md` geçerlidir); ancak kullanıcı tarafından açıkça başlatılan `/goal` oturumu, belirlenen kampanya kapsamı içinde ara adım onayı beklemeden otonom analiz, uygulama, doğrulama, hata düzeltme ve bağımsız sonraki göreve ilerleme yetkisi verir.
+   * Yeni `.md`, `.txt`, kök `GOAL.md`, görev numarası (`M/G/INT/H` kodları), görev listesi, takip belgesi, otomatik roadmap, checklist, handoff, revizyon günlüğü veya rapor dosyası oluşturulması kesinlikle yasaktır.
 6. **Güvenlik, Gizlilik ve Arşiv Yönetimi:**
    * Şifreler, veritabanı bağlantı parolaları, tokenlar ve özel anahtarlar kesinlikle Git takibine alınamaz ve GitHub'a yüklenemez.
    * Taşınabilir sunucu kurulumları için oyun verilerinin (`share/data`, `share/locale/poland`, `share/package` — toplam `14,341` dosya) tek resmî ve parolasız kaynak arşivi `server/serverfiles_share.tar.xz` dosyasıdır.
@@ -76,8 +77,8 @@ Bu belge, bu projede çalışacak tüm yapay zeka ajanları ve geliştiriciler i
    * Önceden `VERIFIED` olarak kanıtlanmış işler, yeni oturum veya hesap açıldığında otomatik olarak tekrar test edilmez; yalnızca yapılan değişiklik ilgili alanı gerçekten etkiliyorsa ilgili regresyon testi çalıştırılır.
 5. **Dürüst Doğrulama ve Belge Disiplini:**
    * Hiçbir sorun gerçekte test edilmeden "çözüldü" olarak işaretlenemez.
-   * Bir aşamada çözülemeyen bir engel varsa sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kullanıcıya raporlanacaktır.
-   * `AGENTS.md`, `PROJECT_STATE.md` ve `docs/SERVER_X64_GOALS.md` dışında hiçbir yeni Markdown belgesi oluşturulmayacaktır.
+   * Bir aşamada çözülemeyen bir engel varsa aynı bağımlı zincirde sonraki modüle geçilmeyecek, engel ve kök neden şeffaf şekilde kaydedilip raporlanacaktır; ancak bağımsız ve izinli yerel işler varsa otonom `/goal` oturumu bunlarla devam edebilir.
+   * `AGENTS.md`, `PROJECT_STATE.md` ve `docs/SERVER_X64_GOALS.md` dışında (`.agents/skills/**/SKILL.md` uzmanlık dosyaları hariç) hiçbir yeni Markdown belgesi oluşturulmayacaktır.
 
 ---
 
@@ -139,8 +140,10 @@ GitHub CLI Windows ortamında kuruludur ve x64bit-source yetkili hesabıyla güv
    * Her doğrulamada Run ID, commit SHA, FreeBSD `MariaDB 12.3 LTS` işinin gerçek sonucu ve gerektiğinde test loglarındaki assertion sayıları ayrı ayrı kontrol edilecektir. Bir işin genel sonucunun SUCCESS olması, tek başına belirli bir assertion sayısının kanıtı olarak sunulamaz.
 6. **Tahmin Yasağı ve UNKNOWN Durumu:**
    * GitHub API/CLI sonucu alınamadığında CI durumu asla tahmin edilemez; açıkça UNKNOWN olarak bildirilecektir.
-7. **Polling ve Döngü Yasağı:**
-   * Sürekli polling, bekleme döngüleri ve tekrarlanan background task oluşturulması yasaktır. Bir kez sorgulanacak, mevcut sonuç bildirilecek ve durulacaktır.
+7. **Polling ve Döngü Yasağı (Tek Seferlik `/schedule` İstisnası ve Bağımsız Göreve Devam):**
+   * Sürekli polling, bekleme döngüleri (`gh run watch`, `sleep` döngüsü) ve tekrarlanan background task oluşturulması yasaktır.
+   * Bir test veya CI koşusu henüz tamamlanmadıysa (`RUNNING` / `PENDING`), asla `PASS` olarak işaretlenmez; durum kalıcı checkpoint'e (`scratch/autopilot/state.json`) kaydedilir.
+   * Yalnızca gerektiğinde ve izinli olduğunda tek seferlik `/schedule` (`schedule` aracı) kontrolü kurulabilir; bu sırada bağımsız ve izinli yerel işler varsa gereksiz durmak yerine onlarla devam edilir.
 8. **Erişim Hatası ile CI Başarısızlığı Ayrımı:**
    * Git push ile GitHub Actions CI'nin çalışması ve yerel CLI ile sonuçların okunması farklı işlemlerdir. Yerel `gh` erişim hatası, FreeBSD CI'nin başarısız olduğu anlamına gelmez.
 9. **Yeniden Çalıştırma Yasağı:**
@@ -191,7 +194,7 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      - Tek işli (`MariaDB 12.3 LTS`) tam FreeBSD koşusunun ölçülen maliyeti önbelleksiz **~22–25 Actions dakikasıdır** (`ccache` + `libcryptopp.a` önbelleklemesi aktiftir).
      - Her tam koşu öncesinde mevcut ayın depo bazlı koşu süreleri (`gh api "repos/.../actions/runs?created=>=YYYY-MM-01"`) ve tahmini maliyet kontrol edilir; hesap genelindeki harici kullanım verisine (`user` scope gerektiren billing API) erişilemiyorsa rakam uydurulmaz, hesap geneli kullanımın `UNKNOWN` olduğu açıkça belirtilir. Bütçe yetersizse GitHub-hosted CI başlatılmaz.
    * **Hata Sonrası Tekrar Çalıştırma Yasağı:** Tam CI başarısız olduğunda kök neden yerel olarak belirlenip düzeltilmeden aynı test asla tekrar çalıştırılmaz.
-   * **Sonuç Sorgulama:** CI sonuçları `gh run list` ve `gh run view` ile tek seferde kontrol edilir; `gh run watch`, sürekli polling veya sonsuz bekleme döngüsü kesinlikle yapılmaz; çalışmakta olan işler `RUNNING` olarak bildirilir ve asla `SUCCESS` varsayılmaz.
+   * **Sonuç Sorgulama ve Bağımsız Göreve Devam:** CI sonuçları `gh run list` ve `gh run view` ile kontrol edilir; `gh run watch`, sürekli polling veya sonsuz bekleme döngüsü kesinlikle yapılmaz (yalnızca izinli olduğunda tek seferlik `schedule` aracı kontrolü kurulabilir). Çalışmakta olan işler `RUNNING` / `PENDING` olarak kalıcı checkpoint'e (`scratch/autopilot/state.json`) kaydedilir, asla `SUCCESS` / `PASS` varsayılmaz; bu sırada bağımsız ve izinli yerel işler varsa gereksiz durmak yerine onlarla devam edilir.
 
 5. **Proje Hafızası ve Belge Disiplini:**
    * `AGENTS.md` kalıcı çalışma kurallarını, `PROJECT_STATE.md` ise doğrulanmış teknik ilerlemeyi içerecektir.
@@ -203,8 +206,9 @@ Bu standart, tüm MT2009 geliştirmelerinde Git, GitHub ve CI operasyonlarının
      * Sonraki geliştirme adımı
    * Belge güncellemeleri mümkün olduğunca ilgili geliştirme commit'ine dahil edilecektir.
 
-6. **Son Rapor Standardı:**
-   * Her tamamlanan geliştirme görevinde kısa ve kanıta dayalı rapor sunulacaktır:
+6. **Son Rapor ve Checkpoint Standardı:**
+   * Otonom `/goal` oturumu sırasında kullanıcıdan ara rapor taşıması veya her ara adımda onay vermesi beklenmez; tüm doğrulama özetleri aynı Antigravity oturumu ve kalıcı checkpoint (`scratch/autopilot/state.json`) içinde tutulur.
+   * Tamamlanan görev veya kampanya özetinde kısa ve kanıta dayalı rapor sunulacaktır:
      * Yapılan değişiklik
      * Çalıştırılan yerel test kademeleri (`A`, `B`, `C`) ve gerçek sonuçları
      * Commit ve push durumu, yerel ve uzak SHA eşleşmesi
@@ -266,12 +270,13 @@ Kullanıcı gerçek **native x64 istemci (`PE32+`)** geliştirmesine açık izin
 
 ## 10. GÖREV DİSİPLİNİ, BELGE YETKİ SINIRI VE GEREKSİZ YÖNLENDİRME YASAĞI
 
-1. **Belge Yetki Sınırı:**
-   * `AGENTS.md` kalıcı kuralları, `PROJECT_STATE.md` güncel durumu, `docs/SERVER_X64_GOALS.md` ise teknik kabul kriterlerini belirler. Bu belgelerin hiçbiri kendiliğinden yeni iş başlatma yetkisi vermez.
+1. **Belge Yetki Sınırı ve `/goal` Otonom Kampanya Yetkisi:**
+   * `AGENTS.md` kalıcı kuralları, `PROJECT_STATE.md` güncel durumu, `docs/SERVER_X64_GOALS.md` ise kanonik teknik kabul kriterlerini belirler (ayrı bir kök `GOAL.md` oluşturulmaz). Bu belgelerin hiçbiri tek başına kendiliğinden yeni iş başlatma yetkisi vermez.
+   * Ancak kullanıcı tarafından açıkça başlatılan `/goal` oturumu, belirlenen kampanya kapsamı içinde ara onay beklemeden otonom ilerleme, doğrulama, hata giderme ve kalıcı checkpoint (`scratch/autopilot/state.json`) güncelleme yetkisi verir.
 2. **Gereksiz Yönlendirme, Görev ve Kod Şişirme Yasağı:**
    * Yeni `M/G/INT/H` hedef kodları, yapay görevler, görev listeleri, takip belgeleri veya otomatik roadmap oluşturulmaz; geçmiş görevler yeni iş gibi ele alınmaz.
    * Tamamlanmış ve `VERIFIED` kanıtlı işler sebepsiz yeniden doğrulanmaz; yalnızca yeni oturum açıldı diye derleme veya test döngüsü başlatılmaz.
-   * Yeni `.md` dosyası, yeni VM veya yeni CI altyapısı oluşturulmaz.
+   * Yeni `.md` dosyası (`.agents/skills/**/SKILL.md` uzmanlık dosyaları hariç), yeni VM veya yeni CI altyapısı oluşturulmaz.
    * Doğrudan çözülebilecek gerçek bir bug gereksiz analiz ve rapor sürecine dönüştürülmez; tamamlanan iş kapatılır ve `PROJECT_STATE.md` güncellenir.
 3. **Kalıcı Kural Dokunulmazlığı:**
    * Kurallar her oturumda yeniden keşfedilmeyecek; `AGENTS.md` değişmez anayasa olarak uygulanacaktır.
