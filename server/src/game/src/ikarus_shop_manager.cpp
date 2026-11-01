@@ -2507,7 +2507,8 @@ namespace ikashop
 			auto itemHandle = it.second;
 			if (itemHandle)
 			{
-				if (!ch->CanPlaceItemOnShopSlot(itemHandle->GetInfo().pos, itemHandle->GetTable()->bSize))
+				const auto pTable = itemHandle->GetTable();
+				if (!pTable || !ch->CanPlaceItemOnShopSlot(itemHandle->GetInfo().pos, pTable->bSize))
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_NO_PREMIUM"));
 					return false;
@@ -2680,12 +2681,12 @@ namespace ikashop
 			return false;
 		}
 
-		if (!ch->GetIkarusShopGuest())
+		if (ch->GetPlayerID() == ownerid || !ch->GetIkarusShopGuest())
 			return false;
 
 		// searching shop
 		SHOP_HANDLE shop = GetShopByOwnerID(ownerid);
-		if(!shop){
+		if(!shop || ch->GetIkarusShopGuest() != shop){
 			SendPopupMessage(ch, "IKASHOP_SERVER_POPUP_MESSAGE_GENERIC_ERROR");
 			return false;
 		}
@@ -2759,7 +2760,8 @@ namespace ikashop
 		auto iter = m_entityByVID.find(evid);
 		if(iter != m_entityByVID.end()){
 			auto entity = iter->second;
-			RecvShopOpenClientPacket(ch, entity->GetShop()->GetOwnerPID());
+			if (entity && entity->GetShop())
+				RecvShopOpenClientPacket(ch, entity->GetShop()->GetOwnerPID());
 		}
 		return true;
 	}
@@ -3470,6 +3472,8 @@ namespace ikashop
 			if (item.second)
 			{
 				const auto pTable = item.second->GetTable();
+				if (!pTable || pTable->bSize <= 0)
+					continue;
 
 				int iEmptySlot = -1;
 				for (int cell = 0; cell < INVENTORY_DEFAULT_MAX_NUM; cell++)
@@ -3487,16 +3491,27 @@ namespace ikashop
 					continue;
 				}
 
+				bool bSlotFits = true;
 				for (int i = 0; i < pTable->bSize; i++)
 				{
 					auto bSlot = iEmptySlot + i * INVENTORY_PAGE_COLUMN;
-					if (bSlot < INVENTORY_DEFAULT_MAX_NUM)
-						bCheckItemGrid[bSlot] = iEmptySlot + 1;
-					else
+					if (bSlot >= INVENTORY_DEFAULT_MAX_NUM)
 					{
-						showNoInventorySpace = true;
-						continue;
+						bSlotFits = false;
+						break;
 					}
+				}
+
+				if (!bSlotFits)
+				{
+					showNoInventorySpace = true;
+					continue;
+				}
+
+				for (int i = 0; i < pTable->bSize; i++)
+				{
+					auto bSlot = iEmptySlot + i * INVENTORY_PAGE_COLUMN;
+					bCheckItemGrid[bSlot] = iEmptySlot + 1;
 				}
 
 				SendShopRemoveItemDBPacket(shop->GetOwnerPID(), item.second->GetID());
@@ -3909,7 +3924,7 @@ namespace ikashop
 
 	bool CShopManager::RecvOfferListRequestPacket(LPCHARACTER ch) //ikashop-updated 03/08/19
 	{
-		if (!ch->GetDesc())
+		if (!ch || !ch->GetDesc())
 			return false;
 
 		TPacketGCNewIkarusShop pack{};
@@ -4131,10 +4146,7 @@ namespace ikashop
 
 	void CShopManager::SendShopSafeboxRefreshClientPacket(LPCHARACTER ch, const TValutesInfo& valute, const std::vector<ITEM_HANDLE>& vec)
 	{
-		if (!ch->GetDesc())
-			return;
-
-		if(!ch || !ch->GetIkarusShopSafebox())
+		if(!ch || !ch->GetDesc() || !ch->GetIkarusShopSafebox())
 			return;
 
 		// patch with warp check
@@ -4190,6 +4202,9 @@ namespace ikashop
 
 	bool CShopManager::RecvAuctionOpenRequestClientPacket(LPCHARACTER ch, uint64_t ownerid)
 	{
+		if (!ch)
+			return false;
+
 		auto it = m_mapAuctions.find(ownerid);
 		if(it == m_mapAuctions.end())
 			return false;
@@ -4210,6 +4225,9 @@ namespace ikashop
 
 	bool CShopManager::RecvMyAuctionOpenRequestClientPacket(LPCHARACTER ch)
 	{
+		if (!ch)
+			return false;
+
 		// patch with warp check
 		ch->SetIkarusShopUseTime();
 		
@@ -4231,6 +4249,9 @@ namespace ikashop
 
 	bool CShopManager::RecvMyAuctionCloseClientPacket(LPCHARACTER ch)
 	{
+		if (!ch)
+			return false;
+
 		// patch with warp check
 		ch->SetIkarusShopUseTime();
 		ch->SetLookingAuctionOwner(false);
@@ -4239,6 +4260,9 @@ namespace ikashop
 
 	bool CShopManager::RecvMyAuctionCancelClientPacket(LPCHARACTER ch)
 	{
+		if (!ch)
+			return false;
+
 		if(auto auction = ch->GetIkarusAuction())
 		{
 			if (!ch->IkarusShopFloodCheck(SHOP_ACTION_WEIGHT_MY_AUCTION_CANCEL))
@@ -4360,6 +4384,9 @@ namespace ikashop
 
 		//check anti auto-offer
 		if(ch->GetPlayerID() == ownerid)
+			return false;
+
+		if (!IsGoodSalePrice(price))
 			return false;
 
 		//check about enough money

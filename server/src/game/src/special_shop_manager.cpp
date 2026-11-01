@@ -255,6 +255,8 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 			memcpy(&sendItem.limits, item->limits, sizeof(sendItem.limits));
 			ch->ChatDebug("sending itemvnum %d", sendItem.itemVnum);
 			sendItems.push_back(sendItem);
+			if (sendItems.size() >= 255)
+				break;
 		}
 	}
 
@@ -419,13 +421,30 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 			items.emplace_back(randomItems[i]);
 	}
 
-	// check required items
+	// check required items (aggregate duplicate vnums across static + random slots)
 	bool hasRequiredItems = true;
-	for (auto reqItem : items) {
-		if (ch->CountSpecifyItem(reqItem.vnum) < reqItem.count)
+	std::map<DWORD, int64_t> requiredCountsByVnum;
+	for (const auto& reqItem : items)
+	{
+		if (reqItem.vnum == 0)
+			continue;
+		if (reqItem.count <= 0)
 		{
 			hasRequiredItems = false;
 			break;
+		}
+		requiredCountsByVnum[reqItem.vnum] += reqItem.count;
+	}
+
+	if (hasRequiredItems)
+	{
+		for (const auto& [reqVnum, totalRequiredCount] : requiredCountsByVnum)
+		{
+			if (static_cast<int64_t>(ch->CountSpecifyItem(reqVnum)) < totalRequiredCount)
+			{
+				hasRequiredItems = false;
+				break;
+			}
 		}
 	}
 
@@ -466,6 +485,10 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 			}
 		}
 		ch->SetReputation(seller->GetFraction(), static_cast<int>(static_cast<int64_t>(playerReputation) - item->price));
+	}
+	else
+	{
+		return;
 	}
 
 	for (auto reqItem : items) {

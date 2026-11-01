@@ -31,6 +31,8 @@
 #include "shop.h"
 #include "shopEx.h"
 #include "shop_manager.h"
+#include "exchange.h"
+#include "ikarus_shop.h"
 #include "buffer_manager.h"
 #include "../../common/PulseManager.h"
 #include <thread>
@@ -1528,6 +1530,89 @@ int RunGameQuestRuntimeTests()
 
 		CShopManager::instance().Destroy();
 		std::cout << "  --> Real CShopEx (1/2/3 tabs, 4th tab reject, 12111B wire, name bounds) & ConvertToShopItemTable (40-slot 5x8 grid) verified!" << std::endl;
+
+		// 3) Check 11c: CExchange::AddGold 64-bit (>2^32) wire & bounds + ikashop::CShopItem::CanBuy bounds
+		CTestShopWireDesc partnerWireDesc;
+		std::unique_ptr<CTestItemShopCharacter> partnerCh = std::make_unique<CTestItemShopCharacter>();
+		partnerCh->SetTestPlayerID(770002);
+		partnerCh->BindDesc(&partnerWireDesc);
+
+		guestCh->SetGold(10000000000LL); // 10B Yang (> 2^32)
+		partnerCh->SetGold(2000000000LL);
+
+		CExchange exchA(guestCh.get());
+		CExchange exchB(partnerCh.get());
+		exchA.SetCompany(&exchB);
+		exchB.SetCompany(&exchA);
+		struct ExchangeCleanupGuard
+		{
+			LPCHARACTER a;
+			LPCHARACTER b;
+			~ExchangeCleanupGuard()
+			{
+				if (a) a->SetExchange(nullptr);
+				if (b) b->SetExchange(nullptr);
+			}
+		} exchCleanupGuard{guestCh.get(), partnerCh.get()};
+
+		wireDesc.ResetOutputBuffer();
+		partnerWireDesc.ResetOutputBuffer();
+
+		RUNTIME_ASSERT(!exchA.AddGold(0) && !exchA.AddGold(-500) &&
+		               !exchA.AddGold(EXCHANGE_GOLD_MAX) &&
+		               buffer_size(wireDesc.GetOutputBuffer()) == 0,
+			"CExchange::AddGold must reject <= 0 and >= EXCHANGE_GOLD_MAX without emitting packets");
+		RUNTIME_ASSERT(!exchA.AddGold(15000000000LL) &&
+		               buffer_size(wireDesc.GetOutputBuffer()) == sizeof(packet_exchange),
+			"CExchange::AddGold(> GetGold()) must reject and emit 54-byte EXCHANGE_SUBHEADER_GC_LESS_GOLD");
+		wireDesc.ResetOutputBuffer();
+
+		RUNTIME_ASSERT(exchA.AddGold(5000000000LL),
+			"CExchange::AddGold must accept 5,000,000,000 (> 2^32) Yang when owner has 10B Yang");
+		RUNTIME_ASSERT(!exchA.AddGold(1000LL),
+			"CExchange::AddGold must reject second gold addition once m_lGold > 0");
+		RUNTIME_ASSERT(buffer_size(wireDesc.GetOutputBuffer()) == sizeof(packet_exchange) &&
+		               buffer_size(partnerWireDesc.GetOutputBuffer()) == sizeof(packet_exchange) &&
+		               sizeof(packet_exchange) == 54,
+			"CExchange::AddGold must emit exact 54-byte HEADER_GC_EXCHANGE packet to both participants");
+
+		packet_exchange exchPktA{};
+		std::memcpy(&exchPktA, buffer_read_peek(wireDesc.GetOutputBuffer()), sizeof(exchPktA));
+		RUNTIME_ASSERT(exchPktA.header == HEADER_GC_EXCHANGE &&
+		               exchPktA.sub_header == EXCHANGE_SUBHEADER_GC_GOLD_ADD &&
+		               exchPktA.is_me == 1 &&
+		               exchPktA.arg1 == 5000000000LL,
+			"HEADER_GC_EXCHANGE arg1 preserves 64-bit 5,000,000,000 Yang without truncation");
+
+		guestCh->SetExchange(nullptr);
+		partnerCh->SetExchange(nullptr);
+		partnerCh->BindDesc(nullptr);
+		wireDesc.ResetOutputBuffer();
+
+#ifdef ENABLE_IKASHOP_RENEWAL
+		ikashop::CShopItem ikaItem;
+		ikashop::TPriceInfo priceInfo{};
+		priceInfo.yang = -100;
+		ikaItem.SetPrice(priceInfo);
+		RUNTIME_ASSERT(!ikaItem.CanBuy(guestCh.get()), "ikashop::CShopItem::CanBuy must reject negative yang price");
+
+		priceInfo.yang = 0;
+#ifdef ENABLE_CHEQUE_SYSTEM
+		priceInfo.cheque = 0;
+#endif
+		ikaItem.SetPrice(priceInfo);
+		RUNTIME_ASSERT(!ikaItem.CanBuy(guestCh.get()), "ikashop::CShopItem::CanBuy must reject zero total price");
+
+		priceInfo.yang = GOLD_MAX;
+		ikaItem.SetPrice(priceInfo);
+		RUNTIME_ASSERT(!ikaItem.CanBuy(guestCh.get()), "ikashop::CShopItem::CanBuy must reject price >= GOLD_MAX");
+
+		priceInfo.yang = 5000000000LL; // 5B Yang (> 2^32)
+		ikaItem.SetPrice(priceInfo);
+		RUNTIME_ASSERT(ikaItem.CanBuy(guestCh.get()), "ikashop::CShopItem::CanBuy must accept valid 5B Yang (> 2^32) when buyer has 10B Yang");
+		RUNTIME_ASSERT(!ikaItem.CanBuy(partnerCh.get()), "ikashop::CShopItem::CanBuy must reject 5B Yang when buyer only has 2B Yang");
+#endif
+		std::cout << "  --> CExchange::AddGold (64-bit 5B Yang, 104B wire) & ikashop::CShopItem::CanBuy bounds verified!" << std::endl;
 	}
 
 	checks_passed++;

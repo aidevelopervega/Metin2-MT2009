@@ -66,12 +66,16 @@ namespace ikashop
 		if(!ch)
 			return false;
 
-		if(m_info.price.yang > ch->GetGold())
+		if (m_info.price.yang < 0 || m_info.price.yang >= GOLD_MAX || m_info.price.yang > ch->GetGold())
 			return false;
 #ifdef ENABLE_CHEQUE_SYSTEM
-		if(m_info.price.cheque > ch->GetCheque())
+		if (m_info.price.cheque < 0 || m_info.price.cheque >= CHEQUE_MAX || m_info.price.cheque > ch->GetCheque())
 			return false;
 #endif
+		const auto totalYang = m_info.price.GetTotalYangAmount();
+		if (totalYang <= 0 || totalYang >= GOLD_MAX)
+			return false;
+
 		return true;
 	}
 
