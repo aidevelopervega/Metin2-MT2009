@@ -225,8 +225,8 @@ bool CDungeonBlock::Load(const char * c_szFileName)
 		m_kDeformableVertexBuffer.Create(
 			dwVertexCount,
 			D3DFVF_XYZ|D3DFVF_NORMAL|D3DFVF_TEX1,
-			D3DUSAGE_WRITEONLY,
-			D3DPOOL_MANAGED);
+			GetManagedBufferUsage(D3DUSAGE_WRITEONLY),
+			GetManagedPool());
 		m_ModelInstanceContainer.push_back(pModelInstance);
 	}
 

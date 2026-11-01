@@ -31,12 +31,6 @@ LPDIRECT3D9				CGraphicBase::ms_lpd3d = NULL;
 LPDIRECT3DDEVICE9		CGraphicBase::ms_lpd3dDevice = NULL;
 LPDIRECT3D9EX			CGraphicBase::ms_lpd3dEx = NULL;
 LPDIRECT3DDEVICE9EX		CGraphicBase::ms_lpd3dDeviceEx = NULL;
-#ifdef MT2_DEFAULT_D3D9EX
-bool					CGraphicBase::ms_bUseD3D9Ex = true;
-#else
-bool					CGraphicBase::ms_bUseD3D9Ex = false;
-#endif
-bool					CGraphicBase::ms_bD3D9ExActive = false;
 bool					CGraphicBase::ms_bDeviceOccluded = false;
 ID3DXMatrixStack *		CGraphicBase::ms_lpd3dMatStack = NULL;
 D3DPRESENT_PARAMETERS	CGraphicBase::ms_d3dPresentParameter;

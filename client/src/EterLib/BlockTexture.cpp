@@ -159,20 +159,12 @@ void CBlockTexture::InvalidateRect(const RECT & c_rsrcRect)
 
 bool CBlockTexture::Create(CGraphicDib * pDIB, const RECT & c_rRect, DWORD dwWidth, DWORD dwHeight)
 {
-	if (ms_bD3D9ExActive)
+	if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
+		FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
 	{
-		if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
-			FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
-		{
-			safe_release(m_lpd3dSysTexture);
-			safe_release(m_lpd3dTexture);
-			Tracef("Failed to create D3D9Ex block texture %u, %u\n", dwWidth, dwHeight);
-			return false;
-		}
-	}
-	else if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
-	{
-		Tracef("Failed to create block texture %u, %u\n", dwWidth, dwHeight);
+		safe_release(m_lpd3dSysTexture);
+		safe_release(m_lpd3dTexture);
+		Tracef("Failed to create D3D9Ex block texture %u, %u\n", dwWidth, dwHeight);
 		return false;
 	}
 

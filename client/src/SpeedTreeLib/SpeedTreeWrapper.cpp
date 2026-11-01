@@ -491,7 +491,7 @@ void CSpeedTreeWrapper::SetupBranchBuffers(void)
 		SFVFBranchVertex * pVertexBuffer = NULL;
 
 #ifndef WRAPPER_USE_CPU_WIND
-		ms_lpd3dDevice->CreateVertexBuffer(m_unBranchVertexCount * sizeof(SFVFBranchVertex), D3DUSAGE_WRITEONLY, D3DFVF_SPEEDTREE_BRANCH_VERTEX, D3DPOOL_MANAGED, &m_pBranchVertexBuffer, NULL);
+		ms_lpd3dDevice->CreateVertexBuffer(m_unBranchVertexCount * sizeof(SFVFBranchVertex), GetManagedBufferUsage(D3DUSAGE_WRITEONLY), D3DFVF_SPEEDTREE_BRANCH_VERTEX, GetManagedPool(), &m_pBranchVertexBuffer, NULL);
 		// fill the vertex buffer by interleaving SpeedTree data
 		m_pBranchVertexBuffer->Lock(0, 0, reinterpret_cast<void**>(&pVertexBuffer), 0);
 #else
@@ -552,7 +552,7 @@ void CSpeedTreeWrapper::SetupBranchBuffers(void)
 
 		// the first LOD level contains the most indices of all the levels, so
 		// we use its size to allocate the index buffer
-		ms_lpd3dDevice->CreateIndexBuffer(m_pBranchIndexCounts[0] * sizeof(unsigned short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &m_pBranchIndexBuffer, NULL);
+		ms_lpd3dDevice->CreateIndexBuffer(m_pBranchIndexCounts[0] * sizeof(unsigned short), GetManagedBufferUsage(D3DUSAGE_WRITEONLY), D3DFMT_INDEX16, GetManagedPool(), &m_pBranchIndexBuffer, NULL);
 
 		// fill the index buffer
 		unsigned short* pIndexBuffer = NULL;
@@ -577,7 +577,7 @@ void CSpeedTreeWrapper::SetupFrondBuffers(void)
 		// create the vertex buffer for storing frond vertices
 		SFVFBranchVertex * pVertexBuffer = NULL;
 #ifndef WRAPPER_USE_CPU_WIND
-		ms_lpd3dDevice->CreateVertexBuffer(m_unFrondVertexCount * sizeof(SFVFBranchVertex), D3DUSAGE_WRITEONLY, D3DFVF_SPEEDTREE_BRANCH_VERTEX, D3DPOOL_MANAGED, &m_pFrondVertexBuffer, NULL);
+		ms_lpd3dDevice->CreateVertexBuffer(m_unFrondVertexCount * sizeof(SFVFBranchVertex), GetManagedBufferUsage(D3DUSAGE_WRITEONLY), D3DFVF_SPEEDTREE_BRANCH_VERTEX, GetManagedPool(), &m_pFrondVertexBuffer, NULL);
 		// fill the vertex buffer by interleaving SpeedTree data
 		m_pFrondVertexBuffer->Lock(0, 0, reinterpret_cast<void**>(&pVertexBuffer), 0);
 #else
@@ -636,7 +636,7 @@ void CSpeedTreeWrapper::SetupFrondBuffers(void)
 
 		// the first LOD level contains the most indices of all the levels, so
 		// we use its size to allocate the index buffer
-		ms_lpd3dDevice->CreateIndexBuffer(m_pFrondIndexCounts[0] * sizeof(unsigned short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &m_pFrondIndexBuffer, NULL);
+		ms_lpd3dDevice->CreateIndexBuffer(m_pFrondIndexCounts[0] * sizeof(unsigned short), GetManagedBufferUsage(D3DUSAGE_WRITEONLY), D3DFMT_INDEX16, GetManagedPool(), &m_pFrondIndexBuffer, NULL);
 
 		// fill the index buffer
 		unsigned short * pIndexBuffer = NULL;
@@ -679,7 +679,7 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 		SFVFLeafVertex* pVertexBuffer = NULL;
 		// create the vertex buffer for storing leaf vertices
 #ifndef WRAPPER_USE_CPU_LEAF_PLACEMENT
-		ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), D3DUSAGE_WRITEONLY, D3DFVF_SPEEDTREE_LEAF_VERTEX, D3DPOOL_MANAGED, &m_pLeafVertexBuffer[unLod]);
+		ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), GetManagedBufferUsage(D3DUSAGE_WRITEONLY), D3DFVF_SPEEDTREE_LEAF_VERTEX, GetManagedPool(), &m_pLeafVertexBuffer[unLod], NULL);
 		// fill the vertex buffer by interleaving SpeedTree data
 		m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<BYTE**>(&pVertexBuffer), 0);
 #else

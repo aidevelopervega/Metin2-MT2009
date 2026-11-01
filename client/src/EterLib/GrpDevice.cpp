@@ -34,7 +34,6 @@ void CGraphicDevice::__Initialize()
 	ms_lpd3dDevice		= NULL;
 	ms_lpd3dEx			= NULL;
 	ms_lpd3dDeviceEx	= NULL;
-	ms_bD3D9ExActive	= false;
 	ms_bDeviceOccluded	= false;
 	ms_lpd3dMatStack	= NULL;
 
@@ -64,24 +63,30 @@ void CGraphicDevice::MoveWebBrowserRect(const RECT& c_rcWebPage)
 	g_rcBrowser=c_rcWebPage;
 }
 
-static HRESULT ResetDeviceOrEx(IDirect3DDevice9* pDev, IDirect3DDevice9Ex* pDevEx, bool bExActive, D3DPRESENT_PARAMETERS& rkD3DPP)
+static HRESULT ResetD3D9ExDevice(IDirect3DDevice9Ex* pDevEx, D3DPRESENT_PARAMETERS& rkD3DPP)
 {
-	if (bExActive && pDevEx)
+	if (!pDevEx)
+		return D3DERR_INVALIDCALL;
+
+	D3DDISPLAYMODEEX fullScreenMode;
+	ZeroMemory(&fullScreenMode, sizeof(fullScreenMode));
+	if (!rkD3DPP.Windowed)
 	{
-		D3DDISPLAYMODEEX fullScreenMode;
-		ZeroMemory(&fullScreenMode, sizeof(fullScreenMode));
-		if (!rkD3DPP.Windowed)
-		{
-			fullScreenMode.Size = sizeof(D3DDISPLAYMODEEX);
-			fullScreenMode.Width = rkD3DPP.BackBufferWidth;
-			fullScreenMode.Height = rkD3DPP.BackBufferHeight;
-			fullScreenMode.RefreshRate = rkD3DPP.FullScreen_RefreshRateInHz;
-			fullScreenMode.Format = rkD3DPP.BackBufferFormat;
-			fullScreenMode.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
-		}
-		return pDevEx->ResetEx(&rkD3DPP, rkD3DPP.Windowed ? NULL : &fullScreenMode);
+		fullScreenMode.Size = sizeof(D3DDISPLAYMODEEX);
+		fullScreenMode.Width = rkD3DPP.BackBufferWidth;
+		fullScreenMode.Height = rkD3DPP.BackBufferHeight;
+		fullScreenMode.RefreshRate = rkD3DPP.FullScreen_RefreshRateInHz;
+		fullScreenMode.Format = rkD3DPP.BackBufferFormat;
+		fullScreenMode.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
 	}
-	return pDev->Reset(&rkD3DPP);
+	HRESULT hr = pDevEx->ResetEx(&rkD3DPP, rkD3DPP.Windowed ? NULL : &fullScreenMode);
+	if (FAILED(hr))
+	{
+		TraceError("IDirect3DDevice9Ex::ResetEx failed (hr=0x%08X, %ux%u, Windowed=%d, Format=%d)",
+			static_cast<unsigned int>(hr), rkD3DPP.BackBufferWidth, rkD3DPP.BackBufferHeight,
+			rkD3DPP.Windowed ? 1 : 0, static_cast<int>(rkD3DPP.BackBufferFormat));
+	}
+	return hr;
 }
 
 void CGraphicDevice::EnableWebBrowserMode(const RECT& c_rcWebPage)
@@ -106,7 +111,7 @@ void CGraphicDevice::EnableWebBrowserMode(const RECT& c_rcWebPage)
 
 	IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
 	(void)rkD3DDev;
-	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
+	HRESULT hr=ResetD3D9ExDevice(ms_lpd3dDeviceEx, rkD3DPP);
 	if (FAILED(hr))
 		return;
 
@@ -126,7 +131,7 @@ void CGraphicDevice::DisableWebBrowserMode()
 
 	IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
 	(void)rkD3DDev;
-	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
+	HRESULT hr=ResetD3D9ExDevice(ms_lpd3dDeviceEx, rkD3DPP);
 	if (FAILED(hr))
 		return;
 
@@ -149,7 +154,7 @@ bool CGraphicDevice::ResizeBackBuffer(UINT uWidth, UINT uHeight)
 			IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
 
 			(void)rkD3DDev;
-	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
+	HRESULT hr=ResetD3D9ExDevice(ms_lpd3dDeviceEx, rkD3DPP);
 			if (FAILED(hr))
 			{
 				return false;
@@ -260,34 +265,16 @@ LPDIRECT3DVERTEXDECLARATION9 CGraphicDevice::CreateDoublePNTStreamVertexShader()
 
 CGraphicDevice::EDeviceState CGraphicDevice::GetDeviceState()
 {
-	if (!ms_lpd3dDevice)
+	if (!ms_lpd3dDeviceEx)
 		return DEVICESTATE_NULL;
 
-	HRESULT hr;
-
-	if (ms_bD3D9ExActive && ms_lpd3dDeviceEx)
-	{
-		hr = ms_lpd3dDeviceEx->CheckDeviceState(ms_hWnd);
-		ms_bDeviceOccluded = (hr == S_PRESENT_OCCLUDED);
-		if (hr == S_OK || hr == S_PRESENT_OCCLUDED)
-			return DEVICESTATE_OK;
-		if (hr == S_PRESENT_MODE_CHANGED || hr == D3DERR_DEVICENOTRESET)
-			return DEVICESTATE_NEEDS_RESET;
-		return DEVICESTATE_BROKEN;
-	}
-
-	if (FAILED(hr = ms_lpd3dDevice->TestCooperativeLevel()))
-	{
-		if (D3DERR_DEVICELOST == hr)
-			return DEVICESTATE_BROKEN;
-
-		if (D3DERR_DEVICENOTRESET == hr)
-			return DEVICESTATE_NEEDS_RESET;
-
-		return DEVICESTATE_BROKEN;
-	}
-
-	return DEVICESTATE_OK;
+	HRESULT hr = ms_lpd3dDeviceEx->CheckDeviceState(ms_hWnd);
+	ms_bDeviceOccluded = (hr == S_PRESENT_OCCLUDED);
+	if (hr == S_OK || hr == S_PRESENT_OCCLUDED)
+		return DEVICESTATE_OK;
+	if (hr == S_PRESENT_MODE_CHANGED || hr == D3DERR_DEVICENOTRESET)
+		return DEVICESTATE_NEEDS_RESET;
+	return DEVICESTATE_BROKEN;
 }
 
 bool CGraphicDevice::Reset()
@@ -297,7 +284,7 @@ bool CGraphicDevice::Reset()
 #endif
 	HRESULT hr;
 
-	if (FAILED(hr = ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, ms_d3dPresentParameter)))
+	if (FAILED(hr = ResetD3D9ExDevice(ms_lpd3dDeviceEx, ms_d3dPresentParameter)))
 		return false;
 
 #ifdef ENABLE_FIX_MOBS_LAG
@@ -407,26 +394,16 @@ int CGraphicDevice::Create(HWND hWnd, int iHres, int iVres, int realHRes, int re
 
 	ms_hWnd		= hWnd;
 	ms_hDC		= GetDC(hWnd);
-	if (ms_bUseD3D9Ex)
-	{
-		typedef HRESULT (WINAPI *PFN_Direct3DCreate9Ex)(UINT, IDirect3D9Ex**);
-		HMODULE hD3D9 = GetModuleHandleA("d3d9.dll");
-		if (!hD3D9)
-			hD3D9 = LoadLibraryA("d3d9.dll");
-		PFN_Direct3DCreate9Ex pfnCreate9Ex = hD3D9
-			? reinterpret_cast<PFN_Direct3DCreate9Ex>(GetProcAddress(hD3D9, "Direct3DCreate9Ex"))
-			: NULL;
-		if (pfnCreate9Ex && SUCCEEDED(pfnCreate9Ex(D3D_SDK_VERSION, &ms_lpd3dEx)) && ms_lpd3dEx)
-		{
-			ms_lpd3d = ms_lpd3dEx;
-			ms_lpd3d->AddRef();
-		}
-	}
-	if (!ms_lpd3d)
-		ms_lpd3d = Direct3DCreate9(D3D_SDK_VERSION);
 
-	if (!ms_lpd3d)
+	ms_hLastResult = Direct3DCreate9Ex(D3D_SDK_VERSION, &ms_lpd3dEx);
+	if (FAILED(ms_hLastResult) || !ms_lpd3dEx)
+	{
+		TraceError("CGraphicDevice::Create - Direct3DCreate9Ex(D3D_SDK_VERSION=%u) failed (hr=0x%08X). Direct3D 9Ex (WDDM driver) is required; legacy D3D9 fallback is disabled.",
+			static_cast<unsigned int>(D3D_SDK_VERSION), static_cast<unsigned int>(ms_hLastResult));
 		return CREATE_NO_DIRECTX;
+	}
+	ms_lpd3d = ms_lpd3dEx;
+	ms_lpd3d->AddRef();
 
 	if (!ms_kD3DDetector.Build(*ms_lpd3d, EL3D_ConfirmDevice))
 		return CREATE_ENUM;
@@ -521,57 +498,56 @@ RETRY:
 
 	ms_dwD3DBehavior = pkD3DModeInfo->m_dwD3DBehavior;
 
-	if (ms_lpd3dEx)
+	D3DDISPLAYMODEEX d3dDisplayModeEx;
+	ZeroMemory(&d3dDisplayModeEx, sizeof(d3dDisplayModeEx));
+	if (!Windowed)
 	{
-		D3DDISPLAYMODEEX d3dDisplayModeEx;
-		ZeroMemory(&d3dDisplayModeEx, sizeof(d3dDisplayModeEx));
-		if (!Windowed)
-		{
-			d3dDisplayModeEx.Size = sizeof(D3DDISPLAYMODEEX);
-			d3dDisplayModeEx.Width = realHRes;
-			d3dDisplayModeEx.Height = realVRes;
-			d3dDisplayModeEx.RefreshRate = iReflashRate;
-			d3dDisplayModeEx.Format = ms_d3dPresentParameter.BackBufferFormat;
-			d3dDisplayModeEx.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
-		}
-		if (SUCCEEDED(ms_hLastResult = ms_lpd3dEx->CreateDeviceEx(
+		d3dDisplayModeEx.Size = sizeof(D3DDISPLAYMODEEX);
+		d3dDisplayModeEx.Width = realHRes;
+		d3dDisplayModeEx.Height = realVRes;
+		d3dDisplayModeEx.RefreshRate = iReflashRate;
+		d3dDisplayModeEx.Format = ms_d3dPresentParameter.BackBufferFormat;
+		d3dDisplayModeEx.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
+	}
+
+	if (FAILED(ms_hLastResult = ms_lpd3dEx->CreateDeviceEx(
 				ms_iD3DAdapterInfo,
 				D3DDEVTYPE_HAL,
 				hWnd,
 				pkD3DModeInfo->m_dwD3DBehavior,
 				&ms_d3dPresentParameter,
 				Windowed ? NULL : &d3dDisplayModeEx,
-				&ms_lpd3dDeviceEx)) && ms_lpd3dDeviceEx)
-		{
-			ms_lpd3dDevice = ms_lpd3dDeviceEx;
-			ms_lpd3dDevice->AddRef();
-			ms_bD3D9ExActive = true;
-		}
-	}
-
-	if (!ms_lpd3dDevice && FAILED(ms_hLastResult = ms_lpd3d->CreateDevice(
-				ms_iD3DAdapterInfo,
-				D3DDEVTYPE_HAL,
-				hWnd,
-				pkD3DModeInfo->m_dwD3DBehavior,
-				&ms_d3dPresentParameter,
-				&ms_lpd3dDevice)))
+				&ms_lpd3dDeviceEx)) || !ms_lpd3dDeviceEx)
 	{
+		const char* szErrName = "UNKNOWN";
 		switch (ms_hLastResult)
 		{
 			case D3DERR_INVALIDCALL:
-				Tracen("IDirect3DDevice.CreateDevice - ERROR D3DERR_INVALIDCALL\nThe method call is invalid. For example, a method's parameter may have an invalid value.");
+				szErrName = "D3DERR_INVALIDCALL";
+				Tracen("IDirect3D9Ex.CreateDeviceEx - ERROR D3DERR_INVALIDCALL\nThe method call is invalid. For example, a method's parameter may have an invalid value.");
 				break;
 			case D3DERR_NOTAVAILABLE:
-				Tracen("IDirect3DDevice.CreateDevice - ERROR D3DERR_NOTAVAILABLE\nThis device does not support the queried technique. ");
+				szErrName = "D3DERR_NOTAVAILABLE";
+				Tracen("IDirect3D9Ex.CreateDeviceEx - ERROR D3DERR_NOTAVAILABLE\nThis device does not support the queried technique.");
 				break;
 			case D3DERR_OUTOFVIDEOMEMORY:
-				Tracen("IDirect3DDevice.CreateDevice - ERROR D3DERR_OUTOFVIDEOMEMORY\nDirect3D does not have enough display memory to perform the operation");
+				szErrName = "D3DERR_OUTOFVIDEOMEMORY";
+				Tracen("IDirect3D9Ex.CreateDeviceEx - ERROR D3DERR_OUTOFVIDEOMEMORY\nDirect3D 9Ex does not have enough display memory to perform the operation.");
+				break;
+			case D3DERR_DEVICELOST:
+				szErrName = "D3DERR_DEVICELOST";
 				break;
 			default:
-				Tracenf("IDirect3DDevice.CreateDevice - ERROR %d", ms_hLastResult);
 				break;
 		}
+		TraceError("CGraphicDevice::Create - IDirect3D9Ex::CreateDeviceEx failed (hr=0x%08X [%s], Adapter=%u [%s / %s], Res=%dx%d, Windowed=%d, Refresh=%dHz, BackBufferFmt=%d, DepthStencilFmt=%d, Behavior=0x%08X, MSAA=%d)",
+			static_cast<unsigned int>(ms_hLastResult), szErrName, ms_iD3DAdapterInfo,
+			rkD3DAdapterId.Description, rkD3DAdapterId.Driver,
+			realHRes, realVRes, Windowed ? 1 : 0, iReflashRate,
+			static_cast<int>(ms_d3dPresentParameter.BackBufferFormat),
+			static_cast<int>(ms_d3dPresentParameter.AutoDepthStencilFormat),
+			static_cast<unsigned int>(pkD3DModeInfo->m_dwD3DBehavior),
+			iMultisamplingLevel);
 
 		if (ErrorCorrection)
 			return CREATE_DEVICE;
@@ -581,6 +557,9 @@ RETRY:
 		iRet = CREATE_REFRESHRATE;
 		goto RETRY;
 	}
+
+	ms_lpd3dDevice = ms_lpd3dDeviceEx;
+	ms_lpd3dDevice->AddRef();
 
 	// Check DXT Support Info
 	if(ms_lpd3d->CheckDeviceFormat(

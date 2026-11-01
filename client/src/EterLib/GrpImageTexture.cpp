@@ -55,14 +55,13 @@ bool CGraphicImageTexture::CreateDeviceObjects()
 
 	if (m_stFileName.empty())
 	{
-		if (ms_bD3D9ExActive)
+		if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
+			FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
 		{
-			if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
-				FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
-				return false;
-		}
-		else if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
+			safe_release(m_lpd3dSysTexture);
+			safe_release(m_lpd3dTexture);
 			return false;
+		}
 	}
 	else
 	{
@@ -120,7 +119,7 @@ bool CGraphicImageTexture::CreateDDSTexture(CDXTCImage & image, const BYTE * /*c
 
 	D3DFORMAT format;
 	LPDIRECT3DTEXTURE9 lpd3dTexture;
-	D3DPOOL pool = ms_bSupportDXT ? (ms_bD3D9ExActive ? D3DPOOL_SYSTEMMEM : D3DPOOL_MANAGED) : D3DPOOL_SCRATCH;
+	D3DPOOL pool = ms_bSupportDXT ? D3DPOOL_SYSTEMMEM : D3DPOOL_SCRATCH;
 
 	if(image.m_CompFormat == PF_DXT5)
 		format = D3DFMT_DXT5;
@@ -169,21 +168,14 @@ bool CGraphicImageTexture::CreateDDSTexture(CDXTCImage & image, const BYTE * /*c
 
 	if(ms_bSupportDXT)
 	{
-		if (ms_bD3D9ExActive)
+		if (FAILED(D3DXCreateTexture(ms_lpd3dDevice, image.m_nWidth, image.m_nHeight, mipmapCount, 0, format, D3DPOOL_DEFAULT, &m_lpd3dTexture)) ||
+			FAILED(ms_lpd3dDevice->UpdateTexture(lpd3dTexture, m_lpd3dTexture)))
 		{
-			if (FAILED(D3DXCreateTexture(ms_lpd3dDevice, image.m_nWidth, image.m_nHeight, mipmapCount, 0, format, D3DPOOL_DEFAULT, &m_lpd3dTexture)) ||
-				FAILED(ms_lpd3dDevice->UpdateTexture(lpd3dTexture, m_lpd3dTexture)))
-			{
-				lpd3dTexture->Release();
-				TraceError("CreateDDSTexture: Cannot upload D3D9Ex texture");
-				return false;
-			}
 			lpd3dTexture->Release();
+			TraceError("CreateDDSTexture: Cannot upload D3D9Ex texture");
+			return false;
 		}
-		else
-		{
-			m_lpd3dTexture = lpd3dTexture;
-		}
+		lpd3dTexture->Release();
 	}
 	else
 	{

@@ -177,10 +177,10 @@ if exist "build\obj_x64\test_python3_x64_bridge.exe" (
     if errorlevel 1 exit /b 1
 )
 
-echo [5/5] Compiling EterLib D3D9Ex AMD64 COFF objects and running test_d3d9ex_x64.exe [PE32+ AMD64]...
+echo [5/5] Compiling EterLib/GameLib/SpeedTreeLib/UserInterface permanent D3D9Ex AMD64 COFF objects and running test_d3d9ex_x64.exe [PE32+ AMD64]...
 if not exist "build\obj_x64\eterlib_d3d9ex" mkdir "build\obj_x64\eterlib_d3d9ex"
-if exist "build\obj_x64\eterlib_d3d9ex\GrpImageTexture.obj" goto :have_eterlib_d3d9ex_objs
-cl.exe /nologo /std:c++20 /EHsc /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterLib /Iclient\src\EterBase /Iclient\src\EterPack /Iclient\src\EterImageLib /c ^
+if exist "build\obj_x64\eterlib_d3d9ex\PythonApplication.obj" goto :have_eterlib_d3d9ex_objs
+cl.exe /nologo /std:c++20 /EHsc /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterLib /Iclient\src\EterBase /Iclient\src\EterPack /Iclient\src\EterImageLib /Iclient\src\GameLib /Iclient\src\SpeedTreeLib /c ^
     client\src\EterLib\GrpBase.cpp ^
     client\src\EterLib\GrpDevice.cpp ^
     client\src\EterLib\GrpScreen.cpp ^
@@ -190,11 +190,18 @@ cl.exe /nologo /std:c++20 /EHsc /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARN
     client\src\EterLib\BlockTexture.cpp ^
     client\src\EterLib\GrpImageTexture.cpp ^
     client\src\EterLib\GrpTexture.cpp ^
+    client\src\GameLib\AreaTerrain.cpp ^
+    client\src\GameLib\DungeonBlock.cpp ^
+    client\src\GameLib\SnowEnvironment.cpp ^
+    client\src\GameLib\TerrainPatch.cpp ^
+    client\src\SpeedTreeLib\SpeedTreeWrapper.cpp ^
+    client\src\UserInterface\PythonMiniMap.cpp ^
+    client\src\UserInterface\PythonApplication.cpp ^
     /Fo:build\obj_x64\eterlib_d3d9ex\
 if errorlevel 1 exit /b 1
 :have_eterlib_d3d9ex_objs
 
-dumpbin.exe /headers build\obj_x64\eterlib_d3d9ex\GrpDevice.obj build\obj_x64\eterlib_d3d9ex\GrpScreen.obj build\obj_x64\eterlib_d3d9ex\GrpImageTexture.obj | findstr /C:"8664 machine (x64)"
+dumpbin.exe /headers build\obj_x64\eterlib_d3d9ex\GrpDevice.obj build\obj_x64\eterlib_d3d9ex\GrpScreen.obj build\obj_x64\eterlib_d3d9ex\GrpImageTexture.obj build\obj_x64\eterlib_d3d9ex\AreaTerrain.obj build\obj_x64\eterlib_d3d9ex\SpeedTreeWrapper.obj build\obj_x64\eterlib_d3d9ex\PythonMiniMap.obj build\obj_x64\eterlib_d3d9ex\PythonApplication.obj | findstr /C:"8664 machine (x64)"
 if errorlevel 1 exit /b 1
 
 cl.exe /nologo /std:c++20 /EHsc /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterLib tests\test_d3d9ex_x64.cpp /Fe:build\obj_x64\test_d3d9ex_x64.exe /Fo:build\obj_x64\test_d3d9ex_x64.obj /link /MACHINE:X64 d3d9.lib user32.lib gdi32.lib

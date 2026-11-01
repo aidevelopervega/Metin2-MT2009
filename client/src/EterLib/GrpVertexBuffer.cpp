@@ -143,13 +143,18 @@ bool CGraphicVertexBuffer::Create(int vtxCount, DWORD fvf, DWORD usage, D3DPOOL 
 
 	Destroy();
 
+	if (d3dPool == D3DPOOL_MANAGED)
+	{
+		d3dPool = GetManagedPool();
+		usage = GetManagedBufferUsage(usage);
+	}
 	m_vtxCount = vtxCount;
 	m_dwBufferSize = D3DXGetFVFVertexSize(fvf) * m_vtxCount;
 	m_d3dPool = d3dPool;
 	m_dwUsage = usage;
 	m_dwFVF = fvf;
 
-	if (usage == D3DUSAGE_WRITEONLY || usage == D3DUSAGE_DYNAMIC)
+	if ((usage & D3DUSAGE_WRITEONLY) || (usage & D3DUSAGE_DYNAMIC))
 		m_dwLockFlag = 0;
 	else
 		m_dwLockFlag = D3DLOCK_READONLY;

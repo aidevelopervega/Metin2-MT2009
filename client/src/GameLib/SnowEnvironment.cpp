@@ -261,9 +261,9 @@ bool CSnowEnvironment::__CreateGeometry()
 		return false;
 
 	if (FAILED(ms_lpd3dDevice->CreateIndexBuffer(sizeof(WORD) * m_dwParticleMaxNum * 6,
-		D3DUSAGE_WRITEONLY,
+		GetManagedBufferUsage(D3DUSAGE_WRITEONLY),
 		D3DFMT_INDEX16,
-		D3DPOOL_MANAGED,
+		GetManagedPool(),
 		&m_pIB, NULL)))
 		return false;
 

@@ -808,12 +808,12 @@ bool CPythonApplication::CreateDevice(int width, int height, int Windowed, int b
 
 	case CGraphicDevice::CREATE_NO_DIRECTX:
 		SET_EXCEPTION(CREATE_NO_DIRECTX);
-		TraceError("CreateDevice: DirectX 9.0 or greater required to run game");
+		TraceError("CreateDevice: Direct3D 9Ex (WDDM driver) is required to run game");
 		return false;
 
 	case CGraphicDevice::CREATE_DEVICE:
 		SET_EXCEPTION(CREATE_DEVICE);
-		TraceError("CreateDevice: GraphicDevice create failed");
+		TraceError("CreateDevice: Direct3D 9Ex CreateDeviceEx failed");
 		return false;
 
 	case CGraphicDevice::CREATE_FORMAT:
