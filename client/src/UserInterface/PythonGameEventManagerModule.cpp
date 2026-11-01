@@ -26,7 +26,7 @@ void initeventmgr()
 		{ NULL,						NULL,							NULL },
 	};
 
-	Py_InitModule("eventMgr", s_methods);
+	M2Py_InitModule("eventMgr", s_methods);
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

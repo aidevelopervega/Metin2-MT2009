@@ -372,7 +372,7 @@ void initMiniMap()
 		{ NULL, NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("miniMap", s_methods);
+	PyObject * poModule = M2Py_InitModule("miniMap", s_methods);
 
 	PyModule_AddIntConstant(poModule, "TYPE_OPC",			CPythonMiniMap::TYPE_OPC);
 	PyModule_AddIntConstant(poModule, "TYPE_OPCPVP",		CPythonMiniMap::TYPE_OPCPVP);

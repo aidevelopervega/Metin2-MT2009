@@ -16,6 +16,16 @@ inline long M2PyInt_AsLong(PyObject* poItem)
 	return PyLong_AsLong(poItem);
 }
 
+inline PyObject* M2PyInt_FromLong(long lVal)
+{
+	return PyLong_FromLong(lVal);
+}
+
+inline PyObject* M2PyInt_FromSize_t(size_t uVal)
+{
+	return PyLong_FromSize_t(uVal);
+}
+
 inline bool M2PyString_Check(PyObject* poItem)
 {
 	return poItem != nullptr && (PyUnicode_Check(poItem) || PyBytes_Check(poItem));
@@ -42,6 +52,46 @@ inline PyObject* M2PyString_FromStringAndSize(const char* szBuf, Py_ssize_t len)
 	return PyBytes_FromStringAndSize(szBuf, len);
 }
 
+inline PyObject* M2PyString_InternFromString(const char* szStr)
+{
+	return PyUnicode_InternFromString(szStr ? szStr : "");
+}
+
+inline constexpr const char* M2Py_GetBuiltinModuleName()
+{
+	return "builtins";
+}
+
+inline PyObject* M2Py_ImportBuiltins()
+{
+	return PyImport_ImportModule(M2Py_GetBuiltinModuleName());
+}
+
+inline void M2Py_SetProgramName(const char* c_szProgramName)
+{
+	static wchar_t s_wszProgramName[260] = L"metin2client";
+	if (c_szProgramName && *c_szProgramName)
+	{
+		size_t i = 0;
+		for (; i < 259 && c_szProgramName[i] != '\0'; ++i)
+			s_wszProgramName[i] = static_cast<unsigned char>(c_szProgramName[i]);
+		s_wszProgramName[i] = L'\0';
+	}
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+	Py_SetProgramName(s_wszProgramName);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+}
+
+inline PyObject* M2PyEval_EvalCode(PyCodeObject* co, PyObject* globals, PyObject* locals)
+{
+	return PyEval_EvalCode(reinterpret_cast<PyObject*>(co), globals, locals);
+}
+
 inline PyObject* M2Py_InitModule(const char* c_szName, PyMethodDef* pMethods)
 {
 	PyObject* poModule = PyImport_AddModule(c_szName);
@@ -66,6 +116,16 @@ inline long M2PyInt_AsLong(PyObject* poItem)
 	return PyInt_AsLong(poItem);
 }
 
+inline PyObject* M2PyInt_FromLong(long lVal)
+{
+	return PyInt_FromLong(lVal);
+}
+
+inline PyObject* M2PyInt_FromSize_t(size_t uVal)
+{
+	return PyInt_FromSize_t(uVal);
+}
+
 inline bool M2PyString_Check(PyObject* poItem)
 {
 	return poItem != nullptr && PyString_Check(poItem);
@@ -84,6 +144,31 @@ inline PyObject* M2PyString_FromString(const char* szStr)
 inline PyObject* M2PyString_FromStringAndSize(const char* szBuf, Py_ssize_t len)
 {
 	return PyString_FromStringAndSize(szBuf, len);
+}
+
+inline PyObject* M2PyString_InternFromString(const char* szStr)
+{
+	return PyString_InternFromString(szStr ? szStr : "");
+}
+
+inline constexpr const char* M2Py_GetBuiltinModuleName()
+{
+	return "__builtin__";
+}
+
+inline PyObject* M2Py_ImportBuiltins()
+{
+	return PyImport_ImportModule(M2Py_GetBuiltinModuleName());
+}
+
+inline void M2Py_SetProgramName(const char* c_szProgramName)
+{
+	Py_SetProgramName(const_cast<char*>(c_szProgramName ? c_szProgramName : "metin2client"));
+}
+
+inline PyObject* M2PyEval_EvalCode(PyCodeObject* co, PyObject* globals, PyObject* locals)
+{
+	return PyEval_EvalCode(co, globals, locals);
 }
 
 inline PyObject* M2Py_InitModule(const char* c_szName, PyMethodDef* pMethods)

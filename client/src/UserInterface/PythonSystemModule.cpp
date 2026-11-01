@@ -823,7 +823,7 @@ void initsystemSetting()
 		{ NULL,							NULL,							NULL }
 	};
 
-	PyObject * poModule = Py_InitModule("systemSetting", s_methods);
+	PyObject * poModule = M2Py_InitModule("systemSetting", s_methods);
 
 	PyModule_AddIntConstant(poModule, "RESOLUTION_MAX_NUM", CPythonSystem::RESOLUTION_MAX_NUM);
 	PyModule_AddIntConstant(poModule, "WINDOW_STATUS",		CPythonSystem::WINDOW_STATUS);

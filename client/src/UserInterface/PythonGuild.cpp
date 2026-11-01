@@ -790,7 +790,7 @@ void initguild()
 		{ NULL,								NULL,								NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("guild", s_methods);
+	PyObject * poModule = M2Py_InitModule("guild", s_methods);
 	PyModule_AddIntConstant(poModule, "AUTH_ADD_MEMBER", GUILD_AUTH_ADD_MEMBER);
 	PyModule_AddIntConstant(poModule, "AUTH_REMOVE_MEMBER", GUILD_AUTH_REMOVE_MEMBER);
 	PyModule_AddIntConstant(poModule, "AUTH_NOTICE", GUILD_AUTH_NOTICE);

@@ -425,7 +425,7 @@ void initEvent()
 		{ NULL,							NULL,								NULL         },
 	};
 
-	PyObject * poModule = Py_InitModule("event", s_methods);
+	PyObject * poModule = M2Py_InitModule("event", s_methods);
 
 	PyModule_AddIntConstant(poModule, "BOX_VISIBLE_LINE_COUNT", CPythonEventManager::BOX_VISIBLE_LINE_COUNT);
 	PyModule_AddIntConstant(poModule, "BUTTON_TYPE_NEXT", CPythonEventManager::BUTTON_TYPE_NEXT);

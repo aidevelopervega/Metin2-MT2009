@@ -1864,7 +1864,7 @@ void initnet()
 		{ NULL,										NULL,										NULL },
 	};
 
-	PyObject* poModule = Py_InitModule("net", s_methods);
+	PyObject* poModule = M2Py_InitModule("net", s_methods);
 
 	PyModule_AddIntConstant(poModule, "ERROR_NONE", CPythonNetworkStream::ERROR_NONE);
 	PyModule_AddIntConstant(poModule, "ERROR_CONNECT_MARK_SERVER", CPythonNetworkStream::ERROR_CONNECT_MARK_SERVER);

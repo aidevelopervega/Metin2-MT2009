@@ -181,7 +181,7 @@ PyObject * safeboxGetItemCount(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonSafeBox::Instance().GetItemDataPtr(ipos, &pInstance))
 		return Py_BuildException();
 
-	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
+	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
 }
 
 PyObject * safeboxGetItemFlags(PyObject * poSelf, PyObject * poArgs)
@@ -263,7 +263,7 @@ PyObject * safeboxGetMallItemCount(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonSafeBox::Instance().GetMallItemDataPtr(ipos, &pInstance))
 		return Py_BuildException();
 
-	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
+	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
 }
 
 PyObject * safeboxGetMallItemMetinSocket(PyObject * poSelf, PyObject * poArgs)
@@ -331,7 +331,7 @@ void initsafebox()
 		{ NULL,							NULL,									NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("safebox", s_methods);
+	PyObject * poModule = M2Py_InitModule("safebox", s_methods);
 	PyModule_AddIntConstant(poModule, "SAFEBOX_SLOT_X_COUNT", SAFEBOX_PAGE_WIDTH);
 	PyModule_AddIntConstant(poModule, "SAFEBOX_SLOT_Y_COUNT", SAFEBOX_PAGE_HEIGHT);
 	PyModule_AddIntConstant(poModule, "SAFEBOX_PAGE_SIZE", SAFEBOX_PAGE_HEIGHT * SAFEBOX_PAGE_WIDTH);

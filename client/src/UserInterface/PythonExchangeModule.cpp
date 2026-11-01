@@ -69,7 +69,7 @@ PyObject * exchangeGetItemCountFromSelf(PyObject * poSelf, PyObject * poArgs)
 		return Py_BuildValue("i", 0);
 
 	const ITEM_COUNT count = CPythonExchange::Instance().GetItemCountFromSelf(static_cast<BYTE>(pos));
-	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
+	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
 }
 
 PyObject * exchangeGetItemCountFromTarget(PyObject * poTarget, PyObject * poArgs)
@@ -83,7 +83,7 @@ PyObject * exchangeGetItemCountFromTarget(PyObject * poTarget, PyObject * poArgs
 		return Py_BuildValue("i", 0);
 
 	const ITEM_COUNT count = CPythonExchange::Instance().GetItemCountFromTarget(static_cast<BYTE>(pos));
-	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
+	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
 }
 
 PyObject * exchangeGetNameFromSelf(PyObject * poTarget, PyObject * poArgs)
@@ -240,7 +240,7 @@ void initTrade()
 		{NULL, NULL},
 	};
 
-	PyObject * poModule = Py_InitModule("exchange", s_methods);
+	PyObject * poModule = M2Py_InitModule("exchange", s_methods);
 	PyModule_AddIntConstant(poModule, "EXCHANGE_ITEM_MAX_NUM", CPythonExchange::EXCHANGE_ITEM_MAX_NUM);
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

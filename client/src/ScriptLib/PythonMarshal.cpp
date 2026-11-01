@@ -4,7 +4,9 @@
    it would have to take circular links and sharing into account. */
 
 #include "Stdafx.h"
+#if PY_MAJOR_VERSION < 3
 #include <Python27/longintrepr.h>
+#endif
 
 /* High water mark to determine when the marshalled object is dangerously deep
  * and risks coring the interpreter.  When the object stack gets this deep,
@@ -96,13 +98,14 @@ static long r_long(RFILE *p)
    for everything written via TYPE_INT64 (i.e., if an int is written via
    TYPE_INT64, it *needs* more than 32 bits).
 */
+#if PY_MAJOR_VERSION < 3
 static PyObject * r_long64(RFILE *p)
 {
 	long lo4 = r_long(p);
 	long hi4 = r_long(p);
 #if SIZEOF_LONG > 4
 	long x = (hi4 << 32) | (lo4 & 0xFFFFFFFFL);
-	return PyInt_FromLong(x);
+	return M2PyInt_FromLong(x);
 #else
 	unsigned char buf[8];
 	int one = 1;
@@ -147,7 +150,7 @@ static PyObject * r_object(RFILE *p)
 		return Py_Ellipsis;
 
 	case TYPE_INT:
-		return PyInt_FromLong(r_long(p));
+		return M2PyInt_FromLong(r_long(p));
 
 	case TYPE_INT64:
 		return r_long64(p);
@@ -219,9 +222,9 @@ static PyObject * r_object(RFILE *p)
 			PyErr_SetString(PyExc_ValueError, "bad marshal data");
 			return NULL;
 		}
-		v = PyString_FromStringAndSize((char *)NULL, n);
+		v = M2PyString_FromStringAndSize((char *)NULL, n);
 		if (v != NULL) {
-			if (r_string(PyString_AS_STRING(v), (int)n, p) != n) {
+			if (r_string(M2PyString_AsString(v), (int)n, p) != n) {
 				Py_DECREF(v);
 				v = NULL;
 				PyErr_SetString(PyExc_EOFError,
@@ -377,6 +380,7 @@ static PyObject * r_object(RFILE *p)
 		return NULL;
 	}
 }
+#endif // PY_MAJOR_VERSION < 3
 
 int _PyMarshal_ReadShortFromFile(FILE *fp)
 {
@@ -453,6 +457,24 @@ PyObject *_PyMarshal_ReadLastObjectFromFile(FILE *fp)
 
 PyObject * _PyMarshal_ReadObjectFromFile(FILE *fp)
 {
+#if PY_MAJOR_VERSION >= 3
+	if (!fp || PyErr_Occurred())
+		return NULL;
+	long cur = ftell(fp);
+	if (cur < 0 || fseek(fp, 0, SEEK_END) != 0)
+		return NULL;
+	long end = ftell(fp);
+	if (end < cur || fseek(fp, cur, SEEK_SET) != 0)
+		return NULL;
+	size_t rem = static_cast<size_t>(end - cur);
+	char* pBuf = static_cast<char*>(PyMem_MALLOC(rem > 0 ? rem : 1));
+	if (!pBuf)
+		return PyErr_NoMemory();
+	size_t n = fread(pBuf, 1, rem, fp);
+	PyObject* v = PyMarshal_ReadObjectFromString(pBuf, static_cast<Py_ssize_t>(n));
+	PyMem_FREE(pBuf);
+	return v;
+#else
 	RFILE rf;
 	if (PyErr_Occurred()) {
 		fprintf(stderr, "XXX rd_object called with exception set\n");
@@ -460,10 +482,16 @@ PyObject * _PyMarshal_ReadObjectFromFile(FILE *fp)
 	}
 	rf.fp = fp;
 	return r_object(&rf);
+#endif
 }
 
 PyObject * _PyMarshal_ReadObjectFromString(char *str, int len)
 {
+#if PY_MAJOR_VERSION >= 3
+	if (PyErr_Occurred())
+		return NULL;
+	return PyMarshal_ReadObjectFromString(str, static_cast<Py_ssize_t>(len));
+#else
 	RFILE rf;
 	if (PyErr_Occurred()) {
 		fprintf(stderr, "XXX rds_object called with exception set\n");
@@ -474,6 +502,7 @@ PyObject * _PyMarshal_ReadObjectFromString(char *str, int len)
 	rf.ptr = str;
 	rf.end = str + len;
 	return r_object(&rf);
+#endif
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

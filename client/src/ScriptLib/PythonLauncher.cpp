@@ -1,5 +1,9 @@
 #include "StdAfx.h"
+#if defined(MT2_USE_PYTHON3) || (defined(PY_MAJOR_VERSION) && PY_MAJOR_VERSION >= 3)
+#include <frameobject.h>
+#else
 #include <Python27/frameobject.h>
+#endif
 #include "../eterPack/EterPackManager.h"
 
 #include "PythonLauncher.h"
@@ -41,17 +45,20 @@ void Traceback()
 
 	PyErr_Fetch(&exc, &v, &tb);
 
-	if (PyString_Check(v))
+	if (M2PyString_Check(v))
 	{
-		errStr = PyString_AS_STRING(v);
-		str.append("Error: ");
-		str.append(errStr);
+		errStr = M2PyString_AsString(v);
+		if (errStr)
+		{
+			str.append("Error: ");
+			str.append(errStr);
 
-		Tracef("%s\n", errStr);
+			Tracef("%s\n", errStr);
+		}
 	}
-	Py_DECREF(exc);
-	Py_DECREF(v);
-	Py_DECREF(tb);
+	Py_XDECREF(exc);
+	Py_XDECREF(v);
+	Py_XDECREF(tb);
 	LogBoxf("Traceback:\n\n%s\n", str.c_str());
 }
 
@@ -66,15 +73,29 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 			if (g_nCurTraceN >= 512)
 				return 0;
 
-			if (Py_OptimizeFlag)
-				f->f_lineno = PyCode_Addr2Line(f->f_code, f->f_lasti);
+			{
+#if PY_VERSION_HEX >= 0x03090000
+				PyCodeObject* pCode = PyFrame_GetCode(f);
+				int iLineNo = PyFrame_GetLineNumber(f);
+				funcname = pCode ? M2PyString_AsString(pCode->co_name) : "";
+				const char* szFileName = pCode ? M2PyString_AsString(pCode->co_filename) : "";
+				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Call: File \"%s\", line %d, in %s",
+						  szFileName ? szFileName : "",
+						  iLineNo,
+						  funcname ? funcname : "");
+				Py_XDECREF(pCode);
+#else
+				if (Py_OptimizeFlag)
+					f->f_lineno = PyCode_Addr2Line(f->f_code, f->f_lasti);
 
-			funcname = PyString_AsString(f->f_code->co_name);
+				funcname = M2PyString_AsString(f->f_code->co_name);
 
-			_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Call: File \"%s\", line %d, in %s",
-					  PyString_AsString(f->f_code->co_filename),
-					  f->f_lineno,
-					  funcname);
+				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Call: File \"%s\", line %d, in %s",
+						  M2PyString_AsString(f->f_code->co_filename),
+						  f->f_lineno,
+						  funcname);
+#endif
+			}
 
 			g_stTraceBuffer[g_nCurTraceN++]=szTraceBuffer;
 			break;
@@ -94,14 +115,30 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 			PyTuple_GetObject(arg, 1, &exc_value);
 			PyTuple_GetObject(arg, 2, &exc_traceback);
 
+#if PY_MAJOR_VERSION < 3
 			Py_ssize_t len = 0;
 			const char * exc_str;
 			PyObject_AsCharBuffer(exc_type, &exc_str, &len);
+#endif
 
-			_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Exception: File \"%s\", line %d, in %s",
-					  PyString_AS_STRING(f->f_code->co_filename),
-					  f->f_lineno,
-					  PyString_AS_STRING(f->f_code->co_name));
+			{
+#if PY_VERSION_HEX >= 0x03090000
+				PyCodeObject* pCode = PyFrame_GetCode(f);
+				int iLineNo = PyFrame_GetLineNumber(f);
+				const char* szFileName = pCode ? M2PyString_AsString(pCode->co_filename) : "";
+				const char* szCodeName = pCode ? M2PyString_AsString(pCode->co_name) : "";
+				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Exception: File \"%s\", line %d, in %s",
+						  szFileName ? szFileName : "",
+						  iLineNo,
+						  szCodeName ? szCodeName : "");
+				Py_XDECREF(pCode);
+#else
+				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Exception: File \"%s\", line %d, in %s",
+						  M2PyString_AsString(f->f_code->co_filename),
+						  f->f_lineno,
+						  M2PyString_AsString(f->f_code->co_name));
+#endif
+			}
 
 			g_stTraceBuffer[g_nCurTraceN++]=szTraceBuffer;
 
@@ -117,7 +154,7 @@ void CPythonLauncher::SetTraceFunc(int (*pFunc)(PyObject * obj, PyFrameObject * 
 
 bool CPythonLauncher::Create(const char* c_szProgramName)
 {
-	Py_SetProgramName((char*)c_szProgramName);
+	M2Py_SetProgramName(c_szProgramName);
 #ifdef _DEBUG
 	PyEval_SetTrace(TraceFunc, NULL);
 #endif
@@ -128,7 +165,7 @@ bool CPythonLauncher::Create(const char* c_szProgramName)
 
 	m_poDic = PyModule_GetDict(m_poModule);
 
-    PyObject * builtins = PyImport_ImportModule("__builtin__");
+    PyObject * builtins = M2Py_ImportBuiltins();
 	PyModule_AddIntConstant(builtins, "TRUE", 1);
 	PyModule_AddIntConstant(builtins, "FALSE", 0);
     PyDict_SetItemString(m_poDic, "__builtins__", builtins);
@@ -159,6 +196,10 @@ bool CPythonLauncher::RunCompiledFile(const char* c_szFileName)
 	}
 
 	_PyMarshal_ReadLongFromFile(fp);
+#if PY_VERSION_HEX >= 0x03070000
+	_PyMarshal_ReadLongFromFile(fp);
+	_PyMarshal_ReadLongFromFile(fp);
+#endif
 	v = _PyMarshal_ReadLastObjectFromFile(fp);
 
 	fclose(fp);
@@ -171,7 +212,7 @@ bool CPythonLauncher::RunCompiledFile(const char* c_szFileName)
 	}
 
 	co = (PyCodeObject *) v;
-	v = PyEval_EvalCode(co, m_poDic, m_poDic);
+	v = M2PyEval_EvalCode(co, m_poDic, m_poDic);
 
 	Py_DECREF(co);
 	if (!v)
@@ -181,8 +222,12 @@ bool CPythonLauncher::RunCompiledFile(const char* c_szFileName)
 	}
 
 	Py_DECREF(v);
+#if PY_MAJOR_VERSION < 3
 	if (Py_FlushLine())
 		PyErr_Clear();
+#else
+	PyErr_Clear();
+#endif
 
 	return true;
 }
@@ -258,8 +303,8 @@ const char* CPythonLauncher::GetError()
 
 	PyErr_Fetch(&exc, &v, &tb);
 
-	if (PyString_Check(v))
-		return PyString_AS_STRING(v);
+	if (M2PyString_Check(v))
+		return M2PyString_AsString(v);
 
 	return "";
 }

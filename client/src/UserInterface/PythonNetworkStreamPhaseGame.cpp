@@ -2089,9 +2089,9 @@ bool CPythonNetworkStream::RecvExchangePacket()
 					CPythonExchange::Instance().SetItemAttributeToSelf(iSlotIndex, j, exchange_packet.aAttr[j].bType, exchange_packet.aAttr[j].sValue);
 
 				PyObject* args = PyTuple_New(3);
-				PyTuple_SetItem(args, 0, PyInt_FromLong(exchange_packet.arg4.window_type));
-				PyTuple_SetItem(args, 1, PyInt_FromLong(exchange_packet.arg4.cell));
-				PyTuple_SetItem(args, 2, PyInt_FromLong(iSlotIndex));
+				PyTuple_SetItem(args, 0, M2PyInt_FromLong(exchange_packet.arg4.window_type));
+				PyTuple_SetItem(args, 1, M2PyInt_FromLong(exchange_packet.arg4.cell));
+				PyTuple_SetItem(args, 2, M2PyInt_FromLong(iSlotIndex));
 				PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_AddItemToExchange", args);
 			}
 			else

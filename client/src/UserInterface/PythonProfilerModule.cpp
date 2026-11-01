@@ -29,7 +29,7 @@ void initProfiler()
 		{ NULL,					NULL,						NULL		 },
 	};
 
-	Py_InitModule("profiler", s_methods);
+	M2Py_InitModule("profiler", s_methods);
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

@@ -1072,11 +1072,11 @@ std::string GetEntityNameFormat(const char* name
 		return name;
 
 	// checking attribute is string
-	if(!PyString_Check(pyAttr))
+	if(!M2PyString_Check(pyAttr))
 		return name;
 
 	// getting string from attr
-	const auto* format = PyString_AsString(pyAttr);
+	const auto* format = M2PyString_AsString(pyAttr);
 	return fmt::format(fmt::runtime(format), name);
 }
 
@@ -1867,7 +1867,7 @@ PyObject* ikashopGetFirstEmptyCell(PyObject* poSelf, PyObject* poArgs)
 	if(!cell)
 		return Py_BuildNone();
 
-	return PyInt_FromLong(*cell);
+	return M2PyInt_FromLong(*cell);
 }
 
 PyObject* ikashopCheckShopSpace(PyObject* poSelf, PyObject* poArgs)
@@ -1959,7 +1959,7 @@ PyObject* ikashopGetItemHash(PyObject* poSelf, PyObject* poArgs)
 		item.aAttr[i].sValue = static_cast<short>(attrvalue);
 	}
 
-	return PyInt_FromSize_t(static_cast<size_t>(ikashop::GetItemHash(item)));
+	return M2PyInt_FromSize_t(static_cast<size_t>(ikashop::GetItemHash(item)));
 }
 
 #ifdef EXTEND_IKASHOP_PRO
@@ -2242,7 +2242,7 @@ void initikashop()
 		{ NULL, NULL, NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("ikashop", s_methods);
+	PyObject * poModule = M2Py_InitModule("ikashop", s_methods);
 	PyModule_AddIntConstant(poModule, "FILTER_ATTRIBUTE_NUM", ITEM_ATTRIBUTE_SLOT_NORM_NUM);
 	PyModule_AddIntConstant(poModule, "FILTER_NAME_MAX_LEN", ITEM_NAME_MAX_LEN);
 

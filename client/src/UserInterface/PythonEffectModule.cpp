@@ -105,7 +105,7 @@ void initeffect()
 		{ NULL,							NULL,							NULL         },
 	};
 
-	PyObject * poModule = Py_InitModule("effect", s_methods);
+	PyObject * poModule = M2Py_InitModule("effect", s_methods);
 	PyModule_AddIntConstant(poModule, "INDEX_FLY_TYPE_NORMAL",			CFlyingManager::INDEX_FLY_TYPE_NORMAL);
 	PyModule_AddIntConstant(poModule, "INDEX_FLY_TYPE_FIRE_CRACKER",	CFlyingManager::INDEX_FLY_TYPE_FIRE_CRACKER);
 	PyModule_AddIntConstant(poModule, "INDEX_FLY_TYPE_AUTO_FIRE",		CFlyingManager::INDEX_FLY_TYPE_AUTO_FIRE);

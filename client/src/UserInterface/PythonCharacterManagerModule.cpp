@@ -803,7 +803,7 @@ void initchrmgr()
 		{ NULL,							NULL,									NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("chrmgr", s_methods);
+	PyObject * poModule = M2Py_InitModule("chrmgr", s_methods);
 
 	PyModule_AddIntConstant(poModule, "NAMECOLOR_MOB", CInstanceBase::NAMECOLOR_NORMAL_MOB);
 	PyModule_AddIntConstant(poModule, "NAMECOLOR_NPC", CInstanceBase::NAMECOLOR_NORMAL_NPC);

@@ -188,7 +188,7 @@ void initMessenger()
 		{ NULL,							NULL,								NULL         },
 	};
 
-	PyObject* poModule = Py_InitModule("messenger", s_methods);
+	PyObject* poModule = M2Py_InitModule("messenger", s_methods);
 	PyModule_AddIntConstant(poModule, "GROUP_INDEX_FRIEND", CPythonMessenger::EMessengerGroupIndex::MESSENGER_GRUOP_INDEX_FRIEND);
 	PyModule_AddIntConstant(poModule, "GROUP_INDEX_GUILD", CPythonMessenger::EMessengerGroupIndex::MESSENGER_GRUOP_INDEX_GUILD);
 	PyModule_AddIntConstant(poModule, "GROUP_INDEX_BLOCK", CPythonMessenger::EMessengerGroupIndex::MESSENGER_GRUOP_INDEX_BLOCK);

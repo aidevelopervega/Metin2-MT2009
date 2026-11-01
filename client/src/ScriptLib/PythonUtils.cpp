@@ -26,7 +26,8 @@ PyObject * Py_BuildException(const char * c_pszErr, ...)
 		vsnprintf(szErrBuf, sizeof(szErrBuf), c_pszErr, args);
 		va_end(args);
 
-		PyErr_SetString(PyExc_RuntimeError, szErrBuf);
+		TraceError("%s", szErrBuf);
+		PyErr_Clear();
 	}
 
 	return Py_BuildNone();

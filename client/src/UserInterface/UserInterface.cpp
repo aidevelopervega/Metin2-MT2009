@@ -815,7 +815,7 @@ bool RunMainScript(CPythonLauncher& pyLauncher, const char* lpCmdLine)
 #endif
 	AntiMacro::GetInstance()->Initialize();
 
-    PyObject * builtins = PyImport_ImportModule("__builtin__");
+    PyObject * builtins = M2Py_ImportBuiltins();
 #ifdef NDEBUG // @warme601 _DISTRIBUTE -> NDEBUG
 	PyModule_AddIntConstant(builtins, "__DEBUG__", 0);
 #else
@@ -860,6 +860,7 @@ bool RunMainScript(CPythonLauncher& pyLauncher, const char* lpCmdLine)
 			stCmdLine = lpCmdLine;
 
 		PyModule_AddStringConstant(builtins, "__COMMAND_LINE__", stCmdLine.c_str());
+		Py_XDECREF(builtins);
 	}
 	{
 		std::vector<std::string> stVec;

@@ -583,7 +583,7 @@ PyObject * playerGetEXP(PyObject* poSelf, PyObject* poArgs)
 {
 	int64_t llEXP = CPythonPlayer::Instance().GetStatus(POINT_EXP);
 	if (llEXP >= LONG_MIN && llEXP <= LONG_MAX)
-		return PyInt_FromLong(static_cast<long>(llEXP));
+		return M2PyInt_FromLong(static_cast<long>(llEXP));
 	return PyLong_FromLongLong(llEXP);
 }
 
@@ -605,7 +605,7 @@ PyObject * playerGetStatus(PyObject* poSelf, PyObject* poArgs)
 	}
 
 	if (iValue >= LONG_MIN && iValue <= LONG_MAX)
-		return PyInt_FromLong(static_cast<long>(iValue));
+		return M2PyInt_FromLong(static_cast<long>(iValue));
 	return PyLong_FromLongLong(iValue);
 }
 
@@ -631,7 +631,7 @@ PyObject* playerGetGold(PyObject* poSelf, PyObject* poArgs)
 #ifdef ENABLE_CHEQUE_SYSTEM
 PyObject* playerGetCheque(PyObject* poSelf, PyObject* poArgs)
 {
-	return Py_BuildValue("i", CPythonPlayer::Instance().GetStatus(POINT_CHEQUE));
+	return Py_BuildValue("i", static_cast<int>(CPythonPlayer::Instance().GetStatus(POINT_CHEQUE)));
 }
 #endif
 
@@ -879,7 +879,7 @@ PyObject * playerGetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCount(TItemPos (INVENTORY, iSlotIndex));
-			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
+			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 		}
 	case 2:
 		{
@@ -891,7 +891,7 @@ PyObject * playerGetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCount(Cell);
-			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
+			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 		}
 	default:
 		return Py_BuildException();
@@ -949,7 +949,7 @@ PyObject * playerGetItemCountByVnum(PyObject* poSelf, PyObject* poArgs)
 		return Py_BuildException();
 
 	ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCountByVnum(ivnum);
-	return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
+	return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? M2PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 }
 
 PyObject * playerGetItemMetinSocket(PyObject* poSelf, PyObject* poArgs)
@@ -2253,7 +2253,7 @@ PyObject* playerSendDragonSoulRefine(PyObject* poSelf, PyObject* poArgs)
 {
 	BYTE bSubHeader;
 	PyObject* pDic;
-	TItemPos RefineItemPoses[DS_REFINE_WINDOW_MAX_NUM];
+	TItemPos RefineItemPoses[DS_REFINE_WINDOW_MAX_NUM]{};
 	if (!PyTuple_GetByte(poArgs, 0, &bSubHeader))
 		return Py_BuildException();
 	switch (bSubHeader)
@@ -2272,8 +2272,8 @@ PyObject* playerSendDragonSoulRefine(PyObject* poSelf, PyObject* poArgs)
 
 			while (PyDict_Next(pDic, &pos, &key, &value))
 			{
-				int i = PyInt_AsLong(key);
-				if (i > DS_REFINE_WINDOW_MAX_NUM)
+				int i = M2PyInt_AsLong(key);
+				if (i < 0 || i >= DS_REFINE_WINDOW_MAX_NUM)
 					return Py_BuildException();
 
 				if (!PyTuple_GetByte(value, 0, &RefineItemPoses[i].window_type)
@@ -2509,7 +2509,7 @@ void initPlayer()
 		{ NULL,							NULL,								NULL },
 	};
 
-	PyObject* poModule = Py_InitModule("player", s_methods);
+	PyObject* poModule = M2Py_InitModule("player", s_methods);
 	PyModule_AddIntConstant(poModule, "LEVEL", POINT_LEVEL);
 	PyModule_AddIntConstant(poModule, "VOICE", POINT_VOICE);
 	PyModule_AddIntConstant(poModule, "EXP", POINT_EXP);

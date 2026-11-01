@@ -388,7 +388,7 @@ void initNonPlayer()
 		{ NULL,							NULL,								NULL		 },
 	};
 
-	PyObject * poModule = Py_InitModule("nonplayer", s_methods);
+	PyObject * poModule = M2Py_InitModule("nonplayer", s_methods);
 
 	PyModule_AddIntConstant(poModule, "ON_CLICK_EVENT_NONE",		CPythonNonPlayer::ON_CLICK_EVENT_NONE);
 	PyModule_AddIntConstant(poModule, "ON_CLICK_EVENT_BATTLE",		CPythonNonPlayer::ON_CLICK_EVENT_BATTLE);

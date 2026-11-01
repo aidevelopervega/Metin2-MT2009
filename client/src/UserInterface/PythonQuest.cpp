@@ -252,7 +252,7 @@ void initquest()
 		{ NULL,							NULL,							NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("quest", s_methods);
+	PyObject * poModule = M2Py_InitModule("quest", s_methods);
 	PyModule_AddIntConstant(poModule, "QUEST_MAX_NUM", 7);
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f

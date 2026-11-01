@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "PythonliblibManager.h"
+#ifndef MT2_USE_PYTHON3
 #include "Python27/Python.h"
+#endif
 #ifdef _DEBUG
 	#pragma comment (lib, "liblib.lib")
 #else
@@ -180,7 +182,7 @@ static PyObject* liblib_getList(PyObject *self, PyObject *args)
 	PyObject* retTuple = PyTuple_New(iTupleSize);
 	for (int i = 0; NULL != liblib_init_methods[i].func_name; i++)
 	{
-		PyObject* retSubString = PyString_FromString(liblib_init_methods[i].func_name);
+		PyObject* retSubString = M2PyString_FromString(liblib_init_methods[i].func_name);
 		PyTuple_SetItem(retTuple, i, retSubString);
 	}
 	return retTuple;
@@ -197,7 +199,7 @@ void initliblibManager()
 	};
 
 	PyObject* m;
-	m = Py_InitModule("liblib", methods);
+	m = M2Py_InitModule("liblib", methods);
 }
 
 // Files shared by GameCore.top

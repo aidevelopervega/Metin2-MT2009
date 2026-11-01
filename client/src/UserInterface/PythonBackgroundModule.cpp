@@ -603,7 +603,7 @@ void initBackground()
 		{ NULL, NULL, NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("background", s_methods);
+	PyObject * poModule = M2Py_InitModule("background", s_methods);
 
 	PyModule_AddIntConstant(poModule, "PART_SKY",				CMapOutdoor::PART_SKY);
 	PyModule_AddIntConstant(poModule, "PART_TREE",				CMapOutdoor::PART_TREE);

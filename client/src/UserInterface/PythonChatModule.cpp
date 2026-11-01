@@ -508,7 +508,7 @@ void initChat()
 		{ NULL,						NULL,						NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("chat", s_methods);
+	PyObject * poModule = M2Py_InitModule("chat", s_methods);
 
 	PyModule_AddIntConstant(poModule, "CHAT_TYPE_TALKING",		CHAT_TYPE_TALKING);
 	PyModule_AddIntConstant(poModule, "CHAT_TYPE_INFO",			CHAT_TYPE_INFO);

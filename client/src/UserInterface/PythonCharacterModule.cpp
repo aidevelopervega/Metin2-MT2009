@@ -1352,7 +1352,7 @@ void initchr()
 		{ NULL,								NULL,								NULL		 },
 	};
 
-	PyObject * poModule = Py_InitModule("chr", s_methods);
+	PyObject * poModule = M2Py_InitModule("chr", s_methods);
 
 	// Length
 	PyModule_AddIntConstant(poModule, "PLAYER_NAME_MAX_LEN",				PLAYER_NAME_MAX_LEN);

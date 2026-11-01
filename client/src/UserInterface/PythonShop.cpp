@@ -503,7 +503,7 @@ void initshop()
 #endif
 		{ NULL,							NULL,							NULL },
 	};
-	PyObject * poModule = Py_InitModule("shop", s_methods);
+	PyObject * poModule = M2Py_InitModule("shop", s_methods);
 
 	PyModule_AddIntConstant(poModule, "SHOP_COIN_TYPE_GOLD", SHOP_COIN_TYPE_GOLD);
 	PyModule_AddIntConstant(poModule, "SHOP_COIN_TYPE_SECONDARY_COIN", SHOP_COIN_TYPE_SECONDARY_COIN);

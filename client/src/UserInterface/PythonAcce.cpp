@@ -177,7 +177,7 @@ void initAcce()
 		{NULL, NULL, NULL},
 	};
 
-	PyObject* pModule = Py_InitModule("acce", functions);
+	PyObject* pModule = M2Py_InitModule("acce", functions);
 	PyModule_AddIntConstant(pModule, "ABSORPTION_SOCKET",		ACCE_ABSORPTION_SOCKET);
 	PyModule_AddIntConstant(pModule, "ABSORBED_SOCKET",			ACCE_ABSORBED_SOCKET);
 	PyModule_AddIntConstant(pModule, "CLEAN_ATTR_VALUE0",		ACCE_CLEAN_ATTR_VALUE0);

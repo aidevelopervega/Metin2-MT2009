@@ -119,9 +119,9 @@ namespace ikashop
 		struct PythonGarbageCollector
 		{
 			// integer values
-			PyObject* makeInteger(int val) { return _Register(PyInt_FromLong(static_cast<long>(val))); }
-			PyObject* makeInteger(long val) { return _Register(PyInt_FromLong(val)); }
-			PyObject* makeInteger(DWORD val) { return _Register(PyInt_FromSize_t(val)); }
+			PyObject* makeInteger(int val) { return _Register(M2PyInt_FromLong(static_cast<long>(val))); }
+			PyObject* makeInteger(long val) { return _Register(M2PyInt_FromLong(val)); }
+			PyObject* makeInteger(DWORD val) { return _Register(M2PyInt_FromSize_t(val)); }
 			PyObject* makeInteger(int64_t val) { return _Register(PyLong_FromLongLong(val)); }
 			PyObject* makeInteger(uint64_t val) { return _Register(PyLong_FromUnsignedLongLong(val)); }
 			// floating values
@@ -130,8 +130,8 @@ namespace ikashop
 			// boolean
 			PyObject* makeBool(bool value) { return _Register(PyBool_FromLong(value ? 1 : 0)); }
 			// string
-			PyObject* makeString(const std::string& str) { return _Register(PyString_FromString(str.c_str())); }
-			PyObject* makeString(const char* str) { return _Register(PyString_FromString(str)); }
+			PyObject* makeString(const std::string& str) { return _Register(M2PyString_FromString(str.c_str())); }
+			PyObject* makeString(const char* str) { return _Register(M2PyString_FromString(str)); }
 			// objects
 			PyObject* makeDict() { return _Register(PyDict_New()); }
 			PyObject* makeList(size_t count = 0) { return _Register(PyList_New(count)); }

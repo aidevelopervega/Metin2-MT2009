@@ -574,7 +574,7 @@ void initItem()
 		{ NULL,								NULL,									NULL		 },
 	};
 
-	PyObject * poModule = Py_InitModule("item", s_methods);
+	PyObject * poModule = M2Py_InitModule("item", s_methods);
 
 	PyModule_AddIntConstant(poModule, "USESOUND_ACCESSORY",			CPythonItem::USESOUND_ACCESSORY);
 	PyModule_AddIntConstant(poModule, "USESOUND_ARMOR",				CPythonItem::USESOUND_ARMOR);

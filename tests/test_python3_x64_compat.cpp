@@ -1,5 +1,6 @@
 #define MT2_STANDALONE_PYTHON3_TEST 1
 #include "../client/src/ScriptLib/StdAfx.h"
+#include "../client/src/ScriptLib/PythonMarshal.h"
 
 #include <cassert>
 #include <cstdint>
@@ -7,27 +8,98 @@
 #include <cstdlib>
 #include <cstring>
 
-struct DummyWindow
+// Stubs required by ScriptLib/PythonDebugModule.cpp in standalone test mode
+static std::string g_lastTraceError;
+void LogBox(const char* /*c_szMsg*/, const char* /*c_szCaption*/, void* /*hWnd*/) {}
+void Trace(const char* /*c_szMsg*/) {}
+void Tracen(const char* /*c_szMsg*/) {}
+void TraceError(const char* c_szFormat, ...)
 {
-	uint64_t magic;
-	int visible;
-};
-
-static DummyWindow* g_pLastRegisteredWindow = nullptr;
-static DummyWindow* g_pLastShownWindow = nullptr;
-
-static PyObject* testWndMgrRegister(PyObject* /*poSelf*/, PyObject* /*poArgs*/)
-{
-	return Py_BuildPointerValue(g_pLastRegisteredWindow);
+	char buf[512 + 1];
+	va_list args;
+	va_start(args, c_szFormat);
+	std::vsnprintf(buf, sizeof(buf), c_szFormat, args);
+	va_end(args);
+	g_lastTraceError = buf;
 }
 
-static PyObject* testWndMgrShow(PyObject* /*poSelf*/, PyObject* poArgs)
+namespace
 {
-	DummyWindow* pWin = nullptr;
-	if (!PyTuple_GetPointer(poArgs, 0, &pWin) || !pWin)
-		return Py_BuildException("Invalid 64-bit window handle");
-	g_pLastShownWindow = pWin;
-	return Py_BuildValue("K", static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(pWin)));
+	class TestExceptionSender final : public IPythonExceptionSender
+	{
+	public:
+		void Send() override { ++m_sendCount; }
+		const std::string& GetString() const { return m_strExceptionString; }
+		int GetSendCount() const { return m_sendCount; }
+	private:
+		int m_sendCount = 0;
+	};
+
+	struct DummyWindow
+	{
+		uint64_t magic;
+		int visible;
+	};
+
+	struct DummySkillGradeData
+	{
+		std::string strName;
+		void* pImage;
+		uint16_t wMotionIndex;
+	};
+
+	static DummyWindow* g_pLastRegisteredWindow = nullptr;
+	static DummyWindow* g_pLastShownWindow = nullptr;
+	static DummySkillGradeData g_dummyGradeData{ "Hava Kılıcı (P)", reinterpret_cast<void*>(0x00007FF711223344ULL), 42 };
+
+	static PyObject* testWndMgrRegister(PyObject* /*poSelf*/, PyObject* /*poArgs*/)
+	{
+		return Py_BuildPointerValue(g_pLastRegisteredWindow);
+	}
+
+	static PyObject* testWndMgrShow(PyObject* /*poSelf*/, PyObject* poArgs)
+	{
+		DummyWindow* pWin = nullptr;
+		if (!PyTuple_GetPointer(poArgs, 0, &pWin) || !pWin)
+			return Py_BuildException("Invalid 64-bit window handle");
+		g_pLastShownWindow = pWin;
+		return Py_BuildValue("K", static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(pWin)));
+	}
+
+	static PyObject* testSkillGetGradeData(PyObject* /*poSelf*/, PyObject* /*poArgs*/)
+	{
+		return Py_BuildPointerValue(&g_dummyGradeData);
+	}
+
+	// Mirrors hardened playerSendDragonSoulRefinePacket dictionary parsing in PythonPlayerModule.cpp
+	static constexpr int kDsRefineWindowMaxNum = 15;
+	static PyObject* testSendDragonSoulRefinePacket(PyObject* /*poSelf*/, PyObject* poArgs)
+	{
+		unsigned char bSubHeader = 0;
+		PyObject* pDic = nullptr;
+		if (!PyTuple_GetByte(poArgs, 0, &bSubHeader))
+			return Py_BuildException();
+		if (!PyTuple_GetObject(poArgs, 1, &pDic) || !PyDict_Check(pDic))
+			return Py_BuildException();
+
+		Py_ssize_t pos = 0;
+		PyObject* key = nullptr;
+		PyObject* value = nullptr;
+		int parsedCount = 0;
+		while (PyDict_Next(pDic, &pos, &key, &value))
+		{
+			int i = M2PyInt_AsLong(key);
+			if (i < 0 || i >= kDsRefineWindowMaxNum)
+				return Py_BuildException("DragonSoul slot index out of bounds");
+
+			unsigned char winType = 0;
+			int cell = 0;
+			if (!PyTuple_GetByte(value, 0, &winType) || !PyTuple_GetInteger(value, 1, &cell))
+				return Py_BuildException("DragonSoul invalid item pos tuple");
+			++parsedCount;
+		}
+		return M2PyInt_FromLong(parsedCount);
+	}
 }
 
 int main()
@@ -35,6 +107,7 @@ int main()
 	static_assert(sizeof(void*) == 8, "Must be compiled as 64-bit PE32+ (AMD64)");
 	static_assert(PY_MAJOR_VERSION >= 3, "Must be compiled against CPython 3.x headers");
 
+	M2Py_SetProgramName("metin2client_x64_test");
 	Py_Initialize();
 	assert(Py_IsInitialized());
 
@@ -121,7 +194,7 @@ int main()
 		Py_DECREF(pyVal);
 	}
 
-	// 5. Verify M2PyString_* with UTF-8 Turkish text
+	// 5. Verify M2PyString_* with UTF-8 Turkish text & interning
 	const char* turkishText = "Metin2 x64 Türkçe Karakter Testi: ğüşıöçĞÜŞİÖÇ";
 	PyObject* pyStr = M2PyString_FromString(turkishText);
 	PyObject* tupStr = PyTuple_Pack(1, pyStr);
@@ -131,14 +204,47 @@ int main()
 	Py_DECREF(tupStr);
 	Py_DECREF(pyStr);
 
-	// 6. Verify M2Py_InitModule and end-to-end Python 3 script calling C++ with 64-bit window handle
+	PyObject* pyIntern1 = M2PyString_InternFromString("OnUpdate");
+	PyObject* pyIntern2 = M2PyString_InternFromString("OnUpdate");
+	check(pyIntern1 != nullptr && pyIntern1 == pyIntern2, "M2PyString_InternFromString interns identical pointer");
+	Py_DECREF(pyIntern1);
+	Py_DECREF(pyIntern2);
+
+	// 6. Verify M2PyInt_FromLong & M2PyInt_FromSize_t & M2Py_ImportBuiltins
+	PyObject* pySize = M2PyInt_FromSize_t(static_cast<size_t>(0x123456789ABCDEF0ULL));
+	check(M2PyInt_Check(pySize), "M2PyInt_Check recognizes 64-bit size_t PyLong");
+	Py_DECREF(pySize);
+
+	check(std::strcmp(M2Py_GetBuiltinModuleName(), "builtins") == 0, "M2Py_GetBuiltinModuleName() == 'builtins' on Python 3");
+	PyObject* builtins = M2Py_ImportBuiltins();
+	check(builtins != nullptr, "M2Py_ImportBuiltins() succeeds on Python 3");
+	PyModule_AddIntConstant(builtins, "TRUE", 1);
+	PyModule_AddIntConstant(builtins, "FALSE", 0);
+	Py_DECREF(builtins);
+
+	// 7. Verify real ScriptLib initdbg() and dbg.RegisterExceptionString
+	TestExceptionSender excSender;
+	g_pkExceptionSender = &excSender;
+	initdbg();
+	int rcDbg = PyRun_SimpleString(
+		"import dbg\n"
+		"assert TRUE == 1 and FALSE == 0\n"
+		"dbg.RegisterExceptionString('x64_dbg_trace_ok')\n"
+	);
+	check(rcDbg == 0 && excSender.GetString() == "x64_dbg_trace_ok", "ScriptLib initdbg() and dbg.RegisterExceptionString work in Python 3");
+	g_pkExceptionSender = nullptr;
+
+	// 8. Verify M2Py_InitModule, 64-bit pointer handles, SGradeData pointer, Py_BuildException non-SystemError contract, and Dragon Soul bounds check
 	static PyMethodDef s_wndMethods[] = {
-		{ "Register", testWndMgrRegister, METH_VARARGS, "Register 64-bit window" },
-		{ "Show",     testWndMgrShow,     METH_VARARGS, "Show 64-bit window"     },
-		{ nullptr,    nullptr,            0,            nullptr                  }
+		{ "Register",            testWndMgrRegister,            METH_VARARGS, "Register 64-bit window" },
+		{ "Show",                testWndMgrShow,                METH_VARARGS, "Show 64-bit window"     },
+		{ "GetGradeData",        testSkillGetGradeData,         METH_VARARGS, "Get skill grade ptr"    },
+		{ "SendDSRefinePacket",  testSendDragonSoulRefinePacket, METH_VARARGS, "Send DS refine packet"  },
+		{ nullptr,               nullptr,                       0,            nullptr                  }
 	};
 	g_pLastRegisteredWindow = highPtr;
 	g_pLastShownWindow = nullptr;
+	g_lastTraceError.clear();
 	PyObject* poMod = M2Py_InitModule("wndMgr", s_wndMethods);
 	check(poMod != nullptr, "M2Py_InitModule('wndMgr') succeeds in Python 3");
 
@@ -149,8 +255,53 @@ int main()
 		"assert h == 0x00007FF689ABCDEF\n"
 		"echo = wndMgr.Show(h)\n"
 		"assert echo == h\n"
+		"gd = wndMgr.GetGradeData()\n"
+		"assert gd > 0\n"
+		"assert wndMgr.SendDSRefinePacket(1, {0: (1, 5), 14: (1, 12)}) == 2\n"
+		"assert wndMgr.SendDSRefinePacket(1, {-1: (1, 5)}) is None\n"
+		"assert wndMgr.SendDSRefinePacket(1, {15: (1, 5)}) is None\n"
 	);
-	check(rc == 0 && g_pLastShownWindow == highPtr, "Python 3 script round-trips 0x00007FF689ABCDEF through wndMgr.Register/Show");
+	check(rc == 0 && g_pLastShownWindow == highPtr && g_lastTraceError == "DragonSoul slot index out of bounds",
+		"Python 3 script round-trips 64-bit handles and enforces DragonSoul bounds without SystemError");
+
+	// 9. Verify ScriptLib _PyMarshal_ReadObjectFromString and M2PyEval_EvalCode on Python 3 bytecode
+	int rcMarshal = PyRun_SimpleString(
+		"import marshal\n"
+		"co = compile('marshal_result = (1 << 40) + 777', '<m2_marshal_test>', 'exec')\n"
+		"raw_bytes = marshal.dumps(co)\n"
+	);
+	check(rcMarshal == 0, "Python 3 marshal.dumps(code) succeeds");
+	PyObject* mainMod = PyImport_AddModule("__main__");
+	PyObject* mainDict = PyModule_GetDict(mainMod);
+	PyObject* pyRawBytes = PyDict_GetItemString(mainDict, "raw_bytes");
+	check(pyRawBytes != nullptr && PyBytes_Check(pyRawBytes), "raw_bytes present in __main__");
+	PyObject* unmarshaled = _PyMarshal_ReadObjectFromString(
+		PyBytes_AsString(pyRawBytes),
+		static_cast<int>(PyBytes_Size(pyRawBytes))
+	);
+	check(unmarshaled != nullptr && PyCode_Check(unmarshaled), "_PyMarshal_ReadObjectFromString unmarshals Python 3 code object");
+	PyObject* evalRes = M2PyEval_EvalCode(reinterpret_cast<PyCodeObject*>(unmarshaled), mainDict, mainDict);
+	check(evalRes != nullptr, "M2PyEval_EvalCode executes unmarshaled Python 3 code object");
+	Py_DECREF(evalRes);
+	Py_DECREF(unmarshaled);
+	PyObject* pyMarshalResult = PyDict_GetItemString(mainDict, "marshal_result");
+	check(pyMarshalResult != nullptr && PyLong_AsLongLong(pyMarshalResult) == ((1LL << 40) + 777LL),
+		"M2PyEval_EvalCode computed exact 64-bit result (1 << 40) + 777");
+
+	// 10. Verify client Python scripts (simplejson + ordered_dict + Version.py) under CPython 3.11 x64
+	int rcScripts = PyRun_SimpleString(
+		"import ast, pathlib, importlib.util\n"
+		"for p in sorted(list(pathlib.Path('client/files/lib/simplejson').glob('*.py')) + [pathlib.Path('client/src/UserInterface/Version.py')]):\n"
+		"    ast.parse(p.read_text(encoding='utf-8'), filename=str(p))\n"
+		"spec = importlib.util.spec_from_file_location('m2_ordered_dict', 'client/files/lib/simplejson/ordered_dict.py')\n"
+		"mod = importlib.util.module_from_spec(spec)\n"
+		"spec.loader.exec_module(mod)\n"
+		"od = mod.OrderedDict([('a', 1), ('b', 2), ('c', 10**15)])\n"
+		"assert list(od.keys()) == ['a', 'b', 'c']\n"
+		"assert od.popitem(last=True) == ('c', 10**15)\n"
+		"assert od.popitem(last=False) == ('a', 1)\n"
+	);
+	check(rcScripts == 0, "Client Python scripts (simplejson/*.py, ordered_dict.py, Version.py) pass AST & execution in Python 3 x64");
 
 	std::printf("PYTHON3_X64_CPP20_EMBED_SUITE: %d/%d CHECKS PASSED (Python %s)\n", passed, passed, Py_GetVersion());
 	Py_FinalizeEx();

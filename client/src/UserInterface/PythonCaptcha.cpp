@@ -143,7 +143,7 @@ void initcaptcha()
 		{ NULL,										NULL,										NULL },
 	};
 
-	PyObject* poModule = Py_InitModule("captcha", s_methods);
+	PyObject* poModule = M2Py_InitModule("captcha", s_methods);
 	PyModule_AddIntConstant(poModule, "OK", CAPTCHA_OK);
 	PyModule_AddIntConstant(poModule, "NO_ATTEMPTS", CAPTCHA_NO_ATTEMPTS);
 	PyModule_AddIntConstant(poModule, "WRONG_CODE", CAPTCHA_WRONG_CODE);

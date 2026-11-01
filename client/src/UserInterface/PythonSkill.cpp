@@ -690,7 +690,7 @@ bool CPythonSkill::RegisterSkill(DWORD dwSkillIndex, const char * c_szFileName)
 			if (SKILL_GRADE_COUNT*2 != pGradeDataVector->size())
 				TraceError("CPythonSkill::RegisterSkill(dwSkillIndex=%d, c_szFileName=%s) - Strange Grade Data Count", dwSkillIndex, c_szFileName);
 
-			for (DWORD i = 0; i < min(SKILL_GRADE_COUNT, pGradeDataVector->size()/2); ++i)
+			for (DWORD i = 0; i < (std::min)(static_cast<size_t>(SKILL_GRADE_COUNT), pGradeDataVector->size()/2); ++i)
 			{
 				SkillData.GradeData[i].strName = pGradeDataVector->at(i*2+0);
 				std::string strIconFileName = g_strImagePath + pGradeDataVector->at(i*2+1);
@@ -1889,7 +1889,7 @@ PyObject * skillGetSkillRequirementData(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonSkill::Instance().GetSkillDataByName(c_pSkillData->strRequireSkillName.c_str(), &pRequireSkillData))
 		return Py_BuildValue("si", 0, "None", 0);
 
-	int ireqLevel = (int)ceil(float(c_pSkillData->byRequireSkillLevel)/float(max(1, pRequireSkillData->byLevelUpPoint)));
+	int ireqLevel = (int)ceil(float(c_pSkillData->byRequireSkillLevel)/float((std::max)(1, static_cast<int>(pRequireSkillData->byLevelUpPoint))));
 	return Py_BuildValue("si", c_pSkillData->strRequireSkillName.c_str(), ireqLevel);
 }
 
@@ -2224,7 +2224,7 @@ PyObject * skillGetGradeData(PyObject * poSelf, PyObject * poArgs)
 	if (iGradeIndex < 0 || iGradeIndex >= CPythonSkill::SKILL_GRADE_COUNT)
 		return Py_BuildException("Strange grade index [%d]", iSkillIndex, iGradeIndex);
 
-	return Py_BuildValue("i", c_pSkillData->GradeData[iGradeIndex]);
+	return Py_BuildPointerValue(&c_pSkillData->GradeData[iGradeIndex]);
 }
 
 PyObject * skillGetNewAffectDataCount(PyObject * poSelf, PyObject * poArgs)
@@ -2349,7 +2349,7 @@ void initskill()
 		{ NULL,										NULL,										NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("skill", s_methods);
+	PyObject * poModule = M2Py_InitModule("skill", s_methods);
 	PyModule_AddIntConstant(poModule, "SKILL_TYPE_NONE",	CPythonSkill::SKILL_TYPE_NONE);
 	PyModule_AddIntConstant(poModule, "SKILL_TYPE_ACTIVE",	CPythonSkill::SKILL_TYPE_ACTIVE);
 	PyModule_AddIntConstant(poModule, "SKILL_TYPE_SUPPORT",	CPythonSkill::SKILL_TYPE_SUPPORT);

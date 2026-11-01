@@ -1,5 +1,9 @@
 #pragma once
+#if defined(MT2_USE_PYTHON3) || (defined(PY_MAJOR_VERSION) && PY_MAJOR_VERSION >= 3)
+#include <frameobject.h>
+#else
 #include <Python27/frameobject.h>
+#endif
 
 #include "../eterBase/Singleton.h"
 

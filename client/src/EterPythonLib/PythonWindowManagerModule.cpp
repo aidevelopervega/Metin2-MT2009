@@ -2895,11 +2895,11 @@ void initwndMgr()
 		{ NULL,							NULL,								NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("wndMgr", s_methods);
+	PyObject * poModule = M2Py_InitModule("wndMgr", s_methods);
 
-//	PyObject * poMgrModule = Py_InitModule("wndMgr", s_methods);
-//	PyObject * poTextModule = Py_InitModule("wndText", s_methods);
-//	PyObject * poSlotModule = Py_InitModule("wndSlot", s_methods);
+//	PyObject * poMgrModule = M2Py_InitModule("wndMgr", s_methods);
+//	PyObject * poTextModule = M2Py_InitModule("wndText", s_methods);
+//	PyObject * poSlotModule = M2Py_InitModule("wndSlot", s_methods);
 
 	PyModule_AddIntConstant(poModule, "SLOT_STYLE_NONE",				UI::SLOT_STYLE_NONE);
 	PyModule_AddIntConstant(poModule, "SLOT_STYLE_PICK_UP",				UI::SLOT_STYLE_PICK_UP);

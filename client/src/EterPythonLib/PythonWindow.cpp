@@ -157,7 +157,7 @@ namespace UI
 		if (!IsShow())
 			return;
 
-		static PyObject* poFuncName_OnUpdate = PyString_InternFromString("OnUpdate");
+		static PyObject* poFuncName_OnUpdate = M2PyString_InternFromString("OnUpdate");
 
 		//PyCallClassMemberFunc(m_poHandler, "OnUpdate", BuildEmptyTuple());
 		PyCallClassMemberFunc_ByPyString(m_poHandler, poFuncName_OnUpdate, BuildEmptyTuple());
@@ -2122,10 +2122,10 @@ namespace UI
 
 	void CDragButton::OnChangePosition()
 	{
-		m_x = max(m_x, m_restrictArea.left);
-		m_y = max(m_y, m_restrictArea.top);
-		m_x = min(m_x, max(0, m_restrictArea.right - m_lWidth));
-		m_y = min(m_y, max(0, m_restrictArea.bottom - m_lHeight));
+		m_x = (std::max)(m_x, m_restrictArea.left);
+		m_y = (std::max)(m_y, m_restrictArea.top);
+		m_x = (std::min)(m_x, (std::max)(0L, m_restrictArea.right - m_lWidth));
+		m_y = (std::min)(m_y, (std::max)(0L, m_restrictArea.bottom - m_lHeight));
 
 		m_rect.left = m_x;
 		m_rect.top = m_y;

@@ -59,8 +59,8 @@ void initServerStateChecker()
 		{ NULL,			NULL,							NULL },
 	};
 
-	//PyObject * poModule = Py_InitModule("ServerStateChecker", s_methods);
-	Py_InitModule("ServerStateChecker", s_methods);
+	//PyObject * poModule = M2Py_InitModule("ServerStateChecker", s_methods);
+	M2Py_InitModule("ServerStateChecker", s_methods);
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

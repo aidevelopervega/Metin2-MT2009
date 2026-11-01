@@ -30,10 +30,10 @@ PyObject* appShowWebPage(PyObject* poSelf, PyObject* poArgs)
 		return Py_BuildException();
 
 	RECT rcWebPage;
-	rcWebPage.left=PyInt_AsLong(PyTuple_GetItem(poRect, 0));
-	rcWebPage.top=PyInt_AsLong(PyTuple_GetItem(poRect, 1));
-	rcWebPage.right=PyInt_AsLong(PyTuple_GetItem(poRect, 2));
-	rcWebPage.bottom=PyInt_AsLong(PyTuple_GetItem(poRect, 3));
+	rcWebPage.left=M2PyInt_AsLong(PyTuple_GetItem(poRect, 0));
+	rcWebPage.top=M2PyInt_AsLong(PyTuple_GetItem(poRect, 1));
+	rcWebPage.right=M2PyInt_AsLong(PyTuple_GetItem(poRect, 2));
+	rcWebPage.bottom=M2PyInt_AsLong(PyTuple_GetItem(poRect, 3));
 
 	CPythonApplication::Instance().ShowWebPage(
 		szWebPage,
@@ -49,10 +49,10 @@ PyObject* appMoveWebPage(PyObject* poSelf, PyObject* poArgs)
 		return Py_BuildException();
 
 	RECT rcWebPage;
-	rcWebPage.left=PyInt_AsLong(PyTuple_GetItem(poRect, 0));
-	rcWebPage.top=PyInt_AsLong(PyTuple_GetItem(poRect, 1));
-	rcWebPage.right=PyInt_AsLong(PyTuple_GetItem(poRect, 2));
-	rcWebPage.bottom=PyInt_AsLong(PyTuple_GetItem(poRect, 3));
+	rcWebPage.left=M2PyInt_AsLong(PyTuple_GetItem(poRect, 0));
+	rcWebPage.top=M2PyInt_AsLong(PyTuple_GetItem(poRect, 1));
+	rcWebPage.right=M2PyInt_AsLong(PyTuple_GetItem(poRect, 2));
+	rcWebPage.bottom=M2PyInt_AsLong(PyTuple_GetItem(poRect, 3));
 
 	CPythonApplication::Instance().MoveWebPage(rcWebPage);
 	return Py_BuildNone();
@@ -365,7 +365,7 @@ PyObject* appGetFileList(PyObject* poSelf, PyObject* poArgs)
 	{
 		do
 		{
-			PyObject* poFileName=PyString_FromString(wfd.cFileName) ;
+			PyObject* poFileName=M2PyString_FromString(wfd.cFileName) ;
 			PyList_Append(poList, poFileName);
 		}
 		while (FindNextFile(hFind, &wfd));
@@ -1606,7 +1606,7 @@ void initapp()
 		{ NULL, NULL },
 	};
 
-	PyObject * poModule = Py_InitModule("app", s_methods);
+	PyObject * poModule = M2Py_InitModule("app", s_methods);
 
 	PyModule_AddIntConstant(poModule, "INFO_ITEM",		CPythonApplication::INFO_ITEM);
 	PyModule_AddIntConstant(poModule, "INFO_ACTOR",		CPythonApplication::INFO_ACTOR);

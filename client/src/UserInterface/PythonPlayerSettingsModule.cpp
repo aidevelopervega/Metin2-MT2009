@@ -1717,6 +1717,6 @@ void initplayersettingsmodule()
         {NULL, NULL, NULL},
     };
 
-    PyObject* poModule = Py_InitModule("appPlayerSettingsModule", s_methods);
+    PyObject* poModule = M2Py_InitModule("appPlayerSettingsModule", s_methods);
 }
 // Files shared by GameCore.top
