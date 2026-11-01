@@ -1,8 +1,8 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "project": "Metin2-MT2009",
   "branch": "dev/windows-gcc-baseline",
-  "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37",
+  "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d",
   "parity_pairs": [
     {
       "name": "Crypto++ 8.9.0 Headers",
@@ -49,13 +49,13 @@
         "server/src/game/src/stdafx.h:35 (#include <boost/unordered_map.hpp>)"
       ],
       "decision": "UPGRADED",
-      "notes": "Removed stale 2023 extern/client/include/boost .ipp shadowing files and unused 32-bit Boost 1.67 static libs; client and server now share 100% unified Boost 1.92.0 in extern/common/include/boost.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Removed stale 2023 extern/client/include/boost .ipp shadowing files and unused 32-bit Boost 1.67 static libs; client and server share 100% unified Boost 1.92.0 in extern/common/include/boost.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "rapidjson",
       "name": "RapidJSON",
-      "purpose": "Fast DOM/SAX JSON parser and generator",
+      "purpose": "Fast DOM/SAX JSON parser and generator (server config & client discord-rpc serialization)",
       "used_in_client": true,
       "used_in_server": true,
       "is_common": true,
@@ -72,16 +72,16 @@
       "linkage": "header-only",
       "binaries": [],
       "usage_evidence": [
-        "server/src/common/CommonDefines.h (JSON config/table serialization)",
+        "extern/client/discord-rpc/serialization.h:14 (#include <rapidjson/document.h>)",
         "tests/test_unified_sdks_x64.cpp:19 (#include <rapidjson/document.h>)"
       ],
       "decision": "VERIFIED",
       "notes": "Removed duplicate shadowing extern/client/include/rapidjson/document.h; unified on extern/common/include/rapidjson.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "fmt",
-      "name": " {fmt} Formatting Library",
+      "name": "{fmt} Formatting Library",
       "purpose": "Type-safe string formatting (FMT_HEADER_ONLY)",
       "used_in_client": true,
       "used_in_server": true,
@@ -104,7 +104,7 @@
       ],
       "decision": "VERIFIED",
       "notes": "Shared between server and client via extern/common/include/fmt.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "msl",
@@ -131,7 +131,7 @@
       ],
       "decision": "VERIFIED",
       "notes": "Shared between server and client via extern/common/include/msl.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "cryptopp",
@@ -142,14 +142,14 @@
       "is_common": true,
       "header_path": "extern/server/include/cryptopp == extern/client/include/cryptopp",
       "header_version": "8.9.0 (CRYPTOPP_VERSION=890)",
-      "source_build_version": "8.9.0 (extern/server/cryptopp, 152 TUs)",
+      "source_build_version": "8.9.0 (extern/server/cryptopp, 153 TUs including x64dll_intrin.cpp)",
       "source_origin": {
         "url": "https://github.com/weidai11/cryptopp",
         "version_tag": "CRYPTOPP_8_9_0"
       },
       "license": "BSL-1.0",
-      "compiler_crt_abi": "Client: MSVC 18 AMD64 /MT /std:c++20 (cryptlib-x64.lib); Server: GCC 14/16 AMD64 CMake target cryptopp",
-      "debug_release_variants": "x64 Release static library (cryptlib-x64.lib); legacy Win32 cryptlib-Debug.lib / cryptlib-Release.lib retained only for Win32 fallback",
+      "compiler_crt_abi": "Client: MSVC 18 AMD64 /MT /std:c++20 /DCRYPTOPP_DISABLE_ASM (cryptlib-x64.lib); Server: GCC 14/16 AMD64 CMake target cryptopp",
+      "debug_release_variants": "x64 static library (cryptlib-x64.lib); superseded 32-bit cryptlib-Release.lib & cryptlib-Debug.lib removed",
       "linkage": "static",
       "binaries": [
         {
@@ -159,22 +159,6 @@
           "sha256": "956431c14a99bf2135154ba24238eb4a63d314b3144ee5e5977d7a351585ba58",
           "variant": "Release",
           "role": "active_x64"
-        },
-        {
-          "path": "extern/client/lib/cryptlib-Release.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 34252742,
-          "sha256": "f886312ecf6af6179a16c24bc68fae725bfd9a0b534274ce7115f89a5a679632",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/cryptlib-Debug.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 110819592,
-          "sha256": "d806d9f7f22a54d420cfe51030f57195ebf5c1e74c1ed445b894a40a78775075",
-          "variant": "Debug",
-          "role": "legacy_win32_quarantined"
         }
       ],
       "usage_evidence": [
@@ -185,8 +169,8 @@
         "server/src/game/src/cipher.cpp:9-33 (Server packet encryption handshake)"
       ],
       "decision": "UPGRADED",
-      "notes": "Upgraded client Crypto++ from 8.2.0 (32-bit) to 8.9.0 matching server byte-for-byte (193 headers), removed 804 old 8.2.0 files and 336 Win32 .obj files in extern/client/cryptopp, and built native AMD64 extern/client/lib/cryptlib-x64.lib.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Upgraded client Crypto++ from 8.2.0 (32-bit) to 8.9.0 matching server byte-for-byte (193 headers), enforced CRYPTOPP_DISABLE_ASM=1 on MSVC x64 in config_asm.h for ABI/alignment parity, and removed superseded 32-bit cryptlib-Release.lib and cryptlib-Debug.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "devil",
@@ -203,23 +187,23 @@
         "version_tag": "v1.8.0"
       },
       "license": "LGPL-2.1",
-      "compiler_crt_abi": "C ABI (__stdcall / ILAPI); Client: devil_x64.lib + DevIL_x64.dll (PE32+ 0x8664); Server: libIL.a (COFF_0x8664 / FreeBSD pkg devil)",
-      "debug_release_variants": "Release x64 (devil_x64.lib + DevIL_x64.dll + libIL.a); legacy Win32 devil.lib retained for Win32 fallback",
-      "linkage": "Client: dynamic (DevIL_x64.dll via devil_x64.lib); Server Windows: static (libIL.a + libpng.a + libtiff.a + libjpeg.a + libmng.a + liblcms.a + libjasper.a + libjbig.a)",
+      "compiler_crt_abi": "C ABI (__stdcall / ILAPI); Client: devil_x64.lib + DevIL_x64.dll (PE32+ 0x8664, statically linked runtime with zero MinGW DLL imports); Server: libIL.a (COFF_0x8664 / FreeBSD pkg devil)",
+      "debug_release_variants": "Release x64 (devil_x64.lib + DevIL_x64.dll + libIL.a); superseded 32-bit DevIL.lib & DevIL.dll removed",
+      "linkage": "Client: dynamic (DevIL_x64.dll via devil_x64.lib); Server Windows: static (libIL.a)",
       "binaries": [
         {
           "path": "extern/client/lib/devil_x64.lib",
           "arch": "COFF_0x8664+IMPORT_0x8664",
           "size_bytes": 20894,
-          "sha256": "36add5463fcc0ee5673e70a25bbadfdb311c9efae95eec488284de0524fd44aa",
+          "sha256": "2f943d04cf797cc9d7f5613a0ae1ab67e8b65aa8f7c49c0f494bffa6ce9acb3c",
           "variant": "Release",
           "role": "active_x64"
         },
         {
           "path": "extern/client/dll/DevIL_x64.dll",
           "arch": "PE32+_0x8664",
-          "size_bytes": 1111859,
-          "sha256": "dca35d143074f17a77c2f9064f3fd8bb44903bbab23a185340f9335c86860f22",
+          "size_bytes": 1166542,
+          "sha256": "a45085435697d21dc5a0e26aa861bcba550a8e2ad3714014547f0d079234d607",
           "variant": "Release",
           "role": "active_x64"
         },
@@ -230,22 +214,6 @@
           "sha256": "f2a099c1f181882f7c8fe4f67c693f8897b1a82f948c530b75faf37b8562a5ce",
           "variant": "Release",
           "role": "active_x64"
-        },
-        {
-          "path": "extern/client/lib/DevIL.lib",
-          "arch": "COFF_0x014C+IMPORT_0x014C",
-          "size_bytes": 31326,
-          "sha256": "06232d3ffff0639f5b6036277275a5302c9f706175b997add546cb9f84b5189e",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/dll/DevIL.dll",
-          "arch": "PE32_0x014C",
-          "size_bytes": 1482240,
-          "sha256": "63cc8eacf8c415b00aa57f235c58040fdd437c6afa0c936ad9c87f33feeab2ca",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
         }
       ],
       "usage_evidence": [
@@ -255,8 +223,8 @@
         "server/src/game/src/MarkImage.cpp:25-130 (Server guild mark image management)"
       ],
       "decision": "UPGRADED",
-      "notes": "Unified client and server headers on DevIL 1.8.0 (8 headers), removed 6 SWIG/Lua files and 13 unused DevIL-1.7.8/ILU/ILUT 32-bit binaries, built PE32+ DevIL_x64.dll and devil_x64.lib, and fixed MarkImage.h Pixel typedef from unsigned long to uint32_t for LP64/LLP64 parity.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Unified client and server headers on DevIL 1.8.0 (8 headers), linked DevIL_x64.dll with -static to eliminate transitive libwinpthread-1.dll import, and removed superseded 32-bit DevIL.lib/DevIL.dll.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "lzo",
@@ -273,25 +241,17 @@
         "version_tag": "2.10"
       },
       "license": "GPL-2.0-or-later",
-      "compiler_crt_abi": "C ABI; Client: lzo2_x64.lib (COFF_0x8664); Server: compiled directly via server/src/game/src/minilzo.c",
-      "debug_release_variants": "Release x64 (lzo2_x64.lib); legacy Win32 lzo2.lib retained for Win32 fallback",
+      "compiler_crt_abi": "C ABI; Client: lzo2_x64.lib (COFF_0x8664 /MT); Server: compiled directly via server/src/game/src/minilzo.c",
+      "debug_release_variants": "Release x64 (lzo2_x64.lib); superseded 32-bit lzo2.lib removed",
       "linkage": "static",
       "binaries": [
         {
           "path": "extern/client/lib/lzo2_x64.lib",
           "arch": "COFF_0x8664",
-          "size_bytes": 14406,
-          "sha256": "69c47f577185239d8192dbb8b5f6fa2180b3491c96a040c6cc053999a31e1c63",
+          "size_bytes": 14414,
+          "sha256": "790054cf267853588cb395baa012be7c7d0bb647ef87690e309461ddc958220a",
           "variant": "Release",
           "role": "active_x64"
-        },
-        {
-          "path": "extern/client/lib/lzo2.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 188028,
-          "sha256": "6da38941669c7f04c2f327695b4de15b9d5aa32ce733a522585246b8116cbf46",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
         }
       ],
       "usage_evidence": [
@@ -300,8 +260,136 @@
         "server/src/game/src/lzo_manager.cpp:1-80 (LZOManager::Compress, Decompress)"
       ],
       "decision": "UPGRADED",
-      "notes": "Replaced stale LZO 1.08 headers in server/src/game/src/lzo with unified LZO 2.10 headers (14 files) matching client and minilzo.c (2.10), and built native AMD64 extern/client/lib/lzo2_x64.lib.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Unified LZO 2.10 headers (14 files) across server and client, built native AMD64 extern/client/lib/lzo2_x64.lib, and removed superseded 32-bit lzo2.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+    },
+    {
+      "id": "d3dx9_microsoft_nuget_x64",
+      "name": "Official Microsoft.DXSDK.D3DX 9.29.952.8 (DirectX SDK June 2010 x64)",
+      "purpose": "D3DX9 matrix/vector math, mesh (sphere/cylinder), shader assembler, and texture/surface helper library on top of Direct3D 9Ex",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/{d3dx9.h,d3dx9math.h,d3dx9math.inl,d3dx9core.h,d3dx9mesh.h,d3dx9tex.h,d3dx9effect.h,d3dx9shader.h,d3dx9shape.h,d3dx9anim.h,d3dx9xof.h}",
+      "header_version": "9.29.952.8 (D3DX_VERSION=0x0902, D3DX_SDK_VERSION=43)",
+      "source_build_version": "9.29.952.8 (NuGet Microsoft.DXSDK.D3DX, nupkg sha256=ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b)",
+      "source_origin": {
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.dxsdk.d3dx/9.29.952.8/microsoft.dxsdk.d3dx.9.29.952.8.nupkg",
+        "version_tag": "9.29.952.8",
+        "nupkg_sha256": "ead0906ae8a26c18a7525da7490127a2110f7c58f18293738283e30e97c6ea4b",
+        "authenticode_signer": "CN=Microsoft Corporation, Thumbprint=2485A7AFA98E178CB8F30C9838346B514AEA4769"
+      },
+      "license": "Microsoft DirectX SDK License (LICENSE.txt sha256=d287af0e16fbcee5c96fba66a3030e2cb09e3a782b80553a27fc0e19c76f02fb)",
+      "compiler_crt_abi": "Official Microsoft x64 import libraries d3dx9.lib & d3dx9d.lib (COFF_0x8664+IMPORT_0x8664) + Authenticode-signed PE32+ D3DX9_43.dll (0x8664)",
+      "debug_release_variants": "Release (d3dx9.lib + D3DX9_43.dll) and Debug (d3dx9d.lib)",
+      "linkage": "dynamic (D3DX9_43.dll via d3dx9.lib)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/d3dx9.lib",
+          "arch": "COFF_0x8664+IMPORT_0x8664",
+          "size_bytes": 81324,
+          "sha256": "3ffdfb74ad1aa478bfdec55a18050c24b05867349bd2b427958f09b41acf6545",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/lib/d3dx9d.lib",
+          "arch": "COFF_0x8664+IMPORT_0x8664",
+          "size_bytes": 81648,
+          "sha256": "fb5883ac155c792596831364ad40831bd0892f76169ceab10b9bb690beaf41f8",
+          "variant": "Debug",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/dll/D3DX9_43.dll",
+          "arch": "PE32+_0x8664",
+          "size_bytes": 2404248,
+          "sha256": "36b84dfa0ef9d3ff3549a7ad54d2a8032bd22c879219ee1a959137c4ef8786c4",
+          "variant": "Release",
+          "role": "active_x64"
+        }
+      ],
+      "usage_evidence": [
+        "2,756 D3DX* occurrences (75 unique symbols) across 9 client modules: EterLib (1049), GameLib (798), UserInterface (321), EffectLib (232), EterGrnLib (154), SpeedTreeLib (97), EterPythonLib (74), SphereLib (27), PRTerrainLib (4)",
+        "client/src/EterLib/StdAfx.h:22 (#include <d3dx9.h>)",
+        "client/src/UserInterface/UserInterface.cpp:42 (#pragma comment(lib, \"d3dx9.lib\"))"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Replaced 32-bit 0x014C d3dx9.lib with official Microsoft.DXSDK.D3DX 9.29.952.8 x64 import libraries (d3dx9.lib, d3dx9d.lib) and Authenticode-verified x64 D3DX9_43.dll. Direct3D 9Ex remains the sole graphics API.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+    },
+    {
+      "id": "libjpeg_9c_x64",
+      "name": "IJG libjpeg 9c (9.3)",
+      "purpose": "JPEG compression and decompression in EterLib/JpegFile.cpp",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/libjpeg",
+      "header_version": "9.3 (JPEG_LIB_VERSION=90)",
+      "source_build_version": "9c (extern/client/libjpeg, 46 C TUs)",
+      "source_origin": {
+        "url": "https://www.ijg.org/files/jpegsrc.v9c.tar.gz",
+        "version_tag": "v9c",
+        "tarball_sha256": "682aee469c3ca857c4c38c37a6edadbfca4b04d42e56613b11590ec6aa4a278d"
+      },
+      "license": "IJG License",
+      "compiler_crt_abi": "MSVC 18 AMD64 /TC /MT /O2 (extern/client/lib/libjpeg-x64.lib, COFF_0x8664)",
+      "debug_release_variants": "Release x64 (libjpeg-x64.lib); superseded 32-bit libjpeg-MT.lib & libjpeg-MTd.lib removed",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/libjpeg-x64.lib",
+          "arch": "COFF_0x8664",
+          "size_bytes": 684816,
+          "sha256": "3ba5004bee5a73a2c4c541ac1debca2cb5c67170b27b9a3e9437d0e747ca2758",
+          "variant": "Release",
+          "role": "active_x64"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterLib/JpegFile.cpp:7-8 (#include <libjpeg/jpeglib.h>, #include <libjpeg/jpegLibLink.h>)",
+        "client/src/EterPythonLib/PythonGraphic.cpp:169 (jpeg_save)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Built native AMD64 libjpeg-x64.lib from official IJG jpeg-9c sources matching extern/client/include/libjpeg/jpeglib.h byte-for-byte, updated jpegLibLink.h for _WIN64, and removed 32-bit libjpeg-MT*.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+    },
+    {
+      "id": "discord_rpc_x64",
+      "name": "Discord Rich Presence SDK (discord-rpc 3.4.0 + buttonURL extension)",
+      "purpose": "Discord Rich Presence integration in UserInterface/PythonNetworkStreamPhaseGame.cpp (ENABLE_DISCORD_RPC)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/{discord_rpc.h,discord_register.h}",
+      "header_version": "3.4.0 (ENABLE_DISCORD_JOIN_URL)",
+      "source_build_version": "3.4.0 (extern/client/discord-rpc, 5 C++ TUs)",
+      "source_origin": {
+        "url": "https://github.com/martysama0134/discord-rpc",
+        "version_tag": "3.4.0-martysama",
+        "archive_sha256": "dfc5b6cf33777e486be67e7ff1279a3885e85ee3bf4876bcc53b9979fda15c38"
+      },
+      "license": "MIT",
+      "compiler_crt_abi": "MSVC 18 AMD64 /std:c++20 /EHsc /MT /O2 (extern/client/lib/discord_rpc_x64.lib, COFF_0x8664)",
+      "debug_release_variants": "Release x64 (discord_rpc_x64.lib); superseded 32-bit discord_rpc_r.lib & discord_rpc_d.lib removed",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/discord_rpc_x64.lib",
+          "arch": "COFF_0x8664",
+          "size_bytes": 746982,
+          "sha256": "6f1f2792b29bfb109ea50be8ef6180c10c49c5f068501ca582ee17caba6eaad3",
+          "variant": "Release",
+          "role": "active_x64"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/UserInterface/PythonNetworkStreamPhaseGame.cpp:33,43,5140-5199 (Discord_Initialize, Discord_UpdatePresence, Discord_RunCallbacks, Discord_Shutdown)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Built native AMD64 discord_rpc_x64.lib from committed extern/client/discord-rpc sources using unified RapidJSON 1.1.0, updated PythonNetworkStreamPhaseGame.cpp for _WIN64, and removed 32-bit discord_rpc_r/d.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "miniaudio",
@@ -328,8 +416,8 @@
         "client/src/MilesLib/SoundManager.cpp:15 (MT2_USE_MINIAUDIO production integration)"
       ],
       "decision": "VERIFIED",
-      "notes": "Verified with 42/42 prototype assertions and 33/33 MilesLib/CSoundManager + real EterPack VFS production assertions in PE32+ AMD64.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Verified with 42/42 prototype assertions and 36/36 MilesLib/CSoundManager + real EterPack VFS production assertions in PE32+ AMD64. Removed superseded 32-bit mss32.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "python311_x64",
@@ -347,50 +435,17 @@
       },
       "license": "PSF-2.0",
       "compiler_crt_abi": "MSVC v143/v145 UCRT AMD64 (COFF_0x8664 import library python311.lib + PE32+ python311.dll)",
-      "debug_release_variants": "Release AMD64 (python311.lib / python311.dll)",
+      "debug_release_variants": "Release AMD64 (python311.lib / python311.dll); superseded 32-bit python27-static.lib & liblib.lib removed",
       "linkage": "dynamic",
-      "binaries": [
-        {
-          "path": "extern/client/lib/python27-static.lib",
-          "arch": "COFF_0x014C+IMPORT_0x014C",
-          "size_bytes": 30453822,
-          "sha256": "c57c264d9dee12105d4902e4889544b01c7ee368fe4e0419555653755cf43412",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/python27_d-static.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 12646432,
-          "sha256": "c22657d23656da8b895af66dbeaf1f2e88f3dc43a8512e44e98bf4731ae94ddb",
-          "variant": "Debug",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/liblib.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 26612762,
-          "sha256": "ce0f95a95249d5132d1ae07080c042516288521e164194586838d3daa3bcce86",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/liblib_d.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 35570188,
-          "sha256": "2008d1ed84887ac9195e46f8b763f7a8036d989f0ece6d4a0e5d1f1f02f47802",
-          "variant": "Debug",
-          "role": "legacy_win32_quarantined"
-        }
-      ],
+      "binaries": [],
       "usage_evidence": [
         "client/src/ScriptLib/StdAfx.h:30 (MT2_USE_PYTHON3=1 Python 3.11 C API bridge)",
         "client/src/ScriptLib/PythonLauncher.cpp:1-260 (PyConfig, PyImport_AppendInittab, marshal loader)",
         "client/src/UserInterface/PythonliblibManager.cpp:1-140 (PyModuleDef frozen rootlib table)"
       ],
       "decision": "VERIFIED",
-      "notes": "35/35 client Python modules compiled to COFF AMD64 with CPython 3.11.9; 79/79 + 64/64 PE32+ runtime tests PASS. Legacy Python 2.7 (extern/client/include/Python27, python27-static.lib, liblib.lib) retained only behind default Win32 fallback until full client cutover.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "35/35 client Python modules compiled to COFF AMD64 with CPython 3.11.9; 32/32 real modules + 79/79 + 64/64 PE32+ runtime tests PASS. Removed superseded 32-bit python27-static.lib, python27_d-static.lib, liblib.lib, liblib_d.lib.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "d3d9ex_win10sdk",
@@ -417,8 +472,8 @@
         "client/src/UserInterface/PythonApplication.cpp:1-600 (Direct3DCreate9Ex permanent initialization)"
       ],
       "decision": "VERIFIED",
-      "notes": "Removed shadowing legacy pre-Vista extern/client/include/{d3d9.h,d3d9caps.h,d3d9types.h,d3drm*.h} and 32-bit extern/client/lib/{d3d9.lib,ddraw.lib,dmoguids.lib,dxguid.lib} so official Windows SDK 10.0.26100.0 D3D9Ex headers and um/x64 libraries resolve directly without /FI workarounds.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Direct3D 9Ex is the sole permanent graphics API (619/619 PASS in test_d3d9ex_x64.exe + D3DX9 interop in test_unified_sdks_x64.exe).",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "mariadb_connector_c",
@@ -453,8 +508,8 @@
         "server/src/db/src/ClientManager.cpp (MariaDB 12.3 LTS persistence)"
       ],
       "decision": "VERIFIED",
-      "notes": "Removed unused 32-bit client mysql/mysqlclient headers and binaries (extern/client/include/mysql*, extern/client/lib/*mysql*, extern/client/dll/libmysql.dll). Server MariaDB 12.3 LTS layer untouched per AGENTS.md.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Server MariaDB 12.3 LTS layer untouched per AGENTS.md.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "lua50_in_tree",
@@ -480,18 +535,18 @@
       ],
       "decision": "VERIFIED",
       "notes": "Compiled cleanly as 64-bit from in-tree source on both Windows and FreeBSD.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "client_header_utilities",
-      "name": "Client Header-Only Utilities (smbios, xorstr, Discord RPC headers)",
-      "purpose": "SMBIOS parsing and compile-time string obfuscation in Hardware.cpp; Discord Game SDK/RPC headers",
+      "name": "Client Header-Only Utilities (smbios, xorstr)",
+      "purpose": "SMBIOS parsing and compile-time string obfuscation in Hardware.cpp",
       "used_in_client": true,
       "used_in_server": false,
       "is_common": false,
-      "header_path": "extern/client/include/{smbios.hpp,xorstr.h,discord,discord_register.h,discord_rpc.h}",
+      "header_path": "extern/client/include/{smbios.hpp,xorstr.h}",
       "header_version": "In-tree 1.0",
-      "source_build_version": "Header-only / optional",
+      "source_build_version": "Header-only",
       "source_origin": {
         "url": "in-tree",
         "version_tag": "in-tree"
@@ -499,145 +554,15 @@
       "license": "MIT / BSD",
       "compiler_crt_abi": "C++20 header-only; verified with MSVC 18 AMD64",
       "debug_release_variants": "Header-only",
-      "linkage": "header-only (discord_rpc_*.lib quarantined for optional Win32)",
-      "binaries": [
-        {
-          "path": "extern/client/lib/discord_rpc_r.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 1111886,
-          "sha256": "de79d9f55a5569b70a1107b0be6ece9a85ac2f61b3a0afec251f83cb0a4eeb5b",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/discord_rpc_d.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 962376,
-          "sha256": "29d361f22537a2305317e3cf718b2715a40cd4030a962bb54c5ab14492e359c0",
-          "variant": "Debug",
-          "role": "legacy_win32_quarantined"
-        }
-      ],
+      "linkage": "header-only",
+      "binaries": [],
       "usage_evidence": [
         "client/src/UserInterface/Hardware.cpp:2-3 (#include <smbios.hpp>, #include <xorstr.h>)",
         "client/src/UserInterface/PythonNetworkStreamPhaseGame.cpp:18 (#include <xorstr.h>)"
       ],
       "decision": "VERIFIED",
       "notes": "smbios.hpp and xorstr.h verified in 64-bit Hardware.obj and test_unified_sdks_x64.exe.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
-    },
-    {
-      "id": "libjpeg_turbo_win32_legacy",
-      "name": "libjpeg-turbo (Legacy Win32 EterImageLib)",
-      "purpose": "JPEG image save/load helper in client EterImageLib",
-      "used_in_client": true,
-      "used_in_server": false,
-      "is_common": false,
-      "header_path": "extern/client/include/libjpeg-9a",
-      "header_version": "libjpeg-turbo 2.0.2 (JPEG_LIB_VERSION=62)",
-      "source_build_version": "2.0.2",
-      "source_origin": {
-        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo",
-        "version_tag": "2.0.2"
-      },
-      "license": "IJG / BSD-3-Clause",
-      "compiler_crt_abi": "Win32 0x014C static library in extern/client/lib/libjpeg-MT.lib",
-      "debug_release_variants": "Release & Debug Win32",
-      "linkage": "static",
-      "binaries": [
-        {
-          "path": "extern/client/lib/libjpeg-MT.lib",
-          "arch": "IMPORT_0x014C",
-          "size_bytes": 4460262,
-          "sha256": "c81f0bb59046568ca1b33f9990329b8f2131b9f30167e01d0853c25ac60bba40",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        },
-        {
-          "path": "extern/client/lib/libjpeg-MTd.lib",
-          "arch": "IMPORT_0x014C",
-          "size_bytes": 4460262,
-          "sha256": "c81f0bb59046568ca1b33f9990329b8f2131b9f30167e01d0853c25ac60bba40",
-          "variant": "Debug",
-          "role": "legacy_win32_quarantined"
-        }
-      ],
-      "usage_evidence": [
-        "client/src/EterImageLib/Image.cpp (JPEG routines)"
-      ],
-      "decision": "VERIFIED",
-      "notes": "Removed duplicate Polish file 'libjpeg-MT \u2014 kopia.lib'.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
-    },
-    {
-      "id": "miles_win32_fallback",
-      "name": "Miles Sound System 6.5a (Legacy Win32 Fallback Only)",
-      "purpose": "Legacy 32-bit audio SDK superseded on x64 by miniaudio v0.11.26 (MT2_USE_MINIAUDIO=1)",
-      "used_in_client": true,
-      "used_in_server": false,
-      "is_common": false,
-      "header_path": "extern/client/include/mss.h",
-      "header_version": "6.5a",
-      "source_build_version": "6.5a (proprietary 32-bit)",
-      "source_origin": {
-        "url": "Proprietary RAD Game Tools Miles Sound System",
-        "version_tag": "6.5a"
-      },
-      "license": "Proprietary (RAD Game Tools)",
-      "compiler_crt_abi": "Win32 0x014C only; bypassed on _WIN64 via MT2_USE_MINIAUDIO=1",
-      "debug_release_variants": "Release Win32",
-      "linkage": "dynamic (Win32 fallback only)",
-      "binaries": [
-        {
-          "path": "extern/client/lib/mss32.lib",
-          "arch": "COFF_0x014C",
-          "size_bytes": 263786,
-          "sha256": "5ffde5a8eb5b5dc6f0e7e36ae10faca72e8b6f3be081b06148e8e47a7b41c990",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        }
-      ],
-      "usage_evidence": [
-        "client/src/MilesLib/SoundBase.h:5 (#if !defined(MT2_USE_MINIAUDIO) #include <mss.h>)"
-      ],
-      "decision": "VERIFIED",
-      "notes": "Replaced on x64 by miniaudio v0.11.26; retained only for temporary Win32 fallback per user directive.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
-    },
-    {
-      "id": "themida_win32_optional",
-      "name": "Themida / WinLicense SDK (Optional Win32 Packing Macros)",
-      "purpose": "Optional VM_START/VM_END protection macros guarded by #ifdef __THEMIDA__",
-      "used_in_client": true,
-      "used_in_server": false,
-      "is_common": false,
-      "header_path": "extern/client/include/ThemidaSDK.h",
-      "header_version": "2.x",
-      "source_build_version": "2.x (32-bit SecureEngineSDK32.lib)",
-      "source_origin": {
-        "url": "Proprietary Oreans Technologies",
-        "version_tag": "2.x"
-      },
-      "license": "Proprietary (Oreans)",
-      "compiler_crt_abi": "Guarded by #ifdef __THEMIDA__; inactive on x64 builds",
-      "debug_release_variants": "Release Win32",
-      "linkage": "dynamic (only when __THEMIDA__ is defined)",
-      "binaries": [
-        {
-          "path": "extern/client/lib/SecureEngineSDK32.lib",
-          "arch": "COFF_0x014C+IMPORT_0x014C",
-          "size_bytes": 211362,
-          "sha256": "62f78a173cece075dfe3b58cf158ea25385a0c36418e33a0dfcdd33f5a486b46",
-          "variant": "Release",
-          "role": "legacy_win32_quarantined"
-        }
-      ],
-      "usage_evidence": [
-        "client/src/UserInterface/UserInterface.cpp:25 (#ifdef __THEMIDA__ #include <ThemidaSDK.h> #endif)"
-      ],
-      "decision": "VERIFIED",
-      "notes": "Fixed 5 unguarded #include <ThemidaSDK.h> directives across UserInterface/*.cpp so SecureEngineSDK32.lib is never pulled into x64 builds.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "granny2_blocker",
@@ -744,8 +669,8 @@
         "client/src/UserInterface/UserInterface.cpp:41 (#pragma comment(lib, \"granny2.11.8.0.lib\"))"
       ],
       "decision": "BLOCKED",
-      "notes": "Untouched per explicit user rule (#8: do not touch Granny SDK, source, granny2.dll, or .gr2 files). Remains a documented x64 full-client link blocker.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "Untouched per explicit user rule (#8: do not touch Granny SDK, source, granny2.dll, or .gr2 files). Remains one of the two external commercial x86 full-client link blockers.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "speedtree_blocker",
@@ -780,44 +705,8 @@
         "client/src/UserInterface/UserInterface.cpp:32 (#pragma comment(lib, \"SpeedTreeRT.lib\"))"
       ],
       "decision": "BLOCKED",
-      "notes": "SpeedTreeWrapper.cpp compiles to COFF AMD64 with D3D9Ex, but linking full metin2client.exe requires either a native x64 SpeedTreeRT library or a clean x64 vegetation replacement.",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
-    },
-    {
-      "id": "d3dx9_blocker",
-      "name": "Legacy DirectX 9 D3DX9 Helper Library (d3dx9.lib)",
-      "purpose": "D3DX math/matrix/mesh/texture helper functions across EterLib, EffectLib, GameLib, SphereLib",
-      "used_in_client": true,
-      "used_in_server": false,
-      "is_common": false,
-      "header_path": "extern/client/include/{d3dx9.h,d3dx9math.h,d3dx9math.inl,d3dx9core.h,d3dx9mesh.h,d3dx9tex.h,d3dx9effect.h,d3dx9shader.h,d3dx9shape.h,d3dx9anim.h,d3dx9xof.h}",
-      "header_version": "DirectX 9.0c D3DX9 (D3DX_VERSION=0x0902)",
-      "source_build_version": "DirectX SDK (Win32 0x014C d3dx9.lib only in repo)",
-      "source_origin": {
-        "url": "Microsoft DirectX SDK (June 2010) / Microsoft.DXSDK.D3DX",
-        "version_tag": "9.29.952.3111"
-      },
-      "license": "Microsoft DirectX SDK License",
-      "compiler_crt_abi": "Headers compile cleanly as AMD64 with Windows SDK 10.0.26100.0 d3d9.h (verified across 16 EterLib/GameLib/SpeedTreeLib/UserInterface .obj files); extern/client/lib/d3dx9.lib is currently 32-bit 0x014C",
-      "debug_release_variants": "Release Win32 (0x014C) in extern/client/lib/d3dx9.lib",
-      "linkage": "static/import",
-      "binaries": [
-        {
-          "path": "extern/client/lib/d3dx9.lib",
-          "arch": "COFF_0x014C+IMPORT_0x014C",
-          "size_bytes": 87600,
-          "sha256": "0b1cd009d5e5ed15080c4d7ad0245a273242da07e0747921e80ac3ccf9bc0fc2",
-          "variant": "Release",
-          "role": "blocked_x86_only"
-        }
-      ],
-      "usage_evidence": [
-        "client/src/EterLib/StdAfx.h:22 (#include <d3dx9.h>)",
-        "client/src/UserInterface/UserInterface.cpp:42 (#pragma comment(lib, \"d3dx9.lib\"))"
-      ],
-      "decision": "BLOCKED",
-      "notes": "Core D3D9Ex device/swapchain/texture/buffer pipeline links with Windows SDK x64 d3d9.lib; full client link requires x64 d3dx9.lib (from official Microsoft.DXSDK.D3DX x64 or DirectXMath/DDS/WIC replacement).",
-      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+      "notes": "SpeedTreeWrapper.cpp and SpeedTreeForestDirectX8.cpp compile to COFF AMD64 with D3D9Ex, but linking full metin2client.exe requires either a native x64 SpeedTreeRT library or a clean x64 vegetation replacement.",
+      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     }
   ],
   "removed_sdks": [
@@ -893,8 +782,8 @@
       "reason": "Outdated 2009 OpenSSL 0.9.8k with zero usage in client/src."
     },
     {
-      "id": "client_legacy_backups_and_loose_objs",
-      "name": "Client Legacy Backups, Shadowing Headers, and 121 Loose 32-bit .obj Files",
+      "id": "client_legacy_backups_and_superseded_x86_libs",
+      "name": "Client Legacy Backups, Shadowing Headers, Superseded 32-bit .lib/.dll Files, and 121 Loose 32-bit .obj Files",
       "removed_paths": [
         "extern/client/backup_dx8",
         "extern/client/old_python_not_static",
@@ -913,11 +802,26 @@
         "extern/client/lib/dxguid.lib",
         "extern/client/lib/libboost_filesystem-vc141-mt-s-x32-1_67.lib",
         "extern/client/lib/libboost_system-vc141-mt-s-x32-1_67.lib",
+        "extern/client/lib/cryptlib-Release.lib",
+        "extern/client/lib/cryptlib-Debug.lib",
+        "extern/client/lib/lzo2.lib",
+        "extern/client/lib/DevIL.lib",
+        "extern/client/dll/DevIL.dll",
+        "extern/client/lib/python27-static.lib",
+        "extern/client/lib/python27_d-static.lib",
+        "extern/client/lib/liblib.lib",
+        "extern/client/lib/liblib_d.lib",
+        "extern/client/lib/mss32.lib",
+        "extern/client/lib/libjpeg-MT.lib",
+        "extern/client/lib/libjpeg-MTd.lib",
+        "extern/client/lib/discord_rpc_r.lib",
+        "extern/client/lib/discord_rpc_d.lib",
+        "extern/client/lib/SecureEngineSDK32.lib",
         "extern/client/lib/Release",
         "client/src/UserInterface/Hardware - Copy.cpp"
       ],
       "decision": "REMOVED",
-      "reason": "Removed dead backups, stale shadowing headers, 336 Win32 Crypto++ 8.2.0 .obj files, and 121 loose extracted 32-bit .obj files (~90 MB bloat)."
+      "reason": "Removed dead backups, stale shadowing headers, superseded 32-bit static/import libraries that now have verified x64 replacements, and 121 loose 32-bit .obj files."
     }
   ]
 }

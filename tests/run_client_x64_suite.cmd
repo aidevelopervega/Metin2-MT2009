@@ -217,10 +217,11 @@ if errorlevel 1 exit /b 1
 build\obj_x64\test_d3d9ex_x64.exe
 if errorlevel 1 exit /b 1
 
-echo [6/6] Compiling and linking Unified Server/Client x64 SDK Suite (Crypto++ 8.9.0, LZO 2.10, DevIL 1.8.0, Boost 1.92.0, RapidJSON 1.1.0, fmt 12.2.0, msl 1.2.1)...
+echo [6/6] Compiling and linking Unified Server/Client x64 SDK Suite (Crypto++ 8.9.0, LZO 2.10, DevIL 1.8.0, D3DX9 9.29.952.8, libjpeg 9.3, discord-rpc 3.4.0, Boost 1.92.0, RapidJSON 1.1.0, fmt 12.2.0, msl 1.2.1)...
 if not exist "build\obj_x64\unified_sdks" mkdir "build\obj_x64\unified_sdks"
-cl.exe /nologo /std:c++20 /utf-8 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c ^
+cl.exe /nologo /std:c++20 /utf-8 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\EterLib /c ^
     client\src\UserInterface\HashUtils.cpp ^
+    client\src\EterLib\JpegFile.cpp ^
     tests\test_unified_sdks_x64.cpp ^
     /Fo:build\obj_x64\unified_sdks\
 if not %errorlevel%==0 exit /b 1
@@ -233,14 +234,15 @@ cl.exe /nologo /std:c++20 /utf-8 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SEC
 if not %errorlevel%==0 exit /b 1
 :have_unified_objs
 
-dumpbin.exe /headers build\obj_x64\unified_sdks\MarkImage.obj build\obj_x64\unified_sdks\Hardware.obj build\obj_x64\unified_sdks\HashUtils.obj build\obj_x64\mileslib_prod\cipher.obj | findstr /C:"8664 machine (x64)"
+dumpbin.exe /headers build\obj_x64\unified_sdks\MarkImage.obj build\obj_x64\unified_sdks\Hardware.obj build\obj_x64\unified_sdks\HashUtils.obj build\obj_x64\unified_sdks\JpegFile.obj build\obj_x64\mileslib_prod\cipher.obj | findstr /C:"8664 machine (x64)"
 if not %errorlevel%==0 exit /b 1
 
-link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /LIBPATH:"%PY311_DIR%\libs" /NODEFAULTLIB:d3dx9.lib /OUT:build\obj_x64\test_unified_sdks_x64.exe ^
+link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /LIBPATH:"%PY311_DIR%\libs" /OUT:build\obj_x64\test_unified_sdks_x64.exe ^
     build\obj_x64\unified_sdks\test_unified_sdks_x64.obj ^
     build\obj_x64\unified_sdks\MarkImage.obj ^
     build\obj_x64\unified_sdks\Hardware.obj ^
     build\obj_x64\unified_sdks\HashUtils.obj ^
+    build\obj_x64\unified_sdks\JpegFile.obj ^
     build\obj_x64\mileslib_prod\cipher.obj ^
     build\obj_x64\mileslib_prod\EterPackPolicy_CSHybridCrypt.obj ^
     build\obj_x64\mileslib_prod\lzo.obj ^
@@ -256,7 +258,10 @@ link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /LIBPATH:"%PY311_DIR%\l
     extern\client\lib\cryptlib-x64.lib ^
     extern\client\lib\lzo2_x64.lib ^
     extern\client\lib\devil_x64.lib ^
-    ole32.lib user32.lib gdi32.lib winmm.lib advapi32.lib
+    extern\client\lib\d3dx9.lib ^
+    extern\client\lib\libjpeg-x64.lib ^
+    extern\client\lib\discord_rpc_x64.lib ^
+    d3d9.lib ole32.lib user32.lib gdi32.lib winmm.lib advapi32.lib
 if not %errorlevel%==0 exit /b 1
 
 dumpbin.exe /headers build\obj_x64\test_unified_sdks_x64.exe | findstr /C:"8664 machine (x64)" /C:"PE32+"
@@ -264,3 +269,8 @@ if not %errorlevel%==0 exit /b 1
 
 build\obj_x64\test_unified_sdks_x64.exe
 if not %errorlevel%==0 exit /b 1
+
+echo [7/7] Running Full Client x64 Compile and Link Preflight (16 modules, 343 TUs, link.exe /MACHINE:X64)...
+python tests\run_client_x64_link_preflight.py
+if not %errorlevel%==0 exit /b 1
+

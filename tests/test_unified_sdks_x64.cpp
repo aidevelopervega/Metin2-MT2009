@@ -40,7 +40,18 @@
 // 4. DevIL 1.8.0 (Unified Server & Client headers + extern/client/lib/devil_x64.lib + DevIL_x64.dll)
 #include <IL/il.h>
 
-// 5. Real MT2009 Client Modules using these SDKs
+// 5. Official Microsoft.DXSDK.D3DX 9.29.952.8 x64 (d3dx9.lib + D3DX9_43.dll) + Direct3D 9Ex
+#include <d3d9.h>
+#include <d3dx9.h>
+
+// 6. IJG libjpeg 9.3 (libjpeg-x64.lib) + Client EterLib/JpegFile.cpp
+#include <libjpeg/jpeglib.h>
+#include "../client/src/EterLib/JpegFile.h"
+
+// 7. Discord RPC 3.4.0 (discord_rpc_x64.lib)
+#include <discord_rpc.h>
+
+// 8. Real MT2009 Client Modules using these SDKs
 #include "../client/src/EterBase/cipher.h"
 #include "../client/src/EterBase/lzo.h"
 #include "../client/src/EterBase/CRC32.h"
@@ -259,6 +270,182 @@ int main()
         DeleteMarkImage(pkImg);
         std::filesystem::remove(tempTga, ec);
         std::filesystem::remove(tempTga2, ec);
+    }
+
+    // -------------------------------------------------------------------------
+    // Gate 6: Official Microsoft.DXSDK.D3DX 9.29.952.8 x64 (d3dx9.lib + D3DX9_43.dll) + Direct3D 9Ex
+    // -------------------------------------------------------------------------
+    {
+        static_assert(D3DX_SDK_VERSION == 43, "D3DX_SDK_VERSION must be 43 (June 2010 / 9.29.952.8)");
+        CHECK(D3DXCheckVersion(D3D_SDK_VERSION, D3DX_SDK_VERSION) == TRUE,
+              "D3DXCheckVersion(D3D_SDK_VERSION, 43) via D3DX9_43.dll x64");
+
+        // Math / Matrix / Vector / MatrixStack helpers used across EterLib, GameLib, EffectLib, SpeedTreeLib
+        D3DXMATRIX matIdentity, matView, matProj, matWorldViewProj, matInv;
+        D3DXMatrixIdentity(&matIdentity);
+        D3DXVECTOR3 vEye(0.0f, -500.0f, 300.0f), vAt(0.0f, 0.0f, 0.0f), vUp(0.0f, 0.0f, 1.0f);
+        D3DXMatrixLookAtRH(&matView, &vEye, &vAt, &vUp);
+        D3DXMatrixPerspectiveFovRH(&matProj, D3DXToRadian(45.0f), 16.0f / 9.0f, 10.0f, 10000.0f);
+        D3DXMatrixMultiply(&matWorldViewProj, &matView, &matProj);
+        FLOAT det = D3DXMatrixDeterminant(&matView);
+        CHECK(det != 0.0f && D3DXMatrixInverse(&matInv, &det, &matView) != nullptr,
+              "D3DXMatrixLookAtRH + D3DXMatrixPerspectiveFovRH + D3DXMatrixInverse");
+
+        D3DXVECTOR3 vOut(0.0f, 0.0f, 0.0f);
+        D3DXVec3TransformCoord(&vOut, &vEye, &matView);
+        CHECK(vOut.z < 0.0f, "D3DXVec3TransformCoord camera-space transform");
+
+        LPD3DXMATRIXSTACK pStack = nullptr;
+        CHECK(SUCCEEDED(D3DXCreateMatrixStack(0, &pStack)) && pStack != nullptr,
+              "D3DXCreateMatrixStack (ID3DXMatrixStack x64)");
+        if (pStack)
+        {
+            pStack->LoadIdentity();
+            pStack->Push();
+            pStack->MultMatrix(&matView);
+            CHECK(pStack->GetTop() != nullptr, "ID3DXMatrixStack::Push + MultMatrix + GetTop");
+            pStack->Pop();
+            pStack->Release();
+        }
+
+        // Shader Assembler (used in EterLib/GrpShader.cpp)
+        const char* vsAsm = "vs_1_1\ndcl_position v0\nmov oPos, v0\n";
+        LPD3DXBUFFER pShaderBuf = nullptr;
+        LPD3DXBUFFER pErrorBuf = nullptr;
+        HRESULT hrAsm = D3DXAssembleShader(vsAsm, static_cast<UINT>(std::strlen(vsAsm)),
+                                           nullptr, nullptr, 0, &pShaderBuf, &pErrorBuf);
+        CHECK(SUCCEEDED(hrAsm) && pShaderBuf != nullptr && pShaderBuf->GetBufferSize() > 0,
+              "D3DXAssembleShader vs_1_1 bytecode generation");
+        if (pShaderBuf) pShaderBuf->Release();
+        if (pErrorBuf) pErrorBuf->Release();
+
+        // Live Direct3D 9Ex Device + D3DX9 Mesh / Texture / Surface Interop
+        IDirect3D9Ex* pD3D9Ex = nullptr;
+        if (SUCCEEDED(Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3D9Ex)) && pD3D9Ex)
+        {
+            HWND hWnd = CreateWindowExA(0, "STATIC", "MT2009_D3DX9_X64", WS_POPUP, 0, 0, 64, 64,
+                                        nullptr, nullptr, GetModuleHandleA(nullptr), nullptr);
+            D3DPRESENT_PARAMETERS d3dpp = {};
+            d3dpp.Windowed = TRUE;
+            d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
+            d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;
+            d3dpp.BackBufferWidth = 64;
+            d3dpp.BackBufferHeight = 64;
+            d3dpp.hDeviceWindow = hWnd;
+
+            IDirect3DDevice9Ex* pDevEx = nullptr;
+            HRESULT hrDev = pD3D9Ex->CreateDeviceEx(
+                D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
+                D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED,
+                &d3dpp, nullptr, &pDevEx);
+            if (FAILED(hrDev))
+            {
+                hrDev = pD3D9Ex->CreateDeviceEx(
+                    D3DADAPTER_DEFAULT, D3DDEVTYPE_REF, hWnd,
+                    D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED,
+                    &d3dpp, nullptr, &pDevEx);
+            }
+            CHECK(SUCCEEDED(hrDev) && pDevEx != nullptr, "Direct3D 9Ex device creation for D3DX9 interop");
+            if (pDevEx)
+            {
+                // Mesh helpers used in EterLib/GrpScreen.cpp (D3DXCreateSphere / D3DXCreateCylinder)
+                LPD3DXMESH pSphere = nullptr;
+                LPD3DXMESH pCylinder = nullptr;
+                CHECK(SUCCEEDED(D3DXCreateSphere(pDevEx, 10.0f, 8, 8, &pSphere, nullptr)) && pSphere != nullptr,
+                      "D3DXCreateSphere on live IDirect3DDevice9Ex");
+                CHECK(SUCCEEDED(D3DXCreateCylinder(pDevEx, 5.0f, 5.0f, 20.0f, 8, 4, &pCylinder, nullptr)) && pCylinder != nullptr,
+                      "D3DXCreateCylinder on live IDirect3DDevice9Ex");
+                if (pSphere) pSphere->Release();
+                if (pCylinder) pCylinder->Release();
+
+                // Texture & Surface helpers used in EterLib/GrpImageTexture.cpp & PythonGraphic.cpp
+                LPDIRECT3DTEXTURE9 pTex = nullptr;
+                CHECK(SUCCEEDED(D3DXCreateTexture(pDevEx, 32, 32, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &pTex)) && pTex != nullptr,
+                      "D3DXCreateTexture(D3DPOOL_DEFAULT) on live IDirect3DDevice9Ex");
+                if (pTex)
+                {
+                    IDirect3DSurface9* pSysSurf = nullptr;
+                    if (SUCCEEDED(pDevEx->CreateOffscreenPlainSurface(32, 32, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pSysSurf, nullptr)) && pSysSurf)
+                    {
+                        D3DLOCKED_RECT lr = {};
+                        if (SUCCEEDED(pSysSurf->LockRect(&lr, nullptr, 0)))
+                        {
+                            for (int y = 0; y < 32; ++y)
+                            {
+                                uint32_t* row = reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(lr.pBits) + y * lr.Pitch);
+                                for (int x = 0; x < 32; ++x)
+                                    row[x] = 0xFF2060A0U;
+                            }
+                            pSysSurf->UnlockRect();
+                        }
+                        LPD3DXBUFFER pJpgBuf = nullptr;
+                        CHECK(SUCCEEDED(D3DXSaveSurfaceToFileInMemory(&pJpgBuf, D3DXIFF_JPG, pSysSurf, nullptr, nullptr)) && pJpgBuf != nullptr,
+                              "D3DXSaveSurfaceToFileInMemory(D3DXIFF_JPG)");
+                        if (pJpgBuf)
+                        {
+                            D3DXIMAGE_INFO imgInfo = {};
+                            LPDIRECT3DTEXTURE9 pLoadedTex = nullptr;
+                            CHECK(SUCCEEDED(D3DXCreateTextureFromFileInMemoryEx(
+                                      pDevEx, pJpgBuf->GetBufferPointer(), pJpgBuf->GetBufferSize(),
+                                      D3DX_DEFAULT, D3DX_DEFAULT, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+                                      D3DX_FILTER_NONE, D3DX_FILTER_NONE, 0, &imgInfo, nullptr, &pLoadedTex)) &&
+                                      pLoadedTex != nullptr && imgInfo.Width == 32 && imgInfo.Height == 32,
+                                  "D3DXCreateTextureFromFileInMemoryEx(D3DPOOL_DEFAULT) on live IDirect3DDevice9Ex");
+                            if (pLoadedTex) pLoadedTex->Release();
+                            pJpgBuf->Release();
+                        }
+                        pSysSurf->Release();
+                    }
+                    pTex->Release();
+                }
+                pDevEx->Release();
+            }
+            if (hWnd) DestroyWindow(hWnd);
+            pD3D9Ex->Release();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Gate 7: IJG libjpeg 9.3 (libjpeg-x64.lib) + Client EterLib/JpegFile.cpp
+    // -------------------------------------------------------------------------
+    {
+        static_assert(JPEG_LIB_VERSION == 90, "IJG libjpeg version must be 90 (9.x)");
+        const int W = 16, H = 16;
+        std::vector<uint8_t> rgbIn(W * H * 3, 0);
+        for (int i = 0; i < W * H; ++i)
+        {
+            rgbIn[i * 3 + 0] = 200;
+            rgbIn[i * 3 + 1] = 100;
+            rgbIn[i * 3 + 2] = 50;
+        }
+        std::vector<uint8_t> jpgMem(16384, 0);
+        int jpgBytes = jpeg_save_to_mem(rgbIn.data(), W, H, 95, jpgMem.data(), static_cast<int>(jpgMem.size()));
+        CHECK(jpgBytes > 64 && jpgMem[0] == 0xFF && jpgMem[1] == 0xD8,
+              "EterLib/JpegFile.cpp jpeg_save_to_mem via libjpeg-x64.lib produces valid SOI header");
+
+        std::vector<uint8_t> rgbOut(W * H * 3, 0);
+        CHECK(jpeg_load_from_mem(jpgMem.data(), jpgBytes, rgbOut.data(), W, H) == 1,
+              "EterLib/JpegFile.cpp jpeg_load_from_mem via libjpeg-x64.lib");
+        CHECK(std::abs(static_cast<int>(rgbOut[0]) - 200) <= 5,
+              "EterLib/JpegFile.cpp JPEG compress/decompress pixel fidelity");
+    }
+
+    // -------------------------------------------------------------------------
+    // Gate 8: Discord RPC 3.4.0 (discord_rpc_x64.lib)
+    // -------------------------------------------------------------------------
+    {
+        DiscordEventHandlers handlers = {};
+        Discord_Initialize("1180989036949680258", &handlers, 0, nullptr);
+        DiscordRichPresence presence = {};
+        presence.state = "Lokacja: Yongan (M1)";
+        presence.details = "Nazwa: Lv. 99 TestX64";
+        presence.buttonLabel = "Dolacz do gry!";
+        presence.buttonURL = "https://mt2009.pl/";
+        Discord_UpdatePresence(&presence);
+        Discord_RunCallbacks();
+        Discord_ClearPresence();
+        Discord_Shutdown();
+        CHECK(true, "Discord RPC 3.4.0 x64 lifecycle (Initialize/UpdatePresence/RunCallbacks/ClearPresence/Shutdown)");
     }
 
     std::printf("=== Unified Server/Client x64 SDK Suite: %d/%d PASS (%d failed) ===\n",

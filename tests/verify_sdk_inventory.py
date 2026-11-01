@@ -49,12 +49,13 @@ def detect_arch(p: Path) -> str:
         machines = set()
         while pos + 60 <= len(data):
             hdr = data[pos : pos + 60]
+            name = hdr[:16].decode("ascii", "ignore").strip()
             try:
                 size = int(hdr[48:58].decode("ascii", "ignore").strip() or "0")
             except ValueError:
                 break
             body = data[pos + 60 : pos + 60 + size]
-            if len(body) >= 20:
+            if name not in ("/", "//", "/SYM64/") and len(body) >= 20:
                 if body[:4] == b"\x7fELF":
                     ei_class = body[4]
                     e_machine = struct.unpack_from("<H", body, 18)[0]
@@ -73,6 +74,59 @@ def detect_arch(p: Path) -> str:
     if sig in (0x014C, 0x8664):
         return f"COFF_0x{sig:04X}"
     return "OTHER"
+
+
+def parse_pe_imports(p: Path) -> list[str]:
+    b = p.read_bytes()
+    if len(b) < 0x40 or b[:2] != b"MZ":
+        return []
+    pe_off = struct.unpack_from("<I", b, 0x3C)[0]
+    if pe_off + 26 > len(b) or b[pe_off : pe_off + 4] != b"PE\x00\x00":
+        return []
+    num_sec = struct.unpack_from("<H", b, pe_off + 6)[0]
+    opt_sz = struct.unpack_from("<H", b, pe_off + 20)[0]
+    magic = struct.unpack_from("<H", b, pe_off + 24)[0]
+    dd_off = pe_off + 24 + (112 if magic == 0x20B else 96)
+    if dd_off + 16 > len(b):
+        return []
+    imp_rva, _ = struct.unpack_from("<II", b, dd_off + 8)
+    if imp_rva == 0:
+        return []
+    sec_off = pe_off + 24 + opt_sz
+    secs = []
+    for i in range(num_sec):
+        s = b[sec_off + i * 40 : sec_off + (i + 1) * 40]
+        if len(s) < 40:
+            break
+        vsz, va, rsz, ptr = struct.unpack_from("<IIII", s, 8)
+        secs.append((va, max(vsz, rsz), ptr))
+
+    def rva2off(rva: int):
+        for va, sz, ptr in secs:
+            if va <= rva < va + sz:
+                return ptr + (rva - va)
+        return None
+
+    off = rva2off(imp_rva)
+    imports = []
+    while off is not None and off + 20 <= len(b):
+        ilt, ts, fc, name_rva, iat = struct.unpack_from("<IIIII", b, off)
+        if ilt == 0 and name_rva == 0 and iat == 0:
+            break
+        noff = rva2off(name_rva)
+        if noff is not None:
+            end = b.find(b"\x00", noff)
+            imports.append(b[noff:end].decode("ascii", errors="ignore"))
+        off += 20
+    return imports
+
+
+FORBIDDEN_MINGW_DLLS = {
+    "libwinpthread-1.dll",
+    "libstdc++-6.dll",
+    "libgcc_s_seh-1.dll",
+    "libgcc_s_dw2-1.dll",
+}
 
 
 def main() -> int:
@@ -155,6 +209,13 @@ def main() -> int:
                     "0x8664" in actual_arch and "0x014C" not in actual_arch,
                     f"[{dep_id}] active_x64 binary {rel} is pure AMD64 (0x8664), got {actual_arch}",
                 )
+                if p.suffix.lower() == ".dll":
+                    imps = parse_pe_imports(p)
+                    bad_imps = [imp for imp in imps if imp.lower() in FORBIDDEN_MINGW_DLLS]
+                    check(
+                        len(bad_imps) == 0,
+                        f"[{dep_id}] active_x64 DLL {rel} has zero transitive MinGW runtime DLL imports (got {bad_imps})",
+                    )
 
     # 3. Verify Zero Unrecorded Binaries Under extern/
     extern_root = ROOT / "extern"

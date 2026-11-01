@@ -147,7 +147,7 @@ int CPythonApplication::OnLogoUpdate()
 	}
 	tex->UnlockRect(0);
 
-	long evCode, param1, param2;
+	long evCode; LONG_PTR param1, param2;
 	while(SUCCEEDED(m_pMediaEvent->GetEvent(&evCode, &param1, &param2, 0)))
 	{
 		switch(evCode)
