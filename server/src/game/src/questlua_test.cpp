@@ -28,6 +28,10 @@
 #include "monarch.h"
 #include "login_data.h"
 #include "safebox.h"
+#include "shop.h"
+#include "shopEx.h"
+#include "shop_manager.h"
+#include "buffer_manager.h"
 #include "../../common/PulseManager.h"
 #include <thread>
 #include <cstdlib>
@@ -85,6 +89,37 @@ namespace
 		virtual ~CTestItemShopClientDesc()
 		{
 			m_sock = INVALID_SOCKET;
+		}
+	};
+
+	class CTestShopWireDesc : public DESC
+	{
+	public:
+		CTestShopWireDesc()
+		{
+			m_lpFdw = fdwatch_new(16);
+			m_sock = static_cast<socket_t>(1);
+			m_iPhase = PHASE_GAME;
+			m_lpOutputBuffer = buffer_new(32768);
+		}
+		virtual ~CTestShopWireDesc()
+		{
+			SAFE_BUFFER_DELETE(m_lpBufferedOutputBuffer);
+			SAFE_BUFFER_DELETE(m_lpOutputBuffer);
+			if (m_lpFdw)
+			{
+				fdwatch_delete(m_lpFdw);
+				m_lpFdw = nullptr;
+			}
+			m_sock = INVALID_SOCKET;
+			m_iPhase = PHASE_CLOSE;
+		}
+		void ResetOutputBuffer()
+		{
+			SAFE_BUFFER_DELETE(m_lpBufferedOutputBuffer);
+			if (m_lpOutputBuffer)
+				buffer_reset(m_lpOutputBuffer);
+			m_iPhase = PHASE_GAME;
 		}
 	};
 
@@ -1160,6 +1195,313 @@ int RunGameQuestRuntimeTests()
 	lua_pop(L, 2); // pop string and table
 
 	std::cout << "  --> Two-way multi-state index/name mappings verified with 0 loss" << std::endl;
+
+	// 11b. Real CShopEx & CShopManager::ReadShopTableEx Bounds Hardening Verification
+	std::cout << "[RUN] Check 11b: Real CShopEx & CShopManager::ReadShopTableEx Bounds Hardening..." << std::endl;
+	{
+		const std::string savedServiceBasePath = g_stServiceBasePath;
+		const char* tempShopExFile = "./shop_table_ex.txt";
+		struct TempShopFileGuard
+		{
+			const char* path;
+			std::string prevBasePath;
+			~TempShopFileGuard()
+			{
+				std::remove(path);
+				std::remove("packet_info.txt");
+				g_stServiceBasePath = prevBasePath;
+			}
+		} tempShopFileGuard{tempShopExFile, savedServiceBasePath};
+
+		std::unique_ptr<CShopManager> local_sm;
+		if (CShopManager::instance_ptr() == nullptr)
+			local_sm = std::make_unique<CShopManager>();
+
+		TItemTable shopExProto[4]{};
+		shopExProto[0].dwVnum = 50001;
+		strlcpy(shopExProto[0].szName, "ShopExSlot1", sizeof(shopExProto[0].szName));
+		strlcpy(shopExProto[0].szLocaleName, "ShopExSlot1", sizeof(shopExProto[0].szLocaleName));
+		shopExProto[0].bType = ITEM_USE;
+		shopExProto[0].bSize = 1;
+
+		shopExProto[1].dwVnum = 50002;
+		strlcpy(shopExProto[1].szName, "ShopExSlot2", sizeof(shopExProto[1].szName));
+		strlcpy(shopExProto[1].szLocaleName, "ShopExSlot2", sizeof(shopExProto[1].szLocaleName));
+		shopExProto[1].bType = ITEM_WEAPON;
+		shopExProto[1].bSize = 2;
+
+		shopExProto[2].dwVnum = 50003;
+		strlcpy(shopExProto[2].szName, "ShopExSlot3", sizeof(shopExProto[2].szName));
+		strlcpy(shopExProto[2].szLocaleName, "ShopExSlot3", sizeof(shopExProto[2].szLocaleName));
+		shopExProto[2].bType = ITEM_WEAPON;
+		shopExProto[2].bSize = 3;
+
+		shopExProto[3].dwVnum = 50009;
+		strlcpy(shopExProto[3].szName, "ShopExBadSize", sizeof(shopExProto[3].szName));
+		strlcpy(shopExProto[3].szLocaleName, "ShopExBadSize", sizeof(shopExProto[3].szLocaleName));
+		shopExProto[3].bType = ITEM_WEAPON;
+		shopExProto[3].bSize = 9; // > SHOP_DEFAULT_HEIGHT (8)
+
+		RUNTIME_ASSERT(ITEM_MANAGER::instance().Initialize(shopExProto, 4), "ITEM_MANAGER::Initialize for ShopEx test succeeded");
+
+		CTestShopWireDesc wireDesc;
+		std::unique_ptr<CTestItemShopCharacter> guestCh = std::make_unique<CTestItemShopCharacter>();
+		guestCh->SetTestPlayerID(770001);
+		guestCh->BindDesc(&wireDesc);
+
+		// 1) Empty CShopEx rejection + 1, 2, 3 tabs + 4th tab rejection + tab name bounds ("", short, 31-char, 32+ char)
+		CShopEx realShopEx;
+		realShopEx.Create(0, 20090);
+		RUNTIME_ASSERT(!realShopEx.AddGuest(guestCh.get(), 424242U, false), "Empty CShopEx::AddGuest must be rejected");
+		RUNTIME_ASSERT(guestCh->GetShop() == nullptr && buffer_size(wireDesc.GetOutputBuffer()) == 0,
+			"Rejected empty CShopEx::AddGuest must not set character shop or emit packet bytes");
+
+		TShopTableEx tab0{};
+		tab0.dwVnum = 901;
+		tab0.name = ""; // Empty name
+		tab0.coinType = SHOP_COIN_TYPE_GOLD;
+		for (int i = 0; i < SHOP_HOST_ITEM_MAX_NUM; ++i)
+		{
+			tab0.items[i].vnum = 50001;
+			tab0.items[i].count = static_cast<ITEM_COUNT>(i + 1);
+			tab0.items[i].price = static_cast<YANG>(i + 1) * 5000000000LL; // > 2^32 Yang
+		}
+		RUNTIME_ASSERT(realShopEx.AddShopTable(tab0) && realShopEx.GetTabCount() == 1, "1st tab added to CShopEx");
+
+		// 1-tab wire check (4 + 5 + 4034 = 4043 bytes)
+		RUNTIME_ASSERT(realShopEx.AddGuest(guestCh.get(), 424242U, false), "1-tab CShopEx::AddGuest succeeded");
+		RUNTIME_ASSERT(buffer_size(wireDesc.GetOutputBuffer()) == 4043, "1-tab SHOP_SUBHEADER_GC_START_EX wire size must be 4043 bytes");
+		realShopEx.RemoveGuest(guestCh.get());
+		wireDesc.ResetOutputBuffer();
+
+		TShopTableEx tab1{};
+		tab1.dwVnum = 902;
+		tab1.name = "Potions"; // Short 7-char name (tests no std::string OOB read)
+		tab1.coinType = SHOP_COIN_TYPE_SECONDARY_COIN;
+		tab1.items[0].vnum = 50002;
+		tab1.items[0].count = 5;
+		tab1.items[0].price = 250;
+		tab1.items[39].vnum = 50003;
+		tab1.items[39].count = 1;
+		tab1.items[39].price = 999;
+		RUNTIME_ASSERT(realShopEx.AddShopTable(tab1) && realShopEx.GetTabCount() == 2, "2nd tab added to CShopEx");
+
+		// 2-tab wire check (4 + 5 + 2 * 4034 = 8077 bytes)
+		RUNTIME_ASSERT(realShopEx.AddGuest(guestCh.get(), 424242U, false), "2-tab CShopEx::AddGuest succeeded");
+		RUNTIME_ASSERT(buffer_size(wireDesc.GetOutputBuffer()) == 8077, "2-tab SHOP_SUBHEADER_GC_START_EX wire size must be 8077 bytes");
+		realShopEx.RemoveGuest(guestCh.get());
+		wireDesc.ResetOutputBuffer();
+
+		TShopTableEx tab2{};
+		tab2.dwVnum = 903;
+		tab2.name = "TabName_Exactly_31_Characters_X"; // 31-char name
+		tab2.coinType = SHOP_COIN_TYPE_GOLD;
+		tab2.items[19].vnum = 50001;
+		tab2.items[19].count = 200;
+		tab2.items[19].price = 300000000000LL;
+		RUNTIME_ASSERT(realShopEx.AddShopTable(tab2) && realShopEx.GetTabCount() == 3, "3rd tab added to CShopEx");
+
+		// Out-of-bounds 4th tab rejection
+		TShopTableEx tab3{};
+		tab3.dwVnum = 904;
+		tab3.name = "FourthTabOverflow";
+		tab3.coinType = SHOP_COIN_TYPE_GOLD;
+		RUNTIME_ASSERT(!realShopEx.AddShopTable(tab3) && realShopEx.GetTabCount() == 3,
+			"CShopEx::AddShopTable must reject 4th tab (SHOP_TAB_COUNT_MAX = 3)");
+
+		// 3-tab wire check (4 + 5 + 3 * 4034 = 12111 bytes) with bOtherEmpire = true
+		RUNTIME_ASSERT(realShopEx.AddGuest(guestCh.get(), 777888U, true), "3-tab CShopEx::AddGuest succeeded without stack overflow");
+		RUNTIME_ASSERT(buffer_size(wireDesc.GetOutputBuffer()) == 12111,
+			"3-tab SHOP_SUBHEADER_GC_START_EX wire size must be 12111 bytes (4 + 5 + 3*4034)");
+
+		const uint8_t* rawWire = reinterpret_cast<const uint8_t*>(buffer_read_peek(wireDesc.GetOutputBuffer()));
+		TPacketGCShop wireHdr{};
+		TPacketGCShopStartEx wireSubHdr{};
+		TPacketGCShopStartEx::TSubPacketShopTab wireTabs[3]{};
+		std::memcpy(&wireHdr, rawWire, sizeof(wireHdr));
+		std::memcpy(&wireSubHdr, rawWire + sizeof(wireHdr), sizeof(wireSubHdr));
+		std::memcpy(&wireTabs[0], rawWire + sizeof(wireHdr) + sizeof(wireSubHdr), sizeof(wireTabs));
+
+		RUNTIME_ASSERT(wireHdr.header == HEADER_GC_SHOP &&
+		               wireHdr.size == 12111 &&
+		               wireHdr.subheader == SHOP_SUBHEADER_GC_START_EX &&
+		               wireSubHdr.owner_vid == 777888U &&
+		               wireSubHdr.shop_tab_count == 3,
+			"3-tab packet header and subheader fields match exact wire contract");
+
+		bool tab0NameAllZero = true;
+		for (size_t b = 0; b < sizeof(wireTabs[0].name); ++b)
+		{
+			if (wireTabs[0].name[b] != '\0')
+				tab0NameAllZero = false;
+		}
+		bool tab1TrailingZero = (std::strcmp(wireTabs[1].name, "Potions") == 0);
+		for (size_t b = 7; b < sizeof(wireTabs[1].name); ++b)
+		{
+			if (wireTabs[1].name[b] != '\0')
+				tab1TrailingZero = false;
+		}
+		bool tab2TrailingZero = (std::strcmp(wireTabs[2].name, "TabName_Exactly_31_Characters_X") == 0 &&
+		                         wireTabs[2].name[31] == '\0' && wireTabs[2].name[32] == '\0');
+
+		RUNTIME_ASSERT(tab0NameAllZero && tab1TrailingZero && tab2TrailingZero,
+			"Empty, short (7-char), and 31-char tab names are null-terminated with zero trailing memory leak");
+		RUNTIME_ASSERT(wireTabs[0].items[0].price == 15000000000LL &&
+		               wireTabs[0].items[39].price == 600000000000LL &&
+		               wireTabs[0].items[40].vnum == 0 &&
+		               wireTabs[1].coin_type == SHOP_COIN_TYPE_SECONDARY_COIN &&
+		               wireTabs[1].items[0].price == 250 &&
+		               wireTabs[1].items[39].price == 999 &&
+		               wireTabs[2].items[19].price == 900000000000LL,
+			"3-tab item slots (0..39) and zeroed upper slots (40..79) preserve 64-bit prices and coinType rules");
+
+		realShopEx.RemoveGuest(guestCh.get());
+		wireDesc.ResetOutputBuffer();
+
+		// 32+ char tab name clamping check in CShopEx::AddGuest
+		CShopEx longNameShopEx;
+		longNameShopEx.Create(0, 20099);
+		TShopTableEx longTab{};
+		longTab.dwVnum = 999;
+		longTab.name = "0123456789abcdef0123456789abcdefXXXX"; // 36 chars (> SHOP_TAB_NAME_MAX=32)
+		longTab.coinType = SHOP_COIN_TYPE_GOLD;
+		longTab.items[0].vnum = 50001;
+		longTab.items[0].count = 7;
+		longTab.items[0].price = 123456789LL;
+		RUNTIME_ASSERT(longNameShopEx.AddShopTable(longTab) && longNameShopEx.AddGuest(guestCh.get(), 111222U, false),
+			"CShopEx::AddGuest safely handles 32+ char tab name by clamping to SHOP_TAB_NAME_MAX");
+		TPacketGCShopStartEx::TSubPacketShopTab clampedTab{};
+		std::memcpy(&clampedTab,
+			reinterpret_cast<const uint8_t*>(buffer_read_peek(wireDesc.GetOutputBuffer())) + sizeof(TPacketGCShop) + sizeof(TPacketGCShopStartEx),
+			sizeof(clampedTab));
+		RUNTIME_ASSERT(std::strlen(clampedTab.name) == SHOP_TAB_NAME_MAX &&
+		               std::strncmp(clampedTab.name, "0123456789abcdef0123456789abcdef", SHOP_TAB_NAME_MAX) == 0 &&
+		               clampedTab.name[SHOP_TAB_NAME_MAX] == '\0' &&
+		               clampedTab.items[0].vnum == 50001 &&
+		               clampedTab.items[0].count == 7,
+			"32+ char tab name is clamped at 32 bytes + NUL without corrupting adjacent items[0].vnum");
+		longNameShopEx.RemoveGuest(guestCh.get());
+		wireDesc.ResetOutputBuffer();
+
+		// 2) Real CShopManager::ReadShopTableEx (via Initialize) & ConvertToShopItemTable 40-cell grid and error-cleanup verification
+		g_stServiceBasePath = ".";
+
+		auto writeTempConfig = [&](const std::string& content) {
+			CShopManager::instance().Destroy();
+			std::ofstream ofs(tempShopExFile, std::ios::binary | std::ios::trunc);
+			ofs << content;
+			ofs.close();
+		};
+
+		// Valid 3-tab config: Tab 1 has 40x 1-slot items (full 40 cells), Tab 2 has 20x 2-slot items (full 40 cells), Tab 3 has 10x 3-slot items (30 cells)
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n"
+			    << "\t1\t20091\ttab_full_40_oneslot\n"
+			    << "\t2\t20091\ttab_full_20_twoslot\n"
+			    << "\t3\t20091\ttab_ten_threeslot\n}\n\n";
+
+			oss << "Group tab_full_40_oneslot\n{\n\tvnum\t9101\n\tname\tFull40Slots\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 40; ++i)
+				oss << "\t\t" << i << "\t50001\t" << i << "\t" << (static_cast<long long>(i) * 1000LL) << "\n";
+			oss << "\t}\n}\n\n";
+
+			oss << "Group tab_full_20_twoslot\n{\n\tvnum\t9102\n\tname\tFull20TwoSlot\n\tcointype\tSecondaryCoin\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 20; ++i)
+				oss << "\t\t" << i << "\t50002\t1\t" << (i * 10) << "\n";
+			oss << "\t}\n}\n\n";
+
+			oss << "Group tab_ten_threeslot\n{\n\tvnum\t9103\n\tname\tTenThreeSlot\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 10; ++i)
+				oss << "\t\t" << i << "\t50003\t1\t" << (i * 500) << "\n";
+			oss << "\t}\n}\n";
+
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(CShopManager::instance().Initialize(nullptr, 0),
+				"ReadShopTableEx must accept valid 3-tab shop with full 40-cell 1-slot and 2-slot grids");
+			LPSHOP loadedShop = CShopManager::instance().GetByNPCVnum(20091);
+			RUNTIME_ASSERT(loadedShop != nullptr, "Loaded 3-tab CShopEx found by NPC VNUM 20091");
+			RUNTIME_ASSERT(loadedShop->AddGuest(guestCh.get(), 20091U, false) &&
+			               buffer_size(wireDesc.GetOutputBuffer()) == 12111,
+				"Loaded 3-tab CShopEx serializes exact 12111-byte packet via AddGuest");
+			loadedShop->RemoveGuest(guestCh.get());
+			wireDesc.ResetOutputBuffer();
+		}
+
+		// Invalid config A: 41 x 1-slot items (> SHOP_HOST_ITEM_MAX_NUM = 40)
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n\t1\t20092\ttab_overflow_41\n}\n\n"
+			    << "Group tab_overflow_41\n{\n\tvnum\t9201\n\tname\tOverflow41\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 41; ++i)
+				oss << "\t\t" << i << "\t50001\t1\t1000\n";
+			oss << "\t}\n}\n";
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(!CShopManager::instance().Initialize(nullptr, 0) &&
+			               CShopManager::instance().GetByNPCVnum(20092) == nullptr,
+				"ReadShopTableEx must reject 41 items (> SHOP_HOST_ITEM_MAX_NUM=40) without leaving partial shop");
+		}
+
+		// Invalid config B: 21 x 2-slot items (itemGroupSize=21 <= 40, but requires 42 cells > 40-cell 5x8 grid!)
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n\t1\t20093\ttab_overflow_21_twoslot\n}\n\n"
+			    << "Group tab_overflow_21_twoslot\n{\n\tvnum\t9301\n\tname\tOverflow42Cells\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 21; ++i)
+				oss << "\t\t" << i << "\t50002\t1\t1000\n";
+			oss << "\t}\n}\n";
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(!CShopManager::instance().Initialize(nullptr, 0) &&
+			               CShopManager::instance().GetByNPCVnum(20093) == nullptr,
+				"ReadShopTableEx must reject 21x 2-slot items (42 cells > 40-cell 5x8 grid) that previously overflowed items[40]");
+		}
+
+		// Invalid config C: 15 x 3-slot items (FindBlank returns -1 after 10 items in 5x8 grid)
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n\t1\t20094\ttab_overflow_15_threeslot\n}\n\n"
+			    << "Group tab_overflow_15_threeslot\n{\n\tvnum\t9401\n\tname\tOverflow3Slot\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n";
+			for (int i = 1; i <= 15; ++i)
+				oss << "\t\t" << i << "\t50003\t1\t1000\n";
+			oss << "\t}\n}\n";
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(!CShopManager::instance().Initialize(nullptr, 0) &&
+			               CShopManager::instance().GetByNPCVnum(20094) == nullptr,
+				"ReadShopTableEx must reject FindBlank() < 0 placement instead of writing to items[-1]");
+		}
+
+		// Invalid config D: 32-char tab name (>= SHOP_TAB_NAME_MAX) in ConvertToShopItemTable
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n\t1\t20095\ttab_bad_name_32\n}\n\n"
+			    << "Group tab_bad_name_32\n{\n\tvnum\t9501\n\tname\t0123456789abcdef0123456789abcdef\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n\t\t1\t50001\t1\t1000\n\t}\n}\n";
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(!CShopManager::instance().Initialize(nullptr, 0) &&
+			               CShopManager::instance().GetByNPCVnum(20095) == nullptr,
+				"ConvertToShopItemTable must reject tab name with length >= SHOP_TAB_NAME_MAX (32)");
+		}
+
+		// Invalid config E: 4-tab shop in ReadShopTableEx (must fail atomically without leaving a 3-tab partial shop in m_map_pkShopByNPCVnum)
+		{
+			std::ostringstream oss;
+			oss << "Group ShopNPC\n{\n\t#--#\tnpc\tgroup\n"
+			    << "\t1\t20096\ttab4_a\n\t2\t20096\ttab4_b\n\t3\t20096\ttab4_c\n\t4\t20096\ttab4_d\n}\n\n";
+			for (int t = 0; t < 4; ++t)
+			{
+				char suffix = static_cast<char>('a' + t);
+				oss << "Group tab4_" << suffix << "\n{\n\tvnum\t" << (9601 + t) << "\n\tname\tTab_" << suffix
+				    << "\n\tcointype\tGold\n\tGroup items\n\t{\n\t\t#--#\tvnum\tcount\tprice\n\t\t1\t50001\t1\t1000\n\t}\n}\n\n";
+			}
+			writeTempConfig(oss.str());
+			RUNTIME_ASSERT(!CShopManager::instance().Initialize(nullptr, 0) &&
+			               CShopManager::instance().GetByNPCVnum(20096) == nullptr,
+				"ReadShopTableEx must reject 4-tab NPC configuration atomically without leaking partial 3-tab shop");
+		}
+
+		CShopManager::instance().Destroy();
+		std::cout << "  --> Real CShopEx (1/2/3 tabs, 4th tab reject, 12111B wire, name bounds) & ConvertToShopItemTable (40-slot 5x8 grid) verified!" << std::endl;
+	}
+
 	checks_passed++;
 
 	// Summary

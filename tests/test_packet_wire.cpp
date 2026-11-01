@@ -2423,6 +2423,76 @@ int main()
                                         !isValidShopSellNewArgs(0, -1LL) &&
                                         !isValidShopSellNewArgs(0, static_cast<int64_t>(UINT32_MAX) + 1LL),
                                 "F13b: Client shop C API validation rejects negative/overflowing YANG prices, counts (>UINT32_MAX), and invalid slot indices");
+
+                            // F13c: 3-Tab SHOP_SUBHEADER_GC_START_EX (12,111B) Wire Framing & Safe Tab Name Zero-Padding
+                            constexpr size_t kShopExTabWireSize = sizeof(TPacketGCShopStartEx::TSubPacketShopTab);
+                            constexpr size_t kShopEx1TabWireSize = sizeof(TPacketGCShop) + sizeof(TPacketGCShopStartEx) + 1 * kShopExTabWireSize;
+                            constexpr size_t kShopEx2TabWireSize = sizeof(TPacketGCShop) + sizeof(TPacketGCShopStartEx) + 2 * kShopExTabWireSize;
+                            constexpr size_t kShopEx3TabWireSize = sizeof(TPacketGCShop) + sizeof(TPacketGCShopStartEx) + SHOP_TAB_COUNT_MAX * kShopExTabWireSize;
+                            static_assert(kShopExTabWireSize == 4034, "TSubPacketShopTab wire size must be 4034 bytes");
+                            static_assert(kShopEx1TabWireSize == 4043, "1-tab SHOP_SUBHEADER_GC_START_EX wire size must be 4043 bytes");
+                            static_assert(kShopEx2TabWireSize == 8077, "2-tab SHOP_SUBHEADER_GC_START_EX wire size must be 8077 bytes");
+                            static_assert(kShopEx3TabWireSize == 12111, "3-tab SHOP_SUBHEADER_GC_START_EX wire size must be 12111 bytes");
+
+                            std::vector<uint8_t> shopEx3TabWire(kShopEx3TabWireSize, 0);
+                            TPacketGCShop srvShopExHdr{};
+                            srvShopExHdr.header = HEADER_GC_SHOP;
+                            srvShopExHdr.size = static_cast<WORD>(kShopEx3TabWireSize);
+                            srvShopExHdr.subheader = SHOP_SUBHEADER_GC_START_EX;
+
+                            TPacketGCShopStartEx srvShopExSub{};
+                            srvShopExSub.owner_vid = 900123U;
+                            srvShopExSub.shop_tab_count = SHOP_TAB_COUNT_MAX;
+
+                            std::memcpy(shopEx3TabWire.data(), &srvShopExHdr, sizeof(srvShopExHdr));
+                            std::memcpy(shopEx3TabWire.data() + sizeof(srvShopExHdr), &srvShopExSub, sizeof(srvShopExSub));
+
+                            const std::string tabNames[SHOP_TAB_COUNT_MAX] = {
+                                "",
+                                "Potions",
+                                "TabName_Exactly_31_Characters_X"
+                            };
+                            for (int t = 0; t < SHOP_TAB_COUNT_MAX; ++t)
+                            {
+                                TPacketGCShopStartEx::TSubPacketShopTab srvTab{};
+                                srvTab.coin_type = static_cast<BYTE>(t % 2);
+                                const size_t nLen = std::min<size_t>(tabNames[t].size(), SHOP_TAB_NAME_MAX);
+                                if (nLen > 0)
+                                    std::memcpy(srvTab.name, tabNames[t].data(), nLen);
+                                srvTab.name[nLen] = '\0';
+                                srvTab.items[0].vnum = static_cast<DWORD>(50001 + t);
+                                srvTab.items[0].count = static_cast<ITEM_COUNT>(t + 1);
+                                srvTab.items[0].price = static_cast<YANG>(t + 1) * 100000000000LL;
+                                srvTab.items[SHOP_HOST_ITEM_MAX_NUM - 1].vnum = static_cast<DWORD>(60001 + t);
+                                srvTab.items[SHOP_HOST_ITEM_MAX_NUM - 1].count = 10;
+                                srvTab.items[SHOP_HOST_ITEM_MAX_NUM - 1].price = GOLD_MAX - 1LL;
+
+                                std::memcpy(
+                                    shopEx3TabWire.data() + sizeof(srvShopExHdr) + sizeof(srvShopExSub) + static_cast<size_t>(t) * kShopExTabWireSize,
+                                    &srvTab,
+                                    kShopExTabWireSize);
+                            }
+
+                            ClientTPacketGCShopStartEx cliShopExSub{};
+                            ClientTPacketGCShopStartEx::TSubPacketShopTab cliTabs[SHOP_TAB_COUNT_MAX]{};
+                            std::memcpy(&cliShopExSub, shopEx3TabWire.data() + sizeof(TPacketGCShop), sizeof(cliShopExSub));
+                            std::memcpy(&cliTabs[0], shopEx3TabWire.data() + sizeof(TPacketGCShop) + sizeof(cliShopExSub), sizeof(cliTabs));
+
+                            WIRE_ASSERT(cliShopExSub.owner_vid == 900123U &&
+                                        cliShopExSub.shop_tab_count == 3 &&
+                                        cliTabs[0].name[0] == '\0' &&
+                                        std::strcmp(cliTabs[1].name, "Potions") == 0 &&
+                                        cliTabs[1].name[7] == '\0' &&
+                                        cliTabs[1].name[32] == '\0' &&
+                                        std::strcmp(cliTabs[2].name, "TabName_Exactly_31_Characters_X") == 0 &&
+                                        cliTabs[2].name[31] == '\0' &&
+                                        cliTabs[2].name[32] == '\0' &&
+                                        cliTabs[0].items[0].price == 100000000000LL &&
+                                        cliTabs[1].items[0].price == 200000000000LL &&
+                                        cliTabs[2].items[0].price == 300000000000LL &&
+                                        cliTabs[2].items[39].price == GOLD_MAX - 1LL &&
+                                        cliTabs[2].items[40].vnum == 0,
+                                "F13c: 3-tab SHOP_SUBHEADER_GC_START_EX (12,111B) unpacks cleanly on client with zeroed trailing tab name bytes");
                         }
                     }
                 }

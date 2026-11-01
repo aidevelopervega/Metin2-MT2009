@@ -76,15 +76,22 @@ bool CShopManager::Initialize(TShopTable * table, int size)
 
 void CShopManager::Destroy()
 {
-	TShopMap::iterator it = m_map_pkShop.begin();
+	std::unordered_set<LPSHOP> deletedShops;
 
-	while (it != m_map_pkShop.end())
+	for (TShopMap::iterator it = m_map_pkShop.begin(); it != m_map_pkShop.end(); ++it)
 	{
-		M2_DELETE(it->second);
-		++it;
+		if (it->second && deletedShops.insert(it->second).second)
+			M2_DELETE(it->second);
+	}
+
+	for (TShopMap::iterator it = m_map_pkShopByNPCVnum.begin(); it != m_map_pkShopByNPCVnum.end(); ++it)
+	{
+		if (it->second && deletedShops.insert(it->second).second)
+			M2_DELETE(it->second);
 	}
 
 	m_map_pkShop.clear();
+	m_map_pkShopByNPCVnum.clear();
 }
 
 LPSHOP CShopManager::Get(DWORD dwVnum)
@@ -435,23 +442,33 @@ bool CompareShopItemName(const SShopItemTable& lhs, const SShopItemTable& rhs)
 		return true;
 }
 
+static_assert(SHOP_HOST_ITEM_MAX_NUM == 40, "SHOP_HOST_ITEM_MAX_NUM must be 40");
+static_assert(SHOP_DEFAULT_WIDTH * SHOP_DEFAULT_HEIGHT == SHOP_HOST_ITEM_MAX_NUM, "Shop grid dimensions must equal SHOP_HOST_ITEM_MAX_NUM");
+static_assert(sizeof(TShopTableEx{}.items) / sizeof(TShopTableEx{}.items[0]) == SHOP_HOST_ITEM_MAX_NUM, "SShopTable::items capacity must match SHOP_HOST_ITEM_MAX_NUM");
+
 bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 {
-	if (!pNode->GetValue("vnum", 0, shopTable.dwVnum))
+	shopTable = TShopTableEx{};
+	if (!pNode)
+		return false;
+
+	TShopTableEx parsedTable{};
+
+	if (!pNode->GetValue("vnum", 0, parsedTable.dwVnum))
 	{
 		sys_err("Group %s does not have vnum.", pNode->GetNodeName().c_str());
 		return false;
 	}
 
-	if (!pNode->GetValue("name", 0, shopTable.name))
+	if (!pNode->GetValue("name", 0, parsedTable.name))
 	{
 		sys_err("Group %s does not have name.", pNode->GetNodeName().c_str());
 		return false;
 	}
 
-	if (shopTable.name.length() >= SHOP_TAB_NAME_MAX)
+	if (parsedTable.name.length() >= SHOP_TAB_NAME_MAX)
 	{
-		sys_err("Shop name length must be less than %d. Error in Group %s, name %s", SHOP_TAB_NAME_MAX, pNode->GetNodeName().c_str(), shopTable.name.c_str());
+		sys_err("Shop name length must be less than %d. Error in Group %s, name %s", SHOP_TAB_NAME_MAX, pNode->GetNodeName().c_str(), parsedTable.name.c_str());
 		return false;
 	}
 
@@ -463,11 +480,11 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 
 	if (boost::iequals(stCoinType, "Gold"))
 	{
-		shopTable.coinType = SHOP_COIN_TYPE_GOLD;
+		parsedTable.coinType = SHOP_COIN_TYPE_GOLD;
 	}
 	else if (boost::iequals(stCoinType, "SecondaryCoin"))
 	{
-		shopTable.coinType = SHOP_COIN_TYPE_SECONDARY_COIN;
+		parsedTable.coinType = SHOP_COIN_TYPE_SECONDARY_COIN;
 	}
 	else
 	{
@@ -483,12 +500,13 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 	}
 
 	int itemGroupSize = pItemGroup->GetRowCount();
-	std::vector <TShopItemTable> shopItems(itemGroupSize);
-	if (itemGroupSize >= SHOP_PLAYER_HOST_ITEM_MAX_NUM)
+	if (itemGroupSize <= 0 || itemGroupSize > SHOP_HOST_ITEM_MAX_NUM)
 	{
-		sys_err("count(%d) of rows of group items of group %s must be smaller than %d", itemGroupSize, pNode->GetNodeName().c_str(), SHOP_PLAYER_HOST_ITEM_MAX_NUM);
+		sys_err("count(%d) of rows of group items of group %s must be between 1 and %d", itemGroupSize, pNode->GetNodeName().c_str(), SHOP_HOST_ITEM_MAX_NUM);
 		return false;
 	}
+
+	std::vector <TShopItemTable> shopItems(static_cast<size_t>(itemGroupSize));
 
 	for (int i = 0; i < itemGroupSize; i++)
 	{
@@ -527,10 +545,10 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 		std::sort(shopItems.rbegin(), shopItems.rend(), CompareShopItemName);
 	}
 
-	CGrid grid = CGrid(5, 9);
+	CGrid grid = CGrid(SHOP_DEFAULT_WIDTH, SHOP_DEFAULT_HEIGHT);
 	int iPos;
 
-	msl::refill(shopTable.items);
+	msl::refill(parsedTable.items);
 
 	for (size_t i = 0; i < shopItems.size(); i++)
 	{
@@ -541,13 +559,29 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 			return false;
 		}
 
-		iPos = grid.FindBlank(1, item_table->bSize);
+		if (item_table->bSize == 0 || item_table->bSize > SHOP_DEFAULT_HEIGHT)
+		{
+			sys_err("vnum(%d) of group items of group %s has invalid size(%u)", shopItems[i].vnum, pNode->GetNodeName().c_str(), item_table->bSize);
+			return false;
+		}
 
-		grid.Put(iPos, 1, item_table->bSize);
-		shopTable.items[iPos] = shopItems[i];
+		iPos = grid.FindBlank(1, item_table->bSize);
+		if (iPos < 0 || iPos >= SHOP_HOST_ITEM_MAX_NUM)
+		{
+			sys_err("not enough space in shop grid for vnum(%d) size(%u) in group %s (pos=%d)", shopItems[i].vnum, item_table->bSize, pNode->GetNodeName().c_str(), iPos);
+			return false;
+		}
+
+		if (!grid.Put(iPos, 1, item_table->bSize))
+		{
+			sys_err("cannot put vnum(%d) size(%u) at pos(%d) in group %s", shopItems[i].vnum, item_table->bSize, iPos, pNode->GetNodeName().c_str());
+			return false;
+		}
+		parsedTable.items[iPos] = shopItems[i];
 	}
 
-	shopTable.byItemCount = shopItems.size();
+	parsedTable.byItemCount = static_cast<BYTE>(shopItems.size());
+	shopTable = parsedTable;
 	return true;
 }
 
@@ -605,6 +639,15 @@ bool CShopManager::ReadShopTableEx(const char* stFileName)
 		map_npcShop.emplace(npcVnum, table);
 	}
 
+	std::map<DWORD, LPSHOPEX> stagedShopsByNPC;
+	auto cleanupStagedShops = [&stagedShopsByNPC]() {
+		for (auto& kv : stagedShopsByNPC)
+		{
+			M2_DELETE(kv.second);
+		}
+		stagedShopsByNPC.clear();
+	};
+
 	for (TMapNPCshop::iterator it = map_npcShop.begin(); it != map_npcShop.end(); ++it)
 	{
 		DWORD npcVnum = it->first;
@@ -612,40 +655,49 @@ bool CShopManager::ReadShopTableEx(const char* stFileName)
 		if (m_map_pkShop.find(table.dwVnum) != m_map_pkShop.end())
 		{
 			sys_err("Shop vnum(%d) already exists", table.dwVnum);
+			cleanupStagedShops();
 			return false;
 		}
-		TShopMap::iterator shop_it = m_map_pkShopByNPCVnum.find(npcVnum);
 
 		LPSHOPEX pkShopEx = NULL;
-		if (m_map_pkShopByNPCVnum.end() == shop_it)
+		auto stagedIt = stagedShopsByNPC.find(npcVnum);
+		if (stagedShopsByNPC.end() == stagedIt)
 		{
 			pkShopEx = M2_NEW CShopEx;
 			pkShopEx->Create(0, npcVnum);
-			m_map_pkShopByNPCVnum.emplace(npcVnum, pkShopEx);
+			stagedShopsByNPC.emplace(npcVnum, pkShopEx);
 		}
 		else
 		{
-			pkShopEx = dynamic_cast <CShopEx*> (shop_it->second);
-			if (NULL == pkShopEx)
-			{
-				sys_err("WTF!!! It can't be happend. NPC(%d) Shop is not extended version.", shop_it->first);
-				return false;
-			}
+			pkShopEx = stagedIt->second;
 		}
 
 		if (pkShopEx->GetTabCount() >= SHOP_TAB_COUNT_MAX)
 		{
 			sys_err("ShopEx cannot have tab more than %d", SHOP_TAB_COUNT_MAX);
+			cleanupStagedShops();
 			return false;
 		}
 
 		if (pkShopEx->GetVnum() != 0 && m_map_pkShop.find(pkShopEx->GetVnum()) != m_map_pkShop.end())
 		{
 			sys_err("Shop vnum(%d) already exist.", pkShopEx->GetVnum());
+			cleanupStagedShops();
 			return false;
 		}
-		m_map_pkShop.emplace(pkShopEx->GetVnum(), pkShopEx);
-		pkShopEx->AddShopTable(table);
+
+		if (!pkShopEx->AddShopTable(table))
+		{
+			sys_err("ShopEx failed to add shop table vnum(%d) for NPC(%d).", table.dwVnum, npcVnum);
+			cleanupStagedShops();
+			return false;
+		}
+	}
+
+	for (const auto& kv : stagedShopsByNPC)
+	{
+		m_map_pkShopByNPCVnum.emplace(kv.first, kv.second);
+		m_map_pkShop.emplace(kv.second->GetVnum(), kv.second);
 	}
 
 	return true;

@@ -30,6 +30,13 @@
 #include "shopEx.h"
 #include "group_text_parse_tree.h"
 
+static_assert(SHOP_TAB_COUNT_MAX == 3, "SHOP_TAB_COUNT_MAX must be 3");
+static_assert(SHOP_PLAYER_HOST_ITEM_MAX_NUM == 80, "SHOP_PLAYER_HOST_ITEM_MAX_NUM must be 80");
+static_assert(sizeof(TPacketGCShopStartEx::TSubPacketShopTab{}.name) == SHOP_TAB_NAME_MAX + 1, "TSubPacketShopTab::name size mismatch");
+#ifndef ENABLE_CHEQUE_SYSTEM
+static_assert(sizeof(TPacketGCShopStartEx::TSubPacketShopTab) == 4034, "TSubPacketShopTab wire size must be 4034 bytes");
+#endif
+
 bool CShopEx::Create(DWORD dwVnum, DWORD dwNPCVnum)
 {
 	m_dwVnum = dwVnum;
@@ -39,6 +46,12 @@ bool CShopEx::Create(DWORD dwVnum, DWORD dwNPCVnum)
 
 bool CShopEx::AddShopTable(TShopTableEx& shopTable)
 {
+	if (m_vec_shopTabs.size() >= SHOP_TAB_COUNT_MAX)
+	{
+		sys_err("CShopEx::AddShopTable : tab count exceeds max (%d)", SHOP_TAB_COUNT_MAX);
+		return false;
+	}
+
 	for (itertype(m_vec_shopTabs) it = m_vec_shopTabs.begin(); it != m_vec_shopTabs.end(); it++)
 	{
 		const TShopTableEx& _shopTable = *it;
@@ -53,7 +66,7 @@ bool CShopEx::AddShopTable(TShopTableEx& shopTable)
 
 bool CShopEx::AddGuest(LPCHARACTER ch,DWORD owner_vid, bool bOtherEmpire)
 {
-	if (!ch)
+	if (!ch || !ch->GetDesc())
 		return false;
 
 	if (ch->GetExchange())
@@ -62,30 +75,35 @@ bool CShopEx::AddGuest(LPCHARACTER ch,DWORD owner_vid, bool bOtherEmpire)
 	if (ch->GetShop())
 		return false;
 
-	ch->SetShop(this);
+	if (m_vec_shopTabs.empty() || m_vec_shopTabs.size() > SHOP_TAB_COUNT_MAX)
+	{
+		sys_err("CShopEx::AddGuest : invalid shop tab count (%zu)", m_vec_shopTabs.size());
+		return false;
+	}
 
-	m_map_guest.emplace(ch, bOtherEmpire);
-
-	TPacketGCShop pack;
-
+	TPacketGCShop pack{};
 	pack.header		= HEADER_GC_SHOP;
 	pack.subheader	= SHOP_SUBHEADER_GC_START_EX;
 
-	TPacketGCShopStartEx pack2;
-
-	memset(&pack2, 0, sizeof(pack2));
-
+	TPacketGCShopStartEx pack2{};
 	pack2.owner_vid = owner_vid;
-	pack2.shop_tab_count = m_vec_shopTabs.size();
-	char temp[8096];
+	pack2.shop_tab_count = static_cast<BYTE>(m_vec_shopTabs.size());
+
+	constexpr size_t kShopExTabBufferCapacity = sizeof(TPacketGCShopStartEx::TSubPacketShopTab) * SHOP_TAB_COUNT_MAX;
+	char temp[kShopExTabBufferCapacity]{};
 	char* buf = &temp[0];
 	size_t size = 0;
+
 	for (itertype(m_vec_shopTabs) it = m_vec_shopTabs.begin(); it != m_vec_shopTabs.end(); it++)
 	{
 		const TShopTableEx& shop_tab = *it;
 		TPacketGCShopStartEx::TSubPacketShopTab pack_tab{};
 		pack_tab.coin_type = shop_tab.coinType;
-		memcpy(pack_tab.name, shop_tab.name.c_str(), sizeof(shop_tab.name));
+
+		const size_t nameLen = std::min<size_t>(shop_tab.name.size(), SHOP_TAB_NAME_MAX);
+		if (nameLen > 0)
+			memcpy(pack_tab.name, shop_tab.name.data(), nameLen);
+		pack_tab.name[nameLen] = '\0';
 
 		for (BYTE i = 0; i < SHOP_HOST_ITEM_MAX_NUM; i++)
 		{
@@ -114,12 +132,29 @@ bool CShopEx::AddGuest(LPCHARACTER ch,DWORD owner_vid, bool bOtherEmpire)
 			memset(pack_tab.items[i].alSockets, 0, sizeof(pack_tab.items[i].alSockets));
 		}
 
+		if (size + sizeof(pack_tab) > sizeof(temp))
+		{
+			sys_err("CShopEx::AddGuest : tab buffer overflow prevented (size=%zu, tab_size=%zu, cap=%zu)",
+				size, sizeof(pack_tab), sizeof(temp));
+			return false;
+		}
+
 		memcpy(buf, &pack_tab, sizeof(pack_tab));
 		buf += sizeof(pack_tab);
 		size += sizeof(pack_tab);
 	}
 
-	pack.size = sizeof(pack) + sizeof(pack2) + size;
+	constexpr size_t kHeaderSize = sizeof(pack) + sizeof(pack2);
+	if (kHeaderSize + size > std::numeric_limits<WORD>::max())
+	{
+		sys_err("CShopEx::AddGuest : packet size overflow (%zu)", kHeaderSize + size);
+		return false;
+	}
+
+	ch->SetShop(this);
+	m_map_guest.emplace(ch, bOtherEmpire);
+
+	pack.size = static_cast<WORD>(kHeaderSize + size);
 
 	ch->GetDesc()->BufferedPacket(&pack, sizeof(TPacketGCShop));
 	ch->GetDesc()->BufferedPacket(&pack2, sizeof(TPacketGCShopStartEx));
