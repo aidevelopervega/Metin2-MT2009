@@ -1762,7 +1762,7 @@ void CPythonPlayer::Clear()
 	m_dwWeaponMinMagicPower = 0;
 	m_dwWeaponMaxMagicPower = 0;
 	m_dwWeaponAddPower = 0;
-	m_llGold = 0;
+	SetGold(0);
 
 	/////
 	m_MovingCursorPosition = TPixelPosition(0, 0, 0);

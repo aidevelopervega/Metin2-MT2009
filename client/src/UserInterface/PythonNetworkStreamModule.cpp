@@ -714,13 +714,13 @@ PyObject* netSendItemDropPacket(PyObject* poSelf, PyObject* poArgs)
 PyObject* netSendItemDropPacketNew(PyObject* poSelf, PyObject* poArgs)
 {
 	TItemPos Cell;
-	int count;
+	long long count = 0;
 	switch (PyTuple_Size(poArgs))
 	{
 	case 2:
 		if (!PyTuple_GetInteger(poArgs, 0, &Cell.cell))
 			return Py_BuildException();
-		if (!PyTuple_GetInteger(poArgs, 1, &count))
+		if (!PyTuple_GetLongLong(poArgs, 1, &count) || count < 0 || count > UINT32_MAX)
 			return Py_BuildException();
 
 		break;
@@ -729,7 +729,7 @@ PyObject* netSendItemDropPacketNew(PyObject* poSelf, PyObject* poArgs)
 			return Py_BuildException();
 		if (!PyTuple_GetInteger(poArgs, 1, &Cell.cell))
 			return Py_BuildException();
-		if (!PyTuple_GetInteger(poArgs, 2, &count))
+		if (!PyTuple_GetLongLong(poArgs, 2, &count) || count < 0 || count > UINT32_MAX)
 			return Py_BuildException();
 
 		break;
@@ -737,7 +737,7 @@ PyObject* netSendItemDropPacketNew(PyObject* poSelf, PyObject* poArgs)
 		return Py_BuildException();
 	}
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendItemDropPacketNew(Cell, 0, count);
+	rkNetStream.SendItemDropPacketNew(Cell, 0, static_cast<DWORD>(count));
 	return Py_BuildNone();
 }
 
@@ -780,7 +780,7 @@ PyObject* netSendItemMovePacket(PyObject* poSelf, PyObject* poArgs)
 {
 	TItemPos Cell;
 	TItemPos ChangeCell;
-	int num;
+	long long num = 0;
 
 	switch (PyTuple_Size(poArgs))
 	{
@@ -789,7 +789,7 @@ PyObject* netSendItemMovePacket(PyObject* poSelf, PyObject* poArgs)
 			return Py_BuildException();
 		if (!PyTuple_GetInteger(poArgs, 1, &ChangeCell.cell))
 			return Py_BuildException();
-		if (!PyTuple_GetInteger(poArgs, 2, &num))
+		if (!PyTuple_GetLongLong(poArgs, 2, &num) || num < 0 || num > UINT32_MAX)
 			return Py_BuildException();
 		break;
 	case 5:
@@ -802,7 +802,7 @@ PyObject* netSendItemMovePacket(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 			if (!PyTuple_GetInteger(poArgs, 3, &ChangeCell.cell))
 				return Py_BuildException();
-			if (!PyTuple_GetInteger(poArgs, 4, &num))
+			if (!PyTuple_GetLongLong(poArgs, 4, &num) || num < 0 || num > UINT32_MAX)
 				return Py_BuildException();
 		}
 		break;
@@ -811,7 +811,7 @@ PyObject* netSendItemMovePacket(PyObject* poSelf, PyObject* poArgs)
 	}
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendItemMovePacket(Cell, ChangeCell, num);
+	rkNetStream.SendItemMovePacket(Cell, ChangeCell, static_cast<ITEM_COUNT>(num));
 	return Py_BuildNone();
 }
 
@@ -830,7 +830,7 @@ PyObject* netSendGiveItemPacket(PyObject* poSelf, PyObject* poArgs)
 {
 	int iTargetVID;
 	TItemPos Cell;
-	int iItemCount;
+	long long iItemCount = 0;
 	switch (PyTuple_Size(poArgs))
 	{
 	case 3:
@@ -838,7 +838,7 @@ PyObject* netSendGiveItemPacket(PyObject* poSelf, PyObject* poArgs)
 			return Py_BuildException();
 		if (!PyTuple_GetInteger(poArgs, 1, &Cell.cell))
 			return Py_BuildException();
-		if (!PyTuple_GetInteger(poArgs, 2, &iItemCount))
+		if (!PyTuple_GetLongLong(poArgs, 2, &iItemCount) || iItemCount < 0 || iItemCount > INT_MAX)
 			return Py_BuildException();
 		break;
 	case 4:
@@ -848,15 +848,15 @@ PyObject* netSendGiveItemPacket(PyObject* poSelf, PyObject* poArgs)
 			return Py_BuildException();
 		if (!PyTuple_GetInteger(poArgs, 2, &Cell.cell))
 			return Py_BuildException();
-		if (!PyTuple_GetInteger(poArgs, 3, &iItemCount))
+		if (!PyTuple_GetLongLong(poArgs, 3, &iItemCount) || iItemCount < 0 || iItemCount > INT_MAX)
 			return Py_BuildException();
 		break;
 	default:
-		break;
+		return Py_BuildException();
 	}
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendGiveItemPacket(iTargetVID, Cell, iItemCount);
+	rkNetStream.SendGiveItemPacket(iTargetVID, Cell, static_cast<int>(iItemCount));
 	return Py_BuildNone();
 }
 

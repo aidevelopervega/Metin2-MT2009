@@ -570,7 +570,7 @@ typedef struct command_item_drop
 	BYTE  header;
 	TItemPos pos;
 #ifndef DISABLE_GOLD_PLAYER_DROP
-	DWORD elk;
+	YANG elk;
 #endif
 #if defined(ENABLE_CHEQUE_SYSTEM) && !defined(DISABLE_CHEQUE_DROP)
 	DWORD cheque;
@@ -2208,7 +2208,7 @@ typedef struct SRefineTable
     DWORD src_vnum;
     DWORD result_vnum;
     BYTE material_count;
-    int cost;
+    YANG cost;
     int prob;
     TMaterial materials[REFINE_MATERIAL_MAX_NUM];
 } TRefineTable;
@@ -3480,6 +3480,56 @@ static_assert(offsetof(TPacketCGSafeboxMoney, dwMoney) == 2, "TPacketCGSafeboxMo
 static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9, "TPacketGCSafeboxMoneyChange size mismatch");
 static_assert(offsetof(TPacketGCSafeboxMoneyChange, bHeader) == 0, "TPacketGCSafeboxMoneyChange::bHeader offset mismatch");
 static_assert(offsetof(TPacketGCSafeboxMoneyChange, dwMoney) == 1, "TPacketGCSafeboxMoneyChange::dwMoney offset mismatch");
+
+static_assert(sizeof(ITEM_COUNT) == 4, "ITEM_COUNT must be 4-byte unsigned integer");
+static_assert(sizeof(TItemPos) == 3 && offsetof(TItemPos, window_type) == 0 && offsetof(TItemPos, cell) == 1, "TItemPos layout mismatch");
+static_assert(sizeof(TPlayerItemAttribute) == 3 && offsetof(TPlayerItemAttribute, bType) == 0 && offsetof(TPlayerItemAttribute, sValue) == 1, "TPlayerItemAttribute layout mismatch");
+static_assert(sizeof(TQuickSlot) == 2 && offsetof(TQuickSlot, Type) == 0 && offsetof(TQuickSlot, Position) == 1, "TQuickSlot layout mismatch");
+static_assert(sizeof(TItemData) == 49 && offsetof(TItemData, vnum) == 0 && offsetof(TItemData, count) == 4 && offsetof(TItemData, flags) == 8 && offsetof(TItemData, anti_flags) == 12 && offsetof(TItemData, alSockets) == 16 && offsetof(TItemData, aAttr) == 28, "TItemData layout mismatch");
+
+static_assert(sizeof(TPacketCGItemUse) == 4 && offsetof(TPacketCGItemUse, pos) == 1, "TPacketCGItemUse layout mismatch");
+static_assert(sizeof(TPacketCGItemUseToItem) == 7 && offsetof(TPacketCGItemUseToItem, source_pos) == 1 && offsetof(TPacketCGItemUseToItem, target_pos) == 4, "TPacketCGItemUseToItem layout mismatch");
+#if defined(DISABLE_GOLD_PLAYER_DROP) && !defined(ENABLE_CHEQUE_SYSTEM)
+static_assert(sizeof(TPacketCGItemDrop) == 4 && offsetof(TPacketCGItemDrop, pos) == 1, "TPacketCGItemDrop layout mismatch");
+static_assert(sizeof(TPacketCGItemDrop2) == 8 && offsetof(TPacketCGItemDrop2, pos) == 1 && offsetof(TPacketCGItemDrop2, count) == 4, "TPacketCGItemDrop2 layout mismatch");
+#endif
+static_assert(sizeof(TPacketCGItemMove) == 11 && offsetof(TPacketCGItemMove, pos) == 1 && offsetof(TPacketCGItemMove, change_pos) == 4 && offsetof(TPacketCGItemMove, num) == 7, "TPacketCGItemMove layout mismatch");
+static_assert(sizeof(TPacketCGItemPickUp) == 5 && offsetof(TPacketCGItemPickUp, vid) == 1, "TPacketCGItemPickUp layout mismatch");
+static_assert(sizeof(TPacketCGGiveItem) == 12 && offsetof(TPacketCGGiveItem, dwTargetVID) == 1 && offsetof(TPacketCGGiveItem, ItemPos) == 5 && offsetof(TPacketCGGiveItem, byItemCount) == 8, "TPacketCGGiveItem layout mismatch");
+static_assert(sizeof(TPacketCGQuickSlotAdd) == 4 && offsetof(TPacketCGQuickSlotAdd, pos) == 1 && offsetof(TPacketCGQuickSlotAdd, slot) == 2, "TPacketCGQuickSlotAdd layout mismatch");
+static_assert(sizeof(TPacketCGQuickSlotDel) == 2 && offsetof(TPacketCGQuickSlotDel, pos) == 1, "TPacketCGQuickSlotDel layout mismatch");
+static_assert(sizeof(TPacketCGQuickSlotSwap) == 3 && offsetof(TPacketCGQuickSlotSwap, pos) == 1 && offsetof(TPacketCGQuickSlotSwap, change_pos) == 2, "TPacketCGQuickSlotSwap layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxCheckin) == 5 && offsetof(TPacketCGSafeboxCheckin, bSafePos) == 1 && offsetof(TPacketCGSafeboxCheckin, ItemPos) == 2, "TPacketCGSafeboxCheckin layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxCheckout) == 5 && offsetof(TPacketCGSafeboxCheckout, bSafePos) == 1 && offsetof(TPacketCGSafeboxCheckout, ItemPos) == 2, "TPacketCGSafeboxCheckout layout mismatch");
+static_assert(sizeof(TPacketCGMallCheckout) == 5 && offsetof(TPacketCGMallCheckout, bMallPos) == 1 && offsetof(TPacketCGMallCheckout, ItemPos) == 2, "TPacketCGMallCheckout layout mismatch");
+static_assert(sizeof(TPacketCGRefine) == 3 && offsetof(TPacketCGRefine, pos) == 1 && offsetof(TPacketCGRefine, type) == 2, "TPacketCGRefine layout mismatch");
+static_assert(sizeof(TPacketCGScriptSelectItem) == 5 && offsetof(TPacketCGScriptSelectItem, selection) == 1, "TPacketCGScriptSelectItem layout mismatch");
+static_assert(sizeof(TPacketCGDragonSoulRefine) == 47 && offsetof(TPacketCGDragonSoulRefine, bSubType) == 1 && offsetof(TPacketCGDragonSoulRefine, ItemGrid) == 2, "TPacketCGDragonSoulRefine layout mismatch");
+
+static_assert(sizeof(TPacketGCItemSet) == 45 && offsetof(TPacketGCItemSet, Cell) == 1 && offsetof(TPacketGCItemSet, vnum) == 4 && offsetof(TPacketGCItemSet, count) == 8 && offsetof(TPacketGCItemSet, alSockets) == 12 && offsetof(TPacketGCItemSet, aAttr) == 24, "TPacketGCItemSet layout mismatch");
+static_assert(sizeof(TPacketGCItemSet2) == 54 && offsetof(TPacketGCItemSet2, Cell) == 1 && offsetof(TPacketGCItemSet2, vnum) == 4 && offsetof(TPacketGCItemSet2, count) == 8 && offsetof(TPacketGCItemSet2, flags) == 12 && offsetof(TPacketGCItemSet2, anti_flags) == 16 && offsetof(TPacketGCItemSet2, highlight) == 20 && offsetof(TPacketGCItemSet2, alSockets) == 21 && offsetof(TPacketGCItemSet2, aAttr) == 33, "TPacketGCItemSet2 layout mismatch");
+static_assert(sizeof(TPacketGCItemDel) == 2 && offsetof(TPacketGCItemDel, pos) == 1, "TPacketGCItemDel layout mismatch");
+static_assert(sizeof(TPacketGCItemUse) == 16 && offsetof(TPacketGCItemUse, Cell) == 1 && offsetof(TPacketGCItemUse, ch_vid) == 4 && offsetof(TPacketGCItemUse, victim_vid) == 8 && offsetof(TPacketGCItemUse, vnum) == 12, "TPacketGCItemUse layout mismatch");
+static_assert(sizeof(TPacketGCItemUpdate) == 41 && offsetof(TPacketGCItemUpdate, Cell) == 1 && offsetof(TPacketGCItemUpdate, count) == 4 && offsetof(TPacketGCItemUpdate, alSockets) == 8 && offsetof(TPacketGCItemUpdate, aAttr) == 20, "TPacketGCItemUpdate layout mismatch");
+static_assert(sizeof(TPacketGCItemGroundAdd) == 26 && offsetof(TPacketGCItemGroundAdd, lX) == 1 && offsetof(TPacketGCItemGroundAdd, dwVID) == 13 && offsetof(TPacketGCItemGroundAdd, dwVnum) == 17 && offsetof(TPacketGCItemGroundAdd, count) == 21 && offsetof(TPacketGCItemGroundAdd, bIsAttr) == 25, "TPacketGCItemGroundAdd layout mismatch");
+static_assert(sizeof(TPacketGCItemGroundDel) == 5 && offsetof(TPacketGCItemGroundDel, vid) == 1, "TPacketGCItemGroundDel layout mismatch");
+static_assert(sizeof(TPacketGCItemOwnership) == 30 && offsetof(TPacketGCItemOwnership, dwVID) == 1 && offsetof(TPacketGCItemOwnership, szName) == 5, "TPacketGCItemOwnership layout mismatch");
+static_assert(sizeof(TPacketGCQuickSlotAdd) == 4 && offsetof(TPacketGCQuickSlotAdd, pos) == 1 && offsetof(TPacketGCQuickSlotAdd, slot) == 2, "TPacketGCQuickSlotAdd layout mismatch");
+static_assert(sizeof(TPacketGCQuickSlotDel) == 2 && offsetof(TPacketGCQuickSlotDel, pos) == 1, "TPacketGCQuickSlotDel layout mismatch");
+static_assert(sizeof(TPacketGCQuickSlotSwap) == 3 && offsetof(TPacketGCQuickSlotSwap, pos) == 1 && offsetof(TPacketGCQuickSlotSwap, change_pos) == 2, "TPacketGCQuickSlotSwap layout mismatch");
+static_assert(sizeof(TPacketGCSafeboxWrongPassword) == 1, "TPacketGCSafeboxWrongPassword size mismatch");
+static_assert(sizeof(TPacketGCSafeboxSize) == 2 && offsetof(TPacketGCSafeboxSize, bSize) == 1, "TPacketGCSafeboxSize layout mismatch");
+static_assert(sizeof(TPacketGCMallOpen) == 2 && offsetof(TPacketGCMallOpen, bSize) == 1, "TPacketGCMallOpen layout mismatch");
+static_assert(sizeof(TMaterial) == 8 && offsetof(TMaterial, vnum) == 0 && offsetof(TMaterial, count) == 4, "TMaterial layout mismatch");
+static_assert(sizeof(TRefineTable) == 61 && offsetof(TRefineTable, src_vnum) == 0 && offsetof(TRefineTable, result_vnum) == 4 && offsetof(TRefineTable, material_count) == 8 && offsetof(TRefineTable, cost) == 9 && offsetof(TRefineTable, prob) == 17 && offsetof(TRefineTable, materials) == 21, "TRefineTable layout mismatch");
+static_assert(sizeof(TPacketGCRefineInformation) == 63 && offsetof(TPacketGCRefineInformation, pos) == 1 && offsetof(TPacketGCRefineInformation, refine_table) == 2, "TPacketGCRefineInformation layout mismatch");
+static_assert(sizeof(TPacketGCRefineInformationNew) == 64 && offsetof(TPacketGCRefineInformationNew, type) == 1 && offsetof(TPacketGCRefineInformationNew, pos) == 2 && offsetof(TPacketGCRefineInformationNew, refine_table) == 3, "TPacketGCRefineInformationNew layout mismatch");
+static_assert(sizeof(TEquipmentItemSet) == 41 && offsetof(TEquipmentItemSet, vnum) == 0 && offsetof(TEquipmentItemSet, count) == 4 && offsetof(TEquipmentItemSet, alSockets) == 8 && offsetof(TEquipmentItemSet, aAttr) == 20, "TEquipmentItemSet layout mismatch");
+#if !defined(ENABLE_ACCE_COSTUME_SYSTEM) && !defined(ENABLE_AURA_COSTUME_SYSTEM) && !defined(ENABLE_PENDANT_ITEM) && !defined(ENABLE_GLOVE_ITEM)
+static_assert(WEAR_MAX_NUM == 32, "WEAR_MAX_NUM must be 32");
+static_assert(sizeof(TPacketGCViewEquip) == 1317 && offsetof(TPacketGCViewEquip, dwVID) == 1 && offsetof(TPacketGCViewEquip, equips) == 5, "TPacketGCViewEquip layout mismatch");
+#endif
+static_assert(sizeof(TPacketGCDragonSoulRefine) == 5 && offsetof(TPacketGCDragonSoulRefine, bSubType) == 1 && offsetof(TPacketGCDragonSoulRefine, Pos) == 2, "TPacketGCDragonSoulRefine layout mismatch");
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

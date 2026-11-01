@@ -879,7 +879,7 @@ PyObject * playerGetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCount(TItemPos (INVENTORY, iSlotIndex));
-			return Py_BuildValue("i", ItemNum);
+			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 		}
 	case 2:
 		{
@@ -891,7 +891,7 @@ PyObject * playerGetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCount(Cell);
-			return Py_BuildValue("i", ItemNum);
+			return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 		}
 	default:
 		return Py_BuildException();
@@ -910,7 +910,7 @@ PyObject * playerSetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT bCount;
-			if (!PyTuple_GetUnsignedLong(poArgs, 1, &bCount))
+			long long llCount = 0; if (!PyTuple_GetLongLong(poArgs, 1, &llCount) || llCount <= 0 || llCount > UINT32_MAX || ((bCount = static_cast<ITEM_COUNT>(llCount)), false))
 				return Py_BuildException();
 
 			if (0 == bCount)
@@ -929,7 +929,7 @@ PyObject * playerSetItemCount(PyObject* poSelf, PyObject* poArgs)
 				return Py_BuildException();
 
 			ITEM_COUNT bCount;
-			if (!PyTuple_GetUnsignedLong(poArgs, 2, &bCount))
+			long long llCount = 0; if (!PyTuple_GetLongLong(poArgs, 2, &llCount) || llCount < 0 || llCount > UINT32_MAX || ((bCount = static_cast<ITEM_COUNT>(llCount)), false))
 				return Py_BuildException();
 
 			CPythonPlayer::Instance().SetItemCount(Cell, bCount);
@@ -948,8 +948,8 @@ PyObject * playerGetItemCountByVnum(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &ivnum))
 		return Py_BuildException();
 
-	int ItemNum = CPythonPlayer::Instance().GetItemCountByVnum(ivnum);
-	return Py_BuildValue("i", ItemNum);
+	ITEM_COUNT ItemNum = CPythonPlayer::Instance().GetItemCountByVnum(ivnum);
+	return (ItemNum <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(ItemNum)) : PyLong_FromUnsignedLong(ItemNum);
 }
 
 PyObject * playerGetItemMetinSocket(PyObject* poSelf, PyObject* poArgs)

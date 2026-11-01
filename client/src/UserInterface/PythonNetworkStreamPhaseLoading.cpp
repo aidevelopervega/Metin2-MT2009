@@ -337,7 +337,7 @@ bool CPythonNetworkStream::__RecvPlayerPoints()
 
 	for (DWORD i = 0; i < POINT_MAX_NUM; ++i)
 	{
-		if (i == POINT_GOLD && PointsPacket.points[i] == 0 && CPythonPlayer::Instance().GetGold() != 0)
+		if (i == POINT_GOLD)
 			continue;
 		CPythonPlayer::Instance().SetStatus(i, PointsPacket.points[i]);
 	}

@@ -174,6 +174,46 @@ static_assert(sizeof(TPacketMarriageAdd) == 74, "TPacketMarriageAdd size mismatc
 static_assert(sizeof(TPacketSetPremiumPass) == 16, "TPacketSetPremiumPass size mismatch");
 static_assert(sizeof(TPacketGGLogin) == 48, "TPacketGGLogin size mismatch");
 
+// Item, Inventory, Safebox, Equipment, Quickslot & Refine Wire Layout Checks
+static_assert(sizeof(ITEM_COUNT) == 4, "ITEM_COUNT must be 4-byte unsigned integer");
+static_assert(sizeof(TItemPos) == 3 && offsetof(TItemPos, window_type) == 0 && offsetof(TItemPos, cell) == 1, "TItemPos layout mismatch");
+static_assert(sizeof(TPlayerItemAttribute) == 3 && offsetof(TPlayerItemAttribute, bType) == 0 && offsetof(TPlayerItemAttribute, sValue) == 1, "TPlayerItemAttribute layout mismatch");
+static_assert(sizeof(TQuickslot) == 2 && offsetof(TQuickslot, type) == 0 && offsetof(TQuickslot, pos) == 1, "TQuickslot layout mismatch");
+static_assert(sizeof(TPlayerItem) == 60 && offsetof(TPlayerItem, id) == 0 && offsetof(TPlayerItem, window) == 8 && offsetof(TPlayerItem, pos) == 9 && offsetof(TPlayerItem, count) == 11 && offsetof(TPlayerItem, vnum) == 15 && offsetof(TPlayerItem, alSockets) == 19 && offsetof(TPlayerItem, aAttr) == 31 && offsetof(TPlayerItem, owner) == 52, "TPlayerItem layout mismatch");
+static_assert(sizeof(TPacketCGItemUse) == 4 && offsetof(TPacketCGItemUse, Cell) == 1, "TPacketCGItemUse layout mismatch");
+static_assert(sizeof(TPacketCGItemUseToItem) == 7 && offsetof(TPacketCGItemUseToItem, Cell) == 1 && offsetof(TPacketCGItemUseToItem, TargetCell) == 4, "TPacketCGItemUseToItem layout mismatch");
+static_assert(sizeof(TPacketCGItemDrop) == 4 && offsetof(TPacketCGItemDrop, Cell) == 1, "TPacketCGItemDrop layout mismatch");
+static_assert(sizeof(TPacketCGItemDrop2) == 8 && offsetof(TPacketCGItemDrop2, Cell) == 1 && offsetof(TPacketCGItemDrop2, count) == 4, "TPacketCGItemDrop2 layout mismatch");
+static_assert(sizeof(TPacketCGItemMove) == 11 && offsetof(TPacketCGItemMove, Cell) == 1 && offsetof(TPacketCGItemMove, CellTo) == 4 && offsetof(TPacketCGItemMove, count) == 7, "TPacketCGItemMove layout mismatch");
+static_assert(sizeof(TPacketCGItemPickup) == 5 && offsetof(TPacketCGItemPickup, vid) == 1, "TPacketCGItemPickup layout mismatch");
+static_assert(sizeof(TPacketCGGiveItem) == 12 && offsetof(TPacketCGGiveItem, dwTargetVID) == 1 && offsetof(TPacketCGGiveItem, ItemPos) == 5 && offsetof(TPacketCGGiveItem, byItemCount) == 8, "TPacketCGGiveItem layout mismatch");
+static_assert(sizeof(TPacketCGQuickslotAdd) == 4 && offsetof(TPacketCGQuickslotAdd, pos) == 1 && offsetof(TPacketCGQuickslotAdd, slot) == 2, "TPacketCGQuickslotAdd layout mismatch");
+static_assert(sizeof(TPacketCGQuickslotDel) == 2 && offsetof(TPacketCGQuickslotDel, pos) == 1, "TPacketCGQuickslotDel layout mismatch");
+static_assert(sizeof(TPacketCGQuickslotSwap) == 3 && offsetof(TPacketCGQuickslotSwap, pos) == 1 && offsetof(TPacketCGQuickslotSwap, change_pos) == 2, "TPacketCGQuickslotSwap layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxCheckin) == 5 && offsetof(TPacketCGSafeboxCheckin, bSafePos) == 1 && offsetof(TPacketCGSafeboxCheckin, ItemPos) == 2, "TPacketCGSafeboxCheckin layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxCheckout) == 5 && offsetof(TPacketCGSafeboxCheckout, bSafePos) == 1 && offsetof(TPacketCGSafeboxCheckout, ItemPos) == 2, "TPacketCGSafeboxCheckout layout mismatch");
+static_assert(sizeof(TPacketCGRefine) == 3 && offsetof(TPacketCGRefine, pos) == 1 && offsetof(TPacketCGRefine, type) == 2, "TPacketCGRefine layout mismatch");
+static_assert(sizeof(TPacketCGScriptSelectItem) == 5 && offsetof(TPacketCGScriptSelectItem, selection) == 1, "TPacketCGScriptSelectItem layout mismatch");
+static_assert(sizeof(TPacketCGDragonSoulRefine) == 47 && offsetof(TPacketCGDragonSoulRefine, bSubType) == 1 && offsetof(TPacketCGDragonSoulRefine, ItemGrid) == 2, "TPacketCGDragonSoulRefine layout mismatch");
+static_assert(sizeof(TPacketGCItemDelDeprecated) == 45 && offsetof(TPacketGCItemDelDeprecated, Cell) == 1 && offsetof(TPacketGCItemDelDeprecated, vnum) == 4 && offsetof(TPacketGCItemDelDeprecated, count) == 8 && offsetof(TPacketGCItemDelDeprecated, alSockets) == 12 && offsetof(TPacketGCItemDelDeprecated, aAttr) == 24, "TPacketGCItemDelDeprecated layout mismatch");
+static_assert(sizeof(TPacketGCItemSet) == 54 && offsetof(TPacketGCItemSet, Cell) == 1 && offsetof(TPacketGCItemSet, vnum) == 4 && offsetof(TPacketGCItemSet, count) == 8 && offsetof(TPacketGCItemSet, flags) == 12 && offsetof(TPacketGCItemSet, anti_flags) == 16 && offsetof(TPacketGCItemSet, highlight) == 20 && offsetof(TPacketGCItemSet, alSockets) == 21 && offsetof(TPacketGCItemSet, aAttr) == 33, "TPacketGCItemSet layout mismatch");
+static_assert(sizeof(TPacketGCItemDel) == 2 && offsetof(TPacketGCItemDel, pos) == 1, "TPacketGCItemDel layout mismatch");
+static_assert(sizeof(struct packet_item_use) == 16 && offsetof(struct packet_item_use, Cell) == 1 && offsetof(struct packet_item_use, ch_vid) == 4 && offsetof(struct packet_item_use, victim_vid) == 8 && offsetof(struct packet_item_use, vnum) == 12, "packet_item_use layout mismatch");
+static_assert(sizeof(TPacketGCItemUpdate) == 41 && offsetof(TPacketGCItemUpdate, Cell) == 1 && offsetof(TPacketGCItemUpdate, count) == 4 && offsetof(TPacketGCItemUpdate, alSockets) == 8 && offsetof(TPacketGCItemUpdate, aAttr) == 20, "TPacketGCItemUpdate layout mismatch");
+static_assert(sizeof(TPacketGCItemGroundAdd) == 26 && offsetof(TPacketGCItemGroundAdd, x) == 1 && offsetof(TPacketGCItemGroundAdd, dwVID) == 13 && offsetof(TPacketGCItemGroundAdd, dwVnum) == 17 && offsetof(TPacketGCItemGroundAdd, count) == 21 && offsetof(TPacketGCItemGroundAdd, bIsAttr) == 25, "TPacketGCItemGroundAdd layout mismatch");
+static_assert(sizeof(TPacketGCItemGroundDel) == 5 && offsetof(TPacketGCItemGroundDel, dwVID) == 1, "TPacketGCItemGroundDel layout mismatch");
+static_assert(sizeof(TPacketGCItemOwnership) == 30 && offsetof(TPacketGCItemOwnership, dwVID) == 1 && offsetof(TPacketGCItemOwnership, szName) == 5, "TPacketGCItemOwnership layout mismatch");
+static_assert(sizeof(struct packet_quickslot_add) == 4 && offsetof(struct packet_quickslot_add, pos) == 1 && offsetof(struct packet_quickslot_add, slot) == 2, "packet_quickslot_add layout mismatch");
+static_assert(sizeof(struct packet_quickslot_del) == 2 && offsetof(struct packet_quickslot_del, pos) == 1, "packet_quickslot_del layout mismatch");
+static_assert(sizeof(struct packet_quickslot_swap) == 3 && offsetof(struct packet_quickslot_swap, pos) == 1 && offsetof(struct packet_quickslot_swap, pos_to) == 2, "packet_quickslot_swap layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxSize) == 2 && offsetof(TPacketCGSafeboxSize, bSize) == 1, "TPacketCGSafeboxSize layout mismatch");
+static_assert(sizeof(TPacketCGSafeboxWrongPassword) == 1, "TPacketCGSafeboxWrongPassword size mismatch");
+static_assert(sizeof(TRefineMaterial) == 8 && offsetof(TRefineMaterial, vnum) == 0 && offsetof(TRefineMaterial, count) == 4, "TRefineMaterial layout mismatch");
+static_assert(sizeof(TPacketGCRefineInformation) == 64 && offsetof(TPacketGCRefineInformation, type) == 1 && offsetof(TPacketGCRefineInformation, pos) == 2 && offsetof(TPacketGCRefineInformation, src_vnum) == 3 && offsetof(TPacketGCRefineInformation, result_vnum) == 7 && offsetof(TPacketGCRefineInformation, material_count) == 11 && offsetof(TPacketGCRefineInformation, cost) == 12 && offsetof(TPacketGCRefineInformation, prob) == 20 && offsetof(TPacketGCRefineInformation, materials) == 24, "TPacketGCRefineInformation layout mismatch");
+static_assert(sizeof(TEquipmentItemSet) == 41 && offsetof(TEquipmentItemSet, vnum) == 0 && offsetof(TEquipmentItemSet, count) == 4 && offsetof(TEquipmentItemSet, alSockets) == 8 && offsetof(TEquipmentItemSet, aAttr) == 20, "TEquipmentItemSet layout mismatch");
+static_assert(sizeof(TPacketViewEquip) == 1317 && offsetof(TPacketViewEquip, vid) == 1 && offsetof(TPacketViewEquip, equips) == 5, "TPacketViewEquip layout mismatch");
+static_assert(sizeof(TPacketGCDragonSoulRefine) == 5 && offsetof(TPacketGCDragonSoulRefine, bSubType) == 1 && offsetof(TPacketGCDragonSoulRefine, Pos) == 2, "TPacketGCDragonSoulRefine layout mismatch");
+
 int main()
 {
     std::cout << "==================================================" << std::endl;
@@ -1688,7 +1728,7 @@ int main()
                     // Server Entergame sends HEADER_GC_SET_GOLD (500B Yang) before HEADER_GC_CHARACTER_POINTS (points[POINT_GOLD] == 0)
                     clientSetGold(500000000000LL);
                     for (uint32_t i = 0; i < POINT_MAX_NUM; ++i) {
-                        if (i == POINT_GOLD && inPoints.points[i] == 0 && clientGold != 0)
+                        if (i == POINT_GOLD)
                             continue;
                         clientSetStatus(i, inPoints.points[i]);
                     }
@@ -1768,7 +1808,7 @@ int main()
                     }
                 }
 
-                // F11c: Permanent Python 2.7 64-bit integer conversion boundary tests (PyTuple_GetUnsignedLongLong & PyTuple_GetLongLong contract)
+                // F11c: Numerical conversion & range validation model tests for Python 2.7 64-bit boundary (PyTuple_GetUnsignedLongLong & PyTuple_GetLongLong contract; does not link 32-bit python27.dll)
                 {
                     enum class PyMockKind { Int32, LongSigned, LongUnsigned, LongNegativeOverflow, LongPositiveOverflow, InvalidType };
                     struct PyMockObj {
@@ -1855,6 +1895,257 @@ int main()
                                 !simGetUnsignedLongLong({PyMockKind::InvalidType, 0, 0, 0}, &uOut) && uOut == 0ULL &&
                                 !simGetLongLong({PyMockKind::InvalidType, 0, 0, 0}, &sOut) && sOut == 0LL,
                         "F11c: Python 2.7 boundary INT64_MIN, INT64_MAX, INT64_MAX+1, UINT64_MAX, UINT64_MAX+1, INT64_MIN-1, and invalid types verified");
+                }
+
+                // F12: Client-Server Item, Inventory, Safebox, Equipment, Quickslot & Refine Protocol Verification
+                {
+                    // F12a: POINT_GOLD lifecycle across initial login, balance dropping to 0, character switch, and disconnect/re-login
+                    {
+                        constexpr int64_t kPointMagic = 0xe73ac1daLL;
+                        std::vector<int64_t> statusPoints(POINT_MAX_NUM, 0);
+                        YANG currentGold = 0;
+                        auto setGold = [&](YANG val) {
+                            currentGold = val;
+                            statusPoints[POINT_GOLD] = val ^ kPointMagic;
+                        };
+                        auto clearPlayer = [&]() {
+                            std::fill(statusPoints.begin(), statusPoints.end(), 0);
+                            setGold(0); // CPythonPlayer::Clear() calls SetGold(0) so both m_llGold and m_alPoint[POINT_GOLD] are 0
+                        };
+                        auto leaveGamePhase = [&]() {
+                            setGold(0); // CPythonNetworkStream::__LeaveGamePhase() resets Gold to 0
+                        };
+                        auto recvPlayerPoints = [&](const TPacketGCPoints& pkt) {
+                            for (uint32_t i = 0; i < POINT_MAX_NUM; ++i) {
+                                if (i == POINT_GOLD)
+                                    continue;
+                                statusPoints[i] = pkt.points[i] ^ kPointMagic;
+                            }
+                        };
+                        auto recvGoldUpdate = [&](const TPacketGCGoldUpdate& pkt) {
+                            setGold(pkt.totalGold);
+                        };
+
+                        // 1) Initial login (LoadingPhase -> Clear() -> PointsPacket(0) -> SetGold(750B))
+                        clearPlayer();
+                        WIRE_ASSERT(currentGold == 0 && (statusPoints[POINT_GOLD] ^ kPointMagic) == 0,
+                            "F12a: Initial CPythonPlayer::Clear() sets both m_llGold and XOR-masked POINT_GOLD to 0");
+                        TPacketGCPoints ptsPkt{};
+                        ptsPkt.header = HEADER_GC_CHARACTER_POINTS;
+                        ptsPkt.points[POINT_GOLD] = 0;
+                        ptsPkt.points[POINT_LEVEL] = 105;
+                        recvPlayerPoints(ptsPkt);
+                        TPacketGCGoldUpdate loginGold{};
+                        loginGold.bHeader = HEADER_GC_SET_GOLD;
+                        loginGold.totalGold = 750000000000LL;
+                        recvGoldUpdate(loginGold);
+                        WIRE_ASSERT(currentGold == 750000000000LL && (statusPoints[POINT_GOLD] ^ kPointMagic) == 750000000000LL,
+                            "F12a: Initial login preserves 750B Yang from HEADER_GC_SET_GOLD");
+
+                        // 2) In-game PointsPacket() resend (e.g. ResetPoint) must not zero out 750B Yang
+                        recvPlayerPoints(ptsPkt);
+                        WIRE_ASSERT(currentGold == 750000000000LL && (statusPoints[POINT_GOLD] ^ kPointMagic) == 750000000000LL,
+                            "F12a: In-game TPacketGCPoints (points[POINT_GOLD]==0) never overwrites active Yang balance");
+
+                        // 3) Balance legitimately drops to 0 in-game via HEADER_GC_UPDATE_GOLD (totalGold = 0)
+                        TPacketGCGoldUpdate zeroGold{};
+                        zeroGold.bHeader = HEADER_GC_UPDATE_GOLD;
+                        zeroGold.totalGold = 0LL;
+                        recvGoldUpdate(zeroGold);
+                        WIRE_ASSERT(currentGold == 0LL && (statusPoints[POINT_GOLD] ^ kPointMagic) == 0LL,
+                            "F12a: Balance dropping to 0 in-game via HEADER_GC_UPDATE_GOLD updates client Gold to 0");
+
+                        // 4) Character switch / disconnect -> re-login into character with 0 Yang (must not retain previous character's 750B)
+                        recvGoldUpdate(loginGold); // Character A had 750B
+                        leaveGamePhase();          // Disconnect / LeaveGamePhase
+                        clearPlayer();             // SetLoadingPhase -> Clear() for Character B
+                        recvPlayerPoints(ptsPkt);
+                        recvGoldUpdate(zeroGold);  // Character B has 0 Yang
+                        WIRE_ASSERT(currentGold == 0LL && (statusPoints[POINT_GOLD] ^ kPointMagic) == 0LL,
+                            "F12a: Character switch and disconnect/re-login leave zero stale balance when new character has 0 Yang");
+                    }
+
+                    // F12b: Persistent 64-bit ITEM_ID & owner PID in TPlayerItem (>2^32, >2^53, UINT64_MAX) and high ITEM_COUNT
+                    {
+                        const uint64_t highItemIds[] = {
+                            1ULL,
+                            4294967296ULL,          // 2^32
+                            4294967297ULL,          // 2^32 + 1
+                            9007199254740993ULL,    // 2^53 + 1
+                            UINT64_MAX              // 2^64 - 1
+                        };
+                        for (uint64_t itemId : highItemIds) {
+                            TPlayerItem dbItem{};
+                            dbItem.id = itemId;
+                            dbItem.window = INVENTORY;
+                            dbItem.pos = 89;
+                            dbItem.count = static_cast<ITEM_COUNT>(ITEM_MAX_COUNT);
+                            dbItem.vnum = 19;
+                            dbItem.alSockets[0] = 28430;
+                            dbItem.alSockets[1] = 28431;
+                            dbItem.alSockets[2] = 28432;
+                            dbItem.aAttr[0].bType = 1;
+                            dbItem.aAttr[0].sValue = 2000;
+                            dbItem.aAttr[6].bType = 72;
+                            dbItem.aAttr[6].sValue = 55;
+                            dbItem.owner = 9007199254740993ULL;
+
+                            std::vector<uint8_t> raw(sizeof(TPlayerItem));
+                            std::memcpy(raw.data(), &dbItem, sizeof(TPlayerItem));
+                            TPlayerItem outDbItem{};
+                            std::memcpy(&outDbItem, raw.data(), sizeof(TPlayerItem));
+
+                            WIRE_ASSERT(raw.size() == 60 &&
+                                        outDbItem.id == itemId &&
+                                        outDbItem.window == INVENTORY &&
+                                        outDbItem.pos == 89 &&
+                                        outDbItem.count == static_cast<ITEM_COUNT>(ITEM_MAX_COUNT) &&
+                                        outDbItem.vnum == 19 &&
+                                        outDbItem.alSockets[0] == 28430 &&
+                                        outDbItem.alSockets[2] == 28432 &&
+                                        outDbItem.aAttr[0].sValue == 2000 &&
+                                        outDbItem.aAttr[6].sValue == 55 &&
+                                        outDbItem.owner == 9007199254740993ULL,
+                                "F12b: TPlayerItem (60B) preserves 64-bit ITEM_ID (>2^32, >2^53, UINT64_MAX), 64-bit owner PID, and ITEM_COUNT losslessly");
+                        }
+                    }
+
+                    // F12c: TItemPos valid/invalid window and slot boundary validation
+                    {
+                        const TItemPos validInv(INVENTORY, 0);
+                        const TItemPos validInvLast(INVENTORY, INVENTORY_MAX_NUM - 1);
+                        const TItemPos validEquip(EQUIPMENT, 0);
+                        const TItemPos validEquipLast(EQUIPMENT, WEAR_MAX_NUM - 1);
+                        const TItemPos validDS(DRAGON_SOUL_INVENTORY, 0);
+                        const TItemPos validDSLast(DRAGON_SOUL_INVENTORY, DRAGON_SOUL_INVENTORY_MAX_NUM - 1);
+                        const TItemPos validBelt(BELT_INVENTORY, 0);
+                        const TItemPos validBeltLast(BELT_INVENTORY, BELT_INVENTORY_SLOT_COUNT - 1);
+                        const TItemPos invalidInv(INVENTORY, INVENTORY_AND_EQUIP_SLOT_MAX);
+                        const TItemPos invalidDS(DRAGON_SOUL_INVENTORY, DRAGON_SOUL_INVENTORY_MAX_NUM);
+                        const TItemPos invalidBelt(BELT_INVENTORY, INVENTORY_AND_EQUIP_SLOT_MAX);
+                        const TItemPos invalidWin(RESERVED_WINDOW, 0);
+                        const TItemPos invalidCellMax(INVENTORY, UINT16_MAX);
+
+                        WIRE_ASSERT(validInv.IsValidItemPosition() &&
+                                    validInvLast.IsValidItemPosition() &&
+                                    validEquip.IsValidItemPosition() &&
+                                    validEquipLast.IsValidItemPosition() &&
+                                    validDS.IsValidItemPosition() &&
+                                    validDSLast.IsValidItemPosition() &&
+                                    validBelt.IsValidItemPosition() &&
+                                    validBeltLast.IsValidItemPosition() &&
+                                    !invalidInv.IsValidItemPosition() &&
+                                    !invalidDS.IsValidItemPosition() &&
+                                    !invalidBelt.IsValidItemPosition() &&
+                                    !invalidWin.IsValidItemPosition() &&
+                                    !invalidCellMax.IsValidItemPosition(),
+                            "F12c: TItemPos::IsValidItemPosition accepts valid INVENTORY/EQUIPMENT/DS/BELT slots and rejects out-of-range cells and RESERVED_WINDOW");
+                    }
+
+                    // F12d: Client-Server ItemSet (54B, Inventory/Safebox/Mall), ItemUpdate (41B), ItemUse (16B), ViewEquip (1317B), and RefineInformation (64B, 64-bit YANG cost)
+                    {
+                        // Simulate client Packet.h TRefineTable (61B) & TPacketGCRefineInformationNew (64B) vs server TPacketGCRefineInformation (64B)
+                        #pragma pack(push, 1)
+                        struct ClientTRefineMaterial {
+                            uint32_t vnum;
+                            ITEM_COUNT count;
+                        };
+                        struct ClientTRefineTable {
+                            uint32_t src_vnum;
+                            uint32_t result_vnum;
+                            uint8_t material_count;
+                            YANG cost;
+                            int32_t prob;
+                            ClientTRefineMaterial materials[REFINE_MATERIAL_MAX_NUM];
+                        };
+                        struct ClientTPacketGCRefineInformationNew {
+                            uint8_t header;
+                            uint8_t type;
+                            uint8_t pos;
+                            ClientTRefineTable refine_table;
+                        };
+                        #pragma pack(pop)
+
+                        static_assert(sizeof(ClientTRefineTable) == 61, "ClientTRefineTable must be 61 bytes");
+                        static_assert(sizeof(ClientTPacketGCRefineInformationNew) == sizeof(TPacketGCRefineInformation),
+                            "ClientTPacketGCRefineInformationNew (64B) must match server TPacketGCRefineInformation (64B)");
+
+                        TPacketGCRefineInformation srvRefine{};
+                        srvRefine.header = HEADER_GC_REFINE_INFORMATION;
+                        srvRefine.type = 2;
+                        srvRefine.pos = 44;
+                        srvRefine.src_vnum = 149;
+                        srvRefine.result_vnum = 159;
+                        srvRefine.material_count = 3;
+                        srvRefine.cost = 25000000000LL; // 25B Yang (> 2^32)
+                        srvRefine.prob = 85;
+                        srvRefine.materials[0] = { 27987, 1 };
+                        srvRefine.materials[1] = { 27992, 2 };
+                        srvRefine.materials[2] = { 70031, static_cast<ITEM_COUNT>(ITEM_MAX_COUNT) };
+
+                        ClientTPacketGCRefineInformationNew cliRefine{};
+                        std::memcpy(&cliRefine, &srvRefine, sizeof(srvRefine));
+
+                        WIRE_ASSERT(sizeof(srvRefine) == 64 &&
+                                    cliRefine.header == HEADER_GC_REFINE_INFORMATION &&
+                                    cliRefine.type == 2 &&
+                                    cliRefine.pos == 44 &&
+                                    cliRefine.refine_table.src_vnum == 149 &&
+                                    cliRefine.refine_table.result_vnum == 159 &&
+                                    cliRefine.refine_table.material_count == 3 &&
+                                    cliRefine.refine_table.cost == 25000000000LL &&
+                                    cliRefine.refine_table.prob == 85 &&
+                                    cliRefine.refine_table.materials[0].vnum == 27987 &&
+                                    cliRefine.refine_table.materials[0].count == 1 &&
+                                    cliRefine.refine_table.materials[2].vnum == 70031 &&
+                                    cliRefine.refine_table.materials[2].count == static_cast<ITEM_COUNT>(ITEM_MAX_COUNT),
+                            "F12d: Server TPacketGCRefineInformation (64B) & Client TPacketGCRefineInformationNew (64B) match byte-for-byte with 64-bit YANG cost >2^32");
+
+                        // Safebox / Mall ItemSet (HEADER_GC_SAFEBOX_SET = 85, HEADER_GC_MALL_SET = 128) use 54-byte TPacketGCItemSet (client TPacketGCItemSet2)
+                        TPacketGCItemSet safeboxSet{};
+                        safeboxSet.header = HEADER_GC_SAFEBOX_SET;
+                        safeboxSet.Cell = TItemPos(SAFEBOX, 12);
+                        safeboxSet.vnum = 71084;
+                        safeboxSet.count = 200;
+                        safeboxSet.flags = 0x00000004U;
+                        safeboxSet.anti_flags = 0x80000000U;
+                        safeboxSet.highlight = true;
+                        safeboxSet.alSockets[0] = 100;
+                        safeboxSet.alSockets[1] = 200;
+                        safeboxSet.alSockets[2] = 300;
+                        safeboxSet.aAttr[0].bType = 15;
+                        safeboxSet.aAttr[0].sValue = 10;
+
+                        TPacketGCItemSet inSafeboxSet{};
+                        std::memcpy(&inSafeboxSet, &safeboxSet, sizeof(safeboxSet));
+                        WIRE_ASSERT(sizeof(safeboxSet) == 54 &&
+                                    inSafeboxSet.header == HEADER_GC_SAFEBOX_SET &&
+                                    inSafeboxSet.Cell.window_type == SAFEBOX &&
+                                    inSafeboxSet.Cell.cell == 12 &&
+                                    inSafeboxSet.vnum == 71084 &&
+                                    inSafeboxSet.count == 200 &&
+                                    inSafeboxSet.anti_flags == 0x80000000U &&
+                                    inSafeboxSet.highlight == true &&
+                                    inSafeboxSet.alSockets[2] == 300 &&
+                                    inSafeboxSet.aAttr[0].sValue == 10,
+                            "F12d: HEADER_GC_SAFEBOX_SET / HEADER_GC_MALL_SET 54-byte TPacketGCItemSet (client TPacketGCItemSet2) preserves Cell, count, flags, sockets, and attrs");
+
+                        // Client Python C API item count boundary validation model (rejects negative and >UINT32_MAX in move/drop/setCount)
+                        auto isValidClientItemCountArg = [](int64_t llCount, bool allowZero) -> bool {
+                            if (allowZero)
+                                return llCount >= 0 && llCount <= static_cast<int64_t>(UINT32_MAX);
+                            return llCount > 0 && llCount <= static_cast<int64_t>(UINT32_MAX);
+                        };
+                        WIRE_ASSERT(isValidClientItemCountArg(0LL, true) &&
+                                    !isValidClientItemCountArg(0LL, false) &&
+                                    isValidClientItemCountArg(1LL, false) &&
+                                    isValidClientItemCountArg(200LL, true) &&
+                                    isValidClientItemCountArg(static_cast<int64_t>(UINT32_MAX), true) &&
+                                    !isValidClientItemCountArg(-1LL, true) &&
+                                    !isValidClientItemCountArg(INT64_MIN, true) &&
+                                    !isValidClientItemCountArg(static_cast<int64_t>(UINT32_MAX) + 1LL, true),
+                            "F12d: Client item count argument validation rejects negative (-1, INT64_MIN) and >UINT32_MAX wrap-around");
+                    }
                 }
             }
         }

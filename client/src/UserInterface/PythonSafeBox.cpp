@@ -181,7 +181,7 @@ PyObject * safeboxGetItemCount(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonSafeBox::Instance().GetItemDataPtr(ipos, &pInstance))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", pInstance->count);
+	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
 }
 
 PyObject * safeboxGetItemFlags(PyObject * poSelf, PyObject * poArgs)
@@ -206,7 +206,7 @@ PyObject * safeboxGetItemMetinSocket(PyObject * poSelf, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 1, &iSocketIndex))
 		return Py_BadArgument();
 
-	if (iSocketIndex >= ITEM_SOCKET_SLOT_MAX_NUM)
+	if (iSocketIndex < 0 || iSocketIndex >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return Py_BuildException();
 
 	TItemData * pItemData;
@@ -263,7 +263,7 @@ PyObject * safeboxGetMallItemCount(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonSafeBox::Instance().GetMallItemDataPtr(ipos, &pInstance))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", pInstance->count);
+	return (pInstance->count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(pInstance->count)) : PyLong_FromUnsignedLong(pInstance->count);
 }
 
 PyObject * safeboxGetMallItemMetinSocket(PyObject * poSelf, PyObject * poArgs)
@@ -275,7 +275,7 @@ PyObject * safeboxGetMallItemMetinSocket(PyObject * poSelf, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 1, &iSocketIndex))
 		return Py_BadArgument();
 
-	if (iSocketIndex >= ITEM_SOCKET_SLOT_MAX_NUM)
+	if (iSocketIndex < 0 || iSocketIndex >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return Py_BuildException();
 
 	TItemData * pItemData;

@@ -997,6 +997,7 @@ void CPythonNetworkStream::__LeaveGamePhase()
 
 	CPythonItem& rkItemMgr=CPythonItem::Instance();
 	rkItemMgr.Destroy();
+	CPythonPlayer::Instance().SetGold(0);
 #ifdef ENABLE_IKASHOP_RENEWAL
 #ifdef ENABLE_IKASHOP_ENTITIES
 	CPythonIkarusShop::instance().DeleteEntities();
@@ -4447,13 +4448,13 @@ bool CPythonNetworkStream::RecvRefineInformationPacket()
 	TRefineTable & rkRefineTable = kRefineInfoPacket.refine_table;
 	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 		"OpenRefineDialog",
-		Py_BuildValue("(iiii)",
+		Py_BuildValue("(iiLi)",
 			kRefineInfoPacket.pos,
 			kRefineInfoPacket.refine_table.result_vnum,
-			rkRefineTable.cost,
+			static_cast<long long>(rkRefineTable.cost),
 			rkRefineTable.prob));
 
-	for (int i = 0; i < rkRefineTable.material_count; ++i)
+	for (int i = 0; i < rkRefineTable.material_count && i < REFINE_MATERIAL_MAX_NUM; ++i)
 	{
 		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "AppendMaterialToRefineDialog", Py_BuildValue("(ii)", rkRefineTable.materials[i].vnum, rkRefineTable.materials[i].count));
 	}
@@ -4478,15 +4479,15 @@ bool CPythonNetworkStream::RecvRefineInformationPacketNew()
 	TRefineTable & rkRefineTable = kRefineInfoPacket.refine_table;
 	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 		"OpenRefineDialog",
-		Py_BuildValue("(iiiii)",
+		Py_BuildValue("(iiLii)",
 			kRefineInfoPacket.pos,
 			kRefineInfoPacket.refine_table.result_vnum,
-			rkRefineTable.cost,
+			static_cast<long long>(rkRefineTable.cost),
 			rkRefineTable.prob,
 			kRefineInfoPacket.type)
 		);
 
-	for (int i = 0; i < rkRefineTable.material_count; ++i)
+	for (int i = 0; i < rkRefineTable.material_count && i < REFINE_MATERIAL_MAX_NUM; ++i)
 	{
 		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "AppendMaterialToRefineDialog", Py_BuildValue("(ii)", rkRefineTable.materials[i].vnum, rkRefineTable.materials[i].count));
 	}
