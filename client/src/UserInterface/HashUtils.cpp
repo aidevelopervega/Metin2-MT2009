@@ -14,7 +14,7 @@ std::string encryptAESString(const std::string& plainText, const std::string& ke
 
     // Create an AES encryptor in ECB mode
     CryptoPP::ECB_Mode<CryptoPP::AES>::Encryption encryptor(
-        reinterpret_cast<const byte*>(key.data()),
+        reinterpret_cast<const CryptoPP::byte*>(key.data()),
         key.size()
     );
 
@@ -34,7 +34,7 @@ std::string decryptAESString(const std::string& cipherText, const std::string& k
 
     // Create an AES decryptor in ECB mode
     CryptoPP::ECB_Mode<CryptoPP::AES>::Decryption decryptor(
-        reinterpret_cast<const byte*>(key.data()),
+        reinterpret_cast<const CryptoPP::byte*>(key.data()),
         key.size()
     );
 

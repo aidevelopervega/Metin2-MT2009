@@ -8,7 +8,9 @@
 #include "PythonCaptcha.h"
 
 #include "AbstractPlayer.h"
+#ifdef __THEMIDA__
 #include <ThemidaSDK.h>
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // SafeBox

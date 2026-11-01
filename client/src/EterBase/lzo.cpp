@@ -1,8 +1,6 @@
 #include "StdAfx.h"
 #include <stdlib.h>
-#ifndef _WIN64
 #include <lzo/lzoLibLink.h>
-#endif
 
 #include "lzo.h"
 #include "tea.h"

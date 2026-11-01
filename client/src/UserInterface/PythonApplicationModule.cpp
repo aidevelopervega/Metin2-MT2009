@@ -1318,7 +1318,9 @@ PyObject* appRestGETRequest(PyObject* poSelf, PyObject* poArgs)
 #include <CryptoPP/sha.h>
 #include <CryptoPP/hmac.h>
 #include <CryptoPP/hex.h>
+#ifdef __THEMIDA__
 #include <ThemidaSDK.h>
+#endif
 std::string generate_nonce(size_t length = 16) {
 	const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	std::random_device rd;
@@ -1333,7 +1335,9 @@ std::string generate_nonce(size_t length = 16) {
 }
 
 std::string create_signature(const std::string& payload, const std::string& timestamp, const std::string& nonce, const std::string& secret_key) {
+#ifdef __THEMIDA__
 	VM_START
+#endif
 		// Combine message components
 		std::string message = payload + ":" + timestamp + ":" + nonce;
 
@@ -1348,7 +1352,9 @@ std::string create_signature(const std::string& payload, const std::string& time
 			new CryptoPP::HexEncoder(new CryptoPP::StringSink(digest)) // Encode result as hex
 		)
 	);
+#ifdef __THEMIDA__
 	VM_END
+#endif
 		return digest;
 }
 
@@ -1384,12 +1390,16 @@ PyObject* appRestPOSTRequest(PyObject* poSelf, PyObject* poArgs)
 		// Make the connection on the IP address we get from a lookup
 		stream.connect(results);
 
+#ifdef __THEMIDA__
 		VM_START
+#endif
 		std::string payload = "player_request_data";
 		std::string nonce = generate_nonce();
 		auto timestamp = std::to_string(std::time(nullptr));
 		std::string signature = create_signature(payload, timestamp, nonce, "e22cce05146ae2758752639d1330afe256864f7314e2a04fa509f869fbdf9436");
+#ifdef __THEMIDA__
 		VM_END
+#endif
 
 		std::string json_body;
 		json_body += "{";

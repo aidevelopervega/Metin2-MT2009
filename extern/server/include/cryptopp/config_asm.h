@@ -33,7 +33,9 @@
 // may use higher ISAs depending on compiler options, but the library will not
 // explicitly use the ISAs. When disabling ASM, it is best to do it from
 // config.h to ensure the library and all programs share the setting.
-// #define CRYPTOPP_DISABLE_ASM 1
+#if defined(_MSC_VER) && defined(_M_X64) && !defined(CRYPTOPP_DISABLE_ASM)
+# define CRYPTOPP_DISABLE_ASM 1
+#endif
 
 // https://github.com/weidai11/cryptopp/issues/719
 #if defined(__native_client__)

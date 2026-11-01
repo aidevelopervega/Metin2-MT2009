@@ -4,7 +4,9 @@
 #include "PythonExceptionSender.h"
 #include "resource.h"
 #include "Version.h"
+#ifdef __THEMIDA__
 #include "ThemidaSDK.h"
+#endif
 
 #ifdef _DEBUG
 #include <crtdbg.h>
@@ -27,7 +29,11 @@ volatile int _AVOID_FLOATING_POINT_LIBRARY_BUG = _fltused;
 #pragma comment( lib, "version.lib" )
 
 #pragma comment( lib, "imagehlp.lib" )
+#ifdef _WIN64
+#pragma comment( lib, "devil_x64.lib" )
+#else
 #pragma comment( lib, "devil.lib" )
+#endif
 
 #if GrannyProductMinorVersion==4
 #pragma comment( lib, "granny2.4.0.10.lib" )

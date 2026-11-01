@@ -292,10 +292,17 @@ void SGuildMarkBlock::Compress(const Pixel * pxBuf)
 {
 	m_sizeCompBuf = MAX_COMP_SIZE;
 
+#if defined(_WIN64)
+	if (LZO_E_OK != lzo1x_1_compress((const BYTE *) pxBuf,
+		sizeof(Pixel) * SGuildMarkBlock::SIZE, m_abCompBuf,
+		(lzo_uint*) &m_sizeCompBuf,
+		CLZO::Instance().GetWorkMemory()))
+#else
 	if (LZO_E_OK != lzo1x_999_compress((const BYTE *) pxBuf,
 		sizeof(Pixel) * SGuildMarkBlock::SIZE, m_abCompBuf,
 		(lzo_uint*) &m_sizeCompBuf,
 		CLZO::Instance().GetWorkMemory()))
+#endif
 	{
 		sys_err("SGuildMarkBlock::Compress: Error! %u > %u", sizeof(Pixel) * SGuildMarkBlock::SIZE, m_sizeCompBuf);
 		return;

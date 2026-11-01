@@ -2,9 +2,10 @@
 #define __INC_METIN_II_MARKIMAGE_H__
 
 #include <IL/il.h>
+#include <cstdint>
 #include "minilzo.h"
 
-typedef unsigned long Pixel;
+typedef uint32_t Pixel;
 
 struct SGuildMark
 {

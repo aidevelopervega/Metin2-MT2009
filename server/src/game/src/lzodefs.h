@@ -25,6 +25,7 @@
    http://www.oberhumer.com/opensource/lzo/
  */
 
+
 #ifndef __LZODEFS_H_INCLUDED
 #define __LZODEFS_H_INCLUDED 1
 
@@ -3265,4 +3266,3 @@ LZO_COMPILE_TIME_ASSERT_HEADER(sizeof(lzo_int_fast64_t) == sizeof(lzo_uint_fast6
 #endif /* already included */
 
 /* vim:set ts=4 sw=4 et: */
-

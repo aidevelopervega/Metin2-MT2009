@@ -1,0 +1,923 @@
+{
+  "schema_version": "1.0.0",
+  "project": "Metin2-MT2009",
+  "branch": "dev/windows-gcc-baseline",
+  "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37",
+  "parity_pairs": [
+    {
+      "name": "Crypto++ 8.9.0 Headers",
+      "dir_a": "extern/server/include/cryptopp",
+      "dir_b": "extern/client/include/cryptopp",
+      "expected_file_count": 193
+    },
+    {
+      "name": "DevIL 1.8.0 Headers",
+      "dir_a": "extern/server/include/IL",
+      "dir_b": "extern/client/include/IL",
+      "expected_file_count": 8
+    },
+    {
+      "name": "LZO 2.10 Headers",
+      "dir_a": "extern/client/include/lzo",
+      "dir_b": "server/src/game/src/lzo",
+      "expected_file_count": 14
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "boost",
+      "name": "Boost C++ Libraries",
+      "purpose": "Header-only containers, unordered_map, random, asio, algorithm/string, crc, property_tree",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/common/include/boost",
+      "header_version": "1.92.0 (BOOST_VERSION=109200)",
+      "source_build_version": "1.92.0 (header-only)",
+      "source_origin": {
+        "url": "https://github.com/boostorg/boost",
+        "version_tag": "boost-1.92.0"
+      },
+      "license": "BSL-1.0",
+      "compiler_crt_abi": "C++20 header-only; MSVC 18 AMD64 & GCC 14/16 AMD64 (Windows UCRT64 + FreeBSD 15.1)",
+      "debug_release_variants": "Header-only (Debug/Release agnostic)",
+      "linkage": "header-only",
+      "binaries": [],
+      "usage_evidence": [
+        "client/src/EterPack/EterPack.h:5 (#include <boost/unordered_map.hpp>)",
+        "client/src/UserInterface/Hardware.cpp:12 (#include <boost/algorithm/string/trim.hpp>)",
+        "server/src/game/src/stdafx.h:35 (#include <boost/unordered_map.hpp>)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Removed stale 2023 extern/client/include/boost .ipp shadowing files and unused 32-bit Boost 1.67 static libs; client and server now share 100% unified Boost 1.92.0 in extern/common/include/boost.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "rapidjson",
+      "name": "RapidJSON",
+      "purpose": "Fast DOM/SAX JSON parser and generator",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/common/include/rapidjson",
+      "header_version": "1.1.0",
+      "source_build_version": "1.1.0 (header-only)",
+      "source_origin": {
+        "url": "https://github.com/Tencent/rapidjson",
+        "version_tag": "v1.1.0"
+      },
+      "license": "MIT",
+      "compiler_crt_abi": "C++20 header-only; MSVC 18 AMD64 & GCC 14/16 AMD64",
+      "debug_release_variants": "Header-only",
+      "linkage": "header-only",
+      "binaries": [],
+      "usage_evidence": [
+        "server/src/common/CommonDefines.h (JSON config/table serialization)",
+        "tests/test_unified_sdks_x64.cpp:19 (#include <rapidjson/document.h>)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Removed duplicate shadowing extern/client/include/rapidjson/document.h; unified on extern/common/include/rapidjson.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "fmt",
+      "name": " {fmt} Formatting Library",
+      "purpose": "Type-safe string formatting (FMT_HEADER_ONLY)",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/common/include/fmt",
+      "header_version": "12.2.0 (FMT_VERSION=120200)",
+      "source_build_version": "12.2.0 (header-only)",
+      "source_origin": {
+        "url": "https://github.com/fmtlib/fmt",
+        "version_tag": "12.2.0"
+      },
+      "license": "MIT",
+      "compiler_crt_abi": "C++20 header-only; MSVC 18 AMD64 & GCC 14/16 AMD64",
+      "debug_release_variants": "Header-only",
+      "linkage": "header-only",
+      "binaries": [],
+      "usage_evidence": [
+        "client/src/UserInterface/Packet.h:8 (#include <fmt/fmt.h>)",
+        "server/src/common/stl.h (#include <fmt/fmt.h>)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Shared between server and client via extern/common/include/fmt.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "msl",
+      "name": "Martysama Standard Library (msl)",
+      "purpose": "Header-only utility helpers (file_ptr, random, range, string_split, trim, utils)",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/common/include/msl",
+      "header_version": "1.2.1",
+      "source_build_version": "1.2.1 (header-only)",
+      "source_origin": {
+        "url": "https://github.com/martysama0134/msl",
+        "version_tag": "v1.2.1"
+      },
+      "license": "MIT",
+      "compiler_crt_abi": "C++20 header-only; MSVC 18 AMD64 & GCC 14/16 AMD64",
+      "debug_release_variants": "Header-only",
+      "linkage": "header-only",
+      "binaries": [],
+      "usage_evidence": [
+        "client/src/EterBase/StdAfx.h:35 (#include <msl/msl.h>)",
+        "server/src/thecore/include/stdafx.h:36 (#include <msl/msl.h>)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Shared between server and client via extern/common/include/msl.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "cryptopp",
+      "name": "Crypto++ Cryptographic Library",
+      "purpose": "Diffie-Hellman (DH2), AES, Camellia, Twofish, XTEA, MARS, RC5, RC6, Serpent, CAST-256, IDEA, 3DES, SEED, SHACAL-2, SHA, HexEncoder",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/server/include/cryptopp == extern/client/include/cryptopp",
+      "header_version": "8.9.0 (CRYPTOPP_VERSION=890)",
+      "source_build_version": "8.9.0 (extern/server/cryptopp, 152 TUs)",
+      "source_origin": {
+        "url": "https://github.com/weidai11/cryptopp",
+        "version_tag": "CRYPTOPP_8_9_0"
+      },
+      "license": "BSL-1.0",
+      "compiler_crt_abi": "Client: MSVC 18 AMD64 /MT /std:c++20 (cryptlib-x64.lib); Server: GCC 14/16 AMD64 CMake target cryptopp",
+      "debug_release_variants": "x64 Release static library (cryptlib-x64.lib); legacy Win32 cryptlib-Debug.lib / cryptlib-Release.lib retained only for Win32 fallback",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/cryptlib-x64.lib",
+          "arch": "COFF_0x8664",
+          "size_bytes": 33529386,
+          "sha256": "956431c14a99bf2135154ba24238eb4a63d314b3144ee5e5977d7a351585ba58",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/lib/cryptlib-Release.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 34252742,
+          "sha256": "f886312ecf6af6179a16c24bc68fae725bfd9a0b534274ce7115f89a5a679632",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/cryptlib-Debug.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 110819592,
+          "sha256": "d806d9f7f22a54d420cfe51030f57195ebf5c1e74c1ed445b894a40a78775075",
+          "variant": "Debug",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterBase/cipher.cpp:10-34 (DH2KeyAgreement + 14 CTR block ciphers)",
+        "client/src/EterPack/EterPackPolicy_CSHybridCrypt.cpp:10-12 (Camellia/Twofish/XTEA + AutoSeededRandomPool)",
+        "client/src/UserInterface/Hardware.cpp:6-10 (AES ECB + HexEncoder)",
+        "client/src/UserInterface/HashUtils.cpp:6-9 (AES ECB)",
+        "server/src/game/src/cipher.cpp:9-33 (Server packet encryption handshake)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Upgraded client Crypto++ from 8.2.0 (32-bit) to 8.9.0 matching server byte-for-byte (193 headers), removed 804 old 8.2.0 files and 336 Win32 .obj files in extern/client/cryptopp, and built native AMD64 extern/client/lib/cryptlib-x64.lib.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "devil",
+      "name": "DevIL (Developer's Image Library)",
+      "purpose": "Guild mark TGA/image creation, loading, pixel manipulation, and saving (CGuildMarkImage, CGuildMarkUploader)",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/server/include/IL == extern/client/include/IL",
+      "header_version": "1.8.0 (IL_VERSION=180)",
+      "source_build_version": "1.8.0",
+      "source_origin": {
+        "url": "https://github.com/DentonW/DevIL",
+        "version_tag": "v1.8.0"
+      },
+      "license": "LGPL-2.1",
+      "compiler_crt_abi": "C ABI (__stdcall / ILAPI); Client: devil_x64.lib + DevIL_x64.dll (PE32+ 0x8664); Server: libIL.a (COFF_0x8664 / FreeBSD pkg devil)",
+      "debug_release_variants": "Release x64 (devil_x64.lib + DevIL_x64.dll + libIL.a); legacy Win32 devil.lib retained for Win32 fallback",
+      "linkage": "Client: dynamic (DevIL_x64.dll via devil_x64.lib); Server Windows: static (libIL.a + libpng.a + libtiff.a + libjpeg.a + libmng.a + liblcms.a + libjasper.a + libjbig.a)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/devil_x64.lib",
+          "arch": "COFF_0x8664+IMPORT_0x8664",
+          "size_bytes": 20894,
+          "sha256": "36add5463fcc0ee5673e70a25bbadfdb311c9efae95eec488284de0524fd44aa",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/dll/DevIL_x64.dll",
+          "arch": "PE32+_0x8664",
+          "size_bytes": 1111859,
+          "sha256": "dca35d143074f17a77c2f9064f3fd8bb44903bbab23a185340f9335c86860f22",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libIL.a",
+          "arch": "COFF_0x8664",
+          "size_bytes": 818514,
+          "sha256": "f2a099c1f181882f7c8fe4f67c693f8897b1a82f948c530b75faf37b8562a5ce",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/lib/DevIL.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 31326,
+          "sha256": "06232d3ffff0639f5b6036277275a5302c9f706175b997add546cb9f84b5189e",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/dll/DevIL.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 1482240,
+          "sha256": "63cc8eacf8c415b00aa57f235c58040fdd437c6afa0c936ad9c87f33feeab2ca",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/UserInterface/MarkImage.cpp:42-140 (ilGenImages, ilBindImage, ilTexImage, ilLoad, ilSave, ilSetPixels, ilCopyPixels)",
+        "client/src/UserInterface/GuildMarkUploader.cpp:36-92 (ilGenImages, ilLoad, ilGetInteger, ilConvertImage, ilCopyPixels)",
+        "client/src/UserInterface/UserInterface.cpp:747 (ilInit)",
+        "server/src/game/src/MarkImage.cpp:25-130 (Server guild mark image management)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Unified client and server headers on DevIL 1.8.0 (8 headers), removed 6 SWIG/Lua files and 13 unused DevIL-1.7.8/ILU/ILUT 32-bit binaries, built PE32+ DevIL_x64.dll and devil_x64.lib, and fixed MarkImage.h Pixel typedef from unsigned long to uint32_t for LP64/LLP64 parity.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "lzo",
+      "name": "LZO / miniLZO Real-Time Data Compression",
+      "purpose": "EterPack archive compression/decompression and GuildMarkBlock compression",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/client/include/lzo == server/src/game/src/lzo",
+      "header_version": "2.10 (0x20a0)",
+      "source_build_version": "2.10 (server/src/game/src/minilzo.c)",
+      "source_origin": {
+        "url": "https://www.oberhumer.com/opensource/lzo/",
+        "version_tag": "2.10"
+      },
+      "license": "GPL-2.0-or-later",
+      "compiler_crt_abi": "C ABI; Client: lzo2_x64.lib (COFF_0x8664); Server: compiled directly via server/src/game/src/minilzo.c",
+      "debug_release_variants": "Release x64 (lzo2_x64.lib); legacy Win32 lzo2.lib retained for Win32 fallback",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/lzo2_x64.lib",
+          "arch": "COFF_0x8664",
+          "size_bytes": 14406,
+          "sha256": "69c47f577185239d8192dbb8b5f6fa2180b3491c96a040c6cc053999a31e1c63",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/lib/lzo2.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 188028,
+          "sha256": "6da38941669c7f04c2f327695b4de15b9d5aa32ce733a522585246b8116cbf46",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterBase/lzo.cpp:4 (#include <lzo/lzo1x.h>, lzo1x_1_compress, lzo1x_decompress_safe)",
+        "client/src/UserInterface/MarkImage.cpp:183,295 (lzo1x_decompress_safe, lzo1x_1_compress)",
+        "server/src/game/src/lzo_manager.cpp:1-80 (LZOManager::Compress, Decompress)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Replaced stale LZO 1.08 headers in server/src/game/src/lzo with unified LZO 2.10 headers (14 files) matching client and minilzo.c (2.10), and built native AMD64 extern/client/lib/lzo2_x64.lib.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "miniaudio",
+      "name": "miniaudio Single-File Audio Engine",
+      "purpose": "Native Windows x64 audio engine replacing 32-bit Miles Sound System (2D/3D spatial audio, BGM streaming, EterPack VFS)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/miniaudio/miniaudio.h",
+      "header_version": "0.11.26",
+      "source_build_version": "0.11.26 (pinned commit 3655ef300fd6feb4cdb65cbf6bf5dc4ddb7cb2e9)",
+      "source_origin": {
+        "url": "https://github.com/mackron/miniaudio",
+        "version_tag": "0.11.26 (3655ef300fd6feb4cdb65cbf6bf5dc4ddb7cb2e9)",
+        "sha256": "5b325f7d1a6fd72f94294963a441e2442887bc43f63df796a12c4a75f38b22c6"
+      },
+      "license": "MIT-0 / Public Domain (Unlicense)",
+      "compiler_crt_abi": "MSVC 18 AMD64 C/C++20 single-header implementation in client/src/MilesLib/MiniaudioEngine.cpp",
+      "debug_release_variants": "Compiled directly into client/MilesLib with MT2_USE_MINIAUDIO=1",
+      "linkage": "static (compiled in-tree)",
+      "binaries": [],
+      "usage_evidence": [
+        "client/src/MilesLib/MiniaudioEngine.cpp:12 (#include <miniaudio/miniaudio.h>)",
+        "client/src/MilesLib/SoundManager.cpp:15 (MT2_USE_MINIAUDIO production integration)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Verified with 42/42 prototype assertions and 33/33 MilesLib/CSoundManager + real EterPack VFS production assertions in PE32+ AMD64.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "python311_x64",
+      "name": "CPython 3.11.9 AMD64 Embedded Runtime",
+      "purpose": "Native 64-bit embedded Python interpreter for client ScriptLib/UserInterface modules (MT2_USE_PYTHON3=1)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "C:/Users/oyun/AppData/Local/Programs/Python/Python311/include",
+      "header_version": "3.11.9 (PY_VERSION_HEX=0x030B09F0)",
+      "source_build_version": "3.11.9 (tags/v3.11.9:de54cf5, MSC v.1938 64 bit AMD64)",
+      "source_origin": {
+        "url": "https://www.python.org/downloads/release/python-3119/",
+        "version_tag": "v3.11.9"
+      },
+      "license": "PSF-2.0",
+      "compiler_crt_abi": "MSVC v143/v145 UCRT AMD64 (COFF_0x8664 import library python311.lib + PE32+ python311.dll)",
+      "debug_release_variants": "Release AMD64 (python311.lib / python311.dll)",
+      "linkage": "dynamic",
+      "binaries": [
+        {
+          "path": "extern/client/lib/python27-static.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 30453822,
+          "sha256": "c57c264d9dee12105d4902e4889544b01c7ee368fe4e0419555653755cf43412",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/python27_d-static.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 12646432,
+          "sha256": "c22657d23656da8b895af66dbeaf1f2e88f3dc43a8512e44e98bf4731ae94ddb",
+          "variant": "Debug",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/liblib.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 26612762,
+          "sha256": "ce0f95a95249d5132d1ae07080c042516288521e164194586838d3daa3bcce86",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/liblib_d.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 35570188,
+          "sha256": "2008d1ed84887ac9195e46f8b763f7a8036d989f0ece6d4a0e5d1f1f02f47802",
+          "variant": "Debug",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/ScriptLib/StdAfx.h:30 (MT2_USE_PYTHON3=1 Python 3.11 C API bridge)",
+        "client/src/ScriptLib/PythonLauncher.cpp:1-260 (PyConfig, PyImport_AppendInittab, marshal loader)",
+        "client/src/UserInterface/PythonliblibManager.cpp:1-140 (PyModuleDef frozen rootlib table)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "35/35 client Python modules compiled to COFF AMD64 with CPython 3.11.9; 79/79 + 64/64 PE32+ runtime tests PASS. Legacy Python 2.7 (extern/client/include/Python27, python27-static.lib, liblib.lib) retained only behind default Win32 fallback until full client cutover.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "d3d9ex_win10sdk",
+      "name": "Direct3D 9Ex (Windows 10/11 SDK 10.0.26100.0)",
+      "purpose": "Sole permanent graphics API for MT2009 Windows x64 client (IDirect3D9Ex / IDirect3DDevice9Ex)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared/d3d9.h",
+      "header_version": "10.0.26100.0 (DIRECT3D_VERSION=0x0900)",
+      "source_build_version": "10.0.26100.0 (Windows SDK um/x64/d3d9.lib)",
+      "source_origin": {
+        "url": "https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/",
+        "version_tag": "10.0.26100.0"
+      },
+      "license": "Microsoft Windows SDK License",
+      "compiler_crt_abi": "MSVC 18 AMD64 + Windows SDK um/x64/d3d9.lib (IMPORT_0x8664)",
+      "debug_release_variants": "System SDK import library",
+      "linkage": "dynamic (d3d9.dll via Windows SDK x64 d3d9.lib)",
+      "binaries": [],
+      "usage_evidence": [
+        "client/src/EterLib/GrpBase.h:8 (IDirect3D9Ex / IDirect3DDevice9Ex)",
+        "client/src/EterLib/GrpDevice.cpp:1-420 (Direct3DCreate9Ex, CreateDeviceEx, ResetEx, PresentEx, CheckDeviceState)",
+        "client/src/UserInterface/PythonApplication.cpp:1-600 (Direct3DCreate9Ex permanent initialization)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Removed shadowing legacy pre-Vista extern/client/include/{d3d9.h,d3d9caps.h,d3d9types.h,d3drm*.h} and 32-bit extern/client/lib/{d3d9.lib,ddraw.lib,dmoguids.lib,dxguid.lib} so official Windows SDK 10.0.26100.0 D3D9Ex headers and um/x64 libraries resolve directly without /FI workarounds.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "mariadb_connector_c",
+      "name": "MariaDB Connector/C (libmariadb) for MariaDB 12.3 LTS",
+      "purpose": "Server SQL database client library for libsql, db, and game servers",
+      "used_in_client": false,
+      "used_in_server": true,
+      "is_common": false,
+      "header_path": "extern/server/include/mysql",
+      "header_version": "MariaDB Connector/C 3.4.x (MySQL-compatible C API)",
+      "source_build_version": "MariaDB 12.3 LTS / Connector-C x64",
+      "source_origin": {
+        "url": "https://github.com/mariadb-corporation/mariadb-connector-c",
+        "version_tag": "3.4"
+      },
+      "license": "LGPL-2.1",
+      "compiler_crt_abi": "Windows MinGW-w64 UCRT64 GCC 16 AMD64 (libmariadb.a) & FreeBSD 15.1 amd64 GCC 14",
+      "debug_release_variants": "Release AMD64",
+      "linkage": "static/dynamic via libsql",
+      "binaries": [
+        {
+          "path": "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libmariadb.a",
+          "arch": "COFF_0x8664",
+          "size_bytes": 170512,
+          "sha256": "b9840cc3de15777083141638f90d33693b708e69a74e9144c86bfb2243bc8746",
+          "variant": "Release",
+          "role": "active_x64"
+        }
+      ],
+      "usage_evidence": [
+        "server/src/libsql/include/AsyncSQL.h:8 (#include <mysql/mysql.h>)",
+        "server/src/db/src/ClientManager.cpp (MariaDB 12.3 LTS persistence)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Removed unused 32-bit client mysql/mysqlclient headers and binaries (extern/client/include/mysql*, extern/client/lib/*mysql*, extern/client/dll/libmysql.dll). Server MariaDB 12.3 LTS layer untouched per AGENTS.md.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "lua50_in_tree",
+      "name": "Lua 5.0.3 (In-Tree Server Quest VM)",
+      "purpose": "Server quest scripting virtual machine built from source in server/src/liblua/5.0",
+      "used_in_client": false,
+      "used_in_server": true,
+      "is_common": false,
+      "header_path": "server/src/liblua/5.0/include",
+      "header_version": "5.0.3",
+      "source_build_version": "5.0.3 (in-tree CMake target lua)",
+      "source_origin": {
+        "url": "https://www.lua.org/ftp/lua-5.0.3.tar.gz",
+        "version_tag": "5.0.3"
+      },
+      "license": "MIT",
+      "compiler_crt_abi": "GCC 14/16 AMD64 C++20/C99 clean build (Windows UCRT64 + FreeBSD 15.1)",
+      "debug_release_variants": "Built from source via CMake",
+      "linkage": "static",
+      "binaries": [],
+      "usage_evidence": [
+        "server/src/game/src/questlua.cpp:1-800 (Server quest Lua bindings + --check-lua 11/11 PASS + 202/202 quests)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Compiled cleanly as 64-bit from in-tree source on both Windows and FreeBSD.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "client_header_utilities",
+      "name": "Client Header-Only Utilities (smbios, xorstr, Discord RPC headers)",
+      "purpose": "SMBIOS parsing and compile-time string obfuscation in Hardware.cpp; Discord Game SDK/RPC headers",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/{smbios.hpp,xorstr.h,discord,discord_register.h,discord_rpc.h}",
+      "header_version": "In-tree 1.0",
+      "source_build_version": "Header-only / optional",
+      "source_origin": {
+        "url": "in-tree",
+        "version_tag": "in-tree"
+      },
+      "license": "MIT / BSD",
+      "compiler_crt_abi": "C++20 header-only; verified with MSVC 18 AMD64",
+      "debug_release_variants": "Header-only",
+      "linkage": "header-only (discord_rpc_*.lib quarantined for optional Win32)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/discord_rpc_r.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 1111886,
+          "sha256": "de79d9f55a5569b70a1107b0be6ece9a85ac2f61b3a0afec251f83cb0a4eeb5b",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/discord_rpc_d.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 962376,
+          "sha256": "29d361f22537a2305317e3cf718b2715a40cd4030a962bb54c5ab14492e359c0",
+          "variant": "Debug",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/UserInterface/Hardware.cpp:2-3 (#include <smbios.hpp>, #include <xorstr.h>)",
+        "client/src/UserInterface/PythonNetworkStreamPhaseGame.cpp:18 (#include <xorstr.h>)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "smbios.hpp and xorstr.h verified in 64-bit Hardware.obj and test_unified_sdks_x64.exe.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "libjpeg_turbo_win32_legacy",
+      "name": "libjpeg-turbo (Legacy Win32 EterImageLib)",
+      "purpose": "JPEG image save/load helper in client EterImageLib",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/libjpeg-9a",
+      "header_version": "libjpeg-turbo 2.0.2 (JPEG_LIB_VERSION=62)",
+      "source_build_version": "2.0.2",
+      "source_origin": {
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+        "version_tag": "2.0.2"
+      },
+      "license": "IJG / BSD-3-Clause",
+      "compiler_crt_abi": "Win32 0x014C static library in extern/client/lib/libjpeg-MT.lib",
+      "debug_release_variants": "Release & Debug Win32",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/libjpeg-MT.lib",
+          "arch": "IMPORT_0x014C",
+          "size_bytes": 4460262,
+          "sha256": "c81f0bb59046568ca1b33f9990329b8f2131b9f30167e01d0853c25ac60bba40",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        },
+        {
+          "path": "extern/client/lib/libjpeg-MTd.lib",
+          "arch": "IMPORT_0x014C",
+          "size_bytes": 4460262,
+          "sha256": "c81f0bb59046568ca1b33f9990329b8f2131b9f30167e01d0853c25ac60bba40",
+          "variant": "Debug",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterImageLib/Image.cpp (JPEG routines)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Removed duplicate Polish file 'libjpeg-MT \u2014 kopia.lib'.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "miles_win32_fallback",
+      "name": "Miles Sound System 6.5a (Legacy Win32 Fallback Only)",
+      "purpose": "Legacy 32-bit audio SDK superseded on x64 by miniaudio v0.11.26 (MT2_USE_MINIAUDIO=1)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/mss.h",
+      "header_version": "6.5a",
+      "source_build_version": "6.5a (proprietary 32-bit)",
+      "source_origin": {
+        "url": "Proprietary RAD Game Tools Miles Sound System",
+        "version_tag": "6.5a"
+      },
+      "license": "Proprietary (RAD Game Tools)",
+      "compiler_crt_abi": "Win32 0x014C only; bypassed on _WIN64 via MT2_USE_MINIAUDIO=1",
+      "debug_release_variants": "Release Win32",
+      "linkage": "dynamic (Win32 fallback only)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/mss32.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 263786,
+          "sha256": "5ffde5a8eb5b5dc6f0e7e36ae10faca72e8b6f3be081b06148e8e47a7b41c990",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/MilesLib/SoundBase.h:5 (#if !defined(MT2_USE_MINIAUDIO) #include <mss.h>)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Replaced on x64 by miniaudio v0.11.26; retained only for temporary Win32 fallback per user directive.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "themida_win32_optional",
+      "name": "Themida / WinLicense SDK (Optional Win32 Packing Macros)",
+      "purpose": "Optional VM_START/VM_END protection macros guarded by #ifdef __THEMIDA__",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/ThemidaSDK.h",
+      "header_version": "2.x",
+      "source_build_version": "2.x (32-bit SecureEngineSDK32.lib)",
+      "source_origin": {
+        "url": "Proprietary Oreans Technologies",
+        "version_tag": "2.x"
+      },
+      "license": "Proprietary (Oreans)",
+      "compiler_crt_abi": "Guarded by #ifdef __THEMIDA__; inactive on x64 builds",
+      "debug_release_variants": "Release Win32",
+      "linkage": "dynamic (only when __THEMIDA__ is defined)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/SecureEngineSDK32.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 211362,
+          "sha256": "62f78a173cece075dfe3b58cf158ea25385a0c36418e33a0dfcdd33f5a486b46",
+          "variant": "Release",
+          "role": "legacy_win32_quarantined"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/UserInterface/UserInterface.cpp:25 (#ifdef __THEMIDA__ #include <ThemidaSDK.h> #endif)"
+      ],
+      "decision": "VERIFIED",
+      "notes": "Fixed 5 unguarded #include <ThemidaSDK.h> directives across UserInterface/*.cpp so SecureEngineSDK32.lib is never pulled into x64 builds.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "granny2_blocker",
+      "name": "RAD Game Tools Granny 3D SDK",
+      "purpose": "Skeletal mesh/animation loading and rendering in EterGrnLib (.gr2 files)",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/granny.h",
+      "header_version": "2.11.8.0 (GRANNY2_LIB_VER=211)",
+      "source_build_version": "2.11.8.0 (Win32 0x014C only; no x64 granny2.lib/dll in repo)",
+      "source_origin": {
+        "url": "Proprietary RAD Game Tools Granny 3D",
+        "version_tag": "2.11.8.0"
+      },
+      "license": "Proprietary (RAD Game Tools)",
+      "compiler_crt_abi": "Win32 0x014C only (extern/client/lib/granny2.*.lib are IMPORT_0x014C); untouched per user rule",
+      "debug_release_variants": "Release Win32",
+      "linkage": "dynamic",
+      "binaries": [
+        {
+          "path": "extern/client/lib/granny2.11.8.0.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 257226,
+          "sha256": "c03ebed2de0210f5e4af954296700931e24f25594b3d59410efb69232b2fb079",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/lib/granny2.9.12.0.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 251630,
+          "sha256": "a357c6e2e8ae2238fcf59bc06146d0584d957328dc0558963528388f4afb8c44",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/lib/granny2.8.49.0.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 280514,
+          "sha256": "88ae15032e21b20743a91fcccc29a7601dd8883404a3905ed0cbb822964d535b",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/lib/granny2.7.0.30.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 252836,
+          "sha256": "b817fec574398e4331952a8da25051195c0adc8d08419651e1e4bdde5bd638d9",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/lib/granny2.4.0.10.lib",
+          "arch": "COFF_0x014C",
+          "size_bytes": 474726,
+          "sha256": "c80bcb932159e5f75cef93689049cf9dd035e60b8d7485078128fc571f0c0c69",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/dll/granny2.11.8.0.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 672256,
+          "sha256": "786954a7652133f793b1e974d791fed8d2ae24d5ad3accd92310d02ef18beca3",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/dll/granny2.9.12.0.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 505344,
+          "sha256": "331cd57ebed7e69c8688cc59eefa7cae926d0a3637be7adee9eda0202223bac7",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/dll/granny2.8.49.0.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 651776,
+          "sha256": "493a171ced5b0848986b445185a339527ec8ce827ab1aa911b282b929b4030fe",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/dll/granny2.7.0.30.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 534528,
+          "sha256": "90a2c44304079d7d56e4e2cd26d29fd5fa7fe864bbd344301760d159bf4d0ca2",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        },
+        {
+          "path": "extern/client/dll/granny2.4.0.10.dll",
+          "arch": "PE32_0x014C",
+          "size_bytes": 369719,
+          "sha256": "bf8352a753a7b769faa3fdd4b10ed1b95bf5de2b5432ff5c097a7d87bfb6fb33",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterGrnLib/StdAfx.h:6 (#include <granny.h>)",
+        "client/src/UserInterface/UserInterface.cpp:41 (#pragma comment(lib, \"granny2.11.8.0.lib\"))"
+      ],
+      "decision": "BLOCKED",
+      "notes": "Untouched per explicit user rule (#8: do not touch Granny SDK, source, granny2.dll, or .gr2 files). Remains a documented x64 full-client link blocker.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "speedtree_blocker",
+      "name": "IDV SpeedTreeRT SDK",
+      "purpose": "Vegetation/tree rendering in SpeedTreeLib",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/SpeedTreeRT.h",
+      "header_version": "1.6.0",
+      "source_build_version": "1.6.0 (Win32 0x014C static library only)",
+      "source_origin": {
+        "url": "Proprietary IDV SpeedTreeRT",
+        "version_tag": "1.6.0"
+      },
+      "license": "Proprietary (IDV)",
+      "compiler_crt_abi": "Win32 0x014C static library with MSVC 2013 _MSC_VER==1800 symbols (SpeedTreeRT.lib)",
+      "debug_release_variants": "Release Win32 (0x014C)",
+      "linkage": "static",
+      "binaries": [
+        {
+          "path": "extern/client/lib/SpeedTreeRT.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 50622,
+          "sha256": "beb0dcd40e7ee46158b6291b72d51a66c106d46dd87f6227802e17c9836be7e8",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/SpeedTreeLib/SpeedTreeForest.h:35 (#include <SpeedTreeRT.h>)",
+        "client/src/UserInterface/UserInterface.cpp:32 (#pragma comment(lib, \"SpeedTreeRT.lib\"))"
+      ],
+      "decision": "BLOCKED",
+      "notes": "SpeedTreeWrapper.cpp compiles to COFF AMD64 with D3D9Ex, but linking full metin2client.exe requires either a native x64 SpeedTreeRT library or a clean x64 vegetation replacement.",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    },
+    {
+      "id": "d3dx9_blocker",
+      "name": "Legacy DirectX 9 D3DX9 Helper Library (d3dx9.lib)",
+      "purpose": "D3DX math/matrix/mesh/texture helper functions across EterLib, EffectLib, GameLib, SphereLib",
+      "used_in_client": true,
+      "used_in_server": false,
+      "is_common": false,
+      "header_path": "extern/client/include/{d3dx9.h,d3dx9math.h,d3dx9math.inl,d3dx9core.h,d3dx9mesh.h,d3dx9tex.h,d3dx9effect.h,d3dx9shader.h,d3dx9shape.h,d3dx9anim.h,d3dx9xof.h}",
+      "header_version": "DirectX 9.0c D3DX9 (D3DX_VERSION=0x0902)",
+      "source_build_version": "DirectX SDK (Win32 0x014C d3dx9.lib only in repo)",
+      "source_origin": {
+        "url": "Microsoft DirectX SDK (June 2010) / Microsoft.DXSDK.D3DX",
+        "version_tag": "9.29.952.3111"
+      },
+      "license": "Microsoft DirectX SDK License",
+      "compiler_crt_abi": "Headers compile cleanly as AMD64 with Windows SDK 10.0.26100.0 d3d9.h (verified across 16 EterLib/GameLib/SpeedTreeLib/UserInterface .obj files); extern/client/lib/d3dx9.lib is currently 32-bit 0x014C",
+      "debug_release_variants": "Release Win32 (0x014C) in extern/client/lib/d3dx9.lib",
+      "linkage": "static/import",
+      "binaries": [
+        {
+          "path": "extern/client/lib/d3dx9.lib",
+          "arch": "COFF_0x014C+IMPORT_0x014C",
+          "size_bytes": 87600,
+          "sha256": "0b1cd009d5e5ed15080c4d7ad0245a273242da07e0747921e80ac3ccf9bc0fc2",
+          "variant": "Release",
+          "role": "blocked_x86_only"
+        }
+      ],
+      "usage_evidence": [
+        "client/src/EterLib/StdAfx.h:22 (#include <d3dx9.h>)",
+        "client/src/UserInterface/UserInterface.cpp:42 (#pragma comment(lib, \"d3dx9.lib\"))"
+      ],
+      "decision": "BLOCKED",
+      "notes": "Core D3D9Ex device/swapchain/texture/buffer pipeline links with Windows SDK x64 d3d9.lib; full client link requires x64 d3dx9.lib (from official Microsoft.DXSDK.D3DX x64 or DirectXMath/DDS/WIC replacement).",
+      "verified_base_commit": "40e630fc6cbab814da1da9835aa24168d240ce37"
+    }
+  ],
+  "removed_sdks": [
+    {
+      "id": "opencv",
+      "name": "OpenCV 4.10.0",
+      "removed_paths": [
+        "extern/common/include/opencv.hpp",
+        "extern/common/include/opencv2",
+        "extern/client/lib/opencv_core4100d.lib",
+        "extern/client/lib/opencv_imgcodecs4100d.lib",
+        "extern/client/lib/opencv_imgproc4100d.lib"
+      ],
+      "decision": "REMOVED",
+      "reason": "Zero #include or symbol usage in server/src or client/src; only dead linker input in unused game.vcxproj."
+    },
+    {
+      "id": "optionparser",
+      "name": "OptionParser",
+      "removed_paths": [
+        "extern/common/include/OptionParser"
+      ],
+      "decision": "REMOVED",
+      "reason": "Zero #include or symbol usage anywhere in server/src or client/src."
+    },
+    {
+      "id": "inih_minini",
+      "name": "inih & minIni",
+      "removed_paths": [
+        "extern/client/include/inih",
+        "extern/client/include/minIni",
+        "extern/client/lib/minIni-Debug-x86-mt.lib",
+        "extern/client/lib/minIni-Release-x86-mt.lib"
+      ],
+      "decision": "REMOVED",
+      "reason": "Zero #include or symbol usage anywhere in server/src or client/src."
+    },
+    {
+      "id": "lz4_snappy",
+      "name": "LZ4 1.9.1 & Snappy 1.1.4",
+      "removed_paths": [
+        "extern/client/include/lz4",
+        "extern/client/include/snappy",
+        "extern/client/lib/liblz4_static-Debug.lib",
+        "extern/client/lib/liblz4_static-Release.lib",
+        "extern/client/lib/snappy.lib",
+        "extern/client/lib/snappy_d.lib"
+      ],
+      "decision": "REMOVED",
+      "reason": "Zero #include or symbol usage anywhere in server/src or client/src."
+    },
+    {
+      "id": "client_mysql_unused",
+      "name": "Unused Client MySQL 8.0 / MariaDB 32-bit C Client",
+      "removed_paths": [
+        "extern/client/include/mysql",
+        "extern/client/include/mysqlclient",
+        "extern/client/lib/libmysql.lib",
+        "extern/client/lib/libmysqlclient.a",
+        "extern/client/lib/mysqlclient.lib",
+        "extern/client/dll/libmysql.dll"
+      ],
+      "decision": "REMOVED",
+      "reason": "Game client never connects directly to SQL; zero #include or symbol usage in client/src."
+    },
+    {
+      "id": "client_openssl_098k",
+      "name": "Unused Client OpenSSL 0.9.8k (2009 32-bit)",
+      "removed_paths": [
+        "extern/client/openssl"
+      ],
+      "decision": "REMOVED",
+      "reason": "Outdated 2009 OpenSSL 0.9.8k with zero usage in client/src."
+    },
+    {
+      "id": "client_legacy_backups_and_loose_objs",
+      "name": "Client Legacy Backups, Shadowing Headers, and 121 Loose 32-bit .obj Files",
+      "removed_paths": [
+        "extern/client/backup_dx8",
+        "extern/client/old_python_not_static",
+        "extern/client/cryptopp",
+        "extern/client/include/boost",
+        "extern/client/include/rapidjson",
+        "extern/client/include/d3d9.h",
+        "extern/client/include/d3d9caps.h",
+        "extern/client/include/d3d9types.h",
+        "extern/client/include/d3drm.h",
+        "extern/client/include/d3drmdef.h",
+        "extern/client/include/d3drmobj.h",
+        "extern/client/lib/d3d9.lib",
+        "extern/client/lib/ddraw.lib",
+        "extern/client/lib/dmoguids.lib",
+        "extern/client/lib/dxguid.lib",
+        "extern/client/lib/libboost_filesystem-vc141-mt-s-x32-1_67.lib",
+        "extern/client/lib/libboost_system-vc141-mt-s-x32-1_67.lib",
+        "extern/client/lib/Release",
+        "client/src/UserInterface/Hardware - Copy.cpp"
+      ],
+      "decision": "REMOVED",
+      "reason": "Removed dead backups, stale shadowing headers, 336 Win32 Crypto++ 8.2.0 .obj files, and 121 loose extracted 32-bit .obj files (~90 MB bloat)."
+    }
+  ]
+}

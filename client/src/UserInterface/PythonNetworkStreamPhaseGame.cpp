@@ -31,7 +31,13 @@
 #ifdef ENABLE_DISCORD_RPC
 #include "Discord.h"
 #include <discord_rpc.h>
+#endif
+
+#ifdef __THEMIDA__
 #include <ThemidaSDK.h>
+#endif
+
+#ifdef ENABLE_DISCORD_RPC
 
 #ifdef _DEBUG
 #pragma comment(lib, "discord_rpc_d.lib")

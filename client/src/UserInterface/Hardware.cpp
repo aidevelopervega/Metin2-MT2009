@@ -11,7 +11,9 @@
 
 #include <boost/algorithm/string/trim.hpp>
 #include <intrin.h>
+#ifdef __THEMIDA__
 #include <ThemidaSDK.h>
+#endif
 
 inline bool GetCPUID(std::string& sChecksum)
 {

@@ -25,6 +25,7 @@
    http://www.oberhumer.com/opensource/lzo/
  */
 
+
 #ifndef __LZOCONF_H_INCLUDED
 #define __LZOCONF_H_INCLUDED 1
 
@@ -38,6 +39,7 @@
 #endif
 #include <limits.h>
 #include <stddef.h>
+
 
 /***********************************************************************
 // LZO requires a conforming <limits.h>
@@ -58,9 +60,11 @@
 #include <lzo/lzodefs.h>
 #endif
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 /***********************************************************************
 // some core defines
@@ -78,6 +82,7 @@ extern "C" {
 #    define __LZO_CHECKER       1
 #  endif
 #endif
+
 
 /***********************************************************************
 // integral and pointer types
@@ -192,6 +197,7 @@ LZO_COMPILE_TIME_ASSERT_HEADER(sizeof(long *)   == sizeof(lzo_uintptr_t))
 LZO_COMPILE_TIME_ASSERT_HEADER(sizeof(void *)   == sizeof(lzo_voidp))
 LZO_COMPILE_TIME_ASSERT_HEADER(sizeof(char *)   == sizeof(lzo_bytep))
 
+
 /***********************************************************************
 // function types
 ************************************************************************/
@@ -257,6 +263,7 @@ typedef int
                                            lzo_voidp wrkmem,
                                      const lzo_bytep dict, lzo_uint dict_len );
 
+
 /* Callback interface. Currently only the progress indicator ("nprogress")
  * is used, but this may change in a future release. */
 
@@ -291,6 +298,7 @@ struct lzo_callback_t
     lzo_xint user3;
 };
 
+
 /***********************************************************************
 // error codes and prototypes
 ************************************************************************/
@@ -313,6 +321,7 @@ struct lzo_callback_t
 #define LZO_E_INVALID_ALIGNMENT     (-11)   /* pointer argument is not properly aligned */
 #define LZO_E_OUTPUT_NOT_CONSUMED   (-12)
 #define LZO_E_INTERNAL_ERROR        (-99)
+
 
 #ifndef lzo_sizeof_dict_t
 #  define lzo_sizeof_dict_t     ((unsigned)sizeof(lzo_bytep))
@@ -369,6 +378,7 @@ typedef union {
 LZO_EXTERN(unsigned) __lzo_align_gap(const lzo_voidp p, lzo_uint size);
 #define LZO_PTR_ALIGN_UP(p,size) \
     ((p) + (lzo_uint) __lzo_align_gap((const lzo_voidp)(p),(lzo_uint)(size)))
+
 
 /***********************************************************************
 // deprecated macros - only for backward compatibility
@@ -432,11 +442,12 @@ typedef union { lzo_bytep a; lzo_uint32_t b; } __lzo_pu32_u;
 
 #endif /* LZO_CFG_COMPAT */
 
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
 #endif /* already included */
 
-/* vim:set ts=4 sw=4 et: */
 
+/* vim:set ts=4 sw=4 et: */
