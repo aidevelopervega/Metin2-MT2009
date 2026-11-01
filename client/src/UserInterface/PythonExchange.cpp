@@ -3,12 +3,14 @@
 
 void CPythonExchange::SetSelfName(const char *name)
 {
-	strncpy(m_self.name, name, CHARACTER_NAME_MAX_LEN);
+	strncpy(m_self.name, name ? name : "", CHARACTER_NAME_MAX_LEN);
+	m_self.name[CHARACTER_NAME_MAX_LEN] = '\0';
 }
 
 void CPythonExchange::SetTargetName(const char *name)
 {
-	strncpy(m_victim.name, name, CHARACTER_NAME_MAX_LEN);
+	strncpy(m_victim.name, name ? name : "", CHARACTER_NAME_MAX_LEN);
+	m_victim.name[CHARACTER_NAME_MAX_LEN] = '\0';
 }
 
 char * CPythonExchange::GetNameFromSelf()
@@ -53,12 +55,12 @@ void CPythonExchange::SetElkToSelf(YANG elk)
 	m_self.elk = elk;
 }
 
-DWORD CPythonExchange::GetElkFromTarget()
+YANG CPythonExchange::GetElkFromTarget()
 {
 	return m_victim.elk;
 }
 
-DWORD CPythonExchange::GetElkFromSelf()
+YANG CPythonExchange::GetElkFromSelf()
 {
 	return m_self.elk;
 }
@@ -83,7 +85,7 @@ void CPythonExchange::SetItemToSelf(DWORD pos, DWORD vnum, ITEM_COUNT count)
 
 void CPythonExchange::SetItemMetinSocketToTarget(int pos, int imetinpos, DWORD vnum)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos < 0 || pos >= EXCHANGE_ITEM_MAX_NUM || imetinpos < 0 || imetinpos >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return;
 
 	m_victim.item_metin[pos][imetinpos] = vnum;
@@ -91,7 +93,7 @@ void CPythonExchange::SetItemMetinSocketToTarget(int pos, int imetinpos, DWORD v
 
 void CPythonExchange::SetItemMetinSocketToSelf(int pos, int imetinpos, DWORD vnum)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos < 0 || pos >= EXCHANGE_ITEM_MAX_NUM || imetinpos < 0 || imetinpos >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return;
 
 	m_self.item_metin[pos][imetinpos] = vnum;
@@ -99,7 +101,7 @@ void CPythonExchange::SetItemMetinSocketToSelf(int pos, int imetinpos, DWORD vnu
 
 void CPythonExchange::SetItemAttributeToTarget(int pos, int iattrpos, BYTE byType, short sValue)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos < 0 || pos >= EXCHANGE_ITEM_MAX_NUM || iattrpos < 0 || iattrpos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
 		return;
 
 	m_victim.item_attr[pos][iattrpos].bType = byType;
@@ -108,7 +110,7 @@ void CPythonExchange::SetItemAttributeToTarget(int pos, int iattrpos, BYTE byTyp
 
 void CPythonExchange::SetItemAttributeToSelf(int pos, int iattrpos, BYTE byType, short sValue)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos < 0 || pos >= EXCHANGE_ITEM_MAX_NUM || iattrpos < 0 || iattrpos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
 		return;
 
 	m_self.item_attr[pos][iattrpos].bType = byType;
@@ -167,7 +169,7 @@ ITEM_COUNT CPythonExchange::GetItemCountFromSelf(BYTE pos)
 
 DWORD CPythonExchange::GetItemMetinSocketFromTarget(BYTE pos, int iMetinSocketPos)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos >= EXCHANGE_ITEM_MAX_NUM || iMetinSocketPos < 0 || iMetinSocketPos >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return 0;
 
 	return m_victim.item_metin[pos][iMetinSocketPos];
@@ -175,7 +177,7 @@ DWORD CPythonExchange::GetItemMetinSocketFromTarget(BYTE pos, int iMetinSocketPo
 
 DWORD CPythonExchange::GetItemMetinSocketFromSelf(BYTE pos, int iMetinSocketPos)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (pos >= EXCHANGE_ITEM_MAX_NUM || iMetinSocketPos < 0 || iMetinSocketPos >= ITEM_SOCKET_SLOT_MAX_NUM)
 		return 0;
 
 	return m_self.item_metin[pos][iMetinSocketPos];
@@ -183,8 +185,15 @@ DWORD CPythonExchange::GetItemMetinSocketFromSelf(BYTE pos, int iMetinSocketPos)
 
 void CPythonExchange::GetItemAttributeFromTarget(BYTE pos, int iAttrPos, BYTE * pbyType, short * psValue)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (!pbyType || !psValue)
 		return;
+
+	if (pos >= EXCHANGE_ITEM_MAX_NUM || iAttrPos < 0 || iAttrPos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
+	{
+		*pbyType = 0;
+		*psValue = 0;
+		return;
+	}
 
 	*pbyType = m_victim.item_attr[pos][iAttrPos].bType;
 	*psValue = m_victim.item_attr[pos][iAttrPos].sValue;
@@ -192,8 +201,15 @@ void CPythonExchange::GetItemAttributeFromTarget(BYTE pos, int iAttrPos, BYTE * 
 
 void CPythonExchange::GetItemAttributeFromSelf(BYTE pos, int iAttrPos, BYTE * pbyType, short * psValue)
 {
-	if (pos >= EXCHANGE_ITEM_MAX_NUM)
+	if (!pbyType || !psValue)
 		return;
+
+	if (pos >= EXCHANGE_ITEM_MAX_NUM || iAttrPos < 0 || iAttrPos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
+	{
+		*pbyType = 0;
+		*psValue = 0;
+		return;
+	}
 
 	*pbyType = m_self.item_attr[pos][iAttrPos].bType;
 	*psValue = m_self.item_attr[pos][iAttrPos].sValue;

@@ -914,12 +914,14 @@ PyObject* netSendExchangeStartPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendExchangeElkAddPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iElk;
-	if (!PyTuple_GetInteger(poArgs, 0, &iElk))
+	YANG llElk = 0;
+	if (!PyTuple_GetLongLong(poArgs, 0, &llElk))
+		return Py_BuildException();
+	if (llElk <= 0 || llElk >= GOLD_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendExchangeElkAddPacket(iElk);
+	rkNetStream.SendExchangeElkAddPacket(llElk);
 	return Py_BuildNone();
 }
 
@@ -927,11 +929,11 @@ PyObject* netSendExchangeElkAddPacket(PyObject* poSelf, PyObject* poArgs)
 PyObject* netSendExchangeChequeAddPacket(PyObject* poSelf, PyObject* poArgs)
 {
 	int cheque;
-	if (!PyTuple_GetInteger(poArgs, 0, &cheque))
+	if (!PyTuple_GetInteger(poArgs, 0, &cheque) || cheque <= 0)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream = CPythonNetworkStream::Instance();
-	rkNetStream.SendExchangeChequeAddPacket(cheque);
+	rkNetStream.SendExchangeChequeAddPacket(static_cast<DWORD>(cheque));
 	return Py_BuildNone();
 }
 #endif
@@ -945,18 +947,18 @@ PyObject* netSendExchangeItemAddPacket(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetInteger(poArgs, 1, &wSlotIndex))
 		return Py_BuildException();
 	int iDisplaySlotIndex;
-	if (!PyTuple_GetInteger(poArgs, 2, &iDisplaySlotIndex))
+	if (!PyTuple_GetInteger(poArgs, 2, &iDisplaySlotIndex) || iDisplaySlotIndex < 0 || iDisplaySlotIndex > UCHAR_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendExchangeItemAddPacket(TItemPos(bWindowType, wSlotIndex), iDisplaySlotIndex);
+	rkNetStream.SendExchangeItemAddPacket(TItemPos(bWindowType, wSlotIndex), static_cast<BYTE>(iDisplaySlotIndex));
 	return Py_BuildNone();
 }
 
 PyObject* netSendExchangeItemDelPacket(PyObject* poSelf, PyObject* poArgs)
 {
 	int pos;
-	if (!PyTuple_GetInteger(poArgs, 0, &pos))
+	if (!PyTuple_GetInteger(poArgs, 0, &pos) || pos < 0 || pos > UCHAR_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
@@ -1105,7 +1107,7 @@ PyObject* netSendPartyExitPacket(PyObject* poSelf, PyObject* poArgs)
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
 
 	DWORD dwVID = rPlayer.GetMainCharacterIndex();
-	DWORD dwPID;
+	uint64_t dwPID;
 	if (rPlayer.PartyMemberVIDToPID(dwVID, &dwPID))
 		rns.SendPartyRemovePacket(dwPID);
 
@@ -1114,8 +1116,8 @@ PyObject* netSendPartyExitPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendPartyRemovePacketPID(PyObject* poSelf, PyObject* poArgs)
 {
-	int pid;
-	if (!PyTuple_GetInteger(poArgs, 0, &pid))
+	uint64_t pid;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &pid))
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
@@ -1132,7 +1134,7 @@ PyObject* netSendPartyRemovePacketVID(PyObject* poSelf, PyObject* poArgs)
 
 	IAbstractPlayer& rPlayer=IAbstractPlayer::GetSingleton();
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
-	DWORD dwPID;
+	uint64_t dwPID;
 	if (rPlayer.PartyMemberVIDToPID(vid, &dwPID))
 		rns.SendPartyRemovePacket(dwPID);
 
@@ -1141,8 +1143,8 @@ PyObject* netSendPartyRemovePacketVID(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendPartySetStatePacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iVID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iVID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 	int iState;
 	if (!PyTuple_GetInteger(poArgs, 1, &iState))
@@ -1152,7 +1154,7 @@ PyObject* netSendPartySetStatePacket(PyObject* poSelf, PyObject* poArgs)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
-	rns.SendPartySetStatePacket(iVID, iState, iFlag);
+	rns.SendPartySetStatePacket(ullPID, iState, iFlag);
 
 	return Py_BuildNone();
 }
@@ -1348,12 +1350,12 @@ PyObject* netSendQuestConfirmPacket(PyObject* poSelf, PyObject* poArgs)
 	int iAnswer;
 	if (!PyTuple_GetInteger(poArgs, 0, &iAnswer))
 		return Py_BuildException();
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 1, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &ullPID))
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
-	rns.SendQuestConfirmPacket(iAnswer, iPID);
+	rns.SendQuestConfirmPacket(iAnswer, ullPID);
 
 	return Py_BuildNone();
 }

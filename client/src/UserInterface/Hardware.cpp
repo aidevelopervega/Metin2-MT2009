@@ -10,28 +10,19 @@
 #include <cryptopp/hex.h>
 
 #include <boost/algorithm/string/trim.hpp>
+#include <intrin.h>
 #include <ThemidaSDK.h>
 
 inline bool GetCPUID(std::string& sChecksum)
 {
-	unsigned long s1 = 0, s2 = 0, s3 = 0, s4 = 0;
-	__asm
-	{
-		mov eax, 00h
-		xor edx, edx
-		cpuid
-		mov s1, edx
-		mov s2, eax
-	}
-	__asm
-	{
-		mov eax, 01h
-		xor ecx, ecx
-		xor edx, edx
-		cpuid
-		mov s3, edx
-		mov s4, ecx
-	}
+	int cpuInfo[4] = { 0, 0, 0, 0 };
+	__cpuid(cpuInfo, 0);
+	unsigned long s1 = static_cast<unsigned long>(cpuInfo[3]);
+	unsigned long s2 = static_cast<unsigned long>(cpuInfo[0]);
+
+	__cpuidex(cpuInfo, 1, 0);
+	unsigned long s3 = static_cast<unsigned long>(cpuInfo[3]);
+	unsigned long s4 = static_cast<unsigned long>(cpuInfo[2]);
 
 	static char buf[64];
 	sprintf_s(buf, "%08X%08X%08X%08X", s1, s2, s3, s4);

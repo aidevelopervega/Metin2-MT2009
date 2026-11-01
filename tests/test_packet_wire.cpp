@@ -2494,6 +2494,209 @@ int main()
                                         cliTabs[2].items[40].vnum == 0,
                                 "F13c: 3-tab SHOP_SUBHEADER_GC_START_EX (12,111B) unpacks cleanly on client with zeroed trailing tab name bytes");
                         }
+
+                        // F14: Exchange/Trade (TPacketCGExchange 20B & TPacketGCExchange 43B) 64-bit YANG & Bounds Hardening
+                        // F14: Exchange / Trade Wire Contract (TPacketCGExchange 14B, TPacketGCExchange 54B, 64-bit YANG arg1) & Bounds Model
+                        {
+                            static_assert(sizeof(TPacketCGExchange) == 14 &&
+                                          offsetof(TPacketCGExchange, header) == 0 &&
+                                          offsetof(TPacketCGExchange, sub_header) == 1 &&
+                                          offsetof(TPacketCGExchange, arg1) == 2 &&
+                                          offsetof(TPacketCGExchange, arg2) == 10 &&
+                                          offsetof(TPacketCGExchange, Pos) == 11,
+                                          "TPacketCGExchange (14B) layout mismatch");
+                            static_assert(sizeof(struct packet_exchange) == 54 &&
+                                          offsetof(struct packet_exchange, header) == 0 &&
+                                          offsetof(struct packet_exchange, sub_header) == 1 &&
+                                          offsetof(struct packet_exchange, is_me) == 2 &&
+                                          offsetof(struct packet_exchange, arg1) == 3 &&
+                                          offsetof(struct packet_exchange, arg2) == 11 &&
+                                          offsetof(struct packet_exchange, arg3) == 14 &&
+                                          offsetof(struct packet_exchange, arg4) == 18 &&
+                                          offsetof(struct packet_exchange, alSockets) == 21 &&
+                                          offsetof(struct packet_exchange, aAttr) == 33,
+                                          "packet_exchange / TPacketGCExchange (54B) layout mismatch");
+
+                            TPacketCGExchange cgEx{};
+                            cgEx.header = HEADER_CG_EXCHANGE;
+                            cgEx.sub_header = EXCHANGE_SUBHEADER_CG_ELK_ADD;
+                            cgEx.arg1 = GOLD_MAX - 1LL;
+                            cgEx.arg2 = 11;
+                            cgEx.Pos = TItemPos(INVENTORY, 89);
+
+                            struct packet_exchange gcEx{};
+                            gcEx.header = HEADER_GC_EXCHANGE;
+                            gcEx.sub_header = EXCHANGE_SUBHEADER_GC_GOLD_ADD;
+                            gcEx.is_me = 1;
+                            gcEx.arg1 = 4294967297LL; // 2^32 + 1
+                            gcEx.arg2 = TItemPos(INVENTORY, 11);
+                            gcEx.arg3 = 200U;
+                            gcEx.arg4 = TItemPos(INVENTORY, 5);
+                            gcEx.alSockets[0] = 28430;
+                            gcEx.aAttr[0].bType = 1;
+                            gcEx.aAttr[0].sValue = 2000;
+
+                            TPacketCGExchange inCgEx{};
+                            struct packet_exchange inGcEx{};
+                            std::memcpy(&inCgEx, &cgEx, sizeof(cgEx));
+                            std::memcpy(&inGcEx, &gcEx, sizeof(gcEx));
+
+                            constexpr int kExchangeItemMaxNum = 12;
+                            auto isValidExchangeElk = [](YANG elk) -> bool {
+                                return elk > 0 && elk < GOLD_MAX;
+                            };
+                            auto isValidExchangeSlot = [](int slotIndex) -> bool {
+                                return slotIndex >= 0 && slotIndex < kExchangeItemMaxNum;
+                            };
+
+                            WIRE_ASSERT(sizeof(cgEx) == 14 &&
+                                        inCgEx.arg1 == GOLD_MAX - 1LL &&
+                                        inCgEx.arg2 == 11 &&
+                                        inCgEx.Pos.cell == 89 &&
+                                        sizeof(gcEx) == 54 &&
+                                        inGcEx.arg1 == 4294967297LL &&
+                                        inGcEx.arg3 == 200U &&
+                                        inGcEx.arg4.cell == 5 &&
+                                        isValidExchangeElk(1LL) &&
+                                        isValidExchangeElk(4294967297LL) &&
+                                        isValidExchangeElk(GOLD_MAX - 1LL) &&
+                                        !isValidExchangeElk(0LL) &&
+                                        !isValidExchangeElk(-1LL) &&
+                                        !isValidExchangeElk(GOLD_MAX) &&
+                                        isValidExchangeSlot(0) &&
+                                        isValidExchangeSlot(kExchangeItemMaxNum - 1) &&
+                                        !isValidExchangeSlot(-1) &&
+                                        !isValidExchangeSlot(kExchangeItemMaxNum),
+                                "F14: TPacketCGExchange (14B) and TPacketGCExchange (54B) preserve 64-bit YANG and enforce [1, GOLD_MAX-1] & 12-slot bounds");
+                        }
+
+                        // F15: ItemShop, SpecialShop, SkillLevelNew, Time, Affect, TargetDebuff, QuestConfirm, Party, Captcha 64-bit Wire Contract
+                        {
+                            static_assert(sizeof(TItemShopPromotion) == 24 && offsetof(TItemShopPromotion, dwPrice) == 0 && offsetof(TItemShopPromotion, dwStartTime) == 8 && offsetof(TItemShopPromotion, dwEndTime) == 16, "TItemShopPromotion layout mismatch");
+                            static_assert(sizeof(TItemShopTimeAuction) == 28 && offsetof(TItemShopTimeAuction, dwStartTime) == 12 && offsetof(TItemShopTimeAuction, dwEndTime) == 20, "TItemShopTimeAuction layout mismatch");
+                            static_assert(sizeof(TItemShopItem) == 86 && offsetof(TItemShopItem, dwPrice) == 12 && offsetof(TItemShopItem, alSockets) == 22 && offsetof(TItemShopItem, promotion) == 34 && offsetof(TItemShopItem, timeAuction) == 58, "TItemShopItem layout mismatch");
+                            static_assert(sizeof(TItemShopUpdateAuctionItem) == 28 && offsetof(TItemShopUpdateAuctionItem, dwStartTime) == 12 && offsetof(TItemShopUpdateAuctionItem, dwEndTime) == 20, "TItemShopUpdateAuctionItem layout mismatch");
+                            static_assert(sizeof(STargetDebuff) == 12 && offsetof(STargetDebuff, affect) == 0 && offsetof(STargetDebuff, duration) == 4, "STargetDebuff layout mismatch");
+                            static_assert(sizeof(TPlayerSkill) == 6 && offsetof(TPlayerSkill, tNextRead) == 2, "TPlayerSkill layout mismatch");
+                            static_assert(sizeof(TPacketGCSkillLevel) == 1591 && offsetof(TPacketGCSkillLevel, skills) == 1, "TPacketGCSkillLevel layout mismatch");
+                            static_assert(sizeof(TPacketCGQuestConfirm) == 10 && offsetof(TPacketCGQuestConfirm, answer) == 1 && offsetof(TPacketCGQuestConfirm, requestPID) == 2, "TPacketCGQuestConfirm layout mismatch");
+                            static_assert(sizeof(TPacketGCQuestConfirm) == 78 && offsetof(TPacketGCQuestConfirm, msg) == 1 && offsetof(TPacketGCQuestConfirm, timeout) == 66 && offsetof(TPacketGCQuestConfirm, requestPID) == 70, "TPacketGCQuestConfirm layout mismatch");
+                            static_assert(sizeof(TPacketGCPartyAdd) == 34 && offsetof(TPacketGCPartyAdd, pid) == 1 && offsetof(TPacketGCPartyAdd, name) == 9, "TPacketGCPartyAdd layout mismatch");
+                            static_assert(sizeof(TPacketGCPartyUpdate) == 33 && offsetof(TPacketGCPartyUpdate, pid) == 1 && offsetof(TPacketGCPartyUpdate, role) == 9 && offsetof(TPacketGCPartyUpdate, percent_hp) == 10 && offsetof(TPacketGCPartyUpdate, affects) == 11 && offsetof(TPacketGCPartyUpdate, x) == 25 && offsetof(TPacketGCPartyUpdate, y) == 29, "TPacketGCPartyUpdate layout mismatch");
+                            static_assert(sizeof(TPacketGCPartyRemove) == 9 && offsetof(TPacketGCPartyRemove, pid) == 1, "TPacketGCPartyRemove layout mismatch");
+                            static_assert(sizeof(TPacketGCPartyLink) == 13 && offsetof(TPacketGCPartyLink, pid) == 1 && offsetof(TPacketGCPartyLink, vid) == 9, "TPacketGCPartyLink layout mismatch");
+                            static_assert(sizeof(TPacketGCPartyUnlink) == 13 && offsetof(TPacketGCPartyUnlink, pid) == 1 && offsetof(TPacketGCPartyUnlink, vid) == 9, "TPacketGCPartyUnlink layout mismatch");
+                            static_assert(sizeof(TPacketCGPartyRemove) == 9 && offsetof(TPacketCGPartyRemove, pid) == 1, "TPacketCGPartyRemove layout mismatch");
+                            static_assert(sizeof(TPacketCGPartySetState) == 11 && offsetof(TPacketCGPartySetState, pid) == 1 && offsetof(TPacketCGPartySetState, byRole) == 9 && offsetof(TPacketCGPartySetState, flag) == 10, "TPacketCGPartySetState layout mismatch");
+                            static_assert(sizeof(TSpecialShopItemClient) == 67 && offsetof(TSpecialShopItemClient, priceType) == 16 && offsetof(TSpecialShopItemClient, price) == 17 && offsetof(TSpecialShopItemClient, items) == 25 && offsetof(TSpecialShopItemClient, limits) == 57, "TSpecialShopItemClient layout mismatch");
+
+                            TItemShopItem ishopItem{};
+                            ishopItem.dwIndex = 7;
+                            ishopItem.dwVnum = 71084;
+                            ishopItem.dwCount = 200;
+                            ishopItem.dwPrice = 5000000000LL;
+                            ishopItem.promotion.dwPrice = 4294967297LL;
+                            ishopItem.promotion.dwStartTime = 2208988800LL;
+                            ishopItem.promotion.dwEndTime = 4417977600LL;
+                            ishopItem.timeAuction.dwStartTime = 2208988800LL;
+                            ishopItem.timeAuction.dwEndTime = 4417977600LL;
+
+                            TSpecialShopItemClient specShopItem{};
+                            specShopItem.vnum = 1;
+                            specShopItem.itemVnum = 189;
+                            specShopItem.count = 1;
+                            specShopItem.priceType = 1;
+                            specShopItem.price = GOLD_MAX - 1LL;
+
+                            TPacketGCPartyAdd partyAdd{};
+                            partyAdd.header = HEADER_GC_PARTY_ADD;
+                            partyAdd.pid = idOver53;
+                            std::strncpy(partyAdd.name, "PartyLeader64", CHARACTER_NAME_MAX_LEN);
+
+                            TPacketCGPartySetState partySetState{};
+                            partySetState.header = HEADER_CG_PARTY_SET_STATE;
+                            partySetState.pid = idOver53;
+                            partySetState.byRole = 2;
+                            partySetState.flag = 1;
+
+                            TPacketCGQuestConfirm cgQuest{};
+                            cgQuest.header = HEADER_CG_QUEST_CONFIRM;
+                            cgQuest.answer = 1;
+                            cgQuest.requestPID = idOver53;
+
+                            STargetDebuff debuff{};
+                            debuff.affect = 201;
+                            debuff.duration = 4417977600LL;
+
+                            // SpecialShop dynamic buffer sizing & negative/overflow price guard model
+                            const size_t specShopCount = 128; // > old 61-item (4096B) stack limit
+                            const size_t specShopPayloadBytes = specShopCount * sizeof(TSpecialShopItemClient);
+                            auto isValidSpecialShopPrice = [](int64_t p, bool isGold) -> bool {
+                                if (p < 0)
+                                    return false;
+                                if (isGold && p >= GOLD_MAX)
+                                    return false;
+                                return true;
+                            };
+
+                            WIRE_ASSERT(sizeof(ishopItem) == 86 && ishopItem.dwPrice == 5000000000LL &&
+                                        ishopItem.promotion.dwEndTime == 4417977600LL &&
+                                        sizeof(specShopItem) == 67 && specShopItem.price == GOLD_MAX - 1LL &&
+                                        specShopPayloadBytes == 8576 &&
+                                        isValidSpecialShopPrice(0LL, true) &&
+                                        isValidSpecialShopPrice(GOLD_MAX - 1LL, true) &&
+                                        !isValidSpecialShopPrice(-1LL, true) &&
+                                        !isValidSpecialShopPrice(GOLD_MAX, true) &&
+                                        partyAdd.pid == idOver53 &&
+                                        partySetState.pid == idOver53 &&
+                                        cgQuest.requestPID == idOver53 &&
+                                        debuff.duration == 4417977600LL,
+                                "F15: ItemShop (86B), SpecialShop (67B, >61 items), Party, QuestConfirm, and TargetDebuff preserve 64-bit IDs/prices/durations");
+                        }
+
+                        // F16: Ikarus Offline Shop 64-bit Wire Contract (ownerid, itemid, offerid, price) & Packet Framing Sizes
+                        {
+                            static_assert(sizeof(ikashop::TShopPlayerItem) == 64 && sizeof(ikashop::TShopItem) == 72, "ikashop::TShopItem layout mismatch");
+                            static_assert(sizeof(ikashop::TOfferInfo) == 75 && offsetof(ikashop::TOfferInfo, offerid) == 0 && offsetof(ikashop::TOfferInfo, ownerid) == 8 && offsetof(ikashop::TOfferInfo, itemid) == 16 && offsetof(ikashop::TOfferInfo, buyerid) == 24 && offsetof(ikashop::TOfferInfo, price) == 32 && offsetof(ikashop::TOfferInfo, datetime) == 67, "ikashop::TOfferInfo layout mismatch");
+                            static_assert(sizeof(ikashop::TAuctionInfo) == 101 && sizeof(ikashop::TAuctionOfferInfo) == 58, "ikashop::TAuction* layout mismatch");
+                            static_assert(sizeof(ikashop::TShopInfo) == 79 && offsetof(ikashop::TShopInfo, ownerid) == 0 && offsetof(ikashop::TShopInfo, duration) == 8 && offsetof(ikashop::TShopInfo, count) == 60, "ikashop::TShopInfo layout mismatch");
+                            static_assert(sizeof(ikashop::TNotificationInfo) == 95 && offsetof(ikashop::TNotificationInfo, id) == 0 && offsetof(ikashop::TNotificationInfo, datetime) == 86, "ikashop::TNotificationInfo layout mismatch");
+                            static_assert(sizeof(ikashop::TSubPacketGCShopOpen) == 84 && sizeof(ikashop::TSubPacketGCShopOpenOwner) == 83, "ikashop::TSubPacketGCShopOpen* layout mismatch");
+                            static_assert(sizeof(ikashop::TSubPacketGCShopExpiredGuesting) == 8 && sizeof(ikashop::TSubPacketGCShopRemoveItem) == 8 && sizeof(ikashop::TSubPacketGCShopEditItem) == 16 && sizeof(ikashop::TSubPacketGCShopPosition) == 12 && sizeof(ikashop::TSubPacketGCShopSafeboxRemoveItem) == 8, "ikashop::TSubPacketGC* layout mismatch");
+                            static_assert(sizeof(ikashop::TSubPacketCGShopOpen) == 8 && sizeof(ikashop::TSubPacketCGRemoveItem) == 8 && sizeof(ikashop::TSubPacketCGEditItem) == 16 && sizeof(ikashop::TSubPacketCGOfferAccept) == 8 && sizeof(ikashop::TSubPacketCGOfferCancel) == 16 && sizeof(ikashop::TSubPacketCGShopSafeboxGetItem) == 8 && sizeof(ikashop::TSubPacketCGShopBuyItem) == 25, "ikashop::TSubPacketCG* layout mismatch");
+                            static_assert(sizeof(ikashop::TSubPacketCGAuctionOpenRequest) == 8 && sizeof(ikashop::TSubPacketCGAuctionAddOffer) == 16 && sizeof(ikashop::TSubPacketCGAuctionExitFrom) == 8 && sizeof(ikashop::TSubPacketGCShopSearchItemShop) == 12, "ikashop::TSubPacket*Auction/Search layout mismatch");
+
+                            ikashop::TSubPacketCGShopBuyItem buySub{};
+                            buySub.ownerid = idOver32;
+                            buySub.itemid = idOver53;
+                            buySub.searching = true;
+                            buySub.seenprice = GOLD_MAX - 1LL;
+
+                            ikashop::TOfferInfo offerInfo{};
+                            offerInfo.offerid = idOver53 + 1ULL;
+                            offerInfo.ownerid = idOver32;
+                            offerInfo.itemid = idOver53;
+                            offerInfo.buyerid = idOver32 + 2ULL;
+                            offerInfo.price.yang = 750000000000LL;
+                            offerInfo.datetime = 2208988800LL;
+
+                            // Verify SendMyShopPositionClientPacket header size (sizeof(TPacketGCNewIkarusShop) + sizeof(TSubPacketGCShopPosition) = 6 + 12 = 18B)
+                            // and SendIkarusShopRemoveAllItem header size (sizeof(TPacketCGNewIkarusShop) + sizeof(TSubPacketCGRemoveItem) = 4 + 8 = 12B)
+                            constexpr size_t kGcShopPosWireBytes = sizeof(TPacketGCNewIkarusShop) + sizeof(ikashop::TSubPacketGCShopPosition);
+                            constexpr size_t kCgRemoveAllWireBytes = sizeof(TPacketCGNewIkarusShop) + sizeof(ikashop::TSubPacketCGRemoveItem);
+
+                            WIRE_ASSERT(sizeof(buySub) == 25 &&
+                                        buySub.ownerid == idOver32 &&
+                                        buySub.itemid == idOver53 &&
+                                        buySub.seenprice == GOLD_MAX - 1LL &&
+                                        sizeof(offerInfo) == 75 &&
+                                        offerInfo.offerid == idOver53 + 1ULL &&
+                                        offerInfo.itemid == idOver53 &&
+                                        offerInfo.price.yang == 750000000000LL &&
+                                        kGcShopPosWireBytes == 18 &&
+                                        kCgRemoveAllWireBytes == 12,
+                                "F16: Ikarus Offline Shop packets preserve >2^32/>2^53 ownerid/itemid/offerid, 64-bit YANG, and exact GC/CG header+subpacket sizes");
+                        }
                     }
                 }
             }

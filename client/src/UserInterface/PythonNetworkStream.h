@@ -183,7 +183,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		// Exchange
 		bool SendExchangeStartPacket(DWORD vid);
 		bool SendExchangeItemAddPacket(TItemPos ItemPos, BYTE byDisplayPos);
-		bool SendExchangeElkAddPacket(DWORD elk);
+		bool SendExchangeElkAddPacket(YANG elk);
 #ifdef ENABLE_CHEQUE_SYSTEM
 		bool SendExchangeChequeAddPacket(DWORD elk);
 #endif
@@ -196,7 +196,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		bool SendScriptButtonPacket(unsigned int iIndex);
 		bool SendAnswerMakeGuildPacket(const char * c_szName);
 		bool SendQuestInputStringPacket(const char * c_szString);
-		bool SendQuestConfirmPacket(BYTE byAnswer, DWORD dwPID);
+		bool SendQuestConfirmPacket(BYTE byAnswer, uint64_t dwPID);
 
 		// Event
 		bool SendOnClickPacket(DWORD vid);
@@ -215,8 +215,8 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		// Party
 		bool SendPartyInvitePacket(DWORD dwVID);
 		bool SendPartyInviteAnswerPacket(DWORD dwLeaderVID, BYTE byAccept);
-		bool SendPartyRemovePacket(DWORD dwPID);
-		bool SendPartySetStatePacket(DWORD dwVID, BYTE byState, BYTE byFlag);
+		bool SendPartyRemovePacket(uint64_t dwPID);
+		bool SendPartySetStatePacket(uint64_t dwVID, BYTE byState, BYTE byFlag);
 		bool SendPartyUseSkillPacket(BYTE bySkillIndex, DWORD dwVID);
 		bool SendPartyParameterPacket(BYTE byDistributeMode);
 
@@ -309,26 +309,26 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 
 		void SendIkarusShopRequestShopList();
 
-		void SendIkarusShopOpenShop(DWORD dwOwnerID);
+		void SendIkarusShopOpenShop(uint64_t dwOwnerID);
 		void SendIkarusShopOpenShopOwner();
 
-		void SendIkarusShopBuyItem(DWORD dwOwnerID, DWORD dwItemID, bool isSearch, long long TotalPriceSeen); //patch seen price check
+		void SendIkarusShopBuyItem(uint64_t dwOwnerID, uint64_t dwItemID, bool isSearch, long long TotalPriceSeen); //patch seen price check
 
 		void SendIkarusShopAddItem(ikashop::TShopItemInfo& itemInfo);
-		void SendIkarusShopRemoveItem(DWORD dwItemID);
+		void SendIkarusShopRemoveItem(uint64_t dwItemID);
 		void SendIkarusShopRemoveAllItem();
-		void SendOfflineShopEditItem(DWORD dwItemID, const ikashop::TPriceInfo& price);
+		void SendOfflineShopEditItem(uint64_t dwItemID, const ikashop::TPriceInfo& price);
 
 		void SendIkarusShopFilterRequest(const ikashop::TFilterInfo& filter);
 		void SendIkarusShopSearchFillRequest();
 
 		void SendIkarusShopOfferCreate(const ikashop::TOfferInfo& offer);
-		void SendIkarusShopOfferAccept(DWORD dwOfferID);
-		void SendIkarusShopOfferCancel(DWORD dwOfferID, DWORD dwOwnerID);
+		void SendIkarusShopOfferAccept(uint64_t dwOfferID);
+		void SendIkarusShopOfferCancel(uint64_t dwOfferID, uint64_t dwOwnerID);
 		void SendIkarusShopOfferListRequest();
 
 		void SendIkarusShopSafeboxOpen();
-		void SendIkarusShopSafeboxGetItem(DWORD dwItemID);
+		void SendIkarusShopSafeboxGetItem(uint64_t dwItemID);
 		void SendIkarusShopSafeboxGetValutes();
 		void SendIkarusShopSafeboxClose();
 
@@ -336,9 +336,9 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 
 		//AUCTION
 		void SendIkarusShopAuctionListRequest();
-		void SendIkarusShopAuctionOpen(DWORD dwOwnerID);
-		void SendIkarusShopAuctionAddOffer(DWORD dwOwnerID, const ikashop::TPriceInfo& price);
-		void SendIkarusShopAuctionExitFrom(DWORD dwOwnerID);
+		void SendIkarusShopAuctionOpen(uint64_t dwOwnerID);
+		void SendIkarusShopAuctionAddOffer(uint64_t dwOwnerID, const ikashop::TPriceInfo& price);
+		void SendIkarusShopAuctionExitFrom(uint64_t dwOwnerID);
 		void SendIkarusShopAuctionCreate(const TItemPos& pos, const ikashop::TPriceInfo& price);
 		void SendIkarusShopMyAuctionOpen();
 		void SendIkarusShopMyAuctionClose();

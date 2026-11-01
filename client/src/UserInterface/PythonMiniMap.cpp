@@ -115,7 +115,7 @@ void CPythonMiniMap::Update(float fCenterX, float fCenterY)
 		return;
 
 #if defined(PARTY_POSITION)
-	DWORD dwPID = 0;
+	uint64_t dwPID = 0;
 	const float c_fMiniMapWindowRadius = 54.0f;
 	if (pkInstMain->IsPartyMember())
 	{
@@ -127,7 +127,7 @@ void CPythonMiniMap::Update(float fCenterX, float fCenterY)
 			{
 				for (size_t i = 0; i < iPartyMemberCount; ++i)
 				{
-					const DWORD dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
+					const uint64_t dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
 					if (dwPID != dwPartyMemberPID)
 					{
 						D3DXVECTOR2 v2Position = { 0.0f, 0.0f };
@@ -189,7 +189,7 @@ void CPythonMiniMap::Update(float fCenterX, float fCenterY)
 			{
 				if (pkInstMain->IsPartyMember())
 				{
-					DWORD dwPartyMemberPID = 0;
+					uint64_t dwPartyMemberPID = 0;
 					if (CPythonPlayer::Instance().PartyMemberVIDToPID(pkInstEach->GetVirtualID(), &dwPartyMemberPID))
 					{
 						if (CPythonPlayer::Instance().IsPartyPositionExist(dwPID))
@@ -1171,11 +1171,11 @@ void CPythonMiniMap::RenderAtlas(float fScreenX, float fScreenY)
 		const size_t iPartyMemberCount = CPythonPlayer::Instance().GetPartyMemberCount();
 		if (iPartyMemberCount > 0)
 		{
-			DWORD dwPID = 0;
+			uint64_t dwPID = 0;
 			CPythonPlayer::Instance().PartyMemberVIDToPID(pkInst->GetVirtualID(), &dwPID);
 			for (size_t i = 0; i < iPartyMemberCount; ++i)
 			{
-				const DWORD dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
+				const uint64_t dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
 				if (dwPID != dwPartyMemberPID)
 				{
 					D3DXVECTOR2 v2Position = { 0.0f, 0.0f };
@@ -1320,11 +1320,11 @@ bool CPythonMiniMap::GetPickedInstanceInfo(float fScreenX, float fScreenY, std::
 		const size_t iPartyMemberCount = CPythonPlayer::Instance().GetPartyMemberCount();
 		if (iPartyMemberCount > 0)
 		{
-			DWORD dwPID = 0;
+			uint64_t dwPID = 0;
 			CPythonPlayer::Instance().PartyMemberVIDToPID(pkInst->GetVirtualID(), &dwPID);
 			for (size_t i = 0; i < iPartyMemberCount; ++i)
 			{
-				const DWORD dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
+				const uint64_t dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
 				if (dwPID != dwPartyMemberPID)
 				{
 					D3DXVECTOR2 v2Position = { 0.0f, 0.0f };
@@ -1459,11 +1459,11 @@ bool CPythonMiniMap::GetAtlasInfo(float fScreenX, float fScreenY, std::string & 
 		const size_t iPartyMemberCount = CPythonPlayer::Instance().GetPartyMemberCount();
 		if (iPartyMemberCount > 0)
 		{
-			DWORD dwPID = 0;
+			uint64_t dwPID = 0;
 			CPythonPlayer::Instance().PartyMemberVIDToPID(pkInst->GetVirtualID(), &dwPID);
 			for (size_t i = 0; i < iPartyMemberCount; ++i)
 			{
-				const DWORD dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
+				const uint64_t dwPartyMemberPID = CPythonPlayer::Instance().GetPartyMemberPIDByIndex(i);
 				if (dwPID != dwPartyMemberPID)
 				{
 					D3DXVECTOR2 v2Position = { 0.0f, 0.0f };

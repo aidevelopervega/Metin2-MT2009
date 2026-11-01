@@ -121,13 +121,13 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 		typedef struct SPartyMemberInfo
 		{
 #if defined(PARTY_POSITION)
-			SPartyMemberInfo(DWORD _dwPID, const char* c_szName) : dwPID(_dwPID), strName(c_szName), dwVID(0), lX(0), lY(0), fMinimapX(0.0f), fMinimapY(0.0f) {}
+			SPartyMemberInfo(uint64_t _dwPID, const char* c_szName) : dwPID(_dwPID), strName(c_szName), dwVID(0), lX(0), lY(0), fMinimapX(0.0f), fMinimapY(0.0f) {}
 #else
-			SPartyMemberInfo(DWORD _dwPID, const char* c_szName) : dwPID(_dwPID), strName(c_szName), dwVID(0) {}
+			SPartyMemberInfo(uint64_t _dwPID, const char* c_szName) : dwPID(_dwPID), strName(c_szName), dwVID(0) {}
 #endif
 
 			DWORD dwVID;
-			DWORD dwPID;
+			uint64_t dwPID;
 			std::string strName;
 			BYTE byState;
 			BYTE byHPPercentage;
@@ -360,27 +360,27 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 
 		// Party
 		void	ExitParty();
-		void	AppendPartyMember(DWORD dwPID, const char * c_szName);
-		void	LinkPartyMember(DWORD dwPID, DWORD dwVID);
-		void	UnlinkPartyMember(DWORD dwPID);
-		void	UpdatePartyMemberInfo(DWORD dwPID, BYTE byState, BYTE byHPPercentage);
-		void	UpdatePartyMemberAffect(DWORD dwPID, BYTE byAffectSlotIndex, short sAffectNumber);
-		void	RemovePartyMember(DWORD dwPID);
+		void	AppendPartyMember(uint64_t dwPID, const char * c_szName);
+		void	LinkPartyMember(uint64_t dwPID, DWORD dwVID);
+		void	UnlinkPartyMember(uint64_t dwPID);
+		void	UpdatePartyMemberInfo(uint64_t dwPID, BYTE byState, BYTE byHPPercentage);
+		void	UpdatePartyMemberAffect(uint64_t dwPID, BYTE byAffectSlotIndex, short sAffectNumber);
+		void	RemovePartyMember(uint64_t dwPID);
 		bool	IsPartyMemberByVID(DWORD dwVID);
 		bool	IsPartyMemberByName(const char * c_szName);
-		bool	GetPartyMemberPtr(DWORD dwPID, TPartyMemberInfo ** ppPartyMemberInfo);
-		bool	PartyMemberPIDToVID(DWORD dwPID, DWORD * pdwVID);
-		bool	PartyMemberVIDToPID(DWORD dwVID, DWORD * pdwPID);
+		bool	GetPartyMemberPtr(uint64_t dwPID, TPartyMemberInfo ** ppPartyMemberInfo);
+		bool	PartyMemberPIDToVID(uint64_t dwPID, DWORD * pdwVID);
+		bool	PartyMemberVIDToPID(DWORD dwVID, uint64_t * pdwPID);
 		bool	IsSamePartyMember(DWORD dwVID1, DWORD dwVID2);
 #if defined(PARTY_POSITION)
-		void		UpdatePartyMemberPosition(DWORD dwPID, long lX, long lY);
-		void		UpdatePartyMemberMinimapPosition(DWORD dwPID, float fX, float fY);
+		void		UpdatePartyMemberPosition(uint64_t dwPID, long lX, long lY);
+		void		UpdatePartyMemberMinimapPosition(uint64_t dwPID, float fX, float fY);
 		size_t		GetPartyMemberCount();
-		DWORD		GetPartyMemberPIDByIndex(size_t index);
-		bool		GetPartyMemberPosition(DWORD dwPID, D3DXVECTOR2* v2Position);
-		bool		GetPartyMemberMinimapPosition(DWORD dwPID, D3DXVECTOR2* v2Position);
-		bool		IsPartyPositionExist(DWORD dwPID);
-		std::string	GetPartyMemberName(DWORD dwPID);
+		uint64_t	GetPartyMemberPIDByIndex(size_t index);
+		bool		GetPartyMemberPosition(uint64_t dwPID, D3DXVECTOR2* v2Position);
+		bool		GetPartyMemberMinimapPosition(uint64_t dwPID, D3DXVECTOR2* v2Position);
+		bool		IsPartyPositionExist(uint64_t dwPID);
+		std::string	GetPartyMemberName(uint64_t dwPID);
 #endif
 
 		// Fight
@@ -628,7 +628,7 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 		int						m_iLastAlarmTime;
 
 		// Party
-		std::map<DWORD, TPartyMemberInfo>	m_PartyMemberMap;
+		std::map<uint64_t, TPartyMemberInfo>	m_PartyMemberMap;
 
 		// PVP
 		std::set<DWORD>			m_ChallengeInstanceSet;

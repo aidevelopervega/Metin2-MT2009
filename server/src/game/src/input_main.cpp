@@ -1346,7 +1346,7 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 					{
 						ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You have more than 2 Billion Yang. You cannot trade."));
 
-						sys_err("[OVERFLOG_GOLD] START (%lld) id %u name %s ", ch->GetGold(), ch->GetPlayerID(), ch->GetName());
+						sys_err("[OVERFLOG_GOLD] START (%lld) id %llu name %s ", static_cast<long long>(ch->GetGold()), static_cast<unsigned long long>(ch->GetPlayerID()), ch->GetName());
 						return;
 					}
 
@@ -1382,8 +1382,9 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 		case EXCHANGE_SUBHEADER_CG_ITEM_DEL:	// arg1 == position of item
 			if (ch->GetExchange())
 			{
-				if (ch->GetExchange()->GetCompany()->GetAcceptStatus() != true)
-					ch->GetExchange()->RemoveItem(pinfo->arg1);
+				if (pinfo->arg1 >= 0 && pinfo->arg1 < EXCHANGE_ITEM_MAX_NUM &&
+					ch->GetExchange()->GetCompany()->GetAcceptStatus() != true)
+					ch->GetExchange()->RemoveItem(static_cast<BYTE>(pinfo->arg1));
 			}
 			break;
 #endif
@@ -1399,9 +1400,9 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("The player has more than 2 Billion Yang. You cannot trade with him."));
 
-					sys_err("[OVERFLOW_GOLD] ELK_ADD (%lld) id %u name %s ",
-							ch->GetExchange()->GetCompany()->GetOwner()->GetGold(),
-							ch->GetExchange()->GetCompany()->GetOwner()->GetPlayerID(),
+					sys_err("[OVERFLOW_GOLD] ELK_ADD (%lld) id %llu name %s ",
+							static_cast<long long>(ch->GetExchange()->GetCompany()->GetOwner()->GetGold()),
+							static_cast<unsigned long long>(ch->GetExchange()->GetCompany()->GetOwner()->GetPlayerID()),
 						   	ch->GetExchange()->GetCompany()->GetOwner()->GetName());
 
 					return;
@@ -1425,9 +1426,9 @@ void CInputMain::Exchange(LPCHARACTER ch, const char * data)
 				{
 					ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You can't trade because the other character exceeds 999 won."));
 
-					sys_err("[OVERFLOW_CHEQUE] CHEQUE_ADD (%u) id %u name %s ",
+					sys_err("[OVERFLOW_CHEQUE] CHEQUE_ADD (%u) id %llu name %s ",
 						ch->GetExchange()->GetCompany()->GetOwner()->GetCheque(),
-						ch->GetExchange()->GetCompany()->GetOwner()->GetPlayerID(),
+						static_cast<unsigned long long>(ch->GetExchange()->GetCompany()->GetOwner()->GetPlayerID()),
 						ch->GetExchange()->GetCompany()->GetOwner()->GetName());
 
 					return;

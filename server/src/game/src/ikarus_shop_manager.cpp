@@ -2796,6 +2796,7 @@ namespace ikashop
 		if (!entity)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MYSHOP_NOT_FOUND"));
+			return false;
 		}
 
 		ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("MYSHOP_POSITION_SENT"));
@@ -3198,7 +3199,7 @@ namespace ikashop
 		{
 			TPacketGCNewIkarusShop pack{};
 			pack.header = HEADER_GC_NEW_OFFLINESHOP;
-			pack.size = sizeof(pack);
+			pack.size = sizeof(pack) + sizeof(TSubPacketGCShopPosition);
 			pack.subheader = SUBHEADER_GC_SHOP_POSITION;
 
 			TSubPacketGCShopPosition subpack{};

@@ -335,20 +335,20 @@ void CPythonIkarusShop::ShopClose()
 	CallOnBusinessBoard("ShopClose" );
 }
 
-void CPythonIkarusShop::ShopExpiredGuesting(DWORD ownerid)
+void CPythonIkarusShop::ShopExpiredGuesting(uint64_t ownerid)
 {
-	CallOnSearchShopBoard("ShopExpiredGuesting", Py_BuildValue("(i)", ownerid));
+	CallOnSearchShopBoard("ShopExpiredGuesting", Py_BuildValue("(K)", static_cast<unsigned long long>(ownerid)));
 }
 
-void CPythonIkarusShop::ShopRemoveItem(bool owner, DWORD itemid)
+void CPythonIkarusShop::ShopRemoveItem(bool owner, uint64_t itemid)
 {
 	if(owner)
-		CallOnBusinessBoard("ShopOwnerRemoveItem", Py_BuildValue("(i)", itemid));
+		CallOnBusinessBoard("ShopOwnerRemoveItem", Py_BuildValue("(K)", static_cast<unsigned long long>(itemid)));
 	else
-		CallOnSearchShopBoard("ShopGuestRemoveItem", Py_BuildValue("(i)", itemid));
+		CallOnSearchShopBoard("ShopGuestRemoveItem", Py_BuildValue("(K)", static_cast<unsigned long long>(itemid)));
 }
 
-void CPythonIkarusShop::ShopGuestEditItem(DWORD itemid, const ikashop::TPriceInfo& price)
+void CPythonIkarusShop::ShopGuestEditItem(uint64_t itemid, const ikashop::TPriceInfo& price)
 {
 	ikashop::python::PythonSafeDict dict;
 	dict.set("price", price.yang);
@@ -356,10 +356,10 @@ void CPythonIkarusShop::ShopGuestEditItem(DWORD itemid, const ikashop::TPriceInf
 	dict.set("cheque", price.cheque);
 #endif
 
-	CallOnSearchShopBoard("ShopGuestEditItem", Py_BuildValue("(iO)", itemid, dict.weakRef()));
+	CallOnSearchShopBoard("ShopGuestEditItem", Py_BuildValue("(KO)", static_cast<unsigned long long>(itemid), dict.weakRef()));
 }
 
-void CPythonIkarusShop::ShopOwnerEditItem(DWORD itemid, const ikashop::TPriceInfo& price)
+void CPythonIkarusShop::ShopOwnerEditItem(uint64_t itemid, const ikashop::TPriceInfo& price)
 {
 	ikashop::python::PythonSafeDict dict;
 	dict.set("price", price.yang);
@@ -367,7 +367,7 @@ void CPythonIkarusShop::ShopOwnerEditItem(DWORD itemid, const ikashop::TPriceInf
 	dict.set("cheque", price.cheque);
 #endif
 
-	CallOnBusinessBoard("ShopOwnerEditItem", Py_BuildValue("(iO)", itemid, dict.weakRef()));
+	CallOnBusinessBoard("ShopOwnerEditItem", Py_BuildValue("(KO)", static_cast<unsigned long long>(itemid), dict.weakRef()));
 }
 
 void CPythonIkarusShop::ShopFilterResult(const std::vector<ikashop::TSearchResultInfo>& vec)
@@ -414,9 +414,9 @@ void CPythonIkarusShop::SafeboxRefresh(const ikashop::TValutesInfo& valute, cons
 	CallOnBusinessBoard("SetupSafebox", Py_BuildValue("(KO)", valute.yang, itemList.weakRef()));
 }
 
-void CPythonIkarusShop::SafeboxRemoveItem(DWORD itemid)
+void CPythonIkarusShop::SafeboxRemoveItem(uint64_t itemid)
 {
-	CallOnBusinessBoard("SafeboxRemoveItem", Py_BuildValue("(i)", itemid));
+	CallOnBusinessBoard("SafeboxRemoveItem", Py_BuildValue("(K)", static_cast<unsigned long long>(itemid)));
 }
 
 void CPythonIkarusShop::SafeboxAddItem(const ikashop::TShopPlayerItem& item)
@@ -1210,9 +1210,9 @@ bool CPythonIkarusShop::CheckPickedShopEntity(DWORD* ret)
 #endif
 
 
-void CPythonIkarusShop::DeleteSearchResult(DWORD itemid)
+void CPythonIkarusShop::DeleteSearchResult(uint64_t itemid)
 {
-	CallOnSearchShopBoard("DeleteSearchResultItem", Py_BuildValue("(i)", itemid));
+	CallOnSearchShopBoard("DeleteSearchResultItem", Py_BuildValue("(K)", static_cast<unsigned long long>(itemid)));
 }
 
 void CPythonIkarusShop::PopupMessage(const std::string& message)
@@ -1245,8 +1245,8 @@ PyObject* ikashopSendForceCloseShop(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendOpenShop(PyObject* poSelf , PyObject* poArgs)
 {
-	uint32_t id = 0;
-	if(!PyTuple_GetUnsignedInteger(poArgs, 0, &id))
+	uint64_t id = 0;
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &id))
 		return Py_BadArgument();
 
 	CPythonNetworkStream::Instance().SendIkarusShopOpenShop(id);
@@ -1261,12 +1261,12 @@ PyObject* ikashopSendOpenShopOwner(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendBuyItem(PyObject* poSelf, PyObject* poArgs)
 {
-	uint32_t ownerid = 0;
-	if(!PyTuple_GetUnsignedInteger(poArgs, 0, &ownerid))
+	uint64_t ownerid = 0;
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &ownerid))
 		return Py_BadArgument();
 
-	uint32_t itemid = 0;
-	if (!PyTuple_GetUnsignedInteger(poArgs, 1, &itemid))
+	uint64_t itemid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &itemid))
 		return Py_BadArgument();
 
 	long long seenprice = 0;
@@ -1315,8 +1315,8 @@ PyObject* ikashopSendAddItem(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendRemoveItem(PyObject* poSelf , PyObject* poArgs)
 {
-	uint32_t itemid = 0;
-	if(!PyTuple_GetUnsignedInteger(poArgs, 0, &itemid))
+	uint64_t itemid = 0;
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &itemid))
 		return Py_BadArgument();
 
 	CPythonNetworkStream::instance().SendIkarusShopRemoveItem(itemid);
@@ -1331,8 +1331,8 @@ PyObject* ikashopSendRemoveAllItem(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* ikashopSendEditItem(PyObject* poSelf , PyObject* poArgs)
 {
-	uint32_t itemid=0;
-	if(!PyTuple_GetUnsignedInteger(poArgs, 0, &itemid))
+	uint64_t itemid=0;
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &itemid))
 		return Py_BadArgument();
 
 	long long yang=0;
@@ -1461,12 +1461,12 @@ PyObject* ikashopSendRandomSearchFillRequest(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* ikashopSendOfferCreate(PyObject* poSelf , PyObject* poArgs)
 {
-	ikashop::TOfferInfo offer;
+	ikashop::TOfferInfo offer{};
 	
-	if(!PyTuple_GetUnsignedLong(poArgs, 0, &offer.ownerid))
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &offer.ownerid))
 		return Py_BadArgument();
 
-	if (!PyTuple_GetUnsignedLong(poArgs, 1, &offer.itemid))
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &offer.itemid))
 		return Py_BadArgument();
 
 	if (!PyTuple_GetLongLong(poArgs, 2, &offer.price.yang))
@@ -1483,8 +1483,8 @@ PyObject* ikashopSendOfferCreate(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendOfferAccept(PyObject* poSelf , PyObject* poArgs)
 {
-	DWORD offerid=0;
-	if(!PyTuple_GetUnsignedLong(poArgs, 0, &offerid))
+	uint64_t offerid=0;
+	if(!PyTuple_GetUnsignedLongLong(poArgs, 0, &offerid))
 		return Py_BadArgument();
 	
 	CPythonNetworkStream::instance().SendIkarusShopOfferAccept(offerid);
@@ -1493,12 +1493,12 @@ PyObject* ikashopSendOfferAccept(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendOfferCancel(PyObject* poSelf , PyObject* poArgs)
 {
-	DWORD offerid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 0, &offerid))
+	uint64_t offerid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &offerid))
 		return Py_BadArgument();
 
-	DWORD ownerid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 1, &ownerid))
+	uint64_t ownerid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &ownerid))
 		return Py_BadArgument();
 	
 	CPythonNetworkStream::instance().SendIkarusShopOfferCancel(offerid, ownerid);
@@ -1519,8 +1519,8 @@ PyObject* ikashopSendSafeboxOpen(PyObject* poSelf , PyObject* poArgs)
 
 PyObject* ikashopSendSafeboxGetItem(PyObject* poSelf , PyObject* poArgs)
 {
-	DWORD itemid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 0, &itemid))
+	uint64_t itemid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &itemid))
 		return Py_BadArgument();
 
 	CPythonNetworkStream::instance().SendIkarusShopSafeboxGetItem(itemid);
@@ -1575,8 +1575,8 @@ PyObject* ikashopSendAuctionListRequest(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* ikashopSendAuctionOpenAuction(PyObject* poSelf, PyObject* poArgs)
 {
-	DWORD ownerid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 0, &ownerid))
+	uint64_t ownerid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ownerid))
 		return Py_BadArgument();
 
 	CPythonNetworkStream::instance().SendIkarusShopAuctionOpen(ownerid);
@@ -1585,11 +1585,11 @@ PyObject* ikashopSendAuctionOpenAuction(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* ikashopSendAuctionAddOffer(PyObject* poSelf, PyObject* poArgs)
 {
-	DWORD ownerid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 0, &ownerid))
+	uint64_t ownerid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ownerid))
 		return Py_BadArgument();
 
-	ikashop::TPriceInfo price;
+	ikashop::TPriceInfo price{};
 	if(!PyTuple_GetLongLong(poArgs, 1, &price.yang))
 		return Py_BadArgument();
 
@@ -1604,8 +1604,8 @@ PyObject* ikashopSendAuctionAddOffer(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* ikashopSendAuctionExitFrom(PyObject* poSelf, PyObject* poArgs)
 {
-	DWORD ownerid = 0;
-	if (!PyTuple_GetUnsignedLong(poArgs, 0, &ownerid))
+	uint64_t ownerid = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ownerid))
 		return Py_BadArgument();
 	CPythonNetworkStream::instance().SendIkarusShopAuctionExitFrom(ownerid);
 	return Py_BuildNone();
@@ -1945,8 +1945,12 @@ PyObject* ikashopGetItemHash(PyObject* poSelf, PyObject* poArgs)
 	item.count = count;
 
 	for (int i = 0; i < ITEM_SOCKET_SLOT_MAX_NUM; i++)
-		if (!PyTuple_GetLong(sockets, i, &item.alSockets[i]))
+	{
+		long lSocket = 0;
+		if (!PyTuple_GetLong(sockets, i, &lSocket))
 			return Py_BadArgument();
+		item.alSockets[i] = static_cast<int32_t>(lSocket);
+	}
 
 	for (int i = 0; i < ITEM_ATTRIBUTE_SLOT_MAX_NUM; i++)
 	{

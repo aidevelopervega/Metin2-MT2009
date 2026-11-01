@@ -290,13 +290,15 @@ bool CExchange::AddGold(YANG gold)
 #ifdef ENABLE_CHEQUE_SYSTEM
 bool CExchange::AddCheque(long cheque)
 {
-	if (cheque <= 0)
+	if (cheque <= 0 || cheque >= CHEQUE_MAX)
 		return false;
 	if (GetOwner()->GetCheque() < cheque)
 	{
 		exchange_packet(GetOwner(), EXCHANGE_SUBHEADER_GC_LESS_CHEQUE, 0, 0, NPOS, 0);
 		return false;
 	}
+	if (m_lCheque > 0)
+		return false;
 	Accept(false);
 	GetCompany()->Accept(false);
 	m_lCheque = cheque;
@@ -312,7 +314,7 @@ bool CExchange::Check(int * piItemCount)
 		return false;
 
 #ifdef ENABLE_CHEQUE_SYSTEM
-	if (GetOwner()->GetCheque() < (int)m_lCheque)
+	if (m_lCheque < 0 || GetOwner()->GetCheque() < (int)m_lCheque || (m_lCheque > 0 && GetCompany() && GetCompany()->GetOwner() && (GetCompany()->GetOwner()->GetCheque() < 0 || m_lCheque >= CHEQUE_MAX - GetCompany()->GetOwner()->GetCheque())))
 		return false;
 #endif
 

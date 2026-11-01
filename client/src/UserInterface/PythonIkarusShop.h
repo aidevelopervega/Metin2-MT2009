@@ -420,17 +420,17 @@ public:
 	void ShowFoundShopPosition(DWORD vid, long x, long y);
 
 	void ShopClose();
-	void ShopExpiredGuesting(DWORD ownerid);
-	void ShopRemoveItem(bool owner, DWORD itemid);
+	void ShopExpiredGuesting(uint64_t ownerid);
+	void ShopRemoveItem(bool owner, uint64_t itemid);
 
-	void ShopGuestEditItem(DWORD itemid, const ikashop::TPriceInfo& price);
-	void ShopOwnerEditItem(DWORD itemid, const ikashop::TPriceInfo& price);
+	void ShopGuestEditItem(uint64_t itemid, const ikashop::TPriceInfo& price);
+	void ShopOwnerEditItem(uint64_t itemid, const ikashop::TPriceInfo& price);
 
 
 	void ShopFilterResult(const std::vector<ikashop::TSearchResultInfo>& vec);
 	void OfferListReceived(const std::vector<ikashop::TOfferListElement>& offers);
 	void SafeboxRefresh(const ikashop::TValutesInfo& valute, const std::vector<ikashop::TShopPlayerItem>& item);
-	void SafeboxRemoveItem(DWORD itemid);
+	void SafeboxRemoveItem(uint64_t itemid);
 	void SafeboxAddItem(const ikashop::TShopPlayerItem& item);
 
 	void AuctionList(const std::vector<ikashop::TAuctionListElement>& auctions);
@@ -492,7 +492,7 @@ public:
 #endif
 
 	void PopupMessage(const std::string& message);
-	void DeleteSearchResult(DWORD itemid);
+	void DeleteSearchResult(uint64_t itemid);
 
 	DWORD GetFoundMyShopVID() { return myShopVID; }
 

@@ -1336,17 +1336,17 @@ void CPythonPlayer::ExitParty()
 	CPythonCharacterManager::Instance().RefreshAllPCTextTail();
 }
 
-void CPythonPlayer::AppendPartyMember(DWORD dwPID, const char * c_szName)
+void CPythonPlayer::AppendPartyMember(uint64_t dwPID, const char * c_szName)
 {
 	m_PartyMemberMap.insert(std::make_pair(dwPID, TPartyMemberInfo(dwPID, c_szName)));
 }
 
-void CPythonPlayer::LinkPartyMember(DWORD dwPID, DWORD dwVID)
+void CPythonPlayer::LinkPartyMember(uint64_t dwPID, DWORD dwVID)
 {
 	TPartyMemberInfo * pPartyMemberInfo;
 	if (!GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
 	{
-		TraceError(" CPythonPlayer::LinkPartyMember(dwPID=%d, dwVID=%d) - Failed to find party member", dwPID, dwVID);
+		TraceError(" CPythonPlayer::LinkPartyMember(dwPID=%llu, dwVID=%d) - Failed to find party member", static_cast<unsigned long long>(dwPID), dwVID);
 		return;
 	}
 
@@ -1357,12 +1357,12 @@ void CPythonPlayer::LinkPartyMember(DWORD dwPID, DWORD dwVID)
 		pInstance->RefreshTextTail();
 }
 
-void CPythonPlayer::UnlinkPartyMember(DWORD dwPID)
+void CPythonPlayer::UnlinkPartyMember(uint64_t dwPID)
 {
 	TPartyMemberInfo * pPartyMemberInfo;
 	if (!GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
 	{
-		TraceError(" CPythonPlayer::UnlinkPartyMember(dwPID=%d) - Failed to find party member", dwPID);
+		TraceError(" CPythonPlayer::UnlinkPartyMember(dwPID=%llu) - Failed to find party member", static_cast<unsigned long long>(dwPID));
 		return;
 	}
 
@@ -1375,7 +1375,7 @@ void CPythonPlayer::UnlinkPartyMember(DWORD dwPID)
 #endif
 }
 #if defined(PARTY_POSITION)
-void CPythonPlayer::UpdatePartyMemberPosition(DWORD dwPID, long lX, long lY)
+void CPythonPlayer::UpdatePartyMemberPosition(uint64_t dwPID, long lX, long lY)
 {
 	CPythonPlayer::TPartyMemberInfo* pPartyMemberInfo;
 	if (!CPythonPlayer::Instance().GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
@@ -1383,7 +1383,7 @@ void CPythonPlayer::UpdatePartyMemberPosition(DWORD dwPID, long lX, long lY)
 	pPartyMemberInfo->lX = lX;
 	pPartyMemberInfo->lY = lY;
 }
-void CPythonPlayer::UpdatePartyMemberMinimapPosition(DWORD dwPID, float fX, float fY)
+void CPythonPlayer::UpdatePartyMemberMinimapPosition(uint64_t dwPID, float fX, float fY)
 {
 	CPythonPlayer::TPartyMemberInfo* pPartyMemberInfo;
 	if (!CPythonPlayer::Instance().GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
@@ -1395,54 +1395,54 @@ size_t CPythonPlayer::GetPartyMemberCount()
 {
 	return m_PartyMemberMap.size();
 }
-DWORD CPythonPlayer::GetPartyMemberPIDByIndex(size_t index)
+uint64_t CPythonPlayer::GetPartyMemberPIDByIndex(size_t index)
 {
 	if (index >= m_PartyMemberMap.size())
 		return 0;
-	std::map<DWORD, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.begin();
+	std::map<uint64_t, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.begin();
 	std::advance(it, index);
 	return it->first;
 }
-bool CPythonPlayer::GetPartyMemberPosition(DWORD dwPID, D3DXVECTOR2* v2Position)
+bool CPythonPlayer::GetPartyMemberPosition(uint64_t dwPID, D3DXVECTOR2* v2Position)
 {
-	std::map<DWORD, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
 	if (it == m_PartyMemberMap.end())
 		return false;
 	v2Position->x = it->second.lX;
 	v2Position->y = it->second.lY;
 	return true;
 }
-bool CPythonPlayer::GetPartyMemberMinimapPosition(DWORD dwPID, D3DXVECTOR2* v2Position)
+bool CPythonPlayer::GetPartyMemberMinimapPosition(uint64_t dwPID, D3DXVECTOR2* v2Position)
 {
-	std::map<DWORD, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
 	if (it == m_PartyMemberMap.end())
 		return false;
 	v2Position->x = it->second.fMinimapX;
 	v2Position->y = it->second.fMinimapY;
 	return true;
 }
-bool CPythonPlayer::IsPartyPositionExist(DWORD dwPID)
+bool CPythonPlayer::IsPartyPositionExist(uint64_t dwPID)
 {
-	std::map<DWORD, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
 	if (it == m_PartyMemberMap.end())
 		return false;
 	return it->second.lX != 0 || it->second.lY != 0;
 }
-std::string CPythonPlayer::GetPartyMemberName(DWORD dwPID)
+std::string CPythonPlayer::GetPartyMemberName(uint64_t dwPID)
 {
-	std::map<DWORD, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::const_iterator it = m_PartyMemberMap.find(dwPID);
 	if (it == m_PartyMemberMap.end())
 		return "";
 	return it->second.strName;
 }
 #endif
 
-void CPythonPlayer::UpdatePartyMemberInfo(DWORD dwPID, BYTE byState, BYTE byHPPercentage)
+void CPythonPlayer::UpdatePartyMemberInfo(uint64_t dwPID, BYTE byState, BYTE byHPPercentage)
 {
 	TPartyMemberInfo * pPartyMemberInfo;
 	if (!GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
 	{
-		TraceError(" CPythonPlayer::UpdatePartyMemberInfo(dwPID=%d, byState=%d, byHPPercentage=%d) - Failed to find character", dwPID, byState, byHPPercentage);
+		TraceError(" CPythonPlayer::UpdatePartyMemberInfo(dwPID=%llu, byState=%d, byHPPercentage=%d) - Failed to find character", static_cast<unsigned long long>(dwPID), byState, byHPPercentage);
 		return;
 	}
 
@@ -1450,25 +1450,25 @@ void CPythonPlayer::UpdatePartyMemberInfo(DWORD dwPID, BYTE byState, BYTE byHPPe
 	pPartyMemberInfo->byHPPercentage = byHPPercentage;
 }
 
-void CPythonPlayer::UpdatePartyMemberAffect(DWORD dwPID, BYTE byAffectSlotIndex, short sAffectNumber)
+void CPythonPlayer::UpdatePartyMemberAffect(uint64_t dwPID, BYTE byAffectSlotIndex, short sAffectNumber)
 {
 	if (byAffectSlotIndex >= PARTY_AFFECT_SLOT_MAX_NUM)
 	{
-		TraceError(" CPythonPlayer::UpdatePartyMemberAffect(dwPID=%d, byAffectSlotIndex=%d, sAffectNumber=%d) - Strange affect slot index", dwPID, byAffectSlotIndex, sAffectNumber);
+		TraceError(" CPythonPlayer::UpdatePartyMemberAffect(dwPID=%llu, byAffectSlotIndex=%d, sAffectNumber=%d) - Strange affect slot index", static_cast<unsigned long long>(dwPID), byAffectSlotIndex, sAffectNumber);
 		return;
 	}
 
 	TPartyMemberInfo * pPartyMemberInfo;
 	if (!GetPartyMemberPtr(dwPID, &pPartyMemberInfo))
 	{
-		TraceError(" CPythonPlayer::UpdatePartyMemberAffect(dwPID=%d, byAffectSlotIndex=%d, sAffectNumber=%d) - Failed to find character", dwPID, byAffectSlotIndex, sAffectNumber);
+		TraceError(" CPythonPlayer::UpdatePartyMemberAffect(dwPID=%llu, byAffectSlotIndex=%d, sAffectNumber=%d) - Failed to find character", static_cast<unsigned long long>(dwPID), byAffectSlotIndex, sAffectNumber);
 		return;
 	}
 
 	pPartyMemberInfo->sAffects[byAffectSlotIndex] = sAffectNumber;
 }
 
-void CPythonPlayer::RemovePartyMember(DWORD dwPID)
+void CPythonPlayer::RemovePartyMember(uint64_t dwPID)
 {
 	DWORD dwVID = 0;
 	TPartyMemberInfo * pPartyMemberInfo;
@@ -1489,7 +1489,7 @@ void CPythonPlayer::RemovePartyMember(DWORD dwPID)
 
 bool CPythonPlayer::IsPartyMemberByVID(DWORD dwVID)
 {
-	std::map<DWORD, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
+	std::map<uint64_t, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
 	for (; itor != m_PartyMemberMap.end(); ++itor)
 	{
 		TPartyMemberInfo & rPartyMemberInfo = itor->second;
@@ -1502,7 +1502,7 @@ bool CPythonPlayer::IsPartyMemberByVID(DWORD dwVID)
 
 bool CPythonPlayer::IsPartyMemberByName(const char * c_szName)
 {
-	std::map<DWORD, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
+	std::map<uint64_t, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
 	for (; itor != m_PartyMemberMap.end(); ++itor)
 	{
 		TPartyMemberInfo & rPartyMemberInfo = itor->second;
@@ -1513,9 +1513,9 @@ bool CPythonPlayer::IsPartyMemberByName(const char * c_szName)
 	return false;
 }
 
-bool CPythonPlayer::GetPartyMemberPtr(DWORD dwPID, TPartyMemberInfo ** ppPartyMemberInfo)
+bool CPythonPlayer::GetPartyMemberPtr(uint64_t dwPID, TPartyMemberInfo ** ppPartyMemberInfo)
 {
-	std::map<DWORD, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.find(dwPID);
 
 	if (m_PartyMemberMap.end() == itor)
 		return false;
@@ -1525,9 +1525,9 @@ bool CPythonPlayer::GetPartyMemberPtr(DWORD dwPID, TPartyMemberInfo ** ppPartyMe
 	return true;
 }
 
-bool CPythonPlayer::PartyMemberPIDToVID(DWORD dwPID, DWORD * pdwVID)
+bool CPythonPlayer::PartyMemberPIDToVID(uint64_t dwPID, DWORD * pdwVID)
 {
-	std::map<DWORD, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.find(dwPID);
+	std::map<uint64_t, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.find(dwPID);
 
 	if (m_PartyMemberMap.end() == itor)
 		return false;
@@ -1538,9 +1538,9 @@ bool CPythonPlayer::PartyMemberPIDToVID(DWORD dwPID, DWORD * pdwVID)
 	return true;
 }
 
-bool CPythonPlayer::PartyMemberVIDToPID(DWORD dwVID, DWORD * pdwPID)
+bool CPythonPlayer::PartyMemberVIDToPID(DWORD dwVID, uint64_t * pdwPID)
 {
-	std::map<DWORD, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
+	std::map<uint64_t, TPartyMemberInfo>::iterator itor = m_PartyMemberMap.begin();
 	for (; itor != m_PartyMemberMap.end(); ++itor)
 	{
 		TPartyMemberInfo & rPartyMemberInfo = itor->second;

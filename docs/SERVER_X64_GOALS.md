@@ -1,6 +1,6 @@
 # MT2009 — Sunucu ve İstemci Native x64 Teknik Sözleşmesi, Doğrulama Matrisi ve Kabul Kriterleri (`SERVER_X64_GOALS.md`)
 
-**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `1d6d5c6db59bf20b4fd9a01fd30f0ffdd31882bd` (Run `41183346026` — `SUCCESS`)
+**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `f58d9ce21510a1edba8de8f7daee91f10fa0195d` (Run `41311852071` & `41183346026` — `SUCCESS`)
 
 Bu belge, sunucu (Windows amd64 + FreeBSD 15.1 amd64) ve istemci (Windows native x64 `PE32+`) için ortak x64 teknik sözleşmesini, tamamlanan ve doğrulanmış sunucu dönüşüm kanıtlarını, `MT2_PROTOCOL_VERSION_X64 = 0x20090064U` ağ paket tablosunu, gerçek native x64 istemci bağımlılık engellerini ve kabul kriterlerini içerir.
 
@@ -345,23 +345,22 @@ Tüm paketler `#pragma pack(1)` hizalamasına sahiptir. Sunucu (`server/src/game
 * **Sunucu Kaynağı:** `itemshop_manager.cpp` (`SendBalance`, `SendItemShopData`, `GetPlayerAccountBalance`, `CheckBalance`, `AddCash`, `BuyItem`).
 * **İstemci Hedefi:** `client/src/UserInterface/Packet.h`, `PythonItemShop.{h,cpp}`.
 
-### 9.7 `TSpecialShopItemClient` (`HEADER_GC_SPECIAL_SHOP`)
-* **Yön:** `GAME -> CLIENT` | **Eski Boyut:** `51 B` | **Yeni Boyut:** `55 B`
+### 9.7 `TSpecialShopItemClient` (`HEADER_GC_SPECIAL_SHOP = 116`)
+* **Yön:** `GAME -> CLIENT` | **Eski Boyut:** `63 B` (`DWORD price`) | **Yeni Boyut:** `67 B` (`YANG price`)
 
 | Alan | Eski Tür | Yeni Tür | Eski Ofset | Yeni Ofset |
 | :--- | :--- | :--- | :--- | :--- |
 | `vnum` | `DWORD` (`4 B`) | `uint32_t` (`4 B`) | `0` | `0` |
-| `count` | `WORD` (`2 B`) | `uint16_t` (`2 B`) | `4` | `4` |
-| `priceType` | `BYTE` (`1 B`) | `BYTE` (`1 B`) | `6` | `6` |
-| `price` | `DWORD` (`4 B`) | `YANG` (`int64_t`, `8 B`) | `7` | `7` |
-| `priceVnum` | `DWORD` (`4 B`) | `uint32_t` (`4 B`) | `11` | `15` |
-| `alSockets[3]` | `long[3]` (`12 B`) | `int32_t[3]` (`12 B`) | `15` | `19` |
-| `aAttr[7]` | `TPlayerItemAttribute[7]` (`21 B`) | `TPlayerItemAttribute[7]` (`21 B`) | `27` | `31` |
-| `limitType` | `BYTE` (`1 B`) | `BYTE` (`1 B`) | `48` | `52` |
-| `limitValue` | `WORD` (`2 B`) | `uint16_t` (`2 B`) | `49` | `53` |
+| `itemVnum` | `DWORD` (`4 B`) | `uint32_t` (`4 B`) | `4` | `4` |
+| `count` | `ITEM_COUNT` (`4 B`) | `ITEM_COUNT` (`4 B`) | `8` | `8` |
+| `rarePct` | `int` (`4 B`) | `int32_t` (`4 B`) | `12` | `12` |
+| `priceType` | `BYTE` (`1 B`) | `BYTE` (`1 B`) | `16` | `16` |
+| `price` | `DWORD` (`4 B`) | `YANG` (`int64_t`, `8 B`) | `17` | `17` |
+| `items[SPECIAL_SHOP_MAX_ITEM_COUNT]` (`4` eleman) | `TRefineMaterial[4]` (`32 B`) | `TRefineMaterial[4]` (`32 B`) | `21` | `25` |
+| `limits[SPECIAL_SHOP_MAX_LIMIT]` (`2` eleman) | `TSpecialShopLimit[2]` (`10 B`) | `TSpecialShopLimit[2]` (`10 B`) | `53` | `57` |
 
-* **Sunucu Kaynağı:** `special_shop_manager.cpp:365-391`.
-* **İstemci Hedefi:** `client/src/UserInterface/Packet.h` (`TSpecialShopItemClient::price` -> `int64_t` / `YANG`, `sizeof == 55`).
+* **Sunucu Kaynağı:** `server/src/common/tables.h:1149-1159`, `server/src/game/src/special_shop_manager.cpp` (`SendShopInfo` dinamik `std::vector<TSpecialShopItemClient>` tamponlama ve `BuyItem` negatif/`GOLD_MAX` fiyat koruması).
+* **İstemci Hedefi:** `client/src/UserInterface/Packet.h` (`TSpecialShopItemClient::price` -> `YANG`, `sizeof == 67`, `offsetof(limits) == 57`).
 
 ### 9.8 `TSubPacketGCCaptchaMeta` (`HEADER_GC_CAPTCHA` Alt Paketi)
 * **Yön:** `GAME -> CLIENT` | **Eski Boyut:** `5 B` | **Yeni Boyut:** `9 B`
@@ -378,35 +377,37 @@ Tüm paketler `#pragma pack(1)` hizalamasına sahiptir. Sunucu (`server/src/game
 
 ## 10. Sabit Genişlikli (`int32_t` / `uint32_t` / `uint64_t` / `YANG`) Ortak Paketler ve Yapılar
 
-Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit genişlikli `int32_t`, `uint32_t`, `uint64_t` ve `int64_t` (`YANG`) türlerine sabitlenmiştir:
+Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit genişlikli `int32_t`, `uint32_t`, `uint64_t` ve `int64_t` (`YANG`) türlerine sabitlenmiş ve `test_packet_wire` (`171/171 PASS`) + MSVC x64 `/Zs` ile doğrulanmıştır:
 
 | Paket / Yapı | Opcode / Başlık | Sabitlenen Alanlar ve Türleri | Paket Boyutu (`sizeof`) |
 | :--- | :--- | :--- | :--- |
-| `TPacketCGLogin2` | `HEADER_CG_LOGIN2 (109)` | `dwLoginKey` (`uint32_t`), `adwClientKey[4]` (`uint32_t[4]`), `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`, ofset `51`) | `56 B` |
-| `TPacketCGLogin3` | `HEADER_CG_LOGIN3 (111)` | `adwClientKey[4]` (`uint32_t[4]`), `hwid[256]`, `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`, ofset `52`) | `325 B` (TEA `328 B`) |
+| `TPacketCGLogin2` | `HEADER_CG_LOGIN2 (109)` | `dwLoginKey` (`uint32_t`), `adwClientKey[4]` (`uint32_t[4]`), `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`, ofset `52`) | `56 B` |
+| `TPacketCGLogin3` | `HEADER_CG_LOGIN3 (111)` | `adwClientKey[4]` (`uint32_t[4]`), `hwid[256]`, `dwProtocolVersion` (`uint32_t`, `MT2_PROTOCOL_VERSION_X64`, ofset `321`) | `325 B` (TEA `328 B`) |
 | `TPacketGCAuthSuccess` | `HEADER_GC_AUTH_SUCCESS (150)` | `dwLoginKey` (`uint32_t`), `bResult` (`BYTE`) | `6 B` |
 | `TPacketGCLoginSuccess` | `HEADER_GC_LOGIN_SUCCESS (6 / 32)` | `players[4]` (`TSimplePlayer::dwID` `uint64_t`), `guild_id[4]` (`uint64_t[4]`), `handle` (`uint32_t`), `random_key` (`uint32_t`) | `385 B` |
 | `TPacketGCCharacterCreateSuccess` | `HEADER_GC_CHARACTER_CREATE_SUCCESS (8)` | `bAccountCharacterSlot` (`BYTE`), `player` (`TSimplePlayer`, `dwID` `uint64_t`) | `73 B` |
 | `TPacketGCCharacterAdditionalInfo` | `HEADER_GC_CHAR_ADDITIONAL_INFO (136)` | `dwVID` (`uint32_t`), `dwEmpire` (`BYTE`), `dwGuildID` (`uint64_t`), `dwLevel` (`uint32_t`), `sAlignment` (`int16_t`), `bPKMode` (`BYTE`), `dwMountVnum` (`uint32_t`) | `66 B` |
 | `TPacketGCCharacterUpdate` | `HEADER_GC_CHARACTER_UPDATE (19)` | `dwVID`, `awPart[CHR_EQUIPPART_NUM]`, `bMovingSpeed`, `bAttackSpeed`, `bStateFlag`, `dwAffectFlag[2]`, `dwGuildID` (`uint64_t`), `sAlignment`, `bPKMode`, `dwMountVnum` | `48 B` |
-| `TPacketGCItemSet` | `HEADER_GC_ITEM_SET (21)` | `Cell`, `vnum` (`uint32_t`), `count` (`uint16_t`), `flags` (`uint32_t`), `anti_flags` (`uint32_t`), `highlight` (`bool`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `54 B` |
-| `TPacketGCItemUpdate` | `HEADER_GC_ITEM_UPDATE (25)` | `Cell`, `count` (`uint16_t`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `41 B` |
-| `TShopItemData` | `HEADER_GC_SHOP (38)` | `vnum` (`uint32_t`), `price` (`YANG` / `int64_t`), `count` (`uint16_t`), `display_pos` (`BYTE`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `48 B` |
-| `TShopItemTable` | `HEADER_CG_MYSHOP (55)` | `vnum` (`uint32_t`), `count` (`uint16_t`), `pos` (`TItemPos`), `price` (`YANG` / `int64_t`), `display_pos` (`BYTE`) | `18 B` |
-| `TPacketCGExchange` | `HEADER_CG_EXCHANGE (27)` | `sub_header` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`BYTE`), `Pos` (`TItemPos`) | `13 B` |
-| `TPacketGCExchange` | `HEADER_GC_EXCHANGE (42)` | `sub_header` (`BYTE`), `is_me` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`TItemPos`), `arg3` (`uint32_t`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `50 B` |
+| `TPacketGCItemSet2` | `HEADER_GC_ITEM_SET2 (21)` | `Cell`, `vnum` (`uint32_t`), `count` (`ITEM_COUNT`), `flags` (`uint32_t`), `anti_flags` (`uint32_t`), `highlight` (`bool`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `54 B` |
+| `TPacketGCItemUpdate` | `HEADER_GC_ITEM_UPDATE (25)` | `Cell`, `count` (`ITEM_COUNT`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `41 B` |
+| `TShopItemData` | `HEADER_GC_SHOP (38)` | `vnum` (`uint32_t`), `price` (`YANG` / `int64_t`), `count` (`ITEM_COUNT`), `display_pos` (`BYTE`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `50 B` |
+| `TShopItemTable` | `HEADER_CG_MYSHOP (55)` | `vnum` (`uint32_t`), `count` (`ITEM_COUNT`), `pos` (`TItemPos`), `price` (`YANG` / `int64_t`), `display_pos` (`BYTE`) | `20 B` |
+| `TPacketCGExchange` | `HEADER_CG_EXCHANGE (27)` | `header` (`BYTE`), `sub_header` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`BYTE`), `Pos` (`TItemPos`) | `14 B` |
+| `TPacketGCExchange` | `HEADER_GC_EXCHANGE (42)` | `header` (`BYTE`), `sub_header` (`BYTE`), `is_me` (`BYTE`), `arg1` (`YANG` / `int64_t`), `arg2` (`TItemPos`), `arg3` (`ITEM_COUNT`), `arg4` (`TItemPos`), `alSockets[3]` (`int32_t[3]`), `aAttr[7]` | `54 B` |
 | `TPacketGCLandList` | `HEADER_GC_LAND_LIST (130)` | `TLandPacketElement`: `dwID` (`uint32_t`), `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint64_t`) | `3 B + N * 28 B` |
 | `building::TLand` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID` (`uint32_t`), `lMapIndex`, `x`, `y`, `width`, `height` (`int32_t`), `dwGuildID` (`uint64_t`), `bGuildLevelLimit` (`BYTE`), `dwPrice` (`YANG` / `int64_t`) | `41 B` |
 | `building::TObjectMaterial` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwItemVnum` (`uint32_t`), `dwCount` (`ITEM_COUNT` / `uint32_t`) | `8 B` |
 | `building::TObjectProto` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwVnum` (`uint32_t`), `dwPrice` (`YANG`), `kMaterials[5]` (`40 B`), `dwUpgradeVnum`, `dwUpgradeLimitTime` (`uint32_t`), `lLife`, `lRegion[4]` (`int32_t`), `dwNPCVnum` (`uint32_t`), `lNPCX`, `lNPCY` (`int32_t`), `dwGroupVnum`, `dwDependOnGroupVnum` (`uint32_t`) | `100 B` |
 | `building::TObject` | `HEADER_DG_BOOT` / `building.h` | `#pragma pack(1)`: `dwID`, `dwLandID`, `dwVnum` (`uint32_t`), `lMapIndex`, `x`, `y` (`int32_t`), `xRot`, `yRot`, `zRot` (`float`), `lLife` (`int32_t`) | `40 B` |
-| `TPacketGCAffectAdd` & `CAffect` | `HEADER_GC_AFFECT_ADD (126)` | `TPacketAffectElement` & `CAffect`: `dwType` (`uint32_t`), `bApplyOn` (`BYTE`), `lApplyValue` (`int32_t`), `dwFlag` (`uint32_t`), `lDuration` (`int64_t`), `lSPCost` (`int64_t`), `dwItemVnum` (`uint32_t`) | `34 B` |
-| `TPacketGCTargetCreate` | `HEADER_GC_TARGET_CREATE (125)` | `lID` (`int32_t`), `szName[33]`, `dwVID` (`uint32_t`), `bType` (`BYTE`), `bEmpire` (`BYTE`), `STargetDebuff::duration` (`int64_t`) | `43 B` |
+| `TPacketGCAffectAdd` & `CAffect` | `HEADER_GC_AFFECT_ADD (126)` | `TPacketAffectElement` & `CAffect`: `dwType` (`uint32_t`), `bApplyOn` (`BYTE`), `lApplyValue` (`int32_t`), `dwFlag` (`uint32_t`), `lDuration` (`int64_t`), `lSPCost` (`int64_t`), `dwItemVnum` (`uint32_t`) | `34 B` (`33 B` elem) |
+| `TPacketGCTargetCreate` | `HEADER_GC_TARGET_CREATE (125)` | `lID` (`int32_t`), `szName[33]`, `dwVID` (`uint32_t`), `bType` (`BYTE`), `bEmpire` (`BYTE`), `STargetDebuff::duration` (`int64_t`, `12 B` elem) | `43 B` |
 | `TPacketGCAffectRemove` | `HEADER_GC_AFFECT_REMOVE (127)` | `dwType` (`uint32_t`), `bApplyOn` (`BYTE`) | `6 B` |
-| `TPacketGCQuestConfirm` | `HEADER_GC_QUEST_CONFIRM (46)` | `msg[64]`, `timeout` (`int32_t`), `requestPID` (`uint64_t`) | `78 B` |
+| `TPacketCGQuestConfirm` & `TPacketGCQuestConfirm` | `HEADER_CG_QUEST_CONFIRM (31)` / `HEADER_GC_QUEST_CONFIRM (46)` | `CG`: `answer` (`BYTE`), `requestPID` (`uint64_t`); `GC`: `msg[65]`, `timeout` (`int32_t`), `requestPID` (`uint64_t`) | `10 B` / `78 B` |
+| `TPacketGCPartyAdd` / `Update` / `Remove` / `Link` / `CGSetState` | `HEADER_GC_PARTY_* (78..92)` / `HEADER_CG_PARTY_* (74..75)` | `pid` (`uint64_t`), `TPacketGCPartyUpdate::x, y` (`int32_t`), `TPacketCGPartySetState::dwVID` (`uint64_t` PID) | `34 B` / `33 B` / `9 B` / `13 B` / `11 B` |
 | `TPacketGCGuildWar` | `HEADER_GC_GUILD` alt paketi | `dwGuildSelf` (`uint64_t`), `dwGuildOpp` (`uint64_t`), `bType` (`BYTE`), `bWarState` (`BYTE`) | `18 B` |
 | `TPacketGCGuildName` | `HEADER_GC_GUILD` (`GUILD_SUBHEADER_GC_GUILD_NAME`) | `header` (`BYTE`), `size` (`uint16_t`), `subheader` (`BYTE`), `guildID` (`uint64_t`), `guildName[GUILD_NAME_MAX_LEN + 2]` (`14 B`) | `26 B` |
-| `TSubPacketGCCaptchaGMWho` | `HEADER_GC_CAPTCHA` (`CAPTCHA_SUBHEADER_GC_GM_WHO`) | `targetPid` (`uint64_t`), `requestId[CAPTCHA_REQUEST_ID_MAX_LEN + 1]` (`15 B`) | `23 B` |
+| `TSubPacketGCCaptchaGMWho` | `HEADER_GC_CAPTCHA` (`CAPTCHA_SUBHEADER_GC_GM_WHO`) | `pid` (`uint64_t`), `name[PLAYER_NAME_MAX_LEN + 1]` (`15 B`) | `23 B` |
+| `ikashop::TShopItem` / `TOfferInfo` / `TAuctionInfo` / `TAuctionOfferInfo` / `TShopInfo` / `TNotificationInfo` | `HEADER_GC_NEW_OFFLINESHOP (214)` / `HEADER_CG_NEW_OFFLINESHOP (119)` | `ownerid`, `itemid`, `offerid`, `buyerid`, `id` (`uint64_t`), `price.yang`, `seenprice`, `datetime` (`int64_t`) | `72 B` / `75 B` / `101 B` / `58 B` / `79 B` / `95 B` |
 
 ---
 
@@ -419,22 +420,22 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 
 | Modül Adı | Konum | Dosya Sayısı | İşlevi ve x64 Dönüşüm Kapsamı |
 | :--- | :--- | :---: | :--- |
-| **UserInterface** | `client/src/UserInterface` | 199 | Ana giriş noktası (`UserInterface.cpp`), ağ akışı (`PythonNetworkStream*.cpp`), `Packet.h`, `PythonPlayer.cpp`, `PythonSafeBox.cpp`, `PythonItemShop.cpp`, `GuildMarkUploader.cpp` |
-| **EterLib** | `client/src/EterLib` | 152 | Grafik motoru temel kütüphanesi, DirectX 8/9 sarmalayıcıları, kamera, yazı tipi, pencere/IME (`HWND`, `WPARAM`, `LPARAM`, `LONG_PTR`) |
-| **GameLib** | `client/src/GameLib` | 100 | Oyun dünyası, aktörler, uçan nesneler, eşya/zemin verileri, harita yükleyici |
-| **EterBase** | `client/src/EterBase` | 48 | Dosya I/O, bellek havuzları, LZO/TEA şifreleme yardımcıları, zamanlayıcı, CRC32 (`__asm` -> C++ / intrinsic dönüşümü) |
+| **UserInterface** | `client/src/UserInterface` | 199 | Ana giriş noktası (`UserInterface.cpp`), ağ akışı (`PythonNetworkStream*.cpp`), `Packet.h`, `PythonPlayer.cpp`, `PythonSafeBox.cpp`, `PythonItemShop.cpp`, `PythonExchange.cpp`, `PythonIkarusShop.cpp`, `GuildMarkUploader.cpp` (`0x20090064U` protokol ve `_WIN64` kaynak uyumu tamamlandı) |
+| **EterLib** | `client/src/EterLib` | 152 | Grafik motoru temel kütüphanesi, DirectX 8/9 sarmalayıcıları, kamera, yazı tipi, pencere/IME (`MSWindow.cpp` `GetWindowLongPtr`/`SetWindowLongPtr(GWLP_USERDATA)` ve `%p` `WNDPROC` düzeltmesi tamamlandı) |
+| **GameLib** | `client/src/GameLib` | 100 | Oyun dünyası, aktörler, uçan nesneler, eşya/zemin verileri (`ItemData.h` 64-bit `YANG` uyumu tamamlandı), harita yükleyici |
+| **EterBase** | `client/src/EterBase` | 48 | Dosya I/O, bellek havuzları, LZO/TEA şifreleme yardımcıları (`tea.cpp` ve `CRC32.cpp` saf C++), zamanlayıcı |
 | **EffectLib** | `client/src/EffectLib` | 37 | Parçacık (particle) efektleri ve görsel efekt yöneticisi |
 | **EterGrnLib** | `client/src/EterGrnLib` | 26 | Granny 3D modelleme, iskelet ve animasyon yöneticisi (`granny.h` x64 ABI uyumu) |
 | **MilesLib** | `client/src/MilesLib` | 21 | Miles Sound System ses motoru yöneticisi (`MSS.H` x64 ABI / ses arka ucu uyumu) |
 | **SpeedTreeLib** | `client/src/SpeedTreeLib` | 19 | SpeedTree RT orman, ağaç ve bitki örtüsü yöneticisi (`SpeedTreeRT.h` x64 uyumu) |
 | **EterPythonLib** | `client/src/EterPythonLib` | 18 | Python UI bileşenleri, ızgara pencereleri, butonlar (`PyTuple` 64-bit işaretçi/tamsayı bağlamaları) |
 | **EterPack** | `client/src/EterPack` | 14 | `.data` / `.index` ve `.epk` / `.eix` arşiv paket çözücü |
-| **ScriptLib** | `client/src/ScriptLib` | 13 | Python script çalışma zamanı ve C API bağlayıcıları (`Py_ssize_t`) |
+| **ScriptLib** | `client/src/ScriptLib` | 13 | Python script çalışma zamanı ve C API bağlayıcıları (`PythonUtils.{h,cpp}` `PyTuple_GetLongLong` / `PyTuple_GetUnsignedLongLong` tamamlandı) |
 | **EterLocale** | `client/src/EterLocale` | 13 | String dönüşümleri, dil tabloları, ANSI/UTF-8 codepage eşleşmeleri |
 | **SphereLib** | `client/src/SphereLib` | 11 | Küresel çarpışma (collision) tespit kütüphanesi |
 | **EterImageLib** | `client/src/EterImageLib` | 9 | TGA, BMP, DXTC resim format işleyicisi (`DevIL`) |
-| **PRTerrainLib** | `client/src/PRTerrainLib` | 8 | Yükseklik haritası ve arazi kaplama yöneticisi |
-| **CWebBrowser** | `client/src/CWebBrowser` | 4 | Dahili web kontrolü (`OLE` / `ActiveX` 64-bit COM işaretçileri) |
+| **PRTerrainLib** | `client/src/PRTerrainLib` | 8 | Yükseklik haritası ve arazi kaplama yöneticisi (`TerrainType.h` `#ifdef _WIN64` `lrintf` uyumu tamamlandı) |
+| **CWebBrowser** | `client/src/CWebBrowser` | 4 | Dahili web kontrolü (`CWebBrowser.c` `GetWindowLongPtr`/`SetWindowLongPtr(GWLP_USERDATA)` 64-bit `IOleObject**` düzeltmesi tamamlandı) |
 
 ### 11.2 Mevcut 32-Bit (`x86`) Bağımlılıkları ve Gerçek Native x64 Engelleri
 
@@ -442,7 +443,7 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 
 1. **Granny 3D (`EterGrnLib` — `granny2.dll`, `granny2.4.0.10.lib` .. `granny2.11.8.0.lib`):**
    - `UserInterface.cpp:33-41` içinde `GRANNY_PRODUCT_MINOR_VERSION` değerine göre 32-bit `granny2.*.lib` bağlanmakta ve çalışma zamanında `client/files/granny2.dll` (`PE32`) yüklenmektedir.
-   - **x64 Gereksinimi:** Gerçek 64-bit (`PE32+`) `granny2_x64.dll` (veya `granny2.dll` x64) + x64 import `.lib` kütüphanesi sağlanmalı ve `granny.h` içindeki yapı/işaretçi tanımları 64-bit ABI ile doğrulanmalıdır.
+   - **x64 Gereksinimi:** Gerçek 64-bit (`PE32+`) `granny2_x64.dll` (veya `granny2.dll` x64) + x64 import `.lib` kütüphanesi sağlanmalı ve `granny.h` içindeki yapı/işaretçi tanımları (`GrannyConvertSingleObject` / `GrannyFileInfo` 32-bit disk formatı vs 64-bit bellek işaretçileri) 64-bit ABI ile doğrulanmalıdır.
 2. **SpeedTree RT (`SpeedTreeLib` — `SpeedTreeRT.dll`, `SpeedTreeRT.lib`):**
    - `extern/client/lib/SpeedTreeRT.lib` (`50.622 B`) ve `client/files/SpeedTreeRT.dll` 32-bit kapalı kaynak ikililerdir.
    - **x64 Gereksinimi:** Gerçek x64 `SpeedTreeRT` kütüphanesi (`.lib` / `.dll`) veya `SpeedTreeLib` arayüzünü koruyan native x64 derlemesi sağlanmalıdır.
@@ -454,15 +455,13 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
    - **x64 Gereksinimi:** Windows 10/11 SDK `um\x64` altındaki resmi 64-bit sistem kütüphaneleri (`d3d9.lib`, `dinput8.lib`, `dxguid.lib`, `dmoguids.lib`, `strmiids.lib`, `ddraw.lib`, `winmm.lib`, `imm32.lib`, `ws2_32.lib`, `version.lib`, `imagehlp.lib`, `uuid.lib`) ve DirectX End-User Runtime (June 2010) `x64` `d3dx9.lib` + 64-bit `d3dx9_43.dll` kullanılmalıdır.
 5. **Python 2.7 ve Statik/Dinamik Modül Kütüphaneleri (`ScriptLib`, `EterPythonLib`, `UserInterface`, `.pyd`):**
    - `extern/client/lib/python27-static.lib` (`30,4 MB`), `python27_d-static.lib` (`12,6 MB`), `liblib.lib` (`26,6 MB` — Cython ile derlenmiş gömülü UI/root modülleri) ve `extern/client/lib/*.obj` (`121` adet 32-bit COFF nesne dosyası) tamamen 32-bit (`x86`) derlenmiştir.
-   - `extern/client/include/Python27/pyconfig.h` içinde 32-bit sabitler (`SIZEOF_VOID_P = 4`) bulunmaktadır.
-   - **x64 Gereksinimi:** Python çalışma zamanı, `liblib` statik modülleri ve varsa harici `.pyd` uzantıları `_WIN64` / `x64` (`SIZEOF_VOID_P = 8`, `Py_ssize_t = int64_t`) olarak derlenmeli; `ScriptLib` / `UserInterface` içindeki `PyTuple_GetInteger`, `PyTuple_GetLong`, `PyTuple_GetUnsignedLong` ve `Py_BuildValue` çağrılarında 64-bit tam sayı (`int64_t` / `uint64_t`) ve 64-bit pencere/nesne tanıtıcısı (`capsule` / `ull`) kesilmeleri giderilmelidir.
+   - `extern/client/include/Python27/pyconfig.h` başlığı `MS_WIN64` (`_WIN64`) altında `SIZEOF_VOID_P = 8`, `SIZEOF_SIZE_T = 8`, `SIZEOF_TIME_T = 8` ve `typedef __int64 ssize_t` tanımlarını içermektedir; ancak bağlama aşaması için gerçek x64 Python statik/dinamik kütüphanesi ve x64 `liblib` modülleri gereklidir (§13).
 6. **Açık Kaynak / Yeniden Derlenebilir Statik ve Dinamik Kütüphaneler (`extern/client/lib/`):**
    - Mevcut 32-bit `.lib` dosyaları: `cryptlib-Release.lib` / `cryptlib-Debug.lib` (`110,8 MB`, Git-ignored), `libboost_filesystem-vc141-mt-s-x32-1_67.lib`, `libboost_system-vc141-mt-s-x32-1_67.lib`, `devil.lib` / `DevIL-1.7.8.lib` / `ILU.lib` / `ILUT.lib` (ve `client/files/devil.dll`), `lzo2.lib`, `liblz4_static-Release.lib`, `snappy.lib`, `libjpeg-MT.lib`, `libpngd.lib`, `zlibd.lib`, `minIni-Release-x86-mt.lib`, `discord_rpc_r.lib` / `discord_rpc_d.lib`, `WebView2Loader.dll`.
    - **x64 Gereksinimi:** İstemcinin fiilen bağladığı tüm yardımcı kütüphaneler gerçek native `x64` (`/MACHINE:X64`) olarak derlenmeli veya x64 sürümleriyle değiştirilmeli; kullanılmayan 32-bit kütüphaneler (`opencv_*`, `libmysql.lib`, `mysqlclient.lib` vb.) bağlayıcı girdilerinden çıkarılmalıdır.
-7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32`, Çağrı Kuralları ve İşaretçi Kesilmesi (`Pointer Truncation`) Engelleri:**
-   - MSVC x64 (`cl.exe` amd64) satır içi `__asm { ... }` bloklarını desteklemez. `EterBase`, `EterPack`, `UserInterface` ve `SecureEngineCustomVMs_VC_inline.h` / `ThemidaSDK.h` (`SecureEngineSDK32.lib`) içindeki x86 `__asm` kullanımları standart C++ veya `<intrin.h>` intrinsic fonksiyonlarına dönüştürülmelidir.
-   - Win32 API ve motor sınıflarında 8 baytlık işaretçileri ve tanıtıcıları (`void*`, `HWND`, `HINSTANCE`, `WNDPROC`, `LPARAM`, `WPARAM`, `DWORD_PTR`, `ULONG_PTR`, `uintptr_t`, `intptr_t`) 32-bit `DWORD`, `int` veya `long` türlerine dönüştüren tüm noktalar (`SetWindowLong` -> `SetWindowLongPtr`, `GetWindowLong` -> `GetWindowLongPtr`, `GCL_*` -> `GCLP_*`) ile x86'ya özgü çağrı kuralı (`__stdcall` / `__fastcall` / `__cdecl` geri çağırım imzası) uyumsuzlukları 64-bit güvenli hale getirilmelidir.
-   - Ağ paketlerinde ve dosya formatlarında (`EterPack`, `GameLib`, `Packet.h`) bellek içi işaretçi boyutu (`sizeof(void*) == 8`) ile disk/ağ üzerindeki sabit genişlikli yapıların (`#pragma pack(1)`, `sizeof`, `offsetof`, `alignof`) birbirine karıştırılmaması zorunludur.
+7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32` ve İşaretçi Kesilmesi (`Pointer Truncation`) Durumu:**
+   - **Tamamlanan Kaynak Düzeltmeleri (`client/src/**`):** `Hardware.cpp` (`GetCPUID` -> `<intrin.h>` `__cpuid`/`__cpuidex`), `UserInterface.cpp` (`CallFunction`/`Step1Junk` `#ifdef _WIN64` ve `GetCurrentProcess()` `uintptr_t`), `PRTerrainLib/TerrainType.h` (`#ifdef _WIN64` `lrintf`), `EterLib/MSWindow.cpp` ve `CWebBrowser/CWebBrowser.c` (`GetWindowLongPtr`/`SetWindowLongPtr(GWLP_USERDATA)`) düzeltilerek `client/src/**` içindeki tüm doğrudan x86 `__asm` ve `GWL_USERDATA` kesilmeleri giderilmiştir.
+   - **Kalan UI Pencere Tanıtıcısı ve `SecureEngineSDK32` Notu:** `extern/client/include/SecureEngineCustomVMs_VC_inline.h` (`ThemidaSDK.h`) `_WIN64` tanımlı olduğunda `SecureEngineSDK64.dll` bekler veya devre dışı bırakılmalıdır; `EterPythonLib/PythonWindowManagerModule.cpp` içinde `UI::CWindow*` işaretçilerinin Python'a 32-bit `"i"` yerine 64-bit `"K"` / `PyLong_FromVoidPtr` ile taşınması §13 kapsamındaki Python C API geçişiyle birlikte tamamlanacaktır.
 
 ---
 
@@ -473,30 +472,49 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 1. **Gerçek Native x64 (`PE32+`) İkili ve Bağımlılık Doğrulaması:**
    - `Metin2Client.sln` içindeki 16 modülün tamamının `x64` (`Release|x64` / `Debug|x64`) hedefinde `0` hata ile derlenmesi ve üretilen `metin2client.exe` dosyasının `PE32+ executable (GUI) x86-64` (`IMAGE_FILE_MACHINE_AMD64 = 0x8664`) olduğunun kanıtlanması.
    - Çalışma zamanında yüklenen tüm DLL/ `.pyd` dosyalarının `PE32+` (`x64`) olduğunun, hiçbir 32-bit (`x86`) `.lib` / `.obj` / `.dll` / `.pyd` bağımlılığının kalmadığının ve eksik bir SDK için sahte stub kullanılmadığının doğrulanması.
-2. **Derleme Zamanı `static_assert` Kontrolleri (`client/src/UserInterface/Packet.h` — En Az 15 Zorunlu Kontrol):**
+2. **Derleme Zamanı `static_assert` Kontrolleri (`client/src/UserInterface/Packet.h` — Doğrulandı):**
    - `static_assert(sizeof(TPacketGCTime) == 9);`
-   - `static_assert(sizeof(TPacketGCPoints) == 2041);`
+   - `static_assert(sizeof(TPacketGCPoints) == 1417);` (`POINT_MAX_NUM = 177`)
    - `static_assert(sizeof(TPacketGCPointChange) == 25);`
    - `static_assert(sizeof(TPacketCGSafeboxMoney) == 10);`
    - `static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9);`
-   - `static_assert(sizeof(TPacketGCRefineInformation) == 56);`
-   - `static_assert(sizeof(TPacketGCRefineInformaionNew) == 57);`
-   - `static_assert(sizeof(TPacketGCItemShopBalance) == 17);`
-   - `static_assert(sizeof(TItemShopItem) == 102);`
-   - `static_assert(sizeof(TSpecialShopItemClient) == 55);`
+   - `static_assert(sizeof(TPacketGCRefineInformation) == 63);` (`TRefineTable == 61`)
+   - `static_assert(sizeof(TPacketGCRefineInformationNew) == 64);`
+   - `static_assert(sizeof(TPacketGCItemShopBalance) == 16);`
+   - `static_assert(sizeof(TItemShopItem) == 86);`
+   - `static_assert(sizeof(TSpecialShopItemClient) == 67);`
    - `static_assert(sizeof(TSubPacketGCCaptchaMeta) == 9);`
    - `static_assert(sizeof(TSubPacketGCCaptchaGMWho) == 23);`
-   - `static_assert(sizeof(TPacketGCAffectAdd) == 34);`
-   - `static_assert(sizeof(TPacketGCQuestConfirm) == 78);`
-   - `static_assert(sizeof(TPacketGCGuildName) == 26);`
-   - *(Ek sabit boyut doğrulamaları: `TPacketCGLogin2 == 56`, `TPacketCGLogin3 == 325`, `TPacketGCLoginSuccess == 385`, `TPacketGCCharacterCreateSuccess == 73`, `TPacketGCCharacterAdditionalInfo == 66`, `TPacketGCCharacterUpdate == 48`, `TPacketGCTargetCreate == 43`.)*
+   - `static_assert(sizeof(TPacketGCAffectAdd) == 34);` (`TPacketAffectElement == 33`)
+   - `static_assert(sizeof(TPacketGCQuestConfirm) == 78);` (`TPacketCGQuestConfirm == 10`)
+   - `static_assert(sizeof(TPacketCGExchange) == 14 && sizeof(TPacketGCExchange) == 54);`
+   - `static_assert(sizeof(ikashop::TShopItem) == 72 && sizeof(ikashop::TOfferInfo) == 75 && sizeof(ikashop::TAuctionInfo) == 101 && sizeof(ikashop::TShopInfo) == 79);`
 3. **Protokol Sürüm El Sıkışması Doğrulaması (`MT2_PROTOCOL_VERSION_X64 = 0x20090064U`):**
    - `dwProtocolVersion == 0x20090064U` ile `AUTH` (`HEADER_CG_LOGIN3`) ve `GAME` (`HEADER_CG_LOGIN2`) bağlantısının kabul edilmesi.
    - `0x20090032U` veya eski boyutlu paketlerle bağlantının `"VERSION"` / `"WRONGVER"` ile reddedilmesi.
 4. **Canlı 64-Bit Kimlik (`> 2^32`), Ekonomi (`> 2^32` Yang) ve Zaman Damgası (`> 2038`) Oturum Testi:**
-   - `AID > 2^32`, `PID > 2^32`, `ITEM_ID > 2^32` ve `GUILD_ID > 2^32` kimlikleriyle oyuna giriş, karakter seçimi, envanter, lonca adı (`TPacketGCGuildName`), quest onayı (`TPacketGCQuestConfirm`) ve etki (`TPacketGCAffectAdd`) akışlarının kesintisiz çalışması.
-   - `POINT_GOLD = 75.000.000.000` (`75 Milyar` Yang) değerinin `TPacketGCPoints` ve `TPacketGCPointChange` üzerinden Python arayüzünde kesilmeden görüntülenmesi.
-   - `TPacketCGSafeboxMoney` / `TPacketGCSafeboxMoneyChange` ile `50.000.000.000` Yang depo transferi.
-   - `TPacketGCRefineInformation` ile `> 2^31` Yang yükseltme maliyetinin negatifleşmeden gösterilmesi.
-   - `TPacketGCItemShopBalance` ve `TItemShopItem` ile `> 2^32` Dragon Coin/Mark bakiyesi ve ürün fiyatlarının doğru okunması.
-   - `TPacketGCTime` ile `> 2038` (`> 2.147.483.647`) zaman damgalarının taşmadan işlenmesi.
+   - `AID > 2^32`, `PID > 2^32`, `ITEM_ID > 2^32` ve `GUILD_ID > 2^32` kimlikleriyle oyuna giriş, karakter seçimi, envanter, lonca, parti, takas (`Exchange`), dükkan (`Shop`/`ShopEx`/`SpecialShop`/`IkarusShop`), quest onayı (`TPacketGCQuestConfirm`) ve etki (`TPacketGCAffectAdd`) akışlarının kesintisiz çalışması.
+
+---
+
+## 13. Python 2.7 -> Desteklenen Python 3 x64 ve C++20 Geçiş Envanteri (`Stage 0`)
+
+`mt2009-python3-cpp20-migration` uzmanlık kuralları uyarınca yürütülen `Stage 0` salt-okunur bağımlılık ve C API envanteri:
+
+1. **Mevcut Gömülü Python 2.7 Mimarisi ve İkili Bağımlılıklar:**
+   - **Başlıklar:** `extern/client/include/Python27/` (`Python.h`, `pyconfig.h`, `intobject.h`, `stringobject.h`, `cStringIO.h`).
+   - **Statik Kütüphaneler ve Gömülü Cython Modülleri:** `extern/client/lib/python27-static.lib` (`30,4 MB`, `COFF i386`), `python27_d-static.lib` (`12,6 MB`, `COFF i386`), `liblib.lib` (`26,6 MB`, `COFF i386`) ve `extern/client/lib/*.obj` (`121` adet 32-bit Cython/Python nesne dosyası).
+   - **Çalışma Zamanı Betikleri:** `client/files/lib/` (standart Python 2.7 kütüphanesi `.py`/`.pyc`) ve `pack/root`, `pack/uiscript`, `pack/locale` altındaki istemci UI betikleri (`ui.py`, `game.py`, `interfacemodule.py`, `uishop.py`, `uiexchange.py`, `uiikarusshop.py`, `uicharacter.py`, `uiinventory.py` vb.).
+2. **İstemci C++ Kodundaki Python 2.7 C API Yüzeyi (`ScriptLib`, `EterPythonLib`, `UserInterface`):**
+   - **Modül Başlatma (`Py_InitModule` / `Py_InitModule4` -> `PyModuleDef` / `PyModule_Create` / `PyImport_AppendInittab`):**
+     * `ScriptLib/PythonLauncher.cpp` (`Py_Initialize`, `PyImport_AddModule`, `PyCee_Settrace`), `EterPythonLib/PythonWindowManagerModule.cpp` (`initwndMgr`), `PythonGraphicModule.cpp` (`initgrp`), `PythonGraphicImageModule.cpp` (`initgrpImage`), `PythonGraphicTextModule.cpp` (`initgrpText`), `PythonGraphicThingModule.cpp` (`initgrpThing`) ve `UserInterface/Python*Module.cpp` içindeki 26 yerleşik C++ modülü (`app`, `net`, `chr`, `chrmgr`, `player`, `item`, `shop`, `exchange`, `safebox`, `chat`, `textTail`, `event`, `effect`, `snd`, `systemSetting`, `miniMap`, `guild`, `messenger`, `skill`, `nonplayer`, `background`, `quest`, `ime`, `profiler`, `ikashop`, `itemshop`).
+   - **Tam Sayı ve İşaretçi Dönüşümleri (`PyInt_*` -> `PyLong_*`):**
+     * `ScriptLib/PythonUtils.cpp` içinde `PyInt_Check` / `PyInt_AsLong` ve `PyLong_Check` / `PyLong_AsLongLong` / `PyLong_AsUnsignedLongLong` birlikte desteklenmektedir (`PyTuple_GetLongLong` ve `PyTuple_GetUnsignedLongLong` 64-bit `YANG` ve `uint64_t` kimlikler için aktif olarak kullanılmaktadır).
+     * `EterPythonLib/PythonWindowManagerModule.cpp` ve `PythonGraphic*Module.cpp` içinde `UI::CWindow*`, `CGraphicImage*`, `CGraphicTextInstance*`, `CGraphicThingInstance*` işaretçileri `PyTuple_GetWindow` / `Py_BuildValue("i", pWindow)` ile 32-bit `int` olarak aktarılmaktadır; gerçek x64 çalışması için tüm pencere/grafik nesne tanıtıcıları `PyLong_FromVoidPtr` / `PyLong_AsVoidPtr` (`"K"` / `uintptr_t`) olarak genişletilmelidir.
+   - **Metin/Bayt Sınırları (`PyString_*` -> `PyUnicode_*` / `PyBytes_*`):**
+     * `ScriptLib/PythonUtils.cpp` (`PyTuple_GetString`: `PyString_Check` / `PyString_AsString`), `ScriptLib/PythonLauncher.cpp` (`cStringIO`), `EterPack` script yükleyicisi ve `UserInterface` modüllerindeki `PyString_FromString` / `PyString_FromStringAndSize` çağrıları Lehçe (`CP1250`) ve UTF-8 metin kodlamalarını bozmadan ince bir uyumluluk katmanıyla (`PyUnicode_DecodeCP1250` / `PyUnicode_AsUTF8AndSize` veya `PyBytes_*`) dönüştürülmelidir.
+3. **Güvenli Aşamalı Geçiş Sırası:**
+   - **Aşama 1 (`client/src/EterPythonLib` & `ScriptLib` 64-Bit Tanıtıcı Güvenliği):** `UI::CWindow*` ve `CGraphic*` nesne işaretçilerinin Python sınırında 64-bit `uintptr_t` (`PyLong_FromVoidPtr` / `PyLong_AsVoidPtr`) ile taşınması (Python 2.7 ve Python 3.x altında ortak çalışır).
+   - **Aşama 2 (`ScriptLib` Python 2/3 C API Soyutlama Başlığı):** `PyInt_*` -> `PyLong_*`, `PyString_*` -> `PyBytes_*`/`PyUnicode_*` ve `Py_InitModule` -> `PyModuleDef` sarmalayıcılarının oluşturulması.
+   - **Aşama 3 (Gömülü `liblib` ve Python Çalışma Zamanı Yeniden Derlemesi):** Harici 32-bit `python27-static.lib` + `liblib.lib` yerine kaynak kodu mevcut olan hedef x64 Python çalışma zamanının ve UI betiklerinin bağlanması.
+

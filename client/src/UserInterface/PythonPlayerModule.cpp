@@ -1917,7 +1917,7 @@ PyObject * playerIsPartyLeader(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &iVID))
 		return Py_BuildException();
 
-	DWORD dwPID;
+	uint64_t dwPID;
 	if (!CPythonPlayer::Instance().PartyMemberVIDToPID(iVID, &dwPID))
 		return Py_BuildValue("i", FALSE);
 
@@ -1930,12 +1930,12 @@ PyObject * playerIsPartyLeader(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerIsPartyLeaderByPID(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 
 	CPythonPlayer::TPartyMemberInfo * pPartyMemberInfo;
-	if (!CPythonPlayer::Instance().GetPartyMemberPtr(iPID, &pPartyMemberInfo))
+	if (!CPythonPlayer::Instance().GetPartyMemberPtr(ullPID, &pPartyMemberInfo))
 		return Py_BuildValue("i", FALSE);
 
 	return Py_BuildValue("i", CPythonPlayer::PARTY_ROLE_LEADER == pPartyMemberInfo->byState);
@@ -1943,12 +1943,12 @@ PyObject * playerIsPartyLeaderByPID(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerGetPartyMemberHPPercentage(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 
 	CPythonPlayer::TPartyMemberInfo * pPartyMemberInfo;
-	if (!CPythonPlayer::Instance().GetPartyMemberPtr(iPID, &pPartyMemberInfo))
+	if (!CPythonPlayer::Instance().GetPartyMemberPtr(ullPID, &pPartyMemberInfo))
 		return Py_BuildValue("i", FALSE);
 
 	return Py_BuildValue("i", pPartyMemberInfo->byHPPercentage);
@@ -1956,12 +1956,12 @@ PyObject * playerGetPartyMemberHPPercentage(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerGetPartyMemberState(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 
 	CPythonPlayer::TPartyMemberInfo * pPartyMemberInfo;
-	if (!CPythonPlayer::Instance().GetPartyMemberPtr(iPID, &pPartyMemberInfo))
+	if (!CPythonPlayer::Instance().GetPartyMemberPtr(ullPID, &pPartyMemberInfo))
 		return Py_BuildValue("i", FALSE);
 
 	return Py_BuildValue("i", pPartyMemberInfo->byState);
@@ -1969,12 +1969,12 @@ PyObject * playerGetPartyMemberState(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerGetPartyMemberAffects(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 
 	CPythonPlayer::TPartyMemberInfo * pPartyMemberInfo;
-	if (!CPythonPlayer::Instance().GetPartyMemberPtr(iPID, &pPartyMemberInfo))
+	if (!CPythonPlayer::Instance().GetPartyMemberPtr(ullPID, &pPartyMemberInfo))
 		return Py_BuildValue("i", FALSE);
 
 	return Py_BuildValue("iiiiiii",	pPartyMemberInfo->sAffects[0],
@@ -1988,11 +1988,11 @@ PyObject * playerGetPartyMemberAffects(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerRemovePartyMember(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	uint64_t ullPID;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &ullPID))
 		return Py_BuildException();
 
-	CPythonPlayer::Instance().RemovePartyMember(iPID);
+	CPythonPlayer::Instance().RemovePartyMember(ullPID);
 	return Py_BuildNone();
 }
 

@@ -214,21 +214,10 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 	if (!ch || !ch->GetDesc())
 		return;
 
-	auto itemList =  GetSpecialShopItemList(shop_vnum);
+	auto itemList = GetSpecialShopItemList(shop_vnum);
+	std::vector<TSpecialShopItemClient> sendItems;
+	sendItems.reserve(itemList.size());
 
-	TPacketCGSpecialShop pack;
-	pack.header = HEADER_GC_SPECIAL_SHOP;
-	pack.subheader = SUBHEADER_GC_SPECIAL_SHOP_OPEN;
-	pack.size = sizeof(TPacketCGSpecialShop) + sizeof(TSubPacketCGSpecialShopOpen) + itemList.size() * sizeof(TSpecialShopItemClient);
-
-	TSubPacketCGSpecialShopOpen subpack;
-	subpack.count = itemList.size();
-	subpack.fraction = seller ? seller->GetFraction() : 0;
-
-	TEMP_BUFFER buff;
-	buff.write(&pack, sizeof(pack));
-	buff.write(&subpack, sizeof(subpack));
-	
 	for (auto vnum : itemList)
 	{
 		auto item = GetSpecialShopItem(vnum);
@@ -247,7 +236,7 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 
 			if (item->randomItemCount > 0 && item->randomItemGroup > 0)
 			{
-				int last_items_index = 0;
+				int last_items_index = SPECIAL_SHOP_MAX_ITEM_COUNT;
 				for (int i = 0; i < SPECIAL_SHOP_MAX_ITEM_COUNT; i++)
 					if (sendItem.items[i].vnum == 0)
 					{
@@ -257,7 +246,7 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 
 				const auto seed = GetShopMetaData(shop_vnum).seed + item->vnum;
 				auto randomItems = GetRandomItems(seed, item);
-				for (size_t i = 0; i < randomItems.size(); i++)
+				for (size_t i = 0; i < randomItems.size() && (last_items_index + static_cast<int>(i)) < SPECIAL_SHOP_MAX_ITEM_COUNT; i++)
 				{
 					sendItem.items[last_items_index + i] = randomItems[i];
 				}
@@ -265,12 +254,27 @@ void CSpecialShopManager::SendShopInfo(LPCHARACTER ch, DWORD shop_vnum, LPCHARAC
 
 			memcpy(&sendItem.limits, item->limits, sizeof(sendItem.limits));
 			ch->ChatDebug("sending itemvnum %d", sendItem.itemVnum);
-			buff.write(&sendItem, sizeof(TSpecialShopItemClient));
+			sendItems.push_back(sendItem);
 		}
 	}
 
+	TPacketCGSpecialShop pack{};
+	pack.header = HEADER_GC_SPECIAL_SHOP;
+	pack.subheader = SUBHEADER_GC_SPECIAL_SHOP_OPEN;
+	pack.size = static_cast<int>(sizeof(TPacketCGSpecialShop) + sizeof(TSubPacketCGSpecialShopOpen) + sendItems.size() * sizeof(TSpecialShopItemClient));
+
+	TSubPacketCGSpecialShopOpen subpack{};
+	subpack.count = static_cast<BYTE>(sendItems.size());
+	subpack.fraction = seller ? seller->GetFraction() : 0;
+
+	TEMP_BUFFER buff;
+	buff.write(&pack, sizeof(pack));
+	buff.write(&subpack, sizeof(subpack));
+	if (!sendItems.empty())
+		buff.write(sendItems.data(), sendItems.size() * sizeof(TSpecialShopItemClient));
+
 	ch->GetDesc()->Packet(buff.read_peek(), buff.size());
-	ch->ChatDebug("special shop (vnum %d) %d items sent", shop_vnum, itemList.size());
+	ch->ChatDebug("special shop (vnum %d) %zu items sent", shop_vnum, sendItems.size());
 }
 
 void CSpecialShopManager::SendBuyInfo(LPCHARACTER ch, DWORD vnum)
@@ -410,7 +414,10 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 	}
 
 	if (randomItems.size() > 0)
-		items.insert(items.end(), randomItems.begin(), randomItems.end());
+	{
+		for (size_t i = 0; i < randomItems.size() && items.size() < SPECIAL_SHOP_MAX_ITEM_COUNT; ++i)
+			items.emplace_back(randomItems[i]);
+	}
 
 	// check required items
 	bool hasRequiredItems = true;
@@ -442,7 +449,7 @@ void CSpecialShopManager::BuyItem(LPCHARACTER ch, DWORD vnum)
 	else if (item->priceType == SPECIAL_SHOP_PRICE_REPUTATION)
 	{
 		int playerReputation = ch->GetReputation(seller->GetFraction());
-		if (playerReputation < item->price)
+		if (item->price < 0 || static_cast<int64_t>(playerReputation) < item->price)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_PRICE_NO_REPUTATION"));
 			return;
@@ -591,7 +598,7 @@ void CSpecialShopManager::RemoveAllGuests(DWORD shop_vnum)
 			ch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SPECIAL_SHOP_OFFER_CHANGED"));
 		}
 	}
-	m_map_SpecialShopGuestMap.clear();
+	GetGuestSet(shop_vnum).clear();
 }
 
 void CSpecialShopManager::RemoveGuest(DWORD shop_vnum, uint64_t pid)

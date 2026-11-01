@@ -96,10 +96,15 @@ FARPROC GetObfuscatedFunction(HMEMORYMODULE hModule, const char* funcName) {
 void CallFunction(void* func) { // skitrany call w assamblerze ktory dodatkowo podczas dekompilacji rozpierdala funkcje i ciezko sie odnalezc
 
 	JUNK_CODE_1
+#ifdef _WIN64
+	if (func)
+		reinterpret_cast<void(*)()>(func)();
+#else
 		__asm {
 		mov eax, func
 		call eax
 	}
+#endif
 	JUNK_CODE_2
 
 }
@@ -144,6 +149,7 @@ void Step1Junk(HMEMORYMODULE hModule) { // taktyczna zmylka ktora nic nie robi
 		volatile char temp = *fakePointer;
 	}
 
+#ifndef _WIN64
 	__asm {
 		mov eax, 0x12345678
 		xor eax, 0x87654321
@@ -162,6 +168,7 @@ void Step1Junk(HMEMORYMODULE hModule) { // taktyczna zmylka ktora nic nie robi
 		ror ecx, 4
 		xor ecx, ecx
 	}
+#endif
 }
 
 void FuncCall(FARPROC func) {
@@ -938,7 +945,7 @@ bool Main(HINSTANCE hInstance, LPSTR lpCmdLine)
 	g_isScreenShotKey = true;
 #endif
 
-	DWORD dwRandSeed=time(NULL)+DWORD(GetCurrentProcess());
+	DWORD dwRandSeed=static_cast<DWORD>(time(NULL))+static_cast<DWORD>(reinterpret_cast<uintptr_t>(GetCurrentProcess()));
 	srandom(dwRandSeed);
 	srand(random());
 

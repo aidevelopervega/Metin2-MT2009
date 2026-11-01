@@ -334,7 +334,7 @@ bool CPythonNetworkStream::RecvOfflineshopPopupMessage()
 bool CPythonNetworkStream::RecvOfflineshopSearchResultDelete()
 {
 	// getting itemid
-	DWORD itemid = 0;
+	uint64_t itemid = 0;
 	if (!Recv(sizeof(itemid), &itemid))
 		return false;
 
@@ -349,8 +349,8 @@ bool CPythonNetworkStream::RecvOfflineshopNotifyItemSold()
 		return false;
 
 	// vnum, count, price
-	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "OnMyShopBuy", Py_BuildValue("(iii)",
-		packet.itemVnum, packet.count, packet.price));
+	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "OnMyShopBuy", Py_BuildValue("(iiL)",
+		packet.itemVnum, packet.count, static_cast<long long>(packet.price)));
 	return true;
 }
 
@@ -579,7 +579,7 @@ void CPythonNetworkStream::SendIkarusShopRequestShopList()
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopOpenShop(DWORD dwOwnerID)
+void CPythonNetworkStream::SendIkarusShopOpenShop(uint64_t dwOwnerID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -617,7 +617,7 @@ void CPythonNetworkStream::SendIkarusShopOpenShopOwner()
 }
 
 
-void CPythonNetworkStream::SendIkarusShopBuyItem(DWORD dwOwnerID, DWORD dwItemID, bool isSearch, long long TotalPriceSeen) //patch seen price check
+void CPythonNetworkStream::SendIkarusShopBuyItem(uint64_t dwOwnerID, uint64_t dwItemID, bool isSearch, long long TotalPriceSeen) //patch seen price check
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header = HEADER_CG_NEW_OFFLINESHOP;
@@ -670,7 +670,7 @@ void CPythonNetworkStream::SendIkarusShopAddItem(ikashop::TShopItemInfo& itemInf
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopRemoveItem(DWORD dwItemID)
+void CPythonNetworkStream::SendIkarusShopRemoveItem(uint64_t dwItemID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -698,7 +698,7 @@ void CPythonNetworkStream::SendIkarusShopRemoveAllItem()
 	TPacketCGNewOfflineShop pack;
 	pack.header = HEADER_CG_NEW_OFFLINESHOP;
 	pack.subheader = ikashop::SUBHEADER_CG_SHOP_REMOVE_ALL_ITEM;
-	pack.size = sizeof(pack);
+	pack.size = sizeof(pack) + sizeof(ikashop::TSubPacketCGRemoveItem);
 
 	ikashop::TSubPacketCGRemoveItem subpack;
 	subpack.itemid = 0;
@@ -716,7 +716,7 @@ void CPythonNetworkStream::SendIkarusShopRemoveAllItem()
 	}
 }
 
-void CPythonNetworkStream::SendOfflineShopEditItem(DWORD dwItemID, const ikashop::TPriceInfo& price)
+void CPythonNetworkStream::SendOfflineShopEditItem(uint64_t dwItemID, const ikashop::TPriceInfo& price)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header = HEADER_CG_NEW_OFFLINESHOP;
@@ -847,7 +847,7 @@ void CPythonNetworkStream::SendIkarusShopOfferCreate(const ikashop::TOfferInfo& 
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopOfferAccept(DWORD dwOfferID)
+void CPythonNetworkStream::SendIkarusShopOfferAccept(uint64_t dwOfferID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -870,7 +870,7 @@ void CPythonNetworkStream::SendIkarusShopOfferAccept(DWORD dwOfferID)
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopOfferCancel(DWORD dwOfferID, DWORD dwOwnerID)
+void CPythonNetworkStream::SendIkarusShopOfferCancel(uint64_t dwOfferID, uint64_t dwOwnerID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -922,7 +922,7 @@ void CPythonNetworkStream::SendIkarusShopSafeboxOpen()
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopSafeboxGetItem(DWORD dwItemID)
+void CPythonNetworkStream::SendIkarusShopSafeboxGetItem(uint64_t dwItemID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -984,7 +984,7 @@ void CPythonNetworkStream::SendIkarusShopAuctionListRequest()
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopAuctionOpen(DWORD dwOwnerID)
+void CPythonNetworkStream::SendIkarusShopAuctionOpen(uint64_t dwOwnerID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -1008,7 +1008,7 @@ void CPythonNetworkStream::SendIkarusShopAuctionOpen(DWORD dwOwnerID)
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopAuctionAddOffer(DWORD dwOwnerID, const ikashop::TPriceInfo& price)
+void CPythonNetworkStream::SendIkarusShopAuctionAddOffer(uint64_t dwOwnerID, const ikashop::TPriceInfo& price)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;
@@ -1032,7 +1032,7 @@ void CPythonNetworkStream::SendIkarusShopAuctionAddOffer(DWORD dwOwnerID, const 
 	}
 }
 
-void CPythonNetworkStream::SendIkarusShopAuctionExitFrom(DWORD dwOwnerID)
+void CPythonNetworkStream::SendIkarusShopAuctionExitFrom(uint64_t dwOwnerID)
 {
 	TPacketCGNewOfflineShop pack;
 	pack.header	= HEADER_CG_NEW_OFFLINESHOP;

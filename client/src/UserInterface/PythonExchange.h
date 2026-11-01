@@ -58,8 +58,8 @@ class CPythonExchange : public CSingleton<CPythonExchange>
 		void			SetElkToTarget(YANG elk);
 		void			SetElkToSelf(YANG elk);
 
-		DWORD			GetElkFromTarget();
-		DWORD			GetElkFromSelf();
+		YANG			GetElkFromTarget();
+		YANG			GetElkFromSelf();
 
 		void			SetItemToTarget(DWORD pos, DWORD vnum, ITEM_COUNT count);
 		void			SetItemToSelf(DWORD pos, DWORD vnum, ITEM_COUNT count);

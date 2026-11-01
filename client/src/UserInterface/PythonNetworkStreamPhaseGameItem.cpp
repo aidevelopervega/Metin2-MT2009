@@ -1019,10 +1019,10 @@ bool CPythonNetworkStream::RecvAddItemShop()
 			if (item.dwIndex == 0)
 				break;
 
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Refresh_Item", Py_BuildValue("(iiiiiiiiiiiii)",
-				item.dwIndex, item.dwVnum, item.dwCount, item.dwPrice, item.bCurrency, item.bMinLevel,
-				item.promotion.dwPrice, item.promotion.dwStartTime, item.promotion.dwEndTime,
-				item.timeAuction.dwStartTime, item.timeAuction.dwEndTime, item.timeAuction.dwAccountLimit, item.timeAuction.dwCurrentBuyAmount));
+			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Refresh_Item", Py_BuildValue("(iiiLiiLLLLLii)",
+				item.dwIndex, item.dwVnum, item.dwCount, static_cast<long long>(item.dwPrice), item.bCurrency, item.bMinLevel,
+				static_cast<long long>(item.promotion.dwPrice), static_cast<long long>(item.promotion.dwStartTime), static_cast<long long>(item.promotion.dwEndTime),
+				static_cast<long long>(item.timeAuction.dwStartTime), static_cast<long long>(item.timeAuction.dwEndTime), item.timeAuction.dwAccountLimit, item.timeAuction.dwCurrentBuyAmount));
 
 			if (!isRefreshItemShop)
 				PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Append_Item", Py_BuildValue("(i)", item.dwIndex));
@@ -1036,8 +1036,8 @@ bool CPythonNetworkStream::RecvAddItemShop()
 		TPacketGCItemShopBalance subpack;
 		if (!Recv(sizeof(subpack), &subpack))
 			return false;
-		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Balance", Py_BuildValue("(ii)",
-			subpack.dwDragonCoins, subpack.dwDragonMarks));
+		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Balance", Py_BuildValue("(LL)",
+			static_cast<long long>(subpack.dwDragonCoins), static_cast<long long>(subpack.dwDragonMarks)));
 	}
 	break;
 	case SUBHEADER_ITEMSHOP_HAPPY_HOUR:
@@ -1045,8 +1045,8 @@ bool CPythonNetworkStream::RecvAddItemShop()
 		TPacketGCItemShopHappyHour subpack;
 		if (!Recv(sizeof(subpack), &subpack))
 			return false;
-		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_HappyHour", Py_BuildValue("(ii)",
-			subpack.dwHappyHourValue, subpack.dwEndTime));
+		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_HappyHour", Py_BuildValue("(iL)",
+			subpack.dwHappyHourValue, static_cast<long long>(subpack.dwEndTime)));
 	}
 	break;
 	case SUBHEADER_ITEMSHOP_TIME_AUCTION:
@@ -1054,8 +1054,8 @@ bool CPythonNetworkStream::RecvAddItemShop()
 		TPacketGCItemShopLatestTimeAuction subpack;
 		if (!Recv(sizeof(subpack), &subpack))
 			return false;
-		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_TimeAuction", Py_BuildValue("(i)",
-			subpack.dwEndTime));
+		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_TimeAuction", Py_BuildValue("(L)",
+			static_cast<long long>(subpack.dwEndTime)));
 	}
 	break;
 	case SUBHEADER_ITEMSHOP_UPDATE_AUCTION:
@@ -1064,8 +1064,8 @@ bool CPythonNetworkStream::RecvAddItemShop()
 		if (!Recv(sizeof(subpack), &subpack))
 			return false;
 
-		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Auction_Update", Py_BuildValue("(iiiii)",
-			subpack.dwIndex, subpack.dwProgress, subpack.dwStartTime, subpack.dwEndTime, subpack.dwAccountLimit));
+		PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_ItemShop_Auction_Update", Py_BuildValue("(iiLLi)",
+			subpack.dwIndex, subpack.dwProgress, static_cast<long long>(subpack.dwStartTime), static_cast<long long>(subpack.dwEndTime), subpack.dwAccountLimit));
 	}
 		break;
 
@@ -1134,7 +1134,7 @@ bool CPythonNetworkStream::RecvSpecialShop()
 				}
 
 				PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_SpecialShop_AddItem",
-					Py_BuildValue("(iiiiiiss)", item.vnum, item.itemVnum, item.count, item.rarePct, item.priceType, item.price, reqItemsStr.c_str(), limitsStr.c_str()));
+					Py_BuildValue("(iiiiiLss)", item.vnum, item.itemVnum, item.count, item.rarePct, item.priceType, static_cast<long long>(item.price), reqItemsStr.c_str(), limitsStr.c_str()));
 			}
 
 			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_SpecialShop_Open", Py_BuildEmptyTuple());
@@ -1224,7 +1224,7 @@ bool CPythonNetworkStream::RecvCaptcha()
 
 		imageSize = subpack.imageSize;
 
-		DWORD whoPID = 0;
+		uint64_t whoPID = 0;
 		std::string whoName = "";
 		std::string code = "";
 		if (isGM)
@@ -1257,9 +1257,9 @@ bool CPythonNetworkStream::RecvCaptcha()
 		PythonCaptcha::instance().SetCaptchaImage(buffer);
 
 		if (!isGM)
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenCaptcha", Py_BuildValue("(iii)", metaPack.captchaExpireTime, metaPack.attemptCount, isFreshCaptcha));
+			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenCaptcha", Py_BuildValue("(Lii)", static_cast<long long>(metaPack.captchaExpireTime), metaPack.attemptCount, isFreshCaptcha));
 		else
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenCaptcha_GameMaster", Py_BuildValue("(iiissi)", metaPack.captchaExpireTime, metaPack.attemptCount, whoPID, whoName.c_str(), code.c_str(), isFreshCaptcha));
+			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenCaptcha_GameMaster", Py_BuildValue("(LiKssi)", static_cast<long long>(metaPack.captchaExpireTime), metaPack.attemptCount, static_cast<unsigned long long>(whoPID), whoName.c_str(), code.c_str(), isFreshCaptcha));
 	}
 	break;
 

@@ -14,12 +14,12 @@ PyObject * exchangeisTrading(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * exchangeGetElkFromSelf(PyObject * poSelf, PyObject * poArgs)
 {
-	return Py_BuildValue("i", CPythonExchange::Instance().GetElkFromSelf());
+	return PyLong_FromLongLong(CPythonExchange::Instance().GetElkFromSelf());
 }
 
 PyObject * exchangeGetElkFromTarget(PyObject * poSelf, PyObject * poArgs)
 {
-	return Py_BuildValue("i", CPythonExchange::Instance().GetElkFromTarget());
+	return PyLong_FromLongLong(CPythonExchange::Instance().GetElkFromTarget());
 }
 
 PyObject * exchangeGetAcceptFromSelf(PyObject * poSelf, PyObject * poArgs)
@@ -39,7 +39,10 @@ PyObject * exchangeGetItemVnumFromSelf(PyObject * poSelf, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &pos))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemVnumFromSelf((char) pos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM)
+		return Py_BuildValue("i", 0);
+
+	return Py_BuildValue("i", CPythonExchange::Instance().GetItemVnumFromSelf(static_cast<BYTE>(pos)));
 }
 
 PyObject * exchangeGetItemVnumFromTarget(PyObject * poTarget, PyObject * poArgs)
@@ -49,7 +52,10 @@ PyObject * exchangeGetItemVnumFromTarget(PyObject * poTarget, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &pos))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemVnumFromTarget((char) pos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM)
+		return Py_BuildValue("i", 0);
+
+	return Py_BuildValue("i", CPythonExchange::Instance().GetItemVnumFromTarget(static_cast<BYTE>(pos)));
 }
 
 PyObject * exchangeGetItemCountFromSelf(PyObject * poSelf, PyObject * poArgs)
@@ -59,7 +65,11 @@ PyObject * exchangeGetItemCountFromSelf(PyObject * poSelf, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &pos))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemCountFromSelf((char) pos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM)
+		return Py_BuildValue("i", 0);
+
+	const ITEM_COUNT count = CPythonExchange::Instance().GetItemCountFromSelf(static_cast<BYTE>(pos));
+	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
 }
 
 PyObject * exchangeGetItemCountFromTarget(PyObject * poTarget, PyObject * poArgs)
@@ -69,7 +79,11 @@ PyObject * exchangeGetItemCountFromTarget(PyObject * poTarget, PyObject * poArgs
 	if (!PyTuple_GetInteger(poArgs, 0, &pos))
 		return Py_BuildException();
 
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemCountFromTarget((char) pos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM)
+		return Py_BuildValue("i", 0);
+
+	const ITEM_COUNT count = CPythonExchange::Instance().GetItemCountFromTarget(static_cast<BYTE>(pos));
+	return (count <= static_cast<ITEM_COUNT>(LONG_MAX)) ? PyInt_FromLong(static_cast<long>(count)) : PyLong_FromUnsignedLong(count);
 }
 
 PyObject * exchangeGetNameFromSelf(PyObject * poTarget, PyObject * poArgs)
@@ -102,7 +116,9 @@ PyObject * exchangeGetItemMetinSocketFromTarget(PyObject * poTarget, PyObject * 
 	int iMetinSocketPos;
 	if (!PyTuple_GetInteger(poArgs, 1, &iMetinSocketPos))
 		return Py_BuildException();
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemMetinSocketFromTarget(pos, iMetinSocketPos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM || iMetinSocketPos < 0 || iMetinSocketPos >= ITEM_SOCKET_SLOT_MAX_NUM)
+		return Py_BuildValue("i", 0);
+	return Py_BuildValue("i", CPythonExchange::Instance().GetItemMetinSocketFromTarget(static_cast<BYTE>(pos), iMetinSocketPos));
 }
 
 PyObject * exchangeGetItemMetinSocketFromSelf(PyObject * poTarget, PyObject * poArgs)
@@ -113,7 +129,9 @@ PyObject * exchangeGetItemMetinSocketFromSelf(PyObject * poTarget, PyObject * po
 	int iMetinSocketPos;
 	if (!PyTuple_GetInteger(poArgs, 1, &iMetinSocketPos))
 		return Py_BuildException();
-	return Py_BuildValue("i", CPythonExchange::Instance().GetItemMetinSocketFromSelf(pos, iMetinSocketPos));
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM || iMetinSocketPos < 0 || iMetinSocketPos >= ITEM_SOCKET_SLOT_MAX_NUM)
+		return Py_BuildValue("i", 0);
+	return Py_BuildValue("i", CPythonExchange::Instance().GetItemMetinSocketFromSelf(static_cast<BYTE>(pos), iMetinSocketPos));
 }
 
 PyObject * exchangeGetItemAttributeFromTarget(PyObject * poTarget, PyObject * poArgs)
@@ -124,10 +142,12 @@ PyObject * exchangeGetItemAttributeFromTarget(PyObject * poTarget, PyObject * po
 	int iAttrSlotPos;
 	if (!PyTuple_GetInteger(poArgs, 1, &iAttrSlotPos))
 		return Py_BuildException();
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM || iAttrSlotPos < 0 || iAttrSlotPos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
+		return Py_BuildValue("ii", 0, 0);
 
-	BYTE byType;
-	short sValue;
-	CPythonExchange::Instance().GetItemAttributeFromTarget(pos, iAttrSlotPos, &byType, &sValue);
+	BYTE byType = 0;
+	short sValue = 0;
+	CPythonExchange::Instance().GetItemAttributeFromTarget(static_cast<BYTE>(pos), iAttrSlotPos, &byType, &sValue);
 
 	return Py_BuildValue("ii", byType, sValue);
 }
@@ -140,10 +160,12 @@ PyObject * exchangeGetItemAttributeFromSelf(PyObject * poTarget, PyObject * poAr
 	int iAttrSlotPos;
 	if (!PyTuple_GetInteger(poArgs, 1, &iAttrSlotPos))
 		return Py_BuildException();
+	if (pos < 0 || pos >= CPythonExchange::EXCHANGE_ITEM_MAX_NUM || iAttrSlotPos < 0 || iAttrSlotPos >= ITEM_ATTRIBUTE_SLOT_MAX_NUM)
+		return Py_BuildValue("ii", 0, 0);
 
-	BYTE byType;
-	short sValue;
-	CPythonExchange::Instance().GetItemAttributeFromSelf(pos, iAttrSlotPos, &byType, &sValue);
+	BYTE byType = 0;
+	short sValue = 0;
+	CPythonExchange::Instance().GetItemAttributeFromSelf(static_cast<BYTE>(pos), iAttrSlotPos, &byType, &sValue);
 
 	return Py_BuildValue("ii", byType, sValue);
 }

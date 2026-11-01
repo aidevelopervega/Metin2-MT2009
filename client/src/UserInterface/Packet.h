@@ -642,9 +642,9 @@ enum {
 
 typedef struct SItemShopPromotion
 {
-	DWORD dwPrice;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwPrice;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopPromotion;
 
 typedef struct SItemShopTimeAuction
@@ -652,8 +652,8 @@ typedef struct SItemShopTimeAuction
 	DWORD dwCurrentBuyAmount; // progress if sent to client
 	DWORD dwMaxBuyAmount;
 	DWORD dwAccountLimit;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopTimeAuction;
 
 typedef struct SItemShopItem
@@ -661,10 +661,10 @@ typedef struct SItemShopItem
 	DWORD dwIndex;
 	DWORD dwVnum;
 	DWORD dwCount;
-	DWORD dwPrice;
+	int64_t dwPrice;
 	BYTE bCurrency;
 	BYTE bMinLevel;
-	long	alSockets[ITEM_SOCKET_MAX_NUM];
+	int32_t	alSockets[ITEM_SOCKET_MAX_NUM];
 	TItemShopPromotion promotion;
 	TItemShopTimeAuction timeAuction;
 } TItemShopItem;
@@ -678,19 +678,19 @@ typedef struct packet_itemshop
 
 typedef struct packet_itemshop_balance
 {
-	DWORD dwDragonCoins;
-	DWORD dwDragonMarks;
+	int64_t dwDragonCoins;
+	int64_t dwDragonMarks;
 } TPacketGCItemShopBalance;
 
 typedef struct packet_itemshop_happyhour
 {
 	DWORD dwHappyHourValue;
-	DWORD dwEndTime;
+	int64_t dwEndTime;
 } TPacketGCItemShopHappyHour;
 
 typedef struct packet_itemshop_time_auction
 {
-	DWORD dwEndTime;
+	int64_t dwEndTime;
 } TPacketGCItemShopLatestTimeAuction;
 
 
@@ -704,8 +704,8 @@ typedef struct SItemShopUpdateAuctionItem
 	DWORD dwIndex;
 	DWORD dwProgress;
 	DWORD dwAccountLimit;
-	DWORD dwStartTime;
-	DWORD dwEndTime;
+	int64_t dwStartTime;
+	int64_t dwEndTime;
 } TItemShopUpdateAuctionItem;
 
 struct TPacketGCItemShopUseCodeVoucher
@@ -744,10 +744,11 @@ typedef struct command_exchange
 {
 	BYTE		header;
 	BYTE		subheader;
-	long long		arg1;
+	YANG		arg1;
 	BYTE		arg2;
 	TItemPos	Pos;
 } TPacketCGExchange;
+static_assert(sizeof(TPacketCGExchange) == 14 && offsetof(TPacketCGExchange, header) == 0 && offsetof(TPacketCGExchange, subheader) == 1 && offsetof(TPacketCGExchange, arg1) == 2 && offsetof(TPacketCGExchange, arg2) == 10 && offsetof(TPacketCGExchange, Pos) == 11, "TPacketCGExchange wire layout mismatch");
 
 typedef struct command_position
 {
@@ -970,13 +971,13 @@ typedef struct command_party_invite_answer
 typedef struct command_party_remove
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
 } TPacketCGPartyRemove;
 
 typedef struct command_party_set_state
 {
     BYTE byHeader;
-    DWORD dwVID;
+    uint64_t dwVID;
 	BYTE byState;
     BYTE byFlag;
 } TPacketCGPartySetState;
@@ -984,14 +985,14 @@ typedef struct command_party_set_state
 typedef struct packet_party_link
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
     DWORD vid;
 } TPacketGCPartyLink;
 
 typedef struct packet_party_unlink
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
 	DWORD vid;
 } TPacketGCPartyUnlink;
 
@@ -1134,7 +1135,7 @@ typedef struct command_quest_confirm
 {
     BYTE header;
     BYTE answer;
-    DWORD requestPID;
+    uint64_t requestPID;
 } TPacketCGQuestConfirm;
 
 typedef struct command_script_select_item
@@ -1710,13 +1711,14 @@ typedef struct packet_exchange
     BYTE        header;
     BYTE        subheader;
     BYTE        is_me;
-    long long       arg1;
+    YANG        arg1;
     TItemPos       arg2;
     ITEM_COUNT       arg3;
 	TItemPos	arg4;
-	long		alValues[ITEM_SOCKET_SLOT_MAX_NUM];
+	int32_t		alValues[ITEM_SOCKET_SLOT_MAX_NUM];
     TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_SLOT_MAX_NUM];
 } TPacketGCExchange;
+static_assert(sizeof(TPacketGCExchange) == 54 && offsetof(TPacketGCExchange, header) == 0 && offsetof(TPacketGCExchange, subheader) == 1 && offsetof(TPacketGCExchange, is_me) == 2 && offsetof(TPacketGCExchange, arg1) == 3 && offsetof(TPacketGCExchange, arg2) == 11 && offsetof(TPacketGCExchange, arg3) == 14 && offsetof(TPacketGCExchange, arg4) == 18 && offsetof(TPacketGCExchange, alValues) == 21 && offsetof(TPacketGCExchange, aAttr) == 33, "TPacketGCExchange wire layout mismatch");
 
 enum
 {
@@ -1777,7 +1779,7 @@ typedef struct packet_target
 struct STargetDebuff
 {
 	DWORD affect;
-	long duration;
+	int64_t duration;
 };
 
 typedef struct subpacket_target_debuffs
@@ -1845,8 +1847,8 @@ typedef struct packet_quest_confirm
 {
     BYTE header;
     char msg[64+1];
-    long timeout;
-    DWORD requestPID;
+    int32_t timeout;
+    uint64_t requestPID;
 } TPacketGCQuestConfirm;
 
 typedef struct packet_attack
@@ -1893,7 +1895,7 @@ typedef struct SPlayerSkill
 {
 	BYTE bMasterType;
 	BYTE bLevel;
-	time_t tNextRead;
+	uint32_t tNextRead;
 } TPlayerSkill;
 
 typedef struct packet_skill_level_new
@@ -1957,27 +1959,27 @@ typedef struct packet_party_invite
 typedef struct packet_party_add
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
     char name[CHARACTER_NAME_MAX_LEN+1];
 } TPacketGCPartyAdd;
 
 typedef struct packet_party_update
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
     BYTE state;
     BYTE percent_hp;
     short affects[PARTY_AFFECT_SLOT_MAX_NUM];
 #if defined(PARTY_POSITION)
-	long x;
-	long y;
+	int32_t x;
+	int32_t y;
 #endif
 } TPacketGCPartyUpdate;
 
 typedef struct packet_party_remove
 {
     BYTE header;
-    DWORD pid;
+    uint64_t pid;
 } TPacketGCPartyRemove;
 
 typedef TPacketCGSafeboxCheckout TPacketGCSafeboxCheckout;
@@ -2176,7 +2178,7 @@ typedef struct SPacketGCShopSign
 typedef struct SPacketGCTime
 {
     BYTE        bHeader;
-    time_t      time;
+    int64_t     time;
 } TPacketGCTime;
 
 enum
@@ -2369,10 +2371,10 @@ typedef struct SPacketAffectElement
 {
     DWORD       dwType;
     BYTE        bPointIdxApplyOn;
-    long        lApplyValue;
+    int32_t     lApplyValue;
     DWORD       dwFlag;
-    long        lDuration;
-    long        lSPCost;
+    int64_t     lDuration;
+    int64_t     lSPCost;
 	DWORD		itemVnum;
 } TPacketAffectElement;
 
@@ -2667,14 +2669,14 @@ namespace ikashop
 {
 	typedef struct SPlayerItem
 	{
-		DWORD id;
+		uint64_t id;
 		BYTE window;
 		WORD pos;
-		DWORD count;
+		ITEM_COUNT count;
 		DWORD vnum;
-		long alSockets[ITEM_SOCKET_SLOT_MAX_NUM];
+		int32_t alSockets[ITEM_SOCKET_SLOT_MAX_NUM];
 		TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_SLOT_MAX_NUM];
-		DWORD owner;
+		uint64_t owner;
 	} TPlayerItem;
 
 	//patch 08-03-2020
@@ -2687,14 +2689,14 @@ namespace ikashop
 
 	struct TPriceInfo
 	{
-		long long yang = 0;
+		int64_t yang = 0;
 #ifdef ENABLE_CHEQUE_SYSTEM
 		int cheque = 0;
 #endif
-		long long GetTotalYangAmount() const {
+		int64_t GetTotalYangAmount() const {
 			return yang
 #ifdef ENABLE_CHEQUE_SYSTEM
-				+ static_cast<long long>(cheque) * YANG_PER_CHEQUE
+				+ static_cast<int64_t>(cheque) * YANG_PER_CHEQUE
 #endif
 				;
 		}
@@ -2712,10 +2714,10 @@ namespace ikashop
 
 	struct TOfferInfo
 	{
-		DWORD offerid;
-		DWORD ownerid;
-		DWORD itemid;
-		DWORD buyerid;
+		uint64_t offerid;
+		uint64_t ownerid;
+		uint64_t itemid;
+		uint64_t buyerid;
 		TPriceInfo price;
 		bool notified;
 		bool accepted;
@@ -2744,8 +2746,8 @@ namespace ikashop
 	struct TAuctionOfferInfo
 	{
 		TPriceInfo	price;
-		DWORD ownerid;
-		DWORD buyerid;
+		uint64_t ownerid;
+		uint64_t buyerid;
 		char buyername[CHARACTER_NAME_MAX_LEN + 1];
 		bool seenflag;
 		int64_t datetime;
@@ -2753,7 +2755,7 @@ namespace ikashop
 
 	struct TValutesInfo
 	{
-		long long yang = 0;
+		int64_t yang = 0;
 
 		void operator +=(const TValutesInfo& r)
 		{
@@ -2769,7 +2771,7 @@ namespace ikashop
 
 	struct TShopInfo
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 		DWORD duration;
 		char name[OFFLINE_SHOP_NAME_MAX_LEN + 1];
 		char ownerName[PLAYER_NAME_MAX_LEN + 1];
@@ -2847,7 +2849,7 @@ namespace ikashop
 
 	struct TNotificationInfo
 	{
-		DWORD id;
+		uint64_t id;
 		ENotificationType type;
 		DWORD what;
 		char who[OFFLINE_SHOP_NAME_MAX_LEN + 1];
@@ -2915,25 +2917,25 @@ namespace ikashop
 
 	struct TSubPacketGCShopExpiredGuesting
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketGCShopRemoveItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGCShopEditItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
 	struct TSubPacketGCShopPosition
 	{
 		DWORD vid;
-		long x;
-		long y;
+		int32_t x;
+		int32_t y;
 	};
 
 	struct TSubPacketGCShopFilterResult
@@ -2954,7 +2956,7 @@ namespace ikashop
 
 	struct TSubPacketGCShopSafeboxRemoveItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketGCShoppingSafeboxAddItem
@@ -3079,7 +3081,7 @@ namespace ikashop
 
 	struct TSubPacketCGShopOpen
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGAddItem
@@ -3091,12 +3093,12 @@ namespace ikashop
 
 	struct TSubPacketCGRemoveItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketCGEditItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 		TPriceInfo price;
 	};
 
@@ -3112,26 +3114,26 @@ namespace ikashop
 
 	struct TSubPacketCGOfferAccept
 	{
-		DWORD offerid;
+		uint64_t offerid;
 	};
 
 	struct TSubPacketCGOfferCancel
 	{
-		DWORD offerid;
-		DWORD ownerid;
+		uint64_t offerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGShopSafeboxGetItem
 	{
-		DWORD itemid;
+		uint64_t itemid;
 	};
 
 	struct TSubPacketCGShopBuyItem
 	{
-		DWORD ownerid;
-		DWORD itemid;
+		uint64_t ownerid;
+		uint64_t itemid;
 		bool searching;
-		long long seenprice;
+		int64_t seenprice;
 	};
 
 	struct TSubPacketCGChangeName
@@ -3153,7 +3155,7 @@ namespace ikashop
 	//AUCTION
 	struct TSubPacketCGAuctionOpenRequest
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 	struct TSubPacketCGAuctionCreate
@@ -3164,13 +3166,13 @@ namespace ikashop
 
 	struct TSubPacketCGAuctionAddOffer
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 		TPriceInfo price;
 	};
 
 	struct TSubPacketCGAuctionExitFrom
 	{
-		DWORD ownerid;
+		uint64_t ownerid;
 	};
 
 #ifdef ENABLE_IKASHOP_ENTITIES
@@ -3195,8 +3197,8 @@ namespace ikashop
 	struct TSubPacketGCShopSearchItemShop
 	{
 		DWORD shopVid;
-		long x;
-		long y;
+		int32_t x;
+		int32_t y;
 	};
 
 }
@@ -3222,7 +3224,7 @@ typedef struct SSpecialShopItemClient
 	ITEM_COUNT count;
 	int rarePct;
 	BYTE priceType;
-	int price;
+	YANG price;
 	TRefineMaterial items[SPECIAL_SHOP_MAX_ITEM_COUNT];
 	TSpecialShopLimit limits[SPECIAL_SHOP_MAX_LIMIT];
 } TSpecialShopItemClient;
@@ -3316,13 +3318,13 @@ struct TSubPacketGCCaptchaImage
 
 struct TSubPacketGCCaptchaMeta
 {
-	DWORD captchaExpireTime;
+	int64_t captchaExpireTime;
 	BYTE attemptCount;
 };
 
 struct TSubPacketGCCaptchaGMWho
 {
-	DWORD pid;
+	uint64_t pid;
 	char name[PLAYER_NAME_MAX_LEN + 1];
 };
 
@@ -3551,6 +3553,52 @@ static_assert(sizeof(TPacketGCShopStart) == 4006 && offsetof(TPacketGCShopStart,
 static_assert(sizeof(TPacketGCShopStartEx::TSubPacketShopTab) == 4034 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, name) == 0 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, coin_type) == 33 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, items) == 34, "TPacketGCShopStartEx::TSubPacketShopTab layout mismatch");
 static_assert(sizeof(TPacketGCShopUpdateItem) == 51 && offsetof(TPacketGCShopUpdateItem, pos) == 0 && offsetof(TPacketGCShopUpdateItem, item) == 1, "TPacketGCShopUpdateItem layout mismatch");
 static_assert(sizeof(TPacketGCShopUpdatePrice) == 8 && offsetof(TPacketGCShopUpdatePrice, iElkAmount) == 0, "TPacketGCShopUpdatePrice layout mismatch");
+#endif
+
+static_assert(sizeof(TItemShopPromotion) == 24 && offsetof(TItemShopPromotion, dwPrice) == 0 && offsetof(TItemShopPromotion, dwStartTime) == 8 && offsetof(TItemShopPromotion, dwEndTime) == 16, "TItemShopPromotion layout mismatch");
+static_assert(sizeof(TItemShopTimeAuction) == 28 && offsetof(TItemShopTimeAuction, dwStartTime) == 12 && offsetof(TItemShopTimeAuction, dwEndTime) == 20, "TItemShopTimeAuction layout mismatch");
+static_assert(sizeof(TItemShopItem) == 86 && offsetof(TItemShopItem, dwPrice) == 12 && offsetof(TItemShopItem, alSockets) == 22 && offsetof(TItemShopItem, promotion) == 34 && offsetof(TItemShopItem, timeAuction) == 58, "TItemShopItem layout mismatch");
+static_assert(sizeof(TPacketGCItemShopBalance) == 16 && offsetof(TPacketGCItemShopBalance, dwDragonCoins) == 0 && offsetof(TPacketGCItemShopBalance, dwDragonMarks) == 8, "TPacketGCItemShopBalance layout mismatch");
+static_assert(sizeof(TPacketGCItemShopHappyHour) == 12 && offsetof(TPacketGCItemShopHappyHour, dwHappyHourValue) == 0 && offsetof(TPacketGCItemShopHappyHour, dwEndTime) == 4, "TPacketGCItemShopHappyHour layout mismatch");
+static_assert(sizeof(TPacketGCItemShopLatestTimeAuction) == 8 && offsetof(TPacketGCItemShopLatestTimeAuction, dwEndTime) == 0, "TPacketGCItemShopLatestTimeAuction layout mismatch");
+static_assert(sizeof(TItemShopUpdateAuctionItem) == 28 && offsetof(TItemShopUpdateAuctionItem, dwStartTime) == 12 && offsetof(TItemShopUpdateAuctionItem, dwEndTime) == 20, "TItemShopUpdateAuctionItem layout mismatch");
+
+static_assert(sizeof(STargetDebuff) == 12 && offsetof(STargetDebuff, affect) == 0 && offsetof(STargetDebuff, duration) == 4, "STargetDebuff layout mismatch");
+static_assert(sizeof(TPlayerSkill) == 6 && offsetof(TPlayerSkill, tNextRead) == 2, "TPlayerSkill layout mismatch");
+static_assert(sizeof(TPacketGCSkillLevelNew) == 1591 && offsetof(TPacketGCSkillLevelNew, skills) == 1, "TPacketGCSkillLevelNew layout mismatch");
+static_assert(sizeof(TPacketGCTime) == 9 && offsetof(TPacketGCTime, time) == 1, "TPacketGCTime layout mismatch");
+static_assert(sizeof(TPacketAffectElement) == 33 && offsetof(TPacketAffectElement, lApplyValue) == 5 && offsetof(TPacketAffectElement, dwFlag) == 9 && offsetof(TPacketAffectElement, lDuration) == 13 && offsetof(TPacketAffectElement, lSPCost) == 21 && offsetof(TPacketAffectElement, itemVnum) == 29, "TPacketAffectElement layout mismatch");
+static_assert(sizeof(TPacketGCAffectAdd) == 34 && offsetof(TPacketGCAffectAdd, elem) == 1, "TPacketGCAffectAdd layout mismatch");
+
+static_assert(sizeof(TPacketCGQuestConfirm) == 10 && offsetof(TPacketCGQuestConfirm, answer) == 1 && offsetof(TPacketCGQuestConfirm, requestPID) == 2, "TPacketCGQuestConfirm layout mismatch");
+static_assert(sizeof(TPacketGCQuestConfirm) == 78 && offsetof(TPacketGCQuestConfirm, msg) == 1 && offsetof(TPacketGCQuestConfirm, timeout) == 66 && offsetof(TPacketGCQuestConfirm, requestPID) == 70, "TPacketGCQuestConfirm layout mismatch");
+static_assert(sizeof(TPacketGCPartyAdd) == 34 && offsetof(TPacketGCPartyAdd, pid) == 1 && offsetof(TPacketGCPartyAdd, name) == 9, "TPacketGCPartyAdd layout mismatch");
+#if defined(PARTY_POSITION)
+static_assert(sizeof(TPacketGCPartyUpdate) == 33 && offsetof(TPacketGCPartyUpdate, pid) == 1 && offsetof(TPacketGCPartyUpdate, state) == 9 && offsetof(TPacketGCPartyUpdate, percent_hp) == 10 && offsetof(TPacketGCPartyUpdate, affects) == 11 && offsetof(TPacketGCPartyUpdate, x) == 25 && offsetof(TPacketGCPartyUpdate, y) == 29, "TPacketGCPartyUpdate layout mismatch");
+#endif
+static_assert(sizeof(TPacketGCPartyRemove) == 9 && offsetof(TPacketGCPartyRemove, pid) == 1, "TPacketGCPartyRemove layout mismatch");
+static_assert(sizeof(TPacketGCPartyLink) == 13 && offsetof(TPacketGCPartyLink, pid) == 1 && offsetof(TPacketGCPartyLink, vid) == 9, "TPacketGCPartyLink layout mismatch");
+static_assert(sizeof(TPacketGCPartyUnlink) == 13 && offsetof(TPacketGCPartyUnlink, pid) == 1 && offsetof(TPacketGCPartyUnlink, vid) == 9, "TPacketGCPartyUnlink layout mismatch");
+static_assert(sizeof(TPacketCGPartyRemove) == 9 && offsetof(TPacketCGPartyRemove, pid) == 1, "TPacketCGPartyRemove layout mismatch");
+static_assert(sizeof(TPacketCGPartySetState) == 11 && offsetof(TPacketCGPartySetState, dwVID) == 1 && offsetof(TPacketCGPartySetState, byState) == 9 && offsetof(TPacketCGPartySetState, byFlag) == 10, "TPacketCGPartySetState layout mismatch");
+
+static_assert(sizeof(TSpecialShopItemClient) == 67 && offsetof(TSpecialShopItemClient, priceType) == 16 && offsetof(TSpecialShopItemClient, price) == 17 && offsetof(TSpecialShopItemClient, items) == 25 && offsetof(TSpecialShopItemClient, limits) == 57, "TSpecialShopItemClient layout mismatch");
+static_assert(sizeof(TSubPacketGCCaptchaMeta) == 9 && offsetof(TSubPacketGCCaptchaMeta, captchaExpireTime) == 0 && offsetof(TSubPacketGCCaptchaMeta, attemptCount) == 8, "TSubPacketGCCaptchaMeta layout mismatch");
+static_assert(sizeof(TSubPacketGCCaptchaGMWho) == 23 && offsetof(TSubPacketGCCaptchaGMWho, pid) == 0 && offsetof(TSubPacketGCCaptchaGMWho, name) == 8, "TSubPacketGCCaptchaGMWho layout mismatch");
+
+#if defined(ENABLE_IKASHOP_RENEWAL) && !defined(ENABLE_CHEQUE_SYSTEM)
+static_assert(sizeof(ikashop::TPlayerItem) == 60 && offsetof(ikashop::TPlayerItem, id) == 0 && offsetof(ikashop::TPlayerItem, count) == 11 && offsetof(ikashop::TPlayerItem, vnum) == 15 && offsetof(ikashop::TPlayerItem, alSockets) == 19 && offsetof(ikashop::TPlayerItem, aAttr) == 31 && offsetof(ikashop::TPlayerItem, owner) == 52, "ikashop::TPlayerItem layout mismatch");
+static_assert(sizeof(ikashop::TShopPlayerItem) == 64 && sizeof(ikashop::TShopItem) == 72, "ikashop::TShopItem layout mismatch");
+static_assert(sizeof(ikashop::TOfferInfo) == 75 && offsetof(ikashop::TOfferInfo, offerid) == 0 && offsetof(ikashop::TOfferInfo, ownerid) == 8 && offsetof(ikashop::TOfferInfo, itemid) == 16 && offsetof(ikashop::TOfferInfo, buyerid) == 24 && offsetof(ikashop::TOfferInfo, price) == 32 && offsetof(ikashop::TOfferInfo, datetime) == 67, "ikashop::TOfferInfo layout mismatch");
+static_assert(sizeof(ikashop::TAuctionInfo) == 101 && sizeof(ikashop::TAuctionOfferInfo) == 58, "ikashop::TAuction* layout mismatch");
+static_assert(sizeof(ikashop::TShopInfo) == 79 && offsetof(ikashop::TShopInfo, ownerid) == 0 && offsetof(ikashop::TShopInfo, duration) == 8 && offsetof(ikashop::TShopInfo, count) == 60, "ikashop::TShopInfo layout mismatch");
+#ifdef EXTEND_IKASHOP_PRO
+static_assert(sizeof(ikashop::TNotificationInfo) == 95 && offsetof(ikashop::TNotificationInfo, id) == 0 && offsetof(ikashop::TNotificationInfo, datetime) == 86, "ikashop::TNotificationInfo layout mismatch");
+#endif
+static_assert(sizeof(ikashop::TSubPacketGCShopOpen) == 84 && sizeof(ikashop::TSubPacketGCShopOpenOwner) == 83, "ikashop::TSubPacketGCShopOpen* layout mismatch");
+static_assert(sizeof(ikashop::TSubPacketGCShopExpiredGuesting) == 8 && sizeof(ikashop::TSubPacketGCShopRemoveItem) == 8 && sizeof(ikashop::TSubPacketGCShopEditItem) == 16 && sizeof(ikashop::TSubPacketGCShopPosition) == 12 && sizeof(ikashop::TSubPacketGCShopSafeboxRemoveItem) == 8, "ikashop::TSubPacketGC* layout mismatch");
+static_assert(sizeof(ikashop::TSubPacketCGShopOpen) == 8 && sizeof(ikashop::TSubPacketCGRemoveItem) == 8 && sizeof(ikashop::TSubPacketCGEditItem) == 16 && sizeof(ikashop::TSubPacketCGOfferAccept) == 8 && sizeof(ikashop::TSubPacketCGOfferCancel) == 16 && sizeof(ikashop::TSubPacketCGShopSafeboxGetItem) == 8 && sizeof(ikashop::TSubPacketCGShopBuyItem) == 25, "ikashop::TSubPacketCG* layout mismatch");
+static_assert(sizeof(ikashop::TSubPacketCGAuctionOpenRequest) == 8 && sizeof(ikashop::TSubPacketCGAuctionAddOffer) == 16 && sizeof(ikashop::TSubPacketCGAuctionExitFrom) == 8 && sizeof(ikashop::TSubPacketGCShopSearchItemShop) == 12, "ikashop::TSubPacket*Auction/Search layout mismatch");
 #endif
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

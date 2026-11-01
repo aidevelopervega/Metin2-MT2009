@@ -24,7 +24,7 @@ class IAbstractPlayer : public TAbstractSingleton<IAbstractPlayer>
 		virtual void	StopStaminaConsume(DWORD dwCurrentStamina) = 0;
 
 		virtual bool	IsPartyMemberByVID(DWORD dwVID) = 0;
-		virtual bool	PartyMemberVIDToPID(DWORD dwVID, DWORD * pdwPID) = 0;
+		virtual bool	PartyMemberVIDToPID(DWORD dwVID, uint64_t * pdwPID) = 0;
 		virtual bool	IsSamePartyMember(DWORD dwVID1, DWORD dwVID2) = 0;
 
 		virtual void	SetItemData(TItemPos itemPos, const TItemData & c_rkItemInst) = 0;
