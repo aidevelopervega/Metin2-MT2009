@@ -118,6 +118,84 @@ int main()
         TEA_Decrypt(teaDec, teaEnc, teaKey, sizeof(teaEnc));
         TEST_ASSERT(memcmp(teaDec, teaSrc, sizeof(teaSrc)) == 0, "TEA_Decrypt must restore plaintext exactly");
 
+        // 3.1b TEA framing & key-switch verification for Login2 (56B), Login3 (325B), and CheckVersion (5B)
+        {
+            DWORD staticKey[4] = { 0x64736131, 0x34333273, 0x35656166, 0x76347236 }; // 16-byte initial static key
+            DWORD clientKey[4] = { 0xA1B2C3D4, 0x55667788, 0x99AABBCC, 0xDDEEFF01 }; // 16-byte dynamic adwClientKey
+
+            // TPacketCGLogin2: 56 bytes raw -> 56 bytes TEA output (56 % 8 == 0, zero padding)
+            alignas(4) unsigned char login2Raw[64] = {};
+            login2Raw[0] = 109; // HEADER_CG_LOGIN2
+            std::memcpy(login2Raw + 1, "test_account_x64", 16);
+            DWORD loginKey = 0xCAFE1234U;
+            std::memcpy(login2Raw + 32, &loginKey, sizeof(DWORD));
+            std::memcpy(login2Raw + 36, clientKey, sizeof(clientKey));
+            DWORD protoVer = 0x20090064U;
+            std::memcpy(login2Raw + 52, &protoVer, sizeof(DWORD));
+
+            alignas(4) unsigned char login2Wire[64] = {};
+            alignas(4) unsigned char login2Dec[64] = {};
+            int encLogin2Len = TEA_Encrypt(reinterpret_cast<DWORD*>(login2Wire),
+                                           reinterpret_cast<const DWORD*>(login2Raw),
+                                           staticKey, 56);
+            TEST_ASSERT(encLogin2Len == 56, "TEA_Encrypt(56-byte TPacketCGLogin2) must produce exactly 56 bytes (no extra 8-byte block)");
+            int decLogin2Len = TEA_Decrypt(reinterpret_cast<DWORD*>(login2Dec),
+                                           reinterpret_cast<const DWORD*>(login2Wire),
+                                           staticKey, encLogin2Len);
+            TEST_ASSERT(decLogin2Len == 56 && std::memcmp(login2Dec, login2Raw, 56) == 0,
+                        "TEA_Decrypt(56-byte TPacketCGLogin2) must round-trip all 56 bytes including dwProtocolVersion at offset 52");
+
+            // Simulate SendLoginPacketNew -> __SendInternalBuffer() (staticKey, 56B) -> SetSecurityMode(clientKey) -> subsequent packet (8B)
+            // Followed by server DESC::ProcessInput decrypting all 64B with staticKey, processing 56B Login2, then re-encrypting/decrypting trailing 8B with clientKey
+            alignas(4) unsigned char trailingRaw[8] = { 206, 1, 2, 3, 4, 0, 0, 0 }; // e.g. 5-byte packet padded to 8B
+            alignas(4) unsigned char coalescedWire[64] = {};
+            std::memcpy(coalescedWire, login2Wire, 56);
+            int encTrailingLen = TEA_Encrypt(reinterpret_cast<DWORD*>(coalescedWire + 56),
+                                             reinterpret_cast<const DWORD*>(trailingRaw),
+                                             clientKey, 5);
+            TEST_ASSERT(encTrailingLen == 8, "TEA_Encrypt(5-byte packet) must pad to 8 bytes");
+
+            alignas(4) unsigned char serverBuf[64] = {};
+            TEA_Decrypt(reinterpret_cast<DWORD*>(serverBuf),
+                        reinterpret_cast<const DWORD*>(coalescedWire),
+                        staticKey, 64);
+            TEST_ASSERT(std::memcmp(serverBuf, login2Raw, 56) == 0,
+                        "Server initial decrypt of 64B coalesced buffer must yield valid 56B Login2 at [0..55]");
+            // Server InputLogin::LoginByKey calls d->SetSecurityKey(adwClientKey), then CInputProcessor::Process re-encrypts & decrypts remaining (64 - 56 = 8) bytes
+            alignas(4) unsigned char reEncBuf[8] = {};
+            TEA_Encrypt(reinterpret_cast<DWORD*>(reEncBuf),
+                        reinterpret_cast<const DWORD*>(serverBuf + 56),
+                        staticKey, 8);
+            TEA_Decrypt(reinterpret_cast<DWORD*>(serverBuf + 56),
+                        reinterpret_cast<const DWORD*>(reEncBuf),
+                        clientKey, 8);
+            TEST_ASSERT(std::memcmp(serverBuf + 56, trailingRaw, 5) == 0,
+                        "Server key switch at byte 56 must recover trailing packet encrypted with adwClientKey");
+
+            // TPacketCGLogin3: 325 bytes raw -> 328 bytes TEA output (3 bytes zero-padding)
+            alignas(4) unsigned char login3Raw[328] = {};
+            login3Raw[0] = 111; // HEADER_CG_LOGIN3
+            std::memcpy(login3Raw + 321, &protoVer, sizeof(DWORD));
+            login3Raw[325] = 0xAA;
+            login3Raw[326] = 0xBB;
+            login3Raw[327] = 0xCC;
+            alignas(4) unsigned char login3Wire[328] = {};
+            alignas(4) unsigned char login3Dec[328] = {};
+            int encLogin3Len = TEA_Encrypt(reinterpret_cast<DWORD*>(login3Wire),
+                                           reinterpret_cast<DWORD*>(login3Raw),
+                                           staticKey, 325);
+            TEST_ASSERT(encLogin3Len == 328, "TEA_Encrypt(325-byte TPacketCGLogin3) must produce 328 bytes");
+            TEST_ASSERT(login3Raw[325] == 0 && login3Raw[326] == 0 && login3Raw[327] == 0,
+                        "TEA_Encrypt must zero-fill the 3 padding bytes [325..327] of TPacketCGLogin3");
+            int decLogin3Len = TEA_Decrypt(reinterpret_cast<DWORD*>(login3Dec),
+                                           reinterpret_cast<const DWORD*>(login3Wire),
+                                           staticKey, encLogin3Len);
+            DWORD decProtoVer = 0;
+            std::memcpy(&decProtoVer, login3Dec + 321, sizeof(DWORD));
+            TEST_ASSERT(decLogin3Len == 328 && login3Dec[0] == 111 && decProtoVer == 0x20090064U,
+                        "TEA_Decrypt(328-byte Login3 frame) must preserve dwProtocolVersion at offset 321");
+        }
+
         // 3.2 DES
         DWORD desKey[32];
         for (int k = 0; k < 32; ++k)

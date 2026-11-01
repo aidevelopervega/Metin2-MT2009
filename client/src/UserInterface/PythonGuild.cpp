@@ -392,12 +392,15 @@ PyObject * guildHasGuildLand(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * guildGetGuildName(PyObject * poSelf, PyObject * poArgs)
 {
-	unsigned long long iGuildID = 0;
-	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iGuildID))
+	if (PyTuple_Size(poArgs) <= 0)
 	{
 		CPythonGuild::TGuildInfo & rGuildInfo = CPythonGuild::Instance().GetGuildInfoRef();
 		return Py_BuildValue("s", rGuildInfo.szGuildName);
 	}
+
+	unsigned long long iGuildID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iGuildID))
+		return Py_BuildException();
 
 	std::string strGuildName;
 	if (!CPythonGuild::Instance().GetGuildName(iGuildID, &strGuildName))

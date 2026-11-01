@@ -81,29 +81,102 @@ bool PyTuple_GetLong(PyObject* poArgs, int pos, long* ret)
 
 bool PyTuple_GetLongLong(PyObject* poArgs, int pos, long long* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
+	{
+		if (PyErr_Occurred())
+			PyErr_Clear();
 		return false;
+	}
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
 
 	if (!poItem)
+	{
+		if (PyErr_Occurred())
+			PyErr_Clear();
+		return false;
+	}
+
+	if (!ret || pos < 0 || PyBool_Check(poItem))
 		return false;
 
-	*ret = PyLong_AsLongLong(poItem);
+	if (PyInt_Check(poItem))
+	{
+		PyErr_Clear();
+		const long val = PyInt_AsLong(poItem);
+		if (PyErr_Occurred())
+		{
+			PyErr_Clear();
+			return false;
+		}
+		*ret = static_cast<long long>(val);
+		return true;
+	}
+
+	if (!PyLong_Check(poItem))
+		return false;
+
+	PyErr_Clear();
+	int overflow = 0;
+	const long long val = PyLong_AsLongLongAndOverflow(poItem, &overflow);
+	if (overflow != 0 || PyErr_Occurred())
+	{
+		PyErr_Clear();
+		return false;
+	}
+
+	*ret = val;
 	return true;
 }
 
 bool PyTuple_GetUnsignedLongLong(PyObject* poArgs, int pos, unsigned long long* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
+	{
+		if (PyErr_Occurred())
+			PyErr_Clear();
 		return false;
+	}
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
 
 	if (!poItem)
+	{
+		if (PyErr_Occurred())
+			PyErr_Clear();
+		return false;
+	}
+
+	if (!ret || pos < 0 || PyBool_Check(poItem))
 		return false;
 
-	*ret = PyLong_AsUnsignedLongLongMask(poItem);
+	if (PyInt_Check(poItem))
+	{
+		PyErr_Clear();
+		const long val = PyInt_AsLong(poItem);
+		if (PyErr_Occurred())
+		{
+			PyErr_Clear();
+			return false;
+		}
+		if (val < 0)
+			return false;
+		*ret = static_cast<unsigned long long>(val);
+		return true;
+	}
+
+	if (!PyLong_Check(poItem))
+		return false;
+
+	PyErr_Clear();
+	const unsigned long long val = PyLong_AsUnsignedLongLong(poItem);
+	if (PyErr_Occurred())
+	{
+		PyErr_Clear();
+		return false;
+	}
+
+	*ret = val;
 	return true;
 }
 

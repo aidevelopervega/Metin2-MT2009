@@ -1553,9 +1553,33 @@ int main()
                 static_assert(sizeof(TLandPacketElement) == 28 && offsetof(TLandPacketElement, dwGuildID) == 20, "TPacketGCLandList element layout mismatch");
                 static_assert(sizeof(TPacketGCGamemasterTarget) == 58 && offsetof(TPacketGCGamemasterTarget, pid) == 1 && offsetof(TPacketGCGamemasterTarget, aid) == 24, "TPacketGCGamemasterTarget layout mismatch");
 
-                // 325-byte TPacketCGLogin3 + TEA 8-byte block padding (328 bytes on wire)
-                static_assert(sizeof(TPacketCGLogin3) == 325, "TPacketCGLogin3 struct size must be 325");
-                static_assert(((sizeof(TPacketCGLogin3) + 7) & ~size_t(7)) == 328, "TPacketCGLogin3 TEA wire frame must be 328 bytes");
+                // Raw vs TEA 8-byte block wire framing for Login2 (56B->56B), Login3 (325B->328B), CheckVersion (5B->8B)
+                auto calcTeaEncryptedSize = [](size_t rawSize) constexpr -> size_t {
+                    return (rawSize % 8 != 0) ? (rawSize + 8 - (rawSize % 8)) : rawSize;
+                };
+                static_assert(sizeof(TPacketCGLogin2) == 56 && offsetof(TPacketCGLogin2, dwProtocolVersion) == 52, "TPacketCGLogin2 layout mismatch");
+                static_assert(calcTeaEncryptedSize(sizeof(TPacketCGLogin2)) == 56, "TPacketCGLogin2 TEA wire frame must be 56 bytes (zero padding)");
+                static_assert(sizeof(TPacketCGLogin3) == 325 && offsetof(TPacketCGLogin3, dwProtocolVersion) == 321, "TPacketCGLogin3 layout mismatch");
+                static_assert(calcTeaEncryptedSize(sizeof(TPacketCGLogin3)) == 328, "TPacketCGLogin3 TEA wire frame must be 328 bytes (3-byte padding)");
+                static_assert(calcTeaEncryptedSize(sizeof(TPacketCGCheckVersion)) == 8, "TPacketCGCheckVersion TEA wire frame must be 8 bytes");
+                static_assert(calcTeaEncryptedSize(sizeof(TPacketCGCheckVersion) + sizeof(TPacketCGLogin3)) == 336, "Coalesced CheckVersion(5B)+Login3(325B) TEA wire frame must be 336 bytes");
+
+                TPacketCGLogin2 login2Pkt{};
+                login2Pkt.header = HEADER_CG_LOGIN2;
+                login2Pkt.dwLoginKey = 0xCAFE1234U;
+                login2Pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+                TPacketCGLogin3 login3Pkt{};
+                login3Pkt.header = HEADER_CG_LOGIN3;
+                login3Pkt.dwProtocolVersion = MT2_PROTOCOL_VERSION_X64;
+                TPacketCGCheckVersion checkVerPkt{};
+                checkVerPkt.header = HEADER_CG_CHECK_VERSION;
+                checkVerPkt.dwVersion = MT2_PROTOCOL_VERSION_X64;
+                WIRE_ASSERT(sizeof(login2Pkt) == 56 && calcTeaEncryptedSize(sizeof(login2Pkt)) == 56 &&
+                            login2Pkt.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64 &&
+                            sizeof(login3Pkt) == 325 && calcTeaEncryptedSize(sizeof(login3Pkt)) == 328 &&
+                            login3Pkt.dwProtocolVersion == MT2_PROTOCOL_VERSION_X64 &&
+                            sizeof(checkVerPkt) == 5 && calcTeaEncryptedSize(sizeof(checkVerPkt)) == 8,
+                    "Client-Server Login2 (56B->56B), Login3 (325B->328B), and CheckVersion (5B->8B) raw and TEA wire sizes match");
 
                 TPacketGCLoginSuccess loginSuc{};
                 loginSuc.bHeader = HEADER_GC_LOGIN_SUCCESS_NEWSLOT;
