@@ -42,7 +42,9 @@ volatile int _AVOID_FLOATING_POINT_LIBRARY_BUG = _fltused;
 #else
 #error "unknown granny version"
 #endif
+#if !defined(MT2_USE_MINIAUDIO)
 #pragma comment( lib, "mss32.lib" )
+#endif
 #pragma comment( lib, "winmm.lib" )
 #pragma comment( lib, "imm32.lib" )
 #pragma comment( lib, "oldnames.lib" )

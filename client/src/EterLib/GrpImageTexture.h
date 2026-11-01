@@ -33,6 +33,7 @@ class CGraphicImageTexture : public CGraphicTexture
 		DWORD		m_dwFilter;
 
 		std::string m_stFileName;
+		LPDIRECT3DTEXTURE9 m_lpd3dSysTexture;
 };
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

@@ -32,6 +32,10 @@ void CGraphicDevice::__Initialize()
 
 	ms_lpd3d			= NULL;
 	ms_lpd3dDevice		= NULL;
+	ms_lpd3dEx			= NULL;
+	ms_lpd3dDeviceEx	= NULL;
+	ms_bD3D9ExActive	= false;
+	ms_bDeviceOccluded	= false;
 	ms_lpd3dMatStack	= NULL;
 
 	ms_dwWavingEndTime = 0;
@@ -60,6 +64,26 @@ void CGraphicDevice::MoveWebBrowserRect(const RECT& c_rcWebPage)
 	g_rcBrowser=c_rcWebPage;
 }
 
+static HRESULT ResetDeviceOrEx(IDirect3DDevice9* pDev, IDirect3DDevice9Ex* pDevEx, bool bExActive, D3DPRESENT_PARAMETERS& rkD3DPP)
+{
+	if (bExActive && pDevEx)
+	{
+		D3DDISPLAYMODEEX fullScreenMode;
+		ZeroMemory(&fullScreenMode, sizeof(fullScreenMode));
+		if (!rkD3DPP.Windowed)
+		{
+			fullScreenMode.Size = sizeof(D3DDISPLAYMODEEX);
+			fullScreenMode.Width = rkD3DPP.BackBufferWidth;
+			fullScreenMode.Height = rkD3DPP.BackBufferHeight;
+			fullScreenMode.RefreshRate = rkD3DPP.FullScreen_RefreshRateInHz;
+			fullScreenMode.Format = rkD3DPP.BackBufferFormat;
+			fullScreenMode.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
+		}
+		return pDevEx->ResetEx(&rkD3DPP, rkD3DPP.Windowed ? NULL : &fullScreenMode);
+	}
+	return pDev->Reset(&rkD3DPP);
+}
+
 void CGraphicDevice::EnableWebBrowserMode(const RECT& c_rcWebPage)
 {
 	if (!ms_lpd3dDevice)
@@ -81,7 +105,8 @@ void CGraphicDevice::EnableWebBrowserMode(const RECT& c_rcWebPage)
 	rkD3DPP.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 
 	IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
-	HRESULT hr=rkD3DDev.Reset(&rkD3DPP);
+	(void)rkD3DDev;
+	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
 	if (FAILED(hr))
 		return;
 
@@ -100,7 +125,8 @@ void CGraphicDevice::DisableWebBrowserMode()
 	rkD3DPP=g_kD3DPP;
 
 	IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
-	HRESULT hr=rkD3DDev.Reset(&rkD3DPP);
+	(void)rkD3DDev;
+	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
 	if (FAILED(hr))
 		return;
 
@@ -122,7 +148,8 @@ bool CGraphicDevice::ResizeBackBuffer(UINT uWidth, UINT uHeight)
 
 			IDirect3DDevice9& rkD3DDev=*ms_lpd3dDevice;
 
-			HRESULT hr=rkD3DDev.Reset(&rkD3DPP);
+			(void)rkD3DDev;
+	HRESULT hr=ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, rkD3DPP);
 			if (FAILED(hr))
 			{
 				return false;
@@ -238,6 +265,17 @@ CGraphicDevice::EDeviceState CGraphicDevice::GetDeviceState()
 
 	HRESULT hr;
 
+	if (ms_bD3D9ExActive && ms_lpd3dDeviceEx)
+	{
+		hr = ms_lpd3dDeviceEx->CheckDeviceState(ms_hWnd);
+		ms_bDeviceOccluded = (hr == S_PRESENT_OCCLUDED);
+		if (hr == S_OK || hr == S_PRESENT_OCCLUDED)
+			return DEVICESTATE_OK;
+		if (hr == S_PRESENT_MODE_CHANGED || hr == D3DERR_DEVICENOTRESET)
+			return DEVICESTATE_NEEDS_RESET;
+		return DEVICESTATE_BROKEN;
+	}
+
 	if (FAILED(hr = ms_lpd3dDevice->TestCooperativeLevel()))
 	{
 		if (D3DERR_DEVICELOST == hr)
@@ -259,7 +297,7 @@ bool CGraphicDevice::Reset()
 #endif
 	HRESULT hr;
 
-	if (FAILED(hr = ms_lpd3dDevice->Reset(&ms_d3dPresentParameter)))
+	if (FAILED(hr = ResetDeviceOrEx(ms_lpd3dDevice, ms_lpd3dDeviceEx, ms_bD3D9ExActive, ms_d3dPresentParameter)))
 		return false;
 
 #ifdef ENABLE_FIX_MOBS_LAG
@@ -369,7 +407,23 @@ int CGraphicDevice::Create(HWND hWnd, int iHres, int iVres, int realHRes, int re
 
 	ms_hWnd		= hWnd;
 	ms_hDC		= GetDC(hWnd);
-	ms_lpd3d	= Direct3DCreate9(D3D_SDK_VERSION);
+	if (ms_bUseD3D9Ex)
+	{
+		typedef HRESULT (WINAPI *PFN_Direct3DCreate9Ex)(UINT, IDirect3D9Ex**);
+		HMODULE hD3D9 = GetModuleHandleA("d3d9.dll");
+		if (!hD3D9)
+			hD3D9 = LoadLibraryA("d3d9.dll");
+		PFN_Direct3DCreate9Ex pfnCreate9Ex = hD3D9
+			? reinterpret_cast<PFN_Direct3DCreate9Ex>(GetProcAddress(hD3D9, "Direct3DCreate9Ex"))
+			: NULL;
+		if (pfnCreate9Ex && SUCCEEDED(pfnCreate9Ex(D3D_SDK_VERSION, &ms_lpd3dEx)) && ms_lpd3dEx)
+		{
+			ms_lpd3d = ms_lpd3dEx;
+			ms_lpd3d->AddRef();
+		}
+	}
+	if (!ms_lpd3d)
+		ms_lpd3d = Direct3DCreate9(D3D_SDK_VERSION);
 
 	if (!ms_lpd3d)
 		return CREATE_NO_DIRECTX;
@@ -467,7 +521,35 @@ RETRY:
 
 	ms_dwD3DBehavior = pkD3DModeInfo->m_dwD3DBehavior;
 
-	if (FAILED(ms_hLastResult = ms_lpd3d->CreateDevice(
+	if (ms_lpd3dEx)
+	{
+		D3DDISPLAYMODEEX d3dDisplayModeEx;
+		ZeroMemory(&d3dDisplayModeEx, sizeof(d3dDisplayModeEx));
+		if (!Windowed)
+		{
+			d3dDisplayModeEx.Size = sizeof(D3DDISPLAYMODEEX);
+			d3dDisplayModeEx.Width = realHRes;
+			d3dDisplayModeEx.Height = realVRes;
+			d3dDisplayModeEx.RefreshRate = iReflashRate;
+			d3dDisplayModeEx.Format = ms_d3dPresentParameter.BackBufferFormat;
+			d3dDisplayModeEx.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
+		}
+		if (SUCCEEDED(ms_hLastResult = ms_lpd3dEx->CreateDeviceEx(
+				ms_iD3DAdapterInfo,
+				D3DDEVTYPE_HAL,
+				hWnd,
+				pkD3DModeInfo->m_dwD3DBehavior,
+				&ms_d3dPresentParameter,
+				Windowed ? NULL : &d3dDisplayModeEx,
+				&ms_lpd3dDeviceEx)) && ms_lpd3dDeviceEx)
+		{
+			ms_lpd3dDevice = ms_lpd3dDeviceEx;
+			ms_lpd3dDevice->AddRef();
+			ms_bD3D9ExActive = true;
+		}
+	}
+
+	if (!ms_lpd3dDevice && FAILED(ms_hLastResult = ms_lpd3d->CreateDevice(
 				ms_iD3DAdapterInfo,
 				D3DDEVTYPE_HAL,
 				hWnd,
@@ -722,9 +804,9 @@ bool CGraphicDevice::__CreateDefaultIndexBuffer(UINT eDefIB, UINT uIdxCount, con
 	if (FAILED(
 		ms_lpd3dDevice->CreateIndexBuffer(
 			sizeof(WORD) * uIdxCount,
-			D3DUSAGE_WRITEONLY,
+			GetManagedBufferUsage(D3DUSAGE_WRITEONLY),
 			D3DFMT_INDEX16,
-			D3DPOOL_MANAGED,
+			GetManagedPool(),
 			&ms_alpd3dDefIB[eDefIB], NULL)
 	)) return false;
 
@@ -817,7 +899,9 @@ void CGraphicDevice::Destroy()
 	safe_release(ms_lpCylinderMesh);
 
 	safe_release(ms_lpd3dMatStack);
+	safe_release(ms_lpd3dDeviceEx);
 	safe_release(ms_lpd3dDevice);
+	safe_release(ms_lpd3dEx);
 	safe_release(ms_lpd3d);
 
 	if (m_pStateManager)

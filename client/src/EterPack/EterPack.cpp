@@ -9,6 +9,7 @@
 #include "Inline.h"
 #include "EterPackPolicy_CSHybridCrypt.h"
 
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 #pragma warning(push, 3)
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/filters.h>
@@ -21,6 +22,7 @@
 
 #include <cryptopp/cryptoppLibLink.h>
 #pragma warning(pop)
+#endif
 
 #include "../EterBase/utils.h"
 #include "../EterBase/Debug.h"
@@ -1311,6 +1313,7 @@ const char * CEterPack::GetDBName()
 	return m_dbName;
 }
 
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 void CEterPack::__CreateFileNameKey_Panama(const char * filename, BYTE * key, unsigned int keySize)
 {
 	if (keySize != 32)
@@ -1484,6 +1487,25 @@ bool CEterPack::__Decrypt_Panama(const char* filename, const BYTE* data, SIZE_T 
 
 	return true;
 }
+
+#else
+void CEterPack::__CreateFileNameKey_Panama(const char * filename, BYTE * key, unsigned int keySize)
+{
+	(void)filename; (void)key; (void)keySize;
+}
+
+bool CEterPack::__Encrypt_Panama(const char* filename, const BYTE* data, SIZE_T dataSize, CLZObject& zObj)
+{
+	(void)filename; (void)data; (void)dataSize; (void)zObj;
+	return false;
+}
+
+bool CEterPack::__Decrypt_Panama(const char* filename, const BYTE* data, SIZE_T dataSize, CLZObject& zObj)
+{
+	(void)filename; (void)data; (void)dataSize; (void)zObj;
+	return false;
+}
+#endif
 
 EterPackPolicy_CSHybridCrypt* CEterPack::GetPackPolicy_HybridCrypt() const
 {

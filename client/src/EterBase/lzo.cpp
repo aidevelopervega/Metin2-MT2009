@@ -1,6 +1,8 @@
 #include "StdAfx.h"
 #include <stdlib.h>
+#ifndef _WIN64
 #include <lzo/lzoLibLink.h>
+#endif
 
 #include "lzo.h"
 #include "tea.h"
@@ -149,14 +151,14 @@ void CLZObject::BeginCompressInBuffer(const void * pvIn, UINT uiInLen, void * /*
 
 bool CLZObject::Compress()
 {
-    UINT	iOutLen;
+    lzo_uint	iOutLen = 0;
     BYTE *	pbBuffer;
 
     pbBuffer = m_pbBuffer + sizeof(THeader);
     *(DWORD *) pbBuffer = ms_dwFourCC;
     pbBuffer += sizeof(DWORD);
 
-#if defined( LZO1X_999_MEM_COMPRESS )
+#if defined( LZO1X_999_MEM_COMPRESS ) && !defined(_WIN64)
     int r = lzo1x_999_compress((BYTE *) m_pbIn, m_pHeader->dwRealSize, pbBuffer, (lzo_uint*) &iOutLen, CLZO::Instance().GetWorkMemory());
 #else
     int r = lzo1x_1_compress((BYTE *) m_pbIn, m_pHeader->dwRealSize, pbBuffer, (lzo_uint*) &iOutLen, CLZO::Instance().GetWorkMemory());
@@ -252,7 +254,7 @@ private:
 
 bool CLZObject::Decompress(DWORD * pdwKey)
 {
-    UINT uiSize;
+    lzo_uint uiSize = 0;
     int r;
 
     if (m_pHeader->dwEncryptSize)

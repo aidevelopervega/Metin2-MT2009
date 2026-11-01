@@ -47,8 +47,13 @@ class IPythonExceptionSender
 extern IPythonExceptionSender * g_pkExceptionSender;
 #else // !MT2_STANDALONE_PYTHON3_TEST
 
+#if defined(MT2_PYTHON_MODULE_ONLY)
+#include "../eterBase/StdAfx.h"
+#include "../eterBase/Debug.h"
+#else
 #include "../eterLib/StdAfx.h"
 #include "../eterGrnLib/StdAfx.h"
+#endif
 
 #include "../UserInterface/Locale_inc.h"
 #ifdef AT
@@ -91,7 +96,9 @@ extern IPythonExceptionSender * g_pkExceptionSender;
 #include "PythonUtils.h"
 #include "PythonLauncher.h"
 #include "PythonMarshal.h"
+#if !defined(MT2_PYTHON_MODULE_ONLY)
 #include "Resource.h"
+#endif
 
 void initdbg();
 

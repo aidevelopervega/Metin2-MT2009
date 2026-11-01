@@ -6,10 +6,12 @@
 #include "../EterBase/Crc32.h"
 #include "../EterBase/lzo.h"
 #include "../EterBase/Random.h"
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 #include <cryptopp/modes.h>
 #include <cryptopp/osrng.h>
 
 using namespace CryptoPP;
+#endif
 
 #define CIPHER_MODE	CTR_Mode
 
@@ -84,6 +86,7 @@ bool EterPackPolicy_CSHybridCrypt::GenerateCryptKey(const std::string& rfileName
 		return false;
 	}
 
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 	static AutoSeededRandomPool rnd;
 
 	TCSHybridCryptKey info;
@@ -96,6 +99,7 @@ bool EterPackPolicy_CSHybridCrypt::GenerateCryptKey(const std::string& rfileName
 		memset( &info.uEncryptIV.iv, 0x10, sizeof(info.uEncryptIV) ); */
 	}
 	m_mapHybridCryptKey[dwExtHash] = info;
+#endif
 
 #ifdef __THEMIDA__
 	VM_END
@@ -167,6 +171,7 @@ bool EterPackPolicy_CSHybridCrypt::EncryptMemory(const std::string& rfileName, I
 	//NOTE : ciphered stream size could be different from original size if you choose diffrent cipher mode & algorithm
 	//( i.e ECB or CBC mode )
 	strCipher.reserve(iSrcLen);
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 
 	if( eAlgorithm == e_Cipher_Camellia )
 	{
@@ -196,6 +201,9 @@ bool EterPackPolicy_CSHybridCrypt::EncryptMemory(const std::string& rfileName, I
 							           new StreamTransformationFilter(Encryptor, new CryptoPP::StringSink(strCipher)));
 	}
 
+#else
+	(void)pSrcData;
+#endif
 	if (strCipher.length() != iSrcLen)
 	{
 		//TODO: size error log
@@ -232,6 +240,7 @@ bool EterPackPolicy_CSHybridCrypt::DecryptMemory(const std::string& rfilename, I
 	//NOTE : ciphered stream size could be different from original size if you choose diffrent cipher mode & algorithm
 	//( i.e ECB or CBC mode )
 	strDecipher.reserve(iEncryptedLen);
+#if !defined(MT2_NO_HYBRIDCRYPT_CRYPTOPP)
 
 	if( eAlgorithm == e_Cipher_Camellia )
 	{
@@ -261,6 +270,9 @@ bool EterPackPolicy_CSHybridCrypt::DecryptMemory(const std::string& rfilename, I
 							           new StreamTransformationFilter(Decryptor, new CryptoPP::StringSink(strDecipher)));
 	}
 
+#else
+	(void)pEncryptedData;
+#endif
 	if (strDecipher.length() != iEncryptedLen)
 	{
 		//TODO: size error log

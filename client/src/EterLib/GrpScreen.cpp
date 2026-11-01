@@ -629,6 +629,12 @@ BOOL CScreen::IsLostDevice()
 		return TRUE;
 
 	IDirect3DDevice9 & rkD3DDev = *ms_lpd3dDevice;
+	if (ms_bD3D9ExActive && ms_lpd3dDeviceEx)
+	{
+		HRESULT hrEx = ms_lpd3dDeviceEx->CheckDeviceState(ms_hWnd);
+		ms_bDeviceOccluded = (hrEx == S_PRESENT_OCCLUDED);
+		return (hrEx == S_OK || hrEx == S_PRESENT_OCCLUDED) ? FALSE : TRUE;
+	}
 	HRESULT hrTestCooperativeLevel = rkD3DDev.TestCooperativeLevel();
 	if (FAILED(hrTestCooperativeLevel))
 		return TRUE;
@@ -647,6 +653,39 @@ BOOL CScreen::RestoreDevice()
 	D3DPRESENT_PARAMETERS & rkD3DPP = ms_d3dPresentParameter;
 	D3D_CDisplayModeAutoDetector & rkD3DDetector = ms_kD3DDetector;
 
+	if (ms_bD3D9ExActive && ms_lpd3dDeviceEx)
+	{
+		HRESULT hrEx = ms_lpd3dDeviceEx->CheckDeviceState(ms_hWnd);
+		ms_bDeviceOccluded = (hrEx == S_PRESENT_OCCLUDED);
+		if (hrEx == S_OK || hrEx == S_PRESENT_OCCLUDED)
+			return TRUE;
+		if (hrEx == S_PRESENT_MODE_CHANGED || hrEx == D3DERR_DEVICENOTRESET || hrEx == D3DERR_DEVICEHUNG)
+		{
+			D3D_CAdapterInfo* pkD3DAdapterInfo = rkD3DDetector.GetD3DAdapterInfop(ms_iD3DAdapterInfo);
+			if (pkD3DAdapterInfo && rkD3DPP.Windowed)
+			{
+				D3DDISPLAYMODE & rkD3DDMDesktop = pkD3DAdapterInfo->GetDesktopD3DDisplayModer();
+				if (SUCCEEDED(rkD3D.GetAdapterDisplayMode(iD3DAdapterInfo, &rkD3DDMDesktop)))
+					rkD3DPP.BackBufferFormat = rkD3DDMDesktop.Format;
+			}
+			D3DDISPLAYMODEEX fullScreenMode;
+			ZeroMemory(&fullScreenMode, sizeof(fullScreenMode));
+			if (!rkD3DPP.Windowed)
+			{
+				fullScreenMode.Size = sizeof(D3DDISPLAYMODEEX);
+				fullScreenMode.Width = rkD3DPP.BackBufferWidth;
+				fullScreenMode.Height = rkD3DPP.BackBufferHeight;
+				fullScreenMode.RefreshRate = rkD3DPP.FullScreen_RefreshRateInHz;
+				fullScreenMode.Format = rkD3DPP.BackBufferFormat;
+				fullScreenMode.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
+			}
+			if (FAILED(ms_lpd3dDeviceEx->ResetEx(&rkD3DPP, rkD3DPP.Windowed ? NULL : &fullScreenMode)))
+				return FALSE;
+			STATEMANAGER.SetDefaultState();
+			return TRUE;
+		}
+		return FALSE;
+	}
 	HRESULT hrTestCooperativeLevel = rkD3DDev.TestCooperativeLevel();
 
 	if (FAILED(hrTestCooperativeLevel))
@@ -724,7 +763,10 @@ void CScreen::Show(HWND hWnd)
 	}
 	else
 	{
-		HRESULT hr=ms_lpd3dDevice->Present(NULL, NULL, hWnd, NULL);
+		HRESULT hr = (ms_bD3D9ExActive && ms_lpd3dDeviceEx)
+			? ms_lpd3dDeviceEx->PresentEx(NULL, NULL, hWnd, NULL, 0)
+			: ms_lpd3dDevice->Present(NULL, NULL, hWnd, NULL);
+		ms_bDeviceOccluded = (hr == S_PRESENT_OCCLUDED);
 		if (D3DERR_DEVICELOST == hr)
 			RestoreDevice();
 	}

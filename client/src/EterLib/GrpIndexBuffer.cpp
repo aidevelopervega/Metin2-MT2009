@@ -91,9 +91,9 @@ bool CGraphicIndexBuffer::CreateDeviceObjects()
 {
 	if (FAILED(ms_lpd3dDevice->CreateIndexBuffer(
 		m_dwBufferSize,
-		D3DUSAGE_WRITEONLY,
+		GetManagedBufferUsage(D3DUSAGE_WRITEONLY),
 		m_d3dFmt,
-		D3DPOOL_MANAGED,
+		GetManagedPool(),
 		&m_lpd3dIdxBuf,
 		NULL)
 	))

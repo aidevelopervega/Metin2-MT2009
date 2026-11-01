@@ -1,5 +1,8 @@
 #include "Stdafx.h"
 #include "SoundBase.h"
+#if defined(MT2_USE_MINIAUDIO)
+#include "MiniaudioEngine.h"
+#endif
 
 HDIGDRIVER				CSoundBase::ms_DIGDriver = NULL;
 TSoundDataMap			CSoundBase::ms_dataMap;
@@ -38,7 +41,15 @@ void CSoundBase::Destroy()
 		ms_dataMap.clear();
 	}
 
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().Destroy();
+	ms_DIGDriver = NULL;
+	ms_pProviderDefault = NULL;
+	ms_ProviderVector.clear();
+	ms_bInitialized = false;
+#else
 	AIL_shutdown();
+#endif
 }
 
 void CSoundBase::Initialize()
@@ -49,8 +60,13 @@ void CSoundBase::Initialize()
 		return;
 
 	//@warme001
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().Initialize();
+	ms_bInitialized = mileslib_miniaudio::MiniaudioEngine::Instance().IsInitialized();
+#else
 	AIL_set_redist_directory("miles");
 	AIL_startup();
+#endif
 
 	ms_ProviderVector.clear();
 	ms_dataMap.clear();

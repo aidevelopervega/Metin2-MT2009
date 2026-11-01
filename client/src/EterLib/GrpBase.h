@@ -222,6 +222,12 @@ class CGraphicBase
 		static bool		IsFastTNL();
 		static bool		IsLowTextureMemory();
 		static bool		IsHighTextureMemory();
+		static void		SetUseD3D9Ex(bool bEnable) { ms_bUseD3D9Ex = bEnable; }
+		static bool		IsUseD3D9Ex() { return ms_bUseD3D9Ex; }
+		static bool		IsD3D9ExActive() { return ms_bD3D9ExActive; }
+		static bool		IsDeviceOccluded() { return ms_bDeviceOccluded; }
+		static D3DPOOL	GetManagedPool() { return ms_bD3D9ExActive ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED; }
+		static DWORD	GetManagedBufferUsage(DWORD dwBaseUsage) { return ms_bD3D9ExActive ? (dwBaseUsage | D3DUSAGE_DYNAMIC) : dwBaseUsage; }
 
 		static void SetDefaultIndexBuffer(UINT eDefIB);
 		static bool SetPDTStream(SPDTVertexRaw* pVertices, UINT uVtxCount);
@@ -261,6 +267,11 @@ class CGraphicBase
 		static HDC						ms_hDC;
 		static LPDIRECT3D9				ms_lpd3d;
 		static LPDIRECT3DDEVICE9		ms_lpd3dDevice;
+		static LPDIRECT3D9EX			ms_lpd3dEx;
+		static LPDIRECT3DDEVICE9EX		ms_lpd3dDeviceEx;
+		static bool						ms_bUseD3D9Ex;
+		static bool						ms_bD3D9ExActive;
+		static bool						ms_bDeviceOccluded;
 		static ID3DXMatrixStack*		ms_lpd3dMatStack;
 		static D3DVIEWPORT9				ms_Viewport;
 

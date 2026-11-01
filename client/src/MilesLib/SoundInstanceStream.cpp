@@ -1,5 +1,8 @@
 #include "stdafx.h"
 #include "SoundInstance.h"
+#if defined(MT2_USE_MINIAUDIO)
+#include "MiniaudioEngine.h"
+#endif
 
 CSoundInstanceStream::CSoundInstanceStream() : m_stream(NULL)
 {
@@ -14,7 +17,11 @@ void CSoundInstanceStream::Destroy()
 {
 	if (m_stream != NULL)
 	{
+#if defined(MT2_USE_MINIAUDIO)
+		mileslib_miniaudio::MiniaudioEngine::Instance().CloseStreamSlot(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 		AIL_close_stream(m_stream);
+#endif
 		m_stream = NULL;
 	}
 }
@@ -26,12 +33,20 @@ bool CSoundInstanceStream::Initialize()
 
 void CSoundInstanceStream::SetStream(HSTREAM stream)
 {
+#if defined(MT2_USE_MINIAUDIO)
+	if (m_stream != NULL && m_stream != stream)
+		mileslib_miniaudio::MiniaudioEngine::Instance().CloseStreamSlot(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#endif
 	m_stream = stream;
 }
 
 bool CSoundInstanceStream::IsDone() const
 {
+#if defined(MT2_USE_MINIAUDIO)
+	return mileslib_miniaudio::MiniaudioEngine::Instance().IsStreamDone(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 	return AIL_stream_status(m_stream) == -1;
+#endif
 }
 
 bool CSoundInstanceStream::IsData() const
@@ -47,8 +62,13 @@ void CSoundInstanceStream::Play(int count, DWORD dwPlayCycleTimeLimit) const
 	if (!IsData())
 		return;
 
+#if defined(MT2_USE_MINIAUDIO)
+	(void)dwPlayCycleTimeLimit;
+	mileslib_miniaudio::MiniaudioEngine::Instance().PlayStream(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream), count);
+#else
 	AIL_set_stream_loop_count(m_stream, count);
 	AIL_start_stream(m_stream);
+#endif
 }
 
 void CSoundInstanceStream::Pause() const
@@ -56,7 +76,11 @@ void CSoundInstanceStream::Pause() const
 	if (!IsData())
 		return;
 
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().PauseStream(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 	AIL_pause_stream(m_stream, 1);
+#endif
 }
 
 void CSoundInstanceStream::Resume() const
@@ -64,7 +88,11 @@ void CSoundInstanceStream::Resume() const
 	if (!IsData())
 		return;
 
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().ResumeStream(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 	AIL_pause_stream(m_stream, 0);
+#endif
 }
 
 void CSoundInstanceStream::Stop()
@@ -72,7 +100,11 @@ void CSoundInstanceStream::Stop()
 	if (!IsData())
 		return;
 
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().CloseStreamSlot(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 	AIL_close_stream(m_stream);
+#endif
 	m_stream = NULL;
 }
 
@@ -83,7 +115,12 @@ void CSoundInstanceStream::GetVolume(float& rfVolume) const
 	if (!IsData())
 		return;
 
+#if defined(MT2_USE_MINIAUDIO)
+	(void)tmp;
+	rfVolume = mileslib_miniaudio::MiniaudioEngine::Instance().GetStreamVolume(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream));
+#else
 	AIL_stream_volume_levels(m_stream, &rfVolume, &tmp);
+#endif
 }
 
 void CSoundInstanceStream::SetVolume(float volume) const
@@ -92,7 +129,11 @@ void CSoundInstanceStream::SetVolume(float volume) const
 		return;
 
 	volume = max(0.0f, min(1.0f, volume));
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().SetStreamVolume(reinterpret_cast<mileslib_miniaudio::StreamSlot*>(m_stream), volume);
+#else
 	AIL_set_stream_volume_levels(m_stream, volume, volume);
+#endif
 }
 
 bool CSoundInstanceStream::SetSound(CSoundData* pSound)

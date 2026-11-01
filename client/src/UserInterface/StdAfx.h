@@ -13,6 +13,10 @@
 #define _USE_32BIT_TIME_T
 #endif
 #include <iterator>
+#if defined(MT2_PYTHON_MODULE_ONLY)
+#include "../eterBase/StdAfx.h"
+#include "../scriptLib/StdAfx.h"
+#else
 #include "../eterLib/StdAfx.h"
 #include "../eterPythonLib/StdAfx.h"
 #include "../gameLib/StdAfx.h"
@@ -32,6 +36,7 @@
 #include "Locale.h"
 
 #include "GameType.h"
+#endif
 extern DWORD __DEFAULT_CODE_PAGE__;
 
 #define APP_NAME	"Metin 2"

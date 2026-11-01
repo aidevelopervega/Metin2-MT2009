@@ -40,8 +40,8 @@ function Test-IsBuildCommand {
     if ($BuildFlag -or $CleanFirstFlag) { return $true }
     if ([string]::IsNullOrWhiteSpace($CmdText)) { return $false }
 
-    # CMake build / configure, Ninja, Make, GCC, G++, Clang, Linker (ld/ar) tespiti
-    $buildPattern = '(^|[;&|\s\\/' + "'" + '"])(cmake(\.exe)?\s+(--build|-B|-S|--preset)|ninja(\.exe)?|mingw32-make(\.exe)?|g?make(\.exe)?|(x86_64-w64-mingw32-)?(gcc|g\+\+|c\+\+|clang|clang\+\+|ld|ar)(\.exe)?)\b'
+    # CMake build / configure, Ninja, Make, GCC, G++, Clang, Linker (ld/ar), MSVC (cl/link/lib/msbuild/vcvars64) tespiti
+    $buildPattern = '(^|[;&|\s\\/' + "'" + '"])(cmake(\.exe)?\s+(--build|-B|-S|--preset)|ninja(\.exe)?|mingw32-make(\.exe)?|g?make(\.exe)?|(x86_64-w64-mingw32-)?(gcc|g\+\+|c\+\+|clang|clang\+\+|ld|ar)(\.exe)?|(cl|link|lib|msbuild)(\.exe)?|vcvars64(\.bat)?|run_.*x64.*\.cmd)\b'
     $nonBuildLead = '^\s*(ctest|python|python3|py|git|gh)\b'
     if ($CmdText -match $nonBuildLead -and $CmdText -notmatch 'cmake(\.exe)?\s+--build|\bninja(\.exe)?\b') {
         return $false
@@ -49,11 +49,11 @@ function Test-IsBuildCommand {
     return [bool]($CmdText -match $buildPattern)
 }
 
-if ($CleanFirst) {
+if ($CleanFirst -and [string]::IsNullOrWhiteSpace($Command)) {
     $Command = "cmake --build --preset windows-gcc-ucrt --clean-first -- -j $ParallelJobs"
-} elseif ($Build) {
+} elseif ($Build -and [string]::IsNullOrWhiteSpace($Command)) {
     $Command = "cmake --build --preset windows-gcc-ucrt -- -j $ParallelJobs"
-} elseif ($CTest) {
+} elseif ($CTest -and [string]::IsNullOrWhiteSpace($Command)) {
     $Command = "ctest --preset windows-gcc-ucrt --output-on-failure"
 }
 

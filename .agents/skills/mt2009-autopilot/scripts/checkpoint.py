@@ -20,10 +20,16 @@ GATES = (
     "python3_runtime",
     "python3_sdk_verified",
     "python3_client_embedded",
+    "python3_real_modules",
     "miniaudio_dependency_acquired",
     "miniaudio_real_api_compiled",
     "miniaudio_runtime_tested",
+    "miniaudio_production_adapter",
+    "real_eterpack_audio",
+    "physical_audio_output",
     "miles_adapter_integrated",
+    "d3d9ex_api_test",
+    "d3d9ex_renderer_integration",
     "security",
 )
 

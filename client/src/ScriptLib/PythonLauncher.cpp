@@ -7,7 +7,9 @@
 #include "../eterPack/EterPackManager.h"
 
 #include "PythonLauncher.h"
+#ifdef __THEMIDA__
 #include "ThemidaSDK.h"
+#endif
 
 CPythonLauncher::CPythonLauncher()
 {
@@ -240,6 +242,49 @@ bool CPythonLauncher::RunMemoryTextFile(const char* c_szFileName, UINT uFileSize
 
 	std::string stConvFileData;
 	stConvFileData.reserve(uFileSize);
+#if PY_MAJOR_VERSION >= 3
+	for (UINT i = 0; i < uFileSize; ++i)
+	{
+		if (c_pcFileData[i] != 13)
+			stConvFileData += c_pcFileData[i];
+	}
+
+	PyObject* pySrc = PyUnicode_DecodeUTF8(stConvFileData.data(), static_cast<Py_ssize_t>(stConvFileData.size()), "surrogateescape");
+	if (!pySrc)
+	{
+		Traceback();
+		return false;
+	}
+
+	PyObject* builtins = M2Py_ImportBuiltins();
+	PyObject* compileFn = builtins ? PyObject_GetAttrString(builtins, "compile") : NULL;
+	Py_XDECREF(builtins);
+	if (!compileFn)
+	{
+		Py_DECREF(pySrc);
+		Traceback();
+		return false;
+	}
+
+	PyObject* co = PyObject_CallFunction(compileFn, "Oss", pySrc, c_szFileName ? c_szFileName : "<memory>", "exec");
+	Py_DECREF(compileFn);
+	Py_DECREF(pySrc);
+	if (!co)
+	{
+		Traceback();
+		return false;
+	}
+
+	PyObject* v = M2PyEval_EvalCode(reinterpret_cast<PyCodeObject*>(co), m_poDic, m_poDic);
+	Py_DECREF(co);
+	if (!v)
+	{
+		Traceback();
+		return false;
+	}
+	Py_DECREF(v);
+	return true;
+#else
 	stConvFileData+="exec(compile('''";
 
 	// ConvertPythonTextFormat
@@ -259,6 +304,7 @@ bool CPythonLauncher::RunMemoryTextFile(const char* c_szFileName, UINT uFileSize
 
 	const CHAR* c_pcConvFileData=stConvFileData.c_str();
 	return RunLine(c_pcConvFileData);
+#endif
 }
 
 bool CPythonLauncher::RunFile(const char* c_szFileName)

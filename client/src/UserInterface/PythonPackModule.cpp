@@ -6,6 +6,7 @@
 DWORD g_adwEncryptKey[4];
 DWORD g_adwDecryptKey[4];
 
+#if !defined(MT2_PYTHON_MODULE_ONLY)
 #include "AccountConnector.h"
 
 inline const BYTE* GetKey_20050304Myevan()
@@ -36,6 +37,7 @@ void CAccountConnector::__BuildClientKey_20050304Myevan()
 	tea_encrypt((DWORD *) g_adwDecryptKey, (const DWORD *) g_adwEncryptKey, (const DWORD *) (c_pszKey+37), 16);
 //	TEA_Encrypt((DWORD *) g_adwDecryptKey, (const DWORD *) g_adwEncryptKey, (const DWORD *) (c_pszKey+37), 16);
 }
+#endif
 // END_OF_CHINA_CRYPT_KEY
 
 PyObject * packExist(PyObject * poSelf, PyObject * poArgs)
@@ -70,7 +72,13 @@ PyObject * packGet(PyObject * poSelf, PyObject * poArgs)
 			const void * pData = NULL;
 
 			if (CEterPackManager::Instance().Get(file,strFileName,&pData))
+			{
+#if defined(MT2_USE_PYTHON3) || (defined(PY_MAJOR_VERSION) && PY_MAJOR_VERSION >= 3)
+				return PyUnicode_DecodeUTF8(static_cast<const char*>(pData), static_cast<Py_ssize_t>(file.Size()), "surrogateescape");
+#else
 				return Py_BuildValue("s#",pData, file.Size());
+#endif
+			}
 		}
 	}
 

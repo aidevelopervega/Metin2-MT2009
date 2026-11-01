@@ -124,7 +124,8 @@ void CBlockTexture::InvalidateRect(const RECT & c_rsrcRect)
 	pdwSrc += dstRect.left + dstRect.top*m_pDIB->GetWidth();
 
 	D3DLOCKED_RECT lockedRect;
-	if (FAILED(m_lpd3dTexture->LockRect(0, &lockedRect, &clipRect, 0)))
+	LPDIRECT3DTEXTURE9 pLockTex = m_lpd3dSysTexture ? m_lpd3dSysTexture : m_lpd3dTexture;
+	if (FAILED(pLockTex->LockRect(0, &lockedRect, &clipRect, 0)))
 	{
 		Tracef("InvalidateRect() - Failed to LockRect");
 		return;
@@ -148,12 +149,28 @@ void CBlockTexture::InvalidateRect(const RECT & c_rsrcRect)
 		pdwSrc += dwSrcWidth;
 	}
 
-	m_lpd3dTexture->UnlockRect(0);
+	pLockTex->UnlockRect(0);
+	if (m_lpd3dSysTexture && m_lpd3dTexture && ms_lpd3dDevice)
+	{
+		m_lpd3dTexture->AddDirtyRect(&clipRect);
+		ms_lpd3dDevice->UpdateTexture(m_lpd3dSysTexture, m_lpd3dTexture);
+	}
 }
 
 bool CBlockTexture::Create(CGraphicDib * pDIB, const RECT & c_rRect, DWORD dwWidth, DWORD dwHeight)
 {
-	if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
+	if (ms_bD3D9ExActive)
+	{
+		if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
+			FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
+		{
+			safe_release(m_lpd3dSysTexture);
+			safe_release(m_lpd3dTexture);
+			Tracef("Failed to create D3D9Ex block texture %u, %u\n", dwWidth, dwHeight);
+			return false;
+		}
+	}
+	else if (FAILED(ms_lpd3dDevice->CreateTexture(dwWidth, dwHeight, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
 	{
 		Tracef("Failed to create block texture %u, %u\n", dwWidth, dwHeight);
 		return false;
@@ -172,10 +189,13 @@ CBlockTexture::CBlockTexture()
 {
 	m_pDIB = NULL;
 	m_lpd3dTexture = NULL;
+	m_lpd3dSysTexture = NULL;
 }
 
 CBlockTexture::~CBlockTexture()
 {
+	safe_release(m_lpd3dSysTexture);
+	m_lpd3dSysTexture = NULL;
 	safe_release(m_lpd3dTexture);
 	m_lpd3dTexture = NULL;
 }

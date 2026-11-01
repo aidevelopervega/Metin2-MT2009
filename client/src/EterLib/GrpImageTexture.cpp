@@ -6,7 +6,8 @@
 bool CGraphicImageTexture::Lock(int* pRetPitch, void** ppRetPixels, int level)
 {
 	D3DLOCKED_RECT lockedRect;
-	if (FAILED(m_lpd3dTexture->LockRect(level, &lockedRect, NULL, 0)))
+	LPDIRECT3DTEXTURE9 pLockTex = m_lpd3dSysTexture ? m_lpd3dSysTexture : m_lpd3dTexture;
+	if (!pLockTex || FAILED(pLockTex->LockRect(level, &lockedRect, NULL, 0)))
 		return false;
 
 	*pRetPitch = lockedRect.Pitch;
@@ -17,7 +18,11 @@ bool CGraphicImageTexture::Lock(int* pRetPitch, void** ppRetPixels, int level)
 void CGraphicImageTexture::Unlock(int level)
 {
 	assert(m_lpd3dTexture != NULL);
-	m_lpd3dTexture->UnlockRect(level);
+	LPDIRECT3DTEXTURE9 pLockTex = m_lpd3dSysTexture ? m_lpd3dSysTexture : m_lpd3dTexture;
+	if (pLockTex)
+		pLockTex->UnlockRect(level);
+	if (m_lpd3dSysTexture && m_lpd3dTexture && ms_lpd3dDevice)
+		ms_lpd3dDevice->UpdateTexture(m_lpd3dSysTexture, m_lpd3dTexture);
 }
 
 void CGraphicImageTexture::Initialize()
@@ -28,10 +33,16 @@ void CGraphicImageTexture::Initialize()
 
 	m_d3dFmt=D3DFMT_UNKNOWN;
 	m_dwFilter=0;
+	m_lpd3dSysTexture=NULL;
 }
 
 void CGraphicImageTexture::Destroy()
 {
+	if (m_lpd3dSysTexture)
+	{
+		m_lpd3dSysTexture->Release();
+		m_lpd3dSysTexture = NULL;
+	}
 	CGraphicTexture::Destroy();
 
 	Initialize();
@@ -44,7 +55,13 @@ bool CGraphicImageTexture::CreateDeviceObjects()
 
 	if (m_stFileName.empty())
 	{
-		if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
+		if (ms_bD3D9ExActive)
+		{
+			if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_DEFAULT, &m_lpd3dTexture, NULL)) ||
+				FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_SYSTEMMEM, &m_lpd3dSysTexture, NULL)))
+				return false;
+		}
+		else if (FAILED(ms_lpd3dDevice->CreateTexture(m_width, m_height, 1, 0, m_d3dFmt, D3DPOOL_MANAGED, &m_lpd3dTexture, NULL)))
 			return false;
 	}
 	else
@@ -103,7 +120,7 @@ bool CGraphicImageTexture::CreateDDSTexture(CDXTCImage & image, const BYTE * /*c
 
 	D3DFORMAT format;
 	LPDIRECT3DTEXTURE9 lpd3dTexture;
-	D3DPOOL pool = ms_bSupportDXT ? D3DPOOL_MANAGED : D3DPOOL_SCRATCH;;
+	D3DPOOL pool = ms_bSupportDXT ? (ms_bD3D9ExActive ? D3DPOOL_SYSTEMMEM : D3DPOOL_MANAGED) : D3DPOOL_SCRATCH;
 
 	if(image.m_CompFormat == PF_DXT5)
 		format = D3DFMT_DXT5;
@@ -152,7 +169,21 @@ bool CGraphicImageTexture::CreateDDSTexture(CDXTCImage & image, const BYTE * /*c
 
 	if(ms_bSupportDXT)
 	{
-		m_lpd3dTexture = lpd3dTexture;
+		if (ms_bD3D9ExActive)
+		{
+			if (FAILED(D3DXCreateTexture(ms_lpd3dDevice, image.m_nWidth, image.m_nHeight, mipmapCount, 0, format, D3DPOOL_DEFAULT, &m_lpd3dTexture)) ||
+				FAILED(ms_lpd3dDevice->UpdateTexture(lpd3dTexture, m_lpd3dTexture)))
+			{
+				lpd3dTexture->Release();
+				TraceError("CreateDDSTexture: Cannot upload D3D9Ex texture");
+				return false;
+			}
+			lpd3dTexture->Release();
+		}
+		else
+		{
+			m_lpd3dTexture = lpd3dTexture;
+		}
 	}
 	else
 	{
@@ -173,7 +204,7 @@ bool CGraphicImageTexture::CreateDDSTexture(CDXTCImage & image, const BYTE * /*c
 		}
 
 		if (FAILED(D3DXCreateTexture(	ms_lpd3dDevice, imgWidth, imgHeight,
-										mipmapCount, 0, format, D3DPOOL_MANAGED, &m_lpd3dTexture)))
+										mipmapCount, 0, format, GetManagedPool(), &m_lpd3dTexture)))
 		{
 				TraceError("CreateDDSTexture: Cannot creatre texture");
 				return false;
@@ -230,7 +261,7 @@ bool CGraphicImageTexture::CreateFromMemoryFile(UINT bufSize, const void * c_pvB
 					D3DX_DEFAULT,
 					0,
 					d3dFmt,
-					D3DPOOL_MANAGED,
+					GetManagedPool(),
 					dwFilter,
 					dwFilter,
 					0xffff00ff,
@@ -276,7 +307,7 @@ bool CGraphicImageTexture::CreateFromMemoryFile(UINT bufSize, const void * c_pvB
 				imageInfo.MipLevels,
 				0,
 				format,
-				D3DPOOL_MANAGED,
+				GetManagedPool(),
 				&pkTexDst)))
 			{
 				m_lpd3dTexture=pkTexDst;
@@ -320,7 +351,7 @@ bool CGraphicImageTexture::CreateTextureFromByteVector(const std::vector<BYTE>& 
 		D3DX_DEFAULT,                    // Mip levels (default: full chain)
 		0,                               // Usage flags
 		format,                          // Desired texture format
-		D3DPOOL_MANAGED,                 // Memory pool (managed for efficiency)
+		GetManagedPool(),                 // Memory pool (managed for efficiency)
 		filter,                          // Filter for scaling
 		filter,                          // Mip filter
 		0,                               // Color key (transparent color)

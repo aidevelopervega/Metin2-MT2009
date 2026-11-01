@@ -785,23 +785,42 @@ int main()
 	check(std::strcmp(ma_version_string(), "0.11.26") == 0,
 		"ma_version_string() == '0.11.26'");
 
-	// 2. Probe context & audio devices (honest reporting of physical speaker state)
+	// 2. Probe WASAPI context & audio devices (strict check without unconditional check(true))
 	ma_context probeCtx{};
 	ma_uint32 playbackDeviceCount = 0;
 	const char* activeBackendName = "none";
-	if (ma_context_init(nullptr, 0, nullptr, &probeCtx) == MA_SUCCESS)
+	bool ctxInitOk = false;
+	bool getDevicesOk = false;
+	bool wasapiDeviceInitOk = false;
+	ma_backend wasapiBackends[] = { ma_backend_wasapi };
+	if (ma_context_init(wasapiBackends, 1, nullptr, &probeCtx) == MA_SUCCESS)
 	{
+		ctxInitOk = true;
 		activeBackendName = ma_get_backend_name(probeCtx.backend);
 		ma_device_info* pPlaybackInfos = nullptr;
 		ma_device_info* pCaptureInfos = nullptr;
 		ma_uint32 captureCount = 0;
 		if (ma_context_get_devices(&probeCtx, &pPlaybackInfos, &playbackDeviceCount, &pCaptureInfos, &captureCount) == MA_SUCCESS)
 		{
-			// Enumerated successfully
+			getDevicesOk = true;
+			if (playbackDeviceCount > 0)
+			{
+				ma_device_config hwDevCfg = ma_device_config_init(ma_device_type_playback);
+				hwDevCfg.playback.format = ma_format_f32;
+				hwDevCfg.playback.channels = kEngineChannels;
+				hwDevCfg.sampleRate = kSampleRate;
+				ma_device hwDevice{};
+				if (ma_device_init(&probeCtx, &hwDevCfg, &hwDevice) == MA_SUCCESS)
+				{
+					wasapiDeviceInitOk = true;
+					ma_device_uninit(&hwDevice);
+				}
+			}
 		}
 		ma_context_uninit(&probeCtx);
 	}
-	check(true, "ma_context_init/ma_context_get_devices/ma_context_uninit lifecycle verified");
+	check(ctxInitOk && getDevicesOk && (playbackDeviceCount == 0 || wasapiDeviceInitOk),
+		"WASAPI ma_context_init, ma_context_get_devices, and (when hardware present) ma_device_init verified");
 
 	// 3. Populate custom in-memory EterPack VFS with valid RIFF/WAVE assets
 	PackMemoryVFS vfs;

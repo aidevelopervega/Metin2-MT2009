@@ -3,6 +3,11 @@
 
 #include "../EterPack/EterPackManager.h"
 #include "../eterBase/Timer.h"
+#if defined(MT2_USE_MINIAUDIO)
+#include "MiniaudioEngine.h"
+#include <cstdlib>
+#include <cstring>
+#endif
 
 bool CSoundData::ms_isSoundFile[SOUND_FILE_MAX_NUM];
 CMappedFile CSoundData::ms_SoundFile[SOUND_FILE_MAX_NUM];
@@ -68,6 +73,47 @@ bool CSoundData::ReadFromDisk()
 	LARGE_INTEGER start;
 	QueryPerformanceCounter(&start);
 
+#if defined(MT2_USE_MINIAUDIO)
+	mileslib_miniaudio::MiniaudioEngine::Instance().Lock();
+	CMappedFile roFile;
+	LPCVOID pMap = NULL;
+	bool bFromPack = false;
+	if (CEterPackManager::Instance().GetFromPack(roFile, m_filename, &pMap))
+	{
+		bFromPack = true;
+	}
+	else if (!CEterPackManager::Instance().GetFromFile(roFile, m_filename, &pMap))
+	{
+		mileslib_miniaudio::MiniaudioEngine::Instance().Unlock();
+		return false;
+	}
+
+	DWORD dwSize = roFile.Size();
+	if (!pMap || dwSize == 0)
+	{
+		roFile.Destroy();
+		mileslib_miniaudio::MiniaudioEngine::Instance().Unlock();
+		return false;
+	}
+
+	m_data = std::malloc(dwSize);
+	if (!m_data)
+	{
+		roFile.Destroy();
+		mileslib_miniaudio::MiniaudioEngine::Instance().Unlock();
+		return false;
+	}
+
+	std::memcpy(m_data, pMap, dwSize);
+	m_size = dwSize;
+	m_flag = 0;
+	roFile.Destroy();
+
+	mileslib_miniaudio::MiniaudioEngine::Instance().RecordPackDataRead(bFromPack, dwSize);
+
+	mileslib_miniaudio::MiniaudioEngine::Instance().Unlock();
+	return true;
+#else
 	U32* s = (U32 *) AIL_file_read(m_filename, FILE_READ_WITH_SIZE);
 
 	if (s == NULL)
@@ -108,6 +154,7 @@ bool CSoundData::ReadFromDisk()
 	}
 
 	return true;
+#endif
 }
 
 bool CSoundData::isSlotIndex(DWORD dwIndex)
@@ -180,7 +227,9 @@ U32 AILCALLBACK CSoundData::read_callback(U32 file_handle, void * buffer, U32 by
 void CSoundData::SetPackMode()
 {
 	// if sound data reads from pack file, the callbacks of the MSS should be changed.
+#if !defined(MT2_USE_MINIAUDIO)
 	AIL_set_file_callbacks(open_callback, close_callback, seek_callback, read_callback);
+#endif
 
 	for (int i = 0; i < SOUND_FILE_MAX_NUM; ++i)
 		ms_isSoundFile[i] = false;
@@ -190,7 +239,11 @@ void CSoundData::Destroy()
 {
 	if (m_data)
 	{
+#if defined(MT2_USE_MINIAUDIO)
+		std::free(m_data);
+#else
 		AIL_mem_free_lock(m_data);
+#endif
 		m_data = NULL;
 	}
 }

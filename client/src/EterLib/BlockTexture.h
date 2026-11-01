@@ -23,6 +23,7 @@ class CBlockTexture : public CGraphicBase
 		DWORD m_dwWidth;
 		DWORD m_dwHeight;
 		LPDIRECT3DTEXTURE9 m_lpd3dTexture;
+		LPDIRECT3DTEXTURE9 m_lpd3dSysTexture;
 };
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
