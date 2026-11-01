@@ -221,7 +221,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		bool SendPartyParameterPacket(BYTE byDistributeMode);
 
 		// SafeBox
-		bool SendSafeBoxMoneyPacket(BYTE byState, DWORD dwMoney);
+		bool SendSafeBoxMoneyPacket(BYTE byState, YANG dwMoney);
 		bool SendSafeBoxCheckinPacket(TItemPos InventoryPos, BYTE bySafeBoxPos);
 		bool SendSafeBoxCheckoutPacket(BYTE bySafeBoxPos, TItemPos InventoryPos);
 		bool SendSafeBoxItemMovePacket(BYTE bySourcePos, BYTE byTargetPos);

@@ -7,14 +7,14 @@
 #include "AbstractPlayer.h"
 #include "../gamelib/GameLibDefines.h"
 
-const DWORD POINT_MAGIC_NUMBER = 0xe73ac1da;
+const int64_t POINT_MAGIC_NUMBER = 0xe73ac1daLL;
 
-void CPythonPlayer::SPlayerStatus::SetPoint(UINT ePoint, long lPoint)
+void CPythonPlayer::SPlayerStatus::SetPoint(UINT ePoint, int64_t lPoint)
 {
 	m_alPoint[ePoint]=lPoint ^ POINT_MAGIC_NUMBER;
 }
 
-long CPythonPlayer::SPlayerStatus::GetPoint(UINT ePoint)
+int64_t CPythonPlayer::SPlayerStatus::GetPoint(UINT ePoint)
 {
 	return m_alPoint[ePoint] ^ POINT_MAGIC_NUMBER;
 }
@@ -421,7 +421,7 @@ void CPythonPlayer::__UpdateBattleStatus()
 	m_playerStatus.SetPoint(POINT_MAX_ATK, __GetTotalAtk(m_dwWeaponMaxPower, m_dwWeaponAddPower));
 }
 
-void CPythonPlayer::SetStatus(DWORD dwType, long lValue)
+void CPythonPlayer::SetStatus(DWORD dwType, int64_t lValue)
 {
 	if (dwType >= POINT_MAX_NUM)
 	{
@@ -440,10 +440,15 @@ void CPythonPlayer::SetStatus(DWORD dwType, long lValue)
 			if (lValue == 0)
 				pkPlayer->SetHideLevel(true);
 			// basically, just for the /level command to refresh locally
-			pkPlayer->SetLevel(lValue);
+			pkPlayer->SetLevel(static_cast<DWORD>(lValue));
 #endif
-			pkPlayer->UpdateTextTailLevel(lValue);
+			pkPlayer->UpdateTextTailLevel(static_cast<DWORD>(lValue));
 		}
+	}
+
+	if (dwType == POINT_GOLD)
+	{
+		m_llGold = lValue;
 	}
 
 	switch (dwType)
@@ -467,7 +472,7 @@ void CPythonPlayer::SetStatus(DWORD dwType, long lValue)
 	}
 }
 
-int CPythonPlayer::GetStatus(DWORD dwType)
+int64_t CPythonPlayer::GetStatus(DWORD dwType)
 {
 	if (dwType >= POINT_MAX_NUM)
 	{
@@ -475,6 +480,9 @@ int CPythonPlayer::GetStatus(DWORD dwType)
 		Tracef("CPythonPlayer::GetStatus - Get Status Type Error\n");
 		return 0;
 	}
+
+	if (dwType == POINT_GOLD)
+		return m_llGold;
 
 	return m_playerStatus.GetPoint(dwType);
 }

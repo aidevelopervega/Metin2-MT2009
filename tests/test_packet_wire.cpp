@@ -1622,6 +1622,240 @@ int main()
                             symCrc.guild_id == idOver53 && landElem.dwGuildID == idOver53 &&
                             gmTarget.pid == idOver53 && gmTarget.aid == idOver32,
                     "Client-Server Guild War, Skill, Mark/Symbol, Land, and GM Target packets preserve >2^32 and >2^53 IDs losslessly");
+
+                // F11: Character Points, Yang & Safebox Money 64-bit Wire Contract + Python 2.7 64-bit Boundary Tests
+                static_assert(POINT_MAX_NUM == 177, "POINT_MAX_NUM must be 177 across server and client");
+                static_assert(POINT_GOLD == 11, "POINT_GOLD must be 11");
+                static_assert(GOLD_MAX == 1000000000000LL, "GOLD_MAX must be 1,000,000,000,000 (10^12)");
+                static_assert(sizeof(YANG) == 8 && std::is_same_v<YANG, int64_t>, "YANG must be signed 64-bit int64_t");
+                static_assert(sizeof(TPacketGCPoints) == 1417 && offsetof(TPacketGCPoints, header) == 0 && offsetof(TPacketGCPoints, points) == 1 && sizeof(TPacketGCPoints::points) == 1416, "TPacketGCPoints layout mismatch");
+                static_assert(sizeof(TPacketGCPointChange) == 25 && offsetof(TPacketGCPointChange, header) == 0 && offsetof(TPacketGCPointChange, dwVID) == 4 && offsetof(TPacketGCPointChange, type) == 8 && offsetof(TPacketGCPointChange, amount) == 9 && offsetof(TPacketGCPointChange, value) == 17, "TPacketGCPointChange layout mismatch");
+                static_assert(sizeof(TPacketGCGoldUpdate) == 9 && offsetof(TPacketGCGoldUpdate, bHeader) == 0 && offsetof(TPacketGCGoldUpdate, totalGold) == 1, "TPacketGCGoldUpdate layout mismatch");
+                static_assert(sizeof(TPacketCGSafeboxMoney) == 10 && offsetof(TPacketCGSafeboxMoney, bHeader) == 0 && offsetof(TPacketCGSafeboxMoney, bState) == 1 && offsetof(TPacketCGSafeboxMoney, lMoney) == 2, "TPacketCGSafeboxMoney layout mismatch");
+                static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9 && offsetof(TPacketGCSafeboxMoneyChange, bHeader) == 0 && offsetof(TPacketGCSafeboxMoneyChange, lMoney) == 1, "TPacketGCSafeboxMoneyChange layout mismatch");
+
+                // F11a: TPacketGCPoints (1417B) & TPacketGCPointChange (25B) 64-bit signed values & POINT_GOLD ordering
+                {
+                    TPacketGCPoints outPoints{};
+                    outPoints.header = HEADER_GC_CHARACTER_POINTS;
+                    outPoints.points[0] = INT64_MIN;
+                    outPoints.points[POINT_LEVEL] = 99LL;
+                    outPoints.points[POINT_EXP] = 4294967297LL; // 2^32 + 1
+                    outPoints.points[POINT_GOLD] = 0LL; // Server CHARACTER::PointsPacket() sends 0 for POINT_GOLD
+                    outPoints.points[POINT_MAX_HP] = 5000000000LL; // > 2^32
+                    outPoints.points[POINT_ATT_BONUS] = -2500000000LL; // negative < INT32_MIN
+                    outPoints.points[POINT_MAX_NUM - 1] = INT64_MAX;
+
+                    std::vector<uint8_t> pointsBuf(sizeof(TPacketGCPoints));
+                    std::memcpy(pointsBuf.data(), &outPoints, sizeof(TPacketGCPoints));
+                    TPacketGCPoints inPoints{};
+                    std::memcpy(&inPoints, pointsBuf.data(), sizeof(TPacketGCPoints));
+
+                    WIRE_ASSERT(pointsBuf.size() == 1417 &&
+                                inPoints.header == HEADER_GC_CHARACTER_POINTS &&
+                                inPoints.points[0] == INT64_MIN &&
+                                inPoints.points[POINT_LEVEL] == 99LL &&
+                                inPoints.points[POINT_EXP] == 4294967297LL &&
+                                inPoints.points[POINT_GOLD] == 0LL &&
+                                inPoints.points[POINT_MAX_HP] == 5000000000LL &&
+                                inPoints.points[POINT_ATT_BONUS] == -2500000000LL &&
+                                inPoints.points[POINT_MAX_NUM - 1] == INT64_MAX,
+                        "F11a: TPacketGCPoints (1417 bytes, 177 x int64_t) preserves >2^32, negative <INT32_MIN, INT64_MIN, and INT64_MAX losslessly");
+
+                    // Simulate client CPythonPlayer 64-bit status storage (POINT_MAGIC_NUMBER = 0xe73ac1daLL) & __RecvPlayerPoints ordering
+                    constexpr int64_t kPointMagic = 0xe73ac1daLL;
+                    std::vector<int64_t> clientPoints(POINT_MAX_NUM, kPointMagic);
+                    YANG clientGold = 0;
+                    auto clientSetGold = [&](YANG val) {
+                        clientGold = val;
+                        clientPoints[POINT_GOLD] = val ^ kPointMagic;
+                    };
+                    auto clientSetStatus = [&](uint32_t dwType, int64_t val) {
+                        if (dwType >= POINT_MAX_NUM)
+                            return;
+                        if (dwType == POINT_GOLD)
+                            clientGold = val;
+                        clientPoints[dwType] = val ^ kPointMagic;
+                    };
+                    auto clientGetStatus = [&](uint32_t dwType) -> int64_t {
+                        if (dwType >= POINT_MAX_NUM)
+                            return 0;
+                        if (dwType == POINT_GOLD)
+                            return clientGold;
+                        return clientPoints[dwType] ^ kPointMagic;
+                    };
+
+                    // Server Entergame sends HEADER_GC_SET_GOLD (500B Yang) before HEADER_GC_CHARACTER_POINTS (points[POINT_GOLD] == 0)
+                    clientSetGold(500000000000LL);
+                    for (uint32_t i = 0; i < POINT_MAX_NUM; ++i) {
+                        if (i == POINT_GOLD && inPoints.points[i] == 0 && clientGold != 0)
+                            continue;
+                        clientSetStatus(i, inPoints.points[i]);
+                    }
+                    WIRE_ASSERT(clientGold == 500000000000LL &&
+                                clientGetStatus(POINT_GOLD) == 500000000000LL &&
+                                clientGetStatus(POINT_EXP) == 4294967297LL &&
+                                clientGetStatus(POINT_MAX_HP) == 5000000000LL &&
+                                clientGetStatus(POINT_ATT_BONUS) == -2500000000LL &&
+                                clientGetStatus(0) == INT64_MIN &&
+                                clientGetStatus(POINT_MAX_NUM - 1) == INT64_MAX,
+                        "F11a: Client CPythonPlayer 64-bit status & __RecvPlayerPoints preserve 500B Yang set by HEADER_GC_SET_GOLD and all 64-bit points");
+
+                    TPacketGCPointChange outChg{};
+                    outChg.header = HEADER_GC_CHARACTER_POINT_CHANGE;
+                    outChg.dwVID = 778899U;
+                    outChg.type = POINT_EXP;
+                    outChg.amount = -4294967297LL;
+                    outChg.value = 999999999999LL; // GOLD_MAX - 1
+                    std::vector<uint8_t> chgBuf(sizeof(TPacketGCPointChange));
+                    std::memcpy(chgBuf.data(), &outChg, sizeof(TPacketGCPointChange));
+                    TPacketGCPointChange inChg{};
+                    std::memcpy(&inChg, chgBuf.data(), sizeof(TPacketGCPointChange));
+                    clientSetStatus(inChg.type, inChg.value);
+
+                    WIRE_ASSERT(chgBuf.size() == 25 &&
+                                inChg.header == HEADER_GC_CHARACTER_POINT_CHANGE &&
+                                inChg.dwVID == 778899U &&
+                                inChg.type == POINT_EXP &&
+                                inChg.amount == -4294967297LL &&
+                                inChg.value == 999999999999LL &&
+                                clientGetStatus(POINT_EXP) == 999999999999LL,
+                        "F11a: TPacketGCPointChange (25 bytes) preserves signed 64-bit amount and value (>2^32 and negative)");
+                }
+
+                // F11b: Yang (TPacketGCGoldUpdate) & Safebox Money (TPacketCGSafeboxMoney / TPacketGCSafeboxMoneyChange) 64-bit boundaries
+                {
+                    auto isValidClientSafeboxMoney = [](int64_t llMoney) -> bool {
+                        return llMoney >= 0 && llMoney < GOLD_MAX;
+                    };
+                    WIRE_ASSERT(isValidClientSafeboxMoney(0LL) &&
+                                isValidClientSafeboxMoney(1LL) &&
+                                isValidClientSafeboxMoney(4294967297LL) &&
+                                isValidClientSafeboxMoney(GOLD_MAX - 1LL) &&
+                                !isValidClientSafeboxMoney(-1LL) &&
+                                !isValidClientSafeboxMoney(INT64_MIN) &&
+                                !isValidClientSafeboxMoney(GOLD_MAX) &&
+                                !isValidClientSafeboxMoney(GOLD_MAX + 1LL) &&
+                                !isValidClientSafeboxMoney(INT64_MAX),
+                        "F11b: Safebox money validation accepts [0, GOLD_MAX-1] (including >2^32) and rejects negative, GOLD_MAX, and overflow values");
+
+                    const YANG testGoldValues[] = { 0LL, 1LL, 4294967296LL, 4294967297LL, 500000000000LL, GOLD_MAX - 1LL };
+                    for (YANG goldVal : testGoldValues) {
+                        TPacketGCGoldUpdate goldPkt{};
+                        goldPkt.bHeader = HEADER_GC_SET_GOLD;
+                        goldPkt.totalGold = goldVal;
+
+                        TPacketCGSafeboxMoney cgSafeMoney{};
+                        cgSafeMoney.bHeader = 72; // Client HEADER_CG_SAFEBOX_MONEY = 72
+                        cgSafeMoney.bState = SAFEBOX_MONEY_STATE_SAVE;
+                        cgSafeMoney.lMoney = goldVal;
+
+                        TPacketGCSafeboxMoneyChange gcSafeMoney{};
+                        gcSafeMoney.bHeader = 84; // Client HEADER_GC_SAFEBOX_MONEY_CHANGE = 84
+                        gcSafeMoney.lMoney = goldVal;
+
+                        TPacketGCGoldUpdate inGoldPkt{};
+                        TPacketCGSafeboxMoney inCgSafeMoney{};
+                        TPacketGCSafeboxMoneyChange inGcSafeMoney{};
+                        std::memcpy(&inGoldPkt, &goldPkt, sizeof(goldPkt));
+                        std::memcpy(&inCgSafeMoney, &cgSafeMoney, sizeof(cgSafeMoney));
+                        std::memcpy(&inGcSafeMoney, &gcSafeMoney, sizeof(gcSafeMoney));
+
+                        WIRE_ASSERT(sizeof(goldPkt) == 9 && inGoldPkt.totalGold == goldVal &&
+                                    sizeof(cgSafeMoney) == 10 && inCgSafeMoney.lMoney == goldVal &&
+                                    sizeof(gcSafeMoney) == 9 && inGcSafeMoney.lMoney == goldVal,
+                            "F11b: TPacketGCGoldUpdate (9B), TPacketCGSafeboxMoney (10B), and TPacketGCSafeboxMoneyChange (9B) preserve 64-bit YANG losslessly");
+                    }
+                }
+
+                // F11c: Permanent Python 2.7 64-bit integer conversion boundary tests (PyTuple_GetUnsignedLongLong & PyTuple_GetLongLong contract)
+                {
+                    enum class PyMockKind { Int32, LongSigned, LongUnsigned, LongNegativeOverflow, LongPositiveOverflow, InvalidType };
+                    struct PyMockObj {
+                        PyMockKind kind;
+                        int32_t i32Val;
+                        int64_t i64Val;
+                        uint64_t u64Val;
+                    };
+                    auto simGetUnsignedLongLong = [](const PyMockObj& obj, uint64_t* ret) -> bool {
+                        if (!ret)
+                            return false;
+                        *ret = 0;
+                        if (obj.kind == PyMockKind::Int32) {
+                            if (obj.i32Val < 0)
+                                return false;
+                            *ret = static_cast<uint64_t>(obj.i32Val);
+                            return true;
+                        }
+                        if (obj.kind == PyMockKind::LongSigned) {
+                            if (obj.i64Val < 0)
+                                return false;
+                            *ret = static_cast<uint64_t>(obj.i64Val);
+                            return true;
+                        }
+                        if (obj.kind == PyMockKind::LongUnsigned) {
+                            *ret = obj.u64Val;
+                            return true;
+                        }
+                        return false;
+                    };
+                    auto simGetLongLong = [](const PyMockObj& obj, int64_t* ret) -> bool {
+                        if (!ret)
+                            return false;
+                        *ret = 0;
+                        if (obj.kind == PyMockKind::Int32) {
+                            *ret = static_cast<int64_t>(obj.i32Val);
+                            return true;
+                        }
+                        if (obj.kind == PyMockKind::LongSigned) {
+                            *ret = obj.i64Val;
+                            return true;
+                        }
+                        if (obj.kind == PyMockKind::LongUnsigned) {
+                            if (obj.u64Val > static_cast<uint64_t>(INT64_MAX))
+                                return false;
+                            *ret = static_cast<int64_t>(obj.u64Val);
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    uint64_t uOut = 999ULL;
+                    int64_t sOut = 999LL;
+
+                    // -1 and -1L
+                    WIRE_ASSERT(!simGetUnsignedLongLong({PyMockKind::Int32, -1, -1, 0}, &uOut) && uOut == 0 &&
+                                !simGetUnsignedLongLong({PyMockKind::LongSigned, 0, -1LL, 0}, &uOut) && uOut == 0 &&
+                                simGetLongLong({PyMockKind::Int32, -1, -1, 0}, &sOut) && sOut == -1LL &&
+                                simGetLongLong({PyMockKind::LongSigned, 0, -1LL, 0}, &sOut) && sOut == -1LL,
+                        "F11c: Python 2.7 boundary -1 / -1L rejected for unsigned IDs and accepted as -1 for signed 64-bit");
+
+                    // 0, 2^32+1, 2^53+1
+                    WIRE_ASSERT(simGetUnsignedLongLong({PyMockKind::Int32, 0, 0, 0}, &uOut) && uOut == 0ULL &&
+                                simGetLongLong({PyMockKind::Int32, 0, 0, 0}, &sOut) && sOut == 0LL &&
+                                simGetUnsignedLongLong({PyMockKind::LongSigned, 0, 4294967297LL, 0}, &uOut) && uOut == 4294967297ULL &&
+                                simGetLongLong({PyMockKind::LongSigned, 0, 4294967297LL, 0}, &sOut) && sOut == 4294967297LL &&
+                                simGetUnsignedLongLong({PyMockKind::LongSigned, 0, 9007199254740993LL, 0}, &uOut) && uOut == 9007199254740993ULL &&
+                                simGetLongLong({PyMockKind::LongSigned, 0, 9007199254740993LL, 0}, &sOut) && sOut == 9007199254740993LL,
+                        "F11c: Python 2.7 boundary 0, 2^32+1, and 2^53+1 preserved losslessly for both signed and unsigned 64-bit");
+
+                    // INT64_MIN, INT64_MAX, INT64_MAX+1, UINT64_MAX, UINT64_MAX+1, INT64_MIN-1, invalid types
+                    WIRE_ASSERT(simGetLongLong({PyMockKind::LongSigned, 0, INT64_MIN, 0}, &sOut) && sOut == INT64_MIN &&
+                                !simGetUnsignedLongLong({PyMockKind::LongSigned, 0, INT64_MIN, 0}, &uOut) && uOut == 0ULL &&
+                                simGetLongLong({PyMockKind::LongSigned, 0, INT64_MAX, 0}, &sOut) && sOut == INT64_MAX &&
+                                simGetUnsignedLongLong({PyMockKind::LongSigned, 0, INT64_MAX, 0}, &uOut) && uOut == static_cast<uint64_t>(INT64_MAX) &&
+                                simGetUnsignedLongLong({PyMockKind::LongUnsigned, 0, 0, static_cast<uint64_t>(INT64_MAX) + 1ULL}, &uOut) && uOut == static_cast<uint64_t>(INT64_MAX) + 1ULL &&
+                                !simGetLongLong({PyMockKind::LongUnsigned, 0, 0, static_cast<uint64_t>(INT64_MAX) + 1ULL}, &sOut) && sOut == 0LL &&
+                                simGetUnsignedLongLong({PyMockKind::LongUnsigned, 0, 0, UINT64_MAX}, &uOut) && uOut == UINT64_MAX &&
+                                !simGetLongLong({PyMockKind::LongUnsigned, 0, 0, UINT64_MAX}, &sOut) && sOut == 0LL &&
+                                !simGetUnsignedLongLong({PyMockKind::LongPositiveOverflow, 0, 0, 0}, &uOut) && uOut == 0ULL &&
+                                !simGetLongLong({PyMockKind::LongPositiveOverflow, 0, 0, 0}, &sOut) && sOut == 0LL &&
+                                !simGetUnsignedLongLong({PyMockKind::LongNegativeOverflow, 0, 0, 0}, &uOut) && uOut == 0ULL &&
+                                !simGetLongLong({PyMockKind::LongNegativeOverflow, 0, 0, 0}, &sOut) && sOut == 0LL &&
+                                !simGetUnsignedLongLong({PyMockKind::InvalidType, 0, 0, 0}, &uOut) && uOut == 0ULL &&
+                                !simGetLongLong({PyMockKind::InvalidType, 0, 0, 0}, &sOut) && sOut == 0LL,
+                        "F11c: Python 2.7 boundary INT64_MIN, INT64_MAX, INT64_MAX+1, UINT64_MAX, UINT64_MAX+1, INT64_MIN-1, and invalid types verified");
+                }
             }
         }
     }

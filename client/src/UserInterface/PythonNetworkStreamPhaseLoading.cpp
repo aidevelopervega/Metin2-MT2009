@@ -336,7 +336,11 @@ bool CPythonNetworkStream::__RecvPlayerPoints()
 		return false;
 
 	for (DWORD i = 0; i < POINT_MAX_NUM; ++i)
+	{
+		if (i == POINT_GOLD && PointsPacket.points[i] == 0 && CPythonPlayer::Instance().GetGold() != 0)
+			continue;
 		CPythonPlayer::Instance().SetStatus(i, PointsPacket.points[i]);
+	}
 
 	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "RefreshStatus", Py_BuildValue("()"));
 	return true;

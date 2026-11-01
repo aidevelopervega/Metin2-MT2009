@@ -111,11 +111,11 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 			TItemData			aDSItem[c_DragonSoul_Inventory_Count];
 			TQuickSlot			aQuickSlot[QUICKSLOT_MAX_NUM];
 			TSkillInstance		aSkill[SKILL_MAX_NUM];
-			long				m_alPoint[POINT_MAX_NUM];
+			int64_t				m_alPoint[POINT_MAX_NUM];
 			long				lQuickPageIndex;
 
-			void SetPoint(UINT ePoint, long lPoint);
-			long GetPoint(UINT ePoint);
+			void SetPoint(UINT ePoint, int64_t lPoint);
+			int64_t GetPoint(UINT ePoint);
 		} TPlayerStatus;
 
 		typedef struct SPartyMemberInfo
@@ -270,12 +270,12 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 		DWORD	GetRace();
 
 		void	SetWeaponPower(DWORD dwMinPower, DWORD dwMaxPower, DWORD dwMinMagicPower, DWORD dwMaxMagicPower, DWORD dwAddPower);
-		void	SetStatus(DWORD dwType, long lValue);
-		int		GetStatus(DWORD dwType);
+		void	SetStatus(DWORD dwType, int64_t lValue);
+		int64_t	GetStatus(DWORD dwType);
 
 		// Money
 		YANG	GetGold() { return m_llGold; }
-		void	SetGold(YANG gold) { m_llGold = gold; }
+		void	SetGold(YANG gold) { m_llGold = gold; m_playerStatus.SetPoint(POINT_GOLD, gold); }
 
 		// Item
 		void	MoveItemData(TItemPos SrcCell, TItemPos DstCell);

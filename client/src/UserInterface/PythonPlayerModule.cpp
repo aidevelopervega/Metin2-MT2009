@@ -581,8 +581,10 @@ PyObject * playerAffectIndexToSkillIndex(PyObject* poSelf, PyObject* poArgs)
 
 PyObject * playerGetEXP(PyObject* poSelf, PyObject* poArgs)
 {
-	DWORD dwEXP = CPythonPlayer::Instance().GetStatus(POINT_EXP);
-	return Py_BuildValue("l", dwEXP);
+	int64_t llEXP = CPythonPlayer::Instance().GetStatus(POINT_EXP);
+	if (llEXP >= LONG_MIN && llEXP <= LONG_MAX)
+		return PyInt_FromLong(static_cast<long>(llEXP));
+	return PyLong_FromLongLong(llEXP);
 }
 
 PyObject * playerGetStatus(PyObject* poSelf, PyObject* poArgs)
@@ -591,7 +593,7 @@ PyObject * playerGetStatus(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &iType))
 		return Py_BuildException();
 
-	long iValue = CPythonPlayer::Instance().GetStatus(iType);
+	int64_t iValue = CPythonPlayer::Instance().GetStatus(iType);
 
 	if (POINT_ATT_SPEED == iType)
 	{
@@ -602,7 +604,9 @@ PyObject * playerGetStatus(PyObject* poSelf, PyObject* poArgs)
 		}
 	}
 
-	return Py_BuildValue("i", iValue);
+	if (iValue >= LONG_MIN && iValue <= LONG_MAX)
+		return PyInt_FromLong(static_cast<long>(iValue));
+	return PyLong_FromLongLong(iValue);
 }
 
 PyObject * playerSetStatus(PyObject* poSelf, PyObject* poArgs)
@@ -611,11 +615,11 @@ PyObject * playerSetStatus(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &iType))
 		return Py_BuildException();
 
-	int iValue;
-	if (!PyTuple_GetInteger(poArgs, 1, &iValue))
+	long long llValue = 0;
+	if (!PyTuple_GetLongLong(poArgs, 1, &llValue))
 		return Py_BuildException();
 
-	CPythonPlayer::Instance().SetStatus(iType, iValue);
+	CPythonPlayer::Instance().SetStatus(iType, llValue);
 	return Py_BuildNone();
 }
 
@@ -2795,7 +2799,7 @@ void initPlayer()
 	PyModule_AddIntConstant(poModule, "DS_SUB_HEADER_DO_IMPROVEMENT",	DS_SUB_HEADER_DO_IMPROVEMENT);
 	PyModule_AddIntConstant(poModule, "DS_SUB_HEADER_DO_REFINE",	DS_SUB_HEADER_DO_REFINE);
 
-	PyModule_AddIntConstant(poModule, "GOLD_MAX", GOLD_MAX);
+	PyModule_AddObject(poModule, "GOLD_MAX", PyLong_FromLongLong(GOLD_MAX));
 
 	PyModule_AddIntConstant(poModule, "POINT_MAX_HP", POINT_MAX_HP);
 	PyModule_AddIntConstant(poModule, "POINT_MAX_SP", POINT_MAX_SP);

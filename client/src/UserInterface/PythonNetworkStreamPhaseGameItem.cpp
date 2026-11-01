@@ -13,7 +13,7 @@
 //////////////////////////////////////////////////////////////////////////
 // SafeBox
 
-bool CPythonNetworkStream::SendSafeBoxMoneyPacket(BYTE byState, DWORD dwMoney)
+bool CPythonNetworkStream::SendSafeBoxMoneyPacket(BYTE byState, YANG dwMoney)
 {
 	assert(!"CPythonNetworkStream::SendSafeBoxMoneyPacket - Don't use this function");
 	return false;

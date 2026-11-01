@@ -1186,24 +1186,28 @@ PyObject* netSendPartyParameterPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendSafeboxSaveMoneyPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iMoney;
-	if (!PyTuple_GetInteger(poArgs, 0, &iMoney))
+	int64_t llMoney;
+	if (!PyTuple_GetLongLong(poArgs, 0, &llMoney))
+		return Py_BuildException();
+	if (llMoney < 0 || llMoney >= GOLD_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
-	rns.SendSafeBoxMoneyPacket(SAFEBOX_MONEY_STATE_SAVE, iMoney);
+	rns.SendSafeBoxMoneyPacket(SAFEBOX_MONEY_STATE_SAVE, llMoney);
 
 	return Py_BuildNone();
 }
 
 PyObject* netSendSafeboxWithdrawMoneyPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iMoney;
-	if (!PyTuple_GetInteger(poArgs, 0, &iMoney))
+	int64_t llMoney;
+	if (!PyTuple_GetLongLong(poArgs, 0, &llMoney))
+		return Py_BuildException();
+	if (llMoney < 0 || llMoney >= GOLD_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
-	rns.SendSafeBoxMoneyPacket(SAFEBOX_MONEY_STATE_WITHDRAW, iMoney);
+	rns.SendSafeBoxMoneyPacket(SAFEBOX_MONEY_STATE_WITHDRAW, llMoney);
 
 	return Py_BuildNone();
 }

@@ -13,8 +13,8 @@ class CPythonSafeBox : public CSingleton<CPythonSafeBox>
 		void SetItemData(DWORD dwSlotIndex, const TItemData & rItemData);
 		void DelItemData(DWORD dwSlotIndex);
 
-		void SetMoney(DWORD dwMoney);
-		DWORD GetMoney();
+		void SetMoney(YANG dwMoney);
+		YANG GetMoney();
 
 		BOOL GetSlotItemID(DWORD dwSlotIndex, DWORD* pdwItemID);
 
@@ -32,7 +32,7 @@ class CPythonSafeBox : public CSingleton<CPythonSafeBox>
 	protected:
 		TItemInstanceVector m_ItemInstanceVector;
 		TItemInstanceVector m_MallItemInstanceVector;
-		DWORD m_dwMoney;
+		YANG m_dwMoney;
 };
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

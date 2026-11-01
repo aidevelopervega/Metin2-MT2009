@@ -920,7 +920,7 @@ typedef struct command_safebox_money
 {
     BYTE        bHeader;
     BYTE        bState;
-    DWORD       dwMoney;
+    YANG        dwMoney;
 } TPacketCGSafeboxMoney;
 
 typedef struct command_safebox_checkout
@@ -1516,18 +1516,18 @@ typedef struct packet_main_character4_bgm_vol
 typedef struct packet_points
 {
     BYTE        header;
-    long        points[POINT_MAX_NUM];
+    int64_t     points[POINT_MAX_NUM];
 } TPacketGCPoints;
 
 typedef struct packet_point_change
 {
-    int         header;
+    int32_t     header;
 
 	DWORD		dwVID;
 	BYTE		Type;
 
-	long        amount;
-    long        value;
+	int64_t     amount;
+    int64_t     value;
 } TPacketGCPointChange;
 
 typedef struct packet_motion
@@ -1996,7 +1996,7 @@ typedef struct packet_safebox_size
 typedef struct packet_safebox_money_change
 {
     BYTE bHeader;
-    DWORD dwMoney;
+    YANG dwMoney;
 } TPacketGCSafeboxMoneyChange;
 
 typedef struct command_empire
@@ -3452,6 +3452,34 @@ static_assert(offsetof(TPacketGCGamemasterTarget, aid) == 24, "TPacketGCGamemast
 static_assert(sizeof(TPacketCGCheckVersion) == 5 && offsetof(TPacketCGCheckVersion, dwVersion) == 1, "TPacketCGCheckVersion layout mismatch");
 static_assert(sizeof(TPacketCGMarkUpload) == 785 && offsetof(TPacketCGMarkUpload, gid) == 1, "TPacketCGMarkUpload layout mismatch");
 static_assert(sizeof(TPacketCGSymbolUpload) == 19 && offsetof(TPacketCGSymbolUpload, handle) == 3, "TPacketCGSymbolUpload layout mismatch");
+
+static_assert(POINT_MAX_NUM == 177, "POINT_MAX_NUM must be 177 to match server length.h");
+static_assert(GOLD_MAX == 1000000000000LL, "GOLD_MAX must be 1000000000000LL (10^12)");
+static_assert(sizeof(YANG) == 8, "YANG must be 64-bit signed integer");
+
+static_assert(sizeof(TPacketGCPoints) == 1417, "TPacketGCPoints size mismatch");
+static_assert(offsetof(TPacketGCPoints, header) == 0, "TPacketGCPoints::header offset mismatch");
+static_assert(offsetof(TPacketGCPoints, points) == 1, "TPacketGCPoints::points offset mismatch");
+
+static_assert(sizeof(TPacketGCPointChange) == 25, "TPacketGCPointChange size mismatch");
+static_assert(offsetof(TPacketGCPointChange, header) == 0, "TPacketGCPointChange::header offset mismatch");
+static_assert(offsetof(TPacketGCPointChange, dwVID) == 4, "TPacketGCPointChange::dwVID offset mismatch");
+static_assert(offsetof(TPacketGCPointChange, Type) == 8, "TPacketGCPointChange::Type offset mismatch");
+static_assert(offsetof(TPacketGCPointChange, amount) == 9, "TPacketGCPointChange::amount offset mismatch");
+static_assert(offsetof(TPacketGCPointChange, value) == 17, "TPacketGCPointChange::value offset mismatch");
+
+static_assert(sizeof(TPacketGCGoldUpdate) == 9, "TPacketGCGoldUpdate size mismatch");
+static_assert(offsetof(TPacketGCGoldUpdate, bHeader) == 0, "TPacketGCGoldUpdate::bHeader offset mismatch");
+static_assert(offsetof(TPacketGCGoldUpdate, totalGold) == 1, "TPacketGCGoldUpdate::totalGold offset mismatch");
+
+static_assert(sizeof(TPacketCGSafeboxMoney) == 10, "TPacketCGSafeboxMoney size mismatch");
+static_assert(offsetof(TPacketCGSafeboxMoney, bHeader) == 0, "TPacketCGSafeboxMoney::bHeader offset mismatch");
+static_assert(offsetof(TPacketCGSafeboxMoney, bState) == 1, "TPacketCGSafeboxMoney::bState offset mismatch");
+static_assert(offsetof(TPacketCGSafeboxMoney, dwMoney) == 2, "TPacketCGSafeboxMoney::dwMoney offset mismatch");
+
+static_assert(sizeof(TPacketGCSafeboxMoneyChange) == 9, "TPacketGCSafeboxMoneyChange size mismatch");
+static_assert(offsetof(TPacketGCSafeboxMoneyChange, bHeader) == 0, "TPacketGCSafeboxMoneyChange::bHeader offset mismatch");
+static_assert(offsetof(TPacketGCSafeboxMoneyChange, dwMoney) == 1, "TPacketGCSafeboxMoneyChange::dwMoney offset mismatch");
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

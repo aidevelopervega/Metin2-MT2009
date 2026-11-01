@@ -37,12 +37,12 @@ void CPythonSafeBox::DelItemData(DWORD dwSlotIndex)
 	ZeroMemory(&rInstance, sizeof(rInstance));
 }
 
-void CPythonSafeBox::SetMoney(DWORD dwMoney)
+void CPythonSafeBox::SetMoney(YANG dwMoney)
 {
 	m_dwMoney = dwMoney;
 }
 
-DWORD CPythonSafeBox::GetMoney()
+YANG CPythonSafeBox::GetMoney()
 {
 	return m_dwMoney;
 }
@@ -237,7 +237,7 @@ PyObject * safeboxGetItemAttribute(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * safeboxGetMoney(PyObject * poSelf, PyObject * poArgs)
 {
-	return Py_BuildValue("i", CPythonSafeBox::Instance().GetMoney());
+	return PyLong_FromLongLong(CPythonSafeBox::Instance().GetMoney());
 }
 
 PyObject * safeboxGetMallItemID(PyObject * poSelf, PyObject * poArgs)
