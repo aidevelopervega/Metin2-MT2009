@@ -94,7 +94,7 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 			PyTuple_GetObject(arg, 1, &exc_value);
 			PyTuple_GetObject(arg, 2, &exc_traceback);
 
-			int len;
+			Py_ssize_t len = 0;
 			const char * exc_str;
 			PyObject_AsCharBuffer(exc_type, &exc_str, &len);
 

@@ -680,14 +680,14 @@ void CDXTCImage::DecompressDXT1(int miplevel, DWORD * pdwDest)
 	for (y = 0; y < yblocks; ++y)
 	{
 		// 8 bytes per block
-		pBlock = (DXTColBlock *) ((DWORD) pPos + y * xblocks * 8);
+		pBlock = (DXTColBlock *) ((uintptr_t) pPos + y * xblocks * 8);
 
 		for (x = 0; x < xblocks; ++x, ++pBlock)
 		{
 			// inline func:
 			GetColorBlockColors(pBlock, &col_0, &col_1, &col_2, &col_3, wrd);
 
-			pImPos = (DWORD *) ((DWORD) pBase + x*16 + (y*4) * nWidth * 4);
+			pImPos = (DWORD *) ((uintptr_t) pBase + x*16 + (y*4) * nWidth * 4);
 			DecodeColorBlock(pImPos, pBlock, nWidth, (DWORD *)&col_0, (DWORD *)&col_1, (DWORD *)&col_2, (DWORD *)&col_3);
 			// Set to RGB test pattern
 			//	pImPos = (DWORD*) ((DWORD) pBase + i * 4 + j * m_nWidth * 4);
@@ -746,7 +746,7 @@ void CDXTCImage::DecompressDXT3(int miplevel, DWORD* pdwDest)
 	{
 		// 8 bytes per block
 		// 1 block for alpha, 1 block for color
-		pBlock = (DXTColBlock *) ((DWORD) (pPos + y * xblocks * 16));
+		pBlock = (DXTColBlock *) ((uintptr_t) (pPos + y * xblocks * 16));
 
 		for (x = 0; x < xblocks; ++x, ++pBlock)
 		{
@@ -761,7 +761,7 @@ void CDXTCImage::DecompressDXT3(int miplevel, DWORD* pdwDest)
 
 			// Decode the color block into the bitmap bits
 			// inline func:
-			pImPos = (DWORD *) ((DWORD) (pBase + x * 16 + (y * 4) * nWidth * 4));
+			pImPos = (DWORD *) ((uintptr_t) (pBase + x * 16 + (y * 4) * nWidth * 4));
 
 			DecodeColorBlock(pImPos,
 							 pBlock,
@@ -822,7 +822,7 @@ void CDXTCImage::DecompressDXT5(int level, DWORD * pdwDest)
 	{
 		// 8 bytes per block
 		// 1 block for alpha, 1 block for color
-		pBlock = (DXTColBlock*) ((DWORD) (pPos + y * xblocks * 16));
+		pBlock = (DXTColBlock*) ((uintptr_t) (pPos + y * xblocks * 16));
 
 		for (x = 0; x < xblocks; ++x, ++pBlock)
 		{
@@ -839,7 +839,7 @@ void CDXTCImage::DecompressDXT5(int level, DWORD * pdwDest)
 
 			// Decode the color block into the bitmap bits
 			// inline func:
-			pImPos = (DWORD *) ((DWORD) (pBase + x * 16 + (y * 4) * nWidth * 4));
+			pImPos = (DWORD *) ((uintptr_t) (pBase + x * 16 + (y * 4) * nWidth * 4));
 
 			//DecodeColorBlock(pImPos, pBlock, nWidth, (DWORD *)&col_0, (DWORD *)&col_1, (DWORD *)&col_2, (DWORD *)&col_3);
 			DecodeColorBlock(pImPos, pBlock, nWidth, (DWORD *)&col_0, (DWORD *)&col_1, (DWORD *)&col_2, (DWORD *)&col_3);

@@ -183,8 +183,8 @@ PyObject * questGetQuestData(PyObject * poSelf, PyObject * poArgs)
 		pImage = (CGraphicImage *)CResourceManager::Instance().GetResourcePointer(strIconFileName.c_str());
 	}
 
-	return Py_BuildValue("sisi",	pQuestInstance->strTitle.c_str(),
-									pImage,
+	return Py_BuildValue("sNsi",	pQuestInstance->strTitle.c_str(),
+									Py_BuildPointerValue(pImage),
 									pQuestInstance->strCounterName.c_str(),
 									pQuestInstance->iCounterValue);
 }

@@ -65,13 +65,13 @@ void PythonCaptcha::ClearCaptchaImage()
 
 bool PyTuple_GetWindow2(PyObject* poArgs, int pos, UI::CWindow** ppRetWindow)
 {
-	int iHandle;
-	if (!PyTuple_GetInteger(poArgs, pos, &iHandle))
+	UI::CWindow* pWin = nullptr;
+	if (!PyTuple_GetPointer(poArgs, pos, &pWin))
 		return false;
-	if (!iHandle)
+	if (!pWin)
 		return false;
 
-	*ppRetWindow = (UI::CWindow*)iHandle;
+	*ppRetWindow = pWin;
 	return true;
 }
 

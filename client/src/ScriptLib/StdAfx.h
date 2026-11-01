@@ -1,5 +1,43 @@
 #pragma once
 
+#ifdef MT2_STANDALONE_PYTHON3_TEST
+#include <cstdint>
+#include <cstdio>
+#include <cstdarg>
+#include <cstring>
+#include <string>
+#ifdef _DEBUG
+	#undef _DEBUG
+	#include <Python.h>
+	#define _DEBUG
+#else
+	#include <Python.h>
+#endif
+typedef unsigned short WORD;
+#include "PythonUtils.h"
+
+class IPythonExceptionSender
+{
+	public:
+		void Clear()
+		{
+			m_strExceptionString = "";
+		}
+
+		void RegisterExceptionString(const char * c_szString)
+		{
+			m_strExceptionString += c_szString;
+		}
+
+		virtual void Send() = 0;
+
+	protected:
+		std::string m_strExceptionString;
+};
+
+extern IPythonExceptionSender * g_pkExceptionSender;
+#else // !MT2_STANDALONE_PYTHON3_TEST
+
 #include "../eterLib/StdAfx.h"
 #include "../eterGrnLib/StdAfx.h"
 
@@ -60,6 +98,7 @@ extern IPythonExceptionSender * g_pkExceptionSender;
 
 void SetExceptionSender(IPythonExceptionSender * pkExceptionSender);
 // END_OF_PYTHON_EXCEPTION_SENDER
+#endif // MT2_STANDALONE_PYTHON3_TEST
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

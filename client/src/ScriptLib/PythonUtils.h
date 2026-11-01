@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PythonCompat.h"
+
 #define SET_EXCEPTION(x) PyErr_SetString(PyExc_RuntimeError, #x)
 
 bool PyTuple_GetString(PyObject* poArgs, int pos, char** ret);
@@ -12,6 +14,16 @@ bool PyTuple_GetLong(PyObject* poArgs, int pos, long* ret);
 bool PyTuple_GetUnsignedLong(PyObject* poArgs, int pos, unsigned long* ret);
 bool PyTuple_GetLongLong(PyObject* poArgs, int pos, long long* ret);
 bool PyTuple_GetUnsignedLongLong(PyObject* poArgs, int pos, unsigned long long* ret);
+bool PyTuple_GetPointer(PyObject* poArgs, int pos, void** ret);
+template <typename T>
+inline bool PyTuple_GetPointer(PyObject* poArgs, int pos, T** ret)
+{
+	void* p = nullptr;
+	if (!PyTuple_GetPointer(poArgs, pos, &p))
+		return false;
+	*ret = static_cast<T*>(p);
+	return true;
+}
 bool PyTuple_GetFloat(PyObject* poArgs, int pos, float* ret);
 bool PyTuple_GetDouble(PyObject* poArgs, int pos, double* ret);
 bool PyTuple_GetObject(PyObject* poArgs, int pos, PyObject** ret);
@@ -28,6 +40,7 @@ PyObject * Py_BuildException(const char * c_pszErr = NULL, ...);
 PyObject * Py_BadArgument();
 PyObject * Py_BuildNone();
 PyObject * Py_BuildEmptyTuple();
+PyObject * Py_BuildPointerValue(const void * ptr);
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

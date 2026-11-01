@@ -1,6 +1,6 @@
 # MT2009 — Sunucu ve İstemci Native x64 Teknik Sözleşmesi, Doğrulama Matrisi ve Kabul Kriterleri (`SERVER_X64_GOALS.md`)
 
-**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `f58d9ce21510a1edba8de8f7daee91f10fa0195d` (Run `41311852071` & `41183346026` — `SUCCESS`)
+**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `d52603461d0789a96ce888661b9574b26db8aea1` (Run `41321849182`, `41311852071` & `41183346026` — `SUCCESS`)
 
 Bu belge, sunucu (Windows amd64 + FreeBSD 15.1 amd64) ve istemci (Windows native x64 `PE32+`) için ortak x64 teknik sözleşmesini, tamamlanan ve doğrulanmış sunucu dönüşüm kanıtlarını, `MT2_PROTOCOL_VERSION_X64 = 0x20090064U` ağ paket tablosunu, gerçek native x64 istemci bağımlılık engellerini ve kabul kriterlerini içerir.
 
@@ -459,9 +459,10 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 6. **Açık Kaynak / Yeniden Derlenebilir Statik ve Dinamik Kütüphaneler (`extern/client/lib/`):**
    - Mevcut 32-bit `.lib` dosyaları: `cryptlib-Release.lib` / `cryptlib-Debug.lib` (`110,8 MB`, Git-ignored), `libboost_filesystem-vc141-mt-s-x32-1_67.lib`, `libboost_system-vc141-mt-s-x32-1_67.lib`, `devil.lib` / `DevIL-1.7.8.lib` / `ILU.lib` / `ILUT.lib` (ve `client/files/devil.dll`), `lzo2.lib`, `liblz4_static-Release.lib`, `snappy.lib`, `libjpeg-MT.lib`, `libpngd.lib`, `zlibd.lib`, `minIni-Release-x86-mt.lib`, `discord_rpc_r.lib` / `discord_rpc_d.lib`, `WebView2Loader.dll`.
    - **x64 Gereksinimi:** İstemcinin fiilen bağladığı tüm yardımcı kütüphaneler gerçek native `x64` (`/MACHINE:X64`) olarak derlenmeli veya x64 sürümleriyle değiştirilmeli; kullanılmayan 32-bit kütüphaneler (`opencv_*`, `libmysql.lib`, `mysqlclient.lib` vb.) bağlayıcı girdilerinden çıkarılmalıdır.
-7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32` ve İşaretçi Kesilmesi (`Pointer Truncation`) Durumu:**
-   - **Tamamlanan Kaynak Düzeltmeleri (`client/src/**`):** `Hardware.cpp` (`GetCPUID` -> `<intrin.h>` `__cpuid`/`__cpuidex`), `UserInterface.cpp` (`CallFunction`/`Step1Junk` `#ifdef _WIN64` ve `GetCurrentProcess()` `uintptr_t`), `PRTerrainLib/TerrainType.h` (`#ifdef _WIN64` `lrintf`), `EterLib/MSWindow.cpp` ve `CWebBrowser/CWebBrowser.c` (`GetWindowLongPtr`/`SetWindowLongPtr(GWLP_USERDATA)`) düzeltilerek `client/src/**` içindeki tüm doğrudan x86 `__asm` ve `GWL_USERDATA` kesilmeleri giderilmiştir.
-   - **Kalan UI Pencere Tanıtıcısı ve `SecureEngineSDK32` Notu:** `extern/client/include/SecureEngineCustomVMs_VC_inline.h` (`ThemidaSDK.h`) `_WIN64` tanımlı olduğunda `SecureEngineSDK64.dll` bekler veya devre dışı bırakılmalıdır; `EterPythonLib/PythonWindowManagerModule.cpp` içinde `UI::CWindow*` işaretçilerinin Python'a 32-bit `"i"` yerine 64-bit `"K"` / `PyLong_FromVoidPtr` ile taşınması §13 kapsamındaki Python C API geçişiyle birlikte tamamlanacaktır.
+7. **32-Bit Inline Assembly (`__asm`), `SecureEngineSDK32`, İşaretçi Kesilmesi (`Pointer Truncation`) ve `COFF AMD64` (`.obj`) Derleme Durumu (`59/59 PASS`):**
+   - **Tamamlanan Kaynak Düzeltmeleri (`client/src/**`):** `Hardware.cpp` (`GetCPUID` -> `<intrin.h>` `__cpuid`/`__cpuidex`), `UserInterface.cpp` (`CallFunction`/`Step1Junk` `#ifdef _WIN64` ve `GetCurrentProcess()` `uintptr_t`), `PRTerrainLib/TerrainType.h` (`#ifdef _WIN64` `lrintf`), `EterLib/MSWindow.cpp` ve `CWebBrowser/CWebBrowser.c` (`GetWindowLongPtr`/`SetWindowLongPtr(GWLP_USERDATA)`), `EterImageLib/DXTCImage.cpp` (`DecompressDXT1/DXT3/DXT5` içinde `(DWORD)pPos` -> `(uintptr_t)`), `ScriptLib/PythonLauncher.cpp` (`Py_ssize_t len`) ve `ScriptLib/PythonMarshal.cpp` (C++20 `register` temizliği) tamamlanmıştır.
+   - **Tamamlanan 64-Bit Python Tanıtıcı (`Handle`) Güvenliği (`ScriptLib`, `EterPythonLib`, `UserInterface`):** `ScriptLib/PythonUtils.{h,cpp}` içine eklenen `Py_BuildPointerValue` (`PyLong_FromVoidPtr`) ve `PyTuple_GetPointer` (`PyLong_AsVoidPtr`) yardımcılarıyla `PythonWindowManagerModule.cpp` (`UI::CWindow*`, `CGraphicImage*`), `PythonGraphicModule.cpp` (`CTextBar*`), `PythonGraphicImageModule.cpp` (`CGraphicImageInstance*`, `CGraphicExpandedImageInstance*`, `CGraphicImage*`), `PythonGraphicTextModule.cpp` (`CGraphicTextInstance*`), `PythonGraphicThingModule.cpp` (`CGraphicThingInstance*`), `PythonApplicationModule.cpp` (`CTextLineLoader*`), `PythonCaptcha.cpp` (`UI::CWindow*`), `PythonItemModule.cpp`, `PythonSkill.cpp`, `PythonPlayerModule.cpp` ve `PythonQuest.cpp` içindeki tüm 32-bit `"i"` / `int` işaretçi kırpılmaları (`C4311`/`C4302`/`C4312`) giderilmiştir.
+   - **Doğrulanan `COFF AMD64` Nesne Derlemesi (`59/59 .obj PASS`):** 16 istemci modülünün tamamını temsil eden 59 çeviri birimi MSVC x64 (`cl.exe /c /std:c++20 /utf-8 /W3`) ile gerçek `8664 machine (x64)` nesne dosyalarına derlenmiş ve `dumpbin /headers` ile doğrulanmıştır.
 
 ---
 
@@ -497,24 +498,24 @@ Aşağıdaki ortak paket ve yapılarda eski `long` / `DWORD` alanları sabit gen
 
 ---
 
-## 13. Python 2.7 -> Desteklenen Python 3 x64 ve C++20 Geçiş Envanteri (`Stage 0`)
+## 13. Python 2.7 -> Desteklenen Python 3 x64 ve C++20 Geçiş Envanteri ve Uyumluluk Katmanı (`Stage 0 & Stage 1/2 Hazırlığı`)
 
-`mt2009-python3-cpp20-migration` uzmanlık kuralları uyarınca yürütülen `Stage 0` salt-okunur bağımlılık ve C API envanteri:
+`mt2009-python3-cpp20-migration` uzmanlık kuralları uyarınca yürütülen bağımlılık envanteri, 64-bit tanıtıcı dönüşümü ve CPython 3.x C++20 uyumluluk doğrulaması:
 
-1. **Mevcut Gömülü Python 2.7 Mimarisi ve İkili Bağımlılıklar:**
-   - **Başlıklar:** `extern/client/include/Python27/` (`Python.h`, `pyconfig.h`, `intobject.h`, `stringobject.h`, `cStringIO.h`).
-   - **Statik Kütüphaneler ve Gömülü Cython Modülleri:** `extern/client/lib/python27-static.lib` (`30,4 MB`, `COFF i386`), `python27_d-static.lib` (`12,6 MB`, `COFF i386`), `liblib.lib` (`26,6 MB`, `COFF i386`) ve `extern/client/lib/*.obj` (`121` adet 32-bit Cython/Python nesne dosyası).
-   - **Çalışma Zamanı Betikleri:** `client/files/lib/` (standart Python 2.7 kütüphanesi `.py`/`.pyc`) ve `pack/root`, `pack/uiscript`, `pack/locale` altındaki istemci UI betikleri (`ui.py`, `game.py`, `interfacemodule.py`, `uishop.py`, `uiexchange.py`, `uiikarusshop.py`, `uicharacter.py`, `uiinventory.py` vb.).
-2. **İstemci C++ Kodundaki Python 2.7 C API Yüzeyi (`ScriptLib`, `EterPythonLib`, `UserInterface`):**
-   - **Modül Başlatma (`Py_InitModule` / `Py_InitModule4` -> `PyModuleDef` / `PyModule_Create` / `PyImport_AppendInittab`):**
-     * `ScriptLib/PythonLauncher.cpp` (`Py_Initialize`, `PyImport_AddModule`, `PyCee_Settrace`), `EterPythonLib/PythonWindowManagerModule.cpp` (`initwndMgr`), `PythonGraphicModule.cpp` (`initgrp`), `PythonGraphicImageModule.cpp` (`initgrpImage`), `PythonGraphicTextModule.cpp` (`initgrpText`), `PythonGraphicThingModule.cpp` (`initgrpThing`) ve `UserInterface/Python*Module.cpp` içindeki 26 yerleşik C++ modülü (`app`, `net`, `chr`, `chrmgr`, `player`, `item`, `shop`, `exchange`, `safebox`, `chat`, `textTail`, `event`, `effect`, `snd`, `systemSetting`, `miniMap`, `guild`, `messenger`, `skill`, `nonplayer`, `background`, `quest`, `ime`, `profiler`, `ikashop`, `itemshop`).
-   - **Tam Sayı ve İşaretçi Dönüşümleri (`PyInt_*` -> `PyLong_*`):**
-     * `ScriptLib/PythonUtils.cpp` içinde `PyInt_Check` / `PyInt_AsLong` ve `PyLong_Check` / `PyLong_AsLongLong` / `PyLong_AsUnsignedLongLong` birlikte desteklenmektedir (`PyTuple_GetLongLong` ve `PyTuple_GetUnsignedLongLong` 64-bit `YANG` ve `uint64_t` kimlikler için aktif olarak kullanılmaktadır).
-     * `EterPythonLib/PythonWindowManagerModule.cpp` ve `PythonGraphic*Module.cpp` içinde `UI::CWindow*`, `CGraphicImage*`, `CGraphicTextInstance*`, `CGraphicThingInstance*` işaretçileri `PyTuple_GetWindow` / `Py_BuildValue("i", pWindow)` ile 32-bit `int` olarak aktarılmaktadır; gerçek x64 çalışması için tüm pencere/grafik nesne tanıtıcıları `PyLong_FromVoidPtr` / `PyLong_AsVoidPtr` (`"K"` / `uintptr_t`) olarak genişletilmelidir.
-   - **Metin/Bayt Sınırları (`PyString_*` -> `PyUnicode_*` / `PyBytes_*`):**
-     * `ScriptLib/PythonUtils.cpp` (`PyTuple_GetString`: `PyString_Check` / `PyString_AsString`), `ScriptLib/PythonLauncher.cpp` (`cStringIO`), `EterPack` script yükleyicisi ve `UserInterface` modüllerindeki `PyString_FromString` / `PyString_FromStringAndSize` çağrıları Lehçe (`CP1250`) ve UTF-8 metin kodlamalarını bozmadan ince bir uyumluluk katmanıyla (`PyUnicode_DecodeCP1250` / `PyUnicode_AsUTF8AndSize` veya `PyBytes_*`) dönüştürülmelidir.
-3. **Güvenli Aşamalı Geçiş Sırası:**
-   - **Aşama 1 (`client/src/EterPythonLib` & `ScriptLib` 64-Bit Tanıtıcı Güvenliği):** `UI::CWindow*` ve `CGraphic*` nesne işaretçilerinin Python sınırında 64-bit `uintptr_t` (`PyLong_FromVoidPtr` / `PyLong_AsVoidPtr`) ile taşınması (Python 2.7 ve Python 3.x altında ortak çalışır).
-   - **Aşama 2 (`ScriptLib` Python 2/3 C API Soyutlama Başlığı):** `PyInt_*` -> `PyLong_*`, `PyString_*` -> `PyBytes_*`/`PyUnicode_*` ve `Py_InitModule` -> `PyModuleDef` sarmalayıcılarının oluşturulması.
-   - **Aşama 3 (Gömülü `liblib` ve Python Çalışma Zamanı Yeniden Derlemesi):** Harici 32-bit `python27-static.lib` + `liblib.lib` yerine kaynak kodu mevcut olan hedef x64 Python çalışma zamanının ve UI betiklerinin bağlanması.
+1. **Mevcut Gömülü Python 2.7 Mimarisi ve İkili Bağımlılıklar (`57/57` `14C` x86 Kütüphane Sınıflandırması):**
+   - **Kategori 1 — Kaynak Kodu Depoda Mevcut (`client/src/**` & `extern/server/cryptopp`):** 16 istemci modülünün tamamı (`59/59` `.obj` `COFF AMD64` olarak doğrulandı), `Crypto++` ve `minIni`.
+   - **Kategori 2 — Açık Kaynak / Standart Windows SDK (`x64` Üretilebilir):** Windows 10/11 SDK `um\x64` (`d3d9.lib`, `ddraw.lib`, `dmoguids.lib`, `dxguid.lib`), DirectX June 2010 `x64` (`d3dx9.lib`, `d3dx9_43.dll`), CPython 3.11+ `AMD64` (`python311.lib`/`python311.dll`), `boost_filesystem`/`boost_system`, `lz4`, `lzo2`, `snappy`, `zlib`, `libjpeg`, `libpng`, `libjasper`, `DevIL`/`ILU`/`ILUT`, `discord_rpc`, `WebView2Loader.dll`.
+   - **Kategori 3 — Kapalı Kaynak / Tescilli 32-Bit İkili Engeller (`client_link = BLOCKED`):**
+     * `granny2.lib` / `granny2.dll` (`14C machine (x86)`, `__stdcall _Granny*@N` — bu kampanyada Granny SDK'ya dokunulmaz).
+     * `mss32.lib` / `MSS32.dll` (`14C machine (x86)`, Miles Sound System `__stdcall _AIL_*@N`).
+     * `SpeedTreeRT.lib` / `SpeedTreeRT.dll` (`14C machine (x86)`, SpeedTreeRT C++ sınıf ABI).
+     * `SecureEngineSDK32.lib` (`14C machine (x86)`, yalnızca `USE_THEMIDA` etkinse kullanılır).
+     * `liblib.lib` (`26,6 MB` `14C` + `121` adet 32-bit Cython `.obj` — kaynak `.py` betiklerinden x64 için yeniden üretilmelidir).
+2. **Tamamlanan 64-Bit Tanıtıcı (`Handle`) ve Python 2/3 C API Uyumluluk Katmanı (`client/src/ScriptLib/PythonCompat.h` & `PythonUtils.{h,cpp}`):**
+   - `client/src/ScriptLib/PythonCompat.h` içinde hem Python 2.7 (`PY_MAJOR_VERSION < 3`) hem CPython 3.x (`PY_MAJOR_VERSION >= 3`) altında çalışan `M2PyInt_Check`, `M2PyInt_AsLong`, `M2PyString_Check`, `M2PyString_AsString`, `M2PyString_FromString`, `M2PyString_FromStringAndSize` ve `M2Py_InitModule` adaptörleri oluşturulmuştur.
+   - `PyTuple_GetLongLong` içinde Windows x64 (`LLP64`, `sizeof(long) == 4`) üzerinde Python 3 `PyLong` değerlerinin 32-bit `PyLong_AsLong` dalına girerek `> 2^{31}-1` değerlerde taşması (`OverflowError`) `#if PY_MAJOR_VERSION < 3` muhafazasıyla önlenmiş ve doğrudan 64-bit `PyLong_AsLongLongAndOverflow` yoluna bağlanmıştır.
+   - `Py_BuildPointerValue` ve `PyTuple_GetPointer` ile `EterPythonLib` ve `UserInterface` içindeki tüm `UI::CWindow*`, `CTextBar*`, `CGraphicImage*`, `CGraphicImageInstance*`, `CGraphicTextInstance*`, `CGraphicThingInstance*` ve `CTextLineLoader*` işaretçilerinin 64-bit adresleri (`> 2^{32}`) kayıpsız taşınmaktadır.
+3. **Doğrulanan Gerçek 64-Bit CPython `3.11.9 AMD64` Gömülü Çalışma Zamanı Testi (`tests/test_python3_x64_compat.cpp` — `22/22 PASS`):**
+   - `tests/test_python3_x64_compat.cpp` + `client/src/ScriptLib/PythonUtils.cpp`, yerel 64-bit CPython `3.11.9` (`MSC v.1938 64 bit (AMD64)`, `python311.lib`/`python311.dll`) ile `PE32+` (`8664 machine (x64)`) olarak derlenip bağlanmış ve çalıştırılmıştır (`22/22 CHECKS PASSED`): `0x00007FF689ABCDEF` (`> 2^{32}`) pencere tanıtıcısı `wndMgr.Register()` / `wndMgr.Show(h)` gidiş-dönüşü, `> 2^{32}` ve `> 2^{53}` `uint64_t` kimlikler, `5.000.000.000` (`> 2^{32}`) ve `GOLD_MAX` (`10^{12}`) `int64_t` Yang sınırları ve UTF-8 Türkçe karakter (`ğüşıöçĞÜŞİÖÇ`) dönüşümleri doğrulanmıştır.
+
 
