@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 // Stubs required by ScriptLib/PythonDebugModule.cpp in standalone test mode
 static std::string g_lastTraceError;
@@ -51,6 +52,12 @@ namespace
 	static DummyWindow* g_pLastRegisteredWindow = nullptr;
 	static DummyWindow* g_pLastShownWindow = nullptr;
 	static DummySkillGradeData g_dummyGradeData{ "Hava Kılıcı (P)", reinterpret_cast<void*>(0x00007FF711223344ULL), 42 };
+	static long long g_playerElk = 1000000000000LL; // GOLD_MAX (1 Trillion Yang)
+	static unsigned long long g_lastGiveItemID = 0ULL;
+	static unsigned int g_lastGiveTargetVID = 0U;
+	static std::string g_lastChatLine;
+	static int g_traceCallCount = 0;
+	static int g_lastTracedLine = 0;
 
 	static PyObject* testWndMgrRegister(PyObject* /*poSelf*/, PyObject* /*poArgs*/)
 	{
@@ -99,6 +106,62 @@ namespace
 			++parsedCount;
 		}
 		return M2PyInt_FromLong(parsedCount);
+	}
+
+	static PyObject* testPlayerGetElk(PyObject* /*poSelf*/, PyObject* /*poArgs*/)
+	{
+		return PyLong_FromLongLong(g_playerElk);
+	}
+
+	static PyObject* testPlayerSetElk(PyObject* /*poSelf*/, PyObject* poArgs)
+	{
+		long long llGold = 0;
+		if (!PyTuple_GetLongLong(poArgs, 0, &llGold))
+			return Py_BuildException("Invalid 64-bit Yang value");
+		if (llGold < 0 || llGold > 1000000000000LL)
+			return Py_BuildException("Yang out of GOLD_MAX bounds");
+		g_playerElk = llGold;
+		return Py_BuildNone();
+	}
+
+	static PyObject* testNetSendGiveItemPacket(PyObject* /*poSelf*/, PyObject* poArgs)
+	{
+		unsigned int dwTargetVID = 0;
+		unsigned long long ullItemID = 0;
+		int iCount = 0;
+		if (!PyTuple_GetUnsignedInteger(poArgs, 0, &dwTargetVID))
+			return Py_BuildException("Invalid VID");
+		if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &ullItemID))
+			return Py_BuildException("Invalid 64-bit ITEM_ID");
+		if (!PyTuple_GetInteger(poArgs, 2, &iCount))
+			return Py_BuildException("Invalid item count");
+		g_lastGiveTargetVID = dwTargetVID;
+		g_lastGiveItemID = ullItemID;
+		return Py_BuildValue("i", iCount);
+	}
+
+	static PyObject* testChatAppendChat(PyObject* /*poSelf*/, PyObject* poArgs)
+	{
+		int iType = 0;
+		char* szText = nullptr;
+		if (!PyTuple_GetInteger(poArgs, 0, &iType) || !PyTuple_GetString(poArgs, 1, &szText))
+			return Py_BuildException("Invalid chat args");
+		g_lastChatLine = szText ? szText : "";
+		return Py_BuildNone();
+	}
+
+	// Mirrors PythonLauncher.cpp TraceFunc using Python 3.9+ PyFrame_GetCode / PyFrame_GetLineNumber
+	static int TestTraceFunc(PyObject* /*obj*/, PyFrameObject* f, int what, PyObject* /*arg*/)
+	{
+		if (what == PyTrace_LINE && f != nullptr)
+		{
+			PyCodeObject* code = PyFrame_GetCode(f);
+			g_lastTracedLine = PyFrame_GetLineNumber(f);
+			if (code)
+				Py_DECREF(code);
+			++g_traceCallCount;
+		}
+		return 0;
 	}
 }
 
@@ -149,7 +212,7 @@ int main()
 	check(!PyTuple_GetPointer(tupleBool, 0, &rawNull), "PyTuple_GetPointer rejects bool True");
 	Py_DECREF(tupleBool);
 
-	// 3. Verify 64-bit unsigned IDs (> 2^32, > 2^53, UINT64_MAX) and negative rejection
+	// 3. Verify 64-bit unsigned IDs (> 2^32, > 2^53, UINT64_MAX) and negative/overflow rejection
 	const unsigned long long testIds[] = {
 		0ULL,
 		4294967296ULL,          // 2^32
@@ -193,6 +256,15 @@ int main()
 		Py_DECREF(tup);
 		Py_DECREF(pyVal);
 	}
+
+	// Verify PyTuple_GetLongLong rejects > INT64_MAX (UINT64_MAX)
+	PyObject* pyOverI64 = PyLong_FromUnsignedLongLong(18446744073709551615ULL);
+	PyObject* tupOverI64 = PyTuple_Pack(1, pyOverI64);
+	long long dummyI64 = 0;
+	check(!PyTuple_GetLongLong(tupOverI64, 0, &dummyI64) && PyErr_Occurred() == nullptr,
+		"PyTuple_GetLongLong rejects UINT64_MAX overflow and clears PyErr");
+	Py_DECREF(tupOverI64);
+	Py_DECREF(pyOverI64);
 
 	// 5. Verify M2PyString_* with UTF-8 Turkish text & interning
 	const char* turkishText = "Metin2 x64 Türkçe Karakter Testi: ğüşıöçĞÜŞİÖÇ";
@@ -302,6 +374,137 @@ int main()
 		"assert od.popitem(last=False) == ('a', 1)\n"
 	);
 	check(rcScripts == 0, "Client Python scripts (simplejson/*.py, ordered_dict.py, Version.py) pass AST & execution in Python 3 x64");
+
+	// 11. Verify Multi-Module Registration (player, net, chat) + UI Script CRLF Loading + TraceFunc (PyFrame_GetCode/GetLineNumber)
+	static PyMethodDef s_playerMethods[] = {
+		{ "GetElk", testPlayerGetElk, METH_VARARGS, "Get 64-bit Yang" },
+		{ "SetElk", testPlayerSetElk, METH_VARARGS, "Set 64-bit Yang" },
+		{ nullptr,  nullptr,          0,            nullptr           }
+	};
+	static PyMethodDef s_netMethods[] = {
+		{ "SendGiveItemPacket", testNetSendGiveItemPacket, METH_VARARGS, "Send 64-bit item packet" },
+		{ nullptr,              nullptr,                   0,            nullptr                   }
+	};
+	static PyMethodDef s_chatMethods[] = {
+		{ "AppendChat", testChatAppendChat, METH_VARARGS, "Append chat line" },
+		{ nullptr,      nullptr,            0,            nullptr            }
+	};
+	check(M2Py_InitModule("player", s_playerMethods) != nullptr, "M2Py_InitModule('player') succeeds");
+	check(M2Py_InitModule("net", s_netMethods) != nullptr, "M2Py_InitModule('net') succeeds");
+	check(M2Py_InitModule("chat", s_chatMethods) != nullptr, "M2Py_InitModule('chat') succeeds");
+	PyModule_AddIntConstant(M2Py_InitModule("chat", s_chatMethods), "CHAT_TYPE_INFO", 1);
+
+	// Simulate CPythonLauncher::RunMemoryTextFile CRLF -> LF normalization + Py_CompileStringFlags + PyEval_SetTrace
+	std::string crlfUiScript =
+		"import player, net, chat\r\n"
+		"assert player.GetElk() == 1000000000000\r\n"
+		"player.SetElk(500000000000)\r\n"
+		"assert player.GetElk() == 500000000000\r\n"
+		"player.SetElk(1000000000001)\r\n" // Out of GOLD_MAX -> Py_BuildException returns None, keeps 500B
+		"assert player.GetElk() == 500000000000\r\n"
+		"cnt = net.SendGiveItemPacket(424242, 9007199254740993, 7)\r\n"
+		"assert cnt == 7\r\n"
+		"chat.AppendChat(chat.CHAT_TYPE_INFO, 'Envanter güncellendi: 500 Milyar Yang')\r\n";
+
+	for (size_t i = 0; i < crlfUiScript.size(); ++i)
+	{
+		if (crlfUiScript[i] == '\r' && i + 1 < crlfUiScript.size() && crlfUiScript[i + 1] == '\n')
+			crlfUiScript.erase(i, 1);
+	}
+
+	g_traceCallCount = 0;
+	g_lastTracedLine = 0;
+	PyEval_SetTrace(TestTraceFunc, nullptr);
+	PyObject* uiCode = Py_CompileStringFlags(crlfUiScript.c_str(), "uiInventory.py", Py_file_input, nullptr);
+	check(uiCode != nullptr, "Py_CompileStringFlags compiles CRLF-normalized UI script");
+	PyObject* uiEval = M2PyEval_EvalCode(reinterpret_cast<PyCodeObject*>(uiCode), mainDict, mainDict);
+	PyEval_SetTrace(nullptr, nullptr);
+	check(uiEval != nullptr, "M2PyEval_EvalCode executes UI script with player/net/chat bindings");
+	Py_DECREF(uiEval);
+	Py_DECREF(uiCode);
+	check(g_playerElk == 500000000000LL &&
+		g_lastGiveTargetVID == 424242U &&
+		g_lastGiveItemID == 9007199254740993ULL &&
+		g_lastChatLine == "Envanter güncellendi: 500 Milyar Yang" &&
+		g_traceCallCount >= 8 && g_lastTracedLine >= 8,
+		"UI script updated 64-bit Yang, >2^53 ITEM_ID, Turkish chat, and triggered Python 3.11 PyFrame_GetCode/GetLineNumber trace");
+
+	// 12. Verify PEP 552 16-byte .pyc file header + _PyMarshal_ReadLastObjectFromFile (PythonLauncher.cpp:RunCompiledFile path)
+	int rcPyc = PyRun_SimpleString(
+		"import importlib.util, marshal, struct\n"
+		"co_pyc = compile('pyc_loaded_val = 0x7FF600001111', 'root/uicharacter.py', 'exec')\n"
+		"pyc_payload = importlib.util.MAGIC_NUMBER + struct.pack('<III', 0, 1700000000, 128) + marshal.dumps(co_pyc)\n"
+	);
+	check(rcPyc == 0, "Generated PEP 552 16-byte .pyc image in memory");
+	PyObject* pyPycPayload = PyDict_GetItemString(mainDict, "pyc_payload");
+	check(pyPycPayload != nullptr && PyBytes_Check(pyPycPayload), "pyc_payload bytes available");
+	FILE* tmpPyc = nullptr;
+	fopen_s(&tmpPyc, "scratch_test_uicharacter.pyc", "wb+");
+	check(tmpPyc != nullptr, "Opened temporary PEP 552 .pyc file");
+	std::fwrite(PyBytes_AsString(pyPycPayload), 1, static_cast<size_t>(PyBytes_Size(pyPycPayload)), tmpPyc);
+	std::fflush(tmpPyc);
+	std::rewind(tmpPyc);
+	long magic = _PyMarshal_ReadLongFromFile(tmpPyc);
+	check(magic == PyImport_GetMagicNumber(), "_PyMarshal_ReadLongFromFile matches PyImport_GetMagicNumber()");
+	(void)_PyMarshal_ReadLongFromFile(tmpPyc); // PEP 552 bitfield
+	(void)_PyMarshal_ReadLongFromFile(tmpPyc); // mtime
+	(void)_PyMarshal_ReadLongFromFile(tmpPyc); // source size
+	PyObject* fileCodeObj = _PyMarshal_ReadLastObjectFromFile(tmpPyc);
+	std::fclose(tmpPyc);
+	std::remove("scratch_test_uicharacter.pyc");
+	check(fileCodeObj != nullptr && PyCode_Check(fileCodeObj), "_PyMarshal_ReadLastObjectFromFile reads code object after 16-byte PEP 552 header");
+	PyObject* pycEval = M2PyEval_EvalCode(reinterpret_cast<PyCodeObject*>(fileCodeObj), mainDict, mainDict);
+	check(pycEval != nullptr, "M2PyEval_EvalCode runs .pyc code object");
+	Py_DECREF(pycEval);
+	Py_DECREF(fileCodeObj);
+	PyObject* pyLoadedVal = PyDict_GetItemString(mainDict, "pyc_loaded_val");
+	check(pyLoadedVal != nullptr && PyLong_AsUnsignedLongLong(pyLoadedVal) == 0x7FF600001111ULL,
+		"PEP 552 .pyc execution produced exact 64-bit 0x7FF600001111");
+
+	// 13. Reference Management & Zero-Leak Audit (PyCallClassMemberFunc / PyCallClassMemberFunc_ByPyString across 1,000 iterations)
+	int rcUiClass = PyRun_SimpleString(
+		"class UIScriptWindow:\n"
+		"    def __init__(self):\n"
+		"        self.calls = 0\n"
+		"        self.last_handle = 0\n"
+		"        self.last_yang = 0\n"
+		"    def OnUpdate(self, h, yang):\n"
+		"        self.calls += 1\n"
+		"        self.last_handle = h\n"
+		"        self.last_yang = yang\n"
+		"        return 1\n"
+		"    def OnClick(self, flag):\n"
+		"        return bool(flag)\n"
+		"ui_win_instance = UIScriptWindow()\n"
+	);
+	check(rcUiClass == 0, "Defined UIScriptWindow instance for refcount leak audit");
+	PyObject* poWin = PyDict_GetItemString(mainDict, "ui_win_instance");
+	check(poWin != nullptr, "Retrieved ui_win_instance");
+	PyObject* poOnUpdateName = M2PyString_InternFromString("OnUpdate");
+
+	// Warm-up call so any internal Python method cache stabilizes
+	long warmRet = 0;
+	check(PyCallClassMemberFunc(poWin, "OnUpdate", Py_BuildValue("(KL)", 0x00007FF689ABCDEFULL, 5000000000LL), &warmRet) && warmRet == 1,
+		"Warm-up PyCallClassMemberFunc(OnUpdate) succeeds");
+
+	const Py_ssize_t refWinBefore = Py_REFCNT(poWin);
+	for (int iter = 0; iter < 1000; ++iter)
+	{
+		long lRet = 0;
+		bool ok1 = PyCallClassMemberFunc(poWin, "OnUpdate", Py_BuildValue("(KL)", 0x00007FF689ABCDEFULL, 5000000000LL), &lRet);
+		bool bRet = false;
+		bool ok2 = PyCallClassMemberFunc(poWin, "OnClick", Py_BuildValue("(i)", 1), &bRet);
+		bool ok3 = PyCallClassMemberFunc_ByPyString(poWin, poOnUpdateName, Py_BuildValue("(KL)", 0x00007FF689ABCDEFULL, 1000000000000LL));
+		bool ok4 = PyCallClassMemberFunc(poWin, "OnMissingCallback", Py_BuildValue("(i)", iter));
+		bool ok5 = PyCallClassMemberFunc(nullptr, "OnUpdate", Py_BuildValue("(i)", iter));
+		if (!ok1 || lRet != 1 || !ok2 || !bRet || !ok3 || ok4 || ok5 || PyErr_Occurred() != nullptr)
+		{
+			check(false, "PyCallClassMemberFunc iteration failed or left dangling exception");
+		}
+	}
+	const Py_ssize_t refWinAfter = Py_REFCNT(poWin);
+	Py_DECREF(poOnUpdateName);
+	check(refWinAfter == refWinBefore, "Zero reference count leak on UIScriptWindow across 5,000 C->Python callback invocations");
 
 	std::printf("PYTHON3_X64_CPP20_EMBED_SUITE: %d/%d CHECKS PASSED (Python %s)\n", passed, passed, Py_GetVersion());
 	Py_FinalizeEx();

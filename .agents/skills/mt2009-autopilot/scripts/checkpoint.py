@@ -8,7 +8,24 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 STATUSES = ("ACTIVE", "PASS", "FAILED", "BLOCKED", "PENDING", "UNVERIFIED", "NOT_RUN")
-GATES = ("workstream", "windows_build", "windows_tests", "freebsd_ci", "client_syntax", "client_objects", "client_link", "gameplay", "python3_runtime", "security")
+GATES = (
+    "workstream",
+    "windows_build",
+    "windows_tests",
+    "freebsd_ci",
+    "client_syntax",
+    "client_objects",
+    "client_link",
+    "gameplay",
+    "python3_runtime",
+    "python3_sdk_verified",
+    "python3_client_embedded",
+    "miniaudio_dependency_acquired",
+    "miniaudio_real_api_compiled",
+    "miniaudio_runtime_tested",
+    "miles_adapter_integrated",
+    "security",
+)
 
 
 def now():
