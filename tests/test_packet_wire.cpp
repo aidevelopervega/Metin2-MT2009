@@ -214,6 +214,24 @@ static_assert(sizeof(TEquipmentItemSet) == 41 && offsetof(TEquipmentItemSet, vnu
 static_assert(sizeof(TPacketViewEquip) == 1317 && offsetof(TPacketViewEquip, vid) == 1 && offsetof(TPacketViewEquip, equips) == 5, "TPacketViewEquip layout mismatch");
 static_assert(sizeof(TPacketGCDragonSoulRefine) == 5 && offsetof(TPacketGCDragonSoulRefine, bSubType) == 1 && offsetof(TPacketGCDragonSoulRefine, Pos) == 2, "TPacketGCDragonSoulRefine layout mismatch");
 
+// Shop & Private Shop Wire Layout Checks
+static_assert(SHOP_HOST_ITEM_MAX_NUM == 40, "SHOP_HOST_ITEM_MAX_NUM must be 40");
+static_assert(SHOP_PLAYER_HOST_ITEM_MAX_NUM == 80, "SHOP_PLAYER_HOST_ITEM_MAX_NUM must be 80");
+static_assert(SHOP_SIGN_MAX_LEN == 32, "SHOP_SIGN_MAX_LEN must be 32");
+static_assert(SHOP_TAB_NAME_MAX == 32, "SHOP_TAB_NAME_MAX must be 32");
+static_assert(SHOP_TAB_COUNT_MAX == 3, "SHOP_TAB_COUNT_MAX must be 3");
+static_assert(sizeof(struct packet_shop_item) == 50 && offsetof(struct packet_shop_item, vnum) == 0 && offsetof(struct packet_shop_item, price) == 4 && offsetof(struct packet_shop_item, count) == 12 && offsetof(struct packet_shop_item, display_pos) == 16 && offsetof(struct packet_shop_item, alSockets) == 17 && offsetof(struct packet_shop_item, aAttr) == 29, "packet_shop_item layout mismatch");
+static_assert(sizeof(TShopItemTable) == 20 && offsetof(TShopItemTable, vnum) == 0 && offsetof(TShopItemTable, count) == 4 && offsetof(TShopItemTable, pos) == 8 && offsetof(TShopItemTable, price) == 11 && offsetof(TShopItemTable, display_pos) == 19, "TShopItemTable layout mismatch");
+static_assert(sizeof(TPacketCGShop) == 2 && offsetof(TPacketCGShop, header) == 0 && offsetof(TPacketCGShop, subheader) == 1, "TPacketCGShop layout mismatch");
+static_assert(sizeof(TPacketCGMyShop) == 36 && offsetof(TPacketCGMyShop, bHeader) == 0 && offsetof(TPacketCGMyShop, szSign) == 1 && offsetof(TPacketCGMyShop, bTimeIndex) == 34 && offsetof(TPacketCGMyShop, bCount) == 35, "TPacketCGMyShop layout mismatch");
+static_assert(sizeof(TPacketGCShop) == 4 && offsetof(TPacketGCShop, header) == 0 && offsetof(TPacketGCShop, size) == 1 && offsetof(TPacketGCShop, subheader) == 3, "TPacketGCShop layout mismatch");
+static_assert(sizeof(struct packet_shop_start) == 4006 && offsetof(struct packet_shop_start, owner_vid) == 0 && offsetof(struct packet_shop_start, unlockCount) == 4 && offsetof(struct packet_shop_start, isPremium) == 5 && offsetof(struct packet_shop_start, items) == 6, "packet_shop_start layout mismatch");
+static_assert(sizeof(TPacketGCShopStartEx) == 5 && offsetof(TPacketGCShopStartEx, owner_vid) == 0 && offsetof(TPacketGCShopStartEx, shop_tab_count) == 4, "TPacketGCShopStartEx layout mismatch");
+static_assert(sizeof(TPacketGCShopStartEx::TSubPacketShopTab) == 4034 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, name) == 0 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, coin_type) == 33 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, items) == 34, "TPacketGCShopStartEx::TSubPacketShopTab layout mismatch");
+static_assert(sizeof(struct packet_shop_update_item) == 51 && offsetof(struct packet_shop_update_item, pos) == 0 && offsetof(struct packet_shop_update_item, item) == 1, "packet_shop_update_item layout mismatch");
+static_assert(sizeof(struct packet_shop_update_price) == 8 && offsetof(struct packet_shop_update_price, iPrice) == 0, "packet_shop_update_price layout mismatch");
+static_assert(sizeof(TPacketGCShopSign) == 38 && offsetof(TPacketGCShopSign, bHeader) == 0 && offsetof(TPacketGCShopSign, dwVID) == 1 && offsetof(TPacketGCShopSign, szSign) == 5, "TPacketGCShopSign layout mismatch");
+
 int main()
 {
     std::cout << "==================================================" << std::endl;
@@ -2145,6 +2163,267 @@ int main()
                                     !isValidClientItemCountArg(INT64_MIN, true) &&
                                     !isValidClientItemCountArg(static_cast<int64_t>(UINT32_MAX) + 1LL, true),
                             "F12d: Client item count argument validation rejects negative (-1, INT64_MIN) and >UINT32_MAX wrap-around");
+                    }
+
+                    // F13: Normal Shop & Player Private Shop Wire Protocol Verification (NPC Shop, ShopEx Tabs, Private Shop, 64-bit YANG Prices)
+                    {
+                        #pragma pack(push, 1)
+                        struct ClientTShopItemData {
+                            uint32_t vnum;
+                            YANG price;
+                            ITEM_COUNT count;
+                            uint8_t display_pos;
+                            int32_t alSockets[ITEM_SOCKET_MAX_NUM];
+                            TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_MAX_NUM];
+                        };
+                        struct ClientTPacketGCShopStart {
+                            uint32_t owner_vid;
+                            uint8_t unlockCount;
+                            bool isPremium;
+                            ClientTShopItemData items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
+                        };
+                        struct ClientTPacketGCShopStartEx {
+                            struct TSubPacketShopTab {
+                                char name[SHOP_TAB_NAME_MAX + 1];
+                                uint8_t coin_type;
+                                ClientTShopItemData items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
+                            };
+                            uint32_t owner_vid;
+                            uint8_t shop_tab_count;
+                        };
+                        struct ClientTPacketGCShopUpdateItem {
+                            uint8_t pos;
+                            ClientTShopItemData item;
+                        };
+                        struct ClientTPacketGCShopUpdatePrice {
+                            YANG iElkAmount;
+                        };
+                        #pragma pack(pop)
+
+                        static_assert(sizeof(ClientTShopItemData) == sizeof(struct packet_shop_item) && sizeof(ClientTShopItemData) == 50,
+                            "ClientTShopItemData (50B) must match server packet_shop_item");
+                        static_assert(sizeof(ClientTPacketGCShopStart) == sizeof(struct packet_shop_start) && sizeof(ClientTPacketGCShopStart) == 4006,
+                            "ClientTPacketGCShopStart (4006B) must match server packet_shop_start");
+                        static_assert(sizeof(ClientTPacketGCShopStartEx) == sizeof(TPacketGCShopStartEx) && sizeof(ClientTPacketGCShopStartEx) == 5,
+                            "ClientTPacketGCShopStartEx (5B) must match server TPacketGCShopStartEx");
+                        static_assert(sizeof(ClientTPacketGCShopStartEx::TSubPacketShopTab) == sizeof(TPacketGCShopStartEx::TSubPacketShopTab) &&
+                                      sizeof(ClientTPacketGCShopStartEx::TSubPacketShopTab) == 4034,
+                            "ClientTPacketGCShopStartEx::TSubPacketShopTab (4034B) must match server TSubPacketShopTab");
+                        static_assert(sizeof(ClientTPacketGCShopUpdateItem) == sizeof(struct packet_shop_update_item) && sizeof(ClientTPacketGCShopUpdateItem) == 51,
+                            "ClientTPacketGCShopUpdateItem (51B) must match server packet_shop_update_item");
+                        static_assert(sizeof(ClientTPacketGCShopUpdatePrice) == sizeof(struct packet_shop_update_price) && sizeof(ClientTPacketGCShopUpdatePrice) == 8,
+                            "ClientTPacketGCShopUpdatePrice (8B) must match server packet_shop_update_price");
+
+                        // F13a: Server -> Client SHOP_SUBHEADER_GC_START (4010B), SHOP_SUBHEADER_GC_START_EX (8077B for 2 tabs), UPDATE_ITEM (51B), UPDATE_PRICE (8B)
+                        {
+                            struct packet_shop_start srvStart{};
+                            srvStart.owner_vid = 445566U;
+                            srvStart.unlockCount = 4;
+                            srvStart.isPremium = true;
+                            srvStart.items[0].vnum = 27003;
+                            srvStart.items[0].price = 0LL; // 0 Yang price
+                            srvStart.items[0].count = 200;
+                            srvStart.items[0].display_pos = 0;
+                            srvStart.items[1].vnum = 189;
+                            srvStart.items[1].price = 4294967297LL; // > 2^32 Yang price
+                            srvStart.items[1].count = 1;
+                            srvStart.items[1].display_pos = 1;
+                            srvStart.items[1].alSockets[0] = 28430;
+                            srvStart.items[1].aAttr[0] = { 1, 2000 };
+                            srvStart.items[79].vnum = 71084;
+                            srvStart.items[79].price = GOLD_MAX - 1LL; // Max valid Yang price (999,999,999,999)
+                            srvStart.items[79].count = UINT32_MAX;     // Max unsigned 32-bit ITEM_COUNT
+                            srvStart.items[79].display_pos = 79;
+
+                            TPacketGCShop srvHdr{};
+                            srvHdr.header = HEADER_GC_SHOP;
+                            srvHdr.subheader = SHOP_SUBHEADER_GC_START;
+                            srvHdr.size = static_cast<uint16_t>(sizeof(TPacketGCShop) + sizeof(srvStart));
+
+                            std::vector<uint8_t> startWire(srvHdr.size);
+                            std::memcpy(startWire.data(), &srvHdr, sizeof(TPacketGCShop));
+                            std::memcpy(startWire.data() + sizeof(TPacketGCShop), &srvStart, sizeof(srvStart));
+
+                            ClientTPacketGCShopStart cliStart{};
+                            std::memcpy(&cliStart, startWire.data() + sizeof(TPacketGCShop), sizeof(cliStart));
+
+                            WIRE_ASSERT(startWire.size() == 4010 &&
+                                        cliStart.owner_vid == 445566U &&
+                                        cliStart.unlockCount == 4 &&
+                                        cliStart.isPremium == true &&
+                                        cliStart.items[0].vnum == 27003 &&
+                                        cliStart.items[0].price == 0LL &&
+                                        cliStart.items[0].count == 200 &&
+                                        cliStart.items[1].vnum == 189 &&
+                                        cliStart.items[1].price == 4294967297LL &&
+                                        cliStart.items[1].alSockets[0] == 28430 &&
+                                        cliStart.items[1].aAttr[0].sValue == 2000 &&
+                                        cliStart.items[79].vnum == 71084 &&
+                                        cliStart.items[79].price == GOLD_MAX - 1LL &&
+                                        cliStart.items[79].count == UINT32_MAX &&
+                                        static_cast<int64_t>(cliStart.items[79].count) == 4294967295LL,
+                                "F13a: SHOP_SUBHEADER_GC_START (4010B) preserves owner_vid, 64-bit YANG prices (0, >2^32, GOLD_MAX-1), and unsigned 32-bit ITEM_COUNT");
+
+                            // Multi-tab SHOP_SUBHEADER_GC_START_EX (2 tabs: 4B + 5B + 2*4034B = 8077B)
+                            TPacketGCShopStartEx srvStartEx{};
+                            srvStartEx.owner_vid = 9001U;
+                            srvStartEx.shop_tab_count = 2;
+
+                            TPacketGCShopStartEx::TSubPacketShopTab srvTabs[2]{};
+                            std::strncpy(srvTabs[0].name, "Weapons_Tab_01", SHOP_TAB_NAME_MAX);
+                            srvTabs[0].coin_type = SHOP_COIN_TYPE_GOLD;
+                            srvTabs[0].items[0].vnum = 19;
+                            srvTabs[0].items[0].price = 15000000000LL;
+                            srvTabs[0].items[0].count = 1;
+
+                            std::strncpy(srvTabs[1].name, "Potions_Tab_02", SHOP_TAB_NAME_MAX);
+                            srvTabs[1].coin_type = SHOP_COIN_TYPE_SECONDARY_COIN;
+                            srvTabs[1].items[39].vnum = 27002;
+                            srvTabs[1].items[39].price = 88000000000LL;
+                            srvTabs[1].items[39].count = 200;
+
+                            TPacketGCShop srvHdrEx{};
+                            srvHdrEx.header = HEADER_GC_SHOP;
+                            srvHdrEx.subheader = SHOP_SUBHEADER_GC_START_EX;
+                            srvHdrEx.size = static_cast<uint16_t>(sizeof(TPacketGCShop) + sizeof(srvStartEx) + sizeof(srvTabs));
+
+                            std::vector<uint8_t> exPayload(sizeof(srvStartEx) + sizeof(srvTabs));
+                            std::memcpy(exPayload.data(), &srvStartEx, sizeof(srvStartEx));
+                            std::memcpy(exPayload.data() + sizeof(srvStartEx), &srvTabs[0], sizeof(srvTabs));
+
+                            const auto* cliStartEx = reinterpret_cast<const ClientTPacketGCShopStartEx*>(exPayload.data());
+                            size_t readPoint = sizeof(ClientTPacketGCShopStartEx);
+                            const auto* cliTab0 = reinterpret_cast<const ClientTPacketGCShopStartEx::TSubPacketShopTab*>(exPayload.data() + readPoint);
+                            readPoint += sizeof(ClientTPacketGCShopStartEx::TSubPacketShopTab);
+                            const auto* cliTab1 = reinterpret_cast<const ClientTPacketGCShopStartEx::TSubPacketShopTab*>(exPayload.data() + readPoint);
+
+                            WIRE_ASSERT(srvHdrEx.size == 8077 &&
+                                        cliStartEx->owner_vid == 9001U &&
+                                        cliStartEx->shop_tab_count == 2 &&
+                                        std::strcmp(cliTab0->name, "Weapons_Tab_01") == 0 &&
+                                        cliTab0->coin_type == SHOP_COIN_TYPE_GOLD &&
+                                        cliTab0->items[0].vnum == 19 &&
+                                        cliTab0->items[0].price == 15000000000LL &&
+                                        std::strcmp(cliTab1->name, "Potions_Tab_02") == 0 &&
+                                        cliTab1->coin_type == SHOP_COIN_TYPE_SECONDARY_COIN &&
+                                        cliTab1->items[39].vnum == 27002 &&
+                                        cliTab1->items[39].price == 88000000000LL &&
+                                        cliTab1->items[39].count == 200,
+                                "F13a: SHOP_SUBHEADER_GC_START_EX (8077B for 2 tabs) aligns TSubPacketShopTab (4034B) name[33], coin_type, and 80-slot items array across tabs");
+
+                            // SHOP_SUBHEADER_GC_UPDATE_ITEM (51B) & SHOP_SUBHEADER_GC_UPDATE_PRICE (8B 64-bit YANG)
+                            struct packet_shop_update_item srvUpdItem{};
+                            srvUpdItem.pos = 17;
+                            srvUpdItem.item.vnum = 70031;
+                            srvUpdItem.item.price = 55000000000LL;
+                            srvUpdItem.item.count = 50;
+                            srvUpdItem.item.display_pos = 17;
+
+                            ClientTPacketGCShopUpdateItem cliUpdItem{};
+                            std::memcpy(&cliUpdItem, &srvUpdItem, sizeof(srvUpdItem));
+
+                            struct packet_shop_update_price srvUpdPrice{};
+                            srvUpdPrice.iPrice = 777000000000LL; // 777B Yang (> 2^32)
+
+                            ClientTPacketGCShopUpdatePrice cliUpdPrice{};
+                            std::memcpy(&cliUpdPrice, &srvUpdPrice, sizeof(srvUpdPrice));
+
+                            WIRE_ASSERT(sizeof(srvUpdItem) == 51 &&
+                                        cliUpdItem.pos == 17 &&
+                                        cliUpdItem.item.vnum == 70031 &&
+                                        cliUpdItem.item.price == 55000000000LL &&
+                                        cliUpdItem.item.count == 50 &&
+                                        sizeof(srvUpdPrice) == 8 &&
+                                        cliUpdPrice.iElkAmount == 777000000000LL,
+                                "F13a: SHOP_SUBHEADER_GC_UPDATE_ITEM (51B) and SHOP_SUBHEADER_GC_UPDATE_PRICE (8B) preserve 64-bit YANG (>2^32) losslessly");
+                        }
+
+                        // F13b: Client -> Server Private Shop (TPacketCGMyShop 36B + TShopItemTable 20B), Shop Subpackets, and Boundary Rejections
+                        {
+                            TPacketCGMyShop cgMyShop{};
+                            cgMyShop.bHeader = HEADER_CG_MYSHOP;
+                            std::strncpy(cgMyShop.szSign, "Native_x64_Market", SHOP_SIGN_MAX_LEN);
+                            cgMyShop.szSign[SHOP_SIGN_MAX_LEN] = '\0';
+                            cgMyShop.bTimeIndex = 1;
+                            cgMyShop.bCount = 2;
+
+                            TShopItemTable shopItems[2]{};
+                            shopItems[0].vnum = 19;
+                            shopItems[0].count = 1;
+                            shopItems[0].pos = TItemPos(INVENTORY, 0);
+                            shopItems[0].price = 4294967297LL;
+                            shopItems[0].display_pos = 0;
+
+                            shopItems[1].vnum = 27003;
+                            shopItems[1].count = 200;
+                            shopItems[1].pos = TItemPos(INVENTORY, 44);
+                            shopItems[1].price = GOLD_MAX - 1LL;
+                            shopItems[1].display_pos = 79;
+
+                            std::vector<uint8_t> myShopWire(sizeof(TPacketCGMyShop) + sizeof(shopItems));
+                            std::memcpy(myShopWire.data(), &cgMyShop, sizeof(TPacketCGMyShop));
+                            std::memcpy(myShopWire.data() + sizeof(TPacketCGMyShop), shopItems, sizeof(shopItems));
+
+                            TPacketCGMyShop inMyShop{};
+                            TShopItemTable inShopItems[2]{};
+                            std::memcpy(&inMyShop, myShopWire.data(), sizeof(TPacketCGMyShop));
+                            std::memcpy(inShopItems, myShopWire.data() + sizeof(TPacketCGMyShop), sizeof(inShopItems));
+
+                            WIRE_ASSERT(myShopWire.size() == 76 &&
+                                        inMyShop.bHeader == HEADER_CG_MYSHOP &&
+                                        std::strcmp(inMyShop.szSign, "Native_x64_Market") == 0 &&
+                                        inMyShop.bTimeIndex == 1 &&
+                                        inMyShop.bCount == 2 &&
+                                        inShopItems[0].pos.window_type == INVENTORY &&
+                                        inShopItems[0].pos.cell == 0 &&
+                                        inShopItems[0].price == 4294967297LL &&
+                                        inShopItems[1].pos.cell == 44 &&
+                                        inShopItems[1].price == GOLD_MAX - 1LL &&
+                                        inShopItems[1].display_pos == 79,
+                                "F13b: TPacketCGMyShop (36B) + 2x TShopItemTable (20B) serialize 64-bit YANG prices and TItemPos identically");
+
+                            // Client -> Server HEADER_CG_SHOP subpacket framing sizes (END=2B, BUY=4B, SELL=3B, SELL2=7B)
+                            constexpr size_t kShopCgEndBytes = sizeof(TPacketCGShop);
+                            constexpr size_t kShopCgBuyBytes = sizeof(TPacketCGShop) + sizeof(uint8_t) + sizeof(uint8_t);
+                            constexpr size_t kShopCgSellBytes = sizeof(TPacketCGShop) + sizeof(uint8_t);
+                            constexpr size_t kShopCgSell2Bytes = sizeof(TPacketCGShop) + sizeof(uint8_t) + sizeof(ITEM_COUNT);
+
+                            WIRE_ASSERT(kShopCgEndBytes == 2 &&
+                                        kShopCgBuyBytes == 4 &&
+                                        kShopCgSellBytes == 3 &&
+                                        kShopCgSell2Bytes == 7,
+                                "F13b: HEADER_CG_SHOP subpacket wire lengths match server CInputMain::Shop (END=2B, BUY=4B, SELL=3B, SELL2=7B)");
+
+                            // Validation model for shopAddPrivateShopItemStock & netSendShopBuy/Sell/SellNew
+                            auto isValidShopStockArgs = [](int winType, int cellIdx, int displayPos, YANG price) -> bool {
+                                return winType >= 0 && winType <= UCHAR_MAX &&
+                                       cellIdx >= 0 && cellIdx <= USHRT_MAX &&
+                                       displayPos >= 0 && displayPos < SHOP_PLAYER_HOST_ITEM_MAX_NUM &&
+                                       price >= 0 && price < GOLD_MAX;
+                            };
+                            auto isValidShopSellNewArgs = [](int slotNum, int64_t count) -> bool {
+                                return slotNum >= 0 && slotNum <= UCHAR_MAX &&
+                                       count >= 0 && count <= static_cast<int64_t>(UINT32_MAX);
+                            };
+
+                            WIRE_ASSERT(isValidShopStockArgs(INVENTORY, 0, 0, 0LL) &&
+                                        isValidShopStockArgs(INVENTORY, 89, 79, 4294967297LL) &&
+                                        isValidShopStockArgs(INVENTORY, 89, 79, GOLD_MAX - 1LL) &&
+                                        !isValidShopStockArgs(-1, 0, 0, 100LL) &&
+                                        !isValidShopStockArgs(INVENTORY, -1, 0, 100LL) &&
+                                        !isValidShopStockArgs(INVENTORY, 0, -1, 100LL) &&
+                                        !isValidShopStockArgs(INVENTORY, 0, SHOP_PLAYER_HOST_ITEM_MAX_NUM, 100LL) &&
+                                        !isValidShopStockArgs(INVENTORY, 0, 0, -1LL) &&
+                                        !isValidShopStockArgs(INVENTORY, 0, 0, GOLD_MAX) &&
+                                        !isValidShopStockArgs(INVENTORY, 0, 0, INT64_MAX) &&
+                                        isValidShopSellNewArgs(0, 0LL) &&
+                                        isValidShopSellNewArgs(255, static_cast<int64_t>(UINT32_MAX)) &&
+                                        !isValidShopSellNewArgs(-1, 1LL) &&
+                                        !isValidShopSellNewArgs(256, 1LL) &&
+                                        !isValidShopSellNewArgs(0, -1LL) &&
+                                        !isValidShopSellNewArgs(0, static_cast<int64_t>(UINT32_MAX) + 1LL),
+                                "F13b: Client shop C API validation rejects negative/overflowing YANG prices, counts (>UINT32_MAX), and invalid slot indices");
+                        }
                     }
                 }
             }

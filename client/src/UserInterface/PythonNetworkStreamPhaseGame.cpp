@@ -1916,11 +1916,14 @@ bool CPythonNetworkStream::RecvShopPacket()
 	{
 		case SHOP_SUBHEADER_GC_START:
 			{
+				if (vecBuffer.size() < sizeof(TPacketGCShopStart))
+					return false;
+
 				CPythonShop::Instance().Clear();
 
-				DWORD dwVID = *(DWORD *)&vecBuffer[0];
+				const TPacketGCShopStart * pShopStartPacket = reinterpret_cast<const TPacketGCShopStart *>(vecBuffer.data());
+				DWORD dwVID = pShopStartPacket->owner_vid;
 
-				TPacketGCShopStart * pShopStartPacket = (TPacketGCShopStart *)&vecBuffer[4];
 				for (BYTE iItemIndex = 0; iItemIndex < SHOP_PLAYER_HOST_ITEM_MAX_NUM; ++iItemIndex)
 				{
 					CPythonShop::Instance().SetItemData(iItemIndex, pShopStartPacket->items[iItemIndex]);
@@ -1932,30 +1935,39 @@ bool CPythonNetworkStream::RecvShopPacket()
 
 		case SHOP_SUBHEADER_GC_START_EX:
 			{
+				if (vecBuffer.size() < sizeof(TPacketGCShopStartEx))
+					return false;
+
 				CPythonShop::Instance().Clear();
 
-				TPacketGCShopStartEx * pShopStartPacket = (TPacketGCShopStartEx *)&vecBuffer[0];
+				const TPacketGCShopStartEx * pShopStartPacket = reinterpret_cast<const TPacketGCShopStartEx *>(vecBuffer.data());
 				size_t read_point = sizeof(TPacketGCShopStartEx);
 
 				DWORD dwVID = pShopStartPacket->owner_vid;
 				BYTE shop_tab_count = pShopStartPacket->shop_tab_count;
+				if (shop_tab_count > SHOP_TAB_COUNT_MAX)
+					return false;
+				if (vecBuffer.size() < read_point + static_cast<size_t>(shop_tab_count) * sizeof(TPacketGCShopStartEx::TSubPacketShopTab))
+					return false;
 
 				CPythonShop::instance().SetTabCount(shop_tab_count);
 
 				for (size_t i = 0; i < shop_tab_count; i++)
 				{
-					TPacketGCShopStartEx::TSubPacketShopTab* pPackTab = (TPacketGCShopStartEx::TSubPacketShopTab*)&vecBuffer[read_point];
+					const TPacketGCShopStartEx::TSubPacketShopTab* pPackTab = reinterpret_cast<const TPacketGCShopStartEx::TSubPacketShopTab*>(&vecBuffer[read_point]);
 					read_point += sizeof(TPacketGCShopStartEx::TSubPacketShopTab);
 
-					CPythonShop::instance().SetTabCoinType(i, pPackTab->coin_type);
-					CPythonShop::instance().SetTabName(i, pPackTab->name);
+					CPythonShop::instance().SetTabCoinType(static_cast<BYTE>(i), pPackTab->coin_type);
+					char szTabName[SHOP_TAB_NAME_MAX + 1]{};
+					strncpy(szTabName, pPackTab->name, SHOP_TAB_NAME_MAX);
+					CPythonShop::instance().SetTabName(static_cast<BYTE>(i), szTabName);
 
-					struct packet_shop_item* item = &pPackTab->items[0];
+					const struct packet_shop_item* item = &pPackTab->items[0];
 
-					for (BYTE j = 0; j < SHOP_HOST_ITEM_MAX_NUM; j++)
+					for (BYTE j = 0; j < SHOP_PLAYER_HOST_ITEM_MAX_NUM; j++)
 					{
-						TShopItemData* itemData = (item + j);
-						CPythonShop::Instance().SetItemData(i, j, *itemData);
+						const TShopItemData* itemData = (item + j);
+						CPythonShop::Instance().SetItemData(static_cast<BYTE>(i), j, *itemData);
 					}
 				}
 
@@ -1969,14 +1981,23 @@ bool CPythonNetworkStream::RecvShopPacket()
 
 		case SHOP_SUBHEADER_GC_UPDATE_ITEM:
 			{
-				TPacketGCShopUpdateItem * pShopUpdateItemPacket = (TPacketGCShopUpdateItem *)&vecBuffer[0];
+				if (vecBuffer.size() < sizeof(TPacketGCShopUpdateItem))
+					return false;
+
+				const TPacketGCShopUpdateItem * pShopUpdateItemPacket = reinterpret_cast<const TPacketGCShopUpdateItem *>(vecBuffer.data());
 				CPythonShop::Instance().SetItemData(pShopUpdateItemPacket->pos, pShopUpdateItemPacket->item);
 				PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "RefreshShop", Py_BuildValue("()"));
 			}
 			break;
 
 		case SHOP_SUBHEADER_GC_UPDATE_PRICE:
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "SetShopSellingPrice", Py_BuildValue("(i)", *(int *)&vecBuffer[0]));
+			{
+				if (vecBuffer.size() < sizeof(TPacketGCShopUpdatePrice))
+					return false;
+
+				const TPacketGCShopUpdatePrice * pShopUpdatePricePacket = reinterpret_cast<const TPacketGCShopUpdatePrice *>(vecBuffer.data());
+				PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "SetShopSellingPrice", Py_BuildValue("(L)", static_cast<long long>(pShopUpdatePricePacket->iElkAmount)));
+			}
 			break;
 
 		case SHOP_SUBHEADER_GC_NOT_ENOUGH_MONEY:
@@ -4308,11 +4329,16 @@ bool CPythonNetworkStream::RecvDungeon()
 // MyShop
 bool CPythonNetworkStream::SendBuildPrivateShopPacket(const char * c_szName, BYTE bTimeIndex, const std::vector<TShopItemTable> & c_rSellingItemStock)
 {
-	TPacketCGMyShop packet;
+	if (c_rSellingItemStock.size() > SHOP_PLAYER_HOST_ITEM_MAX_NUM)
+		return false;
+
+	TPacketCGMyShop packet{};
 	packet.bHeader = HEADER_CG_MYSHOP;
-	strncpy(packet.szSign, c_szName, SHOP_SIGN_MAX_LEN);
+	if (c_szName)
+		strncpy(packet.szSign, c_szName, SHOP_SIGN_MAX_LEN);
+	packet.szSign[SHOP_SIGN_MAX_LEN] = '\0';
 	packet.bTimeIndex = bTimeIndex;
-	packet.bCount = c_rSellingItemStock.size();
+	packet.bCount = static_cast<BYTE>(c_rSellingItemStock.size());
 	if (!Send(sizeof(packet), &packet))
 		return false;
 
@@ -4328,9 +4354,10 @@ bool CPythonNetworkStream::SendBuildPrivateShopPacket(const char * c_szName, BYT
 
 bool CPythonNetworkStream::RecvShopSignPacket()
 {
-	TPacketGCShopSign p;
+	TPacketGCShopSign p{};
 	if (!Recv(sizeof(TPacketGCShopSign), &p))
 		return false;
+	p.szSign[SHOP_SIGN_MAX_LEN] = '\0';
 
 	CPythonPlayer& rkPlayer=CPythonPlayer::Instance();
 

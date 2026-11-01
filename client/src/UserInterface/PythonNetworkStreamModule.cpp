@@ -870,34 +870,34 @@ PyObject* netSendShopEndPacket(PyObject* poSelf, PyObject* poArgs)
 PyObject* netSendShopBuyPacket(PyObject* poSelf, PyObject* poArgs)
 {
 	int iCount;
-	if (!PyTuple_GetInteger(poArgs, 0, &iCount))
+	if (!PyTuple_GetInteger(poArgs, 0, &iCount) || iCount < 0 || iCount > UCHAR_MAX)
 		return Py_BuildException();
 
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendShopBuyPacket(iCount);
+	rkNetStream.SendShopBuyPacket(static_cast<BYTE>(iCount));
 	return Py_BuildNone();
 }
 
 PyObject* netSendShopSellPacket(PyObject* poSelf, PyObject* poArgs)
 {
 	int iSlotNumber;
-	if (!PyTuple_GetInteger(poArgs, 0, &iSlotNumber))
+	if (!PyTuple_GetInteger(poArgs, 0, &iSlotNumber) || iSlotNumber < 0 || iSlotNumber > UCHAR_MAX)
 		return Py_BuildException();
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendShopSellPacket(iSlotNumber);
+	rkNetStream.SendShopSellPacket(static_cast<BYTE>(iSlotNumber));
 	return Py_BuildNone();
 }
 
 PyObject* netSendShopSellPacketNew(PyObject* poSelf, PyObject* poArgs)
 {
 	int iSlotNumber;
-	if (!PyTuple_GetInteger(poArgs, 0, &iSlotNumber))
+	if (!PyTuple_GetInteger(poArgs, 0, &iSlotNumber) || iSlotNumber < 0 || iSlotNumber > UCHAR_MAX)
 		return Py_BuildException();
-	int iCount;
-	if (!PyTuple_GetInteger(poArgs, 1, &iCount))
+	long long llCount = 0;
+	if (!PyTuple_GetLongLong(poArgs, 1, &llCount) || llCount < 0 || llCount > UINT32_MAX)
 		return Py_BuildException();
 	CPythonNetworkStream& rkNetStream=CPythonNetworkStream::Instance();
-	rkNetStream.SendShopSellPacketNew(iSlotNumber, iCount);
+	rkNetStream.SendShopSellPacketNew(static_cast<BYTE>(iSlotNumber), static_cast<ITEM_COUNT>(llCount));
 	return Py_BuildNone();
 }
 

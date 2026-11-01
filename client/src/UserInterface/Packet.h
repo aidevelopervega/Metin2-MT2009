@@ -1649,6 +1649,7 @@ typedef struct packet_quickslot_swap
 
 typedef struct packet_shop_start
 {
+	DWORD owner_vid;
 	BYTE unlockCount;
 	bool isPremium;
 	struct packet_shop_item		items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
@@ -1658,9 +1659,9 @@ typedef struct packet_shop_start_ex
 {
 	typedef struct sub_packet_shop_tab
 	{
-		char name[SHOP_TAB_NAME_MAX];
+		char name[SHOP_TAB_NAME_MAX + 1];
 		BYTE coin_type;
-		packet_shop_item items[SHOP_HOST_ITEM_MAX_NUM];
+		packet_shop_item items[SHOP_PLAYER_HOST_ITEM_MAX_NUM];
 	} TSubPacketShopTab;
 	DWORD owner_vid;
 	BYTE shop_tab_count;
@@ -3530,6 +3531,27 @@ static_assert(WEAR_MAX_NUM == 32, "WEAR_MAX_NUM must be 32");
 static_assert(sizeof(TPacketGCViewEquip) == 1317 && offsetof(TPacketGCViewEquip, dwVID) == 1 && offsetof(TPacketGCViewEquip, equips) == 5, "TPacketGCViewEquip layout mismatch");
 #endif
 static_assert(sizeof(TPacketGCDragonSoulRefine) == 5 && offsetof(TPacketGCDragonSoulRefine, bSubType) == 1 && offsetof(TPacketGCDragonSoulRefine, Pos) == 2, "TPacketGCDragonSoulRefine layout mismatch");
+
+static_assert(SHOP_HOST_ITEM_MAX_NUM == 40, "SHOP_HOST_ITEM_MAX_NUM must be 40");
+static_assert(SHOP_PLAYER_HOST_ITEM_MAX_NUM == 80, "SHOP_PLAYER_HOST_ITEM_MAX_NUM must be 80");
+static_assert(SHOP_SIGN_MAX_LEN == 32, "SHOP_SIGN_MAX_LEN must be 32");
+static_assert(SHOP_TAB_NAME_MAX == 32, "SHOP_TAB_NAME_MAX must be 32");
+static_assert(SHOP_TAB_COUNT_MAX == 3, "SHOP_TAB_COUNT_MAX must be 3");
+
+static_assert(sizeof(TPacketCGShop) == 2 && offsetof(TPacketCGShop, header) == 0 && offsetof(TPacketCGShop, subheader) == 1, "TPacketCGShop layout mismatch");
+static_assert(sizeof(TPacketCGMyShop) == 36 && offsetof(TPacketCGMyShop, bHeader) == 0 && offsetof(TPacketCGMyShop, szSign) == 1 && offsetof(TPacketCGMyShop, bTimeIndex) == 34 && offsetof(TPacketCGMyShop, bCount) == 35, "TPacketCGMyShop layout mismatch");
+static_assert(sizeof(TPacketGCShop) == 4 && offsetof(TPacketGCShop, header) == 0 && offsetof(TPacketGCShop, size) == 1 && offsetof(TPacketGCShop, subheader) == 3, "TPacketGCShop layout mismatch");
+static_assert(sizeof(TPacketGCShopSign) == 38 && offsetof(TPacketGCShopSign, bHeader) == 0 && offsetof(TPacketGCShopSign, dwVID) == 1 && offsetof(TPacketGCShopSign, szSign) == 5, "TPacketGCShopSign layout mismatch");
+static_assert(sizeof(TPacketGCShopStartEx) == 5 && offsetof(TPacketGCShopStartEx, owner_vid) == 0 && offsetof(TPacketGCShopStartEx, shop_tab_count) == 4, "TPacketGCShopStartEx layout mismatch");
+
+#ifndef ENABLE_CHEQUE_SYSTEM
+static_assert(sizeof(TShopItemData) == 50 && offsetof(TShopItemData, vnum) == 0 && offsetof(TShopItemData, price) == 4 && offsetof(TShopItemData, count) == 12 && offsetof(TShopItemData, display_pos) == 16 && offsetof(TShopItemData, alSockets) == 17 && offsetof(TShopItemData, aAttr) == 29, "TShopItemData layout mismatch");
+static_assert(sizeof(TShopItemTable) == 20 && offsetof(TShopItemTable, vnum) == 0 && offsetof(TShopItemTable, count) == 4 && offsetof(TShopItemTable, pos) == 8 && offsetof(TShopItemTable, price) == 11 && offsetof(TShopItemTable, display_pos) == 19, "TShopItemTable layout mismatch");
+static_assert(sizeof(TPacketGCShopStart) == 4006 && offsetof(TPacketGCShopStart, owner_vid) == 0 && offsetof(TPacketGCShopStart, unlockCount) == 4 && offsetof(TPacketGCShopStart, isPremium) == 5 && offsetof(TPacketGCShopStart, items) == 6, "TPacketGCShopStart layout mismatch");
+static_assert(sizeof(TPacketGCShopStartEx::TSubPacketShopTab) == 4034 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, name) == 0 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, coin_type) == 33 && offsetof(TPacketGCShopStartEx::TSubPacketShopTab, items) == 34, "TPacketGCShopStartEx::TSubPacketShopTab layout mismatch");
+static_assert(sizeof(TPacketGCShopUpdateItem) == 51 && offsetof(TPacketGCShopUpdateItem, pos) == 0 && offsetof(TPacketGCShopUpdateItem, item) == 1, "TPacketGCShopUpdateItem layout mismatch");
+static_assert(sizeof(TPacketGCShopUpdatePrice) == 8 && offsetof(TPacketGCShopUpdatePrice, iElkAmount) == 0, "TPacketGCShopUpdatePrice layout mismatch");
+#endif
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top
