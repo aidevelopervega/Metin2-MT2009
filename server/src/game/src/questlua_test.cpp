@@ -132,6 +132,11 @@ namespace
 			ClearTestInventory();
 		}
 		void SetTestPlayerID(uint64_t pid) { m_dwPlayerID = pid; }
+		void SetTestRaceAndVID(DWORD raceNum, DWORD vid)
+		{
+			m_dwPolymorphRace = raceNum;
+			m_vid = VID(vid, 0);
+		}
 		void EnableDirectInventory(bool enable)
 		{
 			if (enable)
@@ -1425,6 +1430,29 @@ int RunGameQuestRuntimeTests()
 			               buffer_size(wireDesc.GetOutputBuffer()) == 12111,
 				"Loaded 3-tab CShopEx serializes exact 12111-byte packet via AddGuest");
 			loadedShop->RemoveGuest(guestCh.get());
+			wireDesc.ResetOutputBuffer();
+
+			// Direct CShopManager::StartShopping regression: failed AddGuest must not set ShopOwner or block subsequent retry on same NPC
+			std::unique_ptr<CTestItemShopCharacter> npcKeeper = std::make_unique<CTestItemShopCharacter>();
+			npcKeeper->SetTestRaceAndVID(20091U, 77720091U);
+
+			guestCh->BindDesc(nullptr);
+			RUNTIME_ASSERT(!CShopManager::instance().StartShopping(guestCh.get(), npcKeeper.get(), 0) &&
+			               guestCh->GetShop() == nullptr &&
+			               guestCh->GetShopOwner() == nullptr,
+				"CShopManager::StartShopping must return false and leave GetShop()/GetShopOwner() nullptr when AddGuest fails");
+
+			guestCh->BindDesc(&wireDesc);
+			RUNTIME_ASSERT(CShopManager::instance().StartShopping(guestCh.get(), npcKeeper.get(), 0) &&
+			               guestCh->GetShop() == loadedShop &&
+			               guestCh->GetShopOwner() == npcKeeper.get() &&
+			               buffer_size(wireDesc.GetOutputBuffer()) == 12111,
+				"CShopManager::StartShopping must succeed on the same NPC after a prior failed AddGuest attempt");
+
+			CShopManager::instance().StopShopping(guestCh.get());
+			RUNTIME_ASSERT(guestCh->GetShop() == nullptr &&
+			               guestCh->GetShopOwner() == nullptr,
+				"CShopManager::StopShopping must clear both GetShop() and GetShopOwner()");
 			wireDesc.ResetOutputBuffer();
 		}
 

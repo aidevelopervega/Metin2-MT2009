@@ -160,7 +160,9 @@ bool CShopManager::StartShopping(LPCHARACTER pkChr, LPCHARACTER pkChrShopKeeper,
 	if (pkChrShopKeeper->GetEmpire() != 0 && pkChr->GetEmpire() != pkChrShopKeeper->GetEmpire())
 		bOtherEmpire = true;
 
-	pkShop->AddGuest(pkChr, pkChrShopKeeper->GetVID(), bOtherEmpire);
+	if (!pkShop->AddGuest(pkChr, pkChrShopKeeper->GetVID(), bOtherEmpire))
+		return false;
+
 	pkChr->SetShopOwner(pkChrShopKeeper);
 	sys_log(0, "SHOP: START: %s", pkChr->GetName());
 	return true;
