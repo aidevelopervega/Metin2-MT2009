@@ -93,6 +93,20 @@ bool PyTuple_GetLongLong(PyObject* poArgs, int pos, long long* ret)
 	return true;
 }
 
+bool PyTuple_GetUnsignedLongLong(PyObject* poArgs, int pos, unsigned long long* ret)
+{
+	if (pos >= PyTuple_Size(poArgs))
+		return false;
+
+	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
+
+	if (!poItem)
+		return false;
+
+	*ret = PyLong_AsUnsignedLongLongMask(poItem);
+	return true;
+}
+
 bool PyTuple_GetDouble(PyObject* poArgs, int pos, double* ret)
 {
 	if (pos >= PyTuple_Size(poArgs))

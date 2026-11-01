@@ -1465,8 +1465,8 @@ PyObject* netSendGuildRefreshCommentsPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendGuildChangeMemberGradePacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	unsigned long long iPID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iPID))
 		return Py_BuildException();
 	int iGradeNumber;
 	if (!PyTuple_GetInteger(poArgs, 1, &iGradeNumber))
@@ -1483,8 +1483,8 @@ PyObject* netSendGuildUseSkillPacket(PyObject* poSelf, PyObject* poArgs)
 	int iSkillID;
 	if (!PyTuple_GetInteger(poArgs, 0, &iSkillID))
 		return Py_BuildException();
-	int iTargetVID;
-	if (!PyTuple_GetInteger(poArgs, 1, &iTargetVID))
+	unsigned long long iTargetVID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 1, &iTargetVID))
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
@@ -1495,8 +1495,8 @@ PyObject* netSendGuildUseSkillPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendGuildChangeMemberGeneralPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iPID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iPID))
+	unsigned long long iPID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iPID))
 		return Py_BuildException();
 	int iFlag;
 	if (!PyTuple_GetInteger(poArgs, 1, &iFlag))
@@ -1510,8 +1510,8 @@ PyObject* netSendGuildChangeMemberGeneralPacket(PyObject* poSelf, PyObject* poAr
 
 PyObject* netSendGuildInviteAnswerPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iGuildID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iGuildID))
+	unsigned long long iGuildID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iGuildID))
 		return Py_BuildException();
 	int iAnswer;
 	if (!PyTuple_GetInteger(poArgs, 1, &iAnswer))
@@ -1537,8 +1537,8 @@ PyObject* netSendGuildChargeGSPPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendGuildDepositMoneyPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iGSP;
-	if (!PyTuple_GetInteger(poArgs, 0, &iGSP))
+	YANG iGSP = 0;
+	if (!PyTuple_GetLongLong(poArgs, 0, &iGSP))
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();
@@ -1549,8 +1549,8 @@ PyObject* netSendGuildDepositMoneyPacket(PyObject* poSelf, PyObject* poArgs)
 
 PyObject* netSendGuildWithdrawMoneyPacket(PyObject* poSelf, PyObject* poArgs)
 {
-	int iGSP;
-	if (!PyTuple_GetInteger(poArgs, 0, &iGSP))
+	YANG iGSP = 0;
+	if (!PyTuple_GetLongLong(poArgs, 0, &iGSP))
 		return Py_BuildException();
 
 	CPythonNetworkStream& rns=CPythonNetworkStream::Instance();

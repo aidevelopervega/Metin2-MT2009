@@ -636,7 +636,7 @@ PyObject * playerGetGuildID(PyObject* poSelf, PyObject* poArgs)
 	CInstanceBase * pInstance = CPythonPlayer::Instance().NEW_GetMainActorPtr();
 	if (!pInstance)
 		return Py_BuildValue("i", 0);
-	return Py_BuildValue("i", pInstance->GetGuildID());
+	return PyLong_FromUnsignedLongLong(pInstance->GetGuildID());
 }
 
 PyObject * playerGetGuildName(PyObject* poSelf, PyObject* poArgs)
@@ -644,7 +644,7 @@ PyObject * playerGetGuildName(PyObject* poSelf, PyObject* poArgs)
 	CInstanceBase * pInstance = CPythonPlayer::Instance().NEW_GetMainActorPtr();
 	if (pInstance)
 	{
-		DWORD dwID = pInstance->GetGuildID();
+		uint64_t dwID = pInstance->GetGuildID();
 		std::string strName;
 		if (CPythonGuild::Instance().GetGuildName(dwID, &strName))
 			return Py_BuildValue("s", strName.c_str());
@@ -2262,7 +2262,7 @@ PyObject* playerSendDragonSoulRefine(PyObject* poSelf, PyObject* poArgs)
 		{
 			if (!PyTuple_GetObject(poArgs, 1, &pDic))
 				return Py_BuildException();
-			int pos = 0;
+			Py_ssize_t pos = 0;
 			PyObject* key, *value;
 			int size = PyDict_Size(pDic);
 

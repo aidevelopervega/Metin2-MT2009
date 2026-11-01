@@ -231,20 +231,20 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 
 		// Guild
 		bool SendGuildAddMemberPacket(DWORD dwVID);
-		bool SendGuildRemoveMemberPacket(DWORD dwPID);
+		bool SendGuildRemoveMemberPacket(uint64_t dwPID);
 		bool SendGuildChangeGradeNamePacket(BYTE byGradeNumber, const char * c_szName);
 		bool SendGuildChangeGradeAuthorityPacket(BYTE byGradeNumber, BYTE byAuthority);
 		bool SendGuildOfferPacket(DWORD dwExperience);
 		bool SendGuildPostCommentPacket(const char * c_szMessage);
 		bool SendGuildDeleteCommentPacket(DWORD dwIndex);
 		bool SendGuildRefreshCommentsPacket(DWORD dwHighestIndex);
-		bool SendGuildChangeMemberGradePacket(DWORD dwPID, BYTE byGrade);
-		bool SendGuildUseSkillPacket(DWORD dwSkillID, DWORD dwTargetVID);
-		bool SendGuildChangeMemberGeneralPacket(DWORD dwPID, BYTE byFlag);
+		bool SendGuildChangeMemberGradePacket(uint64_t dwPID, BYTE byGrade);
+		bool SendGuildUseSkillPacket(DWORD dwSkillID, uint64_t dwTargetVID);
+		bool SendGuildChangeMemberGeneralPacket(uint64_t dwPID, BYTE byFlag);
 		bool SendGuildInvitePacket(DWORD dwVID);
-		bool SendGuildInviteAnswerPacket(DWORD dwGuildID, BYTE byAnswer);
+		bool SendGuildInviteAnswerPacket(uint64_t dwGuildID, BYTE byAnswer);
 		bool SendGuildChargeGSPPacket(DWORD dwMoney);
-		bool SendGuildDepositMoneyPacket(DWORD dwMoney);
+		bool SendGuildDepositMoneyPacket(YANG dwMoney);
 		bool SendGuildWithdrawMoneyPacket(YANG dwMoney);
 
 		// Mall
@@ -452,7 +452,7 @@ class CPythonNetworkStream : public CNetworkStream, public CSingleton<CPythonNet
 		bool __IsNotPing();
 
 		void __DownloadMark();
-		void __DownloadSymbol(const std::vector<DWORD> & c_rkVec_dwGuildID);
+		void __DownloadSymbol(const std::vector<uint64_t> & c_rkVec_dwGuildID);
 
 		void __PlayInventoryItemUseSound(TItemPos uSlotPos);
 		void __PlayInventoryItemDropSound(TItemPos uSlotPos);

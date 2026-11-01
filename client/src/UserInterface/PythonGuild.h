@@ -13,9 +13,9 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 
 		typedef struct SGulidInfo
 		{
-			DWORD dwGuildID;
+			uint64_t dwGuildID;
 			char szGuildName[GUILD_NAME_MAX_LEN+1];
-			DWORD dwMasterPID;
+			uint64_t dwMasterPID;
 			DWORD dwGuildLevel;
 			DWORD dwCurrentExperience;
 			DWORD dwCurrentMemberCount;
@@ -35,7 +35,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 
 		typedef struct SGuildMemberData
 		{
-			DWORD dwPID;
+			uint64_t dwPID;
 
 			std::string strName;
 			BYTE byGrade;
@@ -71,7 +71,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 		void Destroy();
 
 		void EnableGuild();
-		void SetGuildMoney(DWORD dwMoney);
+		void SetGuildMoney(YANG dwMoney);
 		void SetGuildEXP(BYTE byLevel, DWORD dwEXP);
 		void SetGradeData(BYTE byGradeNumber, const TGuildGradeData & rGuildGradeData);
 		void SetGradeName(BYTE byGradeNumber, const char * c_szName);
@@ -79,31 +79,31 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 		void ClearComment();
 		void RegisterComment(DWORD dwCommentID, const char * c_szName, const char * c_szComment);
 		void RegisterMember(TGuildMemberData & rGuildMemberData);
-		void ChangeGuildMemberGrade(DWORD dwPID, BYTE byGrade);
-		void ChangeGuildMemberGeneralFlag(DWORD dwPID, BYTE byFlag);
-		void RemoveMember(DWORD dwPID);
+		void ChangeGuildMemberGrade(uint64_t dwPID, BYTE byGrade);
+		void ChangeGuildMemberGeneralFlag(uint64_t dwPID, BYTE byFlag);
+		void RemoveMember(uint64_t dwPID);
 		void RegisterGuildName(uint64_t dwID, const char * c_szName);
 
-		BOOL IsMainPlayer(DWORD dwPID);
+		BOOL IsMainPlayer(uint64_t dwPID);
 		BOOL IsGuildEnable();
 		TGuildInfo & GetGuildInfoRef();
 		BOOL GetGradeDataPtr(DWORD dwGradeNumber, TGuildGradeData ** ppData);
 		const TGuildBoardCommentDataVector & GetGuildBoardCommentVector();
 		DWORD GetMemberCount();
 		BOOL GetMemberDataPtr(DWORD dwIndex, TGuildMemberData ** ppData);
-		BOOL GetMemberDataPtrByPID(DWORD dwPID, TGuildMemberData ** ppData);
+		BOOL GetMemberDataPtrByPID(uint64_t dwPID, TGuildMemberData ** ppData);
 		BOOL GetMemberDataPtrByName(const char * c_szName, TGuildMemberData ** ppData);
 		DWORD GetGuildMemberLevelSummary();
 		DWORD GetGuildMemberLevelAverage();
 		DWORD GetGuildExperienceSummary();
 		TGuildSkillData & GetGuildSkillDataRef();
 		bool GetGuildName(uint64_t dwID, std::string * pstrGuildName);
-		DWORD GetGuildID();
+		uint64_t GetGuildID();
 		BOOL HasGuildLand();
 
-		void StartGuildWar(DWORD dwEnemyGuildID);
-		void EndGuildWar(DWORD dwEnemyGuildID);
-		DWORD GetEnemyGuildID(DWORD dwIndex);
+		void StartGuildWar(uint64_t dwEnemyGuildID);
+		void EndGuildWar(uint64_t dwEnemyGuildID);
+		uint64_t GetEnemyGuildID(DWORD dwIndex);
 		BOOL IsDoingGuildWar();
 
 	protected:
@@ -120,7 +120,7 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 		TGuildBoardCommentDataVector m_GuildBoardCommentVector;
 		TGuildSkillData m_GuildSkillData;
 		TGuildNameMap m_GuildNameMap;
-		DWORD m_adwEnemyGuildID[ENEMY_GUILD_SLOT_MAX_COUNT];
+		uint64_t m_adwEnemyGuildID[ENEMY_GUILD_SLOT_MAX_COUNT];
 
 		DWORD m_dwMemberLevelSummary;
 		DWORD m_dwMemberLevelAverage;
@@ -128,6 +128,10 @@ class CPythonGuild : public CSingleton<CPythonGuild>
 
 		BOOL m_bGuildEnable;
 };
+
+static_assert(sizeof(CPythonGuild::TGuildInfo::dwGuildID) == 8, "TGuildInfo::dwGuildID must be 64-bit");
+static_assert(sizeof(CPythonGuild::TGuildInfo::dwMasterPID) == 8, "TGuildInfo::dwMasterPID must be 64-bit");
+static_assert(sizeof(CPythonGuild::TGuildMemberData::dwPID) == 8, "TGuildMemberData::dwPID must be 64-bit");
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

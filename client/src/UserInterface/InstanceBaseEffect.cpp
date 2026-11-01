@@ -501,15 +501,15 @@ void CInstanceBase::RemovePVPKey(DWORD dwVIDSrc, DWORD dwVIDDst)
 	g_kSet_dwPVPKey.erase(dwPVPKey);
 }
 
-void CInstanceBase::InsertGVGKey(DWORD dwSrcGuildVID, DWORD dwDstGuildVID)
+void CInstanceBase::InsertGVGKey(uint64_t dwSrcGuildVID, uint64_t dwDstGuildVID)
 {
-	DWORD dwGVGKey = __GetPVPKey(dwSrcGuildVID, dwDstGuildVID);
+	DWORD dwGVGKey = __GetPVPKey(static_cast<DWORD>(dwSrcGuildVID ^ (dwSrcGuildVID >> 32)), static_cast<DWORD>(dwDstGuildVID ^ (dwDstGuildVID >> 32)));
 	g_kSet_dwGVGKey.insert(dwGVGKey);
 }
 
-void CInstanceBase::RemoveGVGKey(DWORD dwSrcGuildVID, DWORD dwDstGuildVID)
+void CInstanceBase::RemoveGVGKey(uint64_t dwSrcGuildVID, uint64_t dwDstGuildVID)
 {
-	DWORD dwGVGKey = __GetPVPKey(dwSrcGuildVID, dwDstGuildVID);
+	DWORD dwGVGKey = __GetPVPKey(static_cast<DWORD>(dwSrcGuildVID ^ (dwSrcGuildVID >> 32)), static_cast<DWORD>(dwDstGuildVID ^ (dwDstGuildVID >> 32)));
 	g_kSet_dwGVGKey.erase(dwGVGKey);
 }
 
@@ -561,9 +561,9 @@ bool CInstanceBase::__FindPVPReadyKey(DWORD dwVIDSrc, DWORD dwVIDDst)
 
 	return true;
 }
-bool CInstanceBase::__FindGVGKey(DWORD dwSrcGuildID, DWORD dwDstGuildID)
+bool CInstanceBase::__FindGVGKey(uint64_t dwSrcGuildID, uint64_t dwDstGuildID)
 {
-	DWORD dwGVGKey=__GetPVPKey(dwSrcGuildID, dwDstGuildID);
+	DWORD dwGVGKey=__GetPVPKey(static_cast<DWORD>(dwSrcGuildID ^ (dwSrcGuildID >> 32)), static_cast<DWORD>(dwDstGuildID ^ (dwDstGuildID >> 32)));
 
 	if (g_kSet_dwGVGKey.end()==g_kSet_dwGVGKey.find(dwGVGKey))
 		return false;
@@ -585,8 +585,8 @@ bool CInstanceBase::IsPVPInstance(CInstanceBase& rkInstSel)
 	DWORD dwVIDSrc=GetVirtualID();
 	DWORD dwVIDDst=rkInstSel.GetVirtualID();
 
-	DWORD dwGuildIDSrc=GetGuildID();
-	DWORD dwGuildIDDst=rkInstSel.GetGuildID();
+	uint64_t dwGuildIDSrc=GetGuildID();
+	uint64_t dwGuildIDDst=rkInstSel.GetGuildID();
 
 	if (GetDuelMode())
 		return true;
@@ -641,8 +641,8 @@ UINT CInstanceBase::GetNameColorIndex()
 					return NAMECOLOR_PVP;
 				}
 
-				DWORD dwGuildIDMain=pkInstMain->GetGuildID();
-				DWORD dwGuildIDSelf=GetGuildID();
+				uint64_t dwGuildIDMain=pkInstMain->GetGuildID();
+				uint64_t dwGuildIDSelf=GetGuildID();
 				if (__FindGVGKey(dwGuildIDMain, dwGuildIDSelf))
 				{
 					return NAMECOLOR_PVP;

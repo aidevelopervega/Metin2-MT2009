@@ -62,7 +62,7 @@ class CPythonMiniMap : public CScreen, public CSingleton<CPythonMiniMap>
 		void ShowAtlas();
 		void HideAtlas();
 
-		bool GetAtlasInfo(float fScreenX, float fScreenY, std::string & rReturnString, float * pReturnPosX, float * pReturnPosY, DWORD * pdwTextColor, DWORD * pdwGuildID);
+		bool GetAtlasInfo(float fScreenX, float fScreenY, std::string & rReturnString, float * pReturnPosX, float * pReturnPosY, DWORD * pdwTextColor, uint64_t * pdwGuildID);
 		bool GetAtlasSize(float * pfSizeX, float * pfSizeY);
 		bool GetAtlasMaxSize(float* pfSizeX, float* pfSizeY);
 
@@ -88,8 +88,8 @@ class CPythonMiniMap : public CScreen, public CSingleton<CPythonMiniMap>
 
 		// Guild
 		void ClearGuildArea();
-		void RegisterGuildArea(DWORD dwID, DWORD dwGuildID, long x, long y, long width, long height);
-		DWORD GetGuildAreaID(DWORD x, DWORD y);
+		void RegisterGuildArea(DWORD dwID, uint64_t dwGuildID, long x, long y, long width, long height);
+		uint64_t GetGuildAreaID(DWORD x, DWORD y);
 
 		// Target
 		void CreateTarget(int iID, const char * c_szName);
@@ -132,7 +132,7 @@ class CPythonMiniMap : public CScreen, public CSingleton<CPythonMiniMap>
 		// GuildArea
 		typedef struct SGuildAreaInfo
 		{
-			DWORD dwGuildID;
+			uint64_t dwGuildID;
 			long lx, ly;
 			long lwidth, lheight;
 

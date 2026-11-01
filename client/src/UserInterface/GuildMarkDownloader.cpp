@@ -35,7 +35,7 @@ bool CGuildMarkDownloader::Connect(const CNetworkAddress& c_rkNetAddr, DWORD dwH
 	return CNetworkStream::Connect(c_rkNetAddr);
 }
 
-bool CGuildMarkDownloader::ConnectToRecvSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, const std::vector<DWORD> & c_rkVec_dwGuildID)
+bool CGuildMarkDownloader::ConnectToRecvSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, const std::vector<uint64_t> & c_rkVec_dwGuildID)
 {
 	__OfflineState_Set();
 
@@ -506,7 +506,7 @@ bool CGuildMarkDownloader::__LoginState_RecvSymbolData()
 		return false;
 
 	WORD wDataSize = kPacketSymbolData.size - sizeof(kPacketSymbolData);
-	DWORD dwGuildID = kPacketSymbolData.guild_id;
+	uint64_t dwGuildID = kPacketSymbolData.guild_id;
 	BYTE * pbyBuf = new BYTE [wDataSize];
 
 	if (!Recv(wDataSize, pbyBuf))

@@ -45,7 +45,7 @@ CGraphicText* ms_pLargeFont = NULL;
 void CPythonTextTail::GetInfo(std::string* pstInfo)
 {
 	char szInfo[256];
-	sprintf(szInfo, "TextTail: ChatTail %d, ChrTail (Map %d, List %d), ItemTail (Map %d, List %d), Pool %d",
+	sprintf(szInfo, "TextTail: ChatTail %zu, ChrTail (Map %zu, List %zu), ItemTail (Map %zu, List %zu), Pool %lu",
 		m_ChatTailMap.size(),
 		m_CharacterTextTailMap.size(), m_CharacterTextTailList.size(),
 		m_ItemTextTailMap.size(), m_ItemTextTailList.size(),
@@ -563,7 +563,7 @@ bool CPythonTextTail::isIn(CPythonTextTail::TTextTail * pSource, CPythonTextTail
 	return false;
 }
 
-void CPythonTextTail::RegisterCharacterTextTail(DWORD dwGuildID, DWORD dwVirtualID, const D3DXCOLOR & c_rColor, float fAddHeight, bool bLarge)
+void CPythonTextTail::RegisterCharacterTextTail(uint64_t dwGuildID, DWORD dwVirtualID, const D3DXCOLOR & c_rColor, float fAddHeight, bool bLarge)
 {
 	CInstanceBase * pCharacterInstance = CPythonCharacterManager::Instance().GetInstancePtr(dwVirtualID);
 

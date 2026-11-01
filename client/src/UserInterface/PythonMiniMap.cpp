@@ -833,7 +833,7 @@ void CPythonMiniMap::ClearGuildArea()
 	m_GuildAreaInfoVector.clear();
 }
 
-void CPythonMiniMap::RegisterGuildArea(DWORD dwID, DWORD dwGuildID, long x, long y, long width, long height)
+void CPythonMiniMap::RegisterGuildArea(DWORD dwID, uint64_t dwGuildID, long x, long y, long width, long height)
 {
 	TGuildAreaInfo kGuildAreaInfo;
 	kGuildAreaInfo.dwGuildID = dwGuildID;
@@ -844,7 +844,7 @@ void CPythonMiniMap::RegisterGuildArea(DWORD dwID, DWORD dwGuildID, long x, long
 	m_GuildAreaInfoVector.push_back(kGuildAreaInfo);
 }
 
-DWORD CPythonMiniMap::GetGuildAreaID(DWORD x, DWORD y)
+uint64_t CPythonMiniMap::GetGuildAreaID(DWORD x, DWORD y)
 {
 	TGuildAreaInfoVectorIterator itor = m_GuildAreaInfoVector.begin();
 	for (; itor != m_GuildAreaInfoVector.end(); ++itor)
@@ -1346,7 +1346,7 @@ bool CPythonMiniMap::GetPickedInstanceInfo(float fScreenX, float fScreenY, std::
 	return false;
 }
 
-bool CPythonMiniMap::GetAtlasInfo(float fScreenX, float fScreenY, std::string & rReturnString, float * pReturnPosX, float * pReturnPosY, DWORD * pdwTextColor, DWORD * pdwGuildID)
+bool CPythonMiniMap::GetAtlasInfo(float fScreenX, float fScreenY, std::string & rReturnString, float * pReturnPosX, float * pReturnPosY, DWORD * pdwTextColor, uint64_t * pdwGuildID)
 {
 	float fRealX = (fScreenX - m_fAtlasScreenX) * (m_fAtlasMaxX / m_fAtlasImageSizeX);
 	float fRealY = (fScreenY - m_fAtlasScreenY) * (m_fAtlasMaxY / m_fAtlasImageSizeY);

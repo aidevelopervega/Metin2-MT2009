@@ -18,7 +18,7 @@ class CInstanceBase
 			BYTE	m_bType;
 			DWORD	m_dwStateFlags;
 			DWORD	m_dwEmpireID;
-			DWORD	m_dwGuildID;
+			uint64_t	m_dwGuildID;
 			DWORD	m_dwLevel;
 			DWORD	m_dwVID;
 			DWORD	m_dwRace;
@@ -431,7 +431,7 @@ class CInstanceBase
 		bool					ChangeArmor(DWORD dwArmor);
 		void					ChangeWeapon(DWORD eWeapon);
 		void					ChangeHair(DWORD eHair);
-		void					ChangeGuild(DWORD dwGuildID);
+		void					ChangeGuild(uint64_t dwGuildID);
 		DWORD					GetWeaponType();
 
 		void					SetComboType(UINT uComboType);
@@ -456,7 +456,7 @@ class CInstanceBase
 		DWORD					GetVirtualID();
 		DWORD					GetVirtualNumber();
 		DWORD					GetEmpireID();
-		DWORD					GetGuildID();
+		uint64_t				GetGuildID();
 		int						GetAlignment();
 		UINT					GetAlignmentGrade();
 		int						GetAlignmentType();
@@ -846,7 +846,7 @@ class CInstanceBase
 		bool					m_bIsHideLevel;
 		DWORD					m_dwLevel;
 		DWORD					m_dwEmpireID;
-		DWORD					m_dwGuildID;
+		uint64_t				m_dwGuildID;
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 		uint64_t				m_dwGuildToken{};
 #endif
@@ -1025,8 +1025,8 @@ class CInstanceBase
 		static void InsertPVPReadyKey(DWORD dwSrcVID, DWORD dwDstVID);
 		static void RemovePVPKey(DWORD dwSrcVID, DWORD dwDstVID);
 
-		static void InsertGVGKey(DWORD dwSrcGuildVID, DWORD dwDstGuildVID);
-		static void RemoveGVGKey(DWORD dwSrcGuildVID, DWORD dwDstGuildVID);
+		static void InsertGVGKey(uint64_t dwSrcGuildVID, uint64_t dwDstGuildVID);
+		static void RemoveGVGKey(uint64_t dwSrcGuildVID, uint64_t dwDstGuildVID);
 
 		static void InsertDUELKey(DWORD dwSrcVID, DWORD dwDstVID);
 
@@ -1039,7 +1039,7 @@ class CInstanceBase
 		static DWORD __GetPVPKey(DWORD dwSrcVID, DWORD dwDstVID);
 		static bool __FindPVPKey(DWORD dwSrcVID, DWORD dwDstVID);
 		static bool __FindPVPReadyKey(DWORD dwSrcVID, DWORD dwDstVID);
-		static bool __FindGVGKey(DWORD dwSrcGuildID, DWORD dwDstGuildID);
+		static bool __FindGVGKey(uint64_t dwSrcGuildID, uint64_t dwDstGuildID);
 		static bool __FindDUELKey(DWORD dwSrcGuildID, DWORD dwDstGuildID);
 
 	protected:

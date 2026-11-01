@@ -134,9 +134,9 @@ void SetGuildSymbolPath(const char * c_szPathName)
 	g_strGuildSymbolPathName += "/";
 }
 
-const char * GetGuildSymbolFileName(DWORD dwGuildID)
+const char * GetGuildSymbolFileName(uint64_t dwGuildID)
 {
-	return _getf("%s%03d.jpg", g_strGuildSymbolPathName.c_str(), dwGuildID);
+	return _getf("%s%03llu.jpg", g_strGuildSymbolPathName.c_str(), static_cast<unsigned long long>(dwGuildID));
 }
 
 BYTE c_aSlotTypeToInvenType[SLOT_TYPE_MAX] =

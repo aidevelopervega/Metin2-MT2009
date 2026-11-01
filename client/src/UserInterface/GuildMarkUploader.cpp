@@ -114,7 +114,7 @@ bool CGuildMarkUploader::__LoadSymbol(const char* c_szFileName, UINT* peError)
 	return true;
 }
 
-bool CGuildMarkUploader::Connect(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, DWORD dwGuildID, const char* c_szFileName, UINT* peError
+bool CGuildMarkUploader::Connect(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, uint64_t dwGuildID, const char* c_szFileName, UINT* peError
 	#ifdef ENABLE_GUILD_TOKEN_AUTH
 	, uint64_t dwGuildToken
 	#endif
@@ -144,7 +144,7 @@ bool CGuildMarkUploader::Connect(const CNetworkAddress& c_rkNetAddr, DWORD dwHan
 	return true;
 }
 
-bool CGuildMarkUploader::ConnectToSendSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, DWORD dwGuildID, const char* c_szFileName, UINT* peError
+bool CGuildMarkUploader::ConnectToSendSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, uint64_t dwGuildID, const char* c_szFileName, UINT* peError
 	#ifdef ENABLE_GUILD_TOKEN_AUTH
 	, uint64_t dwGuildToken
 	#endif

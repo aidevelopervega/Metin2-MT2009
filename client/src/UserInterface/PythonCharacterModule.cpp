@@ -845,7 +845,7 @@ PyObject * chrGetGuildID(PyObject* poSelf, PyObject* poArgs)
 	if (!pInstance)
 		return Py_BuildValue("i", 0);
 
-	return Py_BuildValue("i", pInstance->GetGuildID());
+	return PyLong_FromUnsignedLongLong(pInstance->GetGuildID());
 }
 
 PyObject * chrGetProjectPosition(PyObject* poSelf, PyObject* poArgs)

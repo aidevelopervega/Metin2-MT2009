@@ -371,7 +371,7 @@ void CPythonNetworkStream::__DownloadMark()
 	rkGuildMarkDownloader.Connect(m_kMarkAuth.m_kNetAddr, m_kMarkAuth.m_dwHandle, m_kMarkAuth.m_dwRandomKey);
 }
 
-void CPythonNetworkStream::__DownloadSymbol(const std::vector<DWORD> & c_rkVec_dwGuildID)
+void CPythonNetworkStream::__DownloadSymbol(const std::vector<uint64_t> & c_rkVec_dwGuildID)
 {
 	CGuildMarkDownloader& rkGuildMarkDownloader=CGuildMarkDownloader::Instance();
 	rkGuildMarkDownloader.ConnectToRecvSymbol(m_kMarkAuth.m_kNetAddr, m_kMarkAuth.m_dwHandle, m_kMarkAuth.m_dwRandomKey, c_rkVec_dwGuildID);

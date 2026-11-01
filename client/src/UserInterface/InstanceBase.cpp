@@ -549,7 +549,7 @@ DWORD CInstanceBase::GetEmpireID()
 	return m_dwEmpireID;
 }
 
-DWORD CInstanceBase::GetGuildID()
+uint64_t CInstanceBase::GetGuildID()
 {
 	return m_dwGuildID;
 }
@@ -1169,7 +1169,7 @@ void CInstanceBase::OnMoving()
 	m_GraphicThingInstance.__OnMoving();
 }
 
-void CInstanceBase::ChangeGuild(DWORD dwGuildID)
+void CInstanceBase::ChangeGuild(uint64_t dwGuildID)
 {
 	m_dwGuildID=dwGuildID;
 

@@ -10,7 +10,7 @@ class CGuildMarkDownloader : public CNetworkStream, public CSingleton<CGuildMark
 		virtual ~CGuildMarkDownloader();
 
 		bool Connect(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey);
-		bool ConnectToRecvSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, const std::vector<DWORD> & c_rkVec_dwGuildID);
+		bool ConnectToRecvSymbol(const CNetworkAddress& c_rkNetAddr, DWORD dwHandle, DWORD dwRandomKey, const std::vector<uint64_t> & c_rkVec_dwGuildID);
 
 		void Process();
 
@@ -65,7 +65,7 @@ class CGuildMarkDownloader : public CNetworkStream, public CSingleton<CGuildMark
 		DWORD m_dwRandomKey;
 		DWORD m_dwTodo;
 
-		std::vector<DWORD> m_kVec_dwGuildID;
+		std::vector<uint64_t> m_kVec_dwGuildID;
 
 		UINT m_eState;
 

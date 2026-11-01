@@ -71,7 +71,7 @@ class CPythonTextTail : public CSingleton<CPythonTextTail>
 		void ShowCharacterTextTail(DWORD VirtualID);
 		void ShowItemTextTail(DWORD VirtualID);
 
-		void RegisterCharacterTextTail(DWORD dwGuildID, DWORD dwVirtualID, const D3DXCOLOR & c_rColor, float fAddHeight=10.0f, bool bLarge=false);
+		void RegisterCharacterTextTail(uint64_t dwGuildID, DWORD dwVirtualID, const D3DXCOLOR & c_rColor, float fAddHeight=10.0f, bool bLarge=false);
 		void RegisterItemTextTail(DWORD VirtualID, const char * c_szText, CGraphicObjectInstance * pOwner, ITEM_COUNT count=0, bool bIsAttr = false);
 		void RegisterChatTail(DWORD VirtualID, const char * c_szChat);
 		void RegisterInfoTail(DWORD VirtualID, const char * c_szChat);

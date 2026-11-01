@@ -384,7 +384,7 @@ typedef struct command_mark_login
 typedef struct command_mark_upload
 {
     BYTE    header;
-    DWORD   gid;
+    uint64_t gid;
     BYTE    image[16*12*4];
 #ifdef ENABLE_GUILD_TOKEN_AUTH
     uint64_t	token;
@@ -422,7 +422,7 @@ typedef struct command_symbol_upload
 {
 	BYTE	header;
 	WORD	size;
-	DWORD	handle;
+	uint64_t	handle;
 #ifdef ENABLE_GUILD_TOKEN_AUTH
 	uint64_t	token;
 #endif
@@ -431,7 +431,7 @@ typedef struct command_symbol_upload
 typedef struct command_symbol_crc
 {
 	BYTE	header;
-	DWORD	dwGuildID;
+	uint64_t	dwGuildID;
 	DWORD	dwCRC;
 	DWORD	dwSize;
 } TPacketCGSymbolCRC;
@@ -440,7 +440,7 @@ typedef struct packet_symbol_data
 {
     BYTE header;
     WORD size;
-    DWORD guild_id;
+    uint64_t guild_id;
 } TPacketGCGuildSymbolData;
 
 //
@@ -2111,7 +2111,7 @@ typedef struct packet_guild_sub_grade
 
 typedef struct packet_guild_sub_member
 {
-	DWORD pid;
+	uint64_t pid;
 	BYTE byGrade;
 	BYTE byIsGeneral;
 	BYTE byJob;
@@ -2126,8 +2126,8 @@ typedef struct packet_guild_sub_info
 {
     WORD member_count;
     WORD max_member_count;
-	DWORD guild_id;
-    DWORD master_pid;
+	uint64_t guild_id;
+    uint64_t master_pid;
     DWORD exp;
     BYTE level;
     char name[GUILD_NAME_MAX_LEN+1];
@@ -2137,16 +2137,16 @@ typedef struct packet_guild_sub_info
 
 typedef struct packet_guild_war
 {
-    DWORD       dwGuildSelf;
-    DWORD       dwGuildOpp;
+    uint64_t    dwGuildSelf;
+    uint64_t    dwGuildOpp;
     BYTE        bType;
     BYTE        bWarState;
 } TPacketGCGuildWar;
 
 typedef struct SPacketGuildWarPoint
 {
-    DWORD dwGainGuildID;
-    DWORD dwOpponentGuildID;
+    uint64_t dwGainGuildID;
+    uint64_t dwOpponentGuildID;
     long lPoint;
 } TPacketGuildWarPoint;
 
@@ -2319,7 +2319,7 @@ typedef struct SLandPacketElement
     DWORD       dwID;
     long        x, y;
     long        width, height;
-    DWORD       dwGuildID;
+    uint64_t    dwGuildID;
 } TLandPacketElement;
 
 typedef struct packet_land_list
@@ -3342,9 +3342,9 @@ struct TSubPacketGCCaptchaGMFeedback
 struct TPacketGCGamemasterTarget
 {
 	BYTE header;
-	DWORD pid;
+	uint64_t pid;
 	char playerName[PLAYER_NAME_MAX_LEN + 1];
-	DWORD aid;
+	uint64_t aid;
 	char accountName[CHARACTER_NAME_MAX_LEN + 1];
 	bool isPremium;
 };
@@ -3416,6 +3416,42 @@ static_assert(sizeof(TPacketGCCharacterUpdate) == 48, "TPacketGCCharacterUpdate 
 static_assert(offsetof(TPacketGCCharacterUpdate, dwGuildID) == 32, "TPacketGCCharacterUpdate::dwGuildID offset mismatch");
 static_assert(offsetof(TPacketGCCharacterUpdate, bLevel) == 40, "TPacketGCCharacterUpdate::bLevel offset mismatch");
 #endif
+
+static_assert(sizeof(TPacketGCGuildSubMember) == 17, "TPacketGCGuildSubMember size mismatch");
+static_assert(offsetof(TPacketGCGuildSubMember, pid) == 0, "TPacketGCGuildSubMember::pid offset mismatch");
+static_assert(offsetof(TPacketGCGuildSubMember, dwOffer) == 12, "TPacketGCGuildSubMember::dwOffer offset mismatch");
+static_assert(offsetof(TPacketGCGuildSubMember, byNameFlag) == 16, "TPacketGCGuildSubMember::byNameFlag offset mismatch");
+
+static_assert(sizeof(TPacketGCGuildInfo) == 49, "TPacketGCGuildInfo size mismatch");
+static_assert(offsetof(TPacketGCGuildInfo, guild_id) == 4, "TPacketGCGuildInfo::guild_id offset mismatch");
+static_assert(offsetof(TPacketGCGuildInfo, master_pid) == 12, "TPacketGCGuildInfo::master_pid offset mismatch");
+static_assert(offsetof(TPacketGCGuildInfo, gold) == 40, "TPacketGCGuildInfo::gold offset mismatch");
+static_assert(offsetof(TPacketGCGuildInfo, hasLand) == 48, "TPacketGCGuildInfo::hasLand offset mismatch");
+
+static_assert(sizeof(TPacketGCGuildWar) == 18, "TPacketGCGuildWar size mismatch");
+static_assert(offsetof(TPacketGCGuildWar, dwGuildOpp) == 8, "TPacketGCGuildWar::dwGuildOpp offset mismatch");
+static_assert(offsetof(TPacketGCGuildWar, bType) == 16, "TPacketGCGuildWar::bType offset mismatch");
+
+static_assert(sizeof(TPacketGuildWarPoint) == 20, "TPacketGuildWarPoint size mismatch");
+static_assert(offsetof(TPacketGuildWarPoint, dwOpponentGuildID) == 8, "TPacketGuildWarPoint::dwOpponentGuildID offset mismatch");
+static_assert(offsetof(TPacketGuildWarPoint, lPoint) == 16, "TPacketGuildWarPoint::lPoint offset mismatch");
+
+static_assert(sizeof(TPacketCGSymbolCRC) == 17, "TPacketCGSymbolCRC size mismatch");
+static_assert(offsetof(TPacketCGSymbolCRC, dwGuildID) == 1, "TPacketCGSymbolCRC::dwGuildID offset mismatch");
+static_assert(offsetof(TPacketCGSymbolCRC, dwCRC) == 9, "TPacketCGSymbolCRC::dwCRC offset mismatch");
+
+static_assert(sizeof(TPacketGCGuildSymbolData) == 11, "TPacketGCGuildSymbolData size mismatch");
+static_assert(offsetof(TPacketGCGuildSymbolData, guild_id) == 3, "TPacketGCGuildSymbolData::guild_id offset mismatch");
+
+static_assert(sizeof(TLandPacketElement) == 28, "TLandPacketElement size mismatch");
+static_assert(offsetof(TLandPacketElement, dwGuildID) == 20, "TLandPacketElement::dwGuildID offset mismatch");
+
+static_assert(sizeof(TPacketGCGamemasterTarget) == 58, "TPacketGCGamemasterTarget size mismatch");
+static_assert(offsetof(TPacketGCGamemasterTarget, pid) == 1, "TPacketGCGamemasterTarget::pid offset mismatch");
+static_assert(offsetof(TPacketGCGamemasterTarget, aid) == 24, "TPacketGCGamemasterTarget::aid offset mismatch");
+static_assert(sizeof(TPacketCGCheckVersion) == 5 && offsetof(TPacketCGCheckVersion, dwVersion) == 1, "TPacketCGCheckVersion layout mismatch");
+static_assert(sizeof(TPacketCGMarkUpload) == 785 && offsetof(TPacketCGMarkUpload, gid) == 1, "TPacketCGMarkUpload layout mismatch");
+static_assert(sizeof(TPacketCGSymbolUpload) == 19 && offsetof(TPacketCGSymbolUpload, handle) == 3, "TPacketCGSymbolUpload layout mismatch");
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 
 // Files shared by GameCore.top

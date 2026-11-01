@@ -261,7 +261,7 @@ CResource* LargeFont_GetResource();
 // END_OF_DEFAULT_FONT
 
 void SetGuildSymbolPath(const char * c_szPathName);
-const char * GetGuildSymbolFileName(DWORD dwGuildID);
+const char * GetGuildSymbolFileName(uint64_t dwGuildID);
 BYTE SlotTypeToInvenType(BYTE bSlotType);
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

@@ -3426,7 +3426,7 @@ bool CPythonNetworkStream::SendGuildAddMemberPacket(DWORD dwVID)
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildRemoveMemberPacket(DWORD dwPID)
+bool CPythonNetworkStream::SendGuildRemoveMemberPacket(uint64_t dwPID)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3542,7 +3542,7 @@ bool CPythonNetworkStream::SendGuildRefreshCommentsPacket(DWORD dwHighestIndex)
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildChangeMemberGradePacket(DWORD dwPID, BYTE byGrade)
+bool CPythonNetworkStream::SendGuildChangeMemberGradePacket(uint64_t dwPID, BYTE byGrade)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3559,7 +3559,7 @@ bool CPythonNetworkStream::SendGuildChangeMemberGradePacket(DWORD dwPID, BYTE by
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildUseSkillPacket(DWORD dwSkillID, DWORD dwTargetVID)
+bool CPythonNetworkStream::SendGuildUseSkillPacket(DWORD dwSkillID, uint64_t dwTargetVID)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3576,7 +3576,7 @@ bool CPythonNetworkStream::SendGuildUseSkillPacket(DWORD dwSkillID, DWORD dwTarg
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildChangeMemberGeneralPacket(DWORD dwPID, BYTE byFlag)
+bool CPythonNetworkStream::SendGuildChangeMemberGeneralPacket(uint64_t dwPID, BYTE byFlag)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3593,7 +3593,7 @@ bool CPythonNetworkStream::SendGuildChangeMemberGeneralPacket(DWORD dwPID, BYTE 
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildInviteAnswerPacket(DWORD dwGuildID, BYTE byAnswer)
+bool CPythonNetworkStream::SendGuildInviteAnswerPacket(uint64_t dwGuildID, BYTE byAnswer)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3625,7 +3625,7 @@ bool CPythonNetworkStream::SendGuildChargeGSPPacket(DWORD dwMoney)
 	return SendSequence();
 }
 
-bool CPythonNetworkStream::SendGuildDepositMoneyPacket(DWORD dwMoney)
+bool CPythonNetworkStream::SendGuildDepositMoneyPacket(YANG dwMoney)
 {
 	TPacketCGGuild GuildPacket;
 	GuildPacket.byHeader = HEADER_CG_GUILD;
@@ -3663,8 +3663,8 @@ bool CPythonNetworkStream::RecvGuild()
 	{
 		case GUILD_SUBHEADER_GC_LOGIN:
 		{
-			DWORD dwPID;
-			if (!Recv(sizeof(DWORD), &dwPID))
+			uint64_t dwPID;
+			if (!Recv(sizeof(dwPID), &dwPID))
 				return false;
 
 			// Messenger
@@ -3678,8 +3678,8 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_LOGOUT:
 		{
-			DWORD dwPID;
-			if (!Recv(sizeof(DWORD), &dwPID))
+			uint64_t dwPID;
+			if (!Recv(sizeof(dwPID), &dwPID))
 				return false;
 
 			// Messenger
@@ -3693,7 +3693,7 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_REMOVE:
 		{
-			DWORD dwPID;
+			uint64_t dwPID;
 			if (!Recv(sizeof(dwPID), &dwPID))
 				return false;
 
@@ -3910,7 +3910,7 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_CHANGE_MEMBER_GRADE:
 		{
-			DWORD dwPID;
+			uint64_t dwPID;
 			if (!Recv(sizeof(dwPID), &dwPID))
 				return false;
 			BYTE byGrade;
@@ -3939,7 +3939,7 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_CHANGE_MEMBER_GENERAL:
 		{
-			DWORD dwPID;
+			uint64_t dwPID;
 			if (!Recv(sizeof(dwPID), &dwPID))
 				return false;
 			BYTE byFlag;
@@ -3953,7 +3953,7 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_GUILD_INVITE:
 		{
-			DWORD dwGuildID;
+			uint64_t dwGuildID;
 			if (!Recv(sizeof(dwGuildID), &dwGuildID))
 				return false;
 			char szGuildName[GUILD_NAME_MAX_LEN+1];
@@ -3962,7 +3962,7 @@ bool CPythonNetworkStream::RecvGuild()
 
 			szGuildName[GUILD_NAME_MAX_LEN] = 0;
 
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "RecvGuildInviteQuestion", Py_BuildValue("(is)", dwGuildID, szGuildName));
+			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "RecvGuildInviteQuestion", Py_BuildValue("(Ks)", static_cast<unsigned long long>(dwGuildID), szGuildName));
 			Tracef(" <Guild Invite> %d, %s\n", dwGuildID, szGuildName);
 			break;
 		}
@@ -3978,21 +3978,21 @@ bool CPythonNetworkStream::RecvGuild()
 					Tracef(" >> GUILD_SUBHEADER_GC_WAR : GUILD_WAR_SEND_DECLARE\n");
 					PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 						"BINARY_GuildWar_OnSendDeclare",
-						Py_BuildValue("(i)", kGuildWar.dwGuildOpp)
+						Py_BuildValue("(K)", static_cast<unsigned long long>(kGuildWar.dwGuildOpp))
 					);
 					break;
 				case GUILD_WAR_RECV_DECLARE:
 					Tracef(" >> GUILD_SUBHEADER_GC_WAR : GUILD_WAR_RECV_DECLARE\n");
 					PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 						"BINARY_GuildWar_OnRecvDeclare",
-						Py_BuildValue("(ii)", kGuildWar.dwGuildOpp, kGuildWar.bType)
+						Py_BuildValue("(Ki)", static_cast<unsigned long long>(kGuildWar.dwGuildOpp), kGuildWar.bType)
 					);
 					break;
 				case GUILD_WAR_ON_WAR:
 					Tracef(" >> GUILD_SUBHEADER_GC_WAR : GUILD_WAR_ON_WAR : %d, %d\n", kGuildWar.dwGuildSelf, kGuildWar.dwGuildOpp);
 					PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 						"BINARY_GuildWar_OnStart",
-						Py_BuildValue("(ii)", kGuildWar.dwGuildSelf, kGuildWar.dwGuildOpp)
+						Py_BuildValue("(KK)", static_cast<unsigned long long>(kGuildWar.dwGuildSelf), static_cast<unsigned long long>(kGuildWar.dwGuildOpp))
 					);
 					CPythonGuild::Instance().StartGuildWar(kGuildWar.dwGuildOpp);
 					break;
@@ -4000,7 +4000,7 @@ bool CPythonNetworkStream::RecvGuild()
 					Tracef(" >> GUILD_SUBHEADER_GC_WAR : GUILD_WAR_END\n");
 					PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 						"BINARY_GuildWar_OnEnd",
-						Py_BuildValue("(ii)", kGuildWar.dwGuildSelf, kGuildWar.dwGuildOpp)
+						Py_BuildValue("(KK)", static_cast<unsigned long long>(kGuildWar.dwGuildSelf), static_cast<unsigned long long>(kGuildWar.dwGuildOpp))
 					);
 					CPythonGuild::Instance().EndGuildWar(kGuildWar.dwGuildOpp);
 					break;
@@ -4009,7 +4009,7 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_GUILD_NAME:
 		{
-			DWORD dwID;
+			uint64_t dwID;
 			char szGuildName[GUILD_NAME_MAX_LEN+1];
 
 			int iPacketSize = int(GuildPacket.size) - sizeof(GuildPacket);
@@ -4036,8 +4036,8 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_GUILD_WAR_LIST:
 		{
-			DWORD dwSrcGuildID;
-			DWORD dwDstGuildID;
+			uint64_t dwSrcGuildID;
+			uint64_t dwDstGuildID;
 
 			int iPacketSize = int(GuildPacket.size) - sizeof(GuildPacket);
 			int nItemSize = sizeof(dwSrcGuildID) + sizeof(dwDstGuildID);
@@ -4061,8 +4061,8 @@ bool CPythonNetworkStream::RecvGuild()
 		}
 		case GUILD_SUBHEADER_GC_GUILD_WAR_END_LIST:
 		{
-			DWORD dwSrcGuildID;
-			DWORD dwDstGuildID;
+			uint64_t dwSrcGuildID;
+			uint64_t dwDstGuildID;
 
 			int iPacketSize = int(GuildPacket.size) - sizeof(GuildPacket);
 			int nItemSize = sizeof(dwSrcGuildID) + sizeof(dwDstGuildID);
@@ -4092,13 +4092,13 @@ bool CPythonNetworkStream::RecvGuild()
 
 			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME],
 				"BINARY_GuildWar_OnRecvPoint",
-				Py_BuildValue("(iii)", GuildWarPoint.dwGainGuildID, GuildWarPoint.dwOpponentGuildID, GuildWarPoint.lPoint)
+				Py_BuildValue("(KKi)", static_cast<unsigned long long>(GuildWarPoint.dwGainGuildID), static_cast<unsigned long long>(GuildWarPoint.dwOpponentGuildID), GuildWarPoint.lPoint)
 			);
 			break;
 		}
 		case GUILD_SUBHEADER_GC_MONEY_CHANGE:
 		{
-			DWORD dwMoney;
+			YANG dwMoney;
 			if (!Recv(sizeof(dwMoney), &dwMoney))
 				return false;
 
@@ -4126,8 +4126,8 @@ bool CPythonNetworkStream::SendFishingPacket(int iRotation)
 #endif
 	TPacketCGSendFishing packet{};
 	packet.header = HEADER_CG_FISHING;
-	packet.focusHWND = reinterpret_cast<DWORD>(GetFocus());
-	packet.pythonApplicationHWND = reinterpret_cast<DWORD>(CPythonApplication::Instance().GetWindowHandle());
+	packet.focusHWND = static_cast<DWORD>(reinterpret_cast<uintptr_t>(GetFocus()));
+	packet.pythonApplicationHWND = static_cast<DWORD>(reinterpret_cast<uintptr_t>(CPythonApplication::Instance().GetWindowHandle()));
 	packet.dir = iRotation / 5;
 	const bool result = Send(sizeof(packet), &packet);
 #ifdef __THEMIDA__
@@ -4651,7 +4651,7 @@ bool CPythonNetworkStream::RecvLandPacket()
 	if (!Recv(sizeof(kLandList), &kLandList))
 		return false;
 
-	std::vector<DWORD> kVec_dwGuildID;
+	std::vector<uint64_t> kVec_dwGuildID;
 
 	CPythonMiniMap & rkMiniMap = CPythonMiniMap::Instance();
 	CPythonBackground & rkBG = CPythonBackground::Instance();
@@ -5073,8 +5073,8 @@ bool CPythonNetworkStream::RecvGamemasterTarget()
 	if (!Recv(sizeof(kPacket), &kPacket))
 		return false;
 
-	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenGameMasterTarget", Py_BuildValue("(isisi)",
-		kPacket.pid, kPacket.playerName, kPacket.aid, kPacket.accountName, kPacket.isPremium));
+	PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_OpenGameMasterTarget", Py_BuildValue("(KsKsi)",
+		static_cast<unsigned long long>(kPacket.pid), kPacket.playerName, static_cast<unsigned long long>(kPacket.aid), kPacket.accountName, kPacket.isPremium));
 
 	return true;
 }

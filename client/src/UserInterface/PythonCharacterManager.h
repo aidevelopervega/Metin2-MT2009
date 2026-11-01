@@ -34,7 +34,7 @@ class CPythonCharacterManager : public CSingleton<CPythonCharacterManager>, publ
 
 		void InsertPVPKey(DWORD dwVIDSrc, DWORD dwVIDDst);
 		void RemovePVPKey(DWORD dwVIDSrc, DWORD dwVIDDst);
-		void ChangeGVG(DWORD dwSrcGuildID, DWORD dwDstGuildID);
+		void ChangeGVG(uint64_t dwSrcGuildID, uint64_t dwDstGuildID);
 
 		void GetInfo(std::string* pstInfo);
 

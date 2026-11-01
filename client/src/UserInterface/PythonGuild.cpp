@@ -10,7 +10,7 @@ void CPythonGuild::EnableGuild()
 	m_bGuildEnable = TRUE;
 }
 
-void CPythonGuild::SetGuildMoney(DWORD dwMoney)
+void CPythonGuild::SetGuildMoney(YANG dwMoney)
 {
 	m_GuildInfo.dwGuildMoney = dwMoney;
 }
@@ -83,13 +83,13 @@ void CPythonGuild::RegisterMember(TGuildMemberData & rGuildMemberData)
 
 struct CPythonGuild_FFindGuildMemberByPID
 {
-	CPythonGuild_FFindGuildMemberByPID(DWORD dwSearchingPID_) : dwSearchingPID(dwSearchingPID_) {}
+	CPythonGuild_FFindGuildMemberByPID(uint64_t dwSearchingPID_) : dwSearchingPID(dwSearchingPID_) {}
 	int operator () (CPythonGuild::TGuildMemberData & rGuildMemberData)
 	{
 		return rGuildMemberData.dwPID == dwSearchingPID;
 	}
 
-	DWORD dwSearchingPID;
+	uint64_t dwSearchingPID;
 };
 
 struct CPythonGuild_FFindGuildMemberByName
@@ -103,7 +103,7 @@ struct CPythonGuild_FFindGuildMemberByName
 	std::string strSearchingName;
 };
 
-void CPythonGuild::ChangeGuildMemberGrade(DWORD dwPID, BYTE byGrade)
+void CPythonGuild::ChangeGuildMemberGrade(uint64_t dwPID, BYTE byGrade)
 {
 	TGuildMemberData * pGuildMemberData;
 	if (!GetMemberDataPtrByPID(dwPID, &pGuildMemberData))
@@ -112,7 +112,7 @@ void CPythonGuild::ChangeGuildMemberGrade(DWORD dwPID, BYTE byGrade)
 	pGuildMemberData->byGrade = byGrade;
 }
 
-void CPythonGuild::ChangeGuildMemberGeneralFlag(DWORD dwPID, BYTE byFlag)
+void CPythonGuild::ChangeGuildMemberGeneralFlag(uint64_t dwPID, BYTE byFlag)
 {
 	TGuildMemberData * pGuildMemberData;
 	if (!GetMemberDataPtrByPID(dwPID, &pGuildMemberData))
@@ -121,7 +121,7 @@ void CPythonGuild::ChangeGuildMemberGeneralFlag(DWORD dwPID, BYTE byFlag)
 	pGuildMemberData->byGeneralFlag = byFlag;
 }
 
-void CPythonGuild::RemoveMember(DWORD dwPID)
+void CPythonGuild::RemoveMember(uint64_t dwPID)
 {
 	TGuildMemberDataVector::iterator itor;
 	itor = std::find_if(	m_GuildMemberDataVector.begin(),
@@ -139,7 +139,7 @@ void CPythonGuild::RegisterGuildName(uint64_t dwID, const char * c_szName)
 	m_GuildNameMap.insert(make_pair(dwID, std::string(c_szName)));
 }
 
-BOOL CPythonGuild::IsMainPlayer(DWORD dwPID)
+BOOL CPythonGuild::IsMainPlayer(uint64_t dwPID)
 {
 	TGuildMemberData * pGuildMemberData;
 	if (!GetMemberDataPtrByPID(dwPID, &pGuildMemberData))
@@ -190,7 +190,7 @@ BOOL CPythonGuild::GetMemberDataPtr(DWORD dwIndex, TGuildMemberData ** ppData)
 	return TRUE;
 }
 
-BOOL CPythonGuild::GetMemberDataPtrByPID(DWORD dwPID, TGuildMemberData ** ppData)
+BOOL CPythonGuild::GetMemberDataPtrByPID(uint64_t dwPID, TGuildMemberData ** ppData)
 {
 	TGuildMemberDataVector::iterator itor;
 	itor = std::find_if(	m_GuildMemberDataVector.begin(),
@@ -248,7 +248,7 @@ bool CPythonGuild::GetGuildName(uint64_t dwID, std::string * pstrGuildName)
 	return true;
 }
 
-DWORD CPythonGuild::GetGuildID()
+uint64_t CPythonGuild::GetGuildID()
 {
 	return m_GuildInfo.dwGuildID;
 }
@@ -258,7 +258,7 @@ BOOL CPythonGuild::HasGuildLand()
 	return m_GuildInfo.bHasLand;
 }
 
-void CPythonGuild::StartGuildWar(DWORD dwEnemyGuildID)
+void CPythonGuild::StartGuildWar(uint64_t dwEnemyGuildID)
 {
 	int i;
 
@@ -274,14 +274,14 @@ void CPythonGuild::StartGuildWar(DWORD dwEnemyGuildID)
 		}
 }
 
-void CPythonGuild::EndGuildWar(DWORD dwEnemyGuildID)
+void CPythonGuild::EndGuildWar(uint64_t dwEnemyGuildID)
 {
 	for (int i = 0; i < ENEMY_GUILD_SLOT_MAX_COUNT; ++i)
 		if (dwEnemyGuildID == m_adwEnemyGuildID[i])
 			m_adwEnemyGuildID[i] = 0;
 }
 
-DWORD CPythonGuild::GetEnemyGuildID(DWORD dwIndex)
+uint64_t CPythonGuild::GetEnemyGuildID(DWORD dwIndex)
 {
 	if (dwIndex >= ENEMY_GUILD_SLOT_MAX_COUNT)
 		return 0;
@@ -349,7 +349,7 @@ void CPythonGuild::__Initialize()
 {
 	ZeroMemory(&m_GuildInfo, sizeof(m_GuildInfo));
 	ZeroMemory(&m_GuildSkillData, sizeof(m_GuildSkillData));
-	ZeroMemory(&m_adwEnemyGuildID, ENEMY_GUILD_SLOT_MAX_COUNT*sizeof(DWORD));
+	ZeroMemory(&m_adwEnemyGuildID, sizeof(m_adwEnemyGuildID));
 	m_GradeDataMap.clear();
 	m_GuildMemberDataVector.clear();
 	m_dwMemberLevelSummary = 0;
@@ -382,7 +382,7 @@ PyObject * guildIsGuildEnable(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * guildGetGuildID(PyObject * poSelf, PyObject * poArgs)
 {
-	return Py_BuildValue("i", CPythonGuild::Instance().GetGuildID());
+	return PyLong_FromUnsignedLongLong(CPythonGuild::Instance().GetGuildID());
 }
 
 PyObject * guildHasGuildLand(PyObject * poSelf, PyObject * poArgs)
@@ -392,8 +392,8 @@ PyObject * guildHasGuildLand(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * guildGetGuildName(PyObject * poSelf, PyObject * poArgs)
 {
-	int iGuildID;
-	if (!PyTuple_GetInteger(poArgs, 0, &iGuildID))
+	unsigned long long iGuildID = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &iGuildID))
 	{
 		CPythonGuild::TGuildInfo & rGuildInfo = CPythonGuild::Instance().GetGuildInfoRef();
 		return Py_BuildValue("s", rGuildInfo.szGuildName);
@@ -423,7 +423,7 @@ PyObject * guildGetEnemyGuildName(PyObject * poSelf, PyObject * poArgs)
 	if (!PyTuple_GetInteger(poArgs, 0, &iIndex))
 		return Py_BuildValue("s", "");
 
-	DWORD dwEnemyGuildID = CPythonGuild::Instance().GetEnemyGuildID(iIndex);
+	uint64_t dwEnemyGuildID = CPythonGuild::Instance().GetEnemyGuildID(iIndex);
 
 	std::string strEnemyGuildName;
 	if (!CPythonGuild::Instance().GetGuildName(dwEnemyGuildID, &strEnemyGuildName))
@@ -435,7 +435,7 @@ PyObject * guildGetEnemyGuildName(PyObject * poSelf, PyObject * poArgs)
 PyObject * guildGetGuildMoney(PyObject * poSelf, PyObject * poArgs)
 {
 	CPythonGuild::TGuildInfo & rGuildInfo = CPythonGuild::Instance().GetGuildInfoRef();
-	return Py_BuildValue("i", rGuildInfo.dwGuildMoney);
+	return PyLong_FromLongLong(rGuildInfo.dwGuildMoney);
 }
 
 PyObject * guildGetGuildBoardCommentCount(PyObject * poSelf, PyObject * poArgs)
@@ -629,7 +629,7 @@ PyObject * guildGetMemberData(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonGuild::Instance().GetMemberDataPtr(iIndex, &pData))
 		return Py_BuildValue("isiiiii", -1, "", 0, 0, 0, 0, 0);
 
-	return Py_BuildValue("isiiiii", pData->dwPID, pData->strName.c_str(), pData->byGrade, pData->byJob, pData->byLevel, pData->dwOffer, pData->byGeneralFlag);
+	return Py_BuildValue("Ksiiiii", static_cast<unsigned long long>(pData->dwPID), pData->strName.c_str(), pData->byGrade, pData->byJob, pData->byLevel, pData->dwOffer, pData->byGeneralFlag);
 }
 
 PyObject * guildMemberIndexToPID(PyObject * poSelf, PyObject * poArgs)
@@ -642,7 +642,7 @@ PyObject * guildMemberIndexToPID(PyObject * poSelf, PyObject * poArgs)
 	if (!CPythonGuild::Instance().GetMemberDataPtr(iIndex, &pData))
 		return Py_BuildValue("i", -1);
 
-	return Py_BuildValue("i", pData->dwPID);
+	return PyLong_FromUnsignedLongLong(pData->dwPID);
 }
 
 PyObject * guildIsMember(PyObject * poSelf, PyObject * poArgs)
@@ -700,8 +700,8 @@ PyObject * guildDestroy(PyObject * poSelf, PyObject * poArgs)
 
 PyObject * guildGuildIDToMarkID(PyObject * poSelf, PyObject * poArgs)
 {
-	int guild_id;
-	if (!PyTuple_GetInteger(poArgs, 0, &guild_id))
+	unsigned long long guild_id = 0;
+	if (!PyTuple_GetUnsignedLongLong(poArgs, 0, &guild_id))
 		return Py_BuildException();
 
 	return Py_BuildValue("i", CGuildMarkManager::Instance().GetMarkID(guild_id));

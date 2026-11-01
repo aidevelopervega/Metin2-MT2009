@@ -79,14 +79,14 @@ void CPythonCharacterManager::RemovePVPKey(DWORD dwVIDSrc, DWORD dwVIDDst)
 		pkInstDst->RefreshTextTail();
 }
 
-void CPythonCharacterManager::ChangeGVG(DWORD dwSrcGuildID, DWORD dwDstGuildID)
+void CPythonCharacterManager::ChangeGVG(uint64_t dwSrcGuildID, uint64_t dwDstGuildID)
 {
 	TCharacterInstanceMap::iterator itor;
 	for (itor = m_kAliveInstMap.begin(); itor != m_kAliveInstMap.end(); itor++)
 	{
 		CInstanceBase * pInstance = itor->second;
 
-		DWORD dwInstanceGuildID = pInstance->GetGuildID();
+		uint64_t dwInstanceGuildID = pInstance->GetGuildID();
 		if (dwSrcGuildID == dwInstanceGuildID || dwDstGuildID == dwInstanceGuildID)
 		{
 			pInstance->RefreshTextTail();
@@ -121,7 +121,7 @@ void CPythonCharacterManager::GetInfo(std::string* pstInfo)
 	CInstanceBase::GetInfo(pstInfo);
 
 	char szInfo[256];
-	sprintf(szInfo, "Container - Live %d, Dead %d", m_kAliveInstMap.size(), m_kDeadInstList.size());
+	sprintf(szInfo, "Container - Live %zu, Dead %zu", m_kAliveInstMap.size(), m_kDeadInstList.size());
 	pstInfo->append(szInfo);
 }
 

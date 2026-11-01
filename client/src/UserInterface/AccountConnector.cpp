@@ -34,7 +34,7 @@ bool CAccountConnector::Connect(const char * c_szAddr, int iPort, const char * c
 
 	m_strAddr = c_szAddr;
 	m_iPort = iPort;
-	m_dwClientVersion = dwClientVersion;
+	m_dwClientVersion = MT2_PROTOCOL_VERSION_X64;
 
 	__OfflineState_Set();
 
@@ -171,7 +171,7 @@ bool CAccountConnector::__AuthState_RecvPhase()
 
 		TPacketCGCheckVersion checkVersionPacket;
 		checkVersionPacket.header = HEADER_CG_CHECK_VERSION;
-		checkVersionPacket.dwVersion = m_dwClientVersion;
+		checkVersionPacket.dwVersion = MT2_PROTOCOL_VERSION_X64;
 		if (!Send(sizeof(checkVersionPacket), &checkVersionPacket))
 		{
 			Tracen(" CAccountConnector::__AuthState_RecvPhase - CheckVersionPacket Error");
@@ -520,7 +520,7 @@ CAccountConnector::CAccountConnector()
 	m_poHandler = NULL;
 	m_strAddr = "";
 	m_iPort = 0;
-	m_dwClientVersion = 0;
+	m_dwClientVersion = MT2_PROTOCOL_VERSION_X64;
 
 	SetLoginInfo("", "");
 	SetRecvBufferSize(1024 * 128);

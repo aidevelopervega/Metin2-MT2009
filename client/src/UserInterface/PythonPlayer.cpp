@@ -239,18 +239,18 @@ void CPythonPlayer::__Update_NotifyGuildAreaEvent()
 		TPixelPosition kPixelPosition;
 		pkInstMain->NEW_GetPixelPosition(&kPixelPosition);
 
-		DWORD dwAreaID = CPythonMiniMap::Instance().GetGuildAreaID(
+		uint64_t dwAreaID = CPythonMiniMap::Instance().GetGuildAreaID(
 			ULONG(kPixelPosition.x), ULONG(kPixelPosition.y));
 
 		if (dwAreaID != m_inGuildAreaID)
 		{
 			if (0xffffffff != dwAreaID)
 			{
-				PyCallClassMemberFunc(m_ppyGameWindow, "BINARY_Guild_EnterGuildArea", Py_BuildValue("(i)", dwAreaID));
+				PyCallClassMemberFunc(m_ppyGameWindow, "BINARY_Guild_EnterGuildArea", Py_BuildValue("(K)", static_cast<unsigned long long>(dwAreaID)));
 			}
 			else
 			{
-				PyCallClassMemberFunc(m_ppyGameWindow, "BINARY_Guild_ExitGuildArea", Py_BuildValue("(i)", dwAreaID));
+				PyCallClassMemberFunc(m_ppyGameWindow, "BINARY_Guild_ExitGuildArea", Py_BuildValue("(K)", static_cast<unsigned long long>(dwAreaID)));
 			}
 
 			m_inGuildAreaID = dwAreaID;
@@ -280,7 +280,7 @@ bool CPythonPlayer::IsMainCharacterIndex(DWORD dwIndex)
 	return (m_dwMainCharacterIndex == dwIndex);
 }
 
-DWORD CPythonPlayer::GetGuildID()
+uint64_t CPythonPlayer::GetGuildID()
 {
 	CInstanceBase* pkInstMain=NEW_GetMainActorPtr();
 	if (!pkInstMain)

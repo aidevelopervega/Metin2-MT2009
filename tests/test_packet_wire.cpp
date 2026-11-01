@@ -1535,6 +1535,69 @@ int main()
                             std::strstr(logHintBuf, "gold=999999999999") != nullptr &&
                             std::strstr(logHintBuf, "start=2208988800") != nullptr,
                     "M-08 [HANDOFF-H6]: LogManager & char_item/priv_manager/over9refine/shopEx format >2^53 ITEM_ID, >2^32 GUILD_ID, GOLD_MAX-1, and post-2038 time_t without truncation");
+                // F10: Client-Server Login, Character & Guild 64-bit ID End-to-End Wire Contract
+                static_assert(sizeof(TPacketCGCheckVersion) == 5 && offsetof(TPacketCGCheckVersion, dwVersion) == 1, "TPacketCGCheckVersion layout mismatch");
+                static_assert(sizeof(TPacketGCLoginFailure) == 10, "TPacketGCLoginFailure size mismatch");
+                static_assert(sizeof(TPacketGCPlayerCreateSuccess) == 73 && offsetof(TPacketGCPlayerCreateSuccess, player) == 2, "TPacketGCPlayerCreateSuccess layout mismatch");
+                static_assert(sizeof(TPacketGCLoginSuccess) == 385 && offsetof(TPacketGCLoginSuccess, guild_id) == 285 && offsetof(TPacketGCLoginSuccess, handle) == 377, "TPacketGCLoginSuccess layout mismatch");
+                static_assert(sizeof(TPacketGCCharacterAdditionalInfo) == 66 && offsetof(TPacketGCCharacterAdditionalInfo, dwGuildID) == 47, "TPacketGCCharacterAdditionalInfo layout mismatch");
+                static_assert(sizeof(TPacketGCCharacterUpdate) == 48 && offsetof(TPacketGCCharacterUpdate, dwGuildID) == 32, "TPacketGCCharacterUpdate layout mismatch");
+                static_assert(sizeof(TPacketGCChangeName) == 34 && offsetof(TPacketGCChangeName, pid) == 1, "TPacketGCChangeName layout mismatch");
+                static_assert(sizeof(TPacketGCGuildName) == 26 && offsetof(TPacketGCGuildName, guildID) == 4, "TPacketGCGuildName layout mismatch");
+                static_assert(sizeof(TPacketGCGuildWar) == 18 && offsetof(TPacketGCGuildWar, dwGuildOpp) == 8, "TPacketGCGuildWar layout mismatch");
+                static_assert(sizeof(TPacketCGGuildUseSkill) == 12 && offsetof(TPacketCGGuildUseSkill, dwPID) == 4, "TPacketCGGuildUseSkill layout mismatch");
+                static_assert(sizeof(TPacketCGMarkUpload) == 785 && offsetof(TPacketCGMarkUpload, gid) == 1, "TPacketCGMarkUpload layout mismatch");
+                static_assert(sizeof(TPacketCGGuildSymbolUpload) == 19 && offsetof(TPacketCGGuildSymbolUpload, guild_id) == 3, "TPacketCGGuildSymbolUpload layout mismatch");
+                static_assert(sizeof(TPacketCGSymbolCRC) == 17 && offsetof(TPacketCGSymbolCRC, guild_id) == 1, "TPacketCGSymbolCRC layout mismatch");
+                static_assert(sizeof(TPacketGCGuildSymbolData) == 11 && offsetof(TPacketGCGuildSymbolData, guild_id) == 3, "TPacketGCGuildSymbolData layout mismatch");
+                static_assert(sizeof(TLandPacketElement) == 28 && offsetof(TLandPacketElement, dwGuildID) == 20, "TPacketGCLandList element layout mismatch");
+                static_assert(sizeof(TPacketGCGamemasterTarget) == 58 && offsetof(TPacketGCGamemasterTarget, pid) == 1 && offsetof(TPacketGCGamemasterTarget, aid) == 24, "TPacketGCGamemasterTarget layout mismatch");
+
+                // 325-byte TPacketCGLogin3 + TEA 8-byte block padding (328 bytes on wire)
+                static_assert(sizeof(TPacketCGLogin3) == 325, "TPacketCGLogin3 struct size must be 325");
+                static_assert(((sizeof(TPacketCGLogin3) + 7) & ~size_t(7)) == 328, "TPacketCGLogin3 TEA wire frame must be 328 bytes");
+
+                TPacketGCLoginSuccess loginSuc{};
+                loginSuc.bHeader = HEADER_GC_LOGIN_SUCCESS_NEWSLOT;
+                loginSuc.players[0].dwID = idOver32;
+                loginSuc.players[1].dwID = idOver53;
+                loginSuc.guild_id[0] = idOver53;
+                loginSuc.guild_id[1] = idOver32;
+                WIRE_ASSERT(loginSuc.players[0].dwID == idOver32 &&
+                            loginSuc.players[1].dwID == idOver53 &&
+                            loginSuc.guild_id[0] == idOver53 &&
+                            loginSuc.guild_id[1] == idOver32,
+                    "Client-Server LoginSuccess preserves >2^32 and >2^53 PID and GUILD_ID across character slots");
+
+                TPacketGCGuildWar guildWar{};
+                guildWar.dwGuildSelf = idOver32;
+                guildWar.dwGuildOpp = idOver53;
+                guildWar.bType = 1;
+                guildWar.bWarState = 2;
+                TPacketCGGuildUseSkill guildSkill{};
+                guildSkill.dwVnum = 151;
+                guildSkill.dwPID = idOver53;
+                TPacketCGMarkUpload markUpload{};
+                markUpload.header = HEADER_CG_MARK_UPLOAD;
+                markUpload.gid = idOver53;
+                markUpload.token = idOver32;
+                TPacketCGSymbolCRC symCrc{};
+                symCrc.header = HEADER_CG_SYMBOL_CRC;
+                symCrc.guild_id = idOver53;
+                symCrc.crc = 0xDEADBEEFU;
+                symCrc.size = 4096U;
+                TLandPacketElement landElem{};
+                landElem.dwID = 42U;
+                landElem.dwGuildID = idOver53;
+                TPacketGCGamemasterTarget gmTarget{};
+                gmTarget.header = HEADER_GC_GAMEMASTER_TARGET;
+                gmTarget.pid = idOver53;
+                gmTarget.aid = idOver32;
+                WIRE_ASSERT(guildWar.dwGuildSelf == idOver32 && guildWar.dwGuildOpp == idOver53 &&
+                            guildSkill.dwPID == idOver53 && markUpload.gid == idOver53 &&
+                            symCrc.guild_id == idOver53 && landElem.dwGuildID == idOver53 &&
+                            gmTarget.pid == idOver53 && gmTarget.aid == idOver32,
+                    "Client-Server Guild War, Skill, Mark/Symbol, Land, and GM Target packets preserve >2^32 and >2^53 IDs losslessly");
             }
         }
     }

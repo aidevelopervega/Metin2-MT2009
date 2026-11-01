@@ -197,14 +197,14 @@ PyObject * miniMapGetAtlasInfo(PyObject * poSelf, PyObject * poArgs)
 	float fPosX = 0.0f;
 	float fPosY = 0.0f;
 	DWORD dwTextColor = 0;
-	DWORD dwGuildID = 0;
+	uint64_t dwGuildID = 0;
 	bool bFind = CPythonMiniMap::Instance().GetAtlasInfo(fScrrenX, fScrrenY, aString, &fPosX, &fPosY, &dwTextColor, &dwGuildID);
 	int iPosX, iPosY;
 	PR_FLOAT_TO_INT(fPosX, iPosX);
 	PR_FLOAT_TO_INT(fPosY, iPosY);
 	iPosX /= 100;
 	iPosY /= 100;
-	return Py_BuildValue("isiili", (int)bFind, aString.c_str(), iPosX, iPosY, (signed) dwTextColor, dwGuildID);
+	return Py_BuildValue("isiilK", (int)bFind, aString.c_str(), iPosX, iPosY, (signed) dwTextColor, static_cast<unsigned long long>(dwGuildID));
 }
 
 PyObject* miniMapGetAtlasMaxSize(PyObject* poSelf, PyObject* poArgs)
@@ -305,8 +305,8 @@ PyObject* miniMapGetGuildAreaID(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetFloat(poArgs, 1, &fy))
 		return Py_BuildException();
 
-	DWORD dwGuildID = CPythonMiniMap::Instance().GetGuildAreaID(fx, fy);
-	return Py_BuildValue("i", dwGuildID);
+	uint64_t dwGuildID = CPythonMiniMap::Instance().GetGuildAreaID(fx, fy);
+	return PyLong_FromUnsignedLongLong(dwGuildID);
 }
 
 #ifdef ENABLE_SET_ATLAS_SCALE

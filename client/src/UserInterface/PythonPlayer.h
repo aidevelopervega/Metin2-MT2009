@@ -255,7 +255,7 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 
 		DWORD	GetMainCharacterIndex();
 		bool	IsMainCharacterIndex(DWORD dwIndex);
-		DWORD	GetGuildID();
+		uint64_t	GetGuildID();
 		void	NotifyDeletingCharacterInstance(DWORD dwVID);
 		void	NotifyCharacterDead(DWORD dwVID);
 		void	NotifyCharacterUpdate(DWORD dwVID);
@@ -646,7 +646,7 @@ class CPythonPlayer : public CSingleton<CPythonPlayer>, public IAbstractPlayer
 		float					m_fConsumeStaminaPerSec;
 
 		// Guild
-		DWORD					m_inGuildAreaID;
+		uint64_t				m_inGuildAreaID;
 
 		// System
 		BOOL					m_sysIsCoolTime;
