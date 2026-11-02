@@ -35,6 +35,17 @@
 #	endif
 #endif
 
+#ifdef __cplusplus
+#include <cctype>
+#include <climits>
+#include <cmath>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#endif
+
 #if defined(__GNUC__)
 #define INLINE __inline__
 #elif defined(_MSC_VER)
