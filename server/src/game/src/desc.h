@@ -10,6 +10,12 @@
 #ifdef _IMPROVED_PACKET_ENCRYPTION_
 #include "cipher.h"
 #endif
+#include <memory>
+
+namespace mt2::net
+{
+	class AsioTls13Session;
+}
 
 #define MAX_ALLOW_USER                  4096
 //#define MAX_INPUT_LEN			2048
@@ -308,12 +314,17 @@ class DESC
 		DWORD			m_adwEncryptionKey[4];
 #endif
 		time_t	tt_creation_time;
+		std::shared_ptr<mt2::net::AsioTls13Session> m_spTls13Session;
 
 
 	public:
 		LPEVENT			m_pkDisconnectEvent;
 
 	public:
+		void BindTls13Session(std::shared_ptr<mt2::net::AsioTls13Session> spSession);
+		bool IsTls13Transport() const { return static_cast<bool>(m_spTls13Session); }
+		const std::shared_ptr<mt2::net::AsioTls13Session>& GetTls13Session() const { return m_spTls13Session; }
+
 		void SetLogin( const std::string & login ) { m_Login = login; }
 		void SetLogin( const char * login ) { m_Login = login; }
 		const std::string& GetLogin() { return m_Login; }

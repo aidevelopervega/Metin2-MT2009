@@ -1,3 +1,4 @@
+#include <net/mt2_asio_tls13_transport.h>
 #include "stdafx.h"
 #include "config.h"
 #include "utils.h"
@@ -107,10 +108,30 @@ void DESC::Initialize()
 
 	m_pkDisconnectEvent = NULL;
 	tt_creation_time = get_global_time();
+	m_spTls13Session.reset();
 
 #ifdef ENABLE_SEQUENCE_SYSTEM
 	m_seq_vector.clear();
 #endif
+}
+
+void DESC::BindTls13Session(std::shared_ptr<mt2::net::AsioTls13Session> spSession)
+{
+	m_spTls13Session = std::move(spSession);
+	if (m_spTls13Session)
+	{
+		if (!m_lpOutputBuffer)
+			m_lpOutputBuffer = buffer_new(DEFAULT_PACKET_BUFFER_SIZE * 2);
+		if (!m_lpInputBuffer)
+		{
+			m_iMinInputBufferLen = MAX_INPUT_LEN >> 1;
+			m_lpInputBuffer = buffer_new(MAX_INPUT_LEN);
+		}
+		m_stHost = m_spTls13Session->RemoteIp();
+#ifndef _IMPROVED_PACKET_ENCRYPTION_
+		m_bEncrypted = false;
+#endif
+	}
 }
 
 void DESC::Destroy()
@@ -158,6 +179,12 @@ void DESC::Destroy()
 		}
 
 		CShutdownManager::instance().RemoveDesc((LPDESC)this);
+	}
+
+	if (m_spTls13Session)
+	{
+		m_spTls13Session->Close();
+		m_spTls13Session.reset();
 	}
 
 	if (m_sock != INVALID_SOCKET)
@@ -366,7 +393,19 @@ int DESC::ProcessInput()
 	}
 
 	buffer_adjust_size(m_lpInputBuffer, m_iMinInputBufferLen);
-	bytes_read = socket_read(m_sock, (char *) buffer_write_peek(m_lpInputBuffer), buffer_has_space(m_lpInputBuffer));
+	if (m_spTls13Session)
+	{
+		if (!m_spTls13Session->IsOpen())
+			return -1;
+		const size_t drained = m_spTls13Session->DrainRecvBytes(
+			buffer_write_peek(m_lpInputBuffer),
+			static_cast<size_t>(buffer_has_space(m_lpInputBuffer)));
+		bytes_read = static_cast<ssize_t>(drained);
+	}
+	else
+	{
+		bytes_read = socket_read(m_sock, (char *) buffer_write_peek(m_lpInputBuffer), buffer_has_space(m_lpInputBuffer));
+	}
 
 	if (bytes_read < 0)
 		return -1;
@@ -551,6 +590,22 @@ int DESC::ProcessOutput()
 	if (buffer_size(m_lpOutputBuffer) <= 0)
 		return 0;
 
+	if (m_spTls13Session)
+	{
+		if (!m_spTls13Session->IsOpen())
+			return -1;
+
+		const int bytes_to_write = buffer_size(m_lpOutputBuffer);
+		if (!m_spTls13Session->SendRaw(buffer_read_peek(m_lpOutputBuffer), static_cast<size_t>(bytes_to_write)))
+			return -1;
+
+		max_bytes_written = MAX(bytes_to_write, max_bytes_written);
+		total_bytes_written += bytes_to_write;
+		current_bytes_written += bytes_to_write;
+		buffer_read_proceed(m_lpOutputBuffer, bytes_to_write);
+		return 0;
+	}
+
 	int buffer_left = fdwatch_get_buffer_size(m_lpFdw, m_sock);
 
 	if (buffer_left <= 0)
@@ -654,7 +709,7 @@ void DESC::Packet(const void * c_pvData, int iSize)
 		if (buffer_has_space(m_lpOutputBuffer) < iSize + 8)
 			buffer_adjust_size(m_lpOutputBuffer, iSize + 8);
 
-		if (!m_bEncrypted)
+		if (!m_bEncrypted || m_spTls13Session)
 		{
 			if (!packet_encode(m_lpOutputBuffer, c_pvData, iSize))
 				m_iPhase = PHASE_CLOSE;
@@ -677,7 +732,12 @@ void DESC::Packet(const void * c_pvData, int iSize)
 
 	//sys_log(0, "%d bytes written (first byte %d)", iSize, *(BYTE *) c_pvData);
 	if (m_iPhase != PHASE_CLOSE)
-		fdwatch_add_fd(m_lpFdw, m_sock, this, FDW_WRITE, true);
+	{
+		if (m_spTls13Session)
+			ProcessOutput();
+		else if (m_lpFdw && m_sock != INVALID_SOCKET)
+			fdwatch_add_fd(m_lpFdw, m_sock, this, FDW_WRITE, true);
+	}
 }
 
 void DESC::LargePacket(const void * c_pvData, int iSize)
@@ -715,7 +775,7 @@ void DESC::SetPhase(int _phase)
 		case PHASE_LOGIN:
 		case PHASE_LOADING:
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
-			m_bEncrypted = true;
+			m_bEncrypted = (m_spTls13Session == nullptr);
 #endif
 			m_pInputProcessor = &m_inputLogin;
 			break;
@@ -723,14 +783,14 @@ void DESC::SetPhase(int _phase)
 		case PHASE_GAME:
 		case PHASE_DEAD:
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
-			m_bEncrypted = true;
+			m_bEncrypted = (m_spTls13Session == nullptr);
 #endif
 			m_pInputProcessor = &m_inputMain;
 			break;
 
 		case PHASE_AUTH:
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
-			m_bEncrypted = true;
+			m_bEncrypted = (m_spTls13Session == nullptr);
 #endif
 			m_pInputProcessor = &m_inputAuth;
 			sys_log(0, "AUTH_PHASE %p", this);

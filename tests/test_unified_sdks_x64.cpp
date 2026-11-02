@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#include <net/mt2_asio_tls13_transport.h>
 #include <windows.h>
 
 #include <cassert>
@@ -459,6 +460,75 @@ int main()
         Discord_ClearPresence();
         Discord_Shutdown();
         CHECK(true, "Discord RPC 3.4.0 x64 lifecycle (Initialize/UpdatePresence/RunCallbacks/ClearPresence/Shutdown)");
+    }
+
+    // -------------------------------------------------------------------------
+    // Gate 9: Standalone Asio 1.38.2 + OpenSSL 3.6.5 TLS 1.3 (libssl_x64.lib + libcrypto_x64.lib)
+    // -------------------------------------------------------------------------
+    {
+        static_assert(ASIO_VERSION == 103802, "Standalone Asio version must be 1.38.2 (103802)");
+        static_assert(OPENSSL_VERSION_MAJOR == 3 && OPENSSL_VERSION_MINOR == 6 && OPENSSL_VERSION_PATCH == 5,
+                      "OpenSSL header version must be 3.6.5");
+        CHECK(ASIO_VERSION == 103802, "Standalone Asio 1.38.2 header version");
+        CHECK(std::strcmp(OpenSSL_version(OPENSSL_VERSION), "OpenSSL 3.6.5 29 Sep 2026") == 0,
+              "OpenSSL 3.6.5 PE32+ runtime DLL version match");
+
+        auto pki = mt2::net::GenerateEphemeralTestPki();
+        mt2::net::Mt2PacketSchemaRegistry schema;
+        schema.RegisterFixed(0xFF, 13);
+
+        asio::io_context io;
+        mt2::net::Tls13Config srv_cfg;
+        srv_cfg.cert_pem = pki.server_cert_pem;
+        srv_cfg.key_pem = pki.server_key_pem;
+        srv_cfg.ca_pem = pki.ca_cert_pem;
+
+        mt2::net::TransportLimits limits;
+        mt2::net::AsioTls13Server srv(io, 0, srv_cfg, limits, &schema);
+        const uint16_t port = srv.BoundPort();
+
+        srv.StartAccept([&](std::shared_ptr<mt2::net::AsioTls13Session> s) {
+            s->SetCallbacks(
+                nullptr,
+                [&](std::shared_ptr<mt2::net::AsioTls13Session> sess, const std::vector<uint8_t>& pkt) {
+                    sess->EnqueueSend(pkt.data(), pkt.size());
+                },
+                nullptr);
+            s->StartServerHandshake();
+        });
+
+        mt2::net::Tls13Config cli_cfg;
+        cli_cfg.ca_pem = pki.ca_cert_pem;
+        cli_cfg.expected_hostname = "mt2009.local";
+        mt2::net::CrossPlatformTls13Client cli(io, cli_cfg, limits, &schema);
+
+        bool hs_ok = false;
+        bool echo_ok = false;
+        uint8_t hs_pkt[13] = {0xFF, 0x64, 0x00, 0x09, 0x20, 1, 2, 3, 4, 0, 0, 0, 0};
+
+        cli.ConnectEndpoint(
+            asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), port),
+            [&](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code& ec) {
+                hs_ok = !ec;
+                if (!ec && sess)
+                    sess->EnqueueSend(hs_pkt, sizeof(hs_pkt));
+            },
+            [&](std::shared_ptr<mt2::net::AsioTls13Session>, const std::vector<uint8_t>& pkt) {
+                if (pkt.size() == sizeof(hs_pkt) && std::memcmp(pkt.data(), hs_pkt, sizeof(hs_pkt)) == 0)
+                    echo_ok = true;
+            },
+            nullptr);
+
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(3000);
+        while (!echo_ok && std::chrono::steady_clock::now() < deadline)
+        {
+            io.restart();
+            io.run_for(std::chrono::milliseconds(5));
+        }
+        CHECK(hs_ok && echo_ok, "MSVC x64 Standalone Asio 1.38.2 + OpenSSL 3.6.5 TLS 1.3 handshake & packet echo");
+        CHECK(cli.CurrentSession()->NegotiatedTlsVersion() == "TLSv1.3", "MSVC x64 negotiated TLSv1.3");
+        cli.CurrentSession()->Close();
+        srv.Stop();
     }
 
     std::printf("=== Unified Server/Client x64 SDK Suite: %d/%d PASS (%d failed) ===\n",

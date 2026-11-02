@@ -7,12 +7,22 @@
 #endif
 #include "../eterBase/tea.h"
 #include "NetAddress.h"
+#include <memory>
+#include <string>
 
 class CNetworkStream
 {
 	public:
 		CNetworkStream();
 		virtual ~CNetworkStream();
+
+		bool EnableTls13Transport(
+			const std::string& caCertPem,
+			const std::string& expectedHostname = "",
+			const std::string& clientCertPem = "",
+			const std::string& clientKeyPem = "");
+		void DisableTls13Transport();
+		bool IsTls13TransportEnabled() const;
 
 		void SetRecvBufferSize(int recvBufSize);
 		void SetSendBufferSize(int sendBufSize);
@@ -145,6 +155,9 @@ class CNetworkStream
 		SOCKET	m_sock;
 
 		CNetworkAddress m_addr;
+
+		struct Tls13Impl;
+		std::unique_ptr<Tls13Impl> m_spTls13;
 
 #ifdef ENABLE_SEQUENCE_SYSTEM
 		// Sequence

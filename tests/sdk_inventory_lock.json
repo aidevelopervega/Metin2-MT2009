@@ -671,6 +671,157 @@
       "decision": "BLOCKED",
       "notes": "SpeedTreeWrapper.cpp and SpeedTreeForestDirectX8.cpp compile to COFF AMD64 with D3D9Ex, but linking full metin2client.exe requires either a native x64 SpeedTreeRT library or a clean x64 vegetation replacement.",
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+    },
+    {
+      "id": "asio",
+      "name": "Standalone Asio C++20 Asynchronous Network I/O Library",
+      "purpose": "Single-source C++20 asynchronous TCP/TLS 1.3 transport, strand-serialized write queues, steady_timer timeouts, and cross-platform event loop (ASIO_STANDALONE=1, ASIO_NO_DEPRECATED=1)",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "extern/common/include/{asio.hpp,asio/**,net/mt2_asio_tls13_transport.h}",
+      "header_version": "1.38.2 (ASIO_VERSION=103802)",
+      "source_build_version": "1.38.2 (header-only, tag asio-1-38-2, commit 8806a6803cde7054c3049d3666d3ec36786568c5)",
+      "source_origin": {
+        "url": "https://github.com/chriskohlhoff/asio",
+        "official_site": "https://think-async.com/Asio/",
+        "version_tag": "asio-1-38-2",
+        "commit": "8806a6803cde7054c3049d3666d3ec36786568c5",
+        "archive_sha256": "ca7f6c14f2bf91e61c7e81fb693f2f8fc86f93e85520d5fc7fd035d0f666bb35"
+      },
+      "license": "BSL-1.0",
+      "compiler_crt_abi": "C++20 header-only (ASIO_STANDALONE=1, ASIO_NO_DEPRECATED=1); MSVC 18 AMD64, MinGW-w64 UCRT64 GCC 16 AMD64, FreeBSD 15.1 GCC 14 AMD64, Android/iOS ARM64 ready",
+      "debug_release_variants": "Header-only",
+      "linkage": "header-only",
+      "binaries": [],
+      "pinned_headers": [
+        {
+          "path": "extern/common/include/asio.hpp",
+          "size_bytes": 7307,
+          "sha256": "a33fba487e6dbe33831f03065fb4d1481a82e9f3cbcc399911458fb0d161572d"
+        },
+        {
+          "path": "extern/common/include/asio/version.hpp",
+          "size_bytes": 644,
+          "sha256": "89d0c5c620e6626d3bee2f33522c7a9d54e00231325edb69f5c25ff65c54adb0"
+        },
+        {
+          "path": "extern/common/include/asio/ssl.hpp",
+          "size_bytes": 731,
+          "sha256": "1b70fcefef13fa42514168b824807ab26747bf72b68818d48a5d333b0bd3faeb"
+        },
+        {
+          "path": "extern/common/include/asio/LICENSE_1_0.txt",
+          "size_bytes": 1338,
+          "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+        },
+        {
+          "path": "extern/common/include/net/mt2_asio_tls13_transport.h",
+          "size_bytes": 55949,
+          "sha256": "8c800de13145659d4826ee0d8062b44b1cfabbb5c132ef3f72342680ae8ab0c1"
+        }
+      ],
+      "usage_evidence": [
+        "extern/common/include/net/mt2_asio_tls13_transport.h:28-29 (#include <asio.hpp>, #include <asio/ssl.hpp>)",
+        "server/src/game/src/desc.cpp:25 (#include <net/mt2_asio_tls13_transport.h>)",
+        "client/src/EterLib/NetStream.cpp:4 (#include <net/mt2_asio_tls13_transport.h>)",
+        "tests/test_asio_tls13_security.cpp:9 (#include <net/mt2_asio_tls13_transport.h>)",
+        "tests/test_network_ab_benchmark.cpp:32 (#include <net/mt2_asio_tls13_transport.h>)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Integrated official Standalone Asio 1.38.2 (637 headers) with zero Boost dependency alongside single-source C++20 TLS 1.3 transport adapter mt2_asio_tls13_transport.h.",
+      "verified_base_commit": "98d9b5a032521f5f3110ac29c8962b87471d8bd3"
+    },
+    {
+      "id": "openssl_x64",
+      "name": "OpenSSL 3.6.5 TLS 1.3 Cryptographic & SSL/TLS Library",
+      "purpose": "TLS 1.3 transport encryption (AEAD TLS_AES_256_GCM_SHA384 / TLS_CHACHA20_POLY1305_SHA256 / TLS_AES_128_GCM_SHA256), X.509 v3 certificate & SAN hostname verification, and P2P mutual TLS (mTLS)",
+      "used_in_client": true,
+      "used_in_server": true,
+      "is_common": true,
+      "header_path": "Windows: extern/client/include/openssl (142 headers); FreeBSD 15.1: /usr/include/openssl (base system OpenSSL 3.x)",
+      "header_version": "3.6.5 (OPENSSL_VERSION_NUMBER=0x30600050L)",
+      "source_build_version": "3.6.5 (Windows UCRT64 x64 package sha256=773e021ebad83f14b5c103db467411e8ff064663e1c7e7f730e2be72f4117064; FreeBSD 15.1 native base OpenSSL 3.x)",
+      "source_origin": {
+        "url": "https://www.openssl.org/",
+        "version_tag": "openssl-3.6.5",
+        "pkg_sha256": "773e021ebad83f14b5c103db467411e8ff064663e1c7e7f730e2be72f4117064"
+      },
+      "license": "Apache-2.0",
+      "compiler_crt_abi": "Windows Client: MSVC AMD64 import libraries libssl_x64.lib & libcrypto_x64.lib; Windows Server: MinGW-w64 UCRT64 libssl.dll.a & libcrypto.dll.a + pure UCRT PE32+ libssl-3-x64.dll & libcrypto-3-x64.dll (zero MinGW runtime DLL dependencies); FreeBSD Server: /usr/lib/libssl.so & /usr/lib/libcrypto.so",
+      "debug_release_variants": "x64 Release DLLs and import libraries (MSVC + MinGW UCRT64)",
+      "linkage": "dynamic (libssl-3-x64.dll / libcrypto-3-x64.dll on Windows; libssl.so / libcrypto.so on FreeBSD)",
+      "binaries": [
+        {
+          "path": "extern/client/lib/libssl_x64.lib",
+          "arch": "COFF_0x8664+IMPORT_0x8664",
+          "size_bytes": 147386,
+          "sha256": "18aa8b4b52e82b89ff2b921332b37457e0b169cf7c38596d897e48b5c3b97c3c",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/lib/libcrypto_x64.lib",
+          "arch": "COFF_0x8664+IMPORT_0x8664",
+          "size_bytes": 1385714,
+          "sha256": "84d8d7ac0358cb6b264bf6ef9169244ad4bc883302345e1543199609c55f20bf",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/dll/libssl-3-x64.dll",
+          "arch": "PE32+_0x8664",
+          "size_bytes": 998449,
+          "sha256": "8b71cd694f8edfbddc76674111278db6bcdcde0dcd63b99238420193848e6dbf",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/client/dll/libcrypto-3-x64.dll",
+          "arch": "PE32+_0x8664",
+          "size_bytes": 5501287,
+          "sha256": "97308feea369b305e562c0098638a1b02a06f52ee9fcc4b8cf3da362ff563cf4",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libssl.dll.a",
+          "arch": "COFF_0x8664",
+          "size_bytes": 415524,
+          "sha256": "3319d2d52c1287913bc4793c7caf5559163c7407eaf5a83a425edfc042bb5a14",
+          "variant": "Release",
+          "role": "active_x64"
+        },
+        {
+          "path": "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libcrypto.dll.a",
+          "arch": "COFF_0x8664",
+          "size_bytes": 4030258,
+          "sha256": "73eb73b0d5049ea82eda53c8b6871e71bfb14ae7027fdd481671242e398dbe4d",
+          "variant": "Release",
+          "role": "active_x64"
+        }
+      ],
+      "pinned_headers": [
+        {
+          "path": "extern/client/include/openssl/opensslv.h",
+          "size_bytes": 3466,
+          "sha256": "10bc1ba777a5d456b8d0a9e8190b87b538037db572d1aacfc74154c03a36b370"
+        },
+        {
+          "path": "extern/client/include/openssl/ssl.h",
+          "size_bytes": 122503,
+          "sha256": "68b713a6fc2f07816ac317c11cfa2908dd575052d7a2676050a6f2a04fffedf1"
+        }
+      ],
+      "usage_evidence": [
+        "extern/common/include/net/mt2_asio_tls13_transport.h:31-37 (#include <openssl/ssl.h>, <openssl/x509v3.h>)",
+        "cmake/FindSystemLibraries.cmake:17-57 (OpenSSL::SSL, OpenSSL::Crypto)",
+        "server/src/game/CMakeLists.txt:76-77 (OpenSSL::SSL, OpenSSL::Crypto)",
+        "client/src/UserInterface/UserInterface.vcxproj:273,396,525 (libssl_x64.lib;libcrypto_x64.lib)"
+      ],
+      "decision": "UPGRADED",
+      "notes": "Provisioned OpenSSL 3.6.5 x64 for Windows (MSVC AMD64 + MinGW UCRT64) while preserving FreeBSD 15.1 native base system OpenSSL 3.x.",
+      "verified_base_commit": "98d9b5a032521f5f3110ac29c8962b87471d8bd3"
     }
   ],
   "removed_sdks": [

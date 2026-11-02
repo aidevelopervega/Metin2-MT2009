@@ -54,9 +54,13 @@
 
 #ifdef __WIN32__
 #define WIN32_LEAN_AND_MEAN
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 4096
+#endif
 
-#include <windows.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
 #include <tchar.h>
 #include <errno.h>
 #include <time.h>

@@ -1534,7 +1534,8 @@ int main()
                 TSpecialFlagTable specTable64{};
                 specTable64.dwPID = idOver53;
                 specTable64.dwAID = idOver32;
-                std::strncpy(specTable64.szFlag, specFlag64.cFlag, sizeof(specTable64.szFlag) - 1);
+                std::memcpy(specTable64.szFlag, specFlag64.cFlag, sizeof(specFlag64.cFlag));
+                specTable64.szFlag[sizeof(specTable64.szFlag) - 1] = '\0';
                 specTable64.llValue = 9007199254740993LL; // > 2^53
                 WIRE_ASSERT(specFlag64.llValue == -5000000000LL &&
                             specTable64.dwPID == idOver53 &&

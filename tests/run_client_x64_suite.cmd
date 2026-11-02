@@ -261,7 +261,9 @@ link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /LIBPATH:"%PY311_DIR%\l
     extern\client\lib\d3dx9.lib ^
     extern\client\lib\libjpeg-x64.lib ^
     extern\client\lib\discord_rpc_x64.lib ^
-    d3d9.lib ole32.lib user32.lib gdi32.lib winmm.lib advapi32.lib
+    extern\client\lib\libssl_x64.lib ^
+    extern\client\lib\libcrypto_x64.lib ^
+    d3d9.lib ole32.lib user32.lib gdi32.lib winmm.lib advapi32.lib ws2_32.lib mswsock.lib crypt32.lib
 if not %errorlevel%==0 exit /b 1
 
 dumpbin.exe /headers build\obj_x64\test_unified_sdks_x64.exe | findstr /C:"8664 machine (x64)" /C:"PE32+"
@@ -270,7 +272,15 @@ if not %errorlevel%==0 exit /b 1
 build\obj_x64\test_unified_sdks_x64.exe
 if not %errorlevel%==0 exit /b 1
 
+echo [6b/7] Compiling and running Standalone Asio 1.38.2 + OpenSSL 3.6.5 TLS 1.3 Security Suite with MSVC x64 [PE32+ AMD64]...
+cl.exe /nologo /std:c++20 /utf-8 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /Iextern\common\include /Iextern\client\include tests\test_asio_tls13_security.cpp /Fe:build\obj_x64\test_asio_tls13_security_msvc_x64.exe /Fo:build\obj_x64\unified_sdks\test_asio_tls13_security_msvc_x64.obj /link /MACHINE:X64 extern\client\lib\libssl_x64.lib extern\client\lib\libcrypto_x64.lib ws2_32.lib mswsock.lib crypt32.lib advapi32.lib user32.lib
+if not %errorlevel%==0 exit /b 1
+
+build\obj_x64\test_asio_tls13_security_msvc_x64.exe
+if not %errorlevel%==0 exit /b 1
+
 echo [7/7] Running Full Client x64 Compile and Link Preflight (16 modules, 343 TUs, link.exe /MACHINE:X64)...
 python tests\run_client_x64_link_preflight.py
 if not %errorlevel%==0 exit /b 1
+
 

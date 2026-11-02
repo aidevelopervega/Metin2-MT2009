@@ -53,7 +53,28 @@ set_target_properties(game PROPERTIES
 )
 
 if(WIN32)
-    target_link_libraries(game PRIVATE ws2_32 bcrypt)
+    target_link_libraries(game PRIVATE
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ws2_32
+        mswsock
+        bcrypt
+        crypt32
+        advapi32
+        user32
+    )
+    if(EXISTS "${CMAKE_SOURCE_DIR}/extern/client/dll/libssl-3-x64.dll" AND
+       EXISTS "${CMAKE_SOURCE_DIR}/extern/client/dll/libcrypto-3-x64.dll")
+        add_custom_command(TARGET game POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/extern/client/dll/libssl-3-x64.dll"
+                "${CMAKE_CURRENT_SOURCE_DIR}/libssl-3-x64.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/extern/client/dll/libcrypto-3-x64.dll"
+                "${CMAKE_CURRENT_SOURCE_DIR}/libcrypto-3-x64.dll"
+            COMMENT "Copying OpenSSL 3.6.5 runtime DLLs to game server directory..."
+        )
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     target_link_libraries(game PRIVATE
         pthread
@@ -67,3 +88,4 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         $<$<NOT:$<TARGET_EXISTS:ZLIB::ZLIB>>:z>
     )
 endif()
+

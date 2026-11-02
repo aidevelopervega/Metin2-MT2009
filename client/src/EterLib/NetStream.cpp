@@ -1,10 +1,57 @@
 #include "StdAfx.h"
 #include "NetStream.h"
 //#include "eterCrypt.h"
+#include <net/mt2_asio_tls13_transport.h>
 
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
 #include "../eterBase/tea.h"
 #endif
+
+struct CNetworkStream::Tls13Impl
+{
+	bool enabled = false;
+	mt2::net::Tls13Config cfg{};
+	asio::io_context io{1};
+	std::unique_ptr<mt2::net::CrossPlatformTls13Client> client;
+	bool connectInProgress = false;
+	bool handshakeSucceeded = false;
+	bool handshakeFailed = false;
+	bool remoteDisconnected = false;
+};
+
+bool CNetworkStream::EnableTls13Transport(
+	const std::string& caCertPem,
+	const std::string& expectedHostname,
+	const std::string& clientCertPem,
+	const std::string& clientKeyPem)
+{
+	if (!m_spTls13)
+		m_spTls13 = std::make_unique<Tls13Impl>();
+
+	m_spTls13->cfg.domain = mt2::net::SecurityDomain::ClientToGame;
+	m_spTls13->cfg.ca_pem = caCertPem;
+	m_spTls13->cfg.expected_hostname = expectedHostname;
+	m_spTls13->cfg.cert_pem = clientCertPem;
+	m_spTls13->cfg.key_pem = clientKeyPem;
+	m_spTls13->cfg.require_mutual_tls = (!clientCertPem.empty() && !clientKeyPem.empty());
+	m_spTls13->cfg.disable_0rtt = true;
+	m_spTls13->enabled = !caCertPem.empty();
+	return m_spTls13->enabled;
+}
+
+void CNetworkStream::DisableTls13Transport()
+{
+	if (m_spTls13)
+	{
+		m_spTls13->enabled = false;
+		m_spTls13->client.reset();
+	}
+}
+
+bool CNetworkStream::IsTls13TransportEnabled() const
+{
+	return m_spTls13 && m_spTls13->enabled;
+}
 
 //#define _PACKETDUMP
 
@@ -83,6 +130,27 @@ bool CNetworkStream::__RecvInternalBuffer()
 
 		m_recvBufInputPos -= m_recvBufOutputPos;
 		m_recvBufOutputPos = 0;
+	}
+
+	if (IsTls13TransportEnabled() && m_spTls13->client)
+	{
+		auto sess = m_spTls13->client->CurrentSession();
+		if (!sess)
+			return false;
+
+		int restSize = m_recvBufSize - m_recvBufInputPos;
+		if (restSize > 0)
+		{
+			const size_t drained = sess->DrainRecvBytes(
+				m_recvBuf + m_recvBufInputPos,
+				static_cast<size_t>(restSize));
+			m_recvBufInputPos += static_cast<int>(drained);
+		}
+
+		if (m_spTls13->remoteDisconnected && sess->AvailableRecvBytes() == 0)
+			return false;
+
+		return true;
 	}
 
 #ifdef _IMPROVED_PACKET_ENCRYPTION_
@@ -201,6 +269,25 @@ bool CNetworkStream::__RecvInternalBuffer()
 
 bool CNetworkStream::__SendInternalBuffer()
 {
+	if (IsTls13TransportEnabled() && m_spTls13->client)
+	{
+		int dataSize = __GetSendBufferSize();
+		if (dataSize <= 0)
+			return true;
+
+		auto sess = m_spTls13->client->CurrentSession();
+		if (!sess || !sess->IsOpen())
+			return false;
+
+		if (!sess->SendRaw(m_sendBuf + m_sendBufOutputPos, static_cast<size_t>(dataSize)))
+			return false;
+
+		m_sendBufOutputPos += dataSize;
+		__PopSendBuffer();
+		m_spTls13->io.poll();
+		return true;
+	}
+
 #ifdef _IMPROVED_PACKET_ENCRYPTION_
 	int dataSize=__GetSendBufferSize();
 	if (dataSize<=0)
@@ -283,6 +370,55 @@ void CNetworkStream::__PopSendBuffer()
 #pragma warning(disable:4127)
 void CNetworkStream::Process()
 {
+	if (IsTls13TransportEnabled() && m_spTls13->client)
+	{
+		m_spTls13->io.poll();
+		if (m_spTls13->io.stopped())
+			m_spTls13->io.restart();
+
+		if (!m_isOnline)
+		{
+			if (m_spTls13->handshakeSucceeded)
+			{
+				m_spTls13->connectInProgress = false;
+				m_isOnline = true;
+				OnConnectSuccess();
+			}
+			else if (m_spTls13->handshakeFailed || time(NULL) > m_connectLimitTime)
+			{
+				Clear();
+				OnConnectFailure();
+			}
+			return;
+		}
+
+		if (m_sendBufInputPos > m_sendBufOutputPos)
+		{
+			if (!__SendInternalBuffer())
+			{
+				OnRemoteDisconnect();
+				Clear();
+				return;
+			}
+		}
+
+		m_spTls13->io.poll();
+
+		if (!__RecvInternalBuffer())
+		{
+			OnRemoteDisconnect();
+			Clear();
+			return;
+		}
+
+		if (!OnProcess())
+		{
+			OnRemoteDisconnect();
+			Clear();
+		}
+		return;
+	}
+
 	if (m_sock == INVALID_SOCKET)
 		return;
 
@@ -354,7 +490,7 @@ void CNetworkStream::Process()
 
 void CNetworkStream::Disconnect()
 {
-	if (m_sock == INVALID_SOCKET)
+	if (m_sock == INVALID_SOCKET && !(m_spTls13 && m_spTls13->client))
 		return;
 
 	//OnDisconnect();
@@ -364,15 +500,31 @@ void CNetworkStream::Disconnect()
 
 void CNetworkStream::Clear()
 {
-	if (m_sock == INVALID_SOCKET)
+	const bool hadTls13Client = (m_spTls13 && m_spTls13->client);
+	if (hadTls13Client)
+	{
+		if (auto sess = m_spTls13->client->CurrentSession())
+			sess->Close();
+		m_spTls13->io.poll();
+		m_spTls13->client.reset();
+		m_spTls13->connectInProgress = false;
+		m_spTls13->handshakeSucceeded = false;
+		m_spTls13->handshakeFailed = false;
+		m_spTls13->remoteDisconnected = false;
+	}
+
+	if (m_sock == INVALID_SOCKET && !hadTls13Client)
 		return;
 
 #ifdef _IMPROVED_PACKET_ENCRYPTION_
 	m_cipher.CleanUp();
 #endif
 
-	closesocket(m_sock);
-	m_sock = INVALID_SOCKET;
+	if (m_sock != INVALID_SOCKET)
+	{
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
 
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
 	memset(m_szEncryptKey, 0, sizeof(m_szEncryptKey));
@@ -446,6 +598,46 @@ bool CNetworkStream::Connect(const CNetworkAddress& c_rkNetAddr, int limitSec)
 	Clear();
 
 	m_addr = c_rkNetAddr;
+
+	if (IsTls13TransportEnabled())
+	{
+		char szIP[32] = {};
+		m_addr.GetIP(szIP, sizeof(szIP));
+		const uint16_t port = static_cast<uint16_t>(m_addr.GetPort());
+
+		m_spTls13->io.restart();
+		m_spTls13->client = std::make_unique<mt2::net::CrossPlatformTls13Client>(m_spTls13->io, m_spTls13->cfg);
+		m_spTls13->connectInProgress = true;
+		m_spTls13->handshakeSucceeded = false;
+		m_spTls13->handshakeFailed = false;
+		m_spTls13->remoteDisconnected = false;
+
+		asio::error_code ec;
+		const auto ipAddr = asio::ip::make_address(szIP, ec);
+		if (ec)
+		{
+			Clear();
+			OnConnectFailure();
+			return false;
+		}
+
+		m_spTls13->client->ConnectEndpoint(
+			asio::ip::tcp::endpoint(ipAddr, port),
+			[this](std::shared_ptr<mt2::net::AsioTls13Session>, const asio::error_code& hsEc) {
+				if (!hsEc)
+					m_spTls13->handshakeSucceeded = true;
+				else
+					m_spTls13->handshakeFailed = true;
+			},
+			nullptr,
+			[this](std::shared_ptr<mt2::net::AsioTls13Session>, const asio::error_code&, mt2::net::FrameStatus) {
+				m_spTls13->remoteDisconnected = true;
+			});
+
+		m_spTls13->io.poll();
+		m_connectLimitTime = time(NULL) + limitSec;
+		return true;
+	}
 
 	m_sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -2992,6 +3184,8 @@ CNetworkStream::CNetworkStream()
 	m_sendBufSize = 0;
 	m_sendBufOutputPos = 0;
 	m_sendBufInputPos = 0;
+
+	m_spTls13 = std::make_unique<Tls13Impl>();
 
 #ifdef ENABLE_SEQUENCE_SYSTEM
 	m_iSequence = 0;

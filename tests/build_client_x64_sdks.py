@@ -175,6 +175,69 @@ def build_cryptopp_x64() -> None:
     run_With_vcvars(cmds)
 
 
+def generate_def_from_pe_dll(dll_path: Path, def_path: Path) -> None:
+    b = dll_path.read_bytes()
+    pe_off = struct.unpack_from("<I", b, 0x3C)[0]
+    num_sec = struct.unpack_from("<H", b, pe_off + 6)[0]
+    opt_sz = struct.unpack_from("<H", b, pe_off + 20)[0]
+    magic = struct.unpack_from("<H", b, pe_off + 24)[0]
+    dd_off = pe_off + 24 + (112 if magic == 0x20B else 96)
+    exp_rva, exp_sz = struct.unpack_from("<II", b, dd_off)
+    sec_off = pe_off + 24 + opt_sz
+    secs = []
+    for i in range(num_sec):
+        s = b[sec_off + i * 40 : sec_off + (i + 1) * 40]
+        vsz, va, rsz, ptr = struct.unpack_from("<IIII", s, 8)
+        chars = struct.unpack_from("<I", s, 36)[0]
+        secs.append((va, max(vsz, rsz), ptr, chars))
+
+    def rva2off_and_chars(rva: int):
+        for va, sz, ptr, chars in secs:
+            if va <= rva < va + sz:
+                return ptr + (rva - va), chars
+        return None, 0
+
+    eoff, _ = rva2off_and_chars(exp_rva)
+    if eoff is None:
+        raise RuntimeError(f"No export table in {dll_path}")
+    num_funcs, num_names, addr_funcs, addr_names, addr_ords = struct.unpack_from(
+        "<IIIII", b, eoff + 20
+    )
+    foff, _ = rva2off_and_chars(addr_funcs)
+    noff, _ = rva2off_and_chars(addr_names)
+    ooff, _ = rva2off_and_chars(addr_ords)
+    lines = [f'LIBRARY "{dll_path.name}"', "EXPORTS"]
+    for i in range(num_names):
+        name_rva = struct.unpack_from("<I", b, noff + i * 4)[0]
+        ord_idx = struct.unpack_from("<H", b, ooff + i * 2)[0]
+        func_rva = struct.unpack_from("<I", b, foff + ord_idx * 4)[0]
+        s_off, _ = rva2off_and_chars(name_rva)
+        end = b.find(b"\x00", s_off)
+        sym = b[s_off:end].decode("ascii")
+        if exp_rva <= func_rva < exp_rva + exp_sz:
+            continue
+        _, sym_chars = rva2off_and_chars(func_rva)
+        is_code = bool(sym_chars & 0x20000000)
+        lines.append(f"    {sym}" if is_code else f"    {sym} DATA")
+    def_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def build_openssl_x64() -> None:
+    print("[SDK] Building libssl_x64.lib & libcrypto_x64.lib (OpenSSL 3.6.5 MSVC AMD64 import libs)...")
+    obj_dir = ROOT / "build/obj_x64/sdk_build/openssl"
+    obj_dir.mkdir(parents=True, exist_ok=True)
+    ssl_def = obj_dir / "libssl-3-x64.def"
+    crypto_def = obj_dir / "libcrypto-3-x64.def"
+    generate_def_from_pe_dll(ROOT / "extern/client/dll/libssl-3-x64.dll", ssl_def)
+    generate_def_from_pe_dll(ROOT / "extern/client/dll/libcrypto-3-x64.dll", crypto_def)
+    run_With_vcvars([
+        f'lib.exe /nologo /MACHINE:X64 /DEF:"{ssl_def}" /OUT:extern\\client\\lib\\libssl_x64.lib',
+        f'lib.exe /nologo /MACHINE:X64 /DEF:"{crypto_def}" /OUT:extern\\client\\lib\\libcrypto_x64.lib',
+    ])
+    for exp_file in (ROOT / "extern/client/lib").glob("lib*_x64.exp"):
+        exp_file.unlink()
+
+
 def verify_all() -> int:
     failures = []
     required_libs = [
@@ -184,6 +247,8 @@ def verify_all() -> int:
         "extern/client/lib/discord_rpc_x64.lib",
         "extern/client/lib/d3dx9.lib",
         "extern/client/lib/d3dx9d.lib",
+        "extern/client/lib/libssl_x64.lib",
+        "extern/client/lib/libcrypto_x64.lib",
     ]
     for rel in required_libs:
         p = ROOT / rel
@@ -199,6 +264,8 @@ def verify_all() -> int:
 
     required_dlls = [
         "extern/client/dll/D3DX9_43.dll",
+        "extern/client/dll/libssl-3-x64.dll",
+        "extern/client/dll/libcrypto-3-x64.dll",
     ]
     forbidden_mingw_dlls = {"libwinpthread-1.dll", "libstdc++-6.dll", "libgcc_s_seh-1.dll", "libgcc_s_dw2-1.dll"}
     for rel in required_dlls:
@@ -233,7 +300,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--target",
-        choices=["all", "fast", "cryptopp", "lzo", "libjpeg", "discord_rpc"],
+        choices=["all", "fast", "cryptopp", "lzo", "libjpeg", "discord_rpc", "openssl"],
         default="fast",
     )
     ap.add_argument("--verify-only", action="store_true")
@@ -250,9 +317,12 @@ def main() -> int:
         build_libjpeg_x64()
     if args.target in ("all", "fast", "discord_rpc"):
         build_discord_rpc_x64()
+    if args.target in ("all", "fast", "openssl"):
+        build_openssl_x64()
 
     return verify_all()
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

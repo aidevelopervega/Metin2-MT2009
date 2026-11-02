@@ -50,6 +50,17 @@ GATES = (
     "client_boost_removed",
     "server_boost_removed",
     "boost_files_and_build_refs_removed",
+    "asio_sdk_verified",
+    "asio_tcp_loopback",
+    "tls13_handshake",
+    "tls13_security_tests",
+    "tls13_client_transport",
+    "tls13_server_transport",
+    "tls13_auth_game_integration",
+    "tls13_p2p_integration",
+    "tls13_performance",
+    "tls13_mobile_readiness",
+    "legacy_network_crypto_retired",
     "security",
 )
 

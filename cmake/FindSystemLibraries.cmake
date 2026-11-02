@@ -53,5 +53,33 @@ elseif(WIN32)
     find_package(OpenSSL QUIET)
     if(OpenSSL_FOUND)
         message(STATUS "[OpenSSL] Windows OpenSSL bulundu: ${OPENSSL_VERSION}")
+    else()
+        set(_WIN_OSSL_INC "${CMAKE_SOURCE_DIR}/extern/client/include")
+        set(_WIN_OSSL_SSL_LIB "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libssl.dll.a")
+        set(_WIN_OSSL_CRYPTO_LIB "${CMAKE_SOURCE_DIR}/extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libcrypto.dll.a")
+        if(EXISTS "${_WIN_OSSL_INC}/openssl/ssl.h" AND EXISTS "${_WIN_OSSL_SSL_LIB}" AND EXISTS "${_WIN_OSSL_CRYPTO_LIB}")
+            if(NOT TARGET OpenSSL::Crypto)
+                add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+                set_target_properties(OpenSSL::Crypto PROPERTIES
+                    IMPORTED_LOCATION "${_WIN_OSSL_CRYPTO_LIB}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${_WIN_OSSL_INC}"
+                    INTERFACE_LINK_LIBRARIES "ws2_32;crypt32;advapi32;user32"
+                )
+            endif()
+            if(NOT TARGET OpenSSL::SSL)
+                add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+                set_target_properties(OpenSSL::SSL PROPERTIES
+                    IMPORTED_LOCATION "${_WIN_OSSL_SSL_LIB}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${_WIN_OSSL_INC}"
+                    INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ws2_32"
+                )
+            endif()
+            set(OpenSSL_FOUND TRUE)
+            set(OPENSSL_FOUND TRUE)
+            set(OPENSSL_INCLUDE_DIR "${_WIN_OSSL_INC}")
+            set(OPENSSL_LIBRARIES OpenSSL::SSL OpenSSL::Crypto)
+            message(STATUS "[OpenSSL] Windows UCRT64 OpenSSL 3.6.5 bağlandı: ${_WIN_OSSL_SSL_LIB}")
+        endif()
     endif()
 endif()
+

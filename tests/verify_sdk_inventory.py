@@ -311,6 +311,13 @@ def main() -> int:
     check("typedef uint32_t Pixel;" in srv_mark, "server MarkImage.h uses typedef uint32_t Pixel;")
     check("typedef uint32_t Pixel;" in cli_mark, "client MarkImage.h uses typedef uint32_t Pixel;")
 
+    asio_ver = (ROOT / "extern/common/include/asio/version.hpp").read_text(encoding="utf-8", errors="ignore")
+    check("#define ASIO_VERSION 103802" in asio_ver, "Standalone Asio version is 1.38.2 (ASIO_VERSION == 103802)")
+    tls_hdr = (ROOT / "extern/common/include/net/mt2_asio_tls13_transport.h").read_text(encoding="utf-8", errors="ignore")
+    check("#define ASIO_STANDALONE 1" in tls_hdr, "mt2_asio_tls13_transport.h enforces ASIO_STANDALONE=1")
+    ossl_ver = (ROOT / "extern/client/include/openssl/opensslv.h").read_text(encoding="utf-8", errors="ignore")
+    check('# define OPENSSL_VERSION_STR "3.6.5"' in ossl_ver, "OpenSSL x64 header version is 3.6.5")
+
     print(
         f"=== SDK Inventory & Drift Verification: {passed}/{passed + failed} PASS ({failed} failed) ==="
     )

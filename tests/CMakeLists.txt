@@ -131,7 +131,56 @@ if(WIN32)
     target_link_libraries(test_server_smoke_client PRIVATE ws2_32)
 endif()
 
+# 13. test_asio_tls13_security (Standalone Asio 1.38.2 + OpenSSL TLS 1.3 Security & Protocol Suite)
+add_executable(test_asio_tls13_security test_asio_tls13_security.cpp)
+target_include_directories(test_asio_tls13_security PRIVATE
+    "${CMAKE_SOURCE_DIR}/extern/common/include"
+)
+target_link_libraries(test_asio_tls13_security PRIVATE
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(test_asio_tls13_security PRIVATE pthread)
+elseif(WIN32)
+    target_link_libraries(test_asio_tls13_security PRIVATE ws2_32 mswsock crypt32 advapi32 user32)
+endif()
+add_test(NAME test_asio_tls13_security COMMAND test_asio_tls13_security)
+
+# 12. FAZ 1 & FAZ 6 A/B Network Architecture Benchmark (fdwatch+TEA vs Standalone Asio+OpenSSL TLS 1.3)
+add_executable(test_network_ab_benchmark test_network_ab_benchmark.cpp)
+target_include_directories(test_network_ab_benchmark PRIVATE
+    ${CMAKE_SOURCE_DIR}/extern/common/include
+    ${CMAKE_SOURCE_DIR}/server/src
+)
+target_link_libraries(test_network_ab_benchmark PRIVATE
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    target_link_libraries(test_network_ab_benchmark PRIVATE pthread)
+elseif(WIN32)
+    target_link_libraries(test_network_ab_benchmark PRIVATE ws2_32 mswsock crypt32 advapi32 user32 psapi)
+endif()
+add_test(NAME test_network_ab_benchmark COMMAND test_network_ab_benchmark)
+
 if(WIN32)
+    # Windows uzerinde OpenSSL 3.6.5 DLL dosyalarini test dizinine kopyala
+    if(EXISTS "${CMAKE_SOURCE_DIR}/extern/client/dll/libssl-3-x64.dll" AND
+       EXISTS "${CMAKE_SOURCE_DIR}/extern/client/dll/libcrypto-3-x64.dll")
+        add_custom_target(copy_openssl_test_dlls ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/extern/client/dll/libssl-3-x64.dll"
+                "${CMAKE_CURRENT_BINARY_DIR}/libssl-3-x64.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/extern/client/dll/libcrypto-3-x64.dll"
+                "${CMAKE_CURRENT_BINARY_DIR}/libcrypto-3-x64.dll"
+            COMMENT "Copying OpenSSL 3.6.5 runtime DLLs for tests..."
+        )
+        add_dependencies(test_asio_tls13_security copy_openssl_test_dlls)
+        add_dependencies(test_network_ab_benchmark copy_openssl_test_dlls)
+    endif()
+
     # Windows uzerinde libmariadb.dll dosyasini test dizinine kopyala
     find_file(MT2_TEST_MARIADB_DLL
         NAMES libmariadb.dll
@@ -155,4 +204,5 @@ if(WIN32)
         add_dependencies(test_live_db copy_test_dlls)
     endif()
 endif()
+
 
