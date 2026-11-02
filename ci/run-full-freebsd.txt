@@ -17,8 +17,9 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=boost-removal-cpp20-std-headers-freebsd-verification
-APPROVED_SOURCE_COMMIT=828a1e3e0c65e3deaf700580874b6eef37645e42
-PREVIOUS_VERIFIED_RUN_ID=41378195177
+TRIGGER_REVISION=asio-1.38.2-openssl-tls13-network-architecture-faz1-9
+APPROVED_SOURCE_COMMIT=ac3fac6d2ee76305a9dd52cc1dea2637b68f0dd9
+PREVIOUS_VERIFIED_RUN_ID=41385255463
 STATUS=TRIGGERED
+
 
