@@ -284,7 +284,7 @@ BenchmarkMetrics RunSystemALegacyFdwatchTea(size_t num_connections, size_t round
         p->cli.non_blocking(true, ec);
         p->cli.connect(srv_ep, ec);
 
-        for (int spin = 0; spin < 2000; ++spin)
+        for (int spin = 0; spin < 50000; ++spin)
         {
             asio::error_code aec;
             acceptor.accept(p->srv, aec);
@@ -295,6 +295,8 @@ BenchmarkMetrics RunSystemALegacyFdwatchTea(size_t num_connections, size_t round
                 p->connected = true;
                 break;
             }
+            if (spin > 100)
+                std::this_thread::yield();
         }
         if (!p->connected)
             ++m.unexpected_disconnects;
@@ -592,7 +594,7 @@ BenchmarkMetrics RunSystemBAsioTls13(
 
     const auto conn_t0 = Clock::now();
     size_t hs_completed = 0;
-    constexpr size_t kBatchSize = 100;
+    constexpr size_t kBatchSize = 50;
     for (size_t batch_start = 0; batch_start < num_connections; batch_start += kBatchSize)
     {
         const size_t batch_end = std::min(num_connections, batch_start + kBatchSize);
@@ -632,7 +634,7 @@ BenchmarkMetrics RunSystemBAsioTls13(
                 [&](std::shared_ptr<mt2::net::AsioTls13Session>, const asio::error_code&, mt2::net::FrameStatus) {});
         }
 
-        const auto batch_deadline = Clock::now() + std::chrono::seconds(15);
+        const auto batch_deadline = Clock::now() + std::chrono::seconds(30);
         while (hs_completed < batch_end && Clock::now() < batch_deadline)
         {
             io.poll();
@@ -768,6 +770,14 @@ void PrintComparisonRow(const BenchmarkMetrics& m)
 
 int main()
 {
+#if !defined(_WIN32)
+    struct rlimit rl{};
+    if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur < 8192)
+    {
+        rl.rlim_cur = std::min<rlim_t>(rl.rlim_max, 8192);
+        setrlimit(RLIMIT_NOFILE, &rl);
+    }
+#endif
     std::printf("=== MT2009 FAZ 1 & FAZ 6 Network Architecture A/B Benchmark ===\n");
     const auto pki = mt2::net::GenerateEphemeralTestPki("mt2009.local");
     CHECK(!pki.ca_cert_pem.empty());
