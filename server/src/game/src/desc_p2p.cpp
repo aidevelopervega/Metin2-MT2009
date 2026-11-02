@@ -1,3 +1,4 @@
+#include <net/mt2_asio_tls13_transport.h>
 #include "stdafx.h"
 #include "desc_p2p.h"
 #include "protocol.h"
@@ -10,18 +11,22 @@ DESC_P2P::~DESC_P2P()
 
 void DESC_P2P::Destroy()
 {
-	if (m_sock == INVALID_SOCKET) {
+	if (m_sock == INVALID_SOCKET && !m_spTls13Session) {
 		return;
 	}
 
 	P2P_MANAGER::instance().UnregisterAcceptor(this);
 
-	fdwatch_del_fd(m_lpFdw, m_sock);
+	if (m_sock != INVALID_SOCKET)
+	{
+		if (m_lpFdw)
+			fdwatch_del_fd(m_lpFdw, m_sock);
 
-	sys_log(0, "SYSTEM: closing p2p socket. DESC #%d", m_sock);
+		sys_log(0, "SYSTEM: closing p2p socket. DESC #%d", m_sock);
 
-	socket_close(m_sock);
-	m_sock = INVALID_SOCKET;
+		socket_close(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
 
 	// Chain up to base class Destroy()
 	DESC::Destroy();
@@ -60,6 +65,37 @@ bool DESC_P2P::Setup(LPFDWATCH fdw, socket_t fd, const char * host, WORD wPort)
 	return true;
 }
 
+bool DESC_P2P::SetupTls13(LPFDWATCH fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession)
+{
+	if (!spSession || !spSession->IsOpen() || !spSession->IsHandshakeComplete())
+		return false;
+
+	m_lpFdw = fdw;
+	m_sock = INVALID_SOCKET;
+
+	if (!(m_lpOutputBuffer = buffer_new(1024 * 1024)))
+		return false;
+
+	if (!(m_lpInputBuffer = buffer_new(1024 * 1024)))
+		return false;
+
+	m_iMinInputBufferLen = 1024 * 1024;
+	BindTls13Session(std::move(spSession));
+
+#ifdef ENABLE_PORT_SECURITY
+	if (g_szPublicIP[0] != '\0' && strcmp(m_stHost.c_str(), g_szPublicIP) && strcmp(m_stHost.c_str(), "127.0.0.1"))
+	{
+		sys_log(0, "SYSTEM: new TLS 1.3 p2p connection from [%s] to [%s] BLOCKED", m_stHost.c_str(), g_szPublicIP);
+		SetPhase(PHASE_CLOSE);
+		return true;
+	}
+#endif
+	SetPhase(PHASE_P2P);
+
+	sys_log(0, "SYSTEM: new TLS 1.3 p2p connection from [%s:%u]", m_stHost.c_str(), m_wPort);
+	return true;
+}
+
 void DESC_P2P::SetPhase(int iPhase)
 {
 	static CInputP2P s_inputP2P;
@@ -89,4 +125,3 @@ void DESC_P2P::SetPhase(int iPhase)
 
 	m_iPhase = iPhase;
 }
-

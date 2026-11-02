@@ -108,21 +108,6 @@ bool PyTuple_GetLongLong(PyObject* poArgs, int pos, long long* ret)
 	if (!ret || pos < 0 || PyBool_Check(poItem))
 		return false;
 
-#if PY_MAJOR_VERSION < 3
-	if (M2PyInt_Check(poItem))
-	{
-		PyErr_Clear();
-		const long val = M2PyInt_AsLong(poItem);
-		if (PyErr_Occurred())
-		{
-			PyErr_Clear();
-			return false;
-		}
-		*ret = static_cast<long long>(val);
-		return true;
-	}
-#endif
-
 	if (!PyLong_Check(poItem))
 		return false;
 
@@ -159,23 +144,6 @@ bool PyTuple_GetUnsignedLongLong(PyObject* poArgs, int pos, unsigned long long* 
 
 	if (!ret || pos < 0 || PyBool_Check(poItem))
 		return false;
-
-#if PY_MAJOR_VERSION < 3
-	if (M2PyInt_Check(poItem))
-	{
-		PyErr_Clear();
-		const long val = M2PyInt_AsLong(poItem);
-		if (PyErr_Occurred())
-		{
-			PyErr_Clear();
-			return false;
-		}
-		if (val < 0)
-			return false;
-		*ret = static_cast<unsigned long long>(val);
-		return true;
-	}
-#endif
 
 	if (!PyLong_Check(poItem))
 		return false;

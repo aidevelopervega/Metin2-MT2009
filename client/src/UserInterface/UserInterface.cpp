@@ -43,20 +43,16 @@ volatile int _AVOID_FLOATING_POINT_LIBRARY_BUG = _fltused;
 #else
 #error "unknown granny version"
 #endif
-#if !defined(MT2_USE_MINIAUDIO)
-#pragma comment( lib, "mss32.lib" )
-#endif
 #pragma comment( lib, "winmm.lib" )
 #pragma comment( lib, "imm32.lib" )
 #pragma comment( lib, "oldnames.lib" )
 #pragma comment( lib, "SpeedTreeRT.lib" )
 #pragma comment( lib, "dinput8.lib" )
 #pragma comment( lib, "dxguid.lib" )
-#pragma comment( lib, "ws2_32.lib" )
-#pragma comment( lib, "strmiids.lib" )
 #pragma comment( lib, "ddraw.lib" )
 #pragma comment( lib, "dmoguids.lib" )
-//#pragma comment( lib, "wsock32.lib" )
+#pragma comment( lib, "ws2_32.lib" )
+#pragma comment( lib, "strmiids.lib" )
 #include <stdlib.h>
 #include <cryptopp/cryptoppLibLink.h>
 bool __IS_TEST_SERVER_MODE__=false;
@@ -207,13 +203,6 @@ void StartAntiCheat() {
 #endif
 
 
-#ifndef _DEBUG
-// #define ENABLE_PYLIB_CHECK
-#endif
-
-#ifdef ENABLE_PYLIB_CHECK
-#define ENABLE_MILES_CHECK
-#endif
 // #define ENABLE_DAEMONPROTECTION
 
 #ifdef ENABLE_DAEMONPROTECTION
@@ -226,9 +215,8 @@ extern bool SetDefaultCodePage(DWORD codePage);
 
 static const char * sc_apszPythonLibraryFilenames[] =
 {
-	"UserDict.py",
 	"__future__.py",
-	"copy_reg.py",
+	"copyreg.py",
 	"linecache.py",
 	"ntpath.py",
 	"os.py",
@@ -239,357 +227,6 @@ static const char * sc_apszPythonLibraryFilenames[] =
 	"types.py",
 	"\n",
 };
-
-#ifdef ENABLE_PYLIB_CHECK
-constexpr int PrintLevel = 0;
-#define PYFOLD "./lib"
-
-template <class ...Args>
-void PrintMe(int level, const Args& ...Arguments)
-{
-	if (PrintLevel >= level) TraceError(Arguments...);
-}
-
-// #define PYFORCE
-
-typedef struct PyLibFiles_s
-{
-	std::string sFileName;
-	size_t stSize;
-	DWORD dwCRC32;
-} PyLibFiles_t;
-
-PyLibFiles_t PyLibFilesTable[] =
-{
-#if PY_VERSION_HEX==0x020706f0
-	{ PYFOLD"/abc.pyc", 6187, 3834771731 },
-	{ PYFOLD"/base64.pyc", 10487, 1996714007 },
-	{ PYFOLD"/bisect.pyc", 3236, 3116899751 },
-	{ PYFOLD"/codecs.pyc", 36978, 2928014693 },
-	{ PYFOLD"/collections.pyc", 26172, 385366131 },
-	{ PYFOLD"/copy.pyc", 12170, 3615987315 },
-	{ PYFOLD"/copy_reg.pyc", 5157, 536292604 },
-	{ PYFOLD"/decimal.pyc", 166979, 1923314712 },
-	{ PYFOLD"/difflib.pyc", 60764, 2221213162 },
-	{ PYFOLD"/fnmatch.pyc", 3732, 4270526278 },
-	{ PYFOLD"/functools.pyc", 6193, 3257285433 },
-	{ PYFOLD"/genericpath.pyc", 3303, 1652596334 },
-	{ PYFOLD"/hashlib.pyc", 4200, 2503749184 },
-	{ PYFOLD"/heapq.pyc", 13896, 2948659214 },
-	{ PYFOLD"/keyword.pyc", 2169, 2178546341 },
-	{ PYFOLD"/linecache.pyc", 3235, 4048207604 },
-	{ PYFOLD"/locale.pyc", 49841, 4114662314 },
-	{ PYFOLD"/ntpath.pyc", 11961, 2765879465 },
-	{ PYFOLD"/numbers.pyc", 12958, 4255643833 },
-	{ PYFOLD"/os.pyc", 25769, 911432770 },
-	{ PYFOLD"/pyexpat.pyd", 127488, 2778492911 },
-	{ PYFOLD"/pyexpat_d.pyd", 194560, 2589182738 },
-	{ PYFOLD"/random.pyc", 24779, 385008081 },
-	{ PYFOLD"/re.pyc", 13178, 1671609387 },
-	{ PYFOLD"/rootlib.pyd", 15077376, 2433437728 },
-	{ PYFOLD"/shlex.pyc", 7610, 1476140107 },
-	{ PYFOLD"/shutil.pyc", 19273, 1873281015 },
-	{ PYFOLD"/site.pyc", 20019, 3897044925 },
-	{ PYFOLD"/sre_compile.pyc", 11107, 1620746411 },
-	{ PYFOLD"/sre_constants.pyc", 6108, 3900811275 },
-	{ PYFOLD"/sre_parse.pyc", 19244, 1459430047 },
-	{ PYFOLD"/stat.pyc", 2791, 1375966108 },
-	{ PYFOLD"/string.pyc", 19656, 1066063587 },
-	{ PYFOLD"/struct.pyc", 222, 4038890026 },
-	{ PYFOLD"/subprocess.pyc", 32616, 410545072 },
-	{ PYFOLD"/sysconfig.pyc", 17571, 1529083148 },
-	{ PYFOLD"/threading.pyc", 43020, 826693473 },
-	{ PYFOLD"/traceback.pyc", 11703, 3768933732 },
-	{ PYFOLD"/types.pyc", 2530, 920695307 },
-	{ PYFOLD"/uiscriptlib.pyd", 2546176, 1681086392 },
-	{ PYFOLD"/UserDict.pyc", 9000, 1431875928 },
-	{ PYFOLD"/uuid.pyc", 20323, 3888846613 },
-	{ PYFOLD"/warnings.pyc", 13232, 3752454002 },
-	{ PYFOLD"/weakref.pyc", 16037, 2124701469 },
-	{ PYFOLD"/webbrowser.pyc", 18805, 684340249 },
-	{ PYFOLD"/_abcoll.pyc", 22339, 2365844594 },
-	{ PYFOLD"/_locale.pyc", 49841, 4114662314 },
-	{ PYFOLD"/_weakrefset.pyc", 10490, 1576811346 },
-	{ PYFOLD"/__future__.pyc", 4431, 2857792867 },
-	{ PYFOLD"/encodings/aliases.pyc", 8803, 3888310600 },
-	{ PYFOLD"/encodings/cp949.pyc", 2009, 1824094431 },
-	{ PYFOLD"/encodings/__init__.pyc", 4510, 2926961588 },
-	{ PYFOLD"/simplejson/compat.py", 815, 3827205248 },
-	{ PYFOLD"/simplejson/compat.pyc", 1146, 3730404197 },
-	{ PYFOLD"/simplejson/decoder.py", 14519, 2619744402 },
-	{ PYFOLD"/simplejson/decoder.pyc", 12084, 3426124783 },
-	{ PYFOLD"/simplejson/encoder.py", 28570, 2368098015 },
-	{ PYFOLD"/simplejson/encoder.pyc", 21129, 1695212591 },
-	{ PYFOLD"/simplejson/errors.py", 1779, 1360890353 },
-	{ PYFOLD"/simplejson/errors.pyc", 2259, 3051573946 },
-	{ PYFOLD"/simplejson/ordered_dict.py", 2945, 3685384954 },
-	{ PYFOLD"/simplejson/raw_json.py", 217, 343443373 },
-	{ PYFOLD"/simplejson/raw_json.pyc", 593, 460690619 },
-	{ PYFOLD"/simplejson/scanner.py", 2971, 2791326292 },
-	{ PYFOLD"/simplejson/scanner.pyc", 2783, 1554352801 },
-	{ PYFOLD"/simplejson/tool.py", 1136, 3612394048 },
-	{ PYFOLD"/simplejson/__init__.py", 23745, 4143432427 },
-	{ PYFOLD"/simplejson/__init__.pyc", 21690, 328477213 },
-	{ PYFOLD"/xml/__init__.pyc", 1117, 3531597556 },
-	{ PYFOLD"/xml/dom/domreg.pyc", 3506, 2127674645 },
-	{ PYFOLD"/xml/dom/expatbuilder.pyc", 36698, 316034696 },
-	{ PYFOLD"/xml/dom/minicompat.pyc", 4144, 747596376 },
-	{ PYFOLD"/xml/dom/minidom.pyc", 74704, 1543233763 },
-	{ PYFOLD"/xml/dom/minidomer.pyc", 73, 3191306169 },
-	{ PYFOLD"/xml/dom/nodefilter.pyc", 1243, 3805409468 },
-	{ PYFOLD"/xml/dom/xmlbuilder.pyc", 18659, 4118801318 },
-	{ PYFOLD"/xml/dom/__init__.pyc", 7337, 343751384 },
-	{ PYFOLD"/xml/parsers/expat.pyc", 326, 2425747752 },
-	{ PYFOLD"/xml/parsers/invers.pyc", 16, 1384725046 },
-	{ PYFOLD"/xml/parsers/__init__.pyc", 353, 1691127318 },
-#elif PY_VERSION_HEX==0x020203f0
-#else
-#error "unknown python version"
-#endif
-};
-
-bool checkPyLibDir(const string szDirName)
-{
-	bool HasHack = false;
-
-	char szDirNamePath[MAX_PATH];
-	sprintf(szDirNamePath, "%s\\*", szDirName.c_str());
-
-	WIN32_FIND_DATA f;
-	HANDLE h = FindFirstFile(szDirNamePath, &f);
-
-	if (h == INVALID_HANDLE_VALUE) { return HasHack; }
-
-	do
-	{
-		if (HasHack)
-			break;
-		const char * name = f.cFileName;
-
-		if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) { continue; }
-
-		if (f.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
-		{
-			char filePath[MAX_PATH];
-			sprintf(filePath, "%s%s%s", szDirName.c_str(), "\\", name);
-			PrintMe(1, "sub %s", filePath);
-            checkPyLibDir(filePath);
-		}
-		else
-		{
-			// start processing file
-			PrintMe(1, "starting %s", name);
-			std::string sName(name);
-			std::string sPathName(szDirName+"/"+name);
-			// change \\ to /
-			std::replace(sPathName.begin(), sPathName.end(), '\\', '/');
-			PrintMe(1, "path %s", sPathName.c_str());
-			// lower file name
-			std::transform(sName.begin(), sName.end(), sName.begin(), ::tolower);
-			{
-				PrintMe(1, "verify %s", sName.c_str());
-				bool isPyLibFound = false;
-				for (PyLibFiles_t *i1=std::begin(PyLibFilesTable), *e1=std::end(PyLibFilesTable); i1<e1; i1++)
-				{
-					if (!i1->sFileName.compare(sPathName))
-					{
-						PrintMe(1, "found %s==%s", i1->sFileName.c_str(), sName.c_str());
-						DWORD dwCrc32 = GetFileCRC32(sPathName.c_str());
-						// assert(dwCrc32);
-						DWORD dwFileSize = f.nFileSizeLow;
-						if (i1->stSize!=dwFileSize)
-						{
-							PrintMe(1, "wrong size %u==%u", i1->stSize, dwFileSize);
-							HasHack = true;
-							PrintMe(0, "wrong size %u for %s", dwFileSize, sPathName.c_str());
-							return HasHack;
-						}
-						else if (i1->dwCRC32 != dwCrc32)
-						{
-							PrintMe(1, "wrong crc32 %u==%u", i1->dwCRC32, dwCrc32);
-							HasHack = true;
-							PrintMe(0, "wrong crc32 %u for %s", dwCrc32, sPathName.c_str());
-							return HasHack;
-						}
-						PrintMe(1, "right size %u==%u", i1->stSize, dwFileSize);
-						PrintMe(1, "right crc32 %u==%u", i1->dwCRC32, dwCrc32);
-						PrintMe(2, "{ \"%s\", %u, %u},", sPathName.c_str(), dwFileSize, dwCrc32);
-						isPyLibFound = true;
-						break;
-					}
-				}
-				// block ambiguous pyc/d files
-				if (!isPyLibFound)
-				{
-					PrintMe(1, "not found %s", sName.c_str());
-#ifdef PYFORCE
-					HasHack = true;
-					PRINTME(0, "ambiguous file for %s", sPathName.c_str());
-					return HasHack;
-#endif
-				}
-				PrintMe(1, "skipping file(%s) hack(%u) found(%u)", sName.c_str(), HasHack, isPyLibFound);
-			}
-		}
-
-	} while (FindNextFile(h, &f));
-	FindClose(h);
-	return HasHack;
-}
-
-bool __CheckPyLibFiles()
-{
-	PrintMe(1, "__CheckPyLibFiles processing " PYFOLD);
-	if (checkPyLibDir(PYFOLD))
-		return false;
-	return true;
-}
-#endif
-
-#ifdef ENABLE_MILES_CHECK
-#include <algorithm>
-#include "../EterBase/Filename.h"
-// #include "../EterBase/CRC32.h"
-
-typedef struct MilesFiles_s
-{
-	std::string sFileName;
-	size_t stSize;
-	DWORD dwCRC32;
-} MilesFiles_t;
-
-typedef struct MilesExten_s
-{
-	std::string ExtName;
-	bool IsUni;
-} MilesExten_t;
-
-MilesExten_t MilesExtenTable[] = {
-	{"dll", false},
-	{"asi", true},
-	{"flt", true},
-	{"m3d", true},
-	{"mix", true},
-};
-
-MilesFiles_t MilesFilesTable[] =
-{
-	{"mss32.dll", 349696, 1817711331},
-	{"mssa3d.m3d", 83456, 1812642892},
-	{"mssds3d.m3d", 70656, 2704596484},
-	{"mssdsp.flt", 93696, 3364819387},
-	{"mssdx7.m3d", 80896, 236402185},
-	{"msseax.m3d", 103424, 3195814903},
-	{"mssmp3.asi", 125952, 1219814613},
-	{"mssrsx.m3d", 354816, 550946743},
-	{"msssoft.m3d", 67072, 4284421368},
-	{"mssvoice.asi", 197120, 1407967464},
-};
-
-bool checkMilesDir(const string szDirName)
-{
-	bool HasHack = false;
-
-	char szDirNamePath[MAX_PATH];
-	sprintf(szDirNamePath, "%s\\*", szDirName.c_str());
-
-	WIN32_FIND_DATA f;
-	HANDLE h = FindFirstFile(szDirNamePath, &f);
-
-	if (h == INVALID_HANDLE_VALUE) { return HasHack; }
-
-	do
-	{
-		if (HasHack)
-			break;
-		const char * name = f.cFileName;
-
-		if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) { continue; }
-
-		if (f.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
-		{
-			// do nothing if it's a folder
-		}
-		else
-		{
-			// start processing file
-			PrintMe(1, "starting %s", name);
-			std::string sName(name);
-			std::string sPathName(szDirName+"/"+name);
-			PrintMe(1, "path %s", sPathName.c_str());
-			// lower file name
-			std::transform(sName.begin(), sName.end(), sName.begin(), ::tolower);
-			// file or symlink; check for asi flt m3d mix exploit
-			string sNameExt = CFileNameHelper::GetExtension(sName);
-			PrintMe(1, "ext %s", sNameExt.c_str());
-			// workaround instead of std::find
-			bool isMilesFile = false, isMilesUnique = false;
-			for (MilesExten_t *i1=std::begin(MilesExtenTable), *e1=std::end(MilesExtenTable); i1<e1; i1++)
-			{
-				PrintMe(1, "is %s ? %s", i1->ExtName.c_str(), sNameExt.c_str());
-				if (!sNameExt.compare(0, i1->ExtName.length(), i1->ExtName))
-				{
-					isMilesFile = true;
-					isMilesUnique = i1->IsUni;
-				}
-			}
-			if (isMilesFile)
-			{
-				PrintMe(1, "verify %s -> %s", sName.c_str(), sNameExt.c_str());
-				bool isMilesFound = false;
-				for (MilesFiles_t *i1=std::begin(MilesFilesTable), *e1=std::end(MilesFilesTable); i1<e1; i1++)
-				{
-					if (!i1->sFileName.compare(sName))
-					{
-						PrintMe(1, "found %s==%s", i1->sFileName.c_str(), sName.c_str());
-						DWORD dwCrc32 = GetFileCRC32(sPathName.c_str());
-						// assert(dwCrc32);
-						DWORD dwFileSize = f.nFileSizeLow;
-						if (i1->stSize!=dwFileSize)
-						{
-							PrintMe(1, "wrong size %u==%u", i1->stSize, dwFileSize);
-							HasHack = true;
-							PrintMe(0, "wrong size %u for %s", dwFileSize, sPathName.c_str());
-							return HasHack;
-						}
-						else if (i1->dwCRC32 != dwCrc32)
-						{
-							PrintMe(1, "wrong crc32 %u==%u", i1->dwCRC32, dwCrc32);
-							HasHack = true;
-							PrintMe(0, "wrong crc32 %u for %s", dwCrc32, sPathName.c_str());
-							return HasHack;
-						}
-						PrintMe(1, "right size %u==%u", i1->stSize, dwFileSize);
-						PrintMe(1, "right crc32 %u==%u", i1->dwCRC32, dwCrc32);
-						isMilesFound = true;
-						break;
-					}
-				}
-				// only mss32.dll is checked, and there's no need to check the others
-				if (!isMilesFound && isMilesUnique)
-				{
-					PrintMe(1, "not found %s", sName.c_str());
-					HasHack = true;
-					PrintMe(0, "ambiguous file for %s", sPathName.c_str());
-					return HasHack;
-				}
-				PrintMe(1, "skipping file(%s) hack(%u) found(%u) uni(%u)", sName.c_str(), HasHack, isMilesFound, isMilesUnique);
-			}
-		}
-
-	} while (FindNextFile(h, &f));
-	FindClose(h);
-	return HasHack;
-}
-
-bool __CheckMilesFiles()
-{
-	PrintMe(1, "__CheckMilesFiles processing . and .\\miles");
-	if (checkMilesDir(".") || checkMilesDir(".\\miles"))
-		return false;
-	return true;
-}
-#endif
 
 char gs_szErrorString[512] = "";
 
@@ -993,14 +630,6 @@ bool Main(HINSTANCE hInstance, LPSTR lpCmdLine)
 	if(LocaleService_LoadGlobal(hInstance))
 		SetDefaultCodePage(LocaleService_GetCodePage());
 
-#if defined(ENABLE_PYLIB_CHECK) && !defined(__USE_CYTHON__)
-	if (!__CheckPyLibFiles())
-		return false;
-#endif
-#ifdef ENABLE_MILES_CHECK
-	if (!__CheckMilesFiles())
-		return false;
-#endif
 	CPythonApplication * app = new CPythonApplication;
 
 	EterPackManager.SetTextureViewType(CPythonSystem::instance().GetTextureViewType());

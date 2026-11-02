@@ -3,11 +3,9 @@
 
 #include "../EterPack/EterPackManager.h"
 #include "../eterBase/Timer.h"
-#if defined(MT2_USE_MINIAUDIO)
 #include "MiniaudioEngine.h"
 #include <cstdlib>
 #include <cstring>
-#endif
 
 bool CSoundData::ms_isSoundFile[SOUND_FILE_MAX_NUM];
 CMappedFile CSoundData::ms_SoundFile[SOUND_FILE_MAX_NUM];
@@ -73,7 +71,6 @@ bool CSoundData::ReadFromDisk()
 	LARGE_INTEGER start;
 	QueryPerformanceCounter(&start);
 
-#if defined(MT2_USE_MINIAUDIO)
 	mileslib_miniaudio::MiniaudioEngine::Instance().Lock();
 	CMappedFile roFile;
 	LPCVOID pMap = NULL;
@@ -113,48 +110,6 @@ bool CSoundData::ReadFromDisk()
 
 	mileslib_miniaudio::MiniaudioEngine::Instance().Unlock();
 	return true;
-#else
-	U32* s = (U32 *) AIL_file_read(m_filename, FILE_READ_WITH_SIZE);
-
-	if (s == NULL)
-		return false;
-
-	S32 type = AIL_file_type(s + 1, s[0]);
-	AILSOUNDINFO info;
-
-	switch (type)
-	{
-		case AILFILETYPE_PCM_WAV:
-			{
-				m_data = s;
-				m_size = *((S32 *) s);
-				m_flag |= FLAG_DATA_SIZE;
-			}
-			break;
-
-		case AILFILETYPE_ADPCM_WAV:
-			{
-				AIL_WAV_info(s + 1, &info);
-				AIL_decompress_ADPCM(&info, &m_data, &m_size);
-				AIL_mem_free_lock(s);
-			}
-			break;
-
-		case AILFILETYPE_MPEG_L3_AUDIO:
-			{
-				AIL_decompress_ASI(s + 1, *((S32 *) s), m_filename, &m_data, &m_size, 0);
-				AIL_mem_free_lock(s);
-			}
-			break;
-
-		default:
-			assert(!"Unknown File Type");
-			AIL_mem_free_lock(s);
-			return false;
-	}
-
-	return true;
-#endif
 }
 
 bool CSoundData::isSlotIndex(DWORD dwIndex)
@@ -226,11 +181,6 @@ U32 AILCALLBACK CSoundData::read_callback(U32 file_handle, void * buffer, U32 by
 
 void CSoundData::SetPackMode()
 {
-	// if sound data reads from pack file, the callbacks of the MSS should be changed.
-#if !defined(MT2_USE_MINIAUDIO)
-	AIL_set_file_callbacks(open_callback, close_callback, seek_callback, read_callback);
-#endif
-
 	for (int i = 0; i < SOUND_FILE_MAX_NUM; ++i)
 		ms_isSoundFile[i] = false;
 }
@@ -239,23 +189,19 @@ void CSoundData::Destroy()
 {
 	if (m_data)
 	{
-#if defined(MT2_USE_MINIAUDIO)
 		std::free(m_data);
-#else
-		AIL_mem_free_lock(m_data);
-#endif
 		m_data = NULL;
 	}
 }
 
 CSoundData::CSoundData() :
-m_assigned(false),
-m_iRefCount(0),
-m_dwPlayTime(0),
-m_dwAccessTime(ELTimer_GetMSec()),
-m_size(0),
-m_data(NULL),
-m_flag(0)
+	m_size(0),
+	m_flag(0),
+	m_iRefCount(0),
+	m_dwPlayTime(0),
+	m_dwAccessTime(ELTimer_GetMSec()),
+	m_data(NULL),
+	m_assigned(false)
 {
 }
 

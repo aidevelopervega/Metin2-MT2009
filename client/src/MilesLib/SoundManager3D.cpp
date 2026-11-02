@@ -1,8 +1,6 @@
 #include "Stdafx.h"
 #include "SoundManager3D.h"
-#if defined(MT2_USE_MINIAUDIO)
 #include "MiniaudioEngine.h"
-#endif
 
 CSoundManager3D::CSoundManager3D()
 {
@@ -20,63 +18,15 @@ bool CSoundManager3D::Initialize()
 	if (ms_pProviderDefault)
 		return true;
 
-#if defined(MT2_USE_MINIAUDIO)
-	int i = 0;
 	ms_ProviderVector.resize(1);
 	ms_ProviderVector[0].name = const_cast<char*>("miniaudio 3D Positional Audio");
 	ms_ProviderVector[0].hProvider = 1;
 	ms_pProviderDefault = &ms_ProviderVector[0];
 	m_pListener = reinterpret_cast<H3DPOBJECT>(&mileslib_miniaudio::MiniaudioEngine::Instance());
-#else
-	ms_ProviderVector.resize(MAX_PROVIDERS);
-
-	HPROENUM enum3D = HPROENUM_FIRST;
-	int i = 0;
-
-	while (AIL_enumerate_3D_providers(&enum3D,
-									  &ms_ProviderVector[i].hProvider,
-									  &ms_ProviderVector[i].name) && (i < MAX_PROVIDERS))
-	{
-		TProvider * provider = &ms_ProviderVector[i];
-
-		//if (strcmp(provider->name, "DirectSound3D Software Emulation") == 0)
-		//if (strcmp(provider->name, "DirectSound3D Hardware Support") == 0)
-		//if (strcmp(provider->name, "DirectSound3D 7+ Software - Pan and Volume") == 0)
-		//if (strcmp(provider->name, "DirectSound3D 7+ Software - Light HRTF") == 0)
-		//if (strcmp(provider->name, "DirectSound3D 7+ Software - Full HRTF") == 0)
-		//if (strcmp(provider->name, "RAD Game Tools RSX 3D Audio") == 0)
-		//if (strcmp(provider->name, "Dolby Surround") == 0)
-		if (strcmp(provider->name, "Miles Fast 2D Positional Audio") == 0)
-			ms_pProviderDefault = provider;
-
-		++i;
-	}
-
-	if (!ms_pProviderDefault)
-	{
-		CSoundBase::Destroy();
-		return false;
-	}
-
-	assert(ms_pProviderDefault != NULL);
-
-	if (M3D_NOERR != AIL_open_3D_provider(ms_pProviderDefault->hProvider))
-	{
-//		assert(!"AIL_open_3D_provider error");
-//		char buf[64];
-//		sprintf(buf, "Error AIL_open_3D_provider: %s\n", AIL_last_error());
-//		OutputDebugString(buf);
-
-		CSoundBase::Destroy();
-		return false;
-	}
-
-	m_pListener = AIL_open_3D_listener(ms_pProviderDefault->hProvider);
-#endif
 
 	SetListenerPosition(0.0f, 0.0f, 0.0f);
 
-	for (i = 0; i < INSTANCE_MAX_COUNT; ++i)
+	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 	{
 		m_Instances[i].Initialize();
 		m_bLockingFlag[i] = false;
@@ -96,17 +46,11 @@ void CSoundManager3D::Destroy()
 
 	if (m_pListener)
 	{
-#if !defined(MT2_USE_MINIAUDIO)
-		AIL_close_3D_listener(m_pListener);
-#endif
 		m_pListener = NULL;
 	}
 
 	if (ms_pProviderDefault)
 	{
-#if !defined(MT2_USE_MINIAUDIO)
-		AIL_close_3D_provider(ms_pProviderDefault->hProvider);
-#endif
 		ms_pProviderDefault = NULL;
 	}
 
@@ -118,35 +62,21 @@ void CSoundManager3D::SetListenerDirection(float fxDir, float fyDir, float fzDir
 {
 	if (NULL == m_pListener)
 		return;
-#if defined(MT2_USE_MINIAUDIO)
 	mileslib_miniaudio::MiniaudioEngine::Instance().SetListenerDirection(fxDir, fyDir, fzDir, fxUp, fyUp, fzUp);
-#else
-	AIL_set_3D_orientation(m_pListener, fxDir, fyDir, -fzDir, fxUp, fyUp, -fzUp);
-#endif
 }
 
 void CSoundManager3D::SetListenerPosition(float fX, float fY, float fZ)
 {
-// 	assert(m_pListener != NULL);
 	if (NULL == m_pListener)
 		return;
-#if defined(MT2_USE_MINIAUDIO)
 	mileslib_miniaudio::MiniaudioEngine::Instance().SetListenerPosition(fX, fY, fZ);
-#else
-	AIL_set_3D_position(m_pListener, fX, fY, -fZ);
-#endif
 }
 
 void CSoundManager3D::SetListenerVelocity(float fDistanceX, float fDistanceY, float fDistanceZ, float fNagnitude)
 {
-// 	assert(m_pListener != NULL);
 	if (NULL == m_pListener)
 		return;
-#if defined(MT2_USE_MINIAUDIO)
 	mileslib_miniaudio::MiniaudioEngine::Instance().SetListenerVelocity(fDistanceX, fDistanceY, fDistanceZ, fNagnitude);
-#else
-	AIL_set_3D_velocity(m_pListener, fDistanceX, fDistanceY, -fDistanceZ, fNagnitude);
-#endif
 }
 
 int CSoundManager3D::SetInstance(const char * c_pszFileName)

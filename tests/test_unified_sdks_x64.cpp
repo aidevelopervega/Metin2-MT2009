@@ -30,6 +30,10 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/sha.h>
+#include <cryptopp/tiger.h>
+#include <cryptopp/ripemd.h>
+#include <cryptopp/whrlpool.h>
+#include <cryptopp/panama.h>
 #include <cryptopp/hex.h>
 
 // 3. LZO 2.10 (Unified Server & Client headers + extern/client/lib/lzo2_x64.lib)
@@ -51,9 +55,12 @@
 #include <discord_rpc.h>
 
 // 8. Real MT2009 Client Modules using these SDKs
+#include <array>
+#include "../client/src/EterBase/Stl.h"
 #include "../client/src/EterBase/cipher.h"
 #include "../client/src/EterBase/lzo.h"
 #include "../client/src/EterBase/CRC32.h"
+#include "../client/src/EterLib/NetStream.h"
 #include "../client/src/EterPack/EterPackPolicy_CSHybridCrypt.h"
 #include "../client/src/UserInterface/MarkImage.h"
 #include "../client/src/UserInterface/HashUtils.h"
@@ -240,6 +247,65 @@ int main()
             CHECK(zDec.GetBufferSize() == static_cast<DWORD>(src.size()) &&
                   std::memcmp(zDec.GetBuffer(), src.data(), src.size()) == 0,
                   "EterPackPolicy_CSHybridCrypt round-trip payload match");
+        }
+
+        // 3e. Client EterPack/EterPack.cpp Type-3 PanamaCipher<LittleEndian> + Tiger/Whirlpool/RIPEMD128/SHA1 key derivation
+        {
+            const char* panamaFiles[] = {
+                "d:/ymir work/pc/warrior/warrior_novice.gr2",
+                "d:/ymir work/ui/game/windows/inventory.sub",
+                "locale/poland/item_proto",
+                "root/game.py"
+            };
+            const BYTE panamaIv[32] = {
+                0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46,
+                0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E,
+                0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56
+            };
+            for (const char* pFile : panamaFiles)
+            {
+                std::string srcKey(pFile);
+                unsigned int idx = GetCRC32(srcKey.c_str(), srcKey.length()) & 3;
+                CryptoPP::Tiger tiger;
+                CryptoPP::SHA1 sha1;
+                CryptoPP::RIPEMD128 ripemd128;
+                CryptoPP::Whirlpool whirlpool;
+                CryptoPP::HashTransformation* hm1 = (idx == 0) ? static_cast<CryptoPP::HashTransformation*>(&whirlpool) :
+                                                    (idx == 1) ? static_cast<CryptoPP::HashTransformation*>(&tiger) :
+                                                    (idx == 2) ? static_cast<CryptoPP::HashTransformation*>(&sha1) :
+                                                                 static_cast<CryptoPP::HashTransformation*>(&ripemd128);
+                BYTE key[32] = {};
+                CryptoPP::StringSource(srcKey, true, new CryptoPP::HashFilter(*hm1, new CryptoPP::ArraySink(key, 16)));
+                unsigned int idx2 = *reinterpret_cast<const unsigned int*>(key);
+                CryptoPP::HashTransformation* hm2 = ((idx2 & 3) == 0) ? static_cast<CryptoPP::HashTransformation*>(&sha1) :
+                                                    ((idx2 & 3) == 1) ? static_cast<CryptoPP::HashTransformation*>(&ripemd128) :
+                                                    ((idx2 & 3) == 2) ? static_cast<CryptoPP::HashTransformation*>(&whirlpool) :
+                                                                        static_cast<CryptoPP::HashTransformation*>(&tiger);
+                CryptoPP::StringSource(srcKey, true, new CryptoPP::HashFilter(*hm2, new CryptoPP::ArraySink(key + 16, 16)));
+
+                std::vector<BYTE> plainBuf(256);
+                for (size_t i = 0; i < plainBuf.size(); ++i)
+                    plainBuf[i] = static_cast<BYTE>((i * 19 + 7) & 0xFF);
+
+                CryptoPP::PanamaCipher<CryptoPP::LittleEndian>::Encryption panamaEnc;
+                panamaEnc.SetKeyWithIV(key, sizeof(key), panamaIv, sizeof(panamaIv));
+                std::string cipherOut;
+                CryptoPP::ArraySource(plainBuf.data(), plainBuf.size(), true,
+                    new CryptoPP::StreamTransformationFilter(panamaEnc, new CryptoPP::StringSink(cipherOut)));
+
+                CryptoPP::PanamaCipher<CryptoPP::LittleEndian>::Decryption panamaDec;
+                panamaDec.SetKeyWithIV(key, sizeof(key), panamaIv, sizeof(panamaIv));
+                std::string plainOut;
+                CryptoPP::ArraySource(reinterpret_cast<const BYTE*>(cipherOut.data()), cipherOut.size(), true,
+                    new CryptoPP::StreamTransformationFilter(panamaDec, new CryptoPP::StringSink(plainOut)));
+
+                CHECK(cipherOut.size() == plainBuf.size() &&
+                      std::memcmp(cipherOut.data(), plainBuf.data(), plainBuf.size()) != 0 &&
+                      plainOut.size() == plainBuf.size() &&
+                      std::memcmp(plainOut.data(), plainBuf.data(), plainBuf.size()) == 0,
+                      "EterPack Type-3 PanamaCipher<LittleEndian> + Tiger/Whirlpool/RIPEMD128/SHA1 round-trip");
+            }
         }
     }
 
@@ -528,6 +594,49 @@ int main()
         CHECK(hs_ok && echo_ok, "MSVC x64 Standalone Asio 1.38.2 + OpenSSL 3.6.5 TLS 1.3 handshake & packet echo");
         CHECK(cli.CurrentSession()->NegotiatedTlsVersion() == "TLSv1.3", "MSVC x64 negotiated TLSv1.3");
         cli.CurrentSession()->Close();
+
+        // Gate 9b: Real CNetworkStream (client/src/EterLib/NetStream.cpp) SetDefaultTls13Config + Connect + Send/Recv + No-Double-TEA
+        CNetworkStream::SetDefaultTls13Config(pki.ca_cert_pem, "mt2009.local");
+        CHECK(CNetworkStream::IsDefaultTls13ConfigEnabled(), "CNetworkStream::SetDefaultTls13Config enabled");
+
+        CNetworkStream netStream;
+        netStream.SetRecvBufferSize(16384);
+        netStream.SetSendBufferSize(16384);
+        CHECK(netStream.Connect("127.0.0.1", port, 3), "CNetworkStream::Connect auto-enables TLS 1.3 from DefaultTls13Config");
+        CHECK(netStream.IsTls13TransportEnabled(), "CNetworkStream::IsTls13TransportEnabled() == true");
+
+#ifndef _IMPROVED_PACKET_ENCRYPTION_
+        DWORD dummyTeaEnc[4] = {0x11223344, 0x55667788, 0x99AABBCC, 0xDDEEFF00};
+        DWORD dummyTeaDec[4] = {0x11223344, 0x55667788, 0x99AABBCC, 0xDDEEFF00};
+        netStream.SetSecurityMode(true, reinterpret_cast<const char*>(dummyTeaEnc), reinterpret_cast<const char*>(dummyTeaDec));
+        CHECK(!netStream.IsSecurityMode(), "CNetworkStream::IsSecurityMode() remains false when TLS 1.3 transport is active (zero double-TEA)");
+#endif
+
+        bool netStreamEchoed = false;
+        uint8_t rxBuf[13] = {};
+        const auto deadline2 = std::chrono::steady_clock::now() + std::chrono::milliseconds(3000);
+        bool sentOnce = false;
+        while (!netStreamEchoed && std::chrono::steady_clock::now() < deadline2)
+        {
+            io.restart();
+            io.run_for(std::chrono::milliseconds(2));
+            netStream.Process();
+            if (!sentOnce && netStream.IsOnline())
+            {
+                CHECK(netStream.SendFlush(sizeof(hs_pkt), hs_pkt),
+                      "CNetworkStream::SendFlush over TLS 1.3");
+                sentOnce = true;
+            }
+            if (netStream.GetRecvBufferSize() >= static_cast<int>(sizeof(rxBuf)))
+            {
+                if (netStream.Recv(sizeof(rxBuf), rxBuf) && std::memcmp(rxBuf, hs_pkt, sizeof(hs_pkt)) == 0)
+                    netStreamEchoed = true;
+            }
+        }
+        CHECK(netStreamEchoed, "CNetworkStream TLS 1.3 full round-trip Send/Recv with uncorrupted payload (zero double-TEA)");
+        netStream.Disconnect();
+        CNetworkStream::ClearDefaultTls13Config();
+        CHECK(!CNetworkStream::IsDefaultTls13ConfigEnabled(), "CNetworkStream::ClearDefaultTls13Config cleared");
         srv.Stop();
     }
 

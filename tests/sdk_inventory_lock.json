@@ -128,14 +128,16 @@
         }
       ],
       "usage_evidence": [
-        "client/src/EterBase/cipher.cpp:10-34 (DH2KeyAgreement + 14 CTR block ciphers)",
+        "client/src/EterPack/EterPack.cpp:7-11 (PanamaCipher<LittleEndian>, Tiger, Whirlpool, RIPEMD128, SHA1)",
         "client/src/EterPack/EterPackPolicy_CSHybridCrypt.cpp:10-12 (Camellia/Twofish/XTEA + AutoSeededRandomPool)",
+        "client/src/EterBase/cipher.cpp:10-34 (DH2KeyAgreement + 14 CTR block ciphers)",
         "client/src/UserInterface/Hardware.cpp:6-10 (AES ECB + HexEncoder)",
         "client/src/UserInterface/HashUtils.cpp:6-9 (AES ECB)",
+        "server/src/game/src/utils.cpp:32-123 (SHA1, AES::Encryption)",
         "server/src/game/src/cipher.cpp:9-33 (Server packet encryption handshake)"
       ],
       "decision": "UPGRADED",
-      "notes": "Upgraded client Crypto++ from 8.2.0 (32-bit) to 8.9.0 matching server byte-for-byte (193 headers), enforced CRYPTOPP_DISABLE_ASM=1 on MSVC x64 in config_asm.h for ABI/alignment parity, and removed superseded 32-bit cryptlib-Release.lib and cryptlib-Debug.lib.",
+      "notes": "Upgraded client Crypto++ from 8.2.0 (32-bit) to 8.9.0 matching server byte-for-byte (193 headers), enforced CRYPTOPP_DISABLE_ASM=1 on MSVC x64 in config_asm.h for ABI/alignment parity, and removed superseded 32-bit cryptlib-Release.lib and cryptlib-Debug.lib. Required in production for EterPack Type-3 Panama/Tiger/Whirlpool/RIPEMD128/SHA1 and Type-4/5 Camellia/Twofish/XTEA.",
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
@@ -377,16 +379,16 @@
       "binaries": [],
       "usage_evidence": [
         "client/src/MilesLib/MiniaudioEngine.cpp:12 (#include <miniaudio/miniaudio.h>)",
-        "client/src/MilesLib/SoundManager.cpp:15 (MT2_USE_MINIAUDIO production integration)"
+        "client/src/MilesLib/SoundManager.cpp:15 (MT2_USE_MINIAUDIO unconditional production integration)"
       ],
       "decision": "VERIFIED",
-      "notes": "Verified with 42/42 prototype assertions and 36/36 MilesLib/CSoundManager + real EterPack VFS production assertions in PE32+ AMD64. Removed superseded 32-bit mss32.lib.",
+      "notes": "Verified with 42/42 prototype assertions and 36/36 MilesLib/CSoundManager + real EterPack VFS production assertions in PE32+ AMD64. Removed superseded 32-bit mss32.lib, extern/client/include/MSS.H, and all legacy AIL_* fallback branches.",
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
       "id": "python311_x64",
       "name": "CPython 3.11.9 AMD64 Embedded Runtime",
-      "purpose": "Native 64-bit embedded Python interpreter for client ScriptLib/UserInterface modules (MT2_USE_PYTHON3=1)",
+      "purpose": "Sole native 64-bit embedded Python interpreter for client ScriptLib/UserInterface modules (MT2_USE_PYTHON3=1)",
       "used_in_client": true,
       "used_in_server": false,
       "is_common": false,
@@ -399,16 +401,16 @@
       },
       "license": "PSF-2.0",
       "compiler_crt_abi": "MSVC v143/v145 UCRT AMD64 (COFF_0x8664 import library python311.lib + PE32+ python311.dll)",
-      "debug_release_variants": "Release AMD64 (python311.lib / python311.dll); superseded 32-bit python27-static.lib & liblib.lib removed",
+      "debug_release_variants": "Release AMD64 (python311.lib / python311.dll); superseded 32-bit Python27 headers, python27-static.lib & liblib.lib removed",
       "linkage": "dynamic",
       "binaries": [],
       "usage_evidence": [
-        "client/src/ScriptLib/StdAfx.h:30 (MT2_USE_PYTHON3=1 Python 3.11 C API bridge)",
-        "client/src/ScriptLib/PythonLauncher.cpp:1-260 (PyConfig, PyImport_AppendInittab, marshal loader)",
-        "client/src/UserInterface/PythonliblibManager.cpp:1-140 (PyModuleDef frozen rootlib table)"
+        "client/src/ScriptLib/StdAfx.h:30 (MT2_USE_PYTHON3=1 unconditional Python 3.11 C API)",
+        "client/src/ScriptLib/PythonLauncher.cpp:1-220 (PyConfig, PyImport_AppendInittab, marshal loader)",
+        "client/src/UserInterface/PythonliblibManager.cpp:1-120 (PyModuleDef frozen rootlib table)"
       ],
       "decision": "VERIFIED",
-      "notes": "35/35 client Python modules compiled to COFF AMD64 with CPython 3.11.9; 32/32 real modules + 79/79 + 64/64 PE32+ runtime tests PASS. Removed superseded 32-bit python27-static.lib, python27_d-static.lib, liblib.lib, liblib_d.lib.",
+      "notes": "35/35 client Python modules compiled to COFF AMD64 with CPython 3.11.9; 32/32 real modules + 79/79 + 64/64 PE32+ runtime tests PASS. Removed extern/client/include/Python27 (92 files), python27-static.lib, python27_d-static.lib, liblib.lib, liblib_d.lib, and all Python 2.7 fallback branches.",
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
@@ -476,18 +478,18 @@
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
-      "id": "lua50_in_tree",
-      "name": "Lua 5.0.3 (In-Tree Server Quest VM)",
-      "purpose": "Server quest scripting virtual machine built from source in server/src/liblua/5.0",
+      "id": "lua55_in_tree",
+      "name": "Lua 5.5.1 (In-Tree Server Quest VM)",
+      "purpose": "Server quest scripting virtual machine built from source in server/src/liblua/5.5",
       "used_in_client": false,
       "used_in_server": true,
       "is_common": false,
-      "header_path": "server/src/liblua/5.0/include",
-      "header_version": "5.0.3",
-      "source_build_version": "5.0.3 (in-tree CMake target lua)",
+      "header_path": "server/src/liblua/5.5/src",
+      "header_version": "5.5.1",
+      "source_build_version": "5.5.1 (in-tree CMake target lua)",
       "source_origin": {
-        "url": "https://www.lua.org/ftp/lua-5.0.3.tar.gz",
-        "version_tag": "5.0.3"
+        "url": "https://www.lua.org/ftp/lua-5.5.1.tar.gz",
+        "version_tag": "5.5.1"
       },
       "license": "MIT",
       "compiler_crt_abi": "GCC 14/16 AMD64 C++20/C99 clean build (Windows UCRT64 + FreeBSD 15.1)",
@@ -497,9 +499,9 @@
       "usage_evidence": [
         "server/src/game/src/questlua.cpp:1-800 (Server quest Lua bindings + --check-lua 11/11 PASS + 202/202 quests)"
       ],
-      "decision": "VERIFIED",
-      "notes": "Compiled cleanly as 64-bit from in-tree source on both Windows and FreeBSD.",
-      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+      "decision": "UPGRADED",
+      "notes": "Upgraded from Lua 5.0.3 to Lua 5.5.1 in-tree on both Windows and FreeBSD (--check-lua 11/11 PASS + 202/202 quests PASS).",
+      "verified_base_commit": "9f708de1e3310d3b4023007f2ea88b1cbbb46c4a"
     },
     {
       "id": "client_header_utilities",
@@ -717,19 +719,22 @@
         },
         {
           "path": "extern/common/include/net/mt2_asio_tls13_transport.h",
-          "size_bytes": 55949,
-          "sha256": "8c800de13145659d4826ee0d8062b44b1cfabbb5c132ef3f72342680ae8ab0c1"
+          "size_bytes": 56743,
+          "sha256": "97e4e6ce702dca04ea5cf3a29caf18c8ead28009b819aa8b59a0a3c4f8faa848"
         }
       ],
       "usage_evidence": [
         "extern/common/include/net/mt2_asio_tls13_transport.h:28-29 (#include <asio.hpp>, #include <asio/ssl.hpp>)",
-        "server/src/game/src/desc.cpp:25 (#include <net/mt2_asio_tls13_transport.h>)",
-        "client/src/EterLib/NetStream.cpp:4 (#include <net/mt2_asio_tls13_transport.h>)",
+        "server/src/game/src/desc.cpp:25 (#include <net/mt2_asio_tls13_transport.h>, DESC::SetupTls13, DESC::ProcessInput)",
+        "server/src/game/src/desc_p2p.cpp:5 (DESC_P2P::SetupTls13, DESC_P2P::Destroy)",
+        "server/src/game/src/desc_manager.cpp:113-220 (DESC_MANAGER::StartTls13Listeners, ProcessTls13Io, AcceptTls13Desc, AcceptTls13P2PDesc)",
+        "server/src/game/src/main.cpp:693 (io_loop -> DESC_MANAGER::instance().ProcessTls13Io(fdw))",
+        "client/src/EterLib/NetStream.cpp:4 (#include <net/mt2_asio_tls13_transport.h>, CNetworkStream::EnableTls13Transport, SetDefaultTls13Config)",
         "tests/test_asio_tls13_security.cpp:9 (#include <net/mt2_asio_tls13_transport.h>)",
         "tests/test_network_ab_benchmark.cpp:32 (#include <net/mt2_asio_tls13_transport.h>)"
       ],
       "decision": "UPGRADED",
-      "notes": "Integrated official Standalone Asio 1.38.2 (637 headers) with zero Boost dependency alongside single-source C++20 TLS 1.3 transport adapter mt2_asio_tls13_transport.h.",
+      "notes": "Integrated official Standalone Asio 1.38.2 (637 headers) with zero Boost dependency alongside single-source C++20 TLS 1.3 transport adapter mt2_asio_tls13_transport.h wired into DESC_MANAGER/DESC/DESC_P2P/main.cpp and CNetworkStream.",
       "verified_base_commit": "98d9b5a032521f5f3110ac29c8962b87471d8bd3"
     },
     {
@@ -911,6 +916,9 @@
         "extern/client/include/d3drm.h",
         "extern/client/include/d3drmdef.h",
         "extern/client/include/d3drmobj.h",
+        "extern/client/include/dxfile.h",
+        "extern/client/include/Python27",
+        "extern/client/include/MSS.H",
         "extern/client/lib/d3d9.lib",
         "extern/client/lib/ddraw.lib",
         "extern/client/lib/dmoguids.lib",
@@ -933,10 +941,11 @@
         "extern/client/lib/discord_rpc_d.lib",
         "extern/client/lib/SecureEngineSDK32.lib",
         "extern/client/lib/Release",
-        "client/src/UserInterface/Hardware - Copy.cpp"
+        "client/src/UserInterface/Hardware - Copy.cpp",
+        "server/src/liblua/5.0"
       ],
       "decision": "REMOVED",
-      "reason": "Removed dead backups, stale shadowing headers, superseded 32-bit static/import libraries that now have verified x64 replacements, and 121 loose 32-bit .obj files."
+      "reason": "Removed dead backups, stale shadowing headers, Python 2.7 headers, Miles MSS.H, dxfile.h, Lua 5.0, superseded 32-bit static/import libraries that now have verified x64 replacements, and 121 loose 32-bit .obj files."
     },
     {
       "id": "devil",

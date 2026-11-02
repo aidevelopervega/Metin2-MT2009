@@ -1,3 +1,4 @@
+#include <net/mt2_asio_tls13_transport.h>
 #include "stdafx.h"
 #include "config.h"
 #include "utils.h"
@@ -12,10 +13,34 @@
 #include "p2p.h"
 #include "ClientPackageCryptInfo.h"
 #include <msl/msl.h>
+#include <thread>
+#include <deque>
+#include <vector>
+#include <algorithm>
 
 #include "EventFunctionHandler.hpp"
 #include "event.h"
 #include "../../libthecore/include/auth_security.h"
+
+struct DESC_MANAGER::Tls13RuntimeState
+{
+	asio::io_context io{1};
+	std::unique_ptr<mt2::net::AsioTls13Server> clientServer;
+	std::unique_ptr<mt2::net::AsioTls13Server> p2pServer;
+	std::vector<std::shared_ptr<mt2::net::AsioTls13Session>> handshakingSessions;
+	std::deque<std::shared_ptr<mt2::net::AsioTls13Session>> readyClientSessions;
+	std::deque<std::shared_ptr<mt2::net::AsioTls13Session>> readyP2PSessions;
+	std::thread::id ownerThreadId{};
+	bool singleThreadVerified = true;
+	uint64_t heartPollCount = 0;
+
+	void RemoveHandshaking(const std::shared_ptr<mt2::net::AsioTls13Session>& sess)
+	{
+		handshakingSessions.erase(
+			std::remove(handshakingSessions.begin(), handshakingSessions.end(), sess),
+			handshakingSessions.end());
+	}
+};
 
 struct valid_ip
 {
@@ -65,12 +90,17 @@ int IsValidIP(struct valid_ip* ip_table, const char *host)
 	return FALSE;
 }
 
-DESC_MANAGER::DESC_MANAGER() : m_bDestroyed(false)
+DESC_MANAGER::DESC_MANAGER() : m_bDestroyed(false), m_pkDescManagerGarbageCollector(nullptr)
 {
-	CEventFunctionHandler::instance().AddEvent([this](SArgumentSupportImpl*) {
-		desc_manager_garbage_collector_info* info = AllocEventInfo<desc_manager_garbage_collector_info>();
-		m_pkDescManagerGarbageCollector = event_create(desc_manager_garbage_collector_event, info, PASSES_PER_SEC(1));
-		}, "DESC_MANAGER_COLLECTOR", 1);
+	if (CEventFunctionHandler::instance_ptr())
+	{
+		CEventFunctionHandler::instance().AddEvent([this](SArgumentSupportImpl*) {
+			if (!thecore_heart)
+				return;
+			desc_manager_garbage_collector_info* info = AllocEventInfo<desc_manager_garbage_collector_info>();
+			m_pkDescManagerGarbageCollector = event_create(desc_manager_garbage_collector_event, info, PASSES_PER_SEC(1));
+			}, "DESC_MANAGER_COLLECTOR", 1);
+	}
 
 	Initialize();
 
@@ -100,6 +130,8 @@ void DESC_MANAGER::Destroy()
 		return;
 	}
 	m_bDestroyed = true;
+
+	StopTls13Listeners();
 
 	DESC_SET::iterator i = m_set_pkDesc.begin();
 
@@ -142,7 +174,7 @@ void DESC_MANAGER::Destroy()
 
 DWORD DESC_MANAGER::CreateHandshake()
 {
-	char crc_buf[8];
+	char crc_buf[sizeof(DWORD) + sizeof(time_t)];
 	crc_t crc;
 	DESC_HANDSHAKE_MAP::iterator it;
 
@@ -150,11 +182,12 @@ RETRY:
 	do
 	{
 		DWORD val = msl::random_int(0, 1024 * 1024);
+		time_t now = get_global_time();
 
-		*(DWORD *) (crc_buf    ) = val;
-		*((DWORD *) crc_buf + 1) = get_global_time();
+		std::memcpy(crc_buf, &val, sizeof(val));
+		std::memcpy(crc_buf + sizeof(val), &now, sizeof(now));
 
-		crc = GetCRC32(crc_buf, 8);
+		crc = GetCRC32(crc_buf, sizeof(crc_buf));
 		it = m_map_handshake.find(crc);
 	}
 	while (it != m_map_handshake.end());
@@ -176,41 +209,6 @@ LPDESC DESC_MANAGER::AcceptDesc(LPFDWATCH fdw, socket_t s)
 		return NULL;
 
 	strlcpy(host, inet_ntoa(peer.sin_addr), sizeof(host));
-
-	//if (!g_bAuthServer && !guild_mark_server)
-	//{
-	//	if (!IsOnHandshakeWhitelist(peer))
-	//	{
-	//		// sys_log(0, "Host %s has not validated through login!", host);
-	//		socket_close(desc);
-	//		return NULL;
-	//	}
-	//}
-	//
-	//// Let's check if a handshake from this host is already ongoing
-	//if (GetHostHandshake(peer))
-	//{
-	//	sys_log(0, "Handshake from %s is not permitted!", host);
-	//	socket_close(desc);
-	//	return NULL;
-	//}
-	//
-	//static const int HOST_CONNECTION_LIMIT = 5;
-	//// In case if host completed handshake process let's check if it doesn't reach the limit
-	//if (GetHostConnectionCount(peer) >= HOST_CONNECTION_LIMIT)
-	//{
-	//	sys_log(0, "Host %s connection limit has been reached!", host);
-	//	socket_close(desc);
-	//	return NULL;
-	//}
-	//
-	//// And block intrusive connections as well
-	//if (IsIntrusiveConnection(host))
-	//{
-	//	sys_log(0, "Host %s is intrusive!", host);
-	//	socket_close(desc);
-	//	return NULL;
-	//}
 
 	if (!IsValidIP(admin_ip, host))
 	{
@@ -275,6 +273,288 @@ LPDESC DESC_MANAGER::AcceptP2PDesc(LPFDWATCH fdw, socket_t bind_fd)
 	sys_log(0, "DESC_MANAGER::AcceptP2PDesc  %s:%u", host, peer.sin_port);
 	P2P_MANAGER::instance().RegisterAcceptor(pkDesc);
 	return (pkDesc);
+}
+
+LPDESC DESC_MANAGER::AcceptTls13Desc(LPFDWATCH fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession)
+{
+	if (!spSession || !spSession->IsOpen() || !spSession->IsHandshakeComplete())
+		return NULL;
+
+	const std::string& host = spSession->RemoteIp();
+	if (!IsValidIP(admin_ip, host.c_str()))
+	{
+		const int maxAllowUser = (MAX_ALLOW_USER > 0) ? MAX_ALLOW_USER : 4096;
+		if (m_iSocketsConnected >= maxAllowUser)
+		{
+			sys_err("max connection reached. MAX_ALLOW_USER = %d", maxAllowUser);
+			spSession->Close();
+			return NULL;
+		}
+	}
+
+	LPDESC newd = M2_NEW DESC;
+	crc_t handshake = CreateHandshake();
+
+	if (!newd->SetupTls13(fdw, spSession, ++m_iHandleCount, handshake))
+	{
+		spSession->Close();
+		M2_DELETE(newd);
+		return NULL;
+	}
+
+	m_map_handshake.emplace(handshake, newd);
+	m_map_handle.emplace(newd->GetHandle(), newd);
+
+	m_set_pkDesc.emplace(newd);
+	++m_iSocketsConnected;
+	return newd;
+}
+
+LPDESC DESC_MANAGER::AcceptTls13P2PDesc(LPFDWATCH fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession)
+{
+	if (!spSession || !spSession->IsOpen() || !spSession->IsHandshakeComplete())
+		return NULL;
+
+	const std::string& host = spSession->RemoteIp();
+	const bool isLoopbackAllowed = (host == "127.0.0.1" &&
+		(g_szPublicIP[0] == '\0' || strcmp(g_szPublicIP, "0") == 0 || strcmp(g_szPublicIP, "0.0.0.0") == 0 || strcmp(g_szPublicIP, "127.0.0.1") == 0));
+
+	if (!isLoopbackAllowed &&
+		std::find(g_stAdminPageIP.begin(), g_stAdminPageIP.end(), host) == g_stAdminPageIP.end() &&
+		host != std::string(g_szInternalIP) && host != std::string(g_szPublicIP))
+	{
+		sys_err("TLS 1.3 P2P spoof attempt. Host: %s", host.c_str());
+		spSession->Close();
+		return NULL;
+	}
+
+	LPDESC_P2P pkDesc = M2_NEW DESC_P2P;
+
+	if (!pkDesc->SetupTls13(fdw, spSession))
+	{
+		sys_err("DESC_MANAGER::AcceptTls13P2PDesc : SetupTls13 failed");
+		spSession->Close();
+		M2_DELETE(pkDesc);
+		return NULL;
+	}
+
+	m_set_pkDesc.emplace(pkDesc);
+	++m_iSocketsConnected;
+
+	sys_log(0, "DESC_MANAGER::AcceptTls13P2PDesc  %s:%u", host.c_str(), spSession->RemotePort());
+	P2P_MANAGER::instance().RegisterAcceptor(pkDesc);
+	return pkDesc;
+}
+
+bool DESC_MANAGER::StartTls13Listeners(uint16_t clientPort, uint16_t p2pPort, const mt2::net::Tls13Config& tlsCfg, bool enableP2P)
+{
+	StopTls13Listeners();
+
+	try
+	{
+		m_upTls13Runtime = std::make_unique<Tls13RuntimeState>();
+		m_upTls13Runtime->ownerThreadId = std::this_thread::get_id();
+
+		m_upTls13Runtime->clientServer = std::make_unique<mt2::net::AsioTls13Server>(
+			m_upTls13Runtime->io, clientPort, tlsCfg);
+		m_upTls13Runtime->clientServer->StartAccept([this](std::shared_ptr<mt2::net::AsioTls13Session> session) {
+			if (!m_upTls13Runtime || !session)
+				return;
+			m_upTls13Runtime->handshakingSessions.push_back(session);
+			session->SetCallbacks(
+				[this](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code& ec) {
+					if (!m_upTls13Runtime || !sess)
+						return;
+					m_upTls13Runtime->RemoveHandshaking(sess);
+					if (!ec && sess->IsOpen() && sess->IsHandshakeComplete())
+						m_upTls13Runtime->readyClientSessions.push_back(std::move(sess));
+				},
+				{},
+				[this](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code&, mt2::net::FrameStatus) {
+					if (!m_upTls13Runtime || !sess)
+						return;
+					m_upTls13Runtime->RemoveHandshaking(sess);
+					if (m_upTls13Runtime->clientServer)
+						m_upTls13Runtime->clientServer->FloodGuard().ReleaseConnection(sess->RemoteIp());
+				});
+			session->StartServerHandshake();
+		});
+
+		if (enableP2P)
+		{
+			m_upTls13Runtime->p2pServer = std::make_unique<mt2::net::AsioTls13Server>(
+				m_upTls13Runtime->io, p2pPort, tlsCfg);
+			m_upTls13Runtime->p2pServer->StartAccept([this](std::shared_ptr<mt2::net::AsioTls13Session> session) {
+				if (!m_upTls13Runtime || !session)
+					return;
+				m_upTls13Runtime->handshakingSessions.push_back(session);
+				session->SetCallbacks(
+					[this](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code& ec) {
+						if (!m_upTls13Runtime || !sess)
+							return;
+						m_upTls13Runtime->RemoveHandshaking(sess);
+						if (!ec && sess->IsOpen() && sess->IsHandshakeComplete())
+							m_upTls13Runtime->readyP2PSessions.push_back(std::move(sess));
+					},
+					{},
+					[this](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code&, mt2::net::FrameStatus) {
+						if (!m_upTls13Runtime || !sess)
+							return;
+						m_upTls13Runtime->RemoveHandshaking(sess);
+						if (m_upTls13Runtime->p2pServer)
+							m_upTls13Runtime->p2pServer->FloodGuard().ReleaseConnection(sess->RemoteIp());
+					});
+				session->StartServerHandshake();
+			});
+		}
+
+		m_bDestroyed = false;
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		sys_err("DESC_MANAGER::StartTls13Listeners failed: %s", e.what());
+		m_upTls13Runtime.reset();
+		return false;
+	}
+}
+
+void DESC_MANAGER::StopTls13Listeners()
+{
+	if (!m_upTls13Runtime)
+		return;
+
+	if (m_upTls13Runtime->clientServer)
+		m_upTls13Runtime->clientServer->Stop();
+	if (m_upTls13Runtime->p2pServer)
+		m_upTls13Runtime->p2pServer->Stop();
+
+	for (auto& sess : m_upTls13Runtime->handshakingSessions)
+	{
+		if (sess)
+			sess->Close();
+	}
+	m_upTls13Runtime->handshakingSessions.clear();
+
+	for (auto& sess : m_upTls13Runtime->readyClientSessions)
+	{
+		if (sess)
+			sess->Close();
+	}
+	m_upTls13Runtime->readyClientSessions.clear();
+
+	for (auto& sess : m_upTls13Runtime->readyP2PSessions)
+	{
+		if (sess)
+			sess->Close();
+	}
+	m_upTls13Runtime->readyP2PSessions.clear();
+
+	m_upTls13Runtime->io.poll();
+	m_upTls13Runtime->io.stop();
+	m_upTls13Runtime.reset();
+}
+
+bool DESC_MANAGER::IsTls13ListenerActive() const
+{
+	return m_upTls13Runtime && m_upTls13Runtime->clientServer != nullptr;
+}
+
+uint16_t DESC_MANAGER::GetTls13ClientBoundPort() const
+{
+	if (!m_upTls13Runtime || !m_upTls13Runtime->clientServer)
+		return 0;
+	return m_upTls13Runtime->clientServer->BoundPort();
+}
+
+uint16_t DESC_MANAGER::GetTls13P2PBoundPort() const
+{
+	if (!m_upTls13Runtime || !m_upTls13Runtime->p2pServer)
+		return 0;
+	return m_upTls13Runtime->p2pServer->BoundPort();
+}
+
+asio::io_context* DESC_MANAGER::GetTls13IoContext()
+{
+	return m_upTls13Runtime ? &m_upTls13Runtime->io : nullptr;
+}
+
+uint64_t DESC_MANAGER::GetTls13HeartPollCount() const
+{
+	return m_upTls13Runtime ? m_upTls13Runtime->heartPollCount : 0;
+}
+
+bool DESC_MANAGER::WasTls13PolledFromSingleHeartThread() const
+{
+	return m_upTls13Runtime ? m_upTls13Runtime->singleThreadVerified : true;
+}
+
+size_t DESC_MANAGER::ProcessTls13Io(LPFDWATCH fdw)
+{
+	if (!m_upTls13Runtime)
+		return 0;
+
+	const auto curThread = std::this_thread::get_id();
+	if (m_upTls13Runtime->ownerThreadId == std::thread::id{})
+	{
+		m_upTls13Runtime->ownerThreadId = curThread;
+	}
+	else if (curThread != m_upTls13Runtime->ownerThreadId)
+	{
+		m_upTls13Runtime->singleThreadVerified = false;
+		sys_err("DESC_MANAGER::ProcessTls13Io called from wrong thread! Single-threaded heart ownership violated.");
+		return 0;
+	}
+
+	++m_upTls13Runtime->heartPollCount;
+
+	if (m_upTls13Runtime->io.stopped())
+		m_upTls13Runtime->io.restart();
+
+	size_t handlers = m_upTls13Runtime->io.poll();
+
+	while (!m_upTls13Runtime->readyClientSessions.empty())
+	{
+		auto sess = std::move(m_upTls13Runtime->readyClientSessions.front());
+		m_upTls13Runtime->readyClientSessions.pop_front();
+		AcceptTls13Desc(fdw, std::move(sess));
+	}
+
+	while (!m_upTls13Runtime->readyP2PSessions.empty())
+	{
+		auto sess = std::move(m_upTls13Runtime->readyP2PSessions.front());
+		m_upTls13Runtime->readyP2PSessions.pop_front();
+		AcceptTls13P2PDesc(fdw, std::move(sess));
+	}
+
+	std::vector<LPDESC> tlsDescs;
+	tlsDescs.reserve(m_set_pkDesc.size());
+	for (LPDESC d : m_set_pkDesc)
+	{
+		if (d && d->IsTls13Transport() && !d->IsPhase(PHASE_CLOSE))
+			tlsDescs.push_back(d);
+	}
+
+	for (LPDESC d : tlsDescs)
+	{
+		if (d->IsPhase(PHASE_CLOSE))
+			continue;
+		if (d->ProcessInput() < 0)
+		{
+			d->SetPhase(PHASE_CLOSE);
+			continue;
+		}
+		if (!d->IsPhase(PHASE_CLOSE) && d->ProcessOutput() < 0)
+		{
+			d->SetPhase(PHASE_CLOSE);
+		}
+	}
+
+	if (m_upTls13Runtime->io.stopped())
+		m_upTls13Runtime->io.restart();
+	handlers += m_upTls13Runtime->io.poll();
+
+	return handlers;
 }
 
 void DESC_MANAGER::ConnectAccount(const std::string& login, LPDESC d)

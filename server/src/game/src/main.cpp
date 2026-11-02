@@ -878,6 +878,7 @@ int io_loop(LPFDWATCH fdw)
 
 	DESC_MANAGER::instance().DestroyClosed();
 	DESC_MANAGER::instance().TryConnect();
+	DESC_MANAGER::instance().ProcessTls13Io(fdw);
 
 	if ((num_events = fdwatch(fdw, 0)) < 0)
 		return 0;

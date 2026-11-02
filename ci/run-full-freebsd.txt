@@ -17,9 +17,8 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=asio-1.38.2-openssl-tls13-network-architecture-faz1-9
-APPROVED_SOURCE_COMMIT=ac3fac6d2ee76305a9dd52cc1dea2637b68f0dd9
-PREVIOUS_VERIFIED_RUN_ID=41385255463
+TRIGGER_REVISION=faz0-faz11-final-audit-python311-miniaudio-tls13-production-wiring
+APPROVED_SOURCE_COMMIT=9f708de1e3310d3b4023007f2ea88b1cbbb46c4a
+PREVIOUS_VERIFIED_RUN_ID=24577315626
 STATUS=TRIGGERED
-
 

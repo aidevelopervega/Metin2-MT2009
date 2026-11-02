@@ -7,6 +7,49 @@
 #include "../eterBase/tea.h"
 #endif
 
+namespace
+{
+	struct DefaultTls13ClientConfig
+	{
+		bool enabled = false;
+		std::string caCertPem;
+		std::string expectedHostname;
+		std::string clientCertPem;
+		std::string clientKeyPem;
+	};
+
+	DefaultTls13ClientConfig& GetDefaultTls13ClientConfig()
+	{
+		static DefaultTls13ClientConfig s_cfg;
+		return s_cfg;
+	}
+}
+
+void CNetworkStream::SetDefaultTls13Config(
+	const std::string& caCertPem,
+	const std::string& expectedHostname,
+	const std::string& clientCertPem,
+	const std::string& clientKeyPem)
+{
+	auto& cfg = GetDefaultTls13ClientConfig();
+	cfg.caCertPem = caCertPem;
+	cfg.expectedHostname = expectedHostname;
+	cfg.clientCertPem = clientCertPem;
+	cfg.clientKeyPem = clientKeyPem;
+	cfg.enabled = !caCertPem.empty();
+}
+
+void CNetworkStream::ClearDefaultTls13Config()
+{
+	auto& cfg = GetDefaultTls13ClientConfig();
+	cfg = DefaultTls13ClientConfig{};
+}
+
+bool CNetworkStream::IsDefaultTls13ConfigEnabled()
+{
+	return GetDefaultTls13ClientConfig().enabled;
+}
+
 struct CNetworkStream::Tls13Impl
 {
 	bool enabled = false;
@@ -36,6 +79,10 @@ bool CNetworkStream::EnableTls13Transport(
 	m_spTls13->cfg.require_mutual_tls = (!clientCertPem.empty() && !clientKeyPem.empty());
 	m_spTls13->cfg.disable_0rtt = true;
 	m_spTls13->enabled = !caCertPem.empty();
+#ifndef _IMPROVED_PACKET_ENCRYPTION_
+	if (m_spTls13->enabled)
+		m_isSecurityMode = false;
+#endif
 	return m_spTls13->enabled;
 }
 
@@ -58,22 +105,29 @@ bool CNetworkStream::IsTls13TransportEnabled() const
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
 void CNetworkStream::SetSecurityMode(bool isSecurityMode, const char* c_szTeaKey)
 {
-	m_isSecurityMode = isSecurityMode;
-	memcpy(m_szEncryptKey, c_szTeaKey, TEA_KEY_LENGTH);
-	memcpy(m_szDecryptKey, c_szTeaKey, TEA_KEY_LENGTH);
+	m_isSecurityMode = isSecurityMode && !IsTls13TransportEnabled();
+	if (c_szTeaKey)
+	{
+		memcpy(m_szEncryptKey, c_szTeaKey, TEA_KEY_LENGTH);
+		memcpy(m_szDecryptKey, c_szTeaKey, TEA_KEY_LENGTH);
+	}
 }
 
 void CNetworkStream::SetSecurityMode(bool isSecurityMode, const char* c_szTeaEncryptKey, const char* c_szTeaDecryptKey)
 {
-	m_isSecurityMode = isSecurityMode;
-	memcpy(m_szEncryptKey, c_szTeaEncryptKey, TEA_KEY_LENGTH);
-	memcpy(m_szDecryptKey, c_szTeaDecryptKey, TEA_KEY_LENGTH);
+	m_isSecurityMode = isSecurityMode && !IsTls13TransportEnabled();
+	if (c_szTeaEncryptKey)
+		memcpy(m_szEncryptKey, c_szTeaEncryptKey, TEA_KEY_LENGTH);
+	if (c_szTeaDecryptKey)
+		memcpy(m_szDecryptKey, c_szTeaDecryptKey, TEA_KEY_LENGTH);
 }
 #endif // _IMPROVED_PACKET_ENCRYPTION_
 #define SEQUENCE_TABLE_SIZE 32768
 
 bool CNetworkStream::IsSecurityMode()
 {
+	if (IsTls13TransportEnabled())
+		return false;
 #ifdef _IMPROVED_PACKET_ENCRYPTION_
 	return m_cipher.activated();
 #else
@@ -3177,7 +3231,7 @@ CNetworkStream::CNetworkStream()
 	m_recvBufInputPos = 0;
 
 	m_sendTEABuf = NULL;
-	m_sendTEABuf = 0;
+	m_sendTEABufSize = 0;
 	m_sendTEABufInputPos = 0;
 
 	m_sendBuf = NULL;
@@ -3186,6 +3240,11 @@ CNetworkStream::CNetworkStream()
 	m_sendBufInputPos = 0;
 
 	m_spTls13 = std::make_unique<Tls13Impl>();
+	if (GetDefaultTls13ClientConfig().enabled)
+	{
+		const auto& defCfg = GetDefaultTls13ClientConfig();
+		EnableTls13Transport(defCfg.caCertPem, defCfg.expectedHostname, defCfg.clientCertPem, defCfg.clientKeyPem);
+	}
 
 #ifdef ENABLE_SEQUENCE_SYSTEM
 	m_iSequence = 0;

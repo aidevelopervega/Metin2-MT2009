@@ -170,6 +170,44 @@ def compile_all_modules(projects: list[tuple[str, Path, list[Path]]], force: boo
     return all_objs, compile_errors
 
 
+def verify_msbuild_release_x64_libs(projects: list[tuple[str, Path, list[Path]]], force: bool = False) -> tuple[int, int]:
+    msbuild_root = ROOT / "build/obj_x64/msbuild_release_x64"
+    msbuild_root.mkdir(parents=True, exist_ok=True)
+    static_projs = [(mod_name, vcx, srcs) for mod_name, vcx, srcs in projects if mod_name != "UserInterface"]
+    to_build = []
+    for mod_name, vcx, srcs in static_projs:
+        lib_out = msbuild_root / mod_name / f"{vcx.stem}.lib"
+        latest_src = max([s.stat().st_mtime for s in srcs] + [vcx.stat().st_mtime])
+        if force or not lib_out.exists() or lib_out.stat().st_size < 64 or lib_out.stat().st_mtime < latest_src:
+            to_build.append((mod_name, vcx, lib_out))
+
+    if to_build:
+        cmds = []
+        for mod_name, vcx, lib_out in to_build:
+            out_dir = msbuild_root / mod_name
+            int_dir = out_dir / "int"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            int_dir.mkdir(parents=True, exist_ok=True)
+            cmds.append(
+                f'msbuild.exe "{vcx.relative_to(ROOT)}" /p:Configuration=Release /p:Platform=x64 '
+                f'/p:OutDir="{out_dir}\\\\" /p:IntDir="{int_dir}\\\\" /m:2 /v:minimal /nologo'
+            )
+            cmds.append("if errorlevel 1 exit /b 1")
+        print(f"[MSBUILD] Building {len(to_build)}/{len(static_projs)} StaticLibrary .vcxproj projects in Release|x64...")
+        rc, out = run_cmd_with_vcvars(cmds)
+        if rc != 0:
+            print("[MSBUILD FAIL] Release|x64 project build failed:\n" + out)
+            return 0, len(static_projs)
+
+    verified = 0
+    for mod_name, vcx, _ in static_projs:
+        lib_out = msbuild_root / mod_name / f"{vcx.stem}.lib"
+        if lib_out.exists() and lib_out.read_bytes()[:8] == b"!<arch>\n":
+            verified += 1
+    print(f"=== MSBuild Release|x64 StaticLibrary .vcxproj Status: {verified}/{len(static_projs)} .lib archives built & verified ===")
+    return verified, len(static_projs)
+
+
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -180,6 +218,10 @@ def main() -> int:
     projects = discover_vcxproj_sources()
     total_tus = sum(len(s) for _, _, s in projects)
     print(f"=== MT2009 Client x64 Compile & Link Preflight ({len(projects)} modules, {total_tus} TUs) ===")
+
+    msbuild_ok, msbuild_total = verify_msbuild_release_x64_libs(projects, force=args.force_compile)
+    if msbuild_ok != msbuild_total:
+        return 1
 
     all_objs, compile_errors = compile_all_modules(projects, force=args.force_compile)
     valid_objs = [p for p in all_objs if is_valid_amd64_obj(p)]
@@ -205,7 +247,8 @@ def main() -> int:
         if rc != 0:
             print("Failed to compile MiniaudioEngine.cpp:", out)
             return 1
-    valid_objs.append(ma_obj)
+    if ma_obj not in valid_objs:
+        valid_objs.append(ma_obj)
 
     # Write linker response file for all 344 COFF AMD64 .obj files
     rsp_objs = PREFLIGHT_OBJ_ROOT / "client_x64_objs.rsp"
@@ -243,7 +286,6 @@ def main() -> int:
     pass_a_cmd = (
         f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS '
         f'/LIBPATH:extern\\client\\lib /LIBPATH:"{PY311_DIR / "libs"}" '
-        f'/NODEFAULTLIB:python27.lib /NODEFAULTLIB:python27-static.lib /NODEFAULTLIB:liblib.lib /NODEFAULTLIB:mss32.lib '
         f'/OUT:build\\obj_x64\\client_preflight\\metin2client_preflight_a.exe '
         f'@{rsp_objs.relative_to(ROOT)} {" ".join(x64_libs)}'
     )
@@ -254,7 +296,6 @@ def main() -> int:
     pass_b_cmd = (
         f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS '
         f'/LIBPATH:extern\\client\\lib /LIBPATH:"{PY311_DIR / "libs"}" '
-        f'/NODEFAULTLIB:python27.lib /NODEFAULTLIB:python27-static.lib /NODEFAULTLIB:liblib.lib /NODEFAULTLIB:mss32.lib '
         f'/NODEFAULTLIB:granny2.11.8.0.lib /NODEFAULTLIB:granny2.9.12.0.lib /NODEFAULTLIB:SpeedTreeRT.lib '
         f'/OUT:build\\obj_x64\\client_preflight\\metin2client_preflight_b.exe '
         f'@{rsp_objs.relative_to(ROOT)} {" ".join(x64_libs)}'
@@ -286,6 +327,8 @@ def main() -> int:
     report = {
         "schema_version": "1.1.0",
         "total_modules": len(projects),
+        "msbuild_release_x64_static_libs_verified": msbuild_ok,
+        "msbuild_release_x64_static_libs_total": msbuild_total,
         "total_vcxproj_translation_units": len(all_objs),
         "total_compiled_amd64_objects": len(valid_objs),
         "compile_errors_count": 0,

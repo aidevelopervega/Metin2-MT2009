@@ -62,6 +62,21 @@ GATES = (
     "tls13_mobile_readiness",
     "legacy_network_crypto_retired",
     "security",
+    "python27_removed",
+    "python311_production_only",
+    "cryptopp_usage_inventory",
+    "cryptopp_removal_readiness",
+    "d3d9ex_sole_api",
+    "d3d9ex_game_runtime",
+    "miniaudio_production_only",
+    "miles_legacy_removed",
+    "stb_production",
+    "boost_removed",
+    "asio_production_wiring",
+    "tls13_production_wiring",
+    "tls13_security",
+    "sdk_binary_architecture",
+    "release_x64_project_build",
 )
 
 

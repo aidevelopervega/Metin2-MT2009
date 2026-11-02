@@ -8,5 +8,5 @@ class DESC_P2P : public DESC
 		virtual void	Destroy();
 		virtual void	SetPhase(int iPhase);
 		bool		Setup(LPFDWATCH _fdw, socket_t fd, const char * host, WORD wPort);
+		bool		SetupTls13(LPFDWATCH _fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession);
 };
-

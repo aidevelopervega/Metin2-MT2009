@@ -337,13 +337,15 @@ inline void ApplyCommonTls13ContextRules(asio::ssl::context& ctx, const Tls13Con
                     SSL_OP_NO_TLSv1_1 | SSL_OP_NO_COMPRESSION | SSL_OP_NO_RENEGOTIATION;
     if (cfg.min_tls_version >= TLS1_3_VERSION)
         opts |= SSL_OP_NO_TLSv1_2;
+    SSL_CTX_set_options(native, opts);
     if (cfg.disable_0rtt)
     {
-        opts |= SSL_OP_NO_ANTI_REPLAY;
+        // Mandatory Rule #4: 0-RTT early data is strictly disabled.
+        // Ensure OpenSSL anti-replay protection remains enabled (never set SSL_OP_NO_ANTI_REPLAY).
+        SSL_CTX_clear_options(native, SSL_OP_NO_ANTI_REPLAY);
         SSL_CTX_set_max_early_data(native, 0);
         SSL_CTX_set_recv_max_early_data(native, 0);
     }
-    SSL_CTX_set_options(native, opts);
 
     // Rule 5: Strong TLS 1.3 AEAD cipher suites & ECDHE groups
     if (!cfg.ciphersuites.empty())
@@ -935,7 +937,13 @@ public:
     {
         asio::error_code ec;
         stream_.lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec);
+        if (tls_cfg_.disable_0rtt)
+        {
+            SSL_set_max_early_data(stream_.native_handle(), 0);
+            SSL_set_recv_max_early_data(stream_.native_handle(), 0);
+        }
         remote_ip_ = ExtractRemoteIp();
+        remote_port_ = ExtractRemotePort();
     }
 
     void SetCallbacks(
@@ -1117,6 +1125,8 @@ public:
     size_t TotalBytesRead() const noexcept { return total_bytes_read_.load(std::memory_order_relaxed); }
     size_t TotalBytesWritten() const noexcept { return total_bytes_written_.load(std::memory_order_relaxed); }
     const std::string& RemoteIp() const noexcept { return remote_ip_; }
+    uint16_t RemotePort() const noexcept { return remote_port_; }
+    SSL* NativeSslHandle() noexcept { return stream_.native_handle(); }
 
 private:
     std::string ExtractRemoteIp()
@@ -1126,6 +1136,15 @@ private:
         if (ec)
             return "127.0.0.1";
         return ep.address().to_string();
+    }
+
+    uint16_t ExtractRemotePort()
+    {
+        asio::error_code ec;
+        auto ep = stream_.lowest_layer().remote_endpoint(ec);
+        if (ec)
+            return 0;
+        return ep.port();
     }
 
     void ArmHandshakeTimer()
@@ -1309,6 +1328,7 @@ private:
     std::atomic<bool> early_data_accepted_{false};
     std::atomic<FrameStatus> last_frame_error_{FrameStatus::PacketReady};
     std::string remote_ip_;
+    uint16_t remote_port_ = 0;
 
     mutable std::mutex meta_mu_;
     std::string negotiated_version_;

@@ -90,6 +90,7 @@ class DESC
 		void			FlushOutput();
 
 		bool			Setup(LPFDWATCH _fdw, socket_t _fd, const struct sockaddr_in & c_rSockAddr, DWORD _handle, DWORD _handshake);
+		bool			SetupTls13(LPFDWATCH _fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession, DWORD _handle, DWORD _handshake);
 
 		socket_t		GetSocket() const	{ return m_sock; }
 		const char *	GetHostName()		{ return m_stHost.c_str(); }

@@ -1,3 +1,4 @@
+#include <net/mt2_asio_tls13_transport.h>
 #include "stdafx.h"
 #include <iostream>
 #include <cstring>
@@ -22,6 +23,8 @@
 #include "utils.h"
 #include "db.h"
 #include "desc.h"
+#include "desc_p2p.h"
+#include "desc_manager.h"
 #include "desc_client.h"
 #include "p2p.h"
 #include "itemshop_manager.h"
@@ -1613,6 +1616,136 @@ int RunGameQuestRuntimeTests()
 		RUNTIME_ASSERT(!ikaItem.CanBuy(partnerCh.get()), "ikashop::CShopItem::CanBuy must reject 5B Yang when buyer only has 2B Yang");
 #endif
 		std::cout << "  --> CExchange::AddGold (64-bit 5B Yang, 104B wire) & ikashop::CShopItem::CanBuy bounds verified!" << std::endl;
+
+		// 4) Check 11d: Real DESC_MANAGER TLS 1.3 Production Listener + ProcessTls13Io + AcceptTls13Desc + AcceptTls13P2PDesc + Single-Thread Heart Ownership + No-Double-TEA
+		std::cout << "[RUN] Check 11d: Real DESC_MANAGER TLS 1.3 Production Wiring & Single-Thread Heart Ownership..." << std::endl;
+		{
+			std::unique_ptr<P2P_MANAGER> local_p2p;
+			if (P2P_MANAGER::instance_ptr() == nullptr)
+				local_p2p = std::make_unique<P2P_MANAGER>();
+
+			std::unique_ptr<DESC_MANAGER> local_dm;
+			if (DESC_MANAGER::instance_ptr() == nullptr)
+				local_dm = std::make_unique<DESC_MANAGER>();
+
+			auto pki = mt2::net::GenerateEphemeralTestPki(
+				"game.mt2009.local",
+				"DNS:game.mt2009.local,DNS:localhost,IP:127.0.0.1");
+			mt2::net::Tls13Config srvCfg;
+			srvCfg.cert_pem = pki.server_cert_pem;
+			srvCfg.key_pem = pki.server_key_pem;
+			srvCfg.ca_pem = pki.ca_cert_pem;
+
+			mt2::net::Tls13Config cliCfg;
+			cliCfg.ca_pem = pki.ca_cert_pem;
+			cliCfg.expected_hostname = "game.mt2009.local";
+
+			RUNTIME_ASSERT(DESC_MANAGER::instance().StartTls13Listeners(0, 0, srvCfg, true),
+				"DESC_MANAGER::StartTls13Listeners must succeed on ephemeral client and P2P ports");
+			RUNTIME_ASSERT(DESC_MANAGER::instance().IsTls13ListenerActive() &&
+			               DESC_MANAGER::instance().GetTls13ClientBoundPort() > 0 &&
+			               DESC_MANAGER::instance().GetTls13P2PBoundPort() > 0,
+				"DESC_MANAGER TLS 1.3 client and P2P listeners must bind valid ports");
+
+			asio::io_context cliIo{1};
+			mt2::net::CrossPlatformTls13Client gameCli(cliIo, cliCfg);
+			mt2::net::CrossPlatformTls13Client p2pCli(cliIo, cliCfg);
+
+			bool gameHandshaked = false;
+			bool p2pHandshaked = false;
+			std::vector<uint8_t> cliRecvBytes;
+
+			gameCli.ConnectEndpoint(
+				asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), DESC_MANAGER::instance().GetTls13ClientBoundPort()),
+				[&](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code& ec) {
+					if (!ec && sess && sess->IsHandshakeComplete())
+						gameHandshaked = true;
+				},
+				{},
+				{},
+				[&](std::shared_ptr<mt2::net::AsioTls13Session>, const uint8_t* data, size_t len) {
+					cliRecvBytes.insert(cliRecvBytes.end(), data, data + len);
+				});
+
+			p2pCli.ConnectEndpoint(
+				asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), DESC_MANAGER::instance().GetTls13P2PBoundPort()),
+				[&](std::shared_ptr<mt2::net::AsioTls13Session> sess, const asio::error_code& ec) {
+					if (!ec && sess && sess->IsHandshakeComplete())
+						p2pHandshaked = true;
+				},
+				{},
+				{});
+
+			for (int tick = 0; tick < 300; ++tick)
+			{
+				cliIo.poll();
+				DESC_MANAGER::instance().ProcessTls13Io(nullptr);
+				if (gameHandshaked && p2pHandshaked &&
+				    DESC_MANAGER::instance().GetClientSet().size() >= 2 &&
+				    cliRecvBytes.size() >= sizeof(TPacketGCPhase) + sizeof(TPacketGCHandshake))
+				{
+					break;
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(2));
+			}
+
+			RUNTIME_ASSERT(gameHandshaked && p2pHandshaked,
+				"Both game and P2P clients must complete TLS 1.3 handshake via DESC_MANAGER::ProcessTls13Io");
+			RUNTIME_ASSERT(gameCli.CurrentSession()->NegotiatedTlsVersion() == "TLSv1.3" &&
+			               !gameCli.CurrentSession()->EarlyDataAccepted() &&
+			               p2pCli.CurrentSession()->NegotiatedTlsVersion() == "TLSv1.3" &&
+			               !p2pCli.CurrentSession()->EarlyDataAccepted(),
+				"TLSv1.3 negotiated with 0-RTT early data strictly rejected");
+
+			LPDESC acceptedGameDesc = nullptr;
+			LPDESC acceptedP2PDesc = nullptr;
+			for (LPDESC d : DESC_MANAGER::instance().GetClientSet())
+			{
+				if (d && d->IsTls13Transport())
+				{
+					if (d->IsPhase(PHASE_P2P))
+						acceptedP2PDesc = d;
+					else
+						acceptedGameDesc = d;
+				}
+			}
+
+			RUNTIME_ASSERT(acceptedGameDesc != nullptr && acceptedP2PDesc != nullptr,
+				"DESC_MANAGER::AcceptTls13Desc and AcceptTls13P2PDesc must register real DESC and DESC_P2P instances");
+			RUNTIME_ASSERT(acceptedGameDesc->IsPhase(PHASE_HANDSHAKE) &&
+			               cliRecvBytes.size() == sizeof(TPacketGCPhase) + sizeof(TPacketGCHandshake),
+				"AcceptTls13Desc must emit exact unencrypted TPacketGCPhase + TPacketGCHandshake over TLS 1.3 after handshake");
+
+			// Verify zero double-TEA encryption across PHASE_AUTH and PHASE_GAME
+			cliRecvBytes.clear();
+			acceptedGameDesc->SetPhase(PHASE_AUTH);
+			acceptedGameDesc->SetPhase(PHASE_GAME);
+			DESC_MANAGER::instance().ProcessTls13Io(nullptr);
+			for (int tick = 0; tick < 100 && cliRecvBytes.size() < 2 * sizeof(TPacketGCPhase); ++tick)
+			{
+				DESC_MANAGER::instance().ProcessTls13Io(nullptr);
+				cliIo.poll();
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+			RUNTIME_ASSERT(cliRecvBytes.size() == 2 * sizeof(TPacketGCPhase) &&
+			               cliRecvBytes[0] == HEADER_GC_PHASE &&
+			               cliRecvBytes[sizeof(TPacketGCPhase)] == HEADER_GC_PHASE,
+				"SetPhase(PHASE_AUTH/PHASE_GAME) on TLS 1.3 DESC must not apply legacy TEA encryption or 8-byte padding");
+
+			RUNTIME_ASSERT(DESC_MANAGER::instance().WasTls13PolledFromSingleHeartThread() &&
+			               DESC_MANAGER::instance().GetTls13HeartPollCount() > 0,
+				"DESC_MANAGER::ProcessTls13Io must run exclusively on the single-threaded heart owner thread");
+
+			if (gameCli.CurrentSession())
+				gameCli.CurrentSession()->Close();
+			if (p2pCli.CurrentSession())
+				p2pCli.CurrentSession()->Close();
+			cliIo.poll();
+			DESC_MANAGER::instance().Destroy();
+			std::remove("packet_info.txt");
+			std::remove("p2p_packet_info.txt");
+			std::cout << "  --> Real DESC_MANAGER TLS 1.3 listeners, AcceptTls13Desc, AcceptTls13P2PDesc, ProcessTls13Io, single-thread heart ownership & no-double-TEA verified!" << std::endl;
+		}
 	}
 
 	checks_passed++;

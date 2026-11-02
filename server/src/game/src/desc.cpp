@@ -128,6 +128,7 @@ void DESC::BindTls13Session(std::shared_ptr<mt2::net::AsioTls13Session> spSessio
 			m_lpInputBuffer = buffer_new(MAX_INPUT_LEN);
 		}
 		m_stHost = m_spTls13Session->RemoteIp();
+		m_wPort = m_spTls13Session->RemotePort();
 #ifndef _IMPROVED_PACKET_ENCRYPTION_
 		m_bEncrypted = false;
 #endif
@@ -247,7 +248,7 @@ EVENTFUNC(partial_login_event)
 
 void DESC::SchedulePartialLoginCheck(int iBufferedBytes)
 {
-	if (iBufferedBytes <= 0 || IsPhase(PHASE_CLOSE) || m_pkDisconnectEvent != NULL)
+	if (!thecore_heart || iBufferedBytes <= 0 || IsPhase(PHASE_CLOSE) || m_pkDisconnectEvent != NULL)
 	{
 		CancelPartialLoginCheck();
 		return;
@@ -382,6 +383,46 @@ bool DESC::Setup(LPFDWATCH _fdw, socket_t _fd, const struct sockaddr_in & c_rSoc
 	return true;
 }
 
+bool DESC::SetupTls13(LPFDWATCH _fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession, DWORD _handle, DWORD _handshake)
+{
+	if (!spSession || !spSession->IsOpen() || !spSession->IsHandshakeComplete())
+		return false;
+
+	m_lpFdw = _fdw;
+	m_sock = INVALID_SOCKET;
+	m_dwHandle = _handle;
+
+	BindTls13Session(std::move(spSession));
+
+	memset(&m_SockAddr, 0, sizeof(m_SockAddr));
+	m_SockAddr.sin_family = AF_INET;
+	m_SockAddr.sin_addr.s_addr = inet_addr(m_stHost.c_str());
+	m_SockAddr.sin_port = htons(m_wPort);
+
+	if (thecore_heart)
+	{
+		desc_event_info* info = AllocEventInfo<desc_event_info>();
+		info->desc = this;
+		assert(m_pkPingEvent == NULL);
+		m_pkPingEvent = event_create(ping_event, info, ping_event_second_cycle);
+	}
+
+#ifndef _IMPROVED_PACKET_ENCRYPTION_
+	thecore_memcpy(m_adwEncryptionKey, "9382ujfn8237gydb", sizeof(DWORD) * 4);
+	thecore_memcpy(m_adwDecryptionKey, "9382ujfn8237gydb", sizeof(DWORD) * 4);
+	m_bEncrypted = false;
+#endif
+
+	SetPhase(PHASE_HANDSHAKE);
+	StartHandshake(_handshake);
+
+	sys_log(0, "SYSTEM: new TLS 1.3 connection from [%s:%u] handshake %u output input_len %d, ptr %p",
+			m_stHost.c_str(), m_wPort, m_dwHandshake, buffer_size(m_lpInputBuffer), this);
+
+	Log("SYSTEM: new TLS 1.3 connection from [%s:%u] handshake %u ptr %p", m_stHost.c_str(), m_wPort, m_dwHandshake, this);
+	return true;
+}
+
 int DESC::ProcessInput()
 {
 	ssize_t bytes_read;
@@ -397,6 +438,9 @@ int DESC::ProcessInput()
 	{
 		if (!m_spTls13Session->IsOpen())
 			return -1;
+		// Never process application data before TLS 1.3 handshake completes
+		if (!m_spTls13Session->IsHandshakeComplete())
+			return 0;
 		const size_t drained = m_spTls13Session->DrainRecvBytes(
 			buffer_write_peek(m_lpInputBuffer),
 			static_cast<size_t>(buffer_has_space(m_lpInputBuffer)));
@@ -491,11 +535,11 @@ int DESC::ProcessInput()
 #else
 	else
 	{
-		if (!m_bEncrypted)
+		if (!m_bEncrypted || m_spTls13Session)
 		{
 			int iBytesProceed = 0;
 
-			while (!m_bEncrypted && !m_pInputProcessor->Process(this, buffer_read_peek(m_lpInputBuffer), buffer_size(m_lpInputBuffer), iBytesProceed))
+			while ((!m_bEncrypted || m_spTls13Session) && !m_pInputProcessor->Process(this, buffer_read_peek(m_lpInputBuffer), buffer_size(m_lpInputBuffer), iBytesProceed))
 			{
 				buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
 				iBytesProceed = 0;
@@ -504,7 +548,7 @@ int DESC::ProcessInput()
 			buffer_read_proceed(m_lpInputBuffer, iBytesProceed);
 		}
 
-		if (m_bEncrypted && m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
+		if (m_bEncrypted && !m_spTls13Session && m_lpInputBuffer && buffer_size(m_lpInputBuffer) > 0)
 		{
 			while (buffer_size(m_lpInputBuffer) >= 8 && !IsPhase(PHASE_CLOSE) && m_pkDisconnectEvent == NULL)
 			{
@@ -986,6 +1030,13 @@ void DESC::BindCharacter(LPCHARACTER ch)
 
 void DESC::FlushOutput()
 {
+	if (m_spTls13Session)
+	{
+		if (m_lpOutputBuffer && buffer_size(m_lpOutputBuffer) > 0)
+			ProcessOutput();
+		return;
+	}
+
 	if (m_sock == INVALID_SOCKET) {
 		return;
 	}

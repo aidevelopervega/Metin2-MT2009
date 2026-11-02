@@ -315,8 +315,44 @@ def main() -> int:
     check("#define ASIO_VERSION 103802" in asio_ver, "Standalone Asio version is 1.38.2 (ASIO_VERSION == 103802)")
     tls_hdr = (ROOT / "extern/common/include/net/mt2_asio_tls13_transport.h").read_text(encoding="utf-8", errors="ignore")
     check("#define ASIO_STANDALONE 1" in tls_hdr, "mt2_asio_tls13_transport.h enforces ASIO_STANDALONE=1")
+    check(
+        "SSL_CTX_clear_options(native, SSL_OP_NO_ANTI_REPLAY)" in tls_hdr
+        and "SSL_CTX_set_max_early_data(native, 0)" in tls_hdr,
+        "mt2_asio_tls13_transport.h clears SSL_OP_NO_ANTI_REPLAY and disables 0-RTT early data",
+    )
     ossl_ver = (ROOT / "extern/client/include/openssl/opensslv.h").read_text(encoding="utf-8", errors="ignore")
     check('# define OPENSSL_VERSION_STR "3.6.5"' in ossl_ver, "OpenSSL x64 header version is 3.6.5")
+
+    py27_refs = []
+    miles_refs = []
+    for src in (ROOT / "client/src").rglob("*"):
+        if src.is_file() and src.suffix.lower() in {".cpp", ".c", ".cc", ".h", ".hpp", ".inc"}:
+            text = src.read_text(encoding="utf-8", errors="ignore")
+            for idx, line in enumerate(text.splitlines()):
+                if re.search(
+                    r"(?:Python27/|python27|liblib\.lib|liblib_d\.lib|\bPy_InitModule|\bPyFile_FromString|0x020706f0)",
+                    line,
+                ):
+                    py27_refs.append(f"{src.relative_to(ROOT).as_posix()}:{idx+1}")
+                if re.search(
+                    r"(?:#\s*include\s*[<\"](?:mss\.h|MSS\.H)[>\"]|mss32\.(?:lib|dll)|\bAIL_[A-Za-z0-9_]+\s*\()",
+                    line,
+                ):
+                    miles_refs.append(f"{src.relative_to(ROOT).as_posix()}:{idx+1}")
+    check(
+        len(py27_refs) == 0,
+        f"Zero Python 2.7 / liblib.lib / Py_InitModule references in client/src (found: {py27_refs[:10]})",
+    )
+    check(
+        len(miles_refs) == 0,
+        f"Zero Miles Sound System (mss.h / mss32.lib / AIL_*) references in client/src (found: {miles_refs[:10]})",
+    )
+
+    srv_main = (ROOT / "server/src/game/src/main.cpp").read_text(encoding="utf-8", errors="ignore")
+    check(
+        "DESC_MANAGER::instance().ProcessTls13Io(fdw);" in srv_main,
+        "server/src/game/src/main.cpp io_loop polls DESC_MANAGER::ProcessTls13Io(fdw)",
+    )
 
     print(
         f"=== SDK Inventory & Drift Verification: {passed}/{passed + failed} PASS ({failed} failed) ==="

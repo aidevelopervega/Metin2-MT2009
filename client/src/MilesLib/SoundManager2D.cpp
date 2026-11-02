@@ -1,8 +1,6 @@
 #include "Stdafx.h"
 #include "SoundManager2D.h"
-#if defined(MT2_USE_MINIAUDIO)
 #include "MiniaudioEngine.h"
-#endif
 
 CSoundManager2D::CSoundManager2D()
 {
@@ -19,19 +17,10 @@ bool CSoundManager2D::Initialize()
 	if (ms_DIGDriver)
 		return true;
 
-#if defined(MT2_USE_MINIAUDIO)
 	ms_DIGDriver = reinterpret_cast<HDIGDRIVER>(&mileslib_miniaudio::MiniaudioEngine::Instance());
-#else
-	ms_DIGDriver = AIL_open_digital_driver(44100, 16, 2, 0);
-#endif
 
 	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 		ms_Instances[i].Initialize();
-/*	ms_DIGDriver = AIL_open_digital_driver(44100,
-										   (DIG_F_STEREO_16 & DIG_F_16BITS_MASK) ? 16 : 8,
-										   (DIG_F_STEREO_16 & DIG_F_16BITS_MASK) ? 2 : 1,
-										   0);
-*/
 	return true;
 }
 
@@ -42,9 +31,6 @@ void CSoundManager2D::Destroy()
 
 	if (ms_DIGDriver != NULL)
 	{
-#if !defined(MT2_USE_MINIAUDIO)
-		AIL_close_digital_driver(ms_DIGDriver);
-#endif
 		ms_DIGDriver = NULL;
 	}
 

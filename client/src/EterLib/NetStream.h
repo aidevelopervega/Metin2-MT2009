@@ -16,6 +16,14 @@ class CNetworkStream
 		CNetworkStream();
 		virtual ~CNetworkStream();
 
+		static void SetDefaultTls13Config(
+			const std::string& caCertPem,
+			const std::string& expectedHostname = "",
+			const std::string& clientCertPem = "",
+			const std::string& clientKeyPem = "");
+		static void ClearDefaultTls13Config();
+		static bool IsDefaultTls13ConfigEnabled();
+
 		bool EnableTls13Transport(
 			const std::string& caCertPem,
 			const std::string& expectedHostname = "",

@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <cstddef>
 
-// Dual-compatibility C API adapter for embedded Python 2.7 and CPython 3.x (x64 C++20)
-#if PY_MAJOR_VERSION >= 3
+// CPython 3.11 (x64 C++20) C API helpers used across embedded client modules
+static_assert(PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 11, "MT2009 client requires embedded CPython 3.11 x64");
 
 inline bool M2PyInt_Check(PyObject* poItem)
 {
@@ -103,77 +103,3 @@ inline PyObject* M2Py_InitModule(const char* c_szName, PyMethodDef* pMethods)
 
 	return poModule;
 }
-
-#else // PY_MAJOR_VERSION < 3
-
-inline bool M2PyInt_Check(PyObject* poItem)
-{
-	return poItem != nullptr && PyInt_Check(poItem) && !PyBool_Check(poItem);
-}
-
-inline long M2PyInt_AsLong(PyObject* poItem)
-{
-	return PyInt_AsLong(poItem);
-}
-
-inline PyObject* M2PyInt_FromLong(long lVal)
-{
-	return PyInt_FromLong(lVal);
-}
-
-inline PyObject* M2PyInt_FromSize_t(size_t uVal)
-{
-	return PyInt_FromSize_t(uVal);
-}
-
-inline bool M2PyString_Check(PyObject* poItem)
-{
-	return poItem != nullptr && PyString_Check(poItem);
-}
-
-inline char* M2PyString_AsString(PyObject* poItem)
-{
-	return poItem ? PyString_AsString(poItem) : nullptr;
-}
-
-inline PyObject* M2PyString_FromString(const char* szStr)
-{
-	return PyString_FromString(szStr ? szStr : "");
-}
-
-inline PyObject* M2PyString_FromStringAndSize(const char* szBuf, Py_ssize_t len)
-{
-	return PyString_FromStringAndSize(szBuf, len);
-}
-
-inline PyObject* M2PyString_InternFromString(const char* szStr)
-{
-	return PyString_InternFromString(szStr ? szStr : "");
-}
-
-inline constexpr const char* M2Py_GetBuiltinModuleName()
-{
-	return "__builtin__";
-}
-
-inline PyObject* M2Py_ImportBuiltins()
-{
-	return PyImport_ImportModule(M2Py_GetBuiltinModuleName());
-}
-
-inline void M2Py_SetProgramName(const char* c_szProgramName)
-{
-	Py_SetProgramName(const_cast<char*>(c_szProgramName ? c_szProgramName : "metin2client"));
-}
-
-inline PyObject* M2PyEval_EvalCode(PyCodeObject* co, PyObject* globals, PyObject* locals)
-{
-	return PyEval_EvalCode(co, globals, locals);
-}
-
-inline PyObject* M2Py_InitModule(const char* c_szName, PyMethodDef* pMethods)
-{
-	return Py_InitModule(const_cast<char*>(c_szName), pMethods);
-}
-
-#endif // PY_MAJOR_VERSION >= 3

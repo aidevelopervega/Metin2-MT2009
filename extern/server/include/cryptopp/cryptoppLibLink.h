@@ -9,16 +9,8 @@
 
 #if defined(CRYPTOPP_IMPORTS)
 #include "dll.h"
-#else
-	#ifdef _WIN64
-		#pragma comment( lib, "cryptlib-x64.lib" )
-	#elif defined(_WIN32)
-		#ifdef _DEBUG
-			#pragma comment( lib, "cryptlib-Debug.lib" )
-		#else
-			#pragma comment( lib, "cryptlib-Release.lib" )
-		#endif
-	#endif
+#elif defined(_WIN64)
+#pragma comment( lib, "cryptlib-x64.lib" )
 #endif
 
 #endif /* !_CRYPTOPPLIBLINK_H_ */

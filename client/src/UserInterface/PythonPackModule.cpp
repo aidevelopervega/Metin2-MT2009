@@ -73,11 +73,7 @@ PyObject * packGet(PyObject * poSelf, PyObject * poArgs)
 
 			if (CEterPackManager::Instance().Get(file,strFileName,&pData))
 			{
-#if defined(MT2_USE_PYTHON3) || (defined(PY_MAJOR_VERSION) && PY_MAJOR_VERSION >= 3)
 				return PyUnicode_DecodeUTF8(static_cast<const char*>(pData), static_cast<Py_ssize_t>(file.Size()), "surrogateescape");
-#else
-				return Py_BuildValue("s#",pData, file.Size());
-#endif
 			}
 		}
 	}

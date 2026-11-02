@@ -7,6 +7,19 @@
 #include "../../common/stl.h"
 #include "../../common/length.h"
 #include "IFileMonitor.h"
+#include <memory>
+#include <cstdint>
+
+namespace asio
+{
+	class io_context;
+}
+
+namespace mt2::net
+{
+	struct Tls13Config;
+	class AsioTls13Session;
+}
 
 class CLoginKey;
 class CClientPackageCryptInfo;
@@ -32,6 +45,17 @@ class DESC_MANAGER : public singleton<DESC_MANAGER>
 
 		LPDESC			AcceptDesc(LPFDWATCH fdw, socket_t s);
 		LPDESC			AcceptP2PDesc(LPFDWATCH fdw, socket_t s);
+		LPDESC			AcceptTls13Desc(LPFDWATCH fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession);
+		LPDESC			AcceptTls13P2PDesc(LPFDWATCH fdw, std::shared_ptr<mt2::net::AsioTls13Session> spSession);
+		bool			StartTls13Listeners(uint16_t clientPort, uint16_t p2pPort, const mt2::net::Tls13Config& tlsCfg, bool enableP2P = true);
+		void			StopTls13Listeners();
+		bool			IsTls13ListenerActive() const;
+		uint16_t		GetTls13ClientBoundPort() const;
+		uint16_t		GetTls13P2PBoundPort() const;
+		size_t			ProcessTls13Io(LPFDWATCH fdw);
+		asio::io_context*	GetTls13IoContext();
+		uint64_t		GetTls13HeartPollCount() const;
+		bool			WasTls13PolledFromSingleHeartThread() const;
 		void			DestroyLoginKey(const std::string_view msg) const;
 		void			DestroyLoginKey(const LPDESC d) const;
 		void			DestroyDesc(LPDESC d, bool erase_from_set = true);
@@ -118,6 +142,10 @@ private:
 public:
 	void	AddToHandshakeWhiteList(const TPacketGGHandshakeValidate* pack);
 	void	ConnectionCollector();
+
+private:
+	struct Tls13RuntimeState;
+	std::unique_ptr<Tls13RuntimeState> m_upTls13Runtime;
 };
 
 #endif

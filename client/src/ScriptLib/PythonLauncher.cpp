@@ -1,9 +1,5 @@
 #include "StdAfx.h"
-#if defined(MT2_USE_PYTHON3) || (defined(PY_MAJOR_VERSION) && PY_MAJOR_VERSION >= 3)
 #include <frameobject.h>
-#else
-#include <Python27/frameobject.h>
-#endif
 #include "../eterPack/EterPackManager.h"
 
 #include "PythonLauncher.h"
@@ -76,7 +72,6 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 				return 0;
 
 			{
-#if PY_VERSION_HEX >= 0x03090000
 				PyCodeObject* pCode = PyFrame_GetCode(f);
 				int iLineNo = PyFrame_GetLineNumber(f);
 				funcname = pCode ? M2PyString_AsString(pCode->co_name) : "";
@@ -86,17 +81,6 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 						  iLineNo,
 						  funcname ? funcname : "");
 				Py_XDECREF(pCode);
-#else
-				if (Py_OptimizeFlag)
-					f->f_lineno = PyCode_Addr2Line(f->f_code, f->f_lasti);
-
-				funcname = M2PyString_AsString(f->f_code->co_name);
-
-				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Call: File \"%s\", line %d, in %s",
-						  M2PyString_AsString(f->f_code->co_filename),
-						  f->f_lineno,
-						  funcname);
-#endif
 			}
 
 			g_stTraceBuffer[g_nCurTraceN++]=szTraceBuffer;
@@ -117,14 +101,7 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 			PyTuple_GetObject(arg, 1, &exc_value);
 			PyTuple_GetObject(arg, 2, &exc_traceback);
 
-#if PY_MAJOR_VERSION < 3
-			Py_ssize_t len = 0;
-			const char * exc_str;
-			PyObject_AsCharBuffer(exc_type, &exc_str, &len);
-#endif
-
 			{
-#if PY_VERSION_HEX >= 0x03090000
 				PyCodeObject* pCode = PyFrame_GetCode(f);
 				int iLineNo = PyFrame_GetLineNumber(f);
 				const char* szFileName = pCode ? M2PyString_AsString(pCode->co_filename) : "";
@@ -134,12 +111,6 @@ int TraceFunc(PyObject * obj, PyFrameObject * f, int what, PyObject *arg)
 						  iLineNo,
 						  szCodeName ? szCodeName : "");
 				Py_XDECREF(pCode);
-#else
-				_snprintf(szTraceBuffer, sizeof(szTraceBuffer), "Exception: File \"%s\", line %d, in %s",
-						  M2PyString_AsString(f->f_code->co_filename),
-						  f->f_lineno,
-						  M2PyString_AsString(f->f_code->co_name));
-#endif
 			}
 
 			g_stTraceBuffer[g_nCurTraceN++]=szTraceBuffer;
@@ -198,10 +169,8 @@ bool CPythonLauncher::RunCompiledFile(const char* c_szFileName)
 	}
 
 	_PyMarshal_ReadLongFromFile(fp);
-#if PY_VERSION_HEX >= 0x03070000
 	_PyMarshal_ReadLongFromFile(fp);
 	_PyMarshal_ReadLongFromFile(fp);
-#endif
 	v = _PyMarshal_ReadLastObjectFromFile(fp);
 
 	fclose(fp);
@@ -224,12 +193,7 @@ bool CPythonLauncher::RunCompiledFile(const char* c_szFileName)
 	}
 
 	Py_DECREF(v);
-#if PY_MAJOR_VERSION < 3
-	if (Py_FlushLine())
-		PyErr_Clear();
-#else
 	PyErr_Clear();
-#endif
 
 	return true;
 }
@@ -242,7 +206,6 @@ bool CPythonLauncher::RunMemoryTextFile(const char* c_szFileName, UINT uFileSize
 
 	std::string stConvFileData;
 	stConvFileData.reserve(uFileSize);
-#if PY_MAJOR_VERSION >= 3
 	for (UINT i = 0; i < uFileSize; ++i)
 	{
 		if (c_pcFileData[i] != 13)
@@ -284,27 +247,6 @@ bool CPythonLauncher::RunMemoryTextFile(const char* c_szFileName, UINT uFileSize
 	}
 	Py_DECREF(v);
 	return true;
-#else
-	stConvFileData+="exec(compile('''";
-
-	// ConvertPythonTextFormat
-	{
-		for (UINT i=0; i<uFileSize; ++i)
-		{
-			if (c_pcFileData[i]!=13)
-				stConvFileData+=c_pcFileData[i];
-		}
-	}
-
-	stConvFileData+= "''', ";
-	stConvFileData+= "'";
-	stConvFileData+= c_szFileName;
-	stConvFileData+= "', ";
-	stConvFileData+= "'exec'))";
-
-	const CHAR* c_pcConvFileData=stConvFileData.c_str();
-	return RunLine(c_pcConvFileData);
-#endif
 }
 
 bool CPythonLauncher::RunFile(const char* c_szFileName)

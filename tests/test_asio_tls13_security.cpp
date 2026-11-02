@@ -393,6 +393,15 @@ void TestTls13HandshakeAndRules(const mt2::net::EphemeralPkiBundle& pki, const m
     srv_cfg.ca_pem = pki.ca_cert_pem;
     srv_cfg.disable_0rtt = true;
 
+    // Verify SSL_CTX options: SSL_OP_NO_ANTI_REPLAY MUST be 0 (anti-replay active) and max_early_data MUST be 0
+    {
+        auto verify_srv_ctx = mt2::net::CreateServerTls13Context(srv_cfg);
+        SSL_CTX* raw_ctx = verify_srv_ctx->native_handle();
+        MT2_CHECK((SSL_CTX_get_options(raw_ctx) & SSL_OP_NO_ANTI_REPLAY) == 0);
+        MT2_CHECK(SSL_CTX_get_max_early_data(raw_ctx) == 0);
+        MT2_CHECK(SSL_CTX_get_recv_max_early_data(raw_ctx) == 0);
+    }
+
     mt2::net::TransportLimits limits;
     mt2::net::AsioTls13Server server(io, 0, srv_cfg, limits, &schema);
     const uint16_t port = server.BoundPort();
@@ -453,9 +462,19 @@ void TestTls13HandshakeAndRules(const mt2::net::EphemeralPkiBundle& pki, const m
     MT2_CHECK(!client.CurrentSession()->EarlyDataAccepted());
     MT2_CHECK(!srv_session->EarlyDataAccepted());
 
+    // Negative 0-RTT test: verify per-session SSL handle has max_early_data == 0 and rejects any early data attempt
+    SSL* srv_ssl = srv_session->NativeSslHandle();
+    SSL* cli_ssl = client.CurrentSession()->NativeSslHandle();
+    MT2_CHECK(SSL_get_max_early_data(srv_ssl) == 0);
+    MT2_CHECK(SSL_get_early_data_status(srv_ssl) != SSL_EARLY_DATA_ACCEPTED);
+    MT2_CHECK(SSL_get_early_data_status(cli_ssl) != SSL_EARLY_DATA_ACCEPTED);
+    size_t early_written = 0;
+    MT2_CHECK(SSL_write_early_data(cli_ssl, &hs_pkt, sizeof(hs_pkt), &early_written) == 0);
+    MT2_CHECK(early_written == 0);
+
     client.CurrentSession()->Close();
     server.Stop();
-    std::printf("[PASS] Test 3: TLS 1.3 handshake (%s / %s, 0-RTT=off) verified\n",
+    std::printf("[PASS] Test 3: TLS 1.3 handshake (%s / %s, 0-RTT=off, anti-replay=on) verified\n",
         client.CurrentSession()->NegotiatedTlsVersion().c_str(),
         client.CurrentSession()->NegotiatedCipherSuite().c_str());
 }

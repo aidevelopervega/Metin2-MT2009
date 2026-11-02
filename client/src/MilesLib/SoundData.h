@@ -1,8 +1,28 @@
 #ifndef __MILESLIB_CSOUNDDATA_H__
 #define __MILESLIB_CSOUNDDATA_H__
 
-#include <mss.h>
+#ifndef MT2_USE_MINIAUDIO
+#define MT2_USE_MINIAUDIO 1
+#endif
+
+#include <cstdint>
 #include "../eterBase/MappedFile.h"
+
+#ifndef __MT2_MILESLIB_AUDIO_TYPES_DEFINED__
+#define __MT2_MILESLIB_AUDIO_TYPES_DEFINED__
+using U32 = std::uint32_t;
+using S32 = std::int32_t;
+using F32 = float;
+using HPROVIDER = std::uintptr_t;
+using HDIGDRIVER = void*;
+using HSAMPLE = void*;
+using H3DSAMPLE = void*;
+using H3DPOBJECT = void*;
+using HSTREAM = void*;
+#ifndef AILCALLBACK
+#define AILCALLBACK __stdcall
+#endif
+#endif
 
 class CSoundData
 {

@@ -38,13 +38,8 @@
 #endif
 
 #ifdef ENABLE_DISCORD_RPC
-
 #if defined(_WIN64)
 #pragma comment(lib, "discord_rpc_x64.lib")
-#elif defined(_DEBUG)
-#pragma comment(lib, "discord_rpc_d.lib")
-#else
-#pragma comment(lib, "discord_rpc_r.lib")
 #endif
 #endif
 
