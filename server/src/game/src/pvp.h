@@ -47,7 +47,7 @@ class CPVP
 
 class CPVPManager : public singleton<CPVPManager>
 {
-	typedef std::map<uint64_t, TR1_NS::unordered_set<CPVP*> > CPVPSetMap;
+	typedef std::map<uint64_t, std::unordered_set<CPVP*> > CPVPSetMap;
 
 	public:
 	CPVPManager();

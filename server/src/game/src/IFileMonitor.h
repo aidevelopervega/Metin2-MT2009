@@ -1,8 +1,7 @@
 #ifndef IFILEMONITOR_INCLUDED
 #define IFILEMONITOR_INCLUDED
 
-//#include <boost/function.hpp>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 
 enum eFileUpdatedOptions
 {
@@ -16,9 +15,6 @@ enum eFileUpdatedOptions
 	e_FileUpdate_Revoked,
 };
 
-// TODO : in FreeBSD boost function doesn`t work with boost bind
-// so currently we only support for static function ptr only
-//typedef boost::function< void ( const std::string&, eFileUpdatedOptions ) > PFN_FileChangeListener;
 typedef void (* PFN_FileChangeListener )(const std::string&, eFileUpdatedOptions);
 
 struct IFileMonitor

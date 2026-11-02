@@ -3,6 +3,8 @@
 
 #ifdef ENABLE_IKASHOP_RENEWAL
 #include <ranges>
+#include <optional>
+#include <functional>
 #include "PythonBackground.h"
 #include "Packet.h"
 #include <array>

@@ -249,7 +249,7 @@ void CThreeWayWar::RandomEventMapSet()
 
 bool CThreeWayWar::IsRegisteredUser(uint64_t PlayerID) const
 {
-	boost::unordered_map<uint64_t, uint64_t>::const_iterator iter = RegisterUserMap_.find(PlayerID);
+	std::unordered_map<uint64_t, uint64_t>::const_iterator iter = RegisterUserMap_.find(PlayerID);
 
 	if (iter == RegisterUserMap_.end())
 	{

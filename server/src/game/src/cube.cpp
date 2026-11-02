@@ -63,8 +63,8 @@ struct SItemNameAndLevel
 };
 
 typedef std::vector<SCubeMaterialInfo>								TCubeResultList;
-typedef boost::unordered_map<DWORD, TCubeResultList>				TCubeMapByNPC;
-typedef boost::unordered_map<DWORD, std::string>					TCubeResultInfoTextByNPC;
+typedef std::unordered_map<DWORD, TCubeResultList>					TCubeMapByNPC;
+typedef std::unordered_map<DWORD, std::string>						TCubeResultInfoTextByNPC;
 
 TCubeMapByNPC cube_info_map;
 TCubeResultInfoTextByNPC cube_result_info_map_by_npc;

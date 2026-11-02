@@ -1,13 +1,49 @@
 #include "stdafx.h"
-
-#ifndef DEBUG_ALLOC
-#include <boost/pool/object_pool.hpp>
-#endif
-
 #include "affect.h"
 
 #ifndef DEBUG_ALLOC
-boost::object_pool<CAffect> affect_pool;
+#include <memory>
+#include <vector>
+
+namespace
+{
+	class CAffectObjectPool
+	{
+	public:
+		CAffect* malloc()
+		{
+			if (!free_list_.empty())
+			{
+				CAffect* p = free_list_.back();
+				free_list_.pop_back();
+				*p = CAffect{};
+				return p;
+			}
+
+			constexpr size_t kChunkSize = 256;
+			auto chunk = std::make_unique<CAffect[]>(kChunkSize);
+			CAffect* base = chunk.get();
+			chunks_.push_back(std::move(chunk));
+			free_list_.reserve(free_list_.size() + kChunkSize - 1);
+			for (size_t i = kChunkSize - 1; i >= 1; --i)
+				free_list_.push_back(&base[i]);
+			base[0] = CAffect{};
+			return &base[0];
+		}
+
+		void free(CAffect* p)
+		{
+			if (p != nullptr)
+				free_list_.push_back(p);
+		}
+
+	private:
+		std::vector<std::unique_ptr<CAffect[]>> chunks_;
+		std::vector<CAffect*> free_list_;
+	};
+
+	CAffectObjectPool affect_pool;
+}
 #endif
 
 CAffect* CAffect::Acquire()
@@ -27,4 +63,5 @@ void CAffect::Release(CAffect* p)
 	M2_DELETE(p);
 #endif
 }
+
 

@@ -1,4 +1,4 @@
-namespace boost
+namespace func_any_ns
 {
     class any
     {

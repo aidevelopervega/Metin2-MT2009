@@ -24,7 +24,6 @@
 #include "ikarus_shop.h"
 #include "ikarus_shop_manager.h"
 
-#include <boost/algorithm/string.hpp>
 #if __has_include(<grid.h>)
 #include <grid.h>
 #elif __has_include("../../../../server/src/libgame/include/grid.h")

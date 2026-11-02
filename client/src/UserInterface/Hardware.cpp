@@ -9,11 +9,30 @@
 #include <cryptopp/aes.h>
 #include <cryptopp/hex.h>
 
-#include <boost/algorithm/string/trim.hpp>
+#include <cctype>
 #include <intrin.h>
 #ifdef __THEMIDA__
 #include <ThemidaSDK.h>
 #endif
+
+namespace
+{
+	inline void TrimHardwareIDWhitespace(std::string& s)
+	{
+		const auto is_space = [](unsigned char ch) noexcept {
+			return std::isspace(ch) != 0;
+		};
+		const auto first = std::find_if_not(s.begin(), s.end(), is_space);
+		if (first == s.end())
+		{
+			s.clear();
+			return;
+		}
+		const auto last = std::find_if_not(s.rbegin(), s.rend(), is_space).base();
+		s.erase(last, s.end());
+		s.erase(s.begin(), first);
+	}
+}
 
 inline bool GetCPUID(std::string& sChecksum)
 {
@@ -147,7 +166,7 @@ std::string GetHardwareID()
 #endif
 
 	// Strip from whitemarks and add size at the beginning of string
-	boost::algorithm::trim(sChecksum);
+	TrimHardwareIDWhitespace(sChecksum);
 	// Limit the output
 	if (sChecksum.size() > HWID_MAX_LEN) sChecksum.resize((HWID_MAX_LEN));
 #ifdef _DEBUG

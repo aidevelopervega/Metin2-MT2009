@@ -63,7 +63,6 @@ target_include_directories(test_db_cache_integration PRIVATE
     "${CMAKE_SOURCE_DIR}/server/src/libgame/src"
     "${CMAKE_SOURCE_DIR}/server/src/common"
     "${CMAKE_SOURCE_DIR}/extern/common/include"
-    "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
     "${CMAKE_SOURCE_DIR}/extern/server/include"
 )
 target_compile_options(test_db_cache_integration PRIVATE

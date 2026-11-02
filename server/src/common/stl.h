@@ -10,6 +10,7 @@
 #include <functional>
 #include <stack>
 #include <set>
+#include <sstream>
 
 #ifdef __GNUC__
 	#ifndef __clang__

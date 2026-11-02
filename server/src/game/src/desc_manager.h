@@ -1,8 +1,8 @@
 #ifndef __INC_METIN_II_GAME_DESC_MANAGER_H__
 #define __INC_METIN_II_GAME_DESC_MANAGER_H__
 
-#include <boost/unordered_map.hpp>
-
+#include <unordered_map>
+#include <unordered_set>
 
 #include "../../common/stl.h"
 #include "../../common/length.h"
@@ -15,12 +15,12 @@ typedef struct SPacketGGHandshakeValidate TPacketGGHandshakeValidate;
 class DESC_MANAGER : public singleton<DESC_MANAGER>
 {
 	public:
-		typedef TR1_NS::unordered_set<LPDESC>			DESC_SET;
-		typedef TR1_NS::unordered_set<LPCLIENT_DESC>	CLIENT_DESC_SET;
+		typedef std::unordered_set<LPDESC>				DESC_SET;
+		typedef std::unordered_set<LPCLIENT_DESC>		CLIENT_DESC_SET;
 		typedef std::map<int, LPDESC>					DESC_HANDLE_MAP;
 		typedef std::map<DWORD, LPDESC>					DESC_HANDSHAKE_MAP;
 		typedef std::map<DWORD, LPDESC>					DESC_ACCOUNTID_MAP;
-		typedef boost::unordered_map<std::string, LPDESC>	DESC_LOGINNAME_MAP;
+		typedef std::unordered_map<std::string, LPDESC>	DESC_LOGINNAME_MAP;
 		typedef std::map<DWORD, DWORD>					DESC_HANDLE_RANDOM_KEY_MAP;
 
 	public:
@@ -107,7 +107,7 @@ class DESC_MANAGER : public singleton<DESC_MANAGER>
 private:
 	LPEVENT	m_pkDescManagerGarbageCollector;
 	std::unordered_map<std::string, std::tuple<DWORD, int, bool>> m_connection_mapper;
-	TR1_NS::unordered_set<std::string> s_handshake_whitelist;
+	std::unordered_set<std::string> s_handshake_whitelist;
 
 	bool	GetHostHandshake(const struct sockaddr_in& c_rSockAddr);
 	int	GetHostConnectionCount(const struct sockaddr_in& c_rSockAddr);

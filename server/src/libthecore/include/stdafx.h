@@ -147,8 +147,12 @@ static inline size_t strlcat(char *dst, const char *src, size_t dsize)
 #define localtime_r(timet, result) localtime_s(result, timet)
 #define strtok_r(s, delim, ptrptr) strtok_s(s, delim, ptrptr)
 
-#include <boost/typeof/typeof.hpp>
-#define typeof(t) BOOST_TYPEOF(t)
+#ifdef __GNUC__
+#define typeof(t) __typeof__(t)
+#else
+#include <type_traits>
+#define typeof(t) std::remove_reference_t<decltype(t)>
+#endif
 
 // dummy declaration of non-supported signals
 #define SIGUSR1     30  /* user defined signal 1 */

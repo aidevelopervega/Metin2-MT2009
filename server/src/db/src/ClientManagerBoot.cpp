@@ -1,4 +1,5 @@
 #include <map>
+#include <sstream>
 #include "stdafx.h"
 #include "ClientManager.h"
 #include "Main.h"

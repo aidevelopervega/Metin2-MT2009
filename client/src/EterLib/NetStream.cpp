@@ -398,36 +398,47 @@ void CNetworkStream::Clear()
 #endif
 }
 
-#include <boost/asio.hpp>
-#include <iostream>
 #include <chrono>
 
 void CNetworkStream::PingPort(const std::string& host, UINT port) {
-	boost::asio::io_context io_context;
-	boost::asio::ip::tcp::resolver resolver(io_context);
-	boost::asio::ip::tcp::socket socket(io_context);
-
-	try {
-		auto endpoints = resolver.resolve(host, std::to_string(port));
-
-		auto start = std::chrono::steady_clock::now();
-		boost::asio::connect(socket, endpoints);
-		auto end = std::chrono::steady_clock::now();
-
-		auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-		Tracenf("Connected to %s:%d in %d ms.", host.c_str(), port, elapsed.count());
+	CNetworkAddress netAddr;
+	if (!netAddr.Set(host.c_str(), static_cast<int>(port)))
+	{
+		Tracenf("Connection failed: cannot resolve %s:%u", host.c_str(), port);
+		return;
 	}
-	catch (const std::exception& e) {
-		Tracenf("Connection failed: %s", e.what());
+
+	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == INVALID_SOCKET)
+	{
+		Tracenf("Connection failed: socket error %d", WSAGetLastError());
+		return;
 	}
+
+	auto start = std::chrono::steady_clock::now();
+	const SOCKADDR_IN& sockAddr = netAddr;
+	int rc = connect(sock, reinterpret_cast<const sockaddr*>(&sockAddr), netAddr.GetSize());
+	auto end = std::chrono::steady_clock::now();
+	int wsaErr = (rc == SOCKET_ERROR) ? WSAGetLastError() : 0;
+	closesocket(sock);
+
+	if (rc == SOCKET_ERROR)
+	{
+		Tracenf("Connection failed: WSAError %d", wsaErr);
+		return;
+	}
+
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	Tracenf("Connected to %s:%d in %lld ms.", host.c_str(), port, static_cast<long long>(elapsed.count()));
 }
 
 void CNetworkStream::PingPort(LONG addr, WORD port)
 {
-	boost::asio::ip::address_v4 ipv4(ntohl(addr));
-	std::string ip_str = ipv4.to_string();
-	PingPort(ip_str.c_str(), port);
+	CNetworkAddress netAddr;
+	netAddr.SetIP(ntohl(static_cast<DWORD>(addr)));
+	char szIP[32] = {};
+	netAddr.GetIP(szIP, sizeof(szIP));
+	PingPort(szIP, port);
 }
 
 bool CNetworkStream::Connect(const CNetworkAddress& c_rkNetAddr, int limitSec)

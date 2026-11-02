@@ -46,6 +46,10 @@ GATES = (
     "client_markimage_stb_migrated",
     "guild_mark_stb_regression_tests",
     "devil_removed",
+    "boost_inventory_complete",
+    "client_boost_removed",
+    "server_boost_removed",
+    "boost_files_and_build_refs_removed",
     "security",
 )
 

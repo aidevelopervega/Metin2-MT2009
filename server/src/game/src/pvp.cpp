@@ -246,7 +246,7 @@ bool CPVPManager::IsFighting(uint64_t dwPID)
 	if (it == m_map_pkPVPSetByID.end())
 		return false;
 
-	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
+	std::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{
@@ -268,7 +268,7 @@ void CPVPManager::ConnectEx(LPCHARACTER pkChr, bool bDisconnect)
 
 	DWORD dwVID = bDisconnect ? 0 : pkChr->GetVID();
 
-	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
+	std::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{
@@ -295,7 +295,7 @@ void CPVPManager::GiveUp(LPCHARACTER pkChr, uint64_t dwKillerPID) // This method
 		return;
 
 	sys_log(1, "PVPManager::Dead %llu", static_cast<unsigned long long>(pkChr->GetPlayerID()));
-	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
+	std::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{
@@ -338,7 +338,7 @@ bool CPVPManager::Dead(LPCHARACTER pkChr, uint64_t dwKillerPID)
 	bool found = false;
 
 	sys_log(1, "PVPManager::Dead %llu", static_cast<unsigned long long>(pkChr->GetPlayerID()));
-	TR1_NS::unordered_set<CPVP*>::iterator it2 = it->second.begin();
+	std::unordered_set<CPVP*>::iterator it2 = it->second.begin();
 
 	while (it2 != it->second.end())
 	{

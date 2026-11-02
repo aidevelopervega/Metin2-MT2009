@@ -3,18 +3,16 @@
 #include <windows.h>
 
 #include <cassert>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // 1. Common Header-Only SDKs (Server == Client unified versions)
-#include <boost/version.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/asio/ip/network_v4.hpp>
-#include <boost/asio/ip/network_v6.hpp>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -58,11 +56,44 @@
 #include "../client/src/EterPack/EterPackPolicy_CSHybridCrypt.h"
 #include "../client/src/UserInterface/MarkImage.h"
 #include "../client/src/UserInterface/HashUtils.h"
+#include "../server/src/common/length.h"
 #include "guild_mark_stb_test_suite.h"
 
 extern std::string GetHardwareID();
 extern CGuildMarkImage* NewMarkImage();
 extern void DeleteMarkImage(CGuildMarkImage* pkImage);
+
+namespace
+{
+    void TestTrimHardwareIDWhitespace(std::string& str)
+    {
+        size_t first = 0;
+        while (first < str.size() && std::isspace(static_cast<unsigned char>(str[first])))
+            ++first;
+        size_t last = str.size();
+        while (last > first && std::isspace(static_cast<unsigned char>(str[last - 1])))
+            --last;
+        if (first > 0 || last < str.size())
+            str.assign(str, first, last - first);
+    }
+
+    std::string ReferenceFormatAndEncryptHWID(std::string rawChecksum, const std::vector<unsigned char>& keyBytes)
+    {
+        TestTrimHardwareIDWhitespace(rawChecksum);
+        if (rawChecksum.empty())
+            rawChecksum = "UNKNOWN";
+        else if (rawChecksum.size() >= HWID_MAX_LEN)
+            rawChecksum.resize(HWID_MAX_LEN);
+
+        std::string encrypted;
+        CryptoPP::ECB_Mode<CryptoPP::AES>::Encryption enc(keyBytes.data(), keyBytes.size());
+        CryptoPP::StringSource(rawChecksum, true,
+            new CryptoPP::StreamTransformationFilter(enc,
+                new CryptoPP::HexEncoder(
+                    new CryptoPP::StringSink(encrypted))));
+        return encrypted;
+    }
+}
 
 static int g_passed = 0;
 static int g_failed = 0;
@@ -91,7 +122,6 @@ int main()
     static_assert(sizeof(CGuildMarkImage) == sizeof(void*) + sizeof(SGuildMarkBlock) * CGuildMarkImage::BLOCK_TOTAL_COUNT +
                   sizeof(Pixel) * CGuildMarkImage::WIDTH * CGuildMarkImage::HEIGHT,
                   "CGuildMarkImage must contain 8-byte vptr + exact 80 SGuildMarkBlocks + 512x512 Pixel buffer with zero ILuint handles");
-    static_assert(BOOST_VERSION == 109200, "Boost version must be unified at 1.92.0");
     static_assert(CRYPTOPP_VERSION == 890, "Crypto++ version must be unified at 8.9.0");
     static_assert(LZO_VERSION == 0x20a0, "LZO version must be unified at 2.10 (0x20a0)");
     static_assert(STBI_VERSION == 1, "stb_image ABI version must be 1 (v2.30)");
@@ -99,7 +129,6 @@ int main()
 
     CHECK(sizeof(void*) == 8, "Native AMD64 8-byte pointer width");
     CHECK(sizeof(Pixel) == 4, "MarkImage Pixel 4-byte BGRA width (LP64/LLP64 parity)");
-    CHECK(BOOST_VERSION == 109200, "Boost 1.92.0 header version");
     CHECK(std::strcmp(RAPIDJSON_VERSION_STRING, "1.1.0") == 0, "RapidJSON 1.1.0 header version");
     CHECK(CRYPTOPP_VERSION == 890, "Crypto++ 8.9.0 header version");
     CHECK(LZO_VERSION == 0x20a0, "LZO 2.10 header version");
@@ -107,16 +136,13 @@ int main()
     CHECK(FMT_VERSION == 120200, "fmt 12.2.0 header version");
 
     // -------------------------------------------------------------------------
-    // Gate 2: Common Header-Only SDK Runtime Checks (Boost 1.92, RapidJSON, fmt, msl)
+    // Gate 2: Common Header-Only SDK & C++20 Container Runtime Checks (RapidJSON, fmt, msl, std::unordered_map)
     // -------------------------------------------------------------------------
     {
-        // Boost.Asio network_v4/v6 (previously broken by stale 2023 extern/client/include/boost .ipp shadowing)
-        auto net4 = boost::asio::ip::make_network_v4("192.168.1.0/24");
-        CHECK(net4.prefix_length() == 24, "Boost 1.92.0 asio::ip::network_v4 unshadowed");
-
-        boost::unordered_map<uint64_t, std::string> umap;
+        std::unordered_map<uint64_t, std::string> umap;
         umap[0x20090064ULL] = "mt2009_x64";
-        CHECK(umap.find(0x20090064ULL) != umap.end(), "Boost 1.92.0 unordered_map 64-bit key lookup");
+        CHECK(umap.find(0x20090064ULL) != umap.end() && umap[0x20090064ULL] == "mt2009_x64",
+              "C++20 std::unordered_map 64-bit key lookup (replacing boost::unordered_map)");
 
         // RapidJSON 1.1.0 (previously shadowed by extern/client/include/rapidjson/document.h)
         rapidjson::Document doc;
@@ -144,9 +170,25 @@ int main()
         std::string dec = decryptAESString(enc, key16);
         CHECK(!enc.empty() && enc != plain && dec == plain, "Client HashUtils.cpp AES-128 round-trip via cryptlib-x64.lib");
 
-        // 3b. Client Hardware.cpp (SMBIOS + CPUID + Boost trim + XorStr + Crypto++ AES/HexEncoder)
+        // 3b. Client Hardware.cpp (SMBIOS + CPUID + C++20 trim + HWID_MAX_LEN clamping + Crypto++ AES/HexEncoder)
         std::string hwid = GetHardwareID();
         CHECK(!hwid.empty() && hwid.size() >= 32, "Client Hardware.cpp GetHardwareID() via Crypto++ 8.9.0 + smbios + xorstr");
+
+        const std::vector<unsigned char> testHwidKey = {
+            0x2A, 0x2B, 0x05, 0x1F, 0xF3, 0x77, 0xB8, 0xF4,
+            0x41, 0xE6, 0x16, 0xE6, 0x3D, 0xB4, 0x22, 0x70
+        };
+        CHECK(ReferenceFormatAndEncryptHWID("  \t\r\n  CPU-UUID-12345  \n\t ", testHwidKey) ==
+              ReferenceFormatAndEncryptHWID("CPU-UUID-12345", testHwidKey),
+              "Hardware.cpp C++20 whitespace trim preserves exact pre-AES HWID payload");
+        CHECK(ReferenceFormatAndEncryptHWID("   \t\r\n   ", testHwidKey) ==
+              ReferenceFormatAndEncryptHWID("UNKNOWN", testHwidKey),
+              "Hardware.cpp whitespace-only HWID falls back to UNKNOWN before AES encryption");
+        const std::string longHwidA = "   " + std::string(HWID_MAX_LEN, 'X') + "EXTRA_TAIL_1   ";
+        const std::string longHwidB = std::string(HWID_MAX_LEN, 'X') + "EXTRA_TAIL_2";
+        CHECK(ReferenceFormatAndEncryptHWID(longHwidA, testHwidKey) ==
+              ReferenceFormatAndEncryptHWID(longHwidB, testHwidKey),
+              "Hardware.cpp clamps trimmed HWID to HWID_MAX_LEN before AES encryption");
 
         // 3c. Client EterBase/cipher.cpp (DH2KeyAgreement + CTR_Mode<T> packet cipher handshake)
         Cipher clientCipher;

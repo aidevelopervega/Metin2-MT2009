@@ -9,8 +9,7 @@
 #include "Area.h"
 #include "PropertyManager.h"
 #include "Property.h"
-
-#include <boost/algorithm/string.hpp>
+#include <cctype>
 
 CDynamicPool<CArea::TObjectInstance>	CArea::ms_ObjectInstancePool;
 CDynamicPool<CAttributeInstance>		CArea::ms_AttributeInstancePool;
@@ -732,7 +731,8 @@ void CArea::__LoadAttribute(TObjectInstance * pObjectInstance, const char * c_sz
 	if (false == bFileExist)
 	{
 		std::string attrFileName(c_szAttributeFileName);
-		boost::algorithm::to_lower(attrFileName);
+		std::transform(attrFileName.begin(), attrFileName.end(), attrFileName.begin(),
+			[](unsigned char ch) noexcept { return static_cast<char>(std::tolower(ch)); });
 		const bool bIsDungeonObject = (std::string::npos != attrFileName.find("/dungeon/")) || (std::string::npos != attrFileName.find("\\dungeon\\"));
 
 		if (pAttributeData->IsEmpty() && false == bIsDungeonObject)

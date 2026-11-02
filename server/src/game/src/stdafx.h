@@ -31,30 +31,12 @@
 #include <string>
 #include <vector>
 
+#include <unordered_map>
+#include <unordered_set>
+
 #ifdef __GNUC__
 #	include <float.h>
-#	if defined(CXX11_ENABLED) || defined(__clang__)
-#		include <unordered_map>
-#		include <unordered_set>
-#		define TR1_NS std
-#		define TR1_NS_BEGIN namespace TR1_NS {
-#		define TR1_NS_END }
-#		define TR1_NS_BLOCK(x) namespace TR1_NS { x }
-#	else
-#		include <tr1/unordered_map>
-#		include <tr1/unordered_set>
-#		define TR1_NS std::tr1
-#		define TR1_NS_BEGIN namespace std { namespace tr1 {
-#		define TR1_NS_END } }
-#		define TR1_NS_BLOCK(x) namespace std { namespace tr1 { x } }
-#	endif
 #else
-#	include <boost/unordered_map.hpp>
-#	include <boost/unordered_set.hpp>
-#	define TR1_NS boost
-#	define TR1_NS_BEGIN namespace TR1_NS {
-#	define TR1_NS_END }
-#	define TR1_NS_BLOCK(x) namespace TR1_NS { x }
 #	define isdigit iswdigit
 #	define isspace iswspace
 #endif

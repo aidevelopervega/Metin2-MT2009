@@ -18,7 +18,6 @@ target_include_directories(qc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_SOURCE_DIR}/server/src/liblua/5.5/src"
     "${CMAKE_SOURCE_DIR}/extern/common/include"
-    "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
 )
 
 target_link_libraries(qc PRIVATE lua55_lib)

@@ -15,7 +15,7 @@ endif
 
 CPPFLAGS += -DLUA_V=551 -DENABLE_LUA_5_VERSION=5
 INCLUDEDIR += -I../../../liblua/5.5/src
-INCLUDEDIR += -I../../../../../extern/common/include -I../../../../../extern/common/include/boost
+INCLUDEDIR += -I../../../../../extern/common/include
 LIBS += ../../../liblua/5.5/src/liblua.a -lm
 
 all: qc create_conversion

@@ -21,7 +21,6 @@ target_include_directories(game PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../libgame/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../liblua/5.5/src"
     "${CMAKE_SOURCE_DIR}/extern/common/include"
-    "${CMAKE_SOURCE_DIR}/extern/common/include/boost"
     "${CMAKE_SOURCE_DIR}/extern/server/include"
 )
 

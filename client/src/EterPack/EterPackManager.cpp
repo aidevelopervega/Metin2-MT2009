@@ -153,7 +153,7 @@ void CEterPackManager::LoadStaticCache(const char* c_szFileName)
 
 	DWORD dwFileNameHash = GetCRC32(strFileName.c_str(), strFileName.length());
 
-	boost::unordered_map<DWORD, SCache>::iterator f = m_kMap_dwNameKey_kCache.find(dwFileNameHash);
+	std::unordered_map<DWORD, SCache>::iterator f = m_kMap_dwNameKey_kCache.find(dwFileNameHash);
 	if (m_kMap_dwNameKey_kCache.end() != f)
 		return;
 
@@ -166,12 +166,12 @@ void CEterPackManager::LoadStaticCache(const char* c_szFileName)
 	kNewCache.m_dwBufSize = kMapFile.Size();
 	kNewCache.m_abBufData = new BYTE[kNewCache.m_dwBufSize];
 	memcpy(kNewCache.m_abBufData, c_pvData, kNewCache.m_dwBufSize);
-	m_kMap_dwNameKey_kCache.insert(boost::unordered_map<DWORD, SCache>::value_type(dwFileNameHash, kNewCache));
+	m_kMap_dwNameKey_kCache.insert(std::unordered_map<DWORD, SCache>::value_type(dwFileNameHash, kNewCache));
 }
 
 CEterPackManager::SCache* CEterPackManager::__FindCache(DWORD dwFileNameHash)
 {
-	boost::unordered_map<DWORD, SCache>::iterator f=m_kMap_dwNameKey_kCache.find(dwFileNameHash);
+	std::unordered_map<DWORD, SCache>::iterator f=m_kMap_dwNameKey_kCache.find(dwFileNameHash);
 	if (m_kMap_dwNameKey_kCache.end()==f)
 		return NULL;
 
@@ -180,7 +180,7 @@ CEterPackManager::SCache* CEterPackManager::__FindCache(DWORD dwFileNameHash)
 
 void	CEterPackManager::__ClearCacheMap()
 {
-	boost::unordered_map<DWORD, SCache>::iterator i;
+	std::unordered_map<DWORD, SCache>::iterator i;
 
 	for (i = m_kMap_dwNameKey_kCache.begin(); i != m_kMap_dwNameKey_kCache.end(); ++i)
 		delete [] i->second.m_abBufData;

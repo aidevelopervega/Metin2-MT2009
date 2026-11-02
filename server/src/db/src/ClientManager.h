@@ -1,8 +1,8 @@
 #ifndef __INC_CLIENTMANAGER_H__
 #define __INC_CLIENTMANAGER_H__
 
-#include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "../../common/stl.h"
 #include "../../common/building.h"
@@ -59,12 +59,12 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 {
     public:
 	typedef std::list<CPeer *>			TPeerList;
-	typedef boost::unordered_map<uint64_t, CPlayerTableCache *> TPlayerTableCacheMap;
-	typedef boost::unordered_map<uint64_t, CItemCache *> TItemCacheMap;
-	typedef boost::unordered_set<CItemCache *, boost::hash<CItemCache*> > TItemCacheSet;
-	typedef boost::unordered_map<uint64_t, TItemCacheSet *> TItemCacheSetPtrMap;
-	typedef boost::unordered_map<uint64_t, CItemPriceListTableCache*> TItemPriceListCacheMap;
-	typedef boost::unordered_map<WORD, BYTE> TChannelStatusMap;
+	typedef std::unordered_map<uint64_t, CPlayerTableCache *> TPlayerTableCacheMap;
+	typedef std::unordered_map<uint64_t, CItemCache *> TItemCacheMap;
+	typedef std::unordered_set<CItemCache *> TItemCacheSet;
+	typedef std::unordered_map<uint64_t, TItemCacheSet *> TItemCacheSetPtrMap;
+	typedef std::unordered_map<uint64_t, CItemPriceListTableCache*> TItemPriceListCacheMap;
+	typedef std::unordered_map<WORD, BYTE> TChannelStatusMap;
 
 	// MYSHOP_PRICE_LIST
 
@@ -407,18 +407,18 @@ class CClientManager : public CNetBase, public singleton<CClientManager>
 	CPeer *					m_pkAuthPeer;
 
 	// LoginKey, LoginData pair
-	typedef boost::unordered_map<DWORD, CLoginData *> TLoginDataByLoginKey;
+	typedef std::unordered_map<DWORD, CLoginData *> TLoginDataByLoginKey;
 	TLoginDataByLoginKey			m_map_pkLoginData;
 
 	// Login LoginData pair
-	typedef boost::unordered_map<std::string, CLoginData *> TLoginDataByLogin;
+	typedef std::unordered_map<std::string, CLoginData *> TLoginDataByLogin;
 	TLoginDataByLogin			m_map_pkLoginDataByLogin;
 
 	// AccountID LoginData pair
-	typedef boost::unordered_map<uint64_t, CLoginData *> TLoginDataByAID;
+	typedef std::unordered_map<uint64_t, CLoginData *> TLoginDataByAID;
 	TLoginDataByAID				m_map_pkLoginDataByAID;
 
-	typedef boost::unordered_map<std::string, CLoginData *> TLogonAccountMap;
+	typedef std::unordered_map<std::string, CLoginData *> TLogonAccountMap;
 	TLogonAccountMap			m_map_kLogonAccount;
 
 	uint64_t				m_iPlayerIDStart;
@@ -656,7 +656,7 @@ private:
 	    }
 	};
 
-	typedef boost::unordered_map<uint64_t, TLogoutPlayer*> TLogoutPlayerMap;
+	typedef std::unordered_map<uint64_t, TLogoutPlayer*> TLogoutPlayerMap;
 	TLogoutPlayerMap m_map_logout;
 
 	void InsertLogoutPlayer(uint64_t pid);

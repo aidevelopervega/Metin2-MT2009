@@ -4,14 +4,9 @@
 #include "../EterLib/Camera.h"
 #include "Locale.h"
 #include "../GameLib/GameLibDefines.h"
-
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-namespace beast = boost::beast;     // From Boost.Beast
-namespace http = beast::http;       // From Boost.Beast
-namespace net = boost::asio;        // From Boost.Asio
-using tcp = net::ip::tcp;           // From Boost.Asio
+#include "../EterLib/NetAddress.h"
+#include <cstdlib>
+#include <string>
 
 extern bool PERF_CHECKER_RENDER_GAME;
 extern D3DXCOLOR g_fSpecularColor;
@@ -1235,6 +1230,80 @@ PyObject* appSetFov(PyObject* poSelf, PyObject* poArgs)
 	return Py_BuildNone();
 }
 
+namespace
+{
+	bool PerformSimpleHttpRequest(const char* host, const char* portStr, const char* method, const char* target, const char* contentType, const std::string& body)
+	{
+		if (!host || !*host || !portStr || !*portStr || !method || !target)
+			return false;
+
+		char* endPtr = nullptr;
+		const unsigned long parsedPort = std::strtoul(portStr, &endPtr, 10);
+		if (endPtr == portStr || parsedPort == 0 || parsedPort > 65535)
+			return false;
+
+		CNetworkAddress netAddr;
+		if (!netAddr.Set(host, static_cast<int>(parsedPort)))
+			return false;
+
+		SOCKET sock = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (sock == INVALID_SOCKET)
+			return false;
+
+		const sockaddr_in& addr = static_cast<const sockaddr_in&>(netAddr);
+		if (::connect(sock, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR)
+		{
+			::closesocket(sock);
+			return false;
+		}
+
+		const std::string normalizedTarget = (*target == '\0') ? "/" : std::string(target);
+		std::string request = std::string(method) + " " + normalizedTarget + " HTTP/1.1\r\n";
+		request += "Host: " + std::string(host) + "\r\n";
+		request += "User-Agent: MT2009-Client/1.0\r\n";
+		request += "Connection: close\r\n";
+		if (contentType && *contentType)
+		{
+			request += "Content-Type: " + std::string(contentType) + "\r\n";
+			request += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+		}
+		request += "\r\n";
+		request += body;
+
+		size_t totalSent = 0;
+		while (totalSent < request.size())
+		{
+			const int chunk = static_cast<int>(request.size() - totalSent);
+			const int sent = ::send(sock, request.data() + totalSent, chunk, 0);
+			if (sent <= 0)
+			{
+				::closesocket(sock);
+				return false;
+			}
+			totalSent += static_cast<size_t>(sent);
+		}
+
+		std::string response;
+		char recvBuf[4096];
+		for (;;)
+		{
+			const int received = ::recv(sock, recvBuf, sizeof(recvBuf), 0);
+			if (received <= 0)
+				break;
+			response.append(recvBuf, static_cast<size_t>(received));
+		}
+
+#ifdef _DEBUG
+		if (!response.empty())
+			Tracenf(response.c_str());
+#endif
+
+		::shutdown(sock, SD_BOTH);
+		::closesocket(sock);
+		return !response.empty();
+	}
+}
+
 PyObject* appRestGETRequest(PyObject* poSelf, PyObject* poArgs)
 {
 	char* host;
@@ -1249,58 +1318,10 @@ PyObject* appRestGETRequest(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetString(poArgs, 2, &target))
 		return Py_BuildException();
 
-	try {
-		// The io_context is required for all I/O
-		net::io_context ioc;
-
-		// These objects perform our I/O
-		tcp::resolver resolver(ioc);
-		beast::tcp_stream stream(ioc);
-
-		Tracenf(host);
-		Tracenf(port);
-		// Look up the domain name
-		auto const results = resolver.resolve(host, port);
-
-		// Make the connection on the IP address we get from a lookup
-		stream.connect(results);
-
-		// Set up an HTTP GET request message
-		http::request<http::string_body> req{ http::verb::get, target, 11 };
-		req.set(http::field::host, host);
-		req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-
-		// Send the HTTP request to the remote host
-		http::write(stream, req);
-
-		// This buffer is used for reading and must be persisted
-		beast::flat_buffer buffer;
-
-		// Declare a container to hold the response
-		http::response<http::dynamic_body> res;
-
-		// Receive the HTTP response
-		http::read(stream, buffer, res);
-
-		// Write the message to standard out
-#ifdef _DEBUG
-		std::string response_string = beast::buffers_to_string(res.body().data());
-		Tracenf(response_string.c_str());
-#endif
-
-		// Gracefully close the socket
-		beast::error_code ec;
-		stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-		// not_connected happens sometimes so don't bother reporting it.
-		if (ec && ec != beast::errc::not_connected)
-			return Py_BuildValue("(i)", 0);
-
-	}
-	catch (std::exception const& e) {
-		Tracenf(e.what());
+	Tracenf(host);
+	Tracenf(port);
+	if (!PerformSimpleHttpRequest(host, port, "GET", target, nullptr, std::string()))
 		return Py_BuildValue("(i)", 0);
-	}
 
 	return Py_BuildValue("(i)", 1);
 }
@@ -1365,86 +1386,27 @@ PyObject* appRestPOSTRequest(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetString(poArgs, 2, &target))
 		return Py_BuildException();
 
-	//char* signature;
-	//if (!PyTuple_GetString(poArgs, 5, &signature))
-	//	return Py_BuildException();
-
-	try {
-		// The io_context is required for all I/O
-		net::io_context ioc;
-
-		// These objects perform our I/O
-		tcp::resolver resolver(ioc);
-		beast::tcp_stream stream(ioc);
-
-		// Look up the domain name
-		auto const results = resolver.resolve(host, port);
-
-		// Make the connection on the IP address we get from a lookup
-		stream.connect(results);
-
 #ifdef __THEMIDA__
-		VM_START
+	VM_START
 #endif
-		std::string payload = "player_request_data";
-		std::string nonce = generate_nonce();
-		auto timestamp = std::to_string(std::time(nullptr));
-		std::string signature = create_signature(payload, timestamp, nonce, "e22cce05146ae2758752639d1330afe256864f7314e2a04fa509f869fbdf9436");
+	std::string payload = "player_request_data";
+	std::string nonce = generate_nonce();
+	auto timestamp = std::to_string(std::time(nullptr));
+	std::string signature = create_signature(payload, timestamp, nonce, "e22cce05146ae2758752639d1330afe256864f7314e2a04fa509f869fbdf9436");
 #ifdef __THEMIDA__
-		VM_END
+	VM_END
 #endif
 
-		std::string json_body;
-		json_body += "{";
-		json_body += "\"payload\":\"" + payload + "\",";
-		json_body += "\"nonce\":\"" + std::string(nonce) + "\",";
-		json_body += "\"timestamp\":\"" + std::string(timestamp) + "\",";
-		json_body += "\"signature\":\"" + signature + "\"";
-		json_body += "}";
-		
-		// Set up an HTTP POST request
-		http::request<http::string_body> req{ http::verb::post, target, 11 };
-		req.set(http::field::host, host);
-		req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+	std::string json_body;
+	json_body += "{";
+	json_body += "\"payload\":\"" + payload + "\",";
+	json_body += "\"nonce\":\"" + std::string(nonce) + "\",";
+	json_body += "\"timestamp\":\"" + std::string(timestamp) + "\",";
+	json_body += "\"signature\":\"" + signature + "\"";
+	json_body += "}";
 
-		// IMPORTANT: set the content type to application/json
-		req.set(http::field::content_type, "application/json");
-
-		// Assign the JSON string to the body
-		req.body() = json_body;
-		req.prepare_payload(); // Calculates Content-Length automatically
-
-		// Send the HTTP request to the remote host
-		http::write(stream, req);
-
-		// This buffer is used for reading and must be persisted
-		beast::flat_buffer buffer;
-
-		// Declare a container to hold the response
-		http::response<http::dynamic_body> res;
-
-		// Receive the HTTP response
-		http::read(stream, buffer, res);
-
-		// Process the response (for debugging or returning to Python)
-#ifdef _DEBUG
-		std::string response_string = beast::buffers_to_string(res.body().data());
-		Tracenf(response_string.c_str());
-#endif
-
-		// Gracefully close the socket
-		beast::error_code ec;
-		stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-		// not_connected happens sometimes so don't bother reporting it.
-		if (ec && ec != beast::errc::not_connected)
-			return Py_BuildValue("(i)", 0);
-
-	}
-	catch (std::exception const& e) {
-		Tracenf(e.what());
+	if (!PerformSimpleHttpRequest(host, port, "POST", target, "application/json", json_body))
 		return Py_BuildValue("(i)", 0);
-	}
 
 	return Py_BuildValue("(i)", 1);
 }

@@ -9,8 +9,6 @@
 #include <vector>
 #include <map>
 
-#include <boost/format.hpp>
-
 #pragma warning(disable : 4200)
 
 #define out_of_spec "OUT OF SPEC"

@@ -17,18 +17,13 @@
 #include "locale_service.h"
 #include "shutdown_manager.h"
 #include "../../common/CommonDefines.h"
+#include <functional>
 
-#if (!defined(__GNUC__) || defined(__clang__)) && !defined(CXX11_ENABLED)
-#	include <boost/bind.hpp>
-
-#elif defined(CXX11_ENABLED)
-#	include <functional>
-	template <typename T>
-	decltype(std::bind(&T::second, std::placeholders::_1)) select2nd()
-	{
-		return std::bind(&T::second, std::placeholders::_1);
-	}
-#endif
+template <typename T>
+decltype(std::bind(&T::second, std::placeholders::_1)) select2nd()
+{
+	return std::bind(&T::second, std::placeholders::_1);
+}
 
 CHARACTER_MANAGER::CHARACTER_MANAGER() :
 	m_iVIDCount(0),
@@ -732,10 +727,6 @@ struct FuncUpdateAndResetChatCounter
 void CHARACTER_MANAGER::Update(int iPulse)
 {
 	using namespace std;
-#if defined(__GNUC__) && !defined(__clang__) && !defined(CXX11_ENABLED)
-	using namespace __gnu_cxx;
-#endif
-
 	BeginPendingDestroy();
 
 	{
@@ -743,11 +734,7 @@ void CHARACTER_MANAGER::Update(int iPulse)
 		{
 			CHARACTER_VECTOR v;
 			v.reserve(m_map_pkPCChr.size());
-#if (defined(__GNUC__) && !defined(__clang__)) || defined(CXX11_ENABLED)
 			transform(m_map_pkPCChr.begin(), m_map_pkPCChr.end(), back_inserter(v), select2nd<NAME_MAP::value_type>());
-#else
-			transform(m_map_pkPCChr.begin(), m_map_pkPCChr.end(), back_inserter(v), boost::bind(&NAME_MAP::value_type::second, _1));
-#endif
 
 			if (0 == (iPulse % PASSES_PER_SEC(5)))
 			{

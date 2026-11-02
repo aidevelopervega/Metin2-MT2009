@@ -1,7 +1,7 @@
 #ifndef __INC_ETERPACKLIB_ETERPACKPOLICY_CSHYBRIDCRYPT_H__
 #define __INC_ETERPACKLIB_ETERPACKPOLICY_CSHYBRIDCRYPT_H__
 
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/camellia.h>
 #include <cryptopp/twofish.h>
@@ -68,7 +68,7 @@ protected:
 
 	} TCSHybridCryptKey;
 
-	typedef boost::unordered_map<DWORD, TCSHybridCryptKey>	TCSHybridCryptKeyMap;
+	typedef std::unordered_map<DWORD, TCSHybridCryptKey>	TCSHybridCryptKeyMap;
 	TCSHybridCryptKeyMap	m_mapHybridCryptKey;
 
 	typedef struct SSupplementaryDataBlockInfo
@@ -78,7 +78,7 @@ protected:
 
 	} TSupplementaryDataBlockInfo;
 
-	typedef boost::unordered_map<DWORD, TSupplementaryDataBlockInfo> TSupplementaryDataBlockMap; //key filename hash
+	typedef std::unordered_map<DWORD, TSupplementaryDataBlockInfo> TSupplementaryDataBlockMap; //key filename hash
 	TSupplementaryDataBlockMap m_mapSDBMap;
 
 private:

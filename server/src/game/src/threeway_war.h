@@ -1,7 +1,7 @@
 #ifndef THREE_WAY_WAR_EVENT_
 #define THREE_WAY_WAR_EVENT_
 
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 
 #include "../../common/stl.h"
 
@@ -62,8 +62,8 @@ class CThreeWayWar : public singleton<CThreeWayWar>
 		std::vector<ForkedPassMapInfo>	PassInfoMap_;
 		std::vector<ForkedSungziMapInfo>	SungZiInfoMap_;
 
-		boost::unordered_map<uint64_t, uint64_t>	RegisterUserMap_;
-		boost::unordered_map<uint64_t, int>	ReviveTokenMap_;
+		std::unordered_map<uint64_t, uint64_t>	RegisterUserMap_;
+		std::unordered_map<uint64_t, int>	ReviveTokenMap_;
 };
 
 const char* GetSungziMapPath();

@@ -202,7 +202,7 @@ void CDragonLairManager::OnDragonDead(LPCHARACTER pDragon, uint64_t KillerGuildI
 	if (false == pDragon->IsMonster())
 		return;
 
-	boost::unordered_map<uint64_t, CDragonLair*>::iterator iter = LairMap_.find( KillerGuildID );
+	std::unordered_map<uint64_t, CDragonLair*>::iterator iter = LairMap_.find( KillerGuildID );
 
 	if (LairMap_.end() == iter)
 	{

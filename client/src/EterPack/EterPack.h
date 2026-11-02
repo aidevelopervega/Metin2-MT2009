@@ -2,8 +2,7 @@
 #define __INC_ETERPACKLIB_ETERPACK_H__
 
 #include <list>
-#include <boost/unordered_map.hpp>
-#include <boost/shared_array.hpp>
+#include <unordered_map>
 
 #include "../EterBase/MappedFile.h"
 
@@ -61,7 +60,7 @@ typedef struct SEterPackIndex
 } TEterPackIndex;
 #pragma pack(pop)
 
-typedef boost::unordered_map<DWORD, TEterPackIndex *> TDataPositionMap;
+typedef std::unordered_map<DWORD, TEterPackIndex *> TDataPositionMap;
 typedef std::list<TEterPackIndex *> TFreeIndexList;
 
 class CEterPack;
@@ -82,7 +81,7 @@ public:
 		BUCKET_SIZE = 16,
 	};
 
-	typedef boost::unordered_multimap<DWORD, Item> TDict;
+	typedef std::unordered_multimap<DWORD, Item> TDict;
 
 public:
 	void InsertItem(CEterPack* pkPack, TEterPackIndex* pkInfo);
@@ -178,7 +177,7 @@ class CEterPack
 		bool					m_bReadOnly;
 		bool					m_bDecrypedIV;
 
-		boost::unordered_map<DWORD, DWORD> m_map_indexRefCount;
+		std::unordered_map<DWORD, DWORD> m_map_indexRefCount;
 		TDataPositionMap		m_DataPositionMap;
 		TFreeIndexList			m_FreeIndexList[FREE_INDEX_MAX_SIZE + 1];
 

@@ -87,7 +87,7 @@ private:
 class CPetSystem
 {
 public:
-	typedef	boost::unordered_map<DWORD,	CPetActor*>		TPetActorMap;
+	typedef	std::unordered_map<DWORD,	CPetActor*>		TPetActorMap;
 
 public:
 	CPetSystem(LPCHARACTER owner);

@@ -19,34 +19,6 @@
   ],
   "dependencies": [
     {
-      "id": "boost",
-      "name": "Boost C++ Libraries",
-      "purpose": "Header-only containers, unordered_map, random, asio, algorithm/string, crc, property_tree",
-      "used_in_client": true,
-      "used_in_server": true,
-      "is_common": true,
-      "header_path": "extern/common/include/boost",
-      "header_version": "1.92.0 (BOOST_VERSION=109200)",
-      "source_build_version": "1.92.0 (header-only)",
-      "source_origin": {
-        "url": "https://github.com/boostorg/boost",
-        "version_tag": "boost-1.92.0"
-      },
-      "license": "BSL-1.0",
-      "compiler_crt_abi": "C++20 header-only; MSVC 18 AMD64 & GCC 14/16 AMD64 (Windows UCRT64 + FreeBSD 15.1)",
-      "debug_release_variants": "Header-only (Debug/Release agnostic)",
-      "linkage": "header-only",
-      "binaries": [],
-      "usage_evidence": [
-        "client/src/EterPack/EterPack.h:5 (#include <boost/unordered_map.hpp>)",
-        "client/src/UserInterface/Hardware.cpp:12 (#include <boost/algorithm/string/trim.hpp>)",
-        "server/src/game/src/stdafx.h:35 (#include <boost/unordered_map.hpp>)"
-      ],
-      "decision": "UPGRADED",
-      "notes": "Removed stale 2023 extern/client/include/boost .ipp shadowing files and unused 32-bit Boost 1.67 static libs; client and server share 100% unified Boost 1.92.0 in extern/common/include/boost.",
-      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
-    },
-    {
       "id": "rapidjson",
       "name": "RapidJSON",
       "purpose": "Fast DOM/SAX JSON parser and generator (server config & client discord-rpc serialization)",
@@ -829,6 +801,15 @@
       ],
       "decision": "REMOVED",
       "reason": "Replaced across both server and client by single-source C++20 stb_image.h (v2.30) + stb_image_write.h (v1.16) + mt2_image_stb.h in extern/common/include/stb."
+    },
+    {
+      "id": "boost",
+      "name": "Boost C++ Libraries 1.92.0",
+      "removed_paths": [
+        "extern/common/include/boost"
+      ],
+      "decision": "REMOVED",
+      "reason": "Replaced across both server and client by C++20 standard library (<unordered_map>, <unordered_set>, <cctype>, <algorithm>, <chrono>, std::to_string, C++20 intrusive_ptr, C++20 CAffectObjectPool) and Winsock2."
     }
   ]
 }

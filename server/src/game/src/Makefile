@@ -71,9 +71,8 @@ CFLAGS += -fstack-protector-all
 # Version defines
 CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PWD)\" -D__GAME_VERSION__=\"$(GAME_VERSION)\"
 
-# Common & Server Headers (Boost, fmt, RapidJSON, stb, etc.)
+# Common & Server Headers (fmt, RapidJSON, stb, etc.)
 INCDIR += -I"../../../../extern/common/include"
-INCDIR += -I"../../../../extern/common/include/boost"
 INCDIR += -I"../../../../extern/server/include"
 
 # CryptoPP

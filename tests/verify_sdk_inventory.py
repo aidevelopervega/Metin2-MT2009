@@ -290,6 +290,22 @@ def main() -> int:
         f"Zero DevIL #include <IL/il.h> or devil.lib pragma in server/src and client/src (found: {devil_refs})",
     )
 
+    boost_refs = []
+    for src_root in (ROOT / "server/src", ROOT / "client/src"):
+        for src in src_root.rglob("*"):
+            if src.is_file() and src.suffix.lower() in {".cpp", ".c", ".cc", ".h", ".hpp", ".inc"}:
+                text = src.read_text(encoding="utf-8", errors="ignore")
+                for idx, line in enumerate(text.splitlines()):
+                    if re.search(
+                        r"#\s*include\s*[<\"][^>\"]*boost/|(?:\bboost\s*::|\bBOOST_[A-Z0-9_]+|\bTR1_NS\b|\bstd::tr1\b|#\s*include\s*<tr1/)",
+                        line,
+                    ):
+                        boost_refs.append(f"{src.relative_to(ROOT).as_posix()}:{idx+1}")
+    check(
+        len(boost_refs) == 0,
+        f"Zero Boost or TR1_NS references in server/src and client/src (found: {boost_refs[:10]})",
+    )
+
     srv_mark = (ROOT / "server/src/game/src/MarkImage.h").read_text(encoding="utf-8", errors="ignore")
     cli_mark = (ROOT / "client/src/UserInterface/MarkImage.h").read_text(encoding="utf-8", errors="ignore")
     check("typedef uint32_t Pixel;" in srv_mark, "server MarkImage.h uses typedef uint32_t Pixel;")

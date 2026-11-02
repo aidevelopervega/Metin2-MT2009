@@ -129,7 +129,7 @@ namespace marriage
 				Func	for_each_wedding(Func f);
 
 		private:
-			TR1_NS::unordered_set<TMarriage*> m_Marriages;
+			std::unordered_set<TMarriage*> m_Marriages;
 			std::map<uint64_t, TMarriage *> m_MarriageByPID;
 			std::set<std::pair<uint64_t, uint64_t> > m_setWedding;
 	};

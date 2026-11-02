@@ -30,12 +30,24 @@
 #include "shop_manager.h"
 #include "group_text_parse_tree.h"
 #include "shopEx.h"
-#include <boost/algorithm/string/predicate.hpp>
 #include "shop_manager.h"
+#include <algorithm>
 #include <cctype>
+#include <string_view>
 #ifdef ENABLE_NEWSTUFF
 #include "../../common/PulseManager.h"
 #endif
+
+namespace
+{
+	bool AsciiIEquals(std::string_view a, std::string_view b) noexcept
+	{
+		return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+			[](unsigned char ca, unsigned char cb) {
+				return std::tolower(ca) == std::tolower(cb);
+			});
+	}
+}
 
 CShopManager::CShopManager()
 {
@@ -480,11 +492,11 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 		stCoinType = "Gold";
 	}
 
-	if (boost::iequals(stCoinType, "Gold"))
+	if (AsciiIEquals(stCoinType, "Gold"))
 	{
 		parsedTable.coinType = SHOP_COIN_TYPE_GOLD;
 	}
-	else if (boost::iequals(stCoinType, "SecondaryCoin"))
+	else if (AsciiIEquals(stCoinType, "SecondaryCoin"))
 	{
 		parsedTable.coinType = SHOP_COIN_TYPE_SECONDARY_COIN;
 	}
@@ -538,11 +550,11 @@ bool ConvertToShopItemTable(IN CGroupNode* pNode, OUT TShopTableEx& shopTable)
 		stSort = "None";
 	}
 
-	if (boost::iequals(stSort, "Asc"))
+	if (AsciiIEquals(stSort, "Asc"))
 	{
 		std::sort(shopItems.begin(), shopItems.end(), CompareShopItemName);
 	}
-	else if(boost::iequals(stSort, "Desc"))
+	else if(AsciiIEquals(stSort, "Desc"))
 	{
 		std::sort(shopItems.rbegin(), shopItems.rend(), CompareShopItemName);
 	}

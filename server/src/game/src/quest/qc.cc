@@ -48,8 +48,12 @@ extern "C" {
 #ifndef __WIN32__
 #include <unistd.h>
 #else
-#include <boost/typeof/typeof.hpp>
-#define typeof(t) BOOST_TYPEOF(t)
+#ifdef __GNUC__
+#define typeof(t) __typeof__(t)
+#else
+#include <type_traits>
+#define typeof(t) std::remove_reference_t<decltype(t)>
+#endif
 #include <direct.h>
 #define mkdir(path, mode) _mkdir(path)
 #endif

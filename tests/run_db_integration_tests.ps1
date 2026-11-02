@@ -56,7 +56,6 @@ try {
         "-I$RootDir\server\src\libgame\src",
         "-I$RootDir\server\src\common",
         "-I$RootDir\extern\common\include",
-        "-I$RootDir\extern\common\include\boost",
         "-I$RootDir\extern\server\include",
         "-I$RootDir\extern\server\include\mysql"
     )

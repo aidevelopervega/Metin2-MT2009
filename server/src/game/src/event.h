@@ -1,7 +1,8 @@
 #ifndef __INC_LIBTHECORE_EVENT_H__
 #define __INC_LIBTHECORE_EVENT_H__
 
-#include <boost/intrusive_ptr.hpp>
+#include <cstddef>
+#include <utility>
 
 #ifdef M2_USE_POOL
 #include "pool.h"
@@ -28,7 +29,96 @@ private:
 };
 
 typedef struct event EVENT;
-typedef boost::intrusive_ptr<EVENT> LPEVENT;
+
+extern void intrusive_ptr_add_ref(EVENT* p);
+extern void intrusive_ptr_release(EVENT* p);
+
+template <class T>
+class intrusive_ptr
+{
+public:
+	constexpr intrusive_ptr() noexcept : px_(nullptr) {}
+
+	intrusive_ptr(T* p, bool add_ref = true) : px_(p)
+	{
+		if (px_ != nullptr && add_ref)
+			intrusive_ptr_add_ref(px_);
+	}
+
+	intrusive_ptr(const intrusive_ptr& rhs) : px_(rhs.px_)
+	{
+		if (px_ != nullptr)
+			intrusive_ptr_add_ref(px_);
+	}
+
+	intrusive_ptr(intrusive_ptr&& rhs) noexcept : px_(rhs.px_)
+	{
+		rhs.px_ = nullptr;
+	}
+
+	~intrusive_ptr()
+	{
+		if (px_ != nullptr)
+			intrusive_ptr_release(px_);
+	}
+
+	intrusive_ptr& operator=(const intrusive_ptr& rhs)
+	{
+		intrusive_ptr(rhs).swap(*this);
+		return *this;
+	}
+
+	intrusive_ptr& operator=(intrusive_ptr&& rhs) noexcept
+	{
+		intrusive_ptr(std::move(rhs)).swap(*this);
+		return *this;
+	}
+
+	intrusive_ptr& operator=(T* rhs)
+	{
+		intrusive_ptr(rhs).swap(*this);
+		return *this;
+	}
+
+	void reset() noexcept
+	{
+		intrusive_ptr().swap(*this);
+	}
+
+	void reset(T* rhs)
+	{
+		intrusive_ptr(rhs).swap(*this);
+	}
+
+	T* get() const noexcept { return px_; }
+	T& operator*() const noexcept { return *px_; }
+	T* operator->() const noexcept { return px_; }
+	explicit operator bool() const noexcept { return px_ != nullptr; }
+	bool operator!() const noexcept { return px_ == nullptr; }
+
+	void swap(intrusive_ptr& rhs) noexcept
+	{
+		std::swap(px_, rhs.px_);
+	}
+
+	friend T* get_pointer(const intrusive_ptr& p) noexcept
+	{
+		return p.px_;
+	}
+
+	friend bool operator==(const intrusive_ptr& a, const intrusive_ptr& b) noexcept { return a.px_ == b.px_; }
+	friend bool operator!=(const intrusive_ptr& a, const intrusive_ptr& b) noexcept { return a.px_ != b.px_; }
+	friend bool operator==(const intrusive_ptr& a, const T* b) noexcept { return a.px_ == b; }
+	friend bool operator!=(const intrusive_ptr& a, const T* b) noexcept { return a.px_ != b; }
+	friend bool operator==(const T* a, const intrusive_ptr& b) noexcept { return a == b.px_; }
+	friend bool operator!=(const T* a, const intrusive_ptr& b) noexcept { return a != b.px_; }
+	friend bool operator<(const intrusive_ptr& a, const intrusive_ptr& b) noexcept { return a.px_ < b.px_; }
+
+private:
+	T* px_;
+};
+
+typedef intrusive_ptr<EVENT> LPEVENT;
 typedef long (*TEVENTFUNC) (LPEVENT event, long processing_time);
 
 #define EVENTFUNC(name)	long (name) ([[maybe_unused]] LPEVENT event, [[maybe_unused]] long processing_time)
@@ -56,9 +146,6 @@ struct event
 
 	size_t ref_count;
 };
-
-extern void intrusive_ptr_add_ref(EVENT* p);
-extern void intrusive_ptr_release(EVENT* p);
 
 template<class T> // T should be a subclass of event_info_data
 T* AllocEventInfo() {

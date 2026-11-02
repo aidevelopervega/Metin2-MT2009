@@ -1,7 +1,7 @@
 #pragma once
 
 #include <windows.h>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include "../eterBase/Singleton.h"
 #include "../eterBase/Stl.h"
 
@@ -31,7 +31,7 @@ class CEterPackManager : public CSingleton<CEterPackManager>
 		};
 
 		typedef std::list<CEterPack*> TEterPackList;
-		typedef boost::unordered_map<std::string, CEterPack*, stringhash> TEterPackMap;
+		typedef std::unordered_map<std::string, CEterPack*, stringhash> TEterPackMap;
 
 	public:
 		CEterPackManager();
@@ -103,7 +103,7 @@ class CEterPackManager : public CSingleton<CEterPackManager>
 		TEterPackMap			m_PackMap;
 		TEterPackMap			m_DirPackMap;
 
-		boost::unordered_map<DWORD, SCache> m_kMap_dwNameKey_kCache;
+		std::unordered_map<DWORD, SCache> m_kMap_dwNameKey_kCache;
 
 		CRITICAL_SECTION		m_csFinder;
 		int						m_iTextureViewType;
