@@ -17,8 +17,8 @@
 #      - Normal project cap: 2,400 minutes/month
 #      - Reserved buffer:      600 minutes/month
 # ==============================================================================
-TRIGGER_REVISION=sdk-unification-d3dx9-x64-and-link-preflight-freebsd-verification
-APPROVED_SOURCE_COMMIT=6d16f1134c51ac7fc8979f7fab765616360e554d
-PREVIOUS_VERIFIED_RUN_ID=41321849182
+TRIGGER_REVISION=devil-to-stb-migration-and-guild-mark-15-scenario-freebsd-verification
+APPROVED_SOURCE_COMMIT=9413263caff22a91850eb2c63f71d64814e2eb32
+PREVIOUS_VERIFIED_RUN_ID=41355864654
 STATUS=TRIGGERED
 
