@@ -1,6 +1,6 @@
 # MT2009 — Sunucu ve İstemci Native x64 Teknik Sözleşmesi, Doğrulama Matrisi ve Kabul Kriterleri (`SERVER_X64_GOALS.md`)
 
-**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `d52603461d0789a96ce888661b9574b26db8aea1` (Run `41321849182`, `41311852071` & `41183346026` — `SUCCESS`)
+**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `1bb63701c0a3058e48c5c8ee6951918a52ed64df` (Run `41385255463`, `41378195177`, `41355864654`, `41321849182`, `41311852071` & `41183346026` — `SUCCESS`)
 
 Bu belge, sunucu (Windows amd64 + FreeBSD 15.1 amd64) ve istemci (Windows native x64 `PE32+`) için ortak x64 teknik sözleşmesini, tamamlanan ve doğrulanmış sunucu dönüşüm kanıtlarını, `MT2_PROTOCOL_VERSION_X64 = 0x20090064U` ağ paket tablosunu, gerçek native x64 istemci bağımlılık engellerini ve kabul kriterlerini içerir.
 
