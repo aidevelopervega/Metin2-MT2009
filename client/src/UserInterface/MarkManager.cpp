@@ -139,7 +139,11 @@ CGuildMarkImage * CGuildMarkManager::__GetImage(DWORD imgIdx)
 		{
 			CGuildMarkImage * pkImage = __NewImage();
 			m_mapIdx_Image.insert(std::map<DWORD, CGuildMarkImage *>::value_type(imgIdx, pkImage));
-			pkImage->Load(imagePath.c_str());
+			if (!pkImage->Load(imagePath.c_str()))
+			{
+				pkImage->Build(imagePath.c_str());
+				pkImage->Load(imagePath.c_str());
+			}
 			return pkImage;
 		}
 		else
@@ -396,6 +400,7 @@ void CGuildMarkManager::UploadSymbol(uint64_t guildID, int iSize, const BYTE* pb
 
 #ifdef __UNITTEST__
 #include "lzo_manager.h"
+#include <stb/mt2_image_stb.h>
 
 Guild::CGuildMarkManager * mgr;
 
@@ -406,26 +411,13 @@ void heartbeat(LPHEART ht, int pulse)
 
 void SaveMark(DWORD guildID, const char * filename)
 {
-	ILuint m_uImg;
-
-	ilGenImages(1, &m_uImg);
-	ilBindImage(m_uImg);
-	ilEnable(IL_ORIGIN_SET);
-	ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
-
-	if (ilLoad(IL_TYPE_UNKNOWN, (const ILstring) filename))
+	std::vector<Pixel> decodedPixels;
+	uint32_t width = 0U;
+	uint32_t height = 0U;
+	if (mt2::image::LoadBGRAFromFile(filename, decodedPixels, width, height) == mt2::image::LoadStatus::Ok)
 	{
-		ILuint width = ilGetInteger(IL_IMAGE_WIDTH);
-		ILuint height = ilGetInteger(IL_IMAGE_HEIGHT);
-
-		ilConvertImage(IL_BGRA, IL_UNSIGNED_BYTE);
-
-		BYTE * data = (BYTE *) malloc(sizeof(DWORD) * width * height);
-		ilCopyPixels(0, 0, 0, width, height, 1, IL_BGRA, IL_UNSIGNED_BYTE, data);
-		ilDeleteImages(1, &m_uImg);
-
 		printf("%s w%u h%u ", filename, width, height);
-		mgr->SaveMark(guildID, data);
+		mgr->SaveMark(guildID, reinterpret_cast<BYTE *>(decodedPixels.data()));
 	}
 	else
 		printf("%s cannot open file.\n", filename);
@@ -438,7 +430,6 @@ int main(int argc, char **argv)
 
 	srandom(time(0));
 
-	ilInit(); // DevIL Initialize
 	thecore_init(25, heartbeat);
 
 	std::vector<int> vec_guild_id;

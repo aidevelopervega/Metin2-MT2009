@@ -11,12 +11,6 @@
       "expected_file_count": 193
     },
     {
-      "name": "DevIL 1.8.0 Headers",
-      "dir_a": "extern/server/include/IL",
-      "dir_b": "extern/client/include/IL",
-      "expected_file_count": 8
-    },
-    {
       "name": "LZO 2.10 Headers",
       "dir_a": "extern/client/include/lzo",
       "dir_b": "server/src/game/src/lzo",
@@ -173,58 +167,56 @@
       "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
     },
     {
-      "id": "devil",
-      "name": "DevIL (Developer's Image Library)",
-      "purpose": "Guild mark TGA/image creation, loading, pixel manipulation, and saving (CGuildMarkImage, CGuildMarkUploader)",
+      "id": "stb",
+      "name": "stb Single-File Image Libraries (stb_image.h v2.30 + stb_image_write.h v1.16)",
+      "purpose": "Single-source C++20 guild mark atlas (512x512 TGA), guild mark upload (16x12 BMP/TGA/JPG/PNG), guild symbol validation (64x128), and appGetImageInfo replacing DevIL 1.8.0",
       "used_in_client": true,
       "used_in_server": true,
       "is_common": true,
-      "header_path": "extern/server/include/IL == extern/client/include/IL",
-      "header_version": "1.8.0 (IL_VERSION=180)",
-      "source_build_version": "1.8.0",
+      "header_path": "extern/common/include/stb/{stb_image.h,stb_image_write.h,mt2_image_stb.h,LICENSE}",
+      "header_version": "stb_image v2.30 + stb_image_write v1.16",
+      "source_build_version": "stb commit d14d46f6b44456eb88beac58cba833a4135d4c89 (2026-11-01)",
       "source_origin": {
-        "url": "https://github.com/DentonW/DevIL",
-        "version_tag": "v1.8.0"
+        "url": "https://github.com/nothings/stb",
+        "commit": "d14d46f6b44456eb88beac58cba833a4135d4c89"
       },
-      "license": "LGPL-2.1",
-      "compiler_crt_abi": "C ABI (__stdcall / ILAPI); Client: devil_x64.lib + DevIL_x64.dll (PE32+ 0x8664, statically linked runtime with zero MinGW DLL imports); Server: libIL.a (COFF_0x8664 / FreeBSD pkg devil)",
-      "debug_release_variants": "Release x64 (devil_x64.lib + DevIL_x64.dll + libIL.a); superseded 32-bit DevIL.lib & DevIL.dll removed",
-      "linkage": "Client: dynamic (DevIL_x64.dll via devil_x64.lib); Server Windows: static (libIL.a)",
-      "binaries": [
+      "license": "MIT OR Unlicense (Public Domain)",
+      "compiler_crt_abi": "Single-source C/C++20 compiled in-tree (MT2_STB_IMAGE_IMPLEMENTATION in server/src/game/src/MarkImage.cpp and client/src/UserInterface/MarkImage.cpp); zero external DLL/SO dependencies",
+      "debug_release_variants": "Header/in-tree single-TU implementation (Debug/Release agnostic)",
+      "linkage": "static (compiled in-tree)",
+      "binaries": [],
+      "pinned_headers": [
         {
-          "path": "extern/client/lib/devil_x64.lib",
-          "arch": "COFF_0x8664+IMPORT_0x8664",
-          "size_bytes": 20894,
-          "sha256": "2f943d04cf797cc9d7f5613a0ae1ab67e8b65aa8f7c49c0f494bffa6ce9acb3c",
-          "variant": "Release",
-          "role": "active_x64"
+          "path": "extern/common/include/stb/stb_image.h",
+          "size_bytes": 283010,
+          "sha256": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3"
         },
         {
-          "path": "extern/client/dll/DevIL_x64.dll",
-          "arch": "PE32+_0x8664",
-          "size_bytes": 1166542,
-          "sha256": "a45085435697d21dc5a0e26aa861bcba550a8e2ad3714014547f0d079234d607",
-          "variant": "Release",
-          "role": "active_x64"
+          "path": "extern/common/include/stb/stb_image_write.h",
+          "size_bytes": 71221,
+          "sha256": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05"
         },
         {
-          "path": "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libIL.a",
-          "arch": "COFF_0x8664",
-          "size_bytes": 818514,
-          "sha256": "f2a099c1f181882f7c8fe4f67c693f8897b1a82f948c530b75faf37b8562a5ce",
-          "variant": "Release",
-          "role": "active_x64"
+          "path": "extern/common/include/stb/LICENSE",
+          "size_bytes": 2510,
+          "sha256": "bebfe904b14301657e4e5d655c811d51fd31b97c455b9cc2d8600d6bac6cff63"
+        },
+        {
+          "path": "extern/common/include/stb/mt2_image_stb.h",
+          "size_bytes": 12949,
+          "sha256": "6622e8aedd586cbaf22ea2077af74e1318012ab705c42e89932cf6a87f69a8a6"
         }
       ],
       "usage_evidence": [
-        "client/src/UserInterface/MarkImage.cpp:42-140 (ilGenImages, ilBindImage, ilTexImage, ilLoad, ilSave, ilSetPixels, ilCopyPixels)",
-        "client/src/UserInterface/GuildMarkUploader.cpp:36-92 (ilGenImages, ilLoad, ilGetInteger, ilConvertImage, ilCopyPixels)",
-        "client/src/UserInterface/UserInterface.cpp:747 (ilInit)",
-        "server/src/game/src/MarkImage.cpp:25-130 (Server guild mark image management)"
+        "server/src/game/src/MarkImage.cpp:7-8 (#define MT2_STB_IMAGE_IMPLEMENTATION, #include <stb/mt2_image_stb.h>)",
+        "client/src/UserInterface/MarkImage.cpp:5-6 (#define MT2_STB_IMAGE_IMPLEMENTATION, #include <stb/mt2_image_stb.h>)",
+        "client/src/UserInterface/GuildMarkUploader.cpp:3 (#include <stb/mt2_image_stb.h>)",
+        "client/src/UserInterface/PythonApplicationModule.cpp:8 (#include <stb/mt2_image_stb.h>, appGetImageInfo)",
+        "client/src/UserInterface/MarkManager.cpp:7 (#include <stb/mt2_image_stb.h>)"
       ],
       "decision": "UPGRADED",
-      "notes": "Unified client and server headers on DevIL 1.8.0 (8 headers), linked DevIL_x64.dll with -static to eliminate transitive libwinpthread-1.dll import, and removed superseded 32-bit DevIL.lib/DevIL.dll.",
-      "verified_base_commit": "6d16f1134c51ac7fc8979f7fab765616360e554d"
+      "notes": "Replaced DevIL 1.8.0 across server and client with official pinned stb_image.h (v2.30) + stb_image_write.h (v1.16) + C++20 RAII wrapper mt2_image_stb.h. Preserved 512x512 BGRA atlas, 16x12 guild mark blocks, 64x128 symbol raw-byte CRC32 invariants, and DevIL TGA 2.0 backward compatibility across 15 regression scenarios.",
+      "verified_base_commit": "558cd2ca3252a63ef491db1792e58c77feadcf8d"
     },
     {
       "id": "lzo",
@@ -822,6 +814,21 @@
       ],
       "decision": "REMOVED",
       "reason": "Removed dead backups, stale shadowing headers, superseded 32-bit static/import libraries that now have verified x64 replacements, and 121 loose 32-bit .obj files."
+    },
+    {
+      "id": "devil",
+      "name": "DevIL 1.8.0 (Developer's Image Library)",
+      "removed_paths": [
+        "cmake/FindDevIL.cmake",
+        "extern/server/include/IL",
+        "extern/client/include/il",
+        "extern/client/dll/DevIL_x64.dll",
+        "extern/client/lib/devil_x64.lib",
+        "extern/client/lib/devil_x64.def",
+        "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libIL.a"
+      ],
+      "decision": "REMOVED",
+      "reason": "Replaced across both server and client by single-source C++20 stb_image.h (v2.30) + stb_image_write.h (v1.16) + mt2_image_stb.h in extern/common/include/stb."
     }
   ]
 }

@@ -1,3 +1,4 @@
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_AMD64))
 #include <intrin.h>
 #include <immintrin.h>
 
@@ -16,3 +17,5 @@ extern "C" unsigned long long __fastcall CPUID64(unsigned int func, unsigned int
     output[3] = static_cast<unsigned int>(regs[3]);
     return 1ULL;
 }
+#endif
+

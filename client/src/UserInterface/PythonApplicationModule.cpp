@@ -309,7 +309,7 @@ PyObject* appGetDefaultCodePage(PyObject* poSelf, PyObject* poArgs)
 	return Py_BuildValue("i", LocaleService_GetCodePage());
 }
 
-#include <il/il.h>
+#include <stb/mt2_image_stb.h>
 
 PyObject* appGetImageInfo(PyObject* poSelf, PyObject* poArgs)
 {
@@ -317,23 +317,16 @@ PyObject* appGetImageInfo(PyObject* poSelf, PyObject* poArgs)
 	if (!PyTuple_GetString(poArgs, 0, &szFileName))
 		return Py_BuildException();
 
-	BOOL canLoad=FALSE;
-	ILuint uWidth=0;
-	ILuint uHeight=0;
+	BOOL canLoad = FALSE;
+	uint32_t uWidth = 0U;
+	uint32_t uHeight = 0U;
 
-	ILuint uImg;
-	ilGenImages(1, &uImg);
-	ilBindImage(uImg);
-	if (ilLoad(IL_TYPE_UNKNOWN, szFileName))
+	if (mt2::image::ProbeAndValidateImageFromFile(szFileName, uWidth, uHeight))
 	{
-		canLoad=TRUE;
-		uWidth=ilGetInteger(IL_IMAGE_WIDTH);
-		uHeight=ilGetInteger(IL_IMAGE_HEIGHT);
+		canLoad = TRUE;
 	}
 
-	ilDeleteImages(1, &uImg);
-
-	return Py_BuildValue("iii", canLoad, uWidth, uHeight);
+	return Py_BuildValue("iii", canLoad, static_cast<int>(uWidth), static_cast<int>(uHeight));
 }
 
 #include "../EterPack/EterPackManager.h"

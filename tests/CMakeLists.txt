@@ -28,8 +28,14 @@ target_link_libraries(test_libthecore PRIVATE thecore)
 add_test(NAME test_libthecore COMMAND test_libthecore)
 
 # 3. test_libgame
-add_executable(test_libgame test_libgame.cpp)
-target_include_directories(test_libgame PRIVATE ${TEST_COMMON_INCLUDES})
+add_executable(test_libgame
+    test_libgame.cpp
+    "${CMAKE_SOURCE_DIR}/server/src/game/src/minilzo.c"
+)
+target_include_directories(test_libgame PRIVATE
+    ${TEST_COMMON_INCLUDES}
+    "${CMAKE_SOURCE_DIR}/server/src/game/src"
+)
 target_link_libraries(test_libgame PRIVATE game_lib thecore)
 add_test(NAME test_libgame COMMAND test_libgame)
 

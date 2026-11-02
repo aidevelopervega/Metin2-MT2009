@@ -56,7 +56,7 @@ jobs:
           disable-cache: true
           token: ''
           prepare: |
-            pkg install -y gcc14 ccache gmake cmake ninja boost-libs devil cryptopp || pkg install -y gcc14 ccache gmake cmake ninja boost-libs || pkg install -y gcc14 gmake cmake ninja boost-libs
+            pkg install -y gcc14 ccache gmake cmake ninja boost-libs cryptopp || pkg install -y gcc14 ccache gmake cmake ninja boost-libs || pkg install -y gcc14 gmake cmake ninja boost-libs
             pkg install -y python3 || pkg install -y python311 || true
           run: |
             # 1. İşletim Sistemi ve Mimari Doğrulaması

@@ -2,17 +2,21 @@
 #include "MarkImage.h"
 
 #if !defined(_MSC_VER)
-#include <IL/il.h>
 #include "crc32.h"
 #include "lzo_manager.h"
 #include "minilzo.h"
 #define CLZO LZOManager
 #else
+#include "../EterBase/lzo.h"
+#include "../EterBase/CRC32.h"
 #define sys_err TraceError
 #define sys_log //(n, format, ...) Tracenf(format, __VA_ARGS__)
 #define thecore_memcpy memcpy
 #define itertype(cont) typeof(cont.begin())
 #endif
+
+#define MT2_STB_IMAGE_IMPLEMENTATION
+#include <stb/mt2_image_stb.h>
 
 CGuildMarkImage * NewMarkImage()
 {
@@ -26,7 +30,7 @@ void DeleteMarkImage(CGuildMarkImage * pkImage)
 
 CGuildMarkImage::CGuildMarkImage()
 {
-	m_uImg = INVALID_HANDLE;
+	memset(&m_apxImage, 0, sizeof(m_apxImage));
 }
 
 CGuildMarkImage::~CGuildMarkImage()
@@ -36,55 +40,26 @@ CGuildMarkImage::~CGuildMarkImage()
 
 void CGuildMarkImage::Destroy()
 {
-	if (INVALID_HANDLE == m_uImg)
-		return;
-
-	ilDeleteImages(1, &m_uImg);
-	m_uImg = INVALID_HANDLE;
+	memset(&m_apxImage, 0, sizeof(m_apxImage));
 }
 
 void CGuildMarkImage::Create()
 {
-	if (INVALID_HANDLE != m_uImg)
-		return;
-
-	ilGenImages(1, &m_uImg);
+	memset(&m_apxImage, 0, sizeof(m_apxImage));
 }
 
 bool CGuildMarkImage::Save(const char* c_szFileName)
 {
-	ilEnable(IL_FILE_OVERWRITE);
-	ilBindImage(m_uImg);
-
-	if (!ilSave(IL_TGA, (const ILstring)c_szFileName))
-		return false;
-
-	return true;
+	return mt2::image::SaveBGRAToTGAFile(c_szFileName, m_apxImage, WIDTH, HEIGHT);
 }
 
 bool CGuildMarkImage::Build(const char * c_szFileName)
 {
 	Destroy();
 	Create();
+	BuildAllBlocks();
 
-	ilBindImage(m_uImg);
-	ilEnable(IL_ORIGIN_SET);
-	ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
-
-	BYTE * data = (BYTE *) malloc(sizeof(Pixel) * WIDTH * HEIGHT);
-	memset(data, 0, sizeof(Pixel) * WIDTH * HEIGHT);
-
-	if (!ilTexImage(WIDTH, HEIGHT, 1, 4, IL_BGRA, IL_UNSIGNED_BYTE, data))
-	{
-		sys_err("CGuildMarkImage: cannot initialize image");
-		return false;
-	}
-
-	free(data);
-
-	ilEnable(IL_FILE_OVERWRITE);
-
-	if (!ilSave(IL_TGA, (const ILstring)c_szFileName))
+	if (!Save(c_szFileName))
 		return false;
 
 	return true;
@@ -92,52 +67,88 @@ bool CGuildMarkImage::Build(const char * c_szFileName)
 
 bool CGuildMarkImage::Load(const char * c_szFileName)
 {
+	if (c_szFileName == nullptr || c_szFileName[0] == '\0')
+	{
+		sys_err("CGuildMarkImage: invalid file name.");
+		return false;
+	}
+
 	Destroy();
 	Create();
 
-	ilBindImage(m_uImg);
-	ilEnable(IL_ORIGIN_SET);
-	ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
+	std::vector<Pixel> loadedPixels;
+	uint32_t loadedWidth = 0U;
+	uint32_t loadedHeight = 0U;
+	const mt2::image::LoadStatus status = mt2::image::LoadBGRAFromFile(
+		c_szFileName,
+		loadedPixels,
+		loadedWidth,
+		loadedHeight,
+		WIDTH,
+		HEIGHT);
 
-	if (!ilLoad(IL_TYPE_UNKNOWN, (const ILstring) c_szFileName))
+	if (status == mt2::image::LoadStatus::ErrorLoad)
 	{
-		Build(c_szFileName);
-
-		if (!Load(c_szFileName))
-		{
-			sys_err("CGuildMarkImage: cannot open file for writing %s", c_szFileName);
-			return false;
-		}
+		sys_err("CGuildMarkImage: %s cannot open file.", c_szFileName);
+		return false;
 	}
 
-	if (ilGetInteger(IL_IMAGE_WIDTH) != WIDTH)
+	if (status == mt2::image::LoadStatus::ErrorWidth)
 	{
 		sys_err("CGuildMarkImage: %s width must be %u", c_szFileName, WIDTH);
 		return false;
 	}
 
-	if (ilGetInteger(IL_IMAGE_HEIGHT) != HEIGHT)
+	if (status == mt2::image::LoadStatus::ErrorHeight)
 	{
 		sys_err("CGuildMarkImage: %s height must be %u", c_szFileName, HEIGHT);
 		return false;
 	}
 
-	ilConvertImage(IL_BGRA, IL_UNSIGNED_BYTE);
+	if (loadedPixels.size() != static_cast<size_t>(WIDTH) * static_cast<size_t>(HEIGHT))
+	{
+		sys_err("CGuildMarkImage: %s invalid pixel count.", c_szFileName);
+		return false;
+	}
 
+	memcpy(m_apxImage, loadedPixels.data(), sizeof(m_apxImage));
 	BuildAllBlocks();
 	return true;
 }
 
 void CGuildMarkImage::PutData(UINT x, UINT y, UINT width, UINT height, void * data)
 {
-	ilBindImage(m_uImg);
-	ilSetPixels(x, y, 0, width, height, 1, IL_BGRA, IL_UNSIGNED_BYTE, data);
+	if (data == nullptr || width == 0U || height == 0U || x >= WIDTH || y >= HEIGHT)
+		return;
+
+	const Pixel * src = static_cast<const Pixel *>(data);
+	const UINT copyCols = (x + width <= WIDTH) ? width : (WIDTH - x);
+	const UINT copyRows = (y + height <= HEIGHT) ? height : (HEIGHT - y);
+
+	for (UINT row = 0U; row < copyRows; ++row)
+	{
+		memcpy(&m_apxImage[(y + row) * WIDTH + x], src + static_cast<size_t>(row) * width, static_cast<size_t>(copyCols) * sizeof(Pixel));
+	}
 }
 
 void CGuildMarkImage::GetData(UINT x, UINT y, UINT width, UINT height, void * data)
 {
-	ilBindImage(m_uImg);
-	ilCopyPixels(x, y, 0, width, height, 1, IL_BGRA, IL_UNSIGNED_BYTE, data);
+	if (data == nullptr || width == 0U || height == 0U)
+		return;
+
+	Pixel * dst = static_cast<Pixel *>(data);
+	memset(dst, 0, static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(Pixel));
+
+	if (x >= WIDTH || y >= HEIGHT)
+		return;
+
+	const UINT copyCols = (x + width <= WIDTH) ? width : (WIDTH - x);
+	const UINT copyRows = (y + height <= HEIGHT) ? height : (HEIGHT - y);
+
+	for (UINT row = 0U; row < copyRows; ++row)
+	{
+		memcpy(dst + static_cast<size_t>(row) * width, &m_apxImage[(y + row) * WIDTH + x], static_cast<size_t>(copyCols) * sizeof(Pixel));
+	}
 }
 
 // SERVER

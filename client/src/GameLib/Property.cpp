@@ -232,7 +232,7 @@ bool CProperty::ReadFromMemory(const void * c_pvData, int iLen, const char * c_p
 	textFileLoader.Bind(iLen - (sizeof(DWORD) + 2), pcData);
 
 	m_stCRC = textFileLoader.GetLineString(0);
-	m_dwCRC = atoi(m_stCRC.c_str());
+	m_dwCRC = static_cast<DWORD>(_atoi64(m_stCRC.c_str()));
 
 	for (DWORD i = 1; i < textFileLoader.GetLineCount(); ++i)
 	{

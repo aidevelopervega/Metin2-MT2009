@@ -222,10 +222,10 @@ void CPythonNetworkStream::ServerCommand(const char * c_szCommand)
 				return;
 			}
 
-			YANG gold = atoi(TokenVector[2].c_str());
+			YANG gold = _atoi64(TokenVector[2].c_str());
 			UINT itemVnum = atoi(TokenVector[3].c_str());
 			UINT count = atoi(TokenVector[4].c_str());
-			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_Cube_UpdateInfo", Py_BuildValue("(iii)", gold, itemVnum, count));
+			PyCallClassMemberFunc(m_apoPhaseWnd[PHASE_WINDOW_GAME], "BINARY_Cube_UpdateInfo", Py_BuildValue("(Lii)", static_cast<long long>(gold), itemVnum, count));
 		}
 		else if ("success" == TokenVector[1])
 		{

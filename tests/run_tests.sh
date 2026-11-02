@@ -67,16 +67,18 @@ $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" 
 $CXX $FLAGS $RPATH -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_auth_security.cpp" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_auth_security"
 "$BUILD_DIR/test_auth_security"
 
-# 3. libgame (Gercek libthecore.a ile bagli)
+# 3. libgame (Gercek libthecore.a + game MarkImage/stb ile bagli)
 echo "[3/6] libgame derleniyor ve test ediliyor..."
 GAME_DIR="$ROOT_DIR/server/src/libgame"
+GAME_SRC_DIR="$ROOT_DIR/server/src/game/src"
 
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/grid.cc" -o "$BUILD_DIR/game_grid.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/attribute.cc" -o "$BUILD_DIR/game_attribute.o"
 $CXX $FLAGS -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -c "$GAME_DIR/src/targa.cc" -o "$BUILD_DIR/game_targa.o"
-$AR cru "$BUILD_DIR/libgame.a" "$BUILD_DIR/game_grid.o" "$BUILD_DIR/game_attribute.o" "$BUILD_DIR/game_targa.o"
+$CC -std=c11 -Wall -Wextra -O2 -pipe -I"$GAME_SRC_DIR" -I"$CORE_DIR/include" -I"$COMMON_DIR" -c "$GAME_SRC_DIR/minilzo.c" -o "$BUILD_DIR/game_minilzo.o"
+$AR cru "$BUILD_DIR/libgame.a" "$BUILD_DIR/game_grid.o" "$BUILD_DIR/game_attribute.o" "$BUILD_DIR/game_targa.o" "$BUILD_DIR/game_minilzo.o"
 $RANLIB "$BUILD_DIR/libgame.a"
-$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
+$CXX $FLAGS $RPATH -I"$GAME_DIR/include" -I"$CORE_DIR/include" -I"$COMMON_DIR" -I"$EXTERN_COMMON_INC" -I"$EXTERN_SERVER_INC" -I"$GAME_SRC_DIR" "$ROOT_DIR/tests/test_libgame.cpp" "$BUILD_DIR/libgame.a" "$BUILD_DIR/libthecore.a" -lpthread -o "$BUILD_DIR/test_libgame"
 "$BUILD_DIR/test_libgame"
 
 # 4. libsql

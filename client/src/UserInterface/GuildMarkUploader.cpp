@@ -3,6 +3,8 @@
 #include "Packet.h"
 #include "Test.h"
 
+#include <stb/mt2_image_stb.h>
+
 CGuildMarkUploader::CGuildMarkUploader()
  : m_pbySymbolBuf(NULL)
 {
@@ -33,82 +35,95 @@ bool CGuildMarkUploader::__Save(const char* c_szFileName)
 
 bool CGuildMarkUploader::__Load(const char* c_szFileName, UINT* peError)
 {
-	ILuint uImg;
-	ilGenImages(1, &uImg);
-	ilBindImage(uImg);
-	ilEnable(IL_ORIGIN_SET);
-	ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
+	std::vector<Pixel> decodedPixels;
+	uint32_t width = 0U;
+	uint32_t height = 0U;
+	const mt2::image::LoadStatus status = mt2::image::LoadBGRAFromFile(
+		c_szFileName,
+		decodedPixels,
+		width,
+		height,
+		SGuildMark::WIDTH,
+		SGuildMark::HEIGHT);
 
-	if (!ilLoad(IL_TYPE_UNKNOWN, (const ILstring)c_szFileName))
+	if (status == mt2::image::LoadStatus::ErrorLoad)
 	{
-		*peError=ERROR_LOAD;
+		if (peError)
+			*peError = ERROR_LOAD;
 		return false;
 	}
 
-	if (ilGetInteger(IL_IMAGE_WIDTH)!=SGuildMark::WIDTH)
+	if (status == mt2::image::LoadStatus::ErrorWidth)
 	{
-		*peError=ERROR_WIDTH;
+		if (peError)
+			*peError = ERROR_WIDTH;
 		return false;
 	}
 
-	if (ilGetInteger(IL_IMAGE_HEIGHT)!=SGuildMark::HEIGHT)
+	if (status == mt2::image::LoadStatus::ErrorHeight)
 	{
-		*peError=ERROR_HEIGHT;
+		if (peError)
+			*peError = ERROR_HEIGHT;
 		return false;
 	}
 
-	ilConvertImage(IL_BGRA, IL_BYTE);
+	if (decodedPixels.size() != SGuildMark::SIZE)
+	{
+		if (peError)
+			*peError = ERROR_LOAD;
+		return false;
+	}
 
-	ilCopyPixels(0, 0, 0, SGuildMark::WIDTH, SGuildMark::HEIGHT, 1, IL_BGRA, IL_BYTE, m_kMark.m_apxBuf);
-
-	ilDeleteImages(1, &uImg);
+	memcpy(m_kMark.m_apxBuf, decodedPixels.data(), sizeof(m_kMark.m_apxBuf));
 	return true;
 }
 
 bool CGuildMarkUploader::__LoadSymbol(const char* c_szFileName, UINT* peError)
 {
-	//	For Check Image
-	ILuint uImg;
-	ilGenImages(1, &uImg);
-	ilBindImage(uImg);
-	ilEnable(IL_ORIGIN_SET);
-	ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
-	if (!ilLoad(IL_TYPE_UNKNOWN, (const ILstring)c_szFileName))
+	std::vector<uint8_t> rawSymbolBytes;
+	const mt2::image::LoadStatus status = mt2::image::ValidateSymbolFileAndReadRaw(
+		c_szFileName,
+		rawSymbolBytes,
+		64U,
+		128U);
+
+	if (status == mt2::image::LoadStatus::ErrorLoad)
 	{
-		*peError=ERROR_LOAD;
+		if (peError)
+			*peError = ERROR_LOAD;
 		return false;
 	}
-	if (ilGetInteger(IL_IMAGE_WIDTH) != 64)
+
+	if (status == mt2::image::LoadStatus::ErrorWidth)
 	{
-		*peError=ERROR_WIDTH;
+		if (peError)
+			*peError = ERROR_WIDTH;
 		return false;
 	}
-	if (ilGetInteger(IL_IMAGE_HEIGHT) != 128)
+
+	if (status == mt2::image::LoadStatus::ErrorHeight)
 	{
-		*peError=ERROR_HEIGHT;
+		if (peError)
+			*peError = ERROR_HEIGHT;
 		return false;
 	}
-	ilDeleteImages(1, &uImg);
-	ilShutDown();
 
-	/////
-
-	FILE * file = fopen(c_szFileName, "rb");
-	if (!file)
+	if (rawSymbolBytes.empty())
 	{
-		*peError=ERROR_LOAD;
+		if (peError)
+			*peError = ERROR_LOAD;
+		return false;
 	}
 
-	fseek(file, 0, SEEK_END);
-	m_dwSymbolBufSize = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	if (m_pbySymbolBuf)
+	{
+		delete[] m_pbySymbolBuf;
+		m_pbySymbolBuf = NULL;
+	}
 
-	m_pbySymbolBuf = new BYTE [m_dwSymbolBufSize];
-	fread(m_pbySymbolBuf, m_dwSymbolBufSize, 1, file);
-
-	fclose(file);
-
-	/////
+	m_dwSymbolBufSize = static_cast<DWORD>(rawSymbolBytes.size());
+	m_pbySymbolBuf = new BYTE[m_dwSymbolBufSize];
+	memcpy(m_pbySymbolBuf, rawSymbolBytes.data(), m_dwSymbolBufSize);
 
 	m_dwSymbolCRC32 = GetFileCRC32(c_szFileName);
 	return true;
@@ -218,7 +233,7 @@ void CGuildMarkUploader::__Initialize()
 
 	if (m_pbySymbolBuf)
 	{
-		delete m_pbySymbolBuf;
+		delete[] m_pbySymbolBuf;
 	}
 
 	m_dwSymbolBufSize = 0;

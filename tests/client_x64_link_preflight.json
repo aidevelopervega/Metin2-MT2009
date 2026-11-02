@@ -1,15 +1,18 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "total_modules": 16,
   "total_vcxproj_translation_units": 343,
   "total_compiled_amd64_objects": 344,
   "compile_errors_count": 0,
+  "strict_link_flags_no_force": true,
   "pass_a_exit_code": 1120,
   "pass_a_x86_library_conflicts_lnk4272": [
     "warning LNK4272: 'x86' kitapl\u008dk makine t\u0081r\u0081, 'x64' hedef makine t\u0081r\u0081yle \u2021ak\u008d\u0178\u008dyor\r",
     "warning LNK4272: 'x86' kitapl\u008dk makine t\u0081r\u0081, 'x64' hedef makine t\u0081r\u0081yle \u2021ak\u008d\u0178\u008dyor\r"
   ],
   "pass_b_exit_code": 1120,
+  "duplicate_symbols_lnk2005_count": 0,
+  "duplicate_symbols_lnk2005": [],
   "unresolved_symbol_counts": {
     "granny2": 57,
     "speedtreert": 50,

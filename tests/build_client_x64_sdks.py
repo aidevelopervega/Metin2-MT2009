@@ -116,44 +116,6 @@ def inspect_coff_archive_machines(lib_path: Path) -> set[int]:
     return machines
 
 
-def build_devil_x64() -> None:
-    print("[SDK] Building DevIL_x64.dll (zero MinGW runtime DLL dependencies) and devil_x64.lib...")
-    def_path = ROOT / "extern/client/lib/devil_x64.def"
-    libil_a = ROOT / "extern/platform/windows-x64/mingw-ucrt-gcc16/lib/libIL.a"
-    out_dll = ROOT / "extern/client/dll/DevIL_x64.dll"
-    out_lib = ROOT / "extern/client/lib/devil_x64.lib"
-
-    import shutil
-    gpp_exe = shutil.which("g++") or "g++"
-    gpp_cmd = [
-        gpp_exe,
-        "-shared",
-        "-static",
-        "-static-libgcc",
-        "-static-libstdc++",
-        "-O2",
-        "-o",
-        str(out_dll),
-        str(def_path),
-        "-Wl,--whole-archive",
-        str(libil_a),
-        "-Wl,--no-whole-archive",
-        "-lgdi32",
-        "-luser32",
-        "-lole32",
-    ]
-    res = subprocess.run(gpp_cmd, cwd=str(ROOT))
-    if res.returncode != 0:
-        raise RuntimeError("Failed to link DevIL_x64.dll")
-
-    run_With_vcvars([
-        f'lib.exe /nologo /DEF:"{def_path}" /MACHINE:X64 /OUT:"{out_lib}"'
-    ])
-    exp_file = out_lib.with_suffix(".exp")
-    if exp_file.exists():
-        exp_file.unlink()
-
-
 def build_lzo_x64() -> None:
     print("[SDK] Building lzo2_x64.lib (LZO 2.10 MSVC AMD64 /MT)...")
     obj_dir = ROOT / "build/obj_x64/sdk_build/lzo"
@@ -218,7 +180,6 @@ def verify_all() -> int:
     required_libs = [
         "extern/client/lib/cryptlib-x64.lib",
         "extern/client/lib/lzo2_x64.lib",
-        "extern/client/lib/devil_x64.lib",
         "extern/client/lib/libjpeg-x64.lib",
         "extern/client/lib/discord_rpc_x64.lib",
         "extern/client/lib/d3dx9.lib",
@@ -237,7 +198,6 @@ def verify_all() -> int:
             print(f"[PASS] {rel} (COFF 0x8664 AMD64, {p.stat().st_size} bytes, sha256={h}...)")
 
     required_dlls = [
-        "extern/client/dll/DevIL_x64.dll",
         "extern/client/dll/D3DX9_43.dll",
     ]
     forbidden_mingw_dlls = {"libwinpthread-1.dll", "libstdc++-6.dll", "libgcc_s_seh-1.dll", "libgcc_s_dw2-1.dll"}
@@ -273,7 +233,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--target",
-        choices=["all", "fast", "cryptopp", "lzo", "devil", "libjpeg", "discord_rpc"],
+        choices=["all", "fast", "cryptopp", "lzo", "libjpeg", "discord_rpc"],
         default="fast",
     )
     ap.add_argument("--verify-only", action="store_true")
@@ -286,8 +246,6 @@ def main() -> int:
         build_cryptopp_x64()
     if args.target in ("all", "fast", "lzo"):
         build_lzo_x64()
-    if args.target in ("all", "fast", "devil"):
-        build_devil_x64()
     if args.target in ("all", "fast", "libjpeg"):
         build_libjpeg_x64()
     if args.target in ("all", "fast", "discord_rpc"):

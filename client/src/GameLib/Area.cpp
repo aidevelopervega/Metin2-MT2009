@@ -833,7 +833,7 @@ bool CArea::__Load_LoadObject(const char * c_szFileName)
 		ObjectData.Position.x = atof(c_rstrxPosition.c_str());
 		ObjectData.Position.y = atof(c_rstryPosition.c_str());
 		ObjectData.Position.z = atof(c_rstrzPosition.c_str());
-		ObjectData.dwCRC = atoi	(c_rstrCRC.c_str());
+		ObjectData.dwCRC = static_cast<DWORD>(_atoi64(c_rstrCRC.c_str()));
 
 		ObjectData.InitializeRotation(); //ObjectData.m_fYaw = ObjectData.m_fPitch = ObjectData.m_fRoll = 0;
 		if (rVector.size() > 4)
@@ -931,7 +931,7 @@ bool CArea::__Load_LoadAmbience(const char * c_szFileName)
 		ObjectData.Position.x = atof(c_rstrxPosition.c_str());
 		ObjectData.Position.y = atof(c_rstryPosition.c_str());
 		ObjectData.Position.z = atof(c_rstrzPosition.c_str());
-		ObjectData.dwCRC = atoi	(c_rstrCRC.c_str());
+		ObjectData.dwCRC = static_cast<DWORD>(_atoi64(c_rstrCRC.c_str()));
 		ObjectData.dwRange = atoi(c_rstrRange.c_str());
 
 		ObjectData.InitializeRotation();

@@ -41,8 +41,6 @@
 #define fileno _fileno
 //#define access _access_s
 //#define _access _access_s
-#define atoi _atoi64
-namespace std { using ::_atoi64; }
 #endif
 
 #include "vk.h"

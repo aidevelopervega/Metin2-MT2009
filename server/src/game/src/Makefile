@@ -71,20 +71,10 @@ CFLAGS += -fstack-protector-all
 # Version defines
 CFLAGS += -D__USER__=\"$(USER)\" -D__HOSTNAME__=\"$(HOSTNAME)\" -D__PWD__=\"$(PWD)\" -D__GAME_VERSION__=\"$(GAME_VERSION)\"
 
-# Boost
+# Common & Server Headers (Boost, fmt, RapidJSON, stb, etc.)
+INCDIR += -I"../../../../extern/common/include"
 INCDIR += -I"../../../../extern/common/include/boost"
-
-# DevIL
 INCDIR += -I"../../../../extern/server/include"
-ifeq ($(LBITS),64)
-ifneq ($(wildcard /usr/local/lib/libIL.a),)
-LIBS += /usr/local/lib/libIL.a
-else
-LIBS += -lIL
-endif
-else
-LIBS += $(firstword $(wildcard ../../../../extern/server/lib/libIL.a /usr/local/lib/libIL.a -lIL))
-endif
 
 # CryptoPP
 ifeq ($(LBITS),64)

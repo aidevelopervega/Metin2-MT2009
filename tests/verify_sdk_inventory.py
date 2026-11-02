@@ -216,6 +216,22 @@ def main() -> int:
                         len(bad_imps) == 0,
                         f"[{dep_id}] active_x64 DLL {rel} has zero transitive MinGW runtime DLL imports (got {bad_imps})",
                     )
+        for ph in dep.get("pinned_headers", []):
+            rel = ph["path"]
+            p = ROOT / rel
+            check(p.is_file(), f"[{dep_id}] Pinned header exists: {rel}")
+            if not p.is_file():
+                continue
+            actual_sha = sha256_file(p)
+            actual_size = p.stat().st_size
+            check(
+                actual_size == ph["size_bytes"],
+                f"[{dep_id}] {rel} size == {ph['size_bytes']} (got {actual_size})",
+            )
+            check(
+                actual_sha == ph["sha256"],
+                f"[{dep_id}] {rel} sha256 match",
+            )
 
     # 3. Verify Zero Unrecorded Binaries Under extern/
     extern_root = ROOT / "extern"
@@ -246,7 +262,7 @@ def main() -> int:
         f"Zero loose .obj files in extern/client/lib (found {len(loose_objs)})",
     )
 
-    # 5. Source Invariant Checks (ThemidaSDK guards + MarkImage Pixel width)
+    # 5. Source Invariant Checks (ThemidaSDK guards + MarkImage Pixel width + Zero DevIL usage)
     unguarded_themida = []
     for cpp in (ROOT / "client/src").rglob("*.cpp"):
         text = cpp.read_text(encoding="utf-8", errors="ignore")
@@ -259,6 +275,19 @@ def main() -> int:
     check(
         len(unguarded_themida) == 0,
         f"All #include <ThemidaSDK.h> in client/src are guarded by __THEMIDA__ (unguarded: {unguarded_themida})",
+    )
+
+    devil_refs = []
+    for src_root in (ROOT / "server/src", ROOT / "client/src"):
+        for src in src_root.rglob("*"):
+            if src.is_file() and src.suffix.lower() in {".cpp", ".c", ".h", ".hpp"}:
+                text = src.read_text(encoding="utf-8", errors="ignore")
+                for idx, line in enumerate(text.splitlines()):
+                    if re.search(r"#\s*include\s*[<\"](?:IL|il)/il\.h[>\"]|pragma\s+comment\s*\(\s*lib\s*,\s*\"devil", line, re.IGNORECASE):
+                        devil_refs.append(f"{src.relative_to(ROOT).as_posix()}:{idx+1}")
+    check(
+        len(devil_refs) == 0,
+        f"Zero DevIL #include <IL/il.h> or devil.lib pragma in server/src and client/src (found: {devil_refs})",
     )
 
     srv_mark = (ROOT / "server/src/game/src/MarkImage.h").read_text(encoding="utf-8", errors="ignore")

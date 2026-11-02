@@ -1060,7 +1060,7 @@ void CIME::CandidateProcess(HIMC hImc)
 			UINT i;
 			for (i = 0; i < ms_dwCandidateCount; i++)
 			{
-				UINT uLen = lstrlenW((LPWSTR)((DWORD)lpCandidateList + lpCandidateList->dwOffset[i])) + (3 - sizeof(WCHAR));
+				UINT uLen = lstrlenW((LPWSTR)((LPBYTE)lpCandidateList + lpCandidateList->dwOffset[i])) + (3 - sizeof(WCHAR));
 				if (uLen + cChars > maxCandChar)
 				{
 					if (i > ms_dwCandidateSelection)
@@ -1086,7 +1086,7 @@ void CIME::CandidateProcess(HIMC hImc)
 		//printf( "SEL: %d, START: %d, PAGED: %d\n", ms_dwCandidateSelection, iStartOfPage, ms_dwCandidatePageSize );
 	    memset(&ms_wszCandidate, 0, sizeof(ms_wszCandidate));
 	    for(UINT i = iStartOfPage, j = 0; (DWORD)i < lpCandidateList->dwCount && j < ms_dwCandidatePageSize; i++, j++) {
-			wcscpy( ms_wszCandidate[j], (LPWSTR)( (DWORD)lpCandidateList + lpCandidateList->dwOffset[i] ) );
+			wcscpy( ms_wszCandidate[j], (LPWSTR)( (LPBYTE)lpCandidateList + lpCandidateList->dwOffset[i] ) );
 	    }
 
 		// don't display selection in candidate list in case of Korean and old Chinese IME.
@@ -1273,7 +1273,7 @@ DWORD CIME::GetImeId( UINT uIndex )
 		return ms_adwId[uIndex];
 	hklPrev = hkl;
 
-	DWORD dwLang = ((DWORD)hkl & 0xffff);
+	DWORD dwLang = ((DWORD)(DWORD_PTR)hkl & 0xffff);
 
 	if ( ms_bUILessMode && GETLANG() == LANG_CHT ) {
 		// In case of Vista, artifitial value is returned so that it's not considered as older IME.
@@ -1540,7 +1540,7 @@ void CIME::CheckToggleState()
 
 	/* Check Toggle State */
 	bool bIme = ImmIsIME( ms_hklCurrent ) != 0
-		&& ( ( 0xF0000000 & (DWORD)ms_hklCurrent ) == 0xE0000000 ); // Hack to detect IME correctly. When IME is running as TIP, ImmIsIME() returns true for CHT US keyboard.
+		&& ( ( 0xF0000000 & (DWORD)(DWORD_PTR)ms_hklCurrent ) == 0xE0000000 ); // Hack to detect IME correctly. When IME is running as TIP, ImmIsIME() returns true for CHT US keyboard.
 	ms_bChineseIME = ( GETPRIMLANG() == LANG_CHINESE ) && bIme;
 
 	HIMC himc;

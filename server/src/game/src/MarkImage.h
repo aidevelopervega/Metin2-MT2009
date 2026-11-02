@@ -1,8 +1,8 @@
 #ifndef __INC_METIN_II_MARKIMAGE_H__
 #define __INC_METIN_II_MARKIMAGE_H__
 
-#include <IL/il.h>
 #include <cstdint>
+#include <map>
 #include "minilzo.h"
 
 typedef uint32_t Pixel;
@@ -96,17 +96,10 @@ class CGuildMarkImage
 		void GetDiffBlocks(const DWORD * crcList, std::map<BYTE, const SGuildMarkBlock *> & mapDiffBlocks);
 
 	private:
-		enum
-		{
-			INVALID_HANDLE = 0xffffffff,
-		};
-
 		void	BuildAllBlocks();
 
 		SGuildMarkBlock	m_aakBlock[BLOCK_ROW_COUNT][BLOCK_COL_COUNT];
-		Pixel m_apxImage[WIDTH * HEIGHT * sizeof(Pixel)];
-
-		ILuint m_uImg;
+		Pixel m_apxImage[WIDTH * HEIGHT];
 };
 
 #endif

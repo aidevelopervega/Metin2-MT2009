@@ -4,6 +4,11 @@
 #include "grid.h"
 #include "attribute.h"
 #include "targa.h"
+#include "singleton.h"
+#include "../server/src/game/src/crc32.cpp"
+#include "../server/src/game/src/lzo_manager.cpp"
+#include "../server/src/game/src/MarkImage.cpp"
+#include "guild_mark_stb_test_suite.h"
 
 
 
@@ -118,6 +123,20 @@ int main()
         char* pLastLine = tga.GetBasePointer(31);
         TEST_ASSERT(pLastLine != nullptr, "Base pointer line 31 must not be null");
         TEST_ASSERT(pLastLine > pBase, "Last line pointer must be greater than base pointer");
+    }
+
+    // ==========================================
+    // 4. CGuildMarkImage & stb 15-Scenario Regression Suite
+    // ==========================================
+    {
+        std::cout << "[RUN] Testing CGuildMarkImage & stb 15-Scenario Regression Suite..." << std::endl;
+        LZOManager lzoManager;
+        int stbPass = 0;
+        int stbFail = 0;
+        const int rc = mt2::test_guild_mark_stb::RunAllScenarios("server_gcc", stbPass, stbFail);
+        g_passCount += stbPass;
+        g_testCount += (stbPass + stbFail);
+        TEST_ASSERT(rc == 0 && stbFail == 0, "All 15 CGuildMarkImage + stb regression scenarios must pass");
     }
 
     std::cout << "[SUCCESS] libgame: " << g_passCount << "/" << g_testCount << " tests passed cleanly!" << std::endl;

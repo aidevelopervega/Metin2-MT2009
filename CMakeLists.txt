@@ -19,7 +19,6 @@ include(CompilerFlags)
 # 2. Harici Bağımlılık Modülleri
 include(FindDatabaseClient)
 include(FindCryptoPP)
-include(FindDevIL)
 include(FindSystemLibraries)
 
 # 3. Sunucu Kütüphaneleri ve İkilileri

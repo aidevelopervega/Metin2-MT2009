@@ -37,8 +37,8 @@
 #include <lzo/lzoconf.h>
 #include <lzo/lzo1x.h>
 
-// 4. DevIL 1.8.0 (Unified Server & Client headers + extern/client/lib/devil_x64.lib + DevIL_x64.dll)
-#include <IL/il.h>
+// 4. Unified single-header stb (stb_image v2.30 + stb_image_write v1.16) + C++20 RAII helper
+#include <stb/mt2_image_stb.h>
 
 // 5. Official Microsoft.DXSDK.D3DX 9.29.952.8 x64 (d3dx9.lib + D3DX9_43.dll) + Direct3D 9Ex
 #include <d3d9.h>
@@ -58,6 +58,7 @@
 #include "../client/src/EterPack/EterPackPolicy_CSHybridCrypt.h"
 #include "../client/src/UserInterface/MarkImage.h"
 #include "../client/src/UserInterface/HashUtils.h"
+#include "guild_mark_stb_test_suite.h"
 
 extern std::string GetHardwareID();
 extern CGuildMarkImage* NewMarkImage();
@@ -87,10 +88,13 @@ int main()
     // -------------------------------------------------------------------------
     static_assert(sizeof(void*) == 8, "Must be compiled as native 64-bit (AMD64)");
     static_assert(sizeof(Pixel) == 4, "MarkImage Pixel must be 4-byte uint32_t on all 64-bit platforms");
+    static_assert(sizeof(CGuildMarkImage) == sizeof(void*) + sizeof(SGuildMarkBlock) * CGuildMarkImage::BLOCK_TOTAL_COUNT +
+                  sizeof(Pixel) * CGuildMarkImage::WIDTH * CGuildMarkImage::HEIGHT,
+                  "CGuildMarkImage must contain 8-byte vptr + exact 80 SGuildMarkBlocks + 512x512 Pixel buffer with zero ILuint handles");
     static_assert(BOOST_VERSION == 109200, "Boost version must be unified at 1.92.0");
     static_assert(CRYPTOPP_VERSION == 890, "Crypto++ version must be unified at 8.9.0");
     static_assert(LZO_VERSION == 0x20a0, "LZO version must be unified at 2.10 (0x20a0)");
-    static_assert(IL_VERSION == 180, "DevIL header version must be unified at 1.8.0 (180)");
+    static_assert(STBI_VERSION == 1, "stb_image ABI version must be 1 (v2.30)");
     static_assert(FMT_VERSION == 120200, "fmt version must be unified at 12.2.0");
 
     CHECK(sizeof(void*) == 8, "Native AMD64 8-byte pointer width");
@@ -99,7 +103,7 @@ int main()
     CHECK(std::strcmp(RAPIDJSON_VERSION_STRING, "1.1.0") == 0, "RapidJSON 1.1.0 header version");
     CHECK(CRYPTOPP_VERSION == 890, "Crypto++ 8.9.0 header version");
     CHECK(LZO_VERSION == 0x20a0, "LZO 2.10 header version");
-    CHECK(IL_VERSION == 180, "DevIL 1.8.0 header version");
+    CHECK(STBI_VERSION == 1, "stb_image v2.30 + stb_image_write v1.16 unified header version");
     CHECK(FMT_VERSION == 120200, "fmt 12.2.0 header version");
 
     // -------------------------------------------------------------------------
@@ -221,55 +225,22 @@ int main()
     }
 
     // -------------------------------------------------------------------------
-    // Gate 5: DevIL 1.8.0 (devil_x64.lib + DevIL_x64.dll) + Client MarkImage.cpp
+    // Gate 5: stb (stb_image v2.30 + stb_image_write v1.16) + Client MarkImage.cpp (15 Scenarios)
     // -------------------------------------------------------------------------
     {
-        ilInit();
-        ILint runtimeVer = ilGetInteger(IL_VERSION_NUM);
-        CHECK(runtimeVer == 180, "DevIL 1.8.0 runtime ilGetInteger(IL_VERSION_NUM) == 180");
+        const int rc = mt2::test_guild_mark_stb::RunAllScenarios("client_msvc", g_passed, g_failed);
+        CHECK(rc == 0, "All 15 CGuildMarkImage + stb regression scenarios pass on MSVC x64");
 
-        std::filesystem::path tempTga = std::filesystem::temp_directory_path() / "mt2009_mark_test_x64.tga";
-        std::error_code ec;
-        std::filesystem::remove(tempTga, ec);
-
-        CGuildMarkImage* pkImg = NewMarkImage();
-        CHECK(pkImg != nullptr, "NewMarkImage() allocation");
-        CHECK(pkImg->Build(tempTga.string().c_str()), "CGuildMarkImage::Build via DevIL_x64.dll");
-        CHECK(pkImg->Load(tempTga.string().c_str()), "CGuildMarkImage::Load via DevIL_x64.dll");
-
-        Pixel markPixels[SGuildMark::SIZE];
-        for (size_t i = 0; i < SGuildMark::SIZE; ++i)
-            markPixels[i] = 0xFF112233U + static_cast<Pixel>(i);
-
-        CHECK(pkImg->SaveMark(0, reinterpret_cast<BYTE*>(markPixels)),
-              "CGuildMarkImage::SaveMark + SGuildMarkBlock::Compress (DevIL 1.8.0 + LZO 2.10)");
-
-        DWORD crcList[CGuildMarkImage::BLOCK_TOTAL_COUNT] = {};
-        pkImg->GetBlockCRCList(crcList);
-        CHECK(crcList[0] != 0, "CGuildMarkImage::GetBlockCRCList non-zero block 0 CRC");
-
-        DWORD zeroCrc[CGuildMarkImage::BLOCK_TOTAL_COUNT] = {};
-        std::map<BYTE, const SGuildMarkBlock*> diffBlocks;
-        pkImg->GetDiffBlocks(zeroCrc, diffBlocks);
-        CHECK(diffBlocks.find(0) != diffBlocks.end() && diffBlocks[0]->m_sizeCompBuf > 0,
-              "CGuildMarkImage::GetDiffBlocks returns compressed block 0");
-
-        CGuildMarkImage* pkReceiver = NewMarkImage();
-        std::filesystem::path tempTga2 = std::filesystem::temp_directory_path() / "mt2009_mark_recv_x64.tga";
-        CHECK(pkReceiver->Build(tempTga2.string().c_str()) && pkReceiver->Load(tempTga2.string().c_str()),
-              "Receiver CGuildMarkImage::Build + Load");
-        CHECK(pkReceiver->SaveBlockFromCompressedData(
-                  0, diffBlocks[0]->m_abCompBuf, static_cast<DWORD>(diffBlocks[0]->m_sizeCompBuf)),
-              "Receiver CGuildMarkImage::SaveBlockFromCompressedData round-trip");
-
-        DWORD recvCrc[CGuildMarkImage::BLOCK_TOTAL_COUNT] = {};
-        pkReceiver->GetBlockCRCList(recvCrc);
-        CHECK(recvCrc[0] == crcList[0], "Sender and Receiver GuildMark block 0 CRC match");
-
-        DeleteMarkImage(pkReceiver);
-        DeleteMarkImage(pkImg);
-        std::filesystem::remove(tempTga, ec);
-        std::filesystem::remove(tempTga2, ec);
+        // Also verify real client/files/upload/1.jpg (16x12 JPEG guild mark) if present on disk:
+        std::filesystem::path realMarkJpg = "client/files/upload/1.jpg";
+        if (std::filesystem::exists(realMarkJpg))
+        {
+            std::vector<Pixel> jpgMarkPx;
+            uint32_t jw = 0U, jh = 0U;
+            CHECK(mt2::image::LoadBGRAFromFile(realMarkJpg.string().c_str(), jpgMarkPx, jw, jh, SGuildMark::WIDTH, SGuildMark::HEIGHT) ==
+                  mt2::image::LoadStatus::Ok && jw == 16U && jh == 12U && jpgMarkPx.size() == SGuildMark::SIZE,
+                  "Real client/files/upload/1.jpg (16x12 JPEG guild mark) decodes cleanly via stb_image");
+        }
     }
 
     // -------------------------------------------------------------------------

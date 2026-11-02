@@ -19,6 +19,12 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <miniaudio/miniaudio.h>
 
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
 #include <algorithm>
 #include <cstring>
 

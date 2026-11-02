@@ -215,7 +215,6 @@ def main() -> int:
     x64_libs = [
         "extern\\client\\lib\\cryptlib-x64.lib",
         "extern\\client\\lib\\lzo2_x64.lib",
-        "extern\\client\\lib\\devil_x64.lib",
         "extern\\client\\lib\\d3dx9.lib",
         "extern\\client\\lib\\libjpeg-x64.lib",
         "extern\\client\\lib\\discord_rpc_x64.lib",
@@ -236,9 +235,9 @@ def main() -> int:
         "psapi.lib",
     ]
 
-    # Pass A: Default link without suppressing granny2.11.8.0.lib / SpeedTreeRT.lib to prove LNK4272 x86 conflict
+    # Pass A: Strict link (NO /FORCE:MULTIPLE, NO /FORCE:UNRESOLVED) without suppressing granny2.11.8.0.lib / SpeedTreeRT.lib to prove LNK4272 x86 conflict
     pass_a_cmd = (
-        f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS /FORCE:MULTIPLE '
+        f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS '
         f'/LIBPATH:extern\\client\\lib /LIBPATH:"{PY311_DIR / "libs"}" '
         f'/NODEFAULTLIB:python27.lib /NODEFAULTLIB:python27-static.lib /NODEFAULTLIB:liblib.lib /NODEFAULTLIB:mss32.lib '
         f'/OUT:build\\obj_x64\\client_preflight\\metin2client_preflight_a.exe '
@@ -247,9 +246,9 @@ def main() -> int:
     rc_a, out_a = run_cmd_with_vcvars([pass_a_cmd])
     arch_warnings = re.findall(r"warning LNK4272:.*", out_a)
 
-    # Pass B: Suppress the two x86-only commercial libs (granny2.11.8.0.lib and SpeedTreeRT.lib) to enumerate all unresolved symbols
+    # Pass B: Strict link (NO /FORCE:MULTIPLE, NO /FORCE:UNRESOLVED) suppressing the two x86-only commercial libs (granny2.11.8.0.lib and SpeedTreeRT.lib)
     pass_b_cmd = (
-        f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS /FORCE:MULTIPLE '
+        f'link.exe /nologo /MACHINE:X64 /SUBSYSTEM:WINDOWS '
         f'/LIBPATH:extern\\client\\lib /LIBPATH:"{PY311_DIR / "libs"}" '
         f'/NODEFAULTLIB:python27.lib /NODEFAULTLIB:python27-static.lib /NODEFAULTLIB:liblib.lib /NODEFAULTLIB:mss32.lib '
         f'/NODEFAULTLIB:granny2.11.8.0.lib /NODEFAULTLIB:granny2.9.12.0.lib /NODEFAULTLIB:SpeedTreeRT.lib '
@@ -258,7 +257,8 @@ def main() -> int:
     )
     rc_b, out_b = run_cmd_with_vcvars([pass_b_cmd])
 
-    # Parse all LNK2001 / LNK2019 unresolved external symbols from Pass B
+    # Parse all LNK2005 duplicate symbols and LNK2001 / LNK2019 unresolved external symbols from Pass B
+    duplicate_symbols = [line.strip() for line in out_b.splitlines() if "LNK2005" in line]
     unresolved_by_cat = defaultdict(set)
     unresolved_details = []
     for line in out_b.splitlines():
@@ -280,14 +280,17 @@ def main() -> int:
                 unresolved_by_cat["other"].add(sym)
 
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "total_modules": len(projects),
         "total_vcxproj_translation_units": len(all_objs),
         "total_compiled_amd64_objects": len(valid_objs),
         "compile_errors_count": 0,
+        "strict_link_flags_no_force": True,
         "pass_a_exit_code": rc_a,
         "pass_a_x86_library_conflicts_lnk4272": arch_warnings,
         "pass_b_exit_code": rc_b,
+        "duplicate_symbols_lnk2005_count": len(duplicate_symbols),
+        "duplicate_symbols_lnk2005": duplicate_symbols,
         "unresolved_symbol_counts": {
             "granny2": len(unresolved_by_cat["granny2"]),
             "speedtreert": len(unresolved_by_cat["speedtreert"]),
@@ -299,17 +302,21 @@ def main() -> int:
             "speedtreert": sorted(unresolved_by_cat["speedtreert"]),
             "other_non_commercial": sorted(unresolved_by_cat["other"]),
         },
-        "only_granny2_and_speedtreert_remain": len(unresolved_by_cat["other"]) == 0
+        "only_granny2_and_speedtreert_remain": len(duplicate_symbols) == 0
+        and len(unresolved_by_cat["other"]) == 0
         and len(unresolved_by_cat["granny2"]) > 0
         and len(unresolved_by_cat["speedtreert"]) > 0,
     }
     REPORT_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
-    print(f"=== Link Preflight Summary ===")
+    print(f"=== Link Preflight Summary (Strict Mode: No /FORCE) ===")
     print(f"  Compiled COFF AMD64 .obj files : {len(valid_objs)}/{len(valid_objs)}")
     print(f"  Pass A LNK4272 x86 conflicts   : {len(arch_warnings)}")
     for w in arch_warnings:
         print(f"    - {w}")
+    print(f"  Duplicate symbols (LNK2005)    : {len(duplicate_symbols)}")
+    for d in duplicate_symbols[:20]:
+        print(f"    ! {d}")
     print(f"  Unresolved Granny2 symbols     : {len(unresolved_by_cat['granny2'])}")
     print(f"  Unresolved SpeedTreeRT symbols : {len(unresolved_by_cat['speedtreert'])}")
     print(f"  Unresolved OTHER symbols       : {len(unresolved_by_cat['other'])}")
@@ -320,7 +327,7 @@ def main() -> int:
         for d in unresolved_details:
             if not ("Granny" in d or "CSpeedTreeRT" in d):
                 print(f"    [LINE] {d}")
-    return 0 if len(unresolved_by_cat["other"]) == 0 else 2
+    return 0 if (len(duplicate_symbols) == 0 and len(unresolved_by_cat["other"]) == 0) else 2
 
 
 if __name__ == "__main__":

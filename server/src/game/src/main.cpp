@@ -369,8 +369,6 @@ int main(int argc, char **argv)
 		return RunGameItemShopLiveTests(argc, argv);
 	}
 
-	ilInit(); // DevIL Initialize
-
 	WriteVersion();
 
 	SECTREE_MANAGER	sectree_manager;

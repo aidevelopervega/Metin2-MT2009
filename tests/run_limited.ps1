@@ -63,8 +63,8 @@ if ([string]::IsNullOrWhiteSpace($Command)) {
 
 $IsBuild = Test-IsBuildCommand -CmdText $Command -BuildFlag $Build.IsPresent -CleanFirstFlag $CleanFirst.IsPresent -CTestFlag $CTest.IsPresent
 
-# Calisma zamani DLL yollari (MariaDB, DevIL, MinGW UCRT64)
-$env:PATH = "$RootDir\build\windows-gcc-ucrt\tests;$RootDir\extern\common\mariadb-connector-c\lib\win64;$RootDir\extern\server\devil\lib\win64;C:\msys64\ucrt64\bin;$env:PATH"
+# Calisma zamani DLL yollari (MariaDB, MinGW UCRT64)
+$env:PATH = "$RootDir\build\windows-gcc-ucrt\tests;$RootDir\extern\common\mariadb-connector-c\lib\win64;C:\msys64\ucrt64\bin;$env:PATH"
 
 if ($IsBuild) {
     $env:CMAKE_BUILD_PARALLEL_LEVEL = "$ParallelJobs"

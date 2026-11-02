@@ -46,7 +46,6 @@ target_link_libraries(game PRIVATE
     lua55_lib
     CryptoPP::CryptoPP
     Database::Client
-    DevIL::IL
 )
 
 set_target_properties(game PROPERTIES

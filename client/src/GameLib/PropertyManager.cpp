@@ -103,7 +103,7 @@ bool CPropertyManager::LoadReservedCRC(const char * c_pszFileName)
 		if (!pszLine || !*pszLine)
 			continue;
 
-		ReserveCRC(atoi(pszLine));
+		ReserveCRC(static_cast<DWORD>(_atoi64(pszLine)));
 	}
 
 	return true;
