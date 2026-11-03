@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
+#include <string>
 
 // CPython 3.11 (x64 C++20) C API helpers used across embedded client modules
 static_assert(PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 11, "MT2009 client requires embedded CPython 3.11 x64");
@@ -31,12 +33,36 @@ inline bool M2PyString_Check(PyObject* poItem)
 	return poItem != nullptr && (PyUnicode_Check(poItem) || PyBytes_Check(poItem));
 }
 
+// pack.Get()/RunMemoryTextFile UTF-8 olmayan ham baytlari (cp1250/cp949 locale dosyalari) "surrogateescape" ile str yapar. Native sinirda
+// AYNI baytlar geri uretilmelidir (Py2: char* ham bayt). Strict PyUnicode_AsUTF8 bu str'lerde NULL + UnicodeEncodeError verir.
+inline char* M2Py_SurrogateEscapedBytes(PyObject* poItem)
+{
+	static thread_local std::string s_ring[16];   // donen isaretci cagri suresince gecerli kalmali (PyUnicode_AsUTF8 onbellek semantigi gibi)
+	static thread_local unsigned s_idx = 0;
+	PyObject* poBytes = PyUnicode_AsEncodedString(poItem, "utf-8", "surrogateescape");
+	if (!poBytes)
+	{
+		PyErr_Clear();
+		return nullptr;
+	}
+	std::string& slot = s_ring[s_idx++ & 15];
+	slot.assign(PyBytes_AS_STRING(poBytes), static_cast<size_t>(PyBytes_GET_SIZE(poBytes)));
+	Py_DECREF(poBytes);
+	return slot.data();
+}
+
 inline char* M2PyString_AsString(PyObject* poItem)
 {
 	if (!poItem)
 		return nullptr;
 	if (PyUnicode_Check(poItem))
-		return const_cast<char*>(PyUnicode_AsUTF8(poItem));
+	{
+		const char* c_szUtf8 = PyUnicode_AsUTF8(poItem);
+		if (c_szUtf8)
+			return const_cast<char*>(c_szUtf8);
+		PyErr_Clear();
+		return M2Py_SurrogateEscapedBytes(poItem);
+	}
 	if (PyBytes_Check(poItem))
 		return PyBytes_AsString(poItem);
 	return nullptr;
@@ -44,7 +70,9 @@ inline char* M2PyString_AsString(PyObject* poItem)
 
 inline PyObject* M2PyString_FromString(const char* szStr)
 {
-	return PyUnicode_FromString(szStr ? szStr : "");
+	// UTF-8 olmayan ham baytlar (cp1250 vb.) icin surrogateescape: Py_BuildValue("s") ve PyUnicode_FromString strict oldugundan kullanilmaz
+	const char* c_szSafe = szStr ? szStr : "";
+	return PyUnicode_DecodeUTF8(c_szSafe, static_cast<Py_ssize_t>(std::strlen(c_szSafe)), "surrogateescape");
 }
 
 inline PyObject* M2PyString_FromStringAndSize(const char* szBuf, Py_ssize_t len)

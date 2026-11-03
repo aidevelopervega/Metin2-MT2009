@@ -104,6 +104,38 @@ static PyObject* bridgeValidateYang(PyObject* /*self*/, PyObject* args)
 	return PyLong_FromLongLong(yang);
 }
 
+static PyObject* bridgeGetInteger(PyObject* /*self*/, PyObject* args)
+{
+	int v = 0;
+	if (!PyTuple_GetInteger(args, 0, &v))
+		return Py_BadArgument();
+	return PyLong_FromLong(v);
+}
+
+static PyObject* bridgeGetLong(PyObject* /*self*/, PyObject* args)
+{
+	long v = 0;
+	if (!PyTuple_GetLong(args, 0, &v))
+		return Py_BadArgument();
+	return PyLong_FromLong(v);
+}
+
+static PyObject* bridgeGetStringBytes(PyObject* /*self*/, PyObject* args)
+{
+	char* sz = NULL;
+	if (!PyTuple_GetString(args, 0, &sz))
+		return Py_BadArgument();
+	return PyBytes_FromString(sz);
+}
+
+static PyObject* bridgeFromRawBytes(PyObject* /*self*/, PyObject* args)
+{
+	const char* sz = NULL;
+	if (!PyArg_ParseTuple(args, "y", &sz))
+		return NULL;
+	return M2PyString_FromString(sz);
+}
+
 static void initmt2x64bridge()
 {
 	static PyMethodDef s_methods[] =
@@ -111,6 +143,10 @@ static void initmt2x64bridge()
 		{ "VerifyWindowPointer", bridgeVerifyWindowPointer, METH_VARARGS, NULL },
 		{ "VerifyEntityIds",     bridgeVerifyEntityIds,     METH_VARARGS, NULL },
 		{ "ValidateYang",        bridgeValidateYang,        METH_VARARGS, NULL },
+		{ "GetInteger",          bridgeGetInteger,          METH_VARARGS, NULL },
+		{ "GetLong",             bridgeGetLong,             METH_VARARGS, NULL },
+		{ "GetStringBytes",      bridgeGetStringBytes,      METH_VARARGS, NULL },
+		{ "FromRawBytes",        bridgeFromRawBytes,        METH_VARARGS, NULL },
 		{ NULL, NULL, 0, NULL }
 	};
 	M2Py_InitModule("mt2x64bridge", s_methods);
@@ -312,6 +348,44 @@ int main()
 		"except Exception:\n"
 		"    overflow_rejected = True\n"
 		"assert overflow_rejected\n"
+	));
+
+	// 8b. PyTuple_GetInteger/GetLong: Py2 PyInt_AsLong semantigi (float -> sifira dogru kirpma), gecersiz girdide false + bekleyen istisna YOK
+	CHECK(launcher.RunLine(
+		"import mt2x64bridge as b\n"
+		"assert b.GetInteger(5) == 5 and b.GetInteger(-7) == -7 and b.GetInteger(True) == 1\n"
+		"assert b.GetInteger(3.9) == 3 and b.GetInteger(-3.9) == -3 and b.GetInteger(0.0) == 0\n"
+		"assert b.GetLong(3.9) == 3 and b.GetLong(-3.9) == -3 and b.GetLong(123) == 123\n"
+		"assert b.GetInteger(0xFFFFFFFF) == -1   # 32-bit renk/bayrak degerleri sarmalanarak korunur (onceki davranis)\n"
+		"for bad in (\x27x\x27, None, float(\x27nan\x27), float(\x27inf\x27), 1e30, 1 << 70, [1]):\n"
+		"    for fn in (b.GetInteger, b.GetLong):\n"
+		"        try:\n"
+		"            fn(bad)\n"
+		"        except TypeError:\n"
+		"            continue\n"
+		"        raise AssertionError(\x27gecersiz girdi reddedilmedi: %r\x27 % (bad,))\n"
+		"assert b.GetInteger(1) == 1   # onceki hatalardan sonra bekleyen istisna kalmadi\n"
+	));
+
+	// 8c. Native string siniri: surrogateescape'li str (cp1250 locale dosyasi) ayni ham baytlara doner; ham bayt -> str ters yon; hata sonrasi bekleyen istisna yok
+	CHECK(launcher.RunLine(
+		"import mt2x64bridge as b\n"
+		"assert b.GetStringBytes(\"abc\") == b\"abc\"\n"
+		"assert b.GetStringBytes(\"\\u0105\\u0107\") == \"\\u0105\\u0107\".encode(\"utf-8\")\n"
+		"assert b.GetStringBytes(\"\\udcb1\\udce6\") == b\"\\xb1\\xe6\"\n"
+		"assert b.GetStringBytes(\"ok\\udcb1\") == b\"ok\\xb1\"\n"
+		"assert b.GetStringBytes(b\"raw\\xb1\") == b\"raw\\xb1\"\n"
+		"assert b.FromRawBytes(b\"abc\") == \"abc\"\n"
+		"assert b.FromRawBytes(b\"\\xb1\\xe6\") == \"\\udcb1\\udce6\"\n"
+		"assert b.FromRawBytes(\"\\u0105\".encode(\"utf-8\")) == \"\\u0105\"\n"
+		"assert b.GetStringBytes(b.FromRawBytes(b\"\\xb1\\xe6\")) == b\"\\xb1\\xe6\"\n"
+		"for bad in (5, None, 1.5, [1]):\n"
+		"    try:\n"
+		"        b.GetStringBytes(bad)\n"
+		"    except TypeError:\n"
+		"        continue\n"
+		"    raise AssertionError(\"gecersiz string reddedilmedi: %r\" % (bad,))\n"
+		"assert b.GetStringBytes(\"z\") == b\"z\"\n"
 	));
 
 	// 9. Verify GIL state discipline (PyGILState_Ensure / PyGILState_Release) and script load failure handling

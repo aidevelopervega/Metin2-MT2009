@@ -154,6 +154,28 @@ Aşağıdaki dosya ve dizinler güvenlik veya boyut sınırı nedeniyle `.gitign
 | **`gameplay`** | **`BLOCKED`** | `client_link` (`Granny2` + `SpeedTreeRT` x64 ikilileri) tamamlanana kadar tam `metin2client.exe` oyun içi oturum testi `BLOCKED` durumdadır. |
 | **`freebsd_ci`** | **`VERIFIED`** | FreeBSD 15.1 amd64 GCC 14 + MariaDB 12.3.3 LTS + OpenSSL 3.5.6 tam CI koşusu (**Run ID `41548231501`**, Commit `41a16b744d038cf284549d3f309e7e2ee49a4871`, `5m 44s` — `CTest 12/12`, `test_asio_tls13_security 191/191`, `--check-lua 11/11`, `Quest 202/202`, `test_live_db 354/354`, `--test-itemshop 15/15`, `test_db_cache_integration 187/187`, `test_server_smoke_client 29/29`, 8 servisli serverfiles + `pfctl -nf`) **`SUCCESS`**. |
 
+---
+
+## 7. Python 3.11.9 İstemci Varlık Geçişi (`client/files/lib`, `root`, `locale` Paketleri)
+
+* **Gerçek yükleme zinciri (kaynak koddan):** `PackInitialize("pack")` önce `.data/.index` (EterPack) okur; `RunMainScript("system.py")` `root.data` içinden yüklenir; `system.py` paket farkındalıklı `__import__` / `open` / `execfile` sağlar ve `prototype.py` ile `app.Create` / `app.Loop` çağırır. UI scriptleri `utils.Sandbox.execfile` ile yüklenir. C++ `sys.path` ayarlamaz (`Py_NoSiteFlag=1`); `client/files/lib` içindeki Python 2.7 bytecode'u `bad magic number in 'encodings'` ile ölümcül olduğundan Python 3.11 lib zorunludur. `PackMakerLite.exe` 32-bit olduğundan çalıştırılmadı; `tests/eterpack_py_tool.cpp` (gerçek `CEterPack`, pack type 2) kullanıldı. Orijinal `.data/.index` arşivleri ve unpack klasörleri **değiştirilmedi**; dönüştürülmüş paketler `build/python311_migration/out2/` altındadır ve `client/files/pack` içine **dağıtılmamıştır**.
+* **`client/files/lib` değiştirildi (geri alınabilir):** orijinal 85 dosya (`70` py2.7 pyc, `2` bozuk, `2` py3, `2` 32-bit `pyexpat.pyd`, `9` simplejson `.py`) `build/python311_migration/lib_py27_backup/` altında byte-doğrulamalı yedeklidir; yeni lib `299` dosya (`291` kaynaksız `CHECKED_HASH` pyc magic `3495`, `8` x64 `.pyd`, `MANIFEST.json` SHA-256), iki derleme aynı manifest özetini üretir.
+* **Kaynak dönüşümü:** `tests/python311_migration.py convert`: `270` `.py` (`modified=205`, `reencoded=20` cp949→UTF-8, `failures=0`, derleme `270/270`); bölme: `int_floor=463`, `float_true=246`, `runtime_helper(_py2div)=169`, `manual_review=0`. `system.py open()` varsayılan mod farkı (disk `'r'`, pack `'rb'`) yamalandı.
+* **Native API düzeltmeleri (`ScriptLib`):** `PyTuple_GetInteger/GetLong` Py2 `PyInt_AsLong` gibi float'ı sıfıra doğru kırpar, geçersiz/taşan değerde bekleyen istisna bırakmadan `false` döner; `PyTuple_GetString` NULL döndüğünde `false` döner; `M2PyString_AsString` UTF-8 olmayan (`surrogateescape`) str için ham baytları geri üretir, `M2PyString_FromString` `surrogateescape` ile çözer (`test_python3_real_modules_x64` `34/34`).
+* **Çalışma zamanı kanıtı (`MOCKED_NATIVE` — 39 yerel istemci modülü `tests/python311_native_stubs.py` ile taklittir, gerçek oyun entegrasyonu DEĞİLDİR):** `tests/test_python311_pack_runtime_x64.cpp` + `tests/python311_runtime_driver.py` Seviye A–G `PASS`: `923` dosya (`root_module 124/124`, `root_uiscript 111/111`, `locale_ui 35/35` derlendi; `root_data 2`, `locale_data 651` özdeş), `187` import çözümü, lib manifest `299` hash + `34` probe import + `liblib 54/54`, `system.py→prototype.py` zinciri (`app.Create=1`, `app.Loop=1`, `0` TraceError), `122/124` root modül (beklenen 2: ölü `rootlibcythonizer`, `test_affect`), `139/146` UI dict script (`7` önceden var olan locale veri boşluğu, `0` dönüşüm hatası).
+
+| Kapı (Gate) | Statü | Kanıt / Sınır |
+| :--- | :---: | :--- |
+| `client_files_lib_inventory`, `python27_pyc_inventory`, `python27_pyc_removed`, `python311_lib_migration`, `python311_sourceless_import` | **`VERIFIED`** | Magic-number sınıflandırması, `0` py2 pyc / `0` 32-bit pyd kaldı, `299` dosya manifesti, sourceless import `34/34`. |
+| `python311_full_asset_inventory`, `python311_bytecode_inventory`, `python311_source_conversion`, `python311_import_loader`, `python311_eterpack_runtime`, `python311_packaging_integrity` | **`VERIFIED`** | `923` dosya; `270/270` derleme; pack doğrulama `root 237/237`, `locale 686/686` özdeş; paket dağıtımı yapılmadı. |
+| `python311_root_runtime`, `python311_uiscript_runtime`, `python311_pack_import`, `python311_runtime_modules`, `python311_native_cpp_api` | **`VERIFIED`** (`MOCKED_NATIVE` / kapsam sınırlı) | Yukarıdaki sonuçlar; `194` `Py_BuildValue("…s…")` native→Python noktası **`UNVERIFIED`**. |
+| `python311_regression` | **`VERIFIED`** | `run_client_x64_suite.cmd` exit `0` (CPU sınırı `%50`): SDK `260/260`, miniaudio `42/42` + `36/36`, real_modules `34/34`, D3D9Ex `619/619`, unified `137/137`, Asio+TLS1.3 `191/191`, MSBuild `15/15`, COFF `344/344`, `LNK2005=0`, `OTHER=0`. |
+| `python311_source_encoding`, `python311_locale_runtime` | **`UNVERIFIED`** | `20` locale `.txt` UTF-8 değil (cp1250 vb.; Seviye F2); gerçek kod sayfası ve native→Python sınırı doğrulanmadı. `.py` kaynakları UTF-8. |
+| `python311_distribution_verified` | **`UNVERIFIED`** | Gerçek istemci çalıştırılmadı. |
+| `python311_gameplay` | **`BLOCKED`** | `Metin2Client.exe` x64 bağlanamaz (`Granny2` `57` + `SpeedTreeRT` `50` çözümlenmemiş sembol); Seviye H/I/J `BLOCKED`. |
+
+* **Kabul edilen davranış farkları / açık riskler:** `uitooltip.py` `round(n-0.5,1)` eşit-yuvarlama, karışık tür karşılaştırmaları, `except E as e` değişken silinmesi, `169` `_py2div` yardımcı noktası; `Traceback()` (`PythonLauncher.cpp`) py3 istisna mesajını `M2PyString_Check` ile kaybeder ve `LogBoxf` modal MessageBox açar (üretimde değiştirilmedi). Bu tablo "Python 3.11 geçişi eksiksiz" anlamına **gelmez**.
+
 
 
 

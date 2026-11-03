@@ -73,6 +73,29 @@ bool PyTuple_GetObject(PyObject* poArgs, int pos, PyObject** ret)
 	return true;
 }
 
+// Py2 PyInt_AsLong davranisi: float verilirse sifira dogru kirpilir. Py3.10+ PyLong_AsLong(float) TypeError ile reddeder ve -1 dondurur;
+// onceki kod bu hatayi yutup -1 kullaniyor ve bekleyen (pending) istisna birakiyordu. Gecersiz/tasan/NaN degerde artik false doner.
+static bool M2Py_AsInteger64(PyObject* poItem, long long* ret)
+{
+	if (PyFloat_Check(poItem))
+	{
+		const double d = PyFloat_AS_DOUBLE(poItem);
+		if (!(d > -9.2e18 && d < 9.2e18))
+			return false;
+		*ret = static_cast<long long>(d);
+		return true;
+	}
+
+	const long long val = PyLong_AsLongLong(poItem);
+	if (val == -1 && PyErr_Occurred())
+	{
+		PyErr_Clear();
+		return false;
+	}
+	*ret = val;
+	return true;
+}
+
 bool PyTuple_GetLong(PyObject* poArgs, int pos, long* ret)
 {
 	if (pos >= PyTuple_Size(poArgs))
@@ -83,7 +106,10 @@ bool PyTuple_GetLong(PyObject* poArgs, int pos, long* ret)
 	if (!poItem)
 		return false;
 
-	*ret = static_cast<long>(PyLong_AsLong(poItem));
+	long long val = 0;
+	if (!M2Py_AsInteger64(poItem, &val))
+		return false;
+	*ret = static_cast<long>(val);
 	return true;
 }
 
@@ -257,7 +283,10 @@ bool PyTuple_GetInteger(PyObject* poArgs, int pos, int* ret)
 	if (!poItem)
 		return false;
 
-	*ret = (int)PyLong_AsLong(poItem);
+	long long val = 0;
+	if (!M2Py_AsInteger64(poItem, &val))
+		return false;
+	*ret = (int)val;
 	return true;
 }
 
@@ -302,7 +331,10 @@ bool PyTuple_GetString(PyObject* poArgs, int pos, char** ret)
 	if (!M2PyString_Check(poItem))
 		return false;
 
-	*ret = M2PyString_AsString(poItem);
+	char* c_szRet = M2PyString_AsString(poItem);
+	if (!c_szRet)
+		return false;   // onceden NULL + bekleyen istisna ile true donup native tarafta NULL kullaniliyordu
+	*ret = c_szRet;
 	return true;
 }
 
