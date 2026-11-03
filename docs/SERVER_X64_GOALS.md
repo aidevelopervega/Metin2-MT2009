@@ -1,6 +1,6 @@
 # MT2009 — Sunucu ve İstemci Native x64 Teknik Sözleşmesi, Doğrulama Matrisi ve Kabul Kriterleri (`SERVER_X64_GOALS.md`)
 
-**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `1bb63701c0a3058e48c5c8ee6951918a52ed64df` (Run `41385255463`, `41378195177`, `41355864654`, `41321849182`, `41311852071` & `41183346026` — `SUCCESS`)
+**Depo:** `aidevelopervega/Metin2-MT2009` | **Dal:** `dev/windows-gcc-baseline` | **Doğrulanmış Sunucu & FreeBSD CI SHA:** `41a16b744d038cf284549d3f309e7e2ee49a4871` (Run `41548231501`, `41482469059`, `41385255463`, `41378195177`, `41355864654`, `41321849182`, `41311852071` & `41183346026` — `SUCCESS`)
 
 Bu belge, sunucu (Windows amd64 + FreeBSD 15.1 amd64) ve istemci (Windows native x64 `PE32+`) için ortak x64 teknik sözleşmesini, tamamlanan ve doğrulanmış sunucu dönüşüm kanıtlarını, `MT2_PROTOCOL_VERSION_X64 = 0x20090064U` ağ paket tablosunu, gerçek native x64 istemci bağımlılık engellerini ve kabul kriterlerini içerir.
 
@@ -767,7 +767,7 @@ Aynı donanım, aynı trafik profili (`TPacketCGMove` `16 B` $\rightarrow$ `TPac
    - **Üçlü Araç Zinciri Kanıtı:**
      1. **Windows MinGW-w64 UCRT64 GCC `16.2.0` x64:** `CTest 12/12 PASS` (`test_asio_tls13_security 191/191 PASS`), `--check-lua 11/11 PASS` (`Check 11d` dahil), `Quest 202/202 PASS`, `Kademe C 6/6 PASS`.
      2. **Windows MSVC `18.0` (`v145`, `/std:c++20 /MT`) x64:** `verify_sdk_inventory.py 260/260 PASS`, `test_unified_sdks_x64.exe 137/137 PASS`, `test_asio_tls13_security_msvc_x64.exe 191/191 PASS`, `15/15` MSBuild `Release|x64` `.lib` arşivi, `344/344` TU `COFF AMD64` (`0` hata).
-     3. **FreeBSD `15.1` amd64 GCC `14.3.0` + OpenSSL `3.5.6` + MariaDB `12.3.3` CI:** Tam CI doğrulaması (`SUCCESS`).
+     3. **FreeBSD `15.1` amd64 GCC `14.3.0` + OpenSSL `3.5.6` + MariaDB `12.3.3` CI:** Tam CI doğrulaması (**Run ID `41548231501`**, Commit `41a16b744d038cf284549d3f309e7e2ee49a4871`, `5m 44s` — `CTest 12/12`, `test_asio_tls13_security 191/191`, `--check-lua 11/11`, `Quest 202/202`, `test_live_db 354/354`, `--test-itemshop 15/15`, `test_db_cache_integration 187/187`, `test_server_smoke_client 29/29`, 8 servisli serverfiles + `pfctl -nf` — **`SUCCESS`**).
 
 
 
