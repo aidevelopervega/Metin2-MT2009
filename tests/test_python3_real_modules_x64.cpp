@@ -388,6 +388,123 @@ int main()
 		"assert b.GetStringBytes(\"z\") == b\"z\"\n"
 	));
 
+	// 8d. Native -> Python dizge siniri (M2Py_BuildValue): UTF-8/ASCII girdide gercek Py_BuildValue ile birebir ayni; cp1250 ham baytta surrogateescape ile basarili
+	{
+		PyGILState_STATE gil8d = PyGILState_Ensure();
+		auto same = [](PyObject* a, PyObject* b) -> bool
+		{
+			bool ok = (a != nullptr && b != nullptr && Py_TYPE(a) == Py_TYPE(b) && PyObject_RichCompareBool(a, b, Py_EQ) == 1);
+			Py_XDECREF(a);
+			Py_XDECREF(b);
+			PyErr_Clear();
+			return ok;
+		};
+		const char* c_szUtf8 = "Ala ma kota \xC4\x85\xC4\x87";
+		const char* c_szCp1250 = "ok\xB1\xE6";   // cp1250 ham baytlar (gecersiz UTF-8)
+
+		CHECK(same(Py_BuildValue("s", "abc"), (Py_BuildValue)("s", "abc")));
+		CHECK(same(Py_BuildValue("s", c_szUtf8), (Py_BuildValue)("s", c_szUtf8)));
+		CHECK(same(Py_BuildValue("(is)", 7, "x"), (Py_BuildValue)("(is)", 7, "x")));
+		CHECK(same(Py_BuildValue("(s)", "x"), (Py_BuildValue)("(s)", "x")));
+		CHECK(same(Py_BuildValue("si", "x", -5), (Py_BuildValue)("si", "x", -5)));
+		CHECK(same(Py_BuildValue("(iss)", 1, "a", "b"), (Py_BuildValue)("(iss)", 1, "a", "b")));
+		CHECK(same(Py_BuildValue("(isss)", 1, "a", "b", "c"), (Py_BuildValue)("(isss)", 1, "a", "b", "c")));
+		CHECK(same(Py_BuildValue("(sissii)", "a", 1, "b", "c", 2, 3), (Py_BuildValue)("(sissii)", "a", 1, "b", "c", 2, 3)));
+		CHECK(same(Py_BuildValue("(KsKsi)", 4294967301ULL, "p", 8589934609ULL, "q", 9), (Py_BuildValue)("(KsKsi)", 4294967301ULL, "p", 8589934609ULL, "q", 9)));
+		CHECK(same(Py_BuildValue("(iiiiiLss)", 1, 2, 3, 4, 5, 999999999999LL, "u", "v"), (Py_BuildValue)("(iiiiiLss)", 1, 2, 3, 4, 5, 999999999999LL, "u", "v")));
+		CHECK(same(Py_BuildValue("isiilK", 1, "n", 2, 3, -4L, 5ULL), (Py_BuildValue)("isiilK", 1, "n", 2, 3, -4L, 5ULL)));
+		CHECK(same(Py_BuildValue("sff", "t", 1.5f, -2.25f), (Py_BuildValue)("sff", "t", 1.5f, -2.25f)));
+		CHECK(same(Py_BuildValue("iifs", 1, 2, 0.5f, "z"), (Py_BuildValue)("iifs", 1, 2, 0.5f, "z")));
+		CHECK(same(Py_BuildValue("s#", "abcdef", static_cast<Py_ssize_t>(3)), PyUnicode_FromString("abc")));
+		CHECK(same(Py_BuildValue("s", static_cast<const char*>(nullptr)), Py_NewRef(Py_None)));
+		{
+			PyObject* poKeep = PyList_New(0);
+			PyObject* poSteal = PyList_New(0);
+			PyObject* poMine = Py_BuildValue("sNsi", "a", poSteal, "b", 3);
+			CHECK(poMine != nullptr && PyTuple_Size(poMine) == 4 && PyTuple_GET_ITEM(poMine, 1) == poSteal);
+			Py_ssize_t rcKeep = Py_REFCNT(poKeep);
+			PyObject* poO = Py_BuildValue("(sO)", "k", poKeep);
+			CHECK(poO != nullptr && Py_REFCNT(poKeep) == rcKeep + 1);
+			Py_XDECREF(poO);
+			CHECK(Py_REFCNT(poKeep) == rcKeep);
+			Py_XDECREF(poMine);
+			Py_XDECREF(poKeep);
+		}
+
+		// cp1250 ham bayt: gercek Py_BuildValue UnicodeDecodeError ile NULL doner; sarmalayici surrogateescape ile ayni baytlari geri uretir
+		PyObject* poStrict = (Py_BuildValue)("s", c_szCp1250);
+		CHECK(poStrict == nullptr && PyErr_ExceptionMatches(PyExc_UnicodeDecodeError));
+		PyErr_Clear();
+		PyObject* poEsc = Py_BuildValue("s", c_szCp1250);
+		CHECK(poEsc != nullptr && PyUnicode_Check(poEsc));
+		char* c_szBack = poEsc ? M2PyString_AsString(poEsc) : nullptr;
+		CHECK(c_szBack != nullptr && std::strcmp(c_szBack, c_szCp1250) == 0);
+		Py_XDECREF(poEsc);
+		PyObject* poTupleEsc = Py_BuildValue("(is)", 3, c_szCp1250);
+		CHECK(poTupleEsc != nullptr && PyTuple_Size(poTupleEsc) == 2);
+		char* c_szBack2 = poTupleEsc ? M2PyString_AsString(PyTuple_GET_ITEM(poTupleEsc, 1)) : nullptr;
+		CHECK(c_szBack2 != nullptr && std::strcmp(c_szBack2, c_szCp1250) == 0);
+		Py_XDECREF(poTupleEsc);
+		CHECK(!PyErr_Occurred());
+		PyGILState_Release(gil8d);
+	}
+
+	// 8e. GERCEK locale paketi (client/files/pack/locale) tum .txt satirlari: ham bayt -> M2Py_BuildValue("s") -> M2PyString_AsString bayt-bayt ayni (cp1250/cp949 dahil)
+	{
+		PyGILState_STATE gil8e = PyGILState_Ensure();
+		size_t txtFiles = 0, lines = 0, nonUtf8Lines = 0, mismatches = 0, buildFailures = 0;
+		if (pLocalePack)
+		{
+			for (const auto& kv : pLocalePack->GetIndexMap())
+			{
+				if (!kv.second || !kv.second->filename[0])
+					continue;
+				std::string fn(kv.second->filename);
+				if (fn.size() <= 4 || fn.substr(fn.size() - 4) != ".txt")
+					continue;
+				CMappedFile txtFile;
+				const void* txtData = nullptr;
+				if (!packMgr.Get(txtFile, fn.c_str(), &txtData) || !txtData)
+					continue;
+				++txtFiles;
+				const char* c_pBegin = static_cast<const char*>(txtData);
+				const char* c_pEnd = c_pBegin + txtFile.Size();
+				while (c_pBegin < c_pEnd)
+				{
+					const char* c_pNl = static_cast<const char*>(std::memchr(c_pBegin, '\n', static_cast<size_t>(c_pEnd - c_pBegin)));
+					const char* c_pLineEnd = c_pNl ? c_pNl : c_pEnd;
+					std::string line(c_pBegin, c_pLineEnd);
+					c_pBegin = c_pNl ? c_pNl + 1 : c_pEnd;
+					if (line.find('\0') != std::string::npos)
+						continue;   // char* semantigi NUL'da biter; bu satirlar native sinira zaten tasinamaz
+					++lines;
+					PyObject* poStr = Py_BuildValue("s", line.c_str());
+					if (!poStr)
+					{
+						++buildFailures;
+						PyErr_Clear();
+						continue;
+					}
+					if (PyUnicode_AsUTF8(poStr) == nullptr)   // strict UTF-8 kodlanamiyor => surrogateescape'li (ham cp1250/cp949) satir
+					{
+						++nonUtf8Lines;
+						PyErr_Clear();
+					}
+					const char* c_szBack = M2PyString_AsString(poStr);
+					if (!c_szBack || line != c_szBack)
+						++mismatches;
+					Py_DECREF(poStr);
+				}
+			}
+		}
+		std::printf("LOCALE_TXT_BOUNDARY files=%zu lines=%zu non_utf8_lines=%zu mismatches=%zu build_failures=%zu\n", txtFiles, lines, nonUtf8Lines, mismatches, buildFailures);
+		CHECK(txtFiles > 0 && lines > 0);
+		CHECK(nonUtf8Lines > 0);   // gercek locale paketinde UTF-8 olmayan (cp1250/cp949) satirlar var: sinir gercekten sinaniyor
+		CHECK(mismatches == 0 && buildFailures == 0);
+		CHECK(!PyErr_Occurred());
+		PyGILState_Release(gil8e);
+	}
+
 	// 9. Verify GIL state discipline (PyGILState_Ensure / PyGILState_Release) and script load failure handling
 	PyGILState_STATE gilState = PyGILState_Ensure();
 	PyObject* mainDict = PyModule_GetDict(PyImport_AddModule("__main__"));

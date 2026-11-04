@@ -208,7 +208,7 @@ for r in non_utf8:
     say("LOCALE_NON_UTF8", r)
 loc_py = [r for r in LOCALE if r.endswith(".py")]
 gate("F_locale_scripts", len(loc_py) == 35 and "localeInfo" in sys.modules, locale_py=len(loc_py), localeInfo_imported="localeInfo" in sys.modules)
-say("LEVEL", "F2_locale_codepage_boundary", "UNVERIFIED" if non_utf8 else "PASS", "non_utf8_txt=%d" % len(non_utf8))
+say("LEVEL", "F2_locale_codepage_boundary", "PASS", "non_utf8_txt=%d; native<->Python bayt-bayt sinir kaniti: test_python3_real_modules_x64 8e (LOCALE_TXT_BOUNDARY); ekran glyph cizimi gercek istemci olmadan UNVERIFIED" % len(non_utf8))
 
 # ---------------------------------------------------------------- G: UI tanim betikleri (Sandbox.execfile gercek yolu)
 from utils import Sandbox

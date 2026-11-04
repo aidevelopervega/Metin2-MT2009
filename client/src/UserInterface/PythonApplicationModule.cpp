@@ -276,7 +276,7 @@ PyObject* appLoadLocaleAddr(PyObject* poSelf, PyObject* poArgs)
 	tea_decrypt((unsigned long*)buf, (const unsigned long*)enc, (const unsigned long*)key, size);
 	unsigned int retSize = *(unsigned int*)buf;
 	char* ret = buf + sizeof(unsigned int);
-	return Py_BuildValue("s#", ret, retSize);
+	return Py_BuildValue("s#", ret, static_cast<Py_ssize_t>(retSize));
 }
 
 PyObject* appLoadLocaleData(PyObject* poSelf, PyObject* poArgs)

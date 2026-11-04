@@ -588,7 +588,7 @@ PyObject * wndMgrGetHyperlink(PyObject * poSelf, PyObject * poArgs)
 	int retLen = CGraphicTextInstance::Hyperlink_GetText(retBuf, sizeof(retBuf)-1);
 	retBuf[retLen] = '\0';
 
-	return Py_BuildValue("s#", retBuf, retLen);
+	return Py_BuildValue("s#", retBuf, static_cast<Py_ssize_t>(retLen));
 }
 
 PyObject * wndMgrGetScreenWidth(PyObject * poSelf, PyObject * poArgs)
