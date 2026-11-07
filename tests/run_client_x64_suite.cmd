@@ -132,13 +132,12 @@ cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_
     client\src\UserInterface\PythonExchange.cpp ^
     client\src\UserInterface\PythonExchangeModule.cpp ^
     client\src\UserInterface\PythonSafeBox.cpp ^
+    client\src\ScriptLib\PythonLauncher.cpp ^
     /Fo:build\obj_x64\py3_real\
 if errorlevel 1 exit /b 1
 :have_py3_base_objs
 
-if exist "build\obj_x64\test_python3_real_modules_x64.exe" goto :have_py3_real_exe
 cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /DMT2_USE_MINIAUDIO=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\MilesLib /c ^
-    client\src\ScriptLib\PythonLauncher.cpp ^
     tests\test_python3_real_modules_x64.cpp ^
     /Fo:build\obj_x64\py3_real\
 if errorlevel 1 exit /b 1
@@ -186,7 +185,6 @@ link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /OUT:build\obj_x64\test
     "%PY311_DIR%\libs\python311.lib" ^
     ole32.lib user32.lib winmm.lib advapi32.lib
 if errorlevel 1 exit /b 1
-:have_py3_real_exe
 
 dumpbin.exe /headers build\obj_x64\test_python3_real_modules_x64.exe | findstr /C:"8664 machine (x64)" /C:"PE32+"
 if errorlevel 1 exit /b 1

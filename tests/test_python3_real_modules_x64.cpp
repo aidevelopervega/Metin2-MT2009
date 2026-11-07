@@ -858,6 +858,137 @@ int main()
 		));
 	}
 
+	// 13. Verify CEterPack::NewIndex TEterPackIndex struct layout and padding byte determinism (Item 5)
+	{
+		static_assert(sizeof(TEterPackIndex) == 192, "TEterPackIndex must be 192 bytes");
+		static_assert(offsetof(TEterPackIndex, id) == 0, "id offset");
+		static_assert(offsetof(TEterPackIndex, filename) == 4, "filename offset");
+		static_assert(offsetof(TEterPackIndex, filename_crc) == 168, "filename_crc offset (3 padding bytes at 165..167)");
+		static_assert(offsetof(TEterPackIndex, real_data_size) == 172, "real_data_size offset");
+		static_assert(offsetof(TEterPackIndex, data_size) == 176, "data_size offset");
+		static_assert(offsetof(TEterPackIndex, data_crc) == 180, "data_crc offset");
+		static_assert(offsetof(TEterPackIndex, data_position) == 184, "data_position offset");
+		static_assert(offsetof(TEterPackIndex, compressed_type) == 188, "compressed_type offset (3 padding bytes at 189..191)");
+
+		auto checkIndexPaddingZero = [](const TEterPackIndex* idx) -> bool
+		{
+			if (!idx)
+				return false;
+			const unsigned char* raw = reinterpret_cast<const unsigned char*>(idx);
+			// Padding 1: bytes 165, 166, 167 (between filename[161] and filename_crc)
+			if (raw[165] != 0 || raw[166] != 0 || raw[167] != 0)
+				return false;
+			// Padding 2: bytes 189, 190, 191 (tail padding after compressed_type)
+			if (raw[189] != 0 || raw[190] != 0 || raw[191] != 0)
+				return false;
+			// Unused bytes in filename[161] after NUL terminator
+			const size_t fnLen = std::strlen(idx->filename);
+			for (size_t i = fnLen; i <= FILENAME_MAX_LEN; ++i)
+			{
+				if (static_cast<unsigned char>(idx->filename[i]) != 0)
+					return false;
+			}
+			return true;
+		};
+
+		// 13a. Verify all 923 decrypted on-disk TEterPackIndex records in out2/root.index (237) and out2/locale.index (686)
+		CEterFileDict out2RootDict, out2LocaleDict;
+		CEterPack out2RootPack, out2LocalePack;
+		CHECK(out2RootPack.Create(out2RootDict, "build/python311_migration/out2/root", "", true));
+		CHECK(out2LocalePack.Create(out2LocaleDict, "build/python311_migration/out2/locale", "locale/", true));
+
+		int rootChecked = 0, rootDirtyPad = 0;
+		for (const auto& kv : out2RootPack.GetIndexMap())
+		{
+			if (kv.second && kv.second->filename[0])
+			{
+				++rootChecked;
+				if (!checkIndexPaddingZero(kv.second))
+					++rootDirtyPad;
+			}
+		}
+		CHECK(rootChecked == 237 && rootDirtyPad == 0);
+
+		int localeChecked = 0, localeDirtyPad = 0;
+		for (const auto& kv : out2LocalePack.GetIndexMap())
+		{
+			if (kv.second && kv.second->filename[0])
+			{
+				++localeChecked;
+				if (!checkIndexPaddingZero(kv.second))
+					++localeDirtyPad;
+			}
+		}
+		CHECK(localeChecked == 686 && localeDirtyPad == 0);
+
+		// 13b. Poison heap & free-list padding bytes, write a pack, and verify on-disk .index padding bytes are 0x00
+		std::remove("build/obj_x64/test_pad_det.index");
+		std::remove("build/obj_x64/test_pad_det.data");
+		{
+			// Churn heap with 0xCC-filled TEterPackIndex-sized blocks
+			std::vector<TEterPackIndex*> blocks;
+			for (int i = 0; i < 32; ++i)
+			{
+				TEterPackIndex* b = new TEterPackIndex;
+				std::memset(b, 0xCC, sizeof(TEterPackIndex));
+				blocks.push_back(b);
+			}
+			for (TEterPackIndex* b : blocks)
+				delete b;
+
+			CEterFileDict tmpDict;
+			CEterPack tmpPack;
+			CHECK(tmpPack.Create(tmpDict, "build/obj_x64/test_pad_det", "", false));
+			const char* payload1 = "print('padding determinism test 1')\n";
+			CHECK(tmpPack.Put("a_first.py", payload1, static_cast<long>(std::strlen(payload1)), COMPRESSED_TYPE_SECURITY));
+
+			auto findInMap = [](CEterPack& pack, const char* name) -> TEterPackIndex* {
+				for (const auto& kv : pack.GetIndexMap())
+				{
+					if (kv.second && std::strcmp(kv.second->filename, name) == 0)
+						return kv.second;
+				}
+				return nullptr;
+			};
+
+			TEterPackIndex* idx1 = findInMap(tmpPack, "a_first.py");
+			CHECK(idx1 != nullptr && checkIndexPaddingZero(idx1));
+
+			// Deliberately dirty padding bytes of idx1 before deleting it into m_FreeIndexList
+			if (idx1)
+			{
+				unsigned char* raw1 = reinterpret_cast<unsigned char*>(idx1);
+				raw1[165] = 0xDE; raw1[166] = 0xAD; raw1[167] = 0xBE;
+				raw1[189] = 0xCA; raw1[190] = 0xFE; raw1[191] = 0xEF;
+				CHECK(tmpPack.Delete("a_first.py"));
+			}
+
+			// Next Put of <= 256 bytes reuses idx1 from m_FreeIndexList; verify NewIndex zeroes all padding bytes
+			const char* payload2 = "print('reused free-list index')\n";
+			CHECK(tmpPack.Put("b_reused.py", payload2, static_cast<long>(std::strlen(payload2)), COMPRESSED_TYPE_SECURITY));
+			TEterPackIndex* idx2 = findInMap(tmpPack, "b_reused.py");
+			CHECK(idx2 != nullptr && checkIndexPaddingZero(idx2));
+			CHECK(tmpPack.EncryptIndexFile());
+		}
+		{
+			CEterFileDict rdDict;
+			CEterPack rdPack;
+			CHECK(rdPack.Create(rdDict, "build/obj_x64/test_pad_det", "", true));
+			TEterPackIndex* rdIdx = nullptr;
+			for (const auto& kv : rdPack.GetIndexMap())
+			{
+				if (kv.second && std::strcmp(kv.second->filename, "b_reused.py") == 0)
+				{
+					rdIdx = kv.second;
+					break;
+				}
+			}
+			CHECK(rdIdx != nullptr && checkIndexPaddingZero(rdIdx));
+		}
+		std::remove("build/obj_x64/test_pad_det.index");
+		std::remove("build/obj_x64/test_pad_det.data");
+	}
+
 	std::printf("PYTHON3_REAL_MODULES_X64_SUITE: %d/%d PASSED (Python %s, 7 real C++ modules: pack+dbg+liblib+profiler+snd+exchange+safebox, root+locale_pl packs verified)\n",
 		g_passed,
 		g_passed + g_failed,

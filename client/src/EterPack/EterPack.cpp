@@ -1160,6 +1160,11 @@ TEterPackIndex* CEterPack::NewIndex(CFileBase& file, const char* filename, long 
 			 m_FreeIndexList[blockidx].erase(i);
 
 			 assert(index->filename_crc == 0);
+			 const long saved_id = index->id;
+			 const long saved_real_data_size = index->real_data_size;
+			 memset(index, 0, sizeof(TEterPackIndex));
+			 index->id = saved_id;
+			 index->real_data_size = saved_real_data_size;
 			 break;
 		 }
 	}
@@ -1167,6 +1172,7 @@ TEterPackIndex* CEterPack::NewIndex(CFileBase& file, const char* filename, long 
 	if (!index)
 	{
 		index = new TEterPackIndex{};
+		memset(index, 0, sizeof(TEterPackIndex));
 		index->real_data_size = block_size;
 		index->id = GetNewIndexPosition(file);
 	}
