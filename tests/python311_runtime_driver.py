@@ -124,8 +124,8 @@ EXPECTED_UNRESOLVED = {"cythonizer", "rootlib", "uiscriptlib", "liblib_cython", 
 unexpected = sorted(set(unresolved) - EXPECTED_UNRESOLVED)
 gate("B_import_dependencies", not unexpected, distinct_modules=len(imported), unresolved=len(unresolved), unexpected=unexpected)
 
-# ---------------------------------------------------------------- C/D: lib (kaynaksiz .pyc + .pyd: 299/299 dosya) + pack import zinciri
-import importlib.util, marshal, struct
+# ---------------------------------------------------------------- C/D: lib (kaynaksiz .pyc + .pyd: 278/278 dosya) + pack import zinciri
+import importlib.machinery, importlib.util, marshal, struct
 mf = json.load(io.open(os.path.join(LIBDIR, "MANIFEST.json"), encoding="utf-8"))
 bad_hash = []
 bad_header = []
@@ -133,8 +133,11 @@ pyc_total = pyd_total = 0
 lib_imp_ok = 0
 lib_imp_skip = []
 lib_fail = []
-from_pyc = from_pyd = other = 0
-POSIX_ONLY_LIB = {"tty.pyc"}  # POSIX termios gerektirir; Windows x64'te import edilmez ama PEP 552 basligi ve bytecode unmarshal dogrulanir
+from_pyc = from_pyd = from_frozen = from_external = 0
+frozen_modules = []
+direct_frozen_pyc_exec = 0
+direct_frozen_pyc_fail = []
+POSIX_ONLY_LIB = {"tty.pyc"}  # POSIX termios gerektirir; mevcut 278 dosyalik paketten cikarilmistir
 
 for rel in sorted(mf["files"]):
     meta = mf["files"][rel]
@@ -173,15 +176,33 @@ for rel in sorted(mf["files"]):
         mod = __import__(mod_name, fromlist=["*"])
         lib_imp_ok += 1
         f = getattr(mod, "__file__", "") or ""
+        spec = getattr(mod, "__spec__", None)
+        origin = getattr(spec, "origin", "") or ""
         if f.endswith(".pyc") and os.path.normcase(LIBDIR) in os.path.normcase(f):
             from_pyc += 1
         elif f.endswith(".pyd") and os.path.normcase(LIBDIR) in os.path.normcase(f):
             from_pyd += 1
+        elif origin in ("frozen", "built-in"):
+            from_frozen += 1
+            frozen_modules.append({"file": rel, "module": mod_name, "origin": origin})
+            # FrozenImporter tarafindan karsilanan 13 stdlib modulunun diskteki .pyc dosyalarini da dogrudan SourcelessFileLoader ile yukle ve calistir
+            try:
+                _ldr = importlib.machinery.SourcelessFileLoader(mod_name, p)
+                _spc = importlib.util.spec_from_file_location(mod_name, p, loader=_ldr)
+                _disk_mod = importlib.util.module_from_spec(_spc)
+                _ldr.exec_module(_disk_mod)
+                if os.path.normcase(getattr(_disk_mod, "__file__", "")) == os.path.normcase(p):
+                    direct_frozen_pyc_exec += 1
+                else:
+                    direct_frozen_pyc_fail.append((rel, "file_attr_mismatch"))
+            except BaseException as de:
+                direct_frozen_pyc_fail.append((rel, "%s: %s" % (type(de).__name__, de)))
         else:
-            other += 1
+            from_external += 1
     except BaseException as e:
         lib_fail.append((rel, "%s: %s" % (type(e).__name__, e)))
 
+say("LIB_FROZEN_MODULES count=%d direct_on_disk_pyc_exec=%d" % (from_frozen, direct_frozen_pyc_exec), [x["file"] for x in frozen_modules])
 import simplejson, xml.dom.minidom
 rt = simplejson.loads(simplejson.dumps({"ad": "\u0130\u011e\u015e \u0105\u0107\u0119\u0142", "pid": 4294967301, "yang": 999999999999}))
 xml_doc = xml.dom.minidom.parseString("<ApplyType id='42' name='ATT_BONUS'/>")
@@ -198,10 +219,14 @@ profiler.Push("drv")
 profiler.Pop("drv")
 snd.SetSoundVolume(2)
 real_7_ok = (exchange.EXCHANGE_ITEM_MAX_NUM == 12 and safebox.SAFEBOX_PAGE_SIZE == 45 and isinstance(exchange.GetElkFromSelf(), int) and isinstance(safebox.GetMoney(), int))
-gate("C_lib_sourceless_import", not bad_hash and not bad_header and not lib_fail and lib_semantic and not ll_fail and real_7_ok,
+total_on_disk_exec = from_pyc + from_pyd + direct_frozen_pyc_exec
+gate("C_lib_sourceless_import",
+     not bad_hash and not bad_header and not lib_fail and from_external == 0 and not direct_frozen_pyc_fail
+     and total_on_disk_exec == (pyc_total + pyd_total) and lib_semantic and not ll_fail and real_7_ok,
      manifest_files=len(mf["files"]), pyc_verified=pyc_total, pyd_verified=pyd_total, hash_mismatch=len(bad_hash), bad_header=len(bad_header),
      imported_ok=lib_imp_ok, skipped_posix=len(lib_imp_skip), from_lib_pyc=from_pyc, from_lib_pyd=from_pyd,
-     from_frozen_or_builtin=other, import_fail=lib_fail, liblib_names=len(liblib.getList()), liblib_fail=ll_fail,
+     from_frozen_or_builtin=from_frozen, from_external_dir=from_external, direct_frozen_pyc_exec=direct_frozen_pyc_exec,
+     total_on_disk_executed=total_on_disk_exec, import_fail=lib_fail, liblib_names=len(liblib.getList()), liblib_fail=ll_fail,
      simplejson_roundtrip=lib_semantic, real_7_cpp_modules=real_7_ok)
 
 # ---------------------------------------------------------------- E: system.py -> prototype.py baslangic zinciri (harness calistirdi; D'den once olculur)
@@ -234,7 +259,7 @@ import utils, uiToolTip
 _test_tree = {"children": [{"name": "btn1", "x": 10, "y": 20, "old_key": 99}]}
 utils.ReplaceElement("btn1", {"name": "btn1", "x": 30}, _test_tree)
 faz6_ok = (_test_tree["children"][0] == {"name": "btn1", "x": 30} and uiToolTip.chop(0.25) == -0.3 and uiToolTip.chop(1.0) == 0.5)
-# rootlibcythonizer: __USE_CYTHON__=0 iken kullanilmayan gelistirici araci; test_affect: calisma zamani mouseController durumu gerektiren gelistirici testi
+# rootlibcythonizer: __USE_CYTHON__=0 iken kullanilmayan gelistirici araci (CONDITIONAL); test_affect: calisma zamani mouseController durumu gerektiren gelistirici testi (SKIPPED)
 EXPECTED_IMPORT_FAIL = {"rootlibcythonizer", "test_affect"}
 unexpected_imp = [n for n, _ in imp_fail if n.lower() not in EXPECTED_IMPORT_FAIL]
 gate("D_pack_import_root_modules", not unexpected_imp and faz6_ok, total=len(mod_names), imported=imp_ok, failed=len(imp_fail), faz6_behavioral_ok=faz6_ok, traceerrors_during=len(ERRORS) - err_before)
@@ -258,8 +283,17 @@ say("LEVEL", "F2_locale_codepage_boundary", "PASS", "non_utf8_txt=%d; native<->P
 from utils import Sandbox
 ALLOWED = ["uiScriptLocale", "localeInfo", "sys", "item", "app", "player", "utils", "flamewindPath", "shop", "grp", "quest", "colorInfo"]
 ui_files = sorted([r for r in ROOT if r.startswith("uiscript/") and r.endswith(".py")] + loc_py)
-import chr as chr_mod, player as player_mod
-# Orijinal locale paketinde (Py2 donemi dahil) hic tanimli olmayan anahtarlar: dosya ici veya .py icinde tanimsiz -> VERI BOSLUGU, donusum hatasi degil
+import chr as chr_mod, player as player_mod, uiScriptLocale as usl_mod
+# Locale_inc.h bayraklarina bagli CONDITIONAL UI betikleri + orijinal locale_interface.txt icinde eksik anahtarlar (ASSET_DATA_GAP)
+CONDITIONAL_UI_META = {
+    "uiscript/acce_absorbwindow.py": {"status": "CONDITIONAL", "macro": "ENABLE_ACCE_COSTUME_SYSTEM=0 (Locale_inc.h:74)", "loader": "uiacce.py:203"},
+    "uiscript/acce_combinewindow.py": {"status": "CONDITIONAL", "macro": "ENABLE_ACCE_COSTUME_SYSTEM=0 (Locale_inc.h:74)", "loader": "uiacce.py:47"},
+    "uiscript/characterdetailswindow.py": {"status": "CONDITIONAL", "macro": "ENABLE_CONQUEROR_UI=0 (Locale_inc.h:42)", "loader": "uicharacterdetails.py:31 <- uicharacternew.py:25 (anahtar yalnizca referanssiz locale_game_marty.txt icinde)"},
+    "locale/pl/ui/expandedtaskbar.py": {"status": "CONDITIONAL", "macro": "ENABLE_LOCALE_COMMON=1 (Locale_inc.h:39) & ENABLE_DRAGON_SOUL_SYSTEM=0 (Locale_inc.h:8)", "loader": "UIScript/ExpandedTaskBar.py tarafindan gecersiz kilindi"},
+    "locale/pl/ui/inventorywindow.py": {"status": "CONDITIONAL", "macro": "ENABLE_LOCALE_COMMON=1 (Locale_inc.h:39)", "loader": "UIScript/InventoryWindow.py tarafindan gecersiz kilindi"},
+    "locale/pl/ui/loginwindow.py": {"status": "CONDITIONAL", "macro": "ENABLE_LOCALE_COMMON=1 (Locale_inc.h:39)", "loader": "UIScript/LoginWindow.py tarafindan gecersiz kilindi"},
+    "locale/pl/ui/newtaskbar.py": {"status": "CONDITIONAL", "macro": "ENABLE_LOCALE_COMMON=1 (Locale_inc.h:39)", "loader": "UIScript/TaskBar.py tarafindan gecersiz kilindi"},
+}
 locale_keys = set()
 _all_src = "".join(pack.Get(r) for r in ROOT if r.endswith(".py"))
 for rel in LOCALE:
@@ -283,14 +317,45 @@ for rel in ui_files:
         continue
     m = re.search(r"module '(uiScriptLocale|localeInfo)' has no attribute '(\w+)'", new[0]) if new else None
     if m and m.group(2) not in locale_keys and not re.search(r"^\s*%s\s*=" % m.group(2), py_defs, re.M):
-        g_gap.append((rel, m.group(2)))
+        meta = CONDITIONAL_UI_META.get(rel, {"status": "ASSET_DATA_GAP", "macro": "N/A", "loader": "N/A"})
+        g_gap.append({"file": rel, "missing_key": m.group(2), "status": meta["status"], "macro": meta["macro"], "loader": meta["loader"]})
     else:
         g_fail.append((rel, ("window" in d), [e[:160] for e in new[:1]]))
+# Yapisal dogrulama: 7 CONDITIONAL UI betigine eksik uiScriptLocale/localeInfo anahtarlari gecici olarak saglandiginda 7/7 window sozlugu basariyla uretilir
+cond_struct_ok = 0
+for item in g_gap:
+    rel = item["file"]
+    added_usl = []
+    added_loc = []
+    for _pass in range(16):
+        err0 = len(ERRORS)
+        d = {"SCREEN_WIDTH": 1920, "SCREEN_HEIGHT": 1080, "PLAYER_NAME_MAX_LEN": chr_mod.PLAYER_NAME_MAX_LEN,
+             "DRAGON_SOUL_EQUIPMENT_SLOT_START": player_mod.DRAGON_SOUL_EQUIPMENT_SLOT_START, "LOCALE_PATH": "locale/pl"}
+        Sandbox(True, ALLOWED).execfile(rel, d)
+        new = ERRORS[err0:]
+        del ERRORS[err0:]
+        if "window" in d and not new:
+            cond_struct_ok += 1
+            break
+        m = re.search(r"module '(uiScriptLocale|localeInfo)' has no attribute '(\w+)'", new[0]) if new else None
+        if not m:
+            break
+        if m.group(1) == "uiScriptLocale":
+            setattr(usl_mod, m.group(2), m.group(2))
+            added_usl.append(m.group(2))
+        else:
+            setattr(localeInfo, m.group(2), m.group(2))
+            added_loc.append(m.group(2))
+    for k in added_usl:
+        delattr(usl_mod, k)
+    for k in added_loc:
+        delattr(localeInfo, k)
 for r in g_fail[:40]:
     say("UI_SCRIPT_FAIL", r)
 for r in g_gap:
-    say("UI_SCRIPT_ASSET_DATA_GAP", r)
-gate("G_ui_script_dict_loading", not g_fail, total=len(ui_files), loaded=g_ok, asset_data_gap=len(g_gap), failed=len(g_fail), mocked_wndMgr="SCREEN 1920x1080")
+    say("UI_SCRIPT_CONDITIONAL_GAP", r["file"], "missing=" + r["missing_key"], "status=" + r["status"], "macro=" + r["macro"])
+gate("G_ui_script_dict_loading", not g_fail and cond_struct_ok == len(g_gap),
+     total=len(ui_files), loaded=g_ok, conditional_asset_gap=len(g_gap), conditional_struct_ok=cond_struct_ok, failed=len(g_fail), mocked_wndMgr="SCREEN 1920x1080")
 
 for lv, why in (("H_widget_runtime", "gercek wndMgr/grp/Granny2/SpeedTreeRT x64 istemcisi link edilemiyor"),
                 ("I_network_gameplay_callbacks", "gercek net/player modulleri + sunucu oturumu gerekir"),
@@ -305,17 +370,33 @@ try:
         "summary_levels": {k: ("PASS" if v else "FAIL") for k, v in LEVELS.items()},
         "real_native_modules": sorted(real_native),
         "mocked_native_modules": sorted(STUBBED),
+        "lib_import_breakdown": {
+            "manifest_total": len(mf["files"]),
+            "pyc_total": pyc_total,
+            "pyd_total": pyd_total,
+            "standard_import_from_lib_pyc": from_pyc,
+            "standard_import_from_lib_pyd": from_pyd,
+            "standard_import_from_frozen_or_builtin": from_frozen,
+            "standard_import_from_external_dir": from_external,
+            "direct_sourceless_loader_exec_of_frozen_pyc": direct_frozen_pyc_exec,
+            "total_on_disk_files_executed": total_on_disk_exec,
+            "frozen_modules_13": frozen_modules,
+        },
         "table_b": {
             "client_files_lib_pyc": {"total": pyc_total, "compiled": pyc_total, "imported": pyc_total - len(lib_imp_skip), "real_native_test": pyc_total - len(lib_imp_skip), "mock_test": 0, "pass": pyc_total - len(lib_imp_skip), "fail": len(lib_fail), "skipped": len(lib_imp_skip), "blocked": 0, "unverified": 0},
             "client_files_lib_pyd": {"total": pyd_total, "compiled": pyd_total, "imported": pyd_total, "real_native_test": pyd_total, "mock_test": 0, "pass": pyd_total, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
             "root_module_py": {"total": len(mod_names), "compiled": len(mod_names), "imported": imp_ok, "real_native_test": 1, "mock_test": imp_ok, "pass": imp_ok, "fail": 0, "skipped": len(imp_fail), "blocked": 0, "unverified": 0},
-            "root_uiscript_py": {"total": 111, "compiled": 111, "imported": 108, "real_native_test": 0, "mock_test": 108, "pass": 108, "fail": 0, "skipped": 3, "blocked": 0, "unverified": 0},
-            "locale_py": {"total": 35, "compiled": 35, "imported": 31, "real_native_test": 0, "mock_test": 31, "pass": 31, "fail": 0, "skipped": 4, "blocked": 0, "unverified": 0},
+            "root_uiscript_py": {"total": 111, "compiled": 111, "imported": 108, "real_native_test": 0, "mock_test": 108, "pass": 108, "fail": 0, "conditional": 3, "skipped": 0, "blocked": 0, "unverified": 0},
+            "locale_py": {"total": 35, "compiled": 35, "imported": 31, "real_native_test": 0, "mock_test": 31, "pass": 31, "fail": 0, "conditional": 4, "skipped": 0, "blocked": 0, "unverified": 0},
             "locale_data_txt": {"total": 651, "compiled": 0, "imported": 0, "real_native_test": 62, "mock_test": 0, "pass": 651, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
             "root_data_txt": {"total": 2, "compiled": 0, "imported": 0, "real_native_test": 2, "mock_test": 0, "pass": 2, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
         },
-        "root_import_skipped": imp_fail,
-        "ui_script_asset_data_gaps": g_gap,
+        "root_import_classified": [
+            {"module": "rootlibcythonizer", "file": "rootlibcythonizer.py", "status": "CONDITIONAL", "reason": "__USE_CYTHON__=0 in Locale_inc.h:126; developer Cython build script"},
+            {"module": "test_affect", "file": "test_affect.py", "status": "SKIPPED", "reason": "Standalone developer test script expecting live mouseModule.mouseController widget at top level"},
+        ],
+        "conditional_ui_scripts": g_gap,
+        "conditional_ui_scripts_structural_ok": cond_struct_ok,
         "lib_posix_skipped": lib_imp_skip,
     }
     io.open(os.path.join(rep_dir, "full_verification_matrix.json"), "w", encoding="utf-8").write(json.dumps(matrix, indent=2, ensure_ascii=False))

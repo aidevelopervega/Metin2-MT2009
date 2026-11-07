@@ -534,19 +534,89 @@ int main()
 		CHECK(same(Py_BuildValue("sff", "t", 1.5f, -2.25f), (Py_BuildValue)("sff", "t", 1.5f, -2.25f)));
 		CHECK(same(Py_BuildValue("iifs", 1, 2, 0.5f, "z"), (Py_BuildValue)("iifs", 1, 2, 0.5f, "z")));
 		CHECK(same(Py_BuildValue("s#", "abcdef", static_cast<Py_ssize_t>(3)), PyUnicode_FromString("abc")));
+		CHECK(same(Py_BuildValue("z#", static_cast<const char*>(nullptr), static_cast<Py_ssize_t>(4)), Py_NewRef(Py_None)));
 		CHECK(same(Py_BuildValue("s", static_cast<const char*>(nullptr)), Py_NewRef(Py_None)));
+		CHECK(same(Py_BuildValue("z", static_cast<const char*>(nullptr)), Py_NewRef(Py_None)));
+		// Varargs tam sayi terfileri (b/B/h/H/i/I/l/k/L/K/n) ve ic ice demetler: gercek CPython Py_BuildValue / _Py_BuildValue_SizeT ile birebir esit
+		CHECK(same(Py_BuildValue("(sbBhH)", "p", static_cast<int>(-1), static_cast<int>(255), static_cast<int>(-2), static_cast<int>(65535)),
+		           (Py_BuildValue)("(sbBhH)", "p", static_cast<int>(-1), static_cast<int>(255), static_cast<int>(-2), static_cast<int>(65535))));
+		CHECK(same(Py_BuildValue("((s(ii))(z#K))", "in", 10, -20, "xyz99", static_cast<Py_ssize_t>(3), 4294967301ULL),
+		           _Py_BuildValue_SizeT("((s(ii))(z#K))", "in", 10, -20, "xyz99", static_cast<Py_ssize_t>(3), 4294967301ULL)));
+		CHECK(same(Py_BuildValue("(s, i: n)", "sep", -7, static_cast<Py_ssize_t>(123456)),
+		           (Py_BuildValue)("(s, i: n)", "sep", -7, static_cast<Py_ssize_t>(123456))));
+		// Gomulu NUL (\0) iceren s# / z# dizgesi
+		{
+			const char c_ab0cd[] = { 'a', 'b', '\0', 'c', '\xB1', 'd' };
+			PyObject* poEmb = Py_BuildValue("s#", c_ab0cd, static_cast<Py_ssize_t>(6));
+			CHECK(poEmb != nullptr && PyUnicode_GET_LENGTH(poEmb) == 6);
+			char* c_szEmbBack = poEmb ? M2PyString_AsString(poEmb) : nullptr;
+			CHECK(c_szEmbBack != nullptr && std::memcmp(c_szEmbBack, c_ab0cd, 6) == 0);
+			Py_XDECREF(poEmb);
+		}
+		// Negatif s#/z# uzunlugu SystemError uretmeli (strlen'e dusmemeli)
+		{
+			PyObject* poNeg1 = Py_BuildValue("s#", "abc", static_cast<Py_ssize_t>(-1));
+			CHECK(poNeg1 == nullptr && PyErr_ExceptionMatches(PyExc_SystemError));
+			PyErr_Clear();
+			PyObject* poNeg2 = Py_BuildValue("z#", static_cast<const char*>(nullptr), static_cast<Py_ssize_t>(-5));
+			CHECK(poNeg2 == nullptr && PyErr_ExceptionMatches(PyExc_SystemError));
+			PyErr_Clear();
+		}
+		// O/S/N referans sahipligi, hata yolunda N DECREF (hata oncesi, hata sonrasi ve ic ice demet) ve mevcut istisna korunumu
 		{
 			PyObject* poKeep = PyList_New(0);
 			PyObject* poSteal = PyList_New(0);
 			PyObject* poMine = Py_BuildValue("sNsi", "a", poSteal, "b", 3);
 			CHECK(poMine != nullptr && PyTuple_Size(poMine) == 4 && PyTuple_GET_ITEM(poMine, 1) == poSteal);
 			Py_ssize_t rcKeep = Py_REFCNT(poKeep);
-			PyObject* poO = Py_BuildValue("(sO)", "k", poKeep);
-			CHECK(poO != nullptr && Py_REFCNT(poKeep) == rcKeep + 1);
+			PyObject* poO = Py_BuildValue("(sOS)", "k", poKeep, poKeep);
+			CHECK(poO != nullptr && Py_REFCNT(poKeep) == rcKeep + 2);
 			Py_XDECREF(poO);
 			CHECK(Py_REFCNT(poKeep) == rcKeep);
+
+			// 1) Hata veren O'dan ONCE gelen N: DECREF edilmeli
+			PyObject* poBefore = PyList_New(0);
+			Py_INCREF(poBefore); // refcnt = 2; M2Py_BuildValue 1 referansi calmali ve hata yolunda dusurmeli -> refcnt = 1 kalmali
+			PyObject* poFail1 = Py_BuildValue("(sNO)", "x", poBefore, static_cast<PyObject*>(nullptr));
+			CHECK(poFail1 == nullptr && PyErr_ExceptionMatches(PyExc_SystemError) && Py_REFCNT(poBefore) == 1);
+			PyErr_Clear();
+			Py_DECREF(poBefore);
+
+			// 2) Hata veren O'dan SONRA gelen N ve ic ice ((sO)N): ConsumeRemainingOnError ile DECREF edilmeli ve onceki istisna korunmali
+			PyObject* poAfter = PyList_New(0);
+			Py_INCREF(poAfter); // refcnt = 2
+			PyErr_SetString(PyExc_ValueError, "prior_custom_error");
+			PyObject* poFail2 = Py_BuildValue("((sO)N)", "x", static_cast<PyObject*>(nullptr), poAfter);
+			CHECK(poFail2 == nullptr && PyErr_ExceptionMatches(PyExc_ValueError) && Py_REFCNT(poAfter) == 1);
+			PyErr_Clear();
+			Py_DECREF(poAfter);
+
 			Py_XDECREF(poMine);
 			Py_XDECREF(poKeep);
+		}
+		// M2Py_SurrogateEscapedBytes: 64 eszamanli cp1250 dizge isaretcisinin tamami gecerli kalmali (256 slotluk halka tampon)
+		{
+			std::vector<PyObject*> objs;
+			std::vector<const char*> ptrs;
+			std::vector<std::string> expected;
+			for (int i = 0; i < 64; ++i)
+			{
+				std::string raw = "item_\xB1\xE6_" + std::to_string(i);
+				PyObject* po = Py_BuildValue("s", raw.c_str());
+				CHECK(po != nullptr);
+				objs.push_back(po);
+				expected.push_back(raw);
+				ptrs.push_back(M2PyString_AsString(po));
+			}
+			bool allAlive = true;
+			for (size_t i = 0; i < ptrs.size(); ++i)
+			{
+				if (!ptrs[i] || expected[i] != ptrs[i])
+					allAlive = false;
+			}
+			CHECK(allAlive);
+			for (PyObject* po : objs)
+				Py_XDECREF(po);
 		}
 
 		// cp1250 ham bayt: gercek Py_BuildValue UnicodeDecodeError ile NULL doner; sarmalayici surrogateescape ile ayni baytlari geri uretir

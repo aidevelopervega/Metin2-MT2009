@@ -8,11 +8,17 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\
 set "PY311_DIR=C:\Users\oyun\AppData\Local\Programs\Python\Python311"
 set "OUT=build\python311_migration\runtime"
 if not exist "%OUT%" mkdir "%OUT%"
-cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c tests\test_python311_pack_runtime_x64.cpp /Fo:"%OUT%\test_python311_pack_runtime_x64.obj"
+cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /DMT2_USE_MINIAUDIO=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\MilesLib /c tests\test_python311_pack_runtime_x64.cpp /Fo:"%OUT%\test_python311_pack_runtime_x64.obj"
 if errorlevel 1 exit /b 1
 link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /OUT:"%OUT%\test_python311_pack_runtime_x64.exe" "%OUT%\test_python311_pack_runtime_x64.obj" ^
     build\obj_x64\py3_real\PythonUtils.obj build\obj_x64\py3_real\PythonLauncher.obj build\obj_x64\py3_real\PythonMarshal.obj ^
     build\obj_x64\py3_real\PythonDebugModule.obj build\obj_x64\py3_real\PythonliblibManager.obj build\obj_x64\py3_real\PythonPackModule.obj ^
+    build\obj_x64\py3_real\PythonProfilerModule.obj build\obj_x64\py3_real\PythonSoundManagerModule.obj ^
+    build\obj_x64\py3_real\PythonExchange.obj build\obj_x64\py3_real\PythonExchangeModule.obj build\obj_x64\py3_real\PythonSafeBox.obj ^
+    build\obj_x64\mileslib_prod\MiniaudioEngine.obj build\obj_x64\mileslib_prod\SoundBase.obj build\obj_x64\mileslib_prod\SoundData.obj ^
+    build\obj_x64\mileslib_prod\SoundInstance2D.obj build\obj_x64\mileslib_prod\SoundInstance3D.obj build\obj_x64\mileslib_prod\SoundInstanceStream.obj ^
+    build\obj_x64\mileslib_prod\SoundManager.obj build\obj_x64\mileslib_prod\SoundManager2D.obj build\obj_x64\mileslib_prod\SoundManager3D.obj ^
+    build\obj_x64\mileslib_prod\SoundManagerStream.obj ^
     build\obj_x64\mileslib_prod\EterPack.obj build\obj_x64\mileslib_prod\EterPackManager.obj build\obj_x64\mileslib_prod\EterPackPolicy_CSHybridCrypt.obj ^
     build\obj_x64\mileslib_prod\MappedFile.obj build\obj_x64\mileslib_prod\FileBase.obj build\obj_x64\mileslib_prod\FileDir.obj build\obj_x64\mileslib_prod\FileLoader.obj ^
     build\obj_x64\mileslib_prod\lzo.obj build\obj_x64\mileslib_prod\tea.obj build\obj_x64\mileslib_prod\CRC32.obj build\obj_x64\mileslib_prod\Timer.obj ^

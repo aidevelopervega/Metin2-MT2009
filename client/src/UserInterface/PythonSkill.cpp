@@ -1715,7 +1715,7 @@ PyObject * skillGetSkillConditionDescription(PyObject * poSelf, PyObject * poArg
 		return Py_BuildException("skill.GetSkillConditionDescription() - Failed to find skill by %d", iSkillIndex);
 
 	if (iConditionIndex >= c_pSkillData->ConditionDataVector.size())
-		return Py_BuildValue("None");
+		return Py_BuildNone();
 
 	return Py_BuildValue("s", c_pSkillData->ConditionDataVector[iConditionIndex].c_str());
 }
@@ -1887,7 +1887,7 @@ PyObject * skillGetSkillRequirementData(PyObject * poSelf, PyObject * poArgs)
 
 	CPythonSkill::SSkillData * pRequireSkillData;
 	if (!CPythonSkill::Instance().GetSkillDataByName(c_pSkillData->strRequireSkillName.c_str(), &pRequireSkillData))
-		return Py_BuildValue("si", 0, "None", 0);
+		return Py_BuildValue("si", "None", 0);
 
 	int ireqLevel = (int)ceil(float(c_pSkillData->byRequireSkillLevel)/float((std::max)(1, static_cast<int>(pRequireSkillData->byLevelUpPoint))));
 	return Py_BuildValue("si", c_pSkillData->strRequireSkillName.c_str(), ireqLevel);

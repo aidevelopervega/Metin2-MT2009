@@ -15,8 +15,10 @@ import ast
 import collections
 import hashlib
 import json
+import os
 import pathlib
 import re
+import subprocess
 import sys
 import warnings
 
@@ -25,6 +27,7 @@ from lib2to3 import refactor  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORK = ROOT / "build" / "python311_migration"
+CLIENT_FILES = ROOT / "client" / "files"
 AREAS = ("root", "locale")
 
 # lib2to3 donusturuculerinden KASITLI olarak cikarilanlar:
@@ -293,13 +296,303 @@ def cmd_compile(a):
     return 1 if bad else 0
 
 
+def _ensure_hashseed_zero():
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        env = dict(os.environ, PYTHONHASHSEED="0")
+        rc = subprocess.call([sys.executable, str(pathlib.Path(__file__).resolve())] + sys.argv[1:], env=env)
+        sys.exit(rc)
+
+
+def build_lib_into(dst_lib: pathlib.Path, template_manifest_path: pathlib.Path) -> dict:
+    import importlib._bootstrap_external as ibe
+    import importlib.util
+    import shutil
+
+    py311_root = pathlib.Path(sys.base_prefix)
+    py311_lib = py311_root / "Lib"
+    py311_dlls = py311_root / "DLLs"
+    sjson_bak = WORK / "lib_py27_backup" / "simplejson"
+    tpl = json.loads(template_manifest_path.read_text(encoding="utf-8"))
+    if dst_lib.exists():
+        shutil.rmtree(dst_lib)
+    dst_lib.mkdir(parents=True, exist_ok=True)
+    files_out = {}
+    pyc_count = 0
+    pyd_count = 0
+    for rel in sorted(tpl["files"]):
+        out_path = dst_lib / rel
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        if rel.endswith(".pyd"):
+            raw = (py311_dlls / rel).read_bytes()
+            out_path.write_bytes(raw)
+            pyd_count += 1
+        elif rel.endswith(".pyc"):
+            py_rel = rel[:-1]
+            if rel.startswith("simplejson/"):
+                src_path = sjson_bak / py_rel[len("simplejson/"):]
+            else:
+                src_path = py311_lib / py_rel
+            raw_src = src_path.read_bytes()
+            co = compile(raw_src, "lib/" + py_rel, "exec", dont_inherit=True)
+            sh = importlib.util.source_hash(raw_src)
+            raw = ibe._code_to_hash_pyc(co, sh, checked=True)
+            out_path.write_bytes(raw)
+            pyc_count += 1
+        else:
+            continue
+        files_out[rel] = {
+            "sha256": sha256(raw),
+            "size": len(raw),
+            "verdict": tpl["files"][rel].get("verdict", "OK_CURRENT"),
+        }
+    manifest_out = {
+        "denied_unresolved": tpl.get("denied_unresolved", []),
+        "files": files_out,
+        "magic": importlib.util.MAGIC_NUMBER.hex(),
+        "modules": tpl.get("modules", {}),
+        "python": sys.version,
+    }
+    (dst_lib / "MANIFEST.json").write_text(json.dumps(manifest_out, indent=1, sort_keys=True), encoding="utf-8")
+    return {"pyc": pyc_count, "pyd": pyd_count, "total": pyc_count + pyd_count, "manifest": manifest_out}
+
+
+def stage_and_repack_into(extracted_dir: pathlib.Path, converted_dir: pathlib.Path, staging_dir: pathlib.Path, out_pack_dir: pathlib.Path) -> dict:
+    import shutil
+    tool_exe = WORK / "bin" / "eterpack_py_tool.exe"
+    if not tool_exe.is_file():
+        raise FileNotFoundError(f"Eksik EterPack araci: {tool_exe}")
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    if out_pack_dir.exists():
+        shutil.rmtree(out_pack_dir)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    out_pack_dir.mkdir(parents=True, exist_ok=True)
+    counts = {}
+    for pack_name in ("root", "locale"):
+        src_ext = extracted_dir / pack_name
+        dst_stg = staging_dir / pack_name
+        shutil.copytree(src_ext, dst_stg)
+        src_conv = converted_dir / pack_name
+        overlaid = 0
+        for dp, _, fns in os.walk(src_conv):
+            for fn in fns:
+                rel = pathlib.Path(dp, fn).relative_to(src_conv)
+                target = dst_stg / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(pathlib.Path(dp, fn), target)
+                overlaid += 1
+        out_prefix = str(out_pack_dir / pack_name)
+        subprocess.check_call([str(tool_exe), "pack", str(dst_stg), out_prefix], stdout=subprocess.DEVNULL)
+        subprocess.check_call([str(tool_exe), "verify", out_prefix, str(dst_stg)], stdout=subprocess.DEVNULL)
+        counts[pack_name] = {
+            "overlaid_py": overlaid,
+            "index_sha256": sha256((out_pack_dir / f"{pack_name}.index").read_bytes()),
+            "data_sha256": sha256((out_pack_dir / f"{pack_name}.data").read_bytes()),
+        }
+    return counts
+
+
+def deploy_packs_into(src_out2: pathlib.Path, target_pack_dir: pathlib.Path, backup_dir: pathlib.Path, apply: bool = False) -> dict:
+    import shutil
+    plan = {"apply": apply, "files": {}}
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("root.index", "root.data", "locale.index", "locale.data"):
+        src = src_out2 / name
+        dst = target_pack_dir / name
+        bak = backup_dir / name
+        if not src.is_file():
+            raise FileNotFoundError(f"Eksik Python 3.11 paket ciktisi: {src}")
+        if not dst.is_file():
+            raise FileNotFoundError(f"Eksik hedef paket dosyasi: {dst}")
+        if not bak.is_file():
+            shutil.copy2(dst, bak)
+        plan["files"][name] = {
+            "backup_sha256": sha256(bak.read_bytes()),
+            "current_target_sha256": sha256(dst.read_bytes()),
+            "new_py311_sha256": sha256(src.read_bytes()),
+        }
+        if apply:
+            shutil.copy2(src, dst)
+            plan["files"][name]["deployed_target_sha256"] = sha256(dst.read_bytes())
+    return plan
+
+
+def rollback_packs_into(target_pack_dir: pathlib.Path, backup_dir: pathlib.Path, apply: bool = False) -> dict:
+    import shutil
+    plan = {"apply": apply, "files": {}}
+    for name in ("root.index", "root.data", "locale.index", "locale.data"):
+        bak = backup_dir / name
+        dst = target_pack_dir / name
+        if not bak.is_file():
+            raise FileNotFoundError(f"Eksik yedek paket dosyasi: {bak}")
+        plan["files"][name] = {
+            "backup_sha256": sha256(bak.read_bytes()),
+            "before_rollback_sha256": sha256(dst.read_bytes()) if dst.is_file() else None,
+        }
+        if apply:
+            shutil.copy2(bak, dst)
+            plan["files"][name]["restored_target_sha256"] = sha256(dst.read_bytes())
+    return plan
+
+
+def cmd_build_lib(a):
+    _ensure_hashseed_zero()
+    tpl_path = CLIENT_FILES / "lib" / "MANIFEST.json"
+    res = build_lib_into(CLIENT_FILES / "lib", tpl_path)
+    print("BUILD_LIB pyc=%d pyd=%d total=%d hashseed=0" % (res["pyc"], res["pyd"], res["total"]))
+    return 0
+
+
+def cmd_stage_repack(a):
+    counts = stage_and_repack_into(WORK / "extracted", WORK / "converted", WORK / "staging", WORK / "out2")
+    print("STAGE_AND_REPACK", json.dumps(counts))
+    return 0
+
+
+def cmd_verify_repro(a):
+    import shutil
+    _ensure_hashseed_zero()
+    tool_exe = WORK / "bin" / "eterpack_py_tool.exe"
+    repro_dir = WORK / "repro_verify"
+    if repro_dir.exists():
+        shutil.rmtree(repro_dir)
+    repro_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # 1) Orijinal client/files/pack/{root,locale}.{index,data} ile orig_pack yedeklerinin bayt-bayt esitligini dogrula
+        orig_pack_hashes = {}
+        orig_pack_intact = True
+        for name in ("root.index", "root.data", "locale.index", "locale.data"):
+            h_client = sha256((CLIENT_FILES / "pack" / name).read_bytes())
+            h_backup = sha256((WORK / "orig_pack" / name).read_bytes())
+            orig_pack_hashes[name] = {"client_pack_sha256": h_client, "orig_pack_backup_sha256": h_backup, "identical": h_client == h_backup}
+            if h_client != h_backup:
+                orig_pack_intact = False
+
+        # 2) Temiz gecici dizinde orig_pack'ten root ve locale paketlerini cikar ve extracted/ ile karsilastir
+        repro_ext = repro_dir / "extracted"
+        ext_counts = {}
+        ext_match = True
+        for pack_name in ("root", "locale"):
+            out_sub = repro_ext / pack_name
+            out_sub.mkdir(parents=True, exist_ok=True)
+            subprocess.check_call([str(tool_exe), "extract", str(WORK / "orig_pack" / pack_name), str(out_sub)], stdout=subprocess.DEVNULL)
+            n_files = 0
+            for dp, _, fns in os.walk(out_sub):
+                for fn in fns:
+                    n_files += 1
+                    rel = pathlib.Path(dp, fn).relative_to(out_sub)
+                    if pathlib.Path(dp, fn).read_bytes() != (WORK / "extracted" / pack_name / rel).read_bytes():
+                        ext_match = False
+            ext_counts[pack_name] = n_files
+
+        # 3) Temiz gecici dizinde 270 paket .py dosyasini bastan donustur ve converted/ ile SHA-256 karsilastir
+        repro_conv = repro_dir / "converted"
+        tool = make_tool()
+        conv_total = 0
+        conv_match = 0
+        for area in AREAS:
+            for rel, p in iter_py(area, repro_ext):
+                conv_total += 1
+                raw = p.read_bytes()
+                text, _enc = decode_source(raw)
+                out, _nl, _applied, _dstats = convert_text(tool, text, rel)
+                out_bytes = out.encode("utf-8")
+                dst = repro_conv / area / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(out_bytes)
+                if out_bytes == (WORK / "converted" / area / rel).read_bytes():
+                    conv_match += 1
+
+        # 4) Temiz gecici dizinde staging + EterPack pack + verify calistir ve out2/ ile karsilastir
+        repro_stg = repro_dir / "staging"
+        repro_out2 = repro_dir / "out2"
+        pack_res = stage_and_repack_into(repro_ext, repro_conv, repro_stg, repro_out2)
+        out2_match = True
+        for pack_name in ("root", "locale"):
+            # out2 arsivinin de yeni uretilen repro_stg/pack_name ile 100% bayt-bayt eslestigini dogrula
+            rc_ver = subprocess.call([str(tool_exe), "verify", str(WORK / "out2" / pack_name), str(repro_stg / pack_name)], stdout=subprocess.DEVNULL)
+            pack_res[pack_name]["out2_verified_against_repro_staging"] = (rc_ver == 0)
+            if rc_ver != 0:
+                out2_match = False
+            for ext in ("index", "data"):
+                h_repro = sha256((repro_out2 / f"{pack_name}.{ext}").read_bytes())
+                h_out2 = sha256((WORK / "out2" / f"{pack_name}.{ext}").read_bytes())
+                pack_res[pack_name][f"archive_sha256_identical_{ext}"] = (h_repro == h_out2)
+                pack_res[pack_name][f"out2_{ext}_sha256"] = h_out2
+                if h_repro != h_out2:
+                    out2_match = False
+
+        # 5) Temiz gecici dizinde 278 dosyalik lib'i bastan derle ve client/files/lib ile SHA-256 karsilastir
+        repro_lib = repro_dir / "lib"
+        lib_res = build_lib_into(repro_lib, CLIENT_FILES / "lib" / "MANIFEST.json")
+        lib_sha_match = 0
+        for rel, meta in lib_res["manifest"]["files"].items():
+            cur_bytes = (CLIENT_FILES / "lib" / rel).read_bytes()
+            if sha256(cur_bytes) == meta["sha256"]:
+                lib_sha_match += 1
+
+        # 6) Izole hedef dizinde deploy + rollback dongusunu calistir ve 0 veri kaybi ile geri donusu kanitla
+        mock_pack = repro_dir / "mock_pack"
+        mock_bak = repro_dir / "mock_backup"
+        mock_pack.mkdir(parents=True, exist_ok=True)
+        for name in ("root.index", "root.data", "locale.index", "locale.data"):
+            shutil.copy2(WORK / "orig_pack" / name, mock_pack / name)
+        deploy_plan = deploy_packs_into(repro_out2, mock_pack, mock_bak, apply=True)
+        deployed_ok = all(v["deployed_target_sha256"] == v["new_py311_sha256"] for v in deploy_plan["files"].values())
+        rollback_plan = rollback_packs_into(mock_pack, mock_bak, apply=True)
+        rollback_ok = all(v["restored_target_sha256"] == v["backup_sha256"] for v in rollback_plan["files"].values())
+
+        report = {
+            "clean_git_clone_status": "BLOCKED (client/files/** ve build/** .gitignore kapsamindadir; Git deposu yalnizca kaynak kod ve araclari icerir)",
+            "workspace_with_original_inputs_status": "VERIFIED" if (orig_pack_intact and ext_match and conv_match == conv_total and out2_match and lib_sha_match == lib_res["total"] and deployed_ok and rollback_ok) else "FAIL",
+            "orig_pack_matches_client_files_pack": orig_pack_intact,
+            "orig_pack_hashes": orig_pack_hashes,
+            "extracted_repro": {"counts": ext_counts, "all_923_identical": ext_match},
+            "converted_repro": {"total": conv_total, "sha256_identical": conv_match},
+            "pack_out2_repro": {"packs": pack_res, "all_4_archives_identical": out2_match},
+            "lib_repro": {"total": lib_res["total"], "pyc": lib_res["pyc"], "pyd": lib_res["pyd"], "sha256_identical": lib_sha_match},
+            "deploy_and_rollback_simulation": {"deployed_matches_out2": deployed_ok, "rollback_restores_orig_pack": rollback_ok},
+        }
+        (WORK / "manifest" / "reproducibility_and_deployment.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        print("REPRO_VERIFY status=%s orig_pack_intact=%s extracted_923=%s converted=%d/%d out2_4_identical=%s lib=%d/%d deploy_rollback=%s" % (
+            report["workspace_with_original_inputs_status"], orig_pack_intact, ext_match, conv_match, conv_total,
+            out2_match, lib_sha_match, lib_res["total"], deployed_ok and rollback_ok))
+        return 0 if report["workspace_with_original_inputs_status"] == "VERIFIED" else 1
+    finally:
+        if repro_dir.exists():
+            shutil.rmtree(repro_dir)
+
+
+def cmd_deploy_packs(a):
+    plan = deploy_packs_into(WORK / "out2", CLIENT_FILES / "pack", WORK / "orig_pack", apply=a.apply)
+    print("DEPLOY_PACKS apply=%s" % a.apply, json.dumps(plan, indent=2))
+    return 0
+
+
+def cmd_rollback_packs(a):
+    plan = rollback_packs_into(CLIENT_FILES / "pack", WORK / "orig_pack", apply=a.apply)
+    print("ROLLBACK_PACKS apply=%s" % a.apply, json.dumps(plan, indent=2))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["inventory", "convert", "verify-compile"])
+    ap.add_argument("cmd", choices=["inventory", "convert", "verify-compile", "build-lib", "stage-and-repack", "verify-reproducibility", "deploy-packs", "rollback-packs"])
+    ap.add_argument("--apply", action="store_true", help="deploy-packs / rollback-packs icin gercek kopyalama uygula (varsayilan: dry-run)")
     a = ap.parse_args()
     if sys.version_info[:2] != (3, 11):
         print("UYARI: CPython 3.11 bekleniyor, bulunan", sys.version)
-    return {"inventory": cmd_inventory, "convert": cmd_convert, "verify-compile": cmd_compile}[a.cmd](a)
+    dispatch = {
+        "inventory": cmd_inventory,
+        "convert": cmd_convert,
+        "verify-compile": cmd_compile,
+        "build-lib": cmd_build_lib,
+        "stage-and-repack": cmd_stage_repack,
+        "verify-reproducibility": cmd_verify_repro,
+        "deploy-packs": cmd_deploy_packs,
+        "rollback-packs": cmd_rollback_packs,
+    }
+    return dispatch[a.cmd](a)
 
 
 if __name__ == "__main__":

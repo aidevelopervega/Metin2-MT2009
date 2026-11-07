@@ -6,6 +6,8 @@ pushd "%ROOT%"
 call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul
 set "OUT=build\python311_migration\bin"
 if not exist "%OUT%" mkdir "%OUT%"
+cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c client\src\EterPack\EterPack.cpp /Fo:"build\obj_x64\mileslib_prod\EterPack.obj"
+if errorlevel 1 exit /b 1
 cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c tests\eterpack_py_tool.cpp /Fo:"%OUT%\eterpack_py_tool.obj"
 if errorlevel 1 exit /b 1
 link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /OUT:"%OUT%\eterpack_py_tool.exe" "%OUT%\eterpack_py_tool.obj" ^

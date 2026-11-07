@@ -1166,7 +1166,7 @@ TEterPackIndex* CEterPack::NewIndex(CFileBase& file, const char* filename, long 
 
 	if (!index)
 	{
-		index = new TEterPackIndex;
+		index = new TEterPackIndex{};
 		index->real_data_size = block_size;
 		index->id = GetNewIndexPosition(file);
 	}

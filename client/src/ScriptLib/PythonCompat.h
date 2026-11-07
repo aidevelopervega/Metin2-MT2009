@@ -39,7 +39,7 @@ inline bool M2PyString_Check(PyObject* poItem)
 // AYNI baytlar geri uretilmelidir (Py2: char* ham bayt). Strict PyUnicode_AsUTF8 bu str'lerde NULL + UnicodeEncodeError verir.
 inline char* M2Py_SurrogateEscapedBytes(PyObject* poItem)
 {
-	static thread_local std::string s_ring[16];   // donen isaretci cagri suresince gecerli kalmali (PyUnicode_AsUTF8 onbellek semantigi gibi)
+	static thread_local std::string s_ring[256];  // donen isaretci cagri zinciri suresince gecerli kalmali (256 eszamanli slot)
 	static thread_local unsigned s_idx = 0;
 	PyObject* poBytes = PyUnicode_AsEncodedString(poItem, "utf-8", "surrogateescape");
 	if (!poBytes)
@@ -47,7 +47,7 @@ inline char* M2Py_SurrogateEscapedBytes(PyObject* poItem)
 		PyErr_Clear();
 		return nullptr;
 	}
-	std::string& slot = s_ring[s_idx++ & 15];
+	std::string& slot = s_ring[s_idx++ & 255U];
 	slot.assign(PyBytes_AS_STRING(poBytes), static_cast<size_t>(PyBytes_GET_SIZE(poBytes)));
 	Py_DECREF(poBytes);
 	return slot.data();
@@ -97,18 +97,99 @@ namespace m2py_detail
 		if (!c_szFormat)
 			return false;
 		bool hasString = false;
+		int parenDepth = 0;
+		char prev = '\0';
 		for (; *c_szFormat; ++c_szFormat)
 		{
 			const char c = *c_szFormat;
-			if (c == 's' || c == 'z')
+			if (c == '(')
+			{
+				++parenDepth;
+			}
+			else if (c == ')')
+			{
+				if (--parenDepth < 0)
+					return false;
+			}
+			else if (c == '#')
+			{
+				if (prev != 's' && prev != 'z')
+					return false;
+			}
+			else if (c == 's' || c == 'z')
+			{
 				hasString = true;
-			else if (!IsSeparator(c) && !std::strchr("()#bBhHiIlkLKnfdONS", c))
+			}
+			else if (!IsSeparator(c) && !std::strchr("bBhHiIlkLKnfdONS", c))
+			{
 				return false;
+			}
+			prev = c;
 		}
-		return hasString;
+		return hasString && parenDepth == 0;
 	}
 
 	inline PyObject* BuildItem(const char*& f, va_list* ap);
+
+	inline void ConsumeRemainingOnError(const char*& f, va_list* ap)
+	{
+		PyObject *pExcType = nullptr, *pExcVal = nullptr, *pExcTb = nullptr;
+		PyErr_Fetch(&pExcType, &pExcVal, &pExcTb);
+		while (*f)
+		{
+			const char c = *f++;
+			if (IsSeparator(c) || c == '(' || c == ')')
+				continue;
+			switch (c)
+			{
+				case 's':
+				case 'z':
+					(void)va_arg(*ap, const char*);
+					if (*f == '#')
+					{
+						++f;
+						(void)va_arg(*ap, Py_ssize_t);
+					}
+					break;
+				case 'b': case 'B': case 'h': case 'H': case 'i':
+					(void)va_arg(*ap, int);
+					break;
+				case 'I':
+					(void)va_arg(*ap, unsigned int);
+					break;
+				case 'l':
+					(void)va_arg(*ap, long);
+					break;
+				case 'k':
+					(void)va_arg(*ap, unsigned long);
+					break;
+				case 'L':
+					(void)va_arg(*ap, long long);
+					break;
+				case 'K':
+					(void)va_arg(*ap, unsigned long long);
+					break;
+				case 'n':
+					(void)va_arg(*ap, Py_ssize_t);
+					break;
+				case 'f': case 'd':
+					(void)va_arg(*ap, double);
+					break;
+				case 'O': case 'S':
+					(void)va_arg(*ap, PyObject*);
+					break;
+				case 'N':
+				{
+					PyObject* poStolen = va_arg(*ap, PyObject*);
+					Py_XDECREF(poStolen);
+					break;
+				}
+				default:
+					break;
+			}
+		}
+		PyErr_Restore(pExcType, pExcVal, pExcTb);
+	}
 
 	// chClose'a (veya format sonuna) kadar birimleri items'a ekler. Hata: items içindekiler serbest bırakılır, false döner.
 	inline bool BuildSequence(const char*& f, va_list* ap, char chClose, std::vector<PyObject*>& items)
@@ -165,20 +246,43 @@ namespace m2py_detail
 			case 'z':
 			{
 				const char* c_szStr = va_arg(*ap, const char*);
-				Py_ssize_t len = -1;
+				bool hasLen = false;
+				Py_ssize_t len = 0;
 				if (*f == '#')
 				{
 					++f;
+					hasLen = true;
 					len = va_arg(*ap, Py_ssize_t);
 				}
 				if (!c_szStr)
+				{
+					if (hasLen && len < 0)
+					{
+						PyErr_SetString(PyExc_SystemError, "Negative size passed to M2Py_BuildValue");
+						return nullptr;
+					}
 					Py_RETURN_NONE;
-				if (len < 0)
+				}
+				if (hasLen)
+				{
+					if (len < 0)
+					{
+						PyErr_SetString(PyExc_SystemError, "Negative size passed to PyUnicode_DecodeUTF8");
+						return nullptr;
+					}
+				}
+				else
+				{
 					len = static_cast<Py_ssize_t>(std::strlen(c_szStr));
+				}
 				return PyUnicode_DecodeUTF8(c_szStr, len, "surrogateescape");
 			}
-			case 'b': case 'B': case 'h': case 'H': case 'i':
-				return PyLong_FromLong(va_arg(*ap, int));
+			case 'b':
+			case 'B':
+			case 'h':
+			case 'H':
+			case 'i':
+				return PyLong_FromLong(static_cast<long>(va_arg(*ap, int)));
 			case 'I':
 				return PyLong_FromUnsignedLong(va_arg(*ap, unsigned int));
 			case 'l':
@@ -230,10 +334,23 @@ inline PyObject* M2Py_BuildValue(const char* c_szFormat, ...)
 		const char* f = c_szFormat;
 		if (m2py_detail::BuildSequence(f, &ap, '\0', items))
 		{
-			if (items.size() == 1)
+			if (items.size() == 0)
+			{
+				Py_INCREF(Py_None);
+				poResult = Py_None;
+			}
+			else if (items.size() == 1)
+			{
 				poResult = items[0];
+			}
 			else
+			{
 				poResult = m2py_detail::MakeTuple(items);
+			}
+		}
+		else
+		{
+			m2py_detail::ConsumeRemainingOnError(f, &ap);
 		}
 	}
 
