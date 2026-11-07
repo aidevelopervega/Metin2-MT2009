@@ -16,9 +16,11 @@
 #include "../client/src/ScriptLib/StdAfx.h"
 #include "../client/src/ScriptLib/PythonLauncher.h"
 #include "../client/src/ScriptLib/PythonUtils.h"
+#include "../client/src/MilesLib/SoundManager.h"
+#include "../client/src/UserInterface/StdAfx.h"
 #include "../client/src/UserInterface/PythonliblibManager.h"
-
-void initpack();
+#include "../client/src/UserInterface/PythonExchange.h"
+#include "../client/src/UserInterface/PythonSafeBox.h"
 
 namespace
 {
@@ -108,6 +110,9 @@ int main(int argc, char** argv)
 	CTimer timer;
 	ELTimer_Init();
 	CLZO lzo;
+	CSoundManager soundMgr;
+	CPythonExchange exchangeMgr;
+	CPythonSafeBox safeboxMgr;
 	CEterPackManager packMgr;
 	packMgr.SetCacheMode();
 	packMgr.SetSearchMode(CEterPackManager::SEARCH_PACK_FIRST);
@@ -127,7 +132,11 @@ int main(int argc, char** argv)
 	initliblibManager();
 	initpack();
 	initdbg();
-	std::printf("HARNESS real modules liblib/pack/dbg registered\n");
+	initProfiler();
+	initsnd();
+	initTrade();
+	initsafebox();
+	std::printf("HARNESS 7 real modules (liblib/pack/dbg/profiler/snd/exchange/safebox) registered\n");
 	if (!launcher.Create("Metin2Client_x64_Test"))
 	{
 		std::fprintf(stderr, "launcher.Create failed\n");

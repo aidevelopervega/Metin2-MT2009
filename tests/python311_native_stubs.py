@@ -1,14 +1,14 @@
 # MT2009 - python311_native_stubs.py
 # *** MOCKED_NATIVE ***  Gercek istemci C++ modulleri (app, wndMgr, player, net, grp, ...) bu test ortaminda
 # LINK EDILEMEZ (Granny2/SpeedTreeRT x64 SDK yok). Bu dosya yalnizca o modullerin ADLARINI taklit eder; sonuclari
-# "gercek oyun entegrasyonu" olarak SUNULAMAZ. Gercek olanlar: pack, dbg, liblib (C++ uretim kaynaklari).
+# "gercek oyun entegrasyonu" olarak SUNULAMAZ. Gercek olanlar: pack, dbg, liblib, profiler, snd, exchange, safebox (7 C++ uretim modulu).
 import sys, types, zlib, importlib.abc, importlib.machinery
 
 STUBBED = (
     "acce", "app", "appPlayerSettingsModule", "background", "captcha", "chat", "chr", "chrmgr", "effect", "event",
-    "eventMgr", "exchange", "fly", "grp", "grpImage", "grpText", "grpThing", "guild", "ikashop", "ime", "item",
-    "messenger", "miniMap", "net", "nonplayer", "player", "profiler", "quest", "safebox", "ServerStateChecker",
-    "shop", "skill", "snd", "systemSetting", "textTail", "udp", "wndMgr", "wndSlot", "wndText",
+    "eventMgr", "fly", "grp", "grpImage", "grpText", "grpThing", "guild", "ikashop", "ime", "item",
+    "messenger", "miniMap", "net", "nonplayer", "player", "quest", "ServerStateChecker",
+    "shop", "skill", "systemSetting", "textTail", "udp", "wndMgr", "wndSlot", "wndText",
 )
 CALLS = {}      # "modul.fonksiyon" -> cagri sayisi (kanit)
 OVERRIDES = {

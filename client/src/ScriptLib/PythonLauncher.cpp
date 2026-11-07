@@ -26,6 +26,42 @@ void CPythonLauncher::Clear()
 std::string g_stTraceBuffer[512];
 int	g_nCurTraceN = 0;
 
+static std::string M2FormatFetchedException(PyObject* exc, PyObject* v)
+{
+	std::string result;
+	if (exc && PyExceptionClass_Check(exc))
+	{
+		const char* className = PyExceptionClass_Name(exc);
+		if (className && *className)
+			result.append(className);
+	}
+	if (v && v != Py_None)
+	{
+		const char* errStr = nullptr;
+		PyObject* vStrObj = nullptr;
+		if (M2PyString_Check(v))
+		{
+			errStr = M2PyString_AsString(v);
+		}
+		else
+		{
+			vStrObj = PyObject_Str(v);
+			if (vStrObj)
+				errStr = M2PyString_AsString(vStrObj);
+			else
+				PyErr_Clear();
+		}
+		if (errStr && *errStr)
+		{
+			if (!result.empty())
+				result.append(": ");
+			result.append(errStr);
+		}
+		Py_XDECREF(vStrObj);
+	}
+	return result;
+}
+
 void Traceback()
 {
 	std::string str;
@@ -36,23 +72,19 @@ void Traceback()
 		str.append("\n");
 	}
 
-	PyObject * exc;
-	PyObject * v;
-	PyObject * tb;
-	const char * errStr;
+	PyObject * exc = nullptr;
+	PyObject * v = nullptr;
+	PyObject * tb = nullptr;
 
 	PyErr_Fetch(&exc, &v, &tb);
 
-	if (M2PyString_Check(v))
+	const std::string errText = M2FormatFetchedException(exc, v);
+	if (!errText.empty())
 	{
-		errStr = M2PyString_AsString(v);
-		if (errStr)
-		{
-			str.append("Error: ");
-			str.append(errStr);
+		str.append("Error: ");
+		str.append(errText);
 
-			Tracef("%s\n", errStr);
-		}
+		Tracef("%s\n", errText.c_str());
 	}
 	Py_XDECREF(exc);
 	Py_XDECREF(v);
@@ -285,16 +317,52 @@ bool CPythonLauncher::RunLine(const char* c_szSrc)
 
 const char* CPythonLauncher::GetError()
 {
-	PyObject* exc;
-	PyObject* v;
-	PyObject* tb;
+	static thread_local std::string s_stLastError;
+	s_stLastError.clear();
+
+	PyObject* exc = nullptr;
+	PyObject* v = nullptr;
+	PyObject* tb = nullptr;
 
 	PyErr_Fetch(&exc, &v, &tb);
 
-	if (M2PyString_Check(v))
-		return M2PyString_AsString(v);
+	if (v && v != Py_None)
+	{
+		if (M2PyString_Check(v))
+		{
+			const char* c_szErr = M2PyString_AsString(v);
+			if (c_szErr)
+				s_stLastError = c_szErr;
+		}
+		else
+		{
+			PyObject* poStr = PyObject_Str(v);
+			if (poStr)
+			{
+				const char* c_szErr = M2PyString_AsString(poStr);
+				if (c_szErr)
+					s_stLastError = c_szErr;
+				Py_DECREF(poStr);
+			}
+			else
+			{
+				PyErr_Clear();
+			}
+		}
+	}
 
-	return "";
+	if (s_stLastError.empty() && exc && PyExceptionClass_Check(exc))
+	{
+		const char* c_szClass = PyExceptionClass_Name(exc);
+		if (c_szClass)
+			s_stLastError = c_szClass;
+	}
+
+	Py_XDECREF(exc);
+	Py_XDECREF(v);
+	Py_XDECREF(tb);
+
+	return s_stLastError.c_str();
 }
 //martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f
 

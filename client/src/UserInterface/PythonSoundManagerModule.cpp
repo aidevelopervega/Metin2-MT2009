@@ -1,5 +1,9 @@
 #include "StdAfx.h"
+#if defined(MT2_PYTHON_MODULE_ONLY)
+#include "../milesLib/SoundManager.h"
+#else
 #include "PythonApplication.h"
+#endif
 
 PyObject * sndPlaySound(PyObject * poSelf, PyObject * poArgs)
 {

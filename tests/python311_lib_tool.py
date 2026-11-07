@@ -14,12 +14,13 @@ MAGIC_NAMES = {62211: "python2.7", 3413: "python3.8", 3425: "python3.9",
                3439: "python3.10", 3495: "python3.11", 3531: "python3.12"}
 STDLIB = Path(sys.base_prefix) / "Lib"
 DLLS = Path(sys.base_prefix) / "DLLs"
-DENY = {"_hashlib", "_ssl", "_tkinter", "tkinter", "_sqlite3", "sqlite3", "_ctypes", "ctypes", "_testcapi",
+DENY = {"_hashlib", "_ssl", "ssl", "_tkinter", "tkinter", "_sqlite3", "sqlite3", "_ctypes", "ctypes", "_testcapi",
         "_testbuffer", "_testinternalcapi", "_testmultiphase", "_testimportmultiple", "_testconsole",
         "_ctypes_test", "_msi", "_multiprocessing", "idlelib", "test", "turtledemo", "turtle", "ensurepip",
-        "lib2to3", "distutils", "pydoc_data", "unittest", "doctest", "pdb", "asyncio", "_asyncio", "_overlapped",
+        "lib2to3", "distutils", "pydoc_data", "pydoc", "unittest", "doctest", "pdb", "asyncio", "_asyncio", "_overlapped",
         "multiprocessing", "concurrent", "email", "http", "xmlrpc", "ftplib", "smtplib", "imaplib",
-        "poplib", "nntplib", "telnetlib", "socketserver", "wsgiref", "venv", "zipapp", "curses"}
+        "poplib", "nntplib", "telnetlib", "socketserver", "wsgiref", "venv", "zipapp", "curses",
+        "tty", "termios", "importlib.metadata", "urllib.request", "xml.sax.expatreader", "xml.sax.saxutils"}
 ALWAYS = ["encodings", "codecs", "io", "abc", "os", "stat", "ntpath", "genericpath", "_collections_abc",
           "types", "warnings", "functools", "collections", "keyword", "operator", "reprlib", "heapq", "re",
           "enum", "sre_compile", "sre_parse", "sre_constants", "copyreg", "linecache", "tokenize", "token",
@@ -128,7 +129,7 @@ def closure(seeds):
             continue
         seen.add(name)
         parts = name.split(".")
-        if parts[0] in DENY or name in DENY:
+        if any(".".join(parts[:i]) in DENY for i in range(1, len(parts) + 1)):
             continue
         for i in range(1, len(parts)):
             todo.append(".".join(parts[:i]))

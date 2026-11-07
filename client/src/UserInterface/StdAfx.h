@@ -16,6 +16,32 @@
 #if defined(MT2_PYTHON_MODULE_ONLY)
 #include "../eterBase/StdAfx.h"
 #include "../scriptLib/StdAfx.h"
+#include "Locale.h"
+#include "../../../server/src/common/length.h"
+#include "../../../server/src/common/item_length.h"
+typedef DWORD ITEM_COUNT;
+typedef long long YANG;
+enum
+{
+	ITEM_SOCKET_SLOT_MAX_NUM = 3,
+	ITEM_ATTRIBUTE_SLOT_MAX_NUM = 7,
+};
+#pragma pack(push, 1)
+typedef struct TPlayerItemAttribute
+{
+	BYTE bType;
+	short sValue;
+} TPlayerItemAttribute;
+typedef struct packet_item
+{
+	DWORD vnum;
+	ITEM_COUNT count;
+	DWORD flags;
+	DWORD anti_flags;
+	long alSockets[ITEM_SOCKET_SLOT_MAX_NUM];
+	TPlayerItemAttribute aAttr[ITEM_ATTRIBUTE_SLOT_MAX_NUM];
+} TItemData;
+#pragma pack(pop)
 #else
 #include "../eterLib/StdAfx.h"
 #include "../eterPythonLib/StdAfx.h"

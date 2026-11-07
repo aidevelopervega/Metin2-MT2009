@@ -199,11 +199,19 @@ PATCHES = {
     "utils.py": [
         ("WHITE_LIST = ['__builtin__', 'types', __name__, '__main__', 'sys']", "WHITE_LIST = ['builtins', 'types', __name__, '__main__', 'sys']", 1),
         ("apply(*self.clickEvent)", "self.clickEvent[0](*self.clickEvent[1])", 3),
+        ("\tfor n in value:\n\t\tif n not in nvalue:\n\t\t\tdel value[n]\n",
+         "\tfor n in list(value):\n\t\tif n not in nvalue:\n\t\t\tdel value[n]\n", 1),
     ],
     "uiquest.py": [("list(map(apply,z))", "[fn() for fn in z]", 1)],
     "ui.py": [
         ("\t\timport exceptions\n", "", 1),
         ("int(round(y))", "(int(y + 0.5) if y >= 0 else int(y - 0.5))", 1),  # Python 2 round(): .5 sifirdan uzaga
+    ],
+    "uitooltip.py": [
+        ("def chop(n):\n\treturn round(n - 0.5, 1)\n",
+         "def chop(n):\n\t_v = (n - 0.5) * 10.0\n\treturn (int(_v + 0.5) if _v >= 0 else int(_v - 0.5)) / 10.0\n", 1),
+        ("valueCalc\t= round(value * abs) / 100",
+         "valueCalc\t= float(int(value * abs + 0.5) if (value * abs) >= 0 else int(value * abs - 0.5)) / 100", 1),
     ],
 }
 

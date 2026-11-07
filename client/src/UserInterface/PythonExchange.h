@@ -1,6 +1,8 @@
 #pragma once
 
+#if !defined(MT2_PYTHON_MODULE_ONLY)
 #include "Packet.h"
+#endif
 
 class CPythonExchange : public CSingleton<CPythonExchange>
 {

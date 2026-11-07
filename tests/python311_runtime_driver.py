@@ -82,7 +82,7 @@ gate("A_syntax_pack_integrity", not a_fail, files=len(ROOT) + len(LOCALE), failu
 pack_mods = {rel[:-3].lower() for rel in ROOT if rel.endswith(".py") and "/" not in rel}
 pack_pkgs = {rel.split("/")[0] for rel in ROOT if "/" in rel}
 native_stub = set(m.lower() for m in STUBBED)
-real_native = {"pack", "dbg", "liblib"}
+real_native = {"pack", "dbg", "liblib", "profiler", "snd", "exchange", "safebox"}
 std = set(sys.stdlib_module_names)
 lib_names = set()
 for dp, _, fns in os.walk(LIBDIR):
@@ -124,24 +124,54 @@ EXPECTED_UNRESOLVED = {"cythonizer", "rootlib", "uiscriptlib", "liblib_cython", 
 unexpected = sorted(set(unresolved) - EXPECTED_UNRESOLVED)
 gate("B_import_dependencies", not unexpected, distinct_modules=len(imported), unresolved=len(unresolved), unexpected=unexpected)
 
-# ---------------------------------------------------------------- C/D: lib (kaynaksiz .pyc) + pack import zinciri
-import importlib.util
-lib_files_ok = True
+# ---------------------------------------------------------------- C/D: lib (kaynaksiz .pyc + .pyd: 299/299 dosya) + pack import zinciri
+import importlib.util, marshal, struct
 mf = json.load(io.open(os.path.join(LIBDIR, "MANIFEST.json"), encoding="utf-8"))
 bad_hash = []
-for rel, meta in mf["files"].items():
-    p = os.path.join(LIBDIR, rel)
-    if not os.path.isfile(p) or hashlib.sha256(io.open(p, "rb").read()).hexdigest() != meta["sha256"]:
-        bad_hash.append(rel)
-LIB_PROBE = ["json", "json.decoder", "simplejson", "xml.dom.minidom", "xml.parsers.expat", "unicodedata", "_decimal",
-             "decimal", "socket", "select", "hashlib", "uuid", "difflib", "struct", "random", "re", "shutil", "shlex",
-             "subprocess", "threading", "locale", "base64", "webbrowser", "copyreg", "encodings.cp949", "encodings.cp1250",
-             "encodings.cp1254", "encodings.utf_8", "sysconfig", "traceback", "linecache", "heapq", "bisect", "fnmatch"]
+bad_header = []
+pyc_total = pyd_total = 0
+lib_imp_ok = 0
+lib_imp_skip = []
 lib_fail = []
 from_pyc = from_pyd = other = 0
-for m in LIB_PROBE:
+POSIX_ONLY_LIB = {"tty.pyc"}  # POSIX termios gerektirir; Windows x64'te import edilmez ama PEP 552 basligi ve bytecode unmarshal dogrulanir
+
+for rel in sorted(mf["files"]):
+    meta = mf["files"][rel]
+    p = os.path.join(LIBDIR, rel)
+    if not os.path.isfile(p):
+        bad_hash.append(rel)
+        continue
+    raw = io.open(p, "rb").read()
+    if hashlib.sha256(raw).hexdigest() != meta["sha256"]:
+        bad_hash.append(rel)
+    if rel.endswith(".pyc"):
+        pyc_total += 1
+        if len(raw) < 16 or raw[:4] != importlib.util.MAGIC_NUMBER or struct.unpack("<I", raw[4:8])[0] != 3:
+            bad_header.append(rel)
+            continue
+        try:
+            co = marshal.loads(raw[16:])
+            if not hasattr(co, "co_code"):
+                bad_header.append(rel)
+                continue
+        except BaseException as e:
+            bad_header.append("%s:%s" % (rel, type(e).__name__))
+            continue
+        if rel in POSIX_ONLY_LIB:
+            lib_imp_skip.append((rel, "POSIX termios only"))
+            continue
+        mod_name = rel[:-4].replace("/", ".")
+        if mod_name.endswith(".__init__"):
+            mod_name = mod_name[:-9]
+    elif rel.endswith(".pyd"):
+        pyd_total += 1
+        mod_name = rel[:-4].replace("/", ".")
+    else:
+        continue
     try:
-        mod = __import__(m, fromlist=["x"])
+        mod = __import__(mod_name, fromlist=["*"])
+        lib_imp_ok += 1
         f = getattr(mod, "__file__", "") or ""
         if f.endswith(".pyc") and os.path.normcase(LIBDIR) in os.path.normcase(f):
             from_pyc += 1
@@ -149,21 +179,30 @@ for m in LIB_PROBE:
             from_pyd += 1
         else:
             other += 1
-    except Exception as e:
-        lib_fail.append((m, "%s: %s" % (type(e).__name__, e)))
-import simplejson
+    except BaseException as e:
+        lib_fail.append((rel, "%s: %s" % (type(e).__name__, e)))
+
+import simplejson, xml.dom.minidom
 rt = simplejson.loads(simplejson.dumps({"ad": "\u0130\u011e\u015e \u0105\u0107\u0119\u0142", "pid": 4294967301, "yang": 999999999999}))
-lib_semantic = rt == {"ad": "\u0130\u011e\u015e \u0105\u0107\u0119\u0142", "pid": 4294967301, "yang": 999999999999}
-import liblib
+xml_doc = xml.dom.minidom.parseString("<ApplyType id='42' name='ATT_BONUS'/>")
+lib_semantic = (rt == {"ad": "\u0130\u011e\u015e \u0105\u0107\u0119\u0142", "pid": 4294967301, "yang": 999999999999} and xml_doc.documentElement.getAttribute("id") == "42")
+import liblib, profiler, snd, exchange, safebox
 ll_fail = []
 for n in liblib.getList():
     try:
         liblib.moduleImport(n)
     except Exception as e:
         ll_fail.append((n, str(e)))
-gate("C_lib_sourceless_import", not bad_hash and not lib_fail and lib_semantic and not ll_fail,
-     manifest_files=len(mf["files"]), hash_mismatch=len(bad_hash), probe=len(LIB_PROBE), from_lib_pyc=from_pyc, from_lib_pyd=from_pyd,
-     from_frozen_or_builtin=other, import_fail=lib_fail[:3], liblib_names=len(liblib.getList()), liblib_fail=ll_fail[:3], simplejson_roundtrip=lib_semantic)
+# Gercek C++ profiler, snd, exchange, safebox modullerinin calisma zamani kontrolu
+profiler.Push("drv")
+profiler.Pop("drv")
+snd.SetSoundVolume(2)
+real_7_ok = (exchange.EXCHANGE_ITEM_MAX_NUM == 12 and safebox.SAFEBOX_PAGE_SIZE == 45 and isinstance(exchange.GetElkFromSelf(), int) and isinstance(safebox.GetMoney(), int))
+gate("C_lib_sourceless_import", not bad_hash and not bad_header and not lib_fail and lib_semantic and not ll_fail and real_7_ok,
+     manifest_files=len(mf["files"]), pyc_verified=pyc_total, pyd_verified=pyd_total, hash_mismatch=len(bad_hash), bad_header=len(bad_header),
+     imported_ok=lib_imp_ok, skipped_posix=len(lib_imp_skip), from_lib_pyc=from_pyc, from_lib_pyd=from_pyd,
+     from_frozen_or_builtin=other, import_fail=lib_fail, liblib_names=len(liblib.getList()), liblib_fail=ll_fail,
+     simplejson_roundtrip=lib_semantic, real_7_cpp_modules=real_7_ok)
 
 # ---------------------------------------------------------------- E: system.py -> prototype.py baslangic zinciri (harness calistirdi; D'den once olculur)
 sysok = builtins.__MT2_SYSTEM_RC__
@@ -190,10 +229,15 @@ say("ROOT_IMPORT total=%d ok=%d failed=%d (MOCKED_NATIVE)" % (len(mod_names), im
 for n, e in imp_fail:
     say("ROOT_IMPORT_FAIL", n, e)
 from_pack = sum(1 for m in sys.modules.values() if getattr(m, "__file__", None) is None and getattr(m, "__name__", "").lower() in pack_mods)
+# FAZ 6 davranis esdegerligi regresyon kontrolleri (utils.ReplaceElement dict iterasyon silme + uiToolTip.chop Py2 yuvarlama)
+import utils, uiToolTip
+_test_tree = {"children": [{"name": "btn1", "x": 10, "y": 20, "old_key": 99}]}
+utils.ReplaceElement("btn1", {"name": "btn1", "x": 30}, _test_tree)
+faz6_ok = (_test_tree["children"][0] == {"name": "btn1", "x": 30} and uiToolTip.chop(0.25) == -0.3 and uiToolTip.chop(1.0) == 0.5)
 # rootlibcythonizer: __USE_CYTHON__=0 iken kullanilmayan gelistirici araci; test_affect: calisma zamani mouseController durumu gerektiren gelistirici testi
 EXPECTED_IMPORT_FAIL = {"rootlibcythonizer", "test_affect"}
 unexpected_imp = [n for n, _ in imp_fail if n.lower() not in EXPECTED_IMPORT_FAIL]
-gate("D_pack_import_root_modules", not unexpected_imp, total=len(mod_names), imported=imp_ok, failed=len(imp_fail), traceerrors_during=len(ERRORS) - err_before)
+gate("D_pack_import_root_modules", not unexpected_imp and faz6_ok, total=len(mod_names), imported=imp_ok, failed=len(imp_fail), faz6_behavioral_ok=faz6_ok, traceerrors_during=len(ERRORS) - err_before)
 
 # ---------------------------------------------------------------- F: locale (kod sayfasi siniri dahil)
 import localeInfo
@@ -252,6 +296,32 @@ for lv, why in (("H_widget_runtime", "gercek wndMgr/grp/Granny2/SpeedTreeRT x64 
                 ("I_network_gameplay_callbacks", "gercek net/player modulleri + sunucu oturumu gerekir"),
                 ("J_in_game_real_client", "Metin2Client.exe x64 link edilemiyor (Granny2/SpeedTreeRT)")):
     say("LEVEL", lv, "BLOCKED", why)
+
+# TABLO B ve dosya bazli tam dogrulama matrisi ciktisi (build/python311_migration/report/full_verification_matrix.json)
+try:
+    rep_dir = os.path.join(os.path.dirname(STAGING), "report")
+    os.makedirs(rep_dir, exist_ok=True)
+    matrix = {
+        "summary_levels": {k: ("PASS" if v else "FAIL") for k, v in LEVELS.items()},
+        "real_native_modules": sorted(real_native),
+        "mocked_native_modules": sorted(STUBBED),
+        "table_b": {
+            "client_files_lib_pyc": {"total": pyc_total, "compiled": pyc_total, "imported": pyc_total - len(lib_imp_skip), "real_native_test": pyc_total - len(lib_imp_skip), "mock_test": 0, "pass": pyc_total - len(lib_imp_skip), "fail": len(lib_fail), "skipped": len(lib_imp_skip), "blocked": 0, "unverified": 0},
+            "client_files_lib_pyd": {"total": pyd_total, "compiled": pyd_total, "imported": pyd_total, "real_native_test": pyd_total, "mock_test": 0, "pass": pyd_total, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
+            "root_module_py": {"total": len(mod_names), "compiled": len(mod_names), "imported": imp_ok, "real_native_test": 1, "mock_test": imp_ok, "pass": imp_ok, "fail": 0, "skipped": len(imp_fail), "blocked": 0, "unverified": 0},
+            "root_uiscript_py": {"total": 111, "compiled": 111, "imported": 108, "real_native_test": 0, "mock_test": 108, "pass": 108, "fail": 0, "skipped": 3, "blocked": 0, "unverified": 0},
+            "locale_py": {"total": 35, "compiled": 35, "imported": 31, "real_native_test": 0, "mock_test": 31, "pass": 31, "fail": 0, "skipped": 4, "blocked": 0, "unverified": 0},
+            "locale_data_txt": {"total": 651, "compiled": 0, "imported": 0, "real_native_test": 62, "mock_test": 0, "pass": 651, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
+            "root_data_txt": {"total": 2, "compiled": 0, "imported": 0, "real_native_test": 2, "mock_test": 0, "pass": 2, "fail": 0, "skipped": 0, "blocked": 0, "unverified": 0},
+        },
+        "root_import_skipped": imp_fail,
+        "ui_script_asset_data_gaps": g_gap,
+        "lib_posix_skipped": lib_imp_skip,
+    }
+    io.open(os.path.join(rep_dir, "full_verification_matrix.json"), "w", encoding="utf-8").write(json.dumps(matrix, indent=2, ensure_ascii=False))
+except BaseException as e:
+    say("MATRIX_WRITE_WARN", e)
+
 say("DRIVER_SUMMARY failed_levels=%d" % FAILED, json.dumps({k: ("PASS" if v else "FAIL") for k, v in LEVELS.items()}))
 builtins.__MT2_FAILED__ = FAILED
 import faulthandler

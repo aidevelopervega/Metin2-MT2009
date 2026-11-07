@@ -61,7 +61,7 @@ void Py_ReleaseNone()
 
 bool PyTuple_GetObject(PyObject* poArgs, int pos, PyObject** ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject * poItem = PyTuple_GetItem(poArgs, pos);
@@ -77,6 +77,9 @@ bool PyTuple_GetObject(PyObject* poArgs, int pos, PyObject** ret)
 // onceki kod bu hatayi yutup -1 kullaniyor ve bekleyen (pending) istisna birakiyordu. Gecersiz/tasan/NaN degerde artik false doner.
 static bool M2Py_AsInteger64(PyObject* poItem, long long* ret)
 {
+	if (!poItem || !ret)
+		return false;
+
 	if (PyFloat_Check(poItem))
 	{
 		const double d = PyFloat_AS_DOUBLE(poItem);
@@ -98,7 +101,7 @@ static bool M2Py_AsInteger64(PyObject* poItem, long long* ret)
 
 bool PyTuple_GetLong(PyObject* poArgs, int pos, long* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -223,7 +226,7 @@ bool PyTuple_GetPointer(PyObject* poArgs, int pos, void** ret)
 
 bool PyTuple_GetDouble(PyObject* poArgs, int pos, double* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -231,51 +234,68 @@ bool PyTuple_GetDouble(PyObject* poArgs, int pos, double* ret)
 	if (!poItem)
 		return false;
 
-	*ret = PyFloat_AsDouble(poItem);
+	const double val = PyFloat_AsDouble(poItem);
+	if (val == -1.0 && PyErr_Occurred())
+	{
+		PyErr_Clear();
+		return false;
+	}
+	*ret = val;
 	return true;
 }
 
 bool PyTuple_GetFloat(PyObject* poArgs, int pos, float* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!ret)
 		return false;
 
-	PyObject * poItem = PyTuple_GetItem(poArgs, pos);
-
-	if (!poItem)
+	double val = 0.0;
+	if (!PyTuple_GetDouble(poArgs, pos, &val))
 		return false;
 
-	*ret = float(PyFloat_AsDouble(poItem));
+	*ret = float(val);
 	return true;
 }
 
 bool PyTuple_GetByte(PyObject* poArgs, int pos, unsigned char* ret)
 {
+	if (!ret)
+		return false;
+
 	int val;
 	bool result = PyTuple_GetInteger(poArgs,pos,&val);
-	*ret = unsigned char(val);
+	if (result)
+		*ret = unsigned char(val);
 	return result;
 }
 
 bool PyTuple_GetInteger(PyObject* poArgs, int pos, unsigned char* ret)
 {
+	if (!ret)
+		return false;
+
 	int val;
 	bool result = PyTuple_GetInteger(poArgs,pos,&val);
-	*ret = unsigned char(val);
+	if (result)
+		*ret = unsigned char(val);
 	return result;
 }
 
 bool PyTuple_GetInteger(PyObject* poArgs, int pos, WORD* ret)
 {
+	if (!ret)
+		return false;
+
 	int val;
 	bool result = PyTuple_GetInteger(poArgs,pos,&val);
-	*ret = WORD(val);
+	if (result)
+		*ret = WORD(val);
 	return result;
 }
 
 bool PyTuple_GetInteger(PyObject* poArgs, int pos, int* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -292,7 +312,7 @@ bool PyTuple_GetInteger(PyObject* poArgs, int pos, int* ret)
 
 bool PyTuple_GetUnsignedLong(PyObject* poArgs, int pos, unsigned long* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject * poItem = PyTuple_GetItem(poArgs, pos);
@@ -300,13 +320,16 @@ bool PyTuple_GetUnsignedLong(PyObject* poArgs, int pos, unsigned long* ret)
 	if (!poItem)
 		return false;
 
-	*ret = PyLong_AsUnsignedLong(poItem);
+	long long val = 0;
+	if (!M2Py_AsInteger64(poItem, &val))
+		return false;
+	*ret = static_cast<unsigned long>(val);
 	return true;
 }
 
 bool PyTuple_GetUnsignedInteger(PyObject* poArgs, int pos, unsigned int* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -314,13 +337,16 @@ bool PyTuple_GetUnsignedInteger(PyObject* poArgs, int pos, unsigned int* ret)
 	if (!poItem)
 		return false;
 
-	*ret = PyLong_AsUnsignedLong(poItem);
+	long long val = 0;
+	if (!M2Py_AsInteger64(poItem, &val))
+		return false;
+	*ret = static_cast<unsigned int>(val);
 	return true;
 }
 
 bool PyTuple_GetString(PyObject* poArgs, int pos, char** ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -340,7 +366,7 @@ bool PyTuple_GetString(PyObject* poArgs, int pos, char** ret)
 
 bool PyTuple_GetBoolean(PyObject* poArgs, int pos, bool* ret)
 {
-	if (pos >= PyTuple_Size(poArgs))
+	if (!poArgs || !ret || pos < 0 || pos >= PyTuple_Size(poArgs))
 		return false;
 
 	PyObject* poItem = PyTuple_GetItem(poArgs, pos);
@@ -348,7 +374,11 @@ bool PyTuple_GetBoolean(PyObject* poArgs, int pos, bool* ret)
 	if (!poItem)
 		return false;
 
-	*ret = PyLong_AsLong(poItem) ? true : false;
+	long long val = 0;
+	if (!M2Py_AsInteger64(poItem, &val))
+		return false;
+
+	*ret = (val != 0);
 	return true;
 }
 
@@ -410,8 +440,9 @@ bool PyCallClassMemberFunc(PyObject* poClass, const char* c_szFunc, PyObject* po
 	if (!__PyCallClassMemberFunc_ByCString(poClass, c_szFunc, poArgs, &poRet))
 		return false;
 
-	if (PyNumber_Check(poRet))
-		*pisRet = (PyLong_AsLong(poRet) != 0);
+	long long val = 0;
+	if (PyNumber_Check(poRet) && M2Py_AsInteger64(poRet, &val))
+		*pisRet = (val != 0);
 	else
 		*pisRet = true;
 
@@ -426,9 +457,10 @@ bool PyCallClassMemberFunc(PyObject* poClass, const char* c_szFunc, PyObject* po
 	if (!__PyCallClassMemberFunc_ByCString(poClass, c_szFunc, poArgs, &poRet))
 		return false;
 
-	if (PyNumber_Check(poRet))
+	long long val = 0;
+	if (PyNumber_Check(poRet) && M2Py_AsInteger64(poRet, &val))
 	{
-		*plRetValue = PyLong_AsLong(poRet);
+		*plRetValue = static_cast<long>(val);
 		Py_DECREF(poRet);
 		return true;
 	}

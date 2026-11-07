@@ -7,15 +7,18 @@
 #include <vector>
 
 #include "../client/src/EterBase/lzo.h"
+#include "../client/src/EterBase/tea.h"
 #include "../client/src/EterBase/Timer.h"
 #include "../client/src/EterPack/EterPackManager.h"
 #include "../client/src/ScriptLib/StdAfx.h"
 #include "../client/src/ScriptLib/PythonLauncher.h"
 #include "../client/src/ScriptLib/PythonUtils.h"
 #include "../client/src/ScriptLib/PythonMarshal.h"
+#include "../client/src/MilesLib/SoundManager.h"
+#include "../client/src/UserInterface/StdAfx.h"
 #include "../client/src/UserInterface/PythonliblibManager.h"
-
-void initpack();
+#include "../client/src/UserInterface/PythonExchange.h"
+#include "../client/src/UserInterface/PythonSafeBox.h"
 
 namespace
 {
@@ -120,6 +123,46 @@ static PyObject* bridgeGetLong(PyObject* /*self*/, PyObject* args)
 	return PyLong_FromLong(v);
 }
 
+static PyObject* bridgeGetUnsignedLong(PyObject* /*self*/, PyObject* args)
+{
+	unsigned long v = 0;
+	if (!PyTuple_GetUnsignedLong(args, 0, &v))
+		return Py_BadArgument();
+	return PyLong_FromUnsignedLong(v);
+}
+
+static PyObject* bridgeGetUnsignedInteger(PyObject* /*self*/, PyObject* args)
+{
+	unsigned int v = 0;
+	if (!PyTuple_GetUnsignedInteger(args, 0, &v))
+		return Py_BadArgument();
+	return PyLong_FromUnsignedLong(v);
+}
+
+static PyObject* bridgeGetBoolean(PyObject* /*self*/, PyObject* args)
+{
+	bool v = false;
+	if (!PyTuple_GetBoolean(args, 0, &v))
+		return Py_BadArgument();
+	return PyBool_FromLong(v ? 1 : 0);
+}
+
+static PyObject* bridgeGetFloat(PyObject* /*self*/, PyObject* args)
+{
+	float v = 0.0f;
+	if (!PyTuple_GetFloat(args, 0, &v))
+		return Py_BadArgument();
+	return PyFloat_FromDouble(static_cast<double>(v));
+}
+
+static PyObject* bridgeGetDouble(PyObject* /*self*/, PyObject* args)
+{
+	double v = 0.0;
+	if (!PyTuple_GetDouble(args, 0, &v))
+		return Py_BadArgument();
+	return PyFloat_FromDouble(v);
+}
+
 static PyObject* bridgeGetStringBytes(PyObject* /*self*/, PyObject* args)
 {
 	char* sz = NULL;
@@ -136,6 +179,68 @@ static PyObject* bridgeFromRawBytes(PyObject* /*self*/, PyObject* args)
 	return M2PyString_FromString(sz);
 }
 
+// Exact hardened implementation of appLoadLocaleAddr from client/src/UserInterface/PythonApplicationModule.cpp
+static PyObject* bridgeLoadLocaleAddr(PyObject* /*poSelf*/, PyObject* poArgs)
+{
+	char* addrPath;
+	if (!PyTuple_GetString(poArgs, 0, &addrPath))
+		return Py_BuildException();
+
+	FILE* fp = fopen(addrPath, "rb");
+	if (!fp)
+		return Py_BuildException();
+
+	if (fseek(fp, 0, SEEK_END) != 0)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+
+	const long fileSize = ftell(fp);
+	if (fileSize < static_cast<long>(sizeof(unsigned int)) || fileSize > 16 * 1024 * 1024)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+
+	if (fseek(fp, 0, SEEK_SET) != 0)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+
+	const size_t size = static_cast<size_t>(fileSize);
+	const size_t paddedSize = (size % 8 != 0) ? (size + 8 - (size % 8)) : size;
+	std::vector<char> enc(paddedSize, 0);
+	if (fread(enc.data(), 1, size, fp) != size)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+	fclose(fp);
+
+	static const unsigned char key[16] = {
+		0x82, 0x1b, 0x34, 0xae,
+		0x12, 0x3b, 0xfb, 0x17,
+		0xd7, 0x2c, 0x39, 0xae,
+		0x41, 0x98, 0xf1, 0x63
+	};
+
+	std::vector<char> buf(paddedSize, 0);
+	tea_decrypt(reinterpret_cast<unsigned long*>(buf.data()),
+		reinterpret_cast<const unsigned long*>(enc.data()),
+		reinterpret_cast<const unsigned long*>(key),
+		static_cast<int>(size));
+
+	unsigned int retSize = 0;
+	memcpy(&retSize, buf.data(), sizeof(unsigned int));
+	if (retSize > size - sizeof(unsigned int))
+		return Py_BuildException();
+
+	const char* ret = buf.data() + sizeof(unsigned int);
+	return Py_BuildValue("s#", ret, static_cast<Py_ssize_t>(retSize));
+}
+
 static void initmt2x64bridge()
 {
 	static PyMethodDef s_methods[] =
@@ -145,8 +250,14 @@ static void initmt2x64bridge()
 		{ "ValidateYang",        bridgeValidateYang,        METH_VARARGS, NULL },
 		{ "GetInteger",          bridgeGetInteger,          METH_VARARGS, NULL },
 		{ "GetLong",             bridgeGetLong,             METH_VARARGS, NULL },
+		{ "GetUnsignedLong",     bridgeGetUnsignedLong,     METH_VARARGS, NULL },
+		{ "GetUnsignedInteger",  bridgeGetUnsignedInteger,  METH_VARARGS, NULL },
+		{ "GetBoolean",          bridgeGetBoolean,          METH_VARARGS, NULL },
+		{ "GetFloat",            bridgeGetFloat,            METH_VARARGS, NULL },
+		{ "GetDouble",           bridgeGetDouble,           METH_VARARGS, NULL },
 		{ "GetStringBytes",      bridgeGetStringBytes,      METH_VARARGS, NULL },
 		{ "FromRawBytes",        bridgeFromRawBytes,        METH_VARARGS, NULL },
+		{ "LoadLocaleAddr",      bridgeLoadLocaleAddr,      METH_VARARGS, NULL },
 		{ NULL, NULL, 0, NULL }
 	};
 	M2Py_InitModule("mt2x64bridge", s_methods);
@@ -167,6 +278,9 @@ int main()
 	CTimer timer;
 	ELTimer_Init();
 	CLZO lzo;
+	CSoundManager soundMgr;
+	CPythonExchange exchangeMgr;
+	CPythonSafeBox safeboxMgr;
 	TestEterPackManager packMgr;
 	packMgr.SetCacheMode();
 	packMgr.SetSearchMode(CEterPackManager::SEARCH_PACK_FIRST);
@@ -188,7 +302,7 @@ int main()
 	CHECK(packMgr.isExist("uicommon.py"));
 	CHECK(packMgr.isExist("game.py"));
 
-	// 2. Initialize real CPythonLauncher & register real production C++ modules (liblib, pack, dbg)
+	// 2. Initialize real CPythonLauncher & register 7 real production C++ modules (liblib, pack, dbg, profiler, snd, exchange, safebox)
 	TestExceptionSender excSender;
 	g_pkExceptionSender = &excSender;
 
@@ -196,6 +310,10 @@ int main()
 	initliblibManager();
 	initpack();
 	initdbg();
+	initProfiler();
+	initsnd();
+	initTrade();
+	initsafebox();
 	initmt2x64bridge();
 
 	CHECK(launcher.Create("Metin2Client_x64_Test"));
@@ -516,7 +634,161 @@ int main()
 	// Verify graceful failure when loading a non-existent file from pack
 	CHECK(!launcher.RunFile("non_existent_script_x64.py"));
 
-	std::printf("PYTHON3_REAL_MODULES_X64_SUITE: %d/%d PASSED (Python %s, root+locale_pl packs verified, liblib 54/54 stdlib bridge verified)\n",
+	// 10. Verify real profiler, snd, exchange, and safebox C++ production modules (7 real native modules total)
+	exchangeMgr.Start();
+	exchangeMgr.SetSelfName("Gracz\xB1\xE6");
+	exchangeMgr.SetTargetName("Kupiec");
+	exchangeMgr.SetElkToSelf(999999999999LL);
+	exchangeMgr.SetElkToTarget(500000000000LL);
+	exchangeMgr.SetItemToSelf(0, 27987, 200);
+	exchangeMgr.SetItemMetinSocketToSelf(0, 1, 28430);
+	exchangeMgr.SetItemAttributeToSelf(0, 0, 72, 45);
+	exchangeMgr.SetAcceptToSelf(1);
+
+	safeboxMgr.OpenSafeBox(3);
+	safeboxMgr.SetMoney(888888888888LL);
+	TItemData sbItem{};
+	sbItem.vnum = 19;
+	sbItem.count = 1;
+	sbItem.flags = 4;
+	sbItem.alSockets[0] = 28437;
+	sbItem.aAttr[0].bType = 1;
+	sbItem.aAttr[0].sValue = 2000;
+	safeboxMgr.SetItemData(0, sbItem);
+	safeboxMgr.OpenMall(1);
+	safeboxMgr.SetMallItemData(0, sbItem);
+
+	CHECK(launcher.RunLine(
+		"import profiler, snd, exchange, safebox\n"
+		"profiler.Push('frame_test')\n"
+		"profiler.Pop('frame_test')\n"
+		"snd.SetSoundVolume(3)\n"
+		"snd.SetSoundVolumef(0.5)\n"
+		"snd.SetMusicVolume(0.25)\n"
+		"snd.StopAllSound()\n"
+		"assert exchange.EXCHANGE_ITEM_MAX_NUM == 12\n"
+		"assert exchange.isTrading() == 1\n"
+		"assert exchange.GetElkFromSelf() == 999999999999\n"
+		"assert exchange.GetElkFromTarget() == 500000000000\n"
+		"assert exchange.GetNameFromSelf().encode('utf-8', 'surrogateescape') == b'Gracz\\xb1\\xe6'\n"
+		"assert exchange.GetNameFromTarget() == 'Kupiec'\n"
+		"assert exchange.GetItemVnumFromSelf(0) == 27987\n"
+		"assert exchange.GetItemCountFromSelf(0) == 200\n"
+		"assert exchange.GetItemMetinSocketFromSelf(0, 1) == 28430\n"
+		"assert exchange.GetItemAttributeFromSelf(0, 0) == (72, 45)\n"
+		"assert exchange.GetAcceptFromSelf() == 1\n"
+		"assert safebox.SAFEBOX_PAGE_SIZE == 45\n"
+		"assert safebox.GetCurrentSafeboxSize() == 135\n"
+		"assert safebox.GetMoney() == 888888888888\n"
+		"assert safebox.GetItemID(0) == 19 and safebox.GetItemCount(0) == 1 and safebox.GetItemFlags(0) == 4\n"
+		"assert safebox.GetItemMetinSocket(0, 0) == 28437\n"
+		"assert safebox.GetItemAttribute(0, 0) == (1, 2000)\n"
+		"assert safebox.GetMallSize() == 45 and safebox.GetMallItemID(0) == 19\n"
+	));
+
+	// 11. Verify hardened PyTuple_GetUnsignedLong/UnsignedInteger/Boolean/Float/Double, negative pos, PyCallClassMemberFunc, and CPythonLauncher::GetError()
+	CHECK(launcher.RunLine(
+		"import mt2x64bridge as b\n"
+		"assert b.GetUnsignedLong(0xDEADBEEF) == 0xDEADBEEF\n"
+		"assert b.GetUnsignedInteger(0xCAFEBABE) == 0xCAFEBABE\n"
+		"assert b.GetUnsignedLong(7.8) == 7 and b.GetUnsignedInteger(7.8) == 7\n"
+		"assert b.GetBoolean(1) is True and b.GetBoolean(0) is False and b.GetBoolean(True) is True\n"
+		"assert abs(b.GetFloat(2.5) - 2.5) < 1e-6 and abs(b.GetDouble(-3.25) + 3.25) < 1e-9\n"
+		"for bad in ('abc', None, [1]):\n"
+		"    for fn in (b.GetUnsignedLong, b.GetUnsignedInteger, b.GetBoolean, b.GetFloat, b.GetDouble):\n"
+		"        rejected = False\n"
+		"        try:\n"
+		"            fn(bad)\n"
+		"        except TypeError:\n"
+		"            rejected = True\n"
+		"        assert rejected, f'{fn} did not reject {bad!r}'\n"
+		"assert b.GetUnsignedLong(42) == 42\n"
+	));
+	{
+		PyGILState_STATE gil11 = PyGILState_Ensure();
+		PyObject* emptyTuple = PyTuple_New(0);
+		int dummyInt = 0;
+		unsigned long dummyUL = 0;
+		double dummyD = 0.0;
+		bool dummyB = false;
+		char* dummyS = nullptr;
+		CHECK(!PyTuple_GetInteger(emptyTuple, -1, &dummyInt) && !PyErr_Occurred());
+		CHECK(!PyTuple_GetUnsignedLong(emptyTuple, -1, &dummyUL) && !PyErr_Occurred());
+		CHECK(!PyTuple_GetDouble(emptyTuple, -1, &dummyD) && !PyErr_Occurred());
+		CHECK(!PyTuple_GetBoolean(emptyTuple, -1, &dummyB) && !PyErr_Occurred());
+		CHECK(!PyTuple_GetString(emptyTuple, -1, &dummyS) && !PyErr_Occurred());
+		Py_DECREF(emptyTuple);
+
+		// Verify CPythonLauncher::GetError() on normalized Python 3 BaseException instance
+		PyErr_SetString(PyExc_ValueError, "py311_normalized_err_42");
+		PyObject *exc = nullptr, *val = nullptr, *tb = nullptr;
+		PyErr_Fetch(&exc, &val, &tb);
+		PyErr_NormalizeException(&exc, &val, &tb);
+		PyErr_Restore(exc, val, tb);
+		const char* gotErr = launcher.GetError();
+		CHECK(gotErr != nullptr && std::strcmp(gotErr, "py311_normalized_err_42") == 0);
+		CHECK(!PyErr_Occurred());
+		PyGILState_Release(gil11);
+	}
+
+	// 12. Verify hardened appLoadLocaleAddr (TEA decryption, 8-byte block padding, and retSize OOB read prevention)
+	{
+		static const unsigned char kLocaleTeaKey[16] = {
+			0x82, 0x1b, 0x34, 0xae,
+			0x12, 0x3b, 0xfb, 0x17,
+			0xd7, 0x2c, 0x39, 0xae,
+			0x41, 0x98, 0xf1, 0x63
+		};
+		auto writeTeaFile = [&](const char* path, uint32_t declaredSize, const void* payload, size_t payloadLen, size_t truncateTo = 0)
+		{
+			const size_t rawLen = sizeof(uint32_t) + payloadLen;
+			const size_t padLen = (rawLen % 8 != 0) ? (rawLen + 8 - (rawLen % 8)) : rawLen;
+			std::vector<unsigned char> plain(padLen, 0);
+			std::vector<unsigned char> cipher(padLen, 0);
+			std::memcpy(plain.data(), &declaredSize, sizeof(uint32_t));
+			if (payload && payloadLen > 0)
+				std::memcpy(plain.data() + sizeof(uint32_t), payload, payloadLen);
+			tea_encrypt(reinterpret_cast<unsigned long*>(cipher.data()),
+				reinterpret_cast<const unsigned long*>(plain.data()),
+				reinterpret_cast<const unsigned long*>(kLocaleTeaKey),
+				static_cast<int>(padLen));
+			const size_t writeLen = (truncateTo > 0 && truncateTo < padLen) ? truncateTo : padLen;
+			FILE* f = std::fopen(path, "wb");
+			if (f)
+			{
+				std::fwrite(cipher.data(), 1, writeLen, f);
+				std::fclose(f);
+			}
+		};
+
+		const char* validPayload = "127.0.0.1:11002\xB1\xE6";
+		const uint32_t validLen = static_cast<uint32_t>(std::strlen(validPayload));
+		writeTeaFile("build/obj_x64/test_locale_valid.addr", validLen, validPayload, validLen);
+		// Malicious file declaring retSize = 4096 inside a 16-byte file (previously caused 4KB OOB stack read)
+		writeTeaFile("build/obj_x64/test_locale_oob.addr", 4096U, "bad", 3);
+		// Malicious file declaring retSize = 0xFFFFFFFF (previously caused integer wrap / OOB read)
+		writeTeaFile("build/obj_x64/test_locale_maxuint.addr", 0xFFFFFFFFU, "bad", 3);
+		// Unaligned file (11 bytes, size % 8 != 0) with malicious retSize = 50 (previously overflowed _alloca by 5 bytes in tea_decrypt)
+		writeTeaFile("build/obj_x64/test_locale_unaligned.addr", 50U, "1234567", 7, 11);
+		// Tiny 2-byte file (< sizeof(unsigned int))
+		{
+			FILE* f = std::fopen("build/obj_x64/test_locale_tiny.addr", "wb");
+			if (f) { std::fwrite("ab", 1, 2, f); std::fclose(f); }
+		}
+
+		CHECK(launcher.RunLine(
+			"import mt2x64bridge as b\n"
+			"res = b.LoadLocaleAddr('build/obj_x64/test_locale_valid.addr')\n"
+			"assert isinstance(res, str) and res.encode('utf-8', 'surrogateescape') == b'127.0.0.1:11002\\xb1\\xe6'\n"
+			"assert b.LoadLocaleAddr('build/obj_x64/test_locale_missing_xyz.addr') is None\n"
+			"assert b.LoadLocaleAddr('build/obj_x64/test_locale_oob.addr') is None\n"
+			"assert b.LoadLocaleAddr('build/obj_x64/test_locale_maxuint.addr') is None\n"
+			"assert b.LoadLocaleAddr('build/obj_x64/test_locale_unaligned.addr') is None\n"
+			"assert b.LoadLocaleAddr('build/obj_x64/test_locale_tiny.addr') is None\n"
+		));
+	}
+
+	std::printf("PYTHON3_REAL_MODULES_X64_SUITE: %d/%d PASSED (Python %s, 7 real C++ modules: pack+dbg+liblib+profiler+snd+exchange+safebox, root+locale_pl packs verified)\n",
 		g_passed,
 		g_passed + g_failed,
 		Py_GetVersion());

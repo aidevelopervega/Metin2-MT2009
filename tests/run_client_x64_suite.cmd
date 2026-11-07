@@ -120,19 +120,24 @@ if errorlevel 1 exit /b 1
 echo [4/6] Compiling and linking real Python 3.11 x64 client modules suite [PE32+ AMD64]...
 if not exist "build\obj_x64\py3_real" mkdir "build\obj_x64\py3_real"
 
-if exist "build\obj_x64\py3_real\PythonPackModule.obj" goto :have_py3_base_objs
-cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c ^
+if exist "build\obj_x64\py3_real\PythonSafeBox.obj" goto :have_py3_base_objs
+cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /DMT2_USE_MINIAUDIO=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\MilesLib /c ^
     client\src\ScriptLib\PythonUtils.cpp ^
     client\src\ScriptLib\PythonMarshal.cpp ^
     client\src\ScriptLib\PythonDebugModule.cpp ^
     client\src\UserInterface\PythonliblibManager.cpp ^
     client\src\UserInterface\PythonPackModule.cpp ^
+    client\src\UserInterface\PythonProfilerModule.cpp ^
+    client\src\UserInterface\PythonSoundManagerModule.cpp ^
+    client\src\UserInterface\PythonExchange.cpp ^
+    client\src\UserInterface\PythonExchangeModule.cpp ^
+    client\src\UserInterface\PythonSafeBox.cpp ^
     /Fo:build\obj_x64\py3_real\
 if errorlevel 1 exit /b 1
 :have_py3_base_objs
 
 if exist "build\obj_x64\test_python3_real_modules_x64.exe" goto :have_py3_real_exe
-cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /c ^
+cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /DMT2_USE_MINIAUDIO=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\MilesLib /c ^
     client\src\ScriptLib\PythonLauncher.cpp ^
     tests\test_python3_real_modules_x64.cpp ^
     /Fo:build\obj_x64\py3_real\
@@ -146,6 +151,21 @@ link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /OUT:build\obj_x64\test
     build\obj_x64\py3_real\PythonDebugModule.obj ^
     build\obj_x64\py3_real\PythonliblibManager.obj ^
     build\obj_x64\py3_real\PythonPackModule.obj ^
+    build\obj_x64\py3_real\PythonProfilerModule.obj ^
+    build\obj_x64\py3_real\PythonSoundManagerModule.obj ^
+    build\obj_x64\py3_real\PythonExchange.obj ^
+    build\obj_x64\py3_real\PythonExchangeModule.obj ^
+    build\obj_x64\py3_real\PythonSafeBox.obj ^
+    build\obj_x64\mileslib_prod\MiniaudioEngine.obj ^
+    build\obj_x64\mileslib_prod\SoundBase.obj ^
+    build\obj_x64\mileslib_prod\SoundData.obj ^
+    build\obj_x64\mileslib_prod\SoundInstance2D.obj ^
+    build\obj_x64\mileslib_prod\SoundInstance3D.obj ^
+    build\obj_x64\mileslib_prod\SoundInstanceStream.obj ^
+    build\obj_x64\mileslib_prod\SoundManager.obj ^
+    build\obj_x64\mileslib_prod\SoundManager2D.obj ^
+    build\obj_x64\mileslib_prod\SoundManager3D.obj ^
+    build\obj_x64\mileslib_prod\SoundManagerStream.obj ^
     build\obj_x64\mileslib_prod\EterPack.obj ^
     build\obj_x64\mileslib_prod\EterPackManager.obj ^
     build\obj_x64\mileslib_prod\EterPackPolicy_CSHybridCrypt.obj ^
@@ -173,6 +193,59 @@ if errorlevel 1 exit /b 1
 
 build\obj_x64\test_python3_real_modules_x64.exe
 if errorlevel 1 exit /b 1
+
+if exist "build\python311_migration\out2\root.index" (
+    echo [4b/7] Running Python 3.11.9 sourceless pack runtime verification harness [PE32+ AMD64, 7 real C++ modules]...
+    cl.exe /nologo /std:c++20 /EHsc /MT /O2 /W3 /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS /D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING /DMT2_USE_PYTHON3=1 /DMT2_PYTHON_MODULE_ONLY=1 /DMT2_USE_MINIAUDIO=1 /I"%PY311_DIR%\include" /Iextern\common\include /Iextern\client\include /Iclient\src /Iclient\src\EterPack /Iclient\src\EterBase /Iclient\src\MilesLib /c ^
+        tests\test_python311_pack_runtime_x64.cpp ^
+        /Fo:build\obj_x64\py3_real\
+    if errorlevel 1 exit /b 1
+    link.exe /nologo /MACHINE:X64 /LIBPATH:extern\client\lib /OUT:build\python311_migration\runtime\test_python311_pack_runtime_x64.exe ^
+        build\obj_x64\py3_real\test_python311_pack_runtime_x64.obj ^
+        build\obj_x64\py3_real\PythonUtils.obj ^
+        build\obj_x64\py3_real\PythonLauncher.obj ^
+        build\obj_x64\py3_real\PythonMarshal.obj ^
+        build\obj_x64\py3_real\PythonDebugModule.obj ^
+        build\obj_x64\py3_real\PythonliblibManager.obj ^
+        build\obj_x64\py3_real\PythonPackModule.obj ^
+        build\obj_x64\py3_real\PythonProfilerModule.obj ^
+        build\obj_x64\py3_real\PythonSoundManagerModule.obj ^
+        build\obj_x64\py3_real\PythonExchange.obj ^
+        build\obj_x64\py3_real\PythonExchangeModule.obj ^
+        build\obj_x64\py3_real\PythonSafeBox.obj ^
+        build\obj_x64\mileslib_prod\MiniaudioEngine.obj ^
+        build\obj_x64\mileslib_prod\SoundBase.obj ^
+        build\obj_x64\mileslib_prod\SoundData.obj ^
+        build\obj_x64\mileslib_prod\SoundInstance2D.obj ^
+        build\obj_x64\mileslib_prod\SoundInstance3D.obj ^
+        build\obj_x64\mileslib_prod\SoundInstanceStream.obj ^
+        build\obj_x64\mileslib_prod\SoundManager.obj ^
+        build\obj_x64\mileslib_prod\SoundManager2D.obj ^
+        build\obj_x64\mileslib_prod\SoundManager3D.obj ^
+        build\obj_x64\mileslib_prod\SoundManagerStream.obj ^
+        build\obj_x64\mileslib_prod\EterPack.obj ^
+        build\obj_x64\mileslib_prod\EterPackManager.obj ^
+        build\obj_x64\mileslib_prod\EterPackPolicy_CSHybridCrypt.obj ^
+        build\obj_x64\mileslib_prod\MappedFile.obj ^
+        build\obj_x64\mileslib_prod\FileBase.obj ^
+        build\obj_x64\mileslib_prod\FileDir.obj ^
+        build\obj_x64\mileslib_prod\FileLoader.obj ^
+        build\obj_x64\mileslib_prod\lzo.obj ^
+        build\obj_x64\mileslib_prod\tea.obj ^
+        build\obj_x64\mileslib_prod\CRC32.obj ^
+        build\obj_x64\mileslib_prod\Timer.obj ^
+        build\obj_x64\mileslib_prod\Utils.obj ^
+        build\obj_x64\mileslib_prod\Random.obj ^
+        build\obj_x64\mileslib_prod\Debug.obj ^
+        build\obj_x64\mileslib_prod\Stl.obj ^
+        extern\client\lib\cryptlib-x64.lib ^
+        extern\client\lib\lzo2_x64.lib ^
+        "%PY311_DIR%\libs\python311.lib" ^
+        ole32.lib user32.lib winmm.lib advapi32.lib
+    if errorlevel 1 exit /b 1
+    build\python311_migration\runtime\test_python311_pack_runtime_x64.exe build/python311_migration/out2 build/python311_migration/staging tests/python311_native_stubs.py tests/python311_runtime_driver.py
+    if errorlevel 1 exit /b 1
+)
 
 if exist "build\obj_x64\test_python3_x64_bridge.exe" (
     build\obj_x64\test_python3_x64_bridge.exe

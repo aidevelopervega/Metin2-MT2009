@@ -256,12 +256,33 @@ PyObject* appLoadLocaleAddr(PyObject* poSelf, PyObject* poArgs)
 	if (!fp)
 		return Py_BuildException();
 
-	fseek(fp, 0, SEEK_END);
+	if (fseek(fp, 0, SEEK_END) != 0)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
 
-	int size = ftell(fp);
-	char* enc = (char*)_alloca(size);
-	fseek(fp, 0, SEEK_SET);
-	fread(enc, size, 1, fp);
+	const long fileSize = ftell(fp);
+	if (fileSize < static_cast<long>(sizeof(unsigned int)) || fileSize > 16 * 1024 * 1024)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+
+	if (fseek(fp, 0, SEEK_SET) != 0)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
+
+	const size_t size = static_cast<size_t>(fileSize);
+	const size_t paddedSize = (size % 8 != 0) ? (size + 8 - (size % 8)) : size;
+	std::vector<char> enc(paddedSize, 0);
+	if (fread(enc.data(), 1, size, fp) != size)
+	{
+		fclose(fp);
+		return Py_BuildException();
+	}
 	fclose(fp);
 
 	static const unsigned char key[16] = {
@@ -271,11 +292,18 @@ PyObject* appLoadLocaleAddr(PyObject* poSelf, PyObject* poArgs)
 		0x41, 0x98, 0xf1, 0x63
 	};
 
-	char* buf = (char*)_alloca(size);
-	//int decSize =
-	tea_decrypt((unsigned long*)buf, (const unsigned long*)enc, (const unsigned long*)key, size);
-	unsigned int retSize = *(unsigned int*)buf;
-	char* ret = buf + sizeof(unsigned int);
+	std::vector<char> buf(paddedSize, 0);
+	tea_decrypt(reinterpret_cast<unsigned long*>(buf.data()),
+		reinterpret_cast<const unsigned long*>(enc.data()),
+		reinterpret_cast<const unsigned long*>(key),
+		static_cast<int>(size));
+
+	unsigned int retSize = 0;
+	memcpy(&retSize, buf.data(), sizeof(unsigned int));
+	if (retSize > size - sizeof(unsigned int))
+		return Py_BuildException();
+
+	const char* ret = buf.data() + sizeof(unsigned int);
 	return Py_BuildValue("s#", ret, static_cast<Py_ssize_t>(retSize));
 }
 

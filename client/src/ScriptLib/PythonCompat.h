@@ -94,6 +94,8 @@ namespace m2py_detail
 
 	inline bool FormatUsesEscapedString(const char* c_szFormat)
 	{
+		if (!c_szFormat)
+			return false;
 		bool hasString = false;
 		for (; *c_szFormat; ++c_szFormat)
 		{
