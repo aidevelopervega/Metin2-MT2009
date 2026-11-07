@@ -82,7 +82,24 @@ COMPATIBILITY_CONTRACT = {
             "calisma zamani rollback'i DEGILDIR (CPython 3.11.9 istemcisi hem Python 3.11 lib hem Python 3.11 out2 paketlerini zorunlu kilar)."
         ),
     },
+    "recover_packs_contract": {
+        "default_mode": "dry_run_read_only (apply=False)",
+        "write_requires_flag": "--apply",
+        "recoverable_journal_states": ["IN_PROGRESS", "FAILED_UNRECOVERED"],
+        "rejected_completed_journal_states": ["COMMITTED", "ROLLED_BACK_AFTER_FAILURE", "RECOVERED_FROM_INTERRUPTION"],
+        "allowed_target_file_states": ["EXPECTED_ORIG_PACK_SHA256", "EXPECTED_PY311_OUT2_SHA256"],
+        "emergency_missing_journal_flag": "--emergency-without-journal",
+        "emergency_missing_journal_limits": (
+            "pack_tx_journal.json kaybolmussa yalnizca --apply --emergency-without-journal birlikte verildiginde, "
+            "yedek 4/4 orig_pack SHA-256 dogrulamasindan geciyorsa, hedefteki tum mevcut dosyalar bilinen SHA-256 "
+            "(orig_pack veya out2) degerindeyse VE hedefte yarim kalmis hibrit durum veya .*_tmp kalintisi varsa kurtarma yapilir."
+        ),
+    },
 }
+
+RECOVERABLE_JOURNAL_STATES = ("IN_PROGRESS", "FAILED_UNRECOVERED")
+COMPLETED_JOURNAL_STATES = ("COMMITTED", "ROLLED_BACK_AFTER_FAILURE", "RECOVERED_FROM_INTERRUPTION")
+VALID_JOURNAL_OPERATIONS = ("deploy-packs", "rollback-packs", "recover-packs")
 
 
 class VersionLockError(RuntimeError):
@@ -93,28 +110,26 @@ class DeploymentSafetyError(RuntimeError):
     """SHA-256, yedek butunlugu, islem gunlugu veya kopyalama hatasi tespit edildiginde firlatilir."""
 
 
-def check_python_environment(version_info=None, implementation=None, ptr_size=None, machine=None, magic_hex=None):
-    sim = os.environ.get("MT2_SIMULATE_PYTHON_ENV", "").strip()
-    if sim and version_info is None:
-        # Format: "3.11.8,CPython,8,AMD64,a70d0d0a"
-        parts = [p.strip() for p in sim.split(",")]
-        ver_parts = [int(x) for x in parts[0].split(".")]
-        version_info = tuple(ver_parts)
-        implementation = parts[1] if len(parts) > 1 else REQUIRED_PYTHON_IMPL
-        ptr_size = int(parts[2]) if len(parts) > 2 else REQUIRED_PTR_SIZE
-        machine = parts[3] if len(parts) > 3 else "AMD64"
-        magic_hex = parts[4] if len(parts) > 4 else REQUIRED_MAGIC_HEX
-    else:
-        if version_info is None:
-            version_info = tuple(sys.version_info[:3])
-        if implementation is None:
-            implementation = platform.python_implementation()
-        if ptr_size is None:
-            ptr_size = struct.calcsize("P")
-        if machine is None:
-            machine = platform.machine()
-        if magic_hex is None:
-            magic_hex = importlib.util.MAGIC_NUMBER.hex()
+def check_python_environment(*, _test_override_env: dict = None):
+    """Gercek calisma zamani CPython 3.11.9 x64 kilidini dogrular.
+    GUVENLIK KURALI: Hicbir ortam degiskeni (orn. MT2_SIMULATE_PYTHON_ENV) gercek surum/mimari
+    kontrolunu asamaz veya gecersiz kilamaz. Yalnizca birim testleri acik `_test_override_env`
+    sozlugu ile sahte deger enjekte edebilir.
+    """
+    version_info = tuple(sys.version_info[:3])
+    implementation = platform.python_implementation()
+    ptr_size = struct.calcsize("P")
+    machine = platform.machine()
+    magic_hex = importlib.util.MAGIC_NUMBER.hex()
+
+    if _test_override_env is not None:
+        if not isinstance(_test_override_env, dict):
+            raise VersionLockError("Gecersiz _test_override_env parametresi")
+        version_info = tuple(_test_override_env.get("version_info", version_info))
+        implementation = _test_override_env.get("implementation", implementation)
+        ptr_size = int(_test_override_env.get("ptr_size", ptr_size))
+        machine = _test_override_env.get("machine", machine)
+        magic_hex = _test_override_env.get("magic_hex", magic_hex)
 
     if tuple(version_info[:3]) != REQUIRED_PYTHON_VERSION:
         raise VersionLockError(
@@ -141,9 +156,9 @@ def check_python_environment(version_info=None, implementation=None, ptr_size=No
     }
 
 
-def enforce_cpython_3119_x64():
+def enforce_cpython_3119_x64(*, _test_override_env: dict = None):
     try:
-        return check_python_environment()
+        return check_python_environment(_test_override_env=_test_override_env)
     except VersionLockError as exc:
         sys.stderr.write(f"FATAL: {exc}\n")
         sys.exit(2)
@@ -575,6 +590,18 @@ def validate_existing_backup(backup_dir: pathlib.Path, expected_backup_hashes: d
     return True, hashes
 
 
+def _list_staging_temps(target_pack_dir: pathlib.Path) -> list:
+    if not target_pack_dir.is_dir():
+        return []
+    found = []
+    for name in PACK_ARCHIVE_NAMES:
+        for suffix in (".deploy_tmp", ".rollback_tmp", ".recover_tmp"):
+            tp = target_pack_dir / (name + suffix)
+            if tp.exists():
+                found.append(tp.name)
+    return found
+
+
 def _cleanup_staging_temps(target_pack_dir: pathlib.Path):
     if not target_pack_dir.is_dir():
         return []
@@ -591,54 +618,234 @@ def _cleanup_staging_temps(target_pack_dir: pathlib.Path):
     return removed
 
 
+def _validate_recovery_journal(journal, bak_hashes: dict, allow_missing_journal_emergency: bool) -> str:
+    """Kurtarma oncesi islem gunlugunu (pack_tx_journal.json) dogrular.
+    Dondurulen deger: onceki gunluk durumu (orn. 'IN_PROGRESS', 'FAILED_UNRECOVERED' veya 'EMERGENCY_NO_JOURNAL').
+    """
+    if journal is None:
+        if not allow_missing_journal_emergency:
+            raise DeploymentSafetyError(
+                "Kurtarma reddedildi: pack_tx_journal.json islem gunlugu bulunamadi. "
+                "Gunlugun kayboldugu gercek acil durumlarda yalnizca --emergency-without-journal bayragi ile "
+                "(4/4 yedek SHA-256 dogrulamasi ve bilinen hibrit hedef durumu kosuluyla) kurtarma yapilabilir."
+            )
+        return "EMERGENCY_NO_JOURNAL"
+
+    if not isinstance(journal, dict):
+        raise DeploymentSafetyError("Kurtarma reddedildi: pack_tx_journal.json gecersiz veri tipinde (dict bekleniyordu).")
+
+    op = journal.get("operation")
+    state = journal.get("state")
+    if op not in VALID_JOURNAL_OPERATIONS or not isinstance(state, str):
+        raise DeploymentSafetyError(
+            f"Kurtarma reddedildi: guvenilmez/eksik islem gunlugu alanlari (operation={op!r}, state={state!r})."
+        )
+
+    if "completed_files" in journal:
+        cf = journal["completed_files"]
+        if not isinstance(cf, list) or any(f not in PACK_ARCHIVE_NAMES for f in cf):
+            raise DeploymentSafetyError(f"Kurtarma reddedildi: gecersiz completed_files listesi: {cf!r}")
+
+    if "backup_sha256" in journal:
+        jbak = journal["backup_sha256"]
+        if not isinstance(jbak, dict) or jbak != bak_hashes:
+            raise DeploymentSafetyError(
+                "Kurtarma reddedildi: gunlukteki backup_sha256 ile diskteki yedek SHA-256 degerleri uyusmuyor."
+            )
+
+    if state in COMPLETED_JOURNAL_STATES:
+        raise DeploymentSafetyError(
+            f"Kurtarma reddedildi: islem zaten tamamlanmis durumda (state={state}); tamamlanmis islem uzerine otomatik yazilamaz."
+        )
+
+    if state not in RECOVERABLE_JOURNAL_STATES:
+        raise DeploymentSafetyError(
+            f"Kurtarma reddedildi: kurtarma gerektirmeyen veya bilinmeyen gunluk durumu (state={state!r})."
+        )
+
+    return state
+
+
+def _inspect_and_validate_target_for_recovery(
+    target_pack_dir: pathlib.Path,
+    expected_backup_hashes: dict,
+    expected_alt_target_hashes: dict,
+) -> dict:
+    """Hedef dizindeki 4 arsiv dosyasinin mevcut SHA-256 durumunu denetler.
+    Her dosya yalnizca bilinen orig_pack (Python 2.7) veya bilinen out2 (Python 3.11) SHA-256
+    degerinde olmalidir; bilinmeyen bir SHA-256 tespit edilirse uzerine yazma reddedilir.
+    """
+    if not target_pack_dir.is_dir():
+        raise DeploymentSafetyError(f"Kurtarma reddedildi: hedef paket dizini mevcut degil: {target_pack_dir}")
+
+    target_info = {}
+    for name in PACK_ARCHIVE_NAMES:
+        p = target_pack_dir / name
+        if not p.is_file():
+            raise DeploymentSafetyError(f"Kurtarma reddedildi: hedef paket dosyasi eksik: {p}")
+        h = sha256(p.read_bytes())
+        if h == expected_backup_hashes.get(name):
+            version_tag = "orig_pack_py27"
+        elif h == expected_alt_target_hashes.get(name):
+            version_tag = "out2_py311"
+        else:
+            raise DeploymentSafetyError(
+                f"Kurtarma reddedildi: hedef dosya ({name}) bilinmeyen/beklenmeyen bir SHA-256 degerine sahip "
+                f"(bulunan={h}); ne orig_pack ne de out2 ile eslesiyor."
+            )
+        target_info[name] = {
+            "current_sha256": h,
+            "recognized_version": version_tag,
+            "restore_to_backup_sha256": expected_backup_hashes[name],
+        }
+    return target_info
+
+
 def recover_pack_transaction(
     target_pack_dir: pathlib.Path,
     backup_dir: pathlib.Path,
+    apply: bool = False,
     expected_backup_hashes: dict = None,
+    expected_alt_target_hashes: dict = None,
+    allow_missing_journal_emergency: bool = False,
+    fault_injector=None,
 ) -> dict:
-    """Interrupted veya basarisiz bir paket islemini dogrulanmis yedekten kurtarir.
-    Dosya grubu islemleri isletim sistemi seviyesinde tek adimda atomik olmadigindan,
-    islem gunlugu (pack_tx_journal.json) ve dogrulanmis yedek uzerinden deterministik kurtarma saglar.
+    """Yarim kalmis (IN_PROGRESS) veya kurtarilamamis (FAILED_UNRECOVERED) bir paket islemini
+    dogrulanmis yedekten guvenli bicimde kurtarir.
+    - Varsayilan calistirma salt okunur dry-run'dir (apply=False); hicbir dosya yazmaz veya silmez.
+    - Gercek dosya yazimi acik apply=True (--apply) gerektirir.
+    - Kurtarma yapilmadan once: (1) gecerli islem gunlugu, (2) kurtarma gerektiren durum
+      (IN_PROGRESS / FAILED_UNRECOVERED), (3) 4/4 yedek SHA-256 butunlugu ve (4) hedef dosyalarin
+      bilinen (orig_pack veya out2) SHA-256 durumlari zorunlu olarak dogrulanir.
+    - Tamamlanmis islem (COMMITTED / ROLLED_BACK_AFTER_FAILURE / RECOVERED_FROM_INTERRUPTION),
+      eksik/bozuk gunluk veya bilinmeyen hedef SHA-256 durumunda otomatik uzerine yazma reddedilir.
+    - Gunlugun kayboldugu gercek acil durumlar icin allow_missing_journal_emergency=True
+      (--emergency-without-journal) gerekir ve hedefin gercekten yarim kalmis hibrit/temp durumunda
+      oldugu dogrulanir.
     """
     enforce_cpython_3119_x64()
     if expected_backup_hashes is None:
         expected_backup_hashes = EXPECTED_ORIG_PACK_SHA256
-    journal = _read_tx_journal(backup_dir)
+    if expected_alt_target_hashes is None:
+        expected_alt_target_hashes = EXPECTED_PY311_OUT2_SHA256
+
     has_bak, bak_hashes = validate_existing_backup(backup_dir, expected_backup_hashes)
     if not has_bak:
         raise DeploymentSafetyError(f"Kurtarma basarisiz: gecerli tam yedek bulunamadi: {backup_dir}")
 
-    cleaned_temps = _cleanup_staging_temps(target_pack_dir)
-    restored = {}
-    for name in PACK_ARCHIVE_NAMES:
-        bak_path = backup_dir / name
-        dst_path = target_pack_dir / name
-        raw = bak_path.read_bytes()
-        if sha256(raw) != bak_hashes[name]:
-            raise DeploymentSafetyError(f"Kurtarma sirasinda yedek SHA-256 bozulmasi: {bak_path}")
-        tmp_path = target_pack_dir / (name + ".recover_tmp")
-        with open(tmp_path, "wb") as f:
-            f.write(raw)
-            f.flush()
-            os.fsync(f.fileno())
-        if sha256(tmp_path.read_bytes()) != bak_hashes[name]:
-            raise DeploymentSafetyError(f"Kurtarma gecici dosya SHA-256 hatasi: {tmp_path}")
-        os.replace(tmp_path, dst_path)
-        restored_hash = sha256(dst_path.read_bytes())
-        if restored_hash != bak_hashes[name]:
-            raise DeploymentSafetyError(f"Kurtarma sonrasi hedef SHA-256 hatasi: {dst_path}")
-        restored[name] = restored_hash
+    journal = _read_tx_journal(backup_dir)
+    previous_state = _validate_recovery_journal(journal, bak_hashes, allow_missing_journal_emergency)
+    target_info = _inspect_and_validate_target_for_recovery(
+        target_pack_dir, expected_backup_hashes, expected_alt_target_hashes
+    )
+    pending_temps = _list_staging_temps(target_pack_dir)
 
-    new_journal = {
+    if previous_state == "EMERGENCY_NO_JOURNAL":
+        versions_present = {meta["recognized_version"] for meta in target_info.values()}
+        is_hybrid_or_temp = (len(versions_present) > 1) or (len(pending_temps) > 0)
+        if not is_hybrid_or_temp:
+            raise DeploymentSafetyError(
+                "Acil durum kurtarmasi (--emergency-without-journal) reddedildi: hedef dizinde yarim kalmis "
+                "hibrit paket durumu veya gecici (*.*_tmp) dosya bulunmuyor."
+            )
+
+    plan = {
         "operation": "recover-packs",
-        "previous_state": journal.get("state") if journal else "NONE",
-        "state": "RECOVERED_FROM_INTERRUPTION",
-        "cleaned_temp_files": cleaned_temps,
-        "restored_sha256": restored,
+        "apply": apply,
+        "emergency_without_journal": bool(allow_missing_journal_emergency and journal is None),
+        "previous_state": previous_state,
+        "state": "DRY_RUN_READY" if not apply else "IN_PROGRESS",
+        "pending_temp_files": pending_temps,
+        "files": target_info,
+        "compatibility_contract": COMPATIBILITY_CONTRACT,
+    }
+
+    if not apply:
+        return plan
+
+    in_progress_journal = {
+        "operation": "recover-packs",
+        "previous_state": previous_state,
+        "state": "IN_PROGRESS",
+        "backup_sha256": bak_hashes,
+        "completed_files": [],
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
-    _write_tx_journal(backup_dir, new_journal)
-    return new_journal
+    _write_tx_journal(backup_dir, in_progress_journal)
+
+    completed_files = []
+    restored = {}
+    try:
+        cleaned_temps = _cleanup_staging_temps(target_pack_dir)
+        for idx, name in enumerate(PACK_ARCHIVE_NAMES):
+            bak_path = backup_dir / name
+            dst_path = target_pack_dir / name
+            raw = bak_path.read_bytes()
+            if sha256(raw) != bak_hashes[name]:
+                raise DeploymentSafetyError(f"Kurtarma sirasinda yedek SHA-256 bozulmasi: {bak_path}")
+
+            tmp_path = target_pack_dir / (name + ".recover_tmp")
+            if fault_injector is not None:
+                fault_injector("before_stage", idx, name, dst_path, tmp_path)
+
+            with open(tmp_path, "wb") as f:
+                f.write(raw)
+                f.flush()
+                os.fsync(f.fileno())
+
+            if fault_injector is not None:
+                fault_injector("after_stage_before_replace", idx, name, dst_path, tmp_path)
+
+            if sha256(tmp_path.read_bytes()) != bak_hashes[name]:
+                raise DeploymentSafetyError(f"Kurtarma gecici dosya SHA-256 hatasi: {tmp_path}")
+
+            os.replace(tmp_path, dst_path)
+            restored_hash = sha256(dst_path.read_bytes())
+            if restored_hash != bak_hashes[name]:
+                raise DeploymentSafetyError(f"Kurtarma sonrasi hedef SHA-256 hatasi: {dst_path}")
+
+            restored[name] = restored_hash
+            completed_files.append(name)
+            in_progress_journal["completed_files"] = list(completed_files)
+            _write_tx_journal(backup_dir, in_progress_journal)
+
+            if fault_injector is not None:
+                fault_injector("after_replace", idx, name, dst_path, tmp_path)
+
+        new_journal = {
+            "operation": "recover-packs",
+            "apply": True,
+            "emergency_without_journal": bool(allow_missing_journal_emergency and journal is None),
+            "previous_state": previous_state,
+            "state": "RECOVERED_FROM_INTERRUPTION",
+            "backup_sha256": bak_hashes,
+            "completed_files": completed_files,
+            "cleaned_temp_files": cleaned_temps,
+            "restored_sha256": restored,
+            "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        _write_tx_journal(backup_dir, new_journal)
+        return new_journal
+    except Exception as exc:
+        _cleanup_staging_temps(target_pack_dir)
+        after_err_hashes = {}
+        for name in PACK_ARCHIVE_NAMES:
+            p = target_pack_dir / name
+            after_err_hashes[name] = sha256(p.read_bytes()) if p.is_file() else None
+        failed_journal = {
+            "operation": "recover-packs",
+            "previous_state": previous_state,
+            "state": "FAILED_UNRECOVERED",
+            "backup_sha256": bak_hashes,
+            "completed_files": completed_files,
+            "target_sha256_after_error": after_err_hashes,
+            "error": f"{type(exc).__name__}: {exc}",
+            "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        _write_tx_journal(backup_dir, failed_journal)
+        raise DeploymentSafetyError(
+            f"Kurtarma sirasinda ikinci disk/IO hatasi olustu (state=FAILED_UNRECOVERED): {type(exc).__name__}: {exc}"
+        ) from exc
 
 
 def deploy_packs_into(
@@ -950,43 +1157,106 @@ def run_deployment_safety_tests(sandbox_dir: pathlib.Path, src_out2: pathlib.Pat
         return case_dir, s_out2, t_pack, b_pack
 
     # ------------------------------------------------------------------
-    # 1) Python Surum ve Mimari Kilidi Testleri (Pozitif + 6 Negatif + Subprocess)
+    # 1) Python Surum ve Mimari Kilidi Testleri (Pozitif + Açık Parametre + Sahte Ortam Degiskeni Bypass Testleri)
     # ------------------------------------------------------------------
+    from unittest import mock
+
     v_ok = check_python_environment()
     results["version_lock_tests"]["current_cpython_3119_x64_pass"] = (
         v_ok["version"] == [3, 11, 9] and v_ok["implementation"] == "CPython" and v_ok["ptr_size"] == 8
     )
 
     neg_env_cases = {
-        "reject_python_3_11_8": ((3, 11, 8), "CPython", 8, "AMD64", REQUIRED_MAGIC_HEX),
-        "reject_python_3_12_0": ((3, 12, 0), "CPython", 8, "AMD64", "cb0d0d0a"),
-        "reject_python_2_7_18": ((2, 7, 18), "CPython", 8, "AMD64", "03f30d0a"),
-        "reject_non_cpython_pypy": ((3, 11, 9), "PyPy", 8, "AMD64", REQUIRED_MAGIC_HEX),
-        "reject_32bit_ptr_size_4": ((3, 11, 9), "CPython", 4, "AMD64", REQUIRED_MAGIC_HEX),
-        "reject_x86_i386_machine": ((3, 11, 9), "CPython", 8, "I386", REQUIRED_MAGIC_HEX),
-        "reject_bad_pyc_magic": ((3, 11, 9), "CPython", 8, "AMD64", "550d0d0a"),
+        "reject_python_3_11_8": {"version_info": (3, 11, 8), "implementation": "CPython", "ptr_size": 8, "machine": "AMD64", "magic_hex": REQUIRED_MAGIC_HEX},
+        "reject_python_3_12_0": {"version_info": (3, 12, 0), "implementation": "CPython", "ptr_size": 8, "machine": "AMD64", "magic_hex": "cb0d0d0a"},
+        "reject_python_2_7_18": {"version_info": (2, 7, 18), "implementation": "CPython", "ptr_size": 8, "machine": "AMD64", "magic_hex": "03f30d0a"},
+        "reject_non_cpython_pypy": {"version_info": (3, 11, 9), "implementation": "PyPy", "ptr_size": 8, "machine": "AMD64", "magic_hex": REQUIRED_MAGIC_HEX},
+        "reject_32bit_ptr_size_4": {"version_info": (3, 11, 9), "implementation": "CPython", "ptr_size": 4, "machine": "AMD64", "magic_hex": REQUIRED_MAGIC_HEX},
+        "reject_x86_i386_machine": {"version_info": (3, 11, 9), "implementation": "CPython", "ptr_size": 8, "machine": "I386", "magic_hex": REQUIRED_MAGIC_HEX},
+        "reject_bad_pyc_magic": {"version_info": (3, 11, 9), "implementation": "CPython", "ptr_size": 8, "machine": "AMD64", "magic_hex": "550d0d0a"},
     }
-    for cname, args in neg_env_cases.items():
+    for cname, override_dict in neg_env_cases.items():
         rejected = False
         try:
-            check_python_environment(*args)
+            check_python_environment(_test_override_env=override_dict)
         except VersionLockError:
             rejected = True
         results["version_lock_tests"][cname] = rejected
 
-    # Subprocess CLI testi: yanlis surum ve 32-bit mimari ile cagrildiginda rc == 2 ve 0 dosya degisimi
-    for sim_label, sim_val in (
-        ("subprocess_cli_reject_3_11_8", "3.11.8,CPython,8,AMD64,a70d0d0a"),
-        ("subprocess_cli_reject_32bit_x86", "3.11.9,CPython,4,I386,a70d0d0a"),
+    # 1b: MT2_SIMULATE_PYTHON_ENV ortam degiskeni uretim fonksiyonlarinda tamamen yok sayilir
+    with mock.patch.dict(os.environ, {"MT2_SIMULATE_PYTHON_ENV": "3.11.8,PyPy,4,I386,03f30d0a"}):
+        v_still_real = check_python_environment()
+        results["version_lock_tests"]["env_var_ignored_by_production_check"] = (
+            v_still_real["version"] == [3, 11, 9] and v_still_real["implementation"] == "CPython" and v_still_real["ptr_size"] == 8
+        )
+
+    # 1c: Yanlis Python surumu sahte GECERLI MT2_SIMULATE_PYTHON_ENV="3.11.9,CPython,8,AMD64,a70d0d0a" kullanarak
+    # uretim islemlerine (check_python_environment, deploy_packs_into, rollback_packs_into, recover_pack_transaction) devam edemez!
+    _, s_out2, t_pack, b_pack = fresh_env("neg_fake_env_bypass_inproc")
+    inproc_bypass_blocked = True
+    with mock.patch.dict(os.environ, {"MT2_SIMULATE_PYTHON_ENV": "3.11.9,CPython,8,AMD64,a70d0d0a"}):
+        with mock.patch.object(sys, "version_info", (3, 12, 2, "final", 0)):
+            try:
+                check_python_environment()
+                inproc_bypass_blocked = False
+            except VersionLockError:
+                pass
+            for fn_call in (
+                lambda: deploy_packs_into(s_out2, t_pack, b_pack, apply=True),
+                lambda: rollback_packs_into(t_pack, b_pack, apply=True),
+                lambda: recover_pack_transaction(t_pack, b_pack, apply=True),
+            ):
+                try:
+                    fn_call()
+                    inproc_bypass_blocked = False
+                except SystemExit as sexc:
+                    if sexc.code != 2:
+                        inproc_bypass_blocked = False
+    results["version_lock_tests"]["fake_valid_env_var_cannot_bypass_wrong_python_in_process"] = (
+        inproc_bypass_blocked
+        and not b_pack.exists()
+        and validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "target") == EXPECTED_ORIG_PACK_SHA256
+    )
+
+    # 1d: Alt surec (subprocess CLI) testi: yanlis Python surumu (3.11.8) ve 32-bit mimari (ptr_size=4)
+    # sahte GECERLI MT2_SIMULATE_PYTHON_ENV="3.11.9,CPython,8,AMD64,a70d0d0a" ortam degiskeniyle
+    # CLI komutunu (deploy-packs --apply / recover-packs --apply) calistirdiginda rc == 2 ile reddedilir!
+    script_path = str(pathlib.Path(__file__).resolve())
+    for sub_label, patch_stmt, cli_cmd in (
+        (
+            "subprocess_cli_fake_valid_env_var_cannot_bypass_wrong_python",
+            "sys.version_info = (3, 11, 8, 'final', 0)",
+            "deploy-packs",
+        ),
+        (
+            "subprocess_cli_fake_valid_env_var_cannot_bypass_32bit_arch",
+            "struct.calcsize = lambda fmt: 4",
+            "recover-packs",
+        ),
     ):
-        env_sim = dict(os.environ, MT2_SIMULATE_PYTHON_ENV=sim_val, PYTHONHASHSEED="0")
+        env_spoof = dict(
+            os.environ,
+            MT2_SIMULATE_PYTHON_ENV="3.11.9,CPython,8,AMD64,a70d0d0a",
+            PYTHONHASHSEED="0",
+        )
+        one_liner = (
+            "import sys, struct, runpy; "
+            f"{patch_stmt}; "
+            f"sys.argv = [{script_path!r}, {cli_cmd!r}, '--apply', '--target-pack-dir', {str(t_pack)!r}, '--backup-dir', {str(b_pack)!r}]; "
+            f"runpy.run_path({script_path!r}, run_name='__main__')"
+        )
         proc = subprocess.run(
-            [sys.executable, str(pathlib.Path(__file__).resolve()), "deploy-packs"],
-            env=env_sim,
+            [sys.executable, "-c", one_liner],
+            env=env_spoof,
             capture_output=True,
             text=True,
         )
-        results["version_lock_tests"][sim_label] = (proc.returncode == 2 and "FATAL:" in proc.stderr)
+        results["version_lock_tests"][sub_label] = (
+            proc.returncode == 2
+            and "FATAL:" in proc.stderr
+            and not b_pack.exists()
+            and validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "target") == EXPECTED_ORIG_PACK_SHA256
+        )
 
     # ------------------------------------------------------------------
     # 2) SHA-256 ve Yedek Dogrulamasi Negatif Testleri (8 Senaryo)
@@ -1098,8 +1368,27 @@ def run_deployment_safety_tests(sandbox_dir: pathlib.Path, src_out2: pathlib.Pat
     )
 
     # ------------------------------------------------------------------
-    # 3) Kismi Dagitim, Disk/Erisim Hatasi ve Kesinti Kurtarma Testleri (4 Senaryo)
+    # 3) Kismi Dagitim, Disk/Erisim Hatasi ve recover-packs Guvenlik Testleri (12 Senaryo)
     # ------------------------------------------------------------------
+    def setup_interrupted_tx(case_name: str):
+        _, s_out2_i, t_pack_i, b_pack_i = fresh_env(case_name)
+        b_pack_i.mkdir(parents=True, exist_ok=True)
+        for name in PACK_ARCHIVE_NAMES:
+            shutil.copy2(t_pack_i / name, b_pack_i / name)
+        for name in ("root.index", "root.data"):
+            shutil.copy2(s_out2_i / name, t_pack_i / name)
+        (t_pack_i / "locale.index.deploy_tmp").write_bytes(b"partial_interrupted_bytes")
+        _write_tx_journal(
+            b_pack_i,
+            {
+                "operation": "deploy-packs",
+                "state": "IN_PROGRESS",
+                "backup_sha256": dict(EXPECTED_ORIG_PACK_SHA256),
+                "completed_files": ["root.index", "root.data"],
+            },
+        )
+        return s_out2_i, t_pack_i, b_pack_i
+
     # 3a: 3. dosyada (locale.index) disk dolu / IO hatasi (OSError ENOSPC) -> 1. ve 2. dosyalar otomatik geri alinir
     _, s_out2, t_pack, b_pack = fresh_env("fault_disk_error_3rd_file")
 
@@ -1156,37 +1445,189 @@ def run_deployment_safety_tests(sandbox_dir: pathlib.Path, src_out2: pathlib.Pat
             validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "recovered_target") == EXPECTED_ORIG_PACK_SHA256
         )
 
-    # 3d: Sert surec kesintisi (SIGKILL / guc kesintisi) simulasyonu:
-    # 2 dosya (root.index, root.data) out2 ile degistirilmis, locale.index.deploy_tmp yarim kalmis ve journal state=IN_PROGRESS
-    _, s_out2, t_pack, b_pack = fresh_env("fault_hard_kill_journal_recovery")
-    b_pack.mkdir(parents=True, exist_ok=True)
-    for name in PACK_ARCHIVE_NAMES:
-        shutil.copy2(t_pack / name, b_pack / name)
-    for name in ("root.index", "root.data"):
-        shutil.copy2(s_out2 / name, t_pack / name)
-    (t_pack / "locale.index.deploy_tmp").write_bytes(b"partial_interrupted_bytes")
-    _write_tx_journal(
-        b_pack,
-        {
-            "operation": "deploy-packs",
-            "state": "IN_PROGRESS",
-            "completed_files": ["root.index", "root.data"],
-        },
+    # 3d: recover-packs --apply olmadan varsayilan salt okunur dry-run (hem API hem CLI subprocess)
+    _, t_pack, b_pack = setup_interrupted_tx("recover_dry_run_no_apply")
+    before_dry_hashes = {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES}
+    dry_rec = recover_pack_transaction(t_pack, b_pack)  # varsayilan apply=False
+    proc_dry_cli = subprocess.run(
+        [
+            sys.executable,
+            script_path,
+            "recover-packs",
+            "--target-pack-dir",
+            str(t_pack),
+            "--backup-dir",
+            str(b_pack),
+        ],
+        capture_output=True,
+        text=True,
     )
-    # Tamamlanmamis journal varken yeni deploy reddedilmeli
+    after_dry_hashes = {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES}
+    results["fault_injection_and_recovery_tests"]["recover_packs_dry_run_without_apply"] = (
+        dry_rec.get("apply") is False
+        and dry_rec.get("state") == "DRY_RUN_READY"
+        and proc_dry_cli.returncode == 0
+        and "RECOVER_PACKS apply=False" in proc_dry_cli.stdout
+        and before_dry_hashes == after_dry_hashes
+        and (t_pack / "locale.index.deploy_tmp").is_file()
+        and _read_tx_journal(b_pack).get("state") == "IN_PROGRESS"
+    )
+
+    # 3e: Islem gunlugu (pack_tx_journal.json) yokken kurtarma denemesi reddedilir
+    _, t_pack, b_pack = setup_interrupted_tx("recover_reject_missing_journal")
+    (b_pack / "pack_tx_journal.json").unlink()
+    before_hashes = {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES}
+    missing_journal_rejected = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True)
+    except DeploymentSafetyError:
+        missing_journal_rejected = True
+    results["fault_injection_and_recovery_tests"]["reject_recover_when_journal_missing"] = (
+        missing_journal_rejected
+        and {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES} == before_hashes
+        and (t_pack / "locale.index.deploy_tmp").is_file()
+    )
+
+    # 3f: Bozuk/guvenilmez islem gunluguyle kurtarma denemesi reddedilir
+    _, t_pack, b_pack = setup_interrupted_tx("recover_reject_corrupt_journal")
+    (b_pack / "pack_tx_journal.json").write_text("{broken_json", encoding="utf-8")
+    corrupt_journal_rejected = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True)
+    except DeploymentSafetyError:
+        corrupt_journal_rejected = True
+    _write_tx_journal(b_pack, {"operation": "unknown-op", "state": "IN_PROGRESS"})
+    untrusted_op_rejected = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True)
+    except DeploymentSafetyError:
+        untrusted_op_rejected = True
+    results["fault_injection_and_recovery_tests"]["reject_recover_when_journal_corrupted_or_untrusted"] = (
+        corrupt_journal_rejected and untrusted_op_rejected
+    )
+
+    # 3g: Tamamlanmis islem gunluguyle (COMMITTED / ROLLED_BACK_AFTER_FAILURE / RECOVERED_FROM_INTERRUPTION) kurtarma denemesi reddedilir
+    _, s_out2, t_pack, b_pack = fresh_env("recover_reject_completed_journal")
+    deploy_packs_into(s_out2, t_pack, b_pack, apply=True)  # state == COMMITTED, t_pack == out2
+    completed_states_rejected = True
+    for done_state in COMPLETED_JOURNAL_STATES:
+        _write_tx_journal(
+            b_pack,
+            {
+                "operation": "deploy-packs",
+                "state": done_state,
+                "backup_sha256": dict(EXPECTED_ORIG_PACK_SHA256),
+                "completed_files": list(PACK_ARCHIVE_NAMES),
+            },
+        )
+        try:
+            recover_pack_transaction(t_pack, b_pack, apply=True)
+            completed_states_rejected = False
+        except DeploymentSafetyError:
+            pass
+    results["fault_injection_and_recovery_tests"]["reject_recover_when_journal_completed"] = (
+        completed_states_rejected
+        and validate_pack_set(t_pack, EXPECTED_PY311_OUT2_SHA256, "target_still_out2") == EXPECTED_PY311_OUT2_SHA256
+    )
+
+    # 3h: Bozuk yedekle (backup SHA-256 hatasi) kurtarma denemesi reddedilir
+    _, t_pack, b_pack = setup_interrupted_tx("recover_reject_corrupt_backup")
+    before_hashes = {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES}
+    bad_bak = bytearray((b_pack / "root.data").read_bytes())
+    bad_bak[0] ^= 0xFF
+    (b_pack / "root.data").write_bytes(bytes(bad_bak))
+    corrupt_bak_rejected = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True)
+    except DeploymentSafetyError:
+        corrupt_bak_rejected = True
+    results["fault_injection_and_recovery_tests"]["reject_recover_with_corrupted_backup"] = (
+        corrupt_bak_rejected
+        and {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES} == before_hashes
+    )
+
+    # 3i: Bilinmeyen hedef SHA-256 (ne orig_pack ne out2) varken kurtarma denemesi reddedilir
+    _, t_pack, b_pack = setup_interrupted_tx("recover_reject_unknown_target_sha")
+    unk_bytes = bytearray((t_pack / "locale.index").read_bytes())
+    unk_bytes[4] ^= 0xAA
+    (t_pack / "locale.index").write_bytes(bytes(unk_bytes))
+    before_unk_hashes = {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES}
+    unknown_target_rejected = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True)
+    except DeploymentSafetyError:
+        unknown_target_rejected = True
+    results["fault_injection_and_recovery_tests"]["reject_recover_with_unknown_target_sha256"] = (
+        unknown_target_rejected
+        and {n: sha256((t_pack / n).read_bytes()) for n in PACK_ARCHIVE_NAMES} == before_unk_hashes
+    )
+
+    # 3j: Gercek kurtarma gerektiren yarim islem (IN_PROGRESS): yeni deploy engellenir ve recover_pack_transaction(..., apply=True) 4/4 kurtarir
+    s_out2, t_pack, b_pack = setup_interrupted_tx("fault_hard_kill_journal_recovery")
     blocked_when_in_progress = False
     try:
         deploy_packs_into(s_out2, t_pack, b_pack, apply=True)
     except DeploymentSafetyError:
         blocked_when_in_progress = True
 
-    rec_res = recover_pack_transaction(t_pack, b_pack, EXPECTED_ORIG_PACK_SHA256)
+    rec_res = recover_pack_transaction(t_pack, b_pack, apply=True)
     results["fault_injection_and_recovery_tests"]["hard_interruption_journal_block_and_recover"] = (
         blocked_when_in_progress
+        and rec_res.get("apply") is True
         and rec_res.get("state") == "RECOVERED_FROM_INTERRUPTION"
         and "locale.index.deploy_tmp" in rec_res.get("cleaned_temp_files", [])
         and not (t_pack / "locale.index.deploy_tmp").exists()
         and validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "recovered_target") == EXPECTED_ORIG_PACK_SHA256
+    )
+
+    # 3k: Kurtarma sirasinda ikinci disk hatasi (second ENOSPC during recovery) ve sonrasinda temiz yeniden kurtarma
+    _, t_pack, b_pack = setup_interrupted_tx("recover_second_disk_fault")
+
+    def fault_second_disk_err(step, idx, name, dst_path, tmp_path):
+        if step == "after_stage_before_replace" and idx == 1:  # 2. dosya (root.data) kurtarilirken disk hatasi
+            raise OSError(28, "Simulated second ENOSPC during recovery", str(tmp_path))
+
+    second_fault_caught = False
+    try:
+        recover_pack_transaction(t_pack, b_pack, apply=True, fault_injector=fault_second_disk_err)
+    except DeploymentSafetyError:
+        second_fault_caught = True
+
+    j_after_2nd_fault = _read_tx_journal(b_pack)
+    no_leftover_recover_tmp = len(list(t_pack.glob("*.recover_tmp"))) == 0
+    # Simdi disk hatasi giderildiginde FAILED_UNRECOVERED gunlugu uzerinden ikinci kurtarma cagrisi 4/4 tamamlanmali
+    rec_retry = recover_pack_transaction(t_pack, b_pack, apply=True)
+    results["fault_injection_and_recovery_tests"]["recover_handles_second_disk_error_and_retries_cleanly"] = (
+        second_fault_caught
+        and no_leftover_recover_tmp
+        and j_after_2nd_fault is not None
+        and j_after_2nd_fault.get("state") == "FAILED_UNRECOVERED"
+        and rec_retry.get("previous_state") == "FAILED_UNRECOVERED"
+        and rec_retry.get("state") == "RECOVERED_FROM_INTERRUPTION"
+        and validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "recovered_after_retry") == EXPECTED_ORIG_PACK_SHA256
+    )
+
+    # 3l: Gunlugun kayboldugu acil durum yolu (--emergency-without-journal) guvenli sinirlari:
+    # - Temiz (4/4 out2 ve 0 temp dosya) hedefte reddedilir
+    # - Yalnizca gercek hibrit/temp yarim kalmis hedefte ve 4/4 gecerli yedekle basarili olur
+    _, s_out2, t_pack_clean, b_pack_clean = fresh_env("recover_emergency_reject_clean")
+    deploy_packs_into(s_out2, t_pack_clean, b_pack_clean, apply=True)
+    (b_pack_clean / "pack_tx_journal.json").unlink()
+    emergency_rejected_on_clean = False
+    try:
+        recover_pack_transaction(t_pack_clean, b_pack_clean, apply=True, allow_missing_journal_emergency=True)
+    except DeploymentSafetyError:
+        emergency_rejected_on_clean = True
+
+    _, t_pack_em, b_pack_em = setup_interrupted_tx("recover_emergency_valid_hybrid")
+    (b_pack_em / "pack_tx_journal.json").unlink()
+    em_res = recover_pack_transaction(t_pack_em, b_pack_em, apply=True, allow_missing_journal_emergency=True)
+    results["fault_injection_and_recovery_tests"]["emergency_without_journal_strict_bounds"] = (
+        emergency_rejected_on_clean
+        and validate_pack_set(t_pack_clean, EXPECTED_PY311_OUT2_SHA256, "clean_still_out2") == EXPECTED_PY311_OUT2_SHA256
+        and em_res.get("emergency_without_journal") is True
+        and em_res.get("state") == "RECOVERED_FROM_INTERRUPTION"
+        and validate_pack_set(t_pack_em, EXPECTED_ORIG_PACK_SHA256, "em_recovered") == EXPECTED_ORIG_PACK_SHA256
     )
 
     # ------------------------------------------------------------------
@@ -1197,9 +1638,7 @@ def run_deployment_safety_tests(sandbox_dir: pathlib.Path, src_out2: pathlib.Pat
     rb_plan = rollback_packs_into(t_pack, b_pack, apply=True)
     results["rollback_scope_and_contract_tests"] = {
         "deploy_verified_all_4_out2": (
-            validate_pack_set(t_pack, EXPECTED_PY311_OUT2_SHA256, "after_rollback_no")
-            if False
-            else all(dep_plan["files"][n]["deployed_target_sha256"] == EXPECTED_PY311_OUT2_SHA256[n] for n in PACK_ARCHIVE_NAMES)
+            all(dep_plan["files"][n]["deployed_target_sha256"] == EXPECTED_PY311_OUT2_SHA256[n] for n in PACK_ARCHIVE_NAMES)
         ),
         "rollback_restored_all_4_orig_pack": (
             validate_pack_set(t_pack, EXPECTED_ORIG_PACK_SHA256, "after_rollback") == EXPECTED_ORIG_PACK_SHA256
@@ -1345,7 +1784,7 @@ def cmd_verify_repro(a):
         # 6) Izole gecici dizinde tam dagitim guvenligi, negatif testler ve hata enjeksiyonu testlerini calistir
         safety_results = run_deployment_safety_tests(repro_dir / "safety_tests", repro_out2, WORK / "orig_pack")
         deployed_ok = safety_results["rollback_scope_and_contract_tests"]["deploy_verified_all_4_out2"]
-        rollback_ok = safety_results["rollback_scope_and_contract_tests"]["rollback_restores_orig_pack"] if "rollback_restores_orig_pack" in safety_results["rollback_scope_and_contract_tests"] else safety_results["rollback_scope_and_contract_tests"]["rollback_restored_all_4_orig_pack"]
+        rollback_ok = safety_results["rollback_scope_and_contract_tests"]["rollback_restored_all_4_orig_pack"]
 
         all_verified = (
             orig_pack_intact
@@ -1427,22 +1866,34 @@ def cmd_verify_safety(a):
 
 def cmd_deploy_packs(a):
     enforce_cpython_3119_x64()
-    plan = deploy_packs_into(WORK / "out2", CLIENT_FILES / "pack", WORK / "orig_pack", apply=a.apply)
+    src_dir = pathlib.Path(a.src_out2) if getattr(a, "src_out2", None) else (WORK / "out2")
+    target_dir = pathlib.Path(a.target_pack_dir) if getattr(a, "target_pack_dir", None) else (CLIENT_FILES / "pack")
+    backup_dir = pathlib.Path(a.backup_dir) if getattr(a, "backup_dir", None) else (WORK / "orig_pack")
+    plan = deploy_packs_into(src_dir, target_dir, backup_dir, apply=a.apply)
     print("DEPLOY_PACKS apply=%s" % a.apply, json.dumps(plan, indent=2))
     return 0
 
 
 def cmd_rollback_packs(a):
     enforce_cpython_3119_x64()
-    plan = rollback_packs_into(CLIENT_FILES / "pack", WORK / "orig_pack", apply=a.apply)
+    target_dir = pathlib.Path(a.target_pack_dir) if getattr(a, "target_pack_dir", None) else (CLIENT_FILES / "pack")
+    backup_dir = pathlib.Path(a.backup_dir) if getattr(a, "backup_dir", None) else (WORK / "orig_pack")
+    plan = rollback_packs_into(target_dir, backup_dir, apply=a.apply)
     print("ROLLBACK_PACKS apply=%s" % a.apply, json.dumps(plan, indent=2))
     return 0
 
 
 def cmd_recover_packs(a):
     enforce_cpython_3119_x64()
-    res = recover_pack_transaction(CLIENT_FILES / "pack", WORK / "orig_pack")
-    print("RECOVER_PACKS", json.dumps(res, indent=2))
+    target_dir = pathlib.Path(a.target_pack_dir) if getattr(a, "target_pack_dir", None) else (CLIENT_FILES / "pack")
+    backup_dir = pathlib.Path(a.backup_dir) if getattr(a, "backup_dir", None) else (WORK / "orig_pack")
+    res = recover_pack_transaction(
+        target_dir,
+        backup_dir,
+        apply=a.apply,
+        allow_missing_journal_emergency=getattr(a, "emergency_without_journal", False),
+    )
+    print("RECOVER_PACKS apply=%s" % a.apply, json.dumps(res, indent=2))
     return 0
 
 
@@ -1465,7 +1916,11 @@ def main():
             "recover-packs",
         ],
     )
-    ap.add_argument("--apply", action="store_true", help="deploy-packs / rollback-packs icin gercek kopyalama uygula (varsayilan: dry-run)")
+    ap.add_argument("--apply", action="store_true", help="deploy-packs / rollback-packs / recover-packs icin gercek yazim uygula (varsayilan: dry-run)")
+    ap.add_argument("--emergency-without-journal", action="store_true", help="recover-packs icin yalnizca pack_tx_journal.json kayboldugunda ve hedef bilinen hibrit/temp durumdaysa kurtarmaya izin ver")
+    ap.add_argument("--src-out2", help="deploy-packs kaynak out2 dizini (varsayilan: build/python311_migration/out2)")
+    ap.add_argument("--target-pack-dir", help="deploy/rollback/recover hedef paket dizini (varsayilan: client/files/pack)")
+    ap.add_argument("--backup-dir", help="deploy/rollback/recover yedek dizini (varsayilan: build/python311_migration/orig_pack)")
     ap.add_argument("--out-dir", help="build-lib hedef dizini (varsayilan: build/python311_migration/lib_rebuilt)")
     ap.add_argument("--allow-client-lib-overwrite", action="store_true", help="build-lib hedefi client/files/lib ise uzerine yazmaya izin ver")
     a = ap.parse_args()
